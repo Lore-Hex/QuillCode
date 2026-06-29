@@ -26,7 +26,38 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             XCTAssertEqual(hitTargetCase.spec.action, hitTargetCase.action.rawValue)
             XCTAssertEqual(hitTargetCase.spec.allowsNestedInteractiveChildren, hitTargetCase.kind.allowsNestedInteractiveChildren)
             XCTAssertEqual(hitTargetCase.spec.requiresUnblockedInterior, hitTargetCase.kind.requiresUnblockedInterior)
+            XCTAssertGreaterThanOrEqual(hitTargetCase.spec.requiredMinWidth, QuillCodeMetrics.minimumHitTarget)
+            XCTAssertGreaterThanOrEqual(hitTargetCase.spec.requiredMinHeight, QuillCodeMetrics.minimumHitTarget)
             XCTAssertGreaterThanOrEqual(hitTargetCase.spec.minHeight, QuillCodeMetrics.minimumHitTarget)
+        }
+    }
+
+    func testDesignSystemHitTargetFactoriesClampTinyInputsToTheMinimumTarget() {
+        let tinyTargets: [(name: String, spec: QuillCodeHitTargetSpec)] = [
+            ("icon", .icon(size: 12)),
+            ("text button", .textButton(minWidth: 12, minHeight: 12)),
+            ("form action", .formAction(minWidth: 12, minHeight: 12)),
+            ("text entry", .textEntry(minWidth: nil, minHeight: 12)),
+            ("segmented control", .segmentedControl(minHeight: 12)),
+            ("adjustable control", .adjustableControl(minHeight: 12)),
+            ("link", .link(minWidth: nil, minHeight: 12)),
+            ("switch row", .switchRow(minHeight: 12)),
+            ("owned gesture", .ownedGesture(minHeight: 12)),
+            ("full row", .fullRow(minHeight: 12)),
+            ("capsule", .capsule(minWidth: nil, minHeight: 12))
+        ]
+
+        for target in tinyTargets {
+            XCTAssertEqual(target.spec.requiredMinWidth, QuillCodeMetrics.minimumHitTarget, target.name)
+            XCTAssertEqual(target.spec.requiredMinHeight, QuillCodeMetrics.minimumHitTarget, target.name)
+            XCTAssertGreaterThanOrEqual(target.spec.minWidth ?? 0, QuillCodeMetrics.minimumHitTarget, target.name)
+            XCTAssertGreaterThanOrEqual(target.spec.minHeight, QuillCodeMetrics.minimumHitTarget, target.name)
+            if let width = target.spec.width {
+                XCTAssertGreaterThanOrEqual(width, QuillCodeMetrics.minimumHitTarget, target.name)
+            }
+            if let height = target.spec.height {
+                XCTAssertGreaterThanOrEqual(height, QuillCodeMetrics.minimumHitTarget, target.name)
+            }
         }
     }
 
@@ -569,9 +600,19 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             let markers = kind == "Menu"
                 ? geometryMarkers
                 : geometryMarkers + [platformMenuItemMarker]
-            guard !markers.contains(where: snippet.contains) else { return nil }
             let relativePath = fileURL.path.replacingOccurrences(of: sourceRoot.path + "/", with: "")
-            return "\(relativePath):\(index + 1) missing QuillCode hit-target marker near `\(line.trimmingCharacters(in: .whitespaces))`"
+            let sourceLocation = "\(relativePath):\(index + 1)"
+            let controlSummary = "`\(line.trimmingCharacters(in: .whitespaces))`"
+            guard markers.contains(where: snippet.contains) else {
+                return "\(sourceLocation) missing QuillCode hit-target marker near \(controlSummary)"
+            }
+            if ["Button", "Menu"].contains(kind),
+               !snippet.contains(platformMenuItemMarker),
+               !snippet.contains(".buttonStyle(QuillCodePressableButtonStyle"),
+               !snippet.contains(".buttonStyle(QuillCodeActionButtonStyle") {
+                return "\(sourceLocation) missing QuillCode press/action button style near \(controlSummary)"
+            }
+            return nil
         }
     }
 

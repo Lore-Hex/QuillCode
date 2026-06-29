@@ -39,17 +39,49 @@ struct QuillCodeHitTargetSpec {
     var alignment: Alignment
     var shape: Shape
 
+    private init(
+        kind: QuillCodeNativeHitTargetKind,
+        minWidth: CGFloat?,
+        maxWidth: CGFloat?,
+        width: CGFloat?,
+        minHeight: CGFloat,
+        height: CGFloat?,
+        alignment: Alignment,
+        shape: Shape
+    ) {
+        self.kind = kind
+        self.minWidth = minWidth.map(Self.clampedDimension) ?? QuillCodeMetrics.minimumHitTarget
+        self.maxWidth = maxWidth
+        self.width = width.map(Self.clampedDimension)
+        self.minHeight = Self.clampedDimension(minHeight)
+        self.height = height.map(Self.clampedDimension)
+        self.alignment = alignment
+        self.shape = shape
+    }
+
+    var requiredMinWidth: CGFloat {
+        width ?? minWidth ?? QuillCodeMetrics.minimumHitTarget
+    }
+
+    var requiredMinHeight: CGFloat {
+        height ?? minHeight
+    }
+
+    private static func clampedDimension(_ value: CGFloat) -> CGFloat {
+        max(value, QuillCodeMetrics.minimumHitTarget)
+    }
+
     static func icon(
         size: CGFloat = QuillCodeMetrics.minimumHitTarget,
         radius: CGFloat = QuillCodeMetrics.iconControlRadius
     ) -> Self {
         Self(
             kind: .icon,
-            minWidth: nil,
+            minWidth: size,
             maxWidth: nil,
             width: size,
             minHeight: QuillCodeMetrics.minimumHitTarget,
-            height: max(size, QuillCodeMetrics.minimumHitTarget),
+            height: size,
             alignment: .center,
             shape: .rounded(radius)
         )
@@ -538,12 +570,28 @@ private struct QuillCodeHitTargetModifier: ViewModifier {
 
     private func framed(_ content: Content) -> some View {
         content.frame(
-            minWidth: spec.minWidth,
+            minWidth: requiredMinWidth,
             maxWidth: spec.maxWidth,
-            minHeight: spec.minHeight,
+            minHeight: requiredMinHeight,
             alignment: spec.alignment
         )
-        .frame(width: spec.width, height: spec.height, alignment: spec.alignment)
+        .frame(width: width, height: height, alignment: spec.alignment)
+    }
+
+    private var requiredMinWidth: CGFloat {
+        max(spec.requiredMinWidth, QuillCodeMetrics.minimumHitTarget)
+    }
+
+    private var requiredMinHeight: CGFloat {
+        max(spec.requiredMinHeight, QuillCodeMetrics.minimumHitTarget)
+    }
+
+    private var width: CGFloat? {
+        spec.width.map { max($0, QuillCodeMetrics.minimumHitTarget) }
+    }
+
+    private var height: CGFloat? {
+        spec.height.map { max($0, QuillCodeMetrics.minimumHitTarget) }
     }
 }
 
