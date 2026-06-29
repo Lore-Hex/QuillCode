@@ -83,6 +83,10 @@ struct QuillCodeDesktopSmokeReport {
     var prompt: String
     var finalAnswer: String
     var toolName: String
+    var followUpPrompt: String
+    var followUpFinalAnswer: String
+    var followUpToolName: String
+    var toolNames: [String]
     var messageCount: Int
     var toolCardCount: Int
     var timelineItemCount: Int
@@ -105,6 +109,10 @@ struct QuillCodeDesktopSmokeReport {
                 "prompt": prompt,
                 "finalAnswer": finalAnswer,
                 "toolName": toolName,
+                "followUpPrompt": followUpPrompt,
+                "followUpFinalAnswer": followUpFinalAnswer,
+                "followUpToolName": followUpToolName,
+                "toolNames": toolNames,
                 "messageCount": messageCount,
                 "toolCardCount": toolCardCount,
                 "timelineItemCount": timelineItemCount,
@@ -234,6 +242,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case chromeCommandMissing(String)
     case chromeSurfaceIncomplete
     case createdFileMismatch(String)
+    case followUpReadMismatch(String)
     case imageMissingAccentPixels(Double)
     case imageMissingBrightPixels(Double)
     case imageTooFlat(Int)

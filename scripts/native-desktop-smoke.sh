@@ -122,6 +122,18 @@ if ! grep -q '"toolName" : "host.file.write"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"followUpToolName" : "host.file.read"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not execute the expected follow-up file-read tool" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -Fq '"toolNames" : [' "$REPORT_PATH" \
+  || ! grep -q '"host.file.write"' "$REPORT_PATH" \
+  || ! grep -q '"host.file.read"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report both write and read tool names" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 if ! grep -q '"resultRenderPath"' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not report the result evidence image" >&2
   cat "$REPORT_PATH" >&2
@@ -250,7 +262,16 @@ if ! grep -q 'Wrote `hello.txt`.' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
-if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" || ! grep -q 'host.file.write' "$HTML_PATH"; then
+if ! grep -q 'Contents of `hello.txt`:' "$REPORT_PATH" || ! grep -q 'hello world' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected follow-up file-read answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
+  || ! grep -q 'Contents of `hello.txt`:' "$HTML_PATH" \
+  || ! grep -q 'hello world' "$HTML_PATH" \
+  || ! grep -q 'host.file.write' "$HTML_PATH" \
+  || ! grep -q 'host.file.read' "$HTML_PATH"; then
   echo "quill-code-desktop native smoke rendered HTML did not contain the result transcript" >&2
   cat "$REPORT_PATH" >&2
   exit 1

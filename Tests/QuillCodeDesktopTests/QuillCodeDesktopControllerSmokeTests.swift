@@ -175,6 +175,43 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         }
     }
 
+    func testDesktopControllerReadsBackCreatedWorkspaceFileInFollowupTurn() async throws {
+        let workspaceRoot = try makeTempDirectory()
+        let controller = try makeController(workspaceRoot: workspaceRoot)
+
+        controller.draft = #"Can you write a file that says "hello world""#
+        let writeTimelineCount = controller.surface.transcript.timelineItems.count
+        controller.send()
+
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: writeTimelineCount,
+            expectedAnswer: "Wrote `hello.txt`."
+        )
+
+        controller.draft = "Read `hello.txt` and tell me its exact content."
+        let readTimelineCount = controller.surface.transcript.timelineItems.count
+        controller.send()
+
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: readTimelineCount,
+            expectedAnswer: "hello world"
+        )
+
+        let messages = controller.surface.transcript.messages
+        XCTAssertEqual(Array(messages.suffix(4).map(\.role)), [.user, .assistant, .user, .assistant])
+        XCTAssertTrue(messages.last?.text.contains("Contents of `hello.txt`:") == true)
+        XCTAssertTrue(messages.last?.text.contains("hello world") == true)
+
+        let toolCards = controller.surface.transcript.toolCards
+        XCTAssertEqual(Array(toolCards.map(\.title).suffix(2)), [
+            ToolDefinition.fileWrite.name,
+            ToolDefinition.fileRead.name
+        ])
+        XCTAssertTrue(toolCards.suffix(2).allSatisfy { $0.status == .done })
+    }
+
     private func makeController(
         workspaceRoot: URL,
         browserSessionPresenter: any DesktopBrowserSessionPresenting = NoopDesktopBrowserSessionPresenter()

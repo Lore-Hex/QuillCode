@@ -30,14 +30,21 @@ struct QuillCodeDesktopModelStateCoordinator {
         surface: inout WorkspaceSurface,
         draft: inout String,
         terminalDraft: inout String,
-        browserAddressDraft: inout String
+        browserAddressDraft: inout String,
+        isComposerTaskRunning: Bool = false
     ) {
         let nextState = initialState(from: model)
+        let isComposerBusy = model.composer.isSending || isComposerTaskRunning
         surface = nextState.surface
 
-        if draft != nextState.draft, !model.composer.isSending {
+        if draft != nextState.draft, !isComposerBusy {
             draft = nextState.draft
         }
+        surface.composer = ComposerSurface(composer: ComposerState(
+            draft: draft,
+            isSending: isComposerBusy,
+            placeholder: nextState.surface.composer.placeholder
+        ))
         if terminalDraft != nextState.terminalDraft, !model.terminal.isRunning {
             terminalDraft = nextState.terminalDraft
         }

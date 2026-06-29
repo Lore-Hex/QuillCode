@@ -148,6 +148,29 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Wrote `hello.txt`.")
     }
 
+    func testFollowUpReadIgnoresPreviousToolFeedback() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner()
+        let writeResult = try await runner.send(
+            "Can you write a file that says hello world",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let readResult = try await runner.send(
+            "Read `hello.txt` and tell me its exact content",
+            in: writeResult.thread,
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(try queuedFileRead(in: readResult), "hello.txt")
+        XCTAssertEqual(readResult.thread.messages.last?.content, "Contents of `hello.txt`:\nhello world")
+        XCTAssertEqual(
+            readResult.thread.messages.filter { $0.role == .assistant }.map(\.content),
+            ["Wrote `hello.txt`.", "Contents of `hello.txt`:\nhello world"]
+        )
+    }
+
     func testNamedFileWriteExecutesImmediatelyWithoutProviderRoundTrip() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
@@ -282,7 +305,7 @@ final class AgentImmediateActionTests: XCTestCase {
     }
 
     private func queuedFileRead(in result: AgentRunResult) throws -> String {
-        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
+        let queued = try XCTUnwrap(result.thread.events.last { $0.kind == .toolQueued })
         let payloadJSON = try XCTUnwrap(queued.payloadJSON)
         let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
         let arguments = try ToolArguments(call.argumentsJSON)

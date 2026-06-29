@@ -32,6 +32,22 @@ Residual risk:
 
 - The two subtitle code paths are still maintained by hand in parallel. A future pass could generate the static-harness detail map from a shared declaration, but the paired tests now fail if either surface drifts on these tools.
 
+## 2026-06-29 Native Desktop Follow-Through Smoke Pass
+
+Overall grade after this slice: **A native workflow evidence, A packaged-entrypoint regression coverage, A- live-window parity**.
+
+The deterministic and live CLI smoke suites proved that QuillCode can create a file, list the workspace, and read the file back. The native desktop smoke still rendered only the first-turn write result, so packaged macOS direct and Launch Services smoke could pass without proving that the actual app surface handles the next natural follow-up.
+
+| Before | After |
+| --- | --- |
+| The native smoke runner sent only `Can you write a file that says "hello world"` and rendered the write result. | The runner now sends a second desktop composer turn, `Read \`hello.txt\` and tell me its exact content.`, and requires the visible final answer to contain the file contents. |
+| `report.json` had a single `toolName`/`finalAnswer`, so it could not prove both write and read tools happened in one desktop session. | The report preserves the original write fields for compatibility and adds `followUpPrompt`, `followUpFinalAnswer`, `followUpToolName`, and `toolNames`, so reviewers can see the full two-turn workflow. |
+| `native-desktop-smoke.sh` only grepped for `host.file.write` and `Wrote \`hello.txt\`.` | The smoke gate now also requires `host.file.read`, `Contents of \`hello.txt\`:`, and `hello world` in the report and rendered HTML transcript. |
+
+Residual risk:
+
+- This is still a deterministic native render smoke, not a live TrustedRouter packaged-window click driver. The next deeper layer remains driving a packaged app window against a live or recorded TrustedRouter transport and sampling the real window.
+
 ## 2026-06-29 Secondary-Pane Action Label Clipping Pass
 
 Overall grade after this slice: **A constrained-width action legibility, A- regression-guard breadth**.

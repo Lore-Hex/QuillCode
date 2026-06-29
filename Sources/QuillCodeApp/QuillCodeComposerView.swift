@@ -18,9 +18,9 @@ struct QuillCodeComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if !composer.slashSuggestions.isEmpty {
+            if !slashSuggestions.isEmpty {
                 QuillCodeSlashSuggestionPanel(
-                    suggestions: composer.slashSuggestions,
+                    suggestions: slashSuggestions,
                     selectedIndex: activeSlashSuggestionIndex,
                     onSelect: acceptSlashSuggestion
                 )
@@ -34,7 +34,7 @@ struct QuillCodeComposerView: View {
         .onChange(of: draft) { _, _ in
             activeSlashSuggestionIndex = 0
         }
-        .onChange(of: composer.slashSuggestions) { _, suggestions in
+        .onChange(of: slashSuggestions) { _, suggestions in
             if suggestions.isEmpty {
                 activeSlashSuggestionIndex = 0
             } else {
@@ -64,10 +64,18 @@ struct QuillCodeComposerView: View {
     }
 
     private var composerSurfaceStroke: Color {
-        if !composer.slashSuggestions.isEmpty {
+        if !slashSuggestions.isEmpty {
             return QuillCodePalette.blue.opacity(0.34)
         }
         return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
+    }
+
+    private var slashSuggestions: [SlashCommandSuggestionSurface] {
+        SlashCommandCatalog.suggestions(for: draft)
+    }
+
+    private var canSendDraft: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !composer.isSending
     }
 
     private var composerAccessoryBar: some View {
@@ -103,12 +111,12 @@ struct QuillCodeComposerView: View {
             .disabled(composer.isSending)
             .focused(isFocused)
             .onKeyPress(.downArrow) {
-                guard !composer.slashSuggestions.isEmpty else { return .ignored }
-                activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, composer.slashSuggestions.count - 1)
+                guard !slashSuggestions.isEmpty else { return .ignored }
+                activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, slashSuggestions.count - 1)
                 return .handled
             }
             .onKeyPress(.upArrow) {
-                guard !composer.slashSuggestions.isEmpty else { return .ignored }
+                guard !slashSuggestions.isEmpty else { return .ignored }
                 activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
                 return .handled
             }
@@ -152,19 +160,19 @@ struct QuillCodeComposerView: View {
                     )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
-            .background(composer.canSend ? QuillCodePalette.blue : QuillCodePalette.background.opacity(0.72))
-            .foregroundStyle(composer.canSend ? Color.white : QuillCodePalette.muted)
+            .background(canSendDraft ? QuillCodePalette.blue : QuillCodePalette.background.opacity(0.72))
+            .foregroundStyle(canSendDraft ? Color.white : QuillCodePalette.muted)
             .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
-            .disabled(!composer.canSend)
+            .disabled(!canSendDraft)
             .help("Send")
             .accessibilityLabel("Send message")
         }
     }
 
     private func acceptActiveSlashSuggestion(force: Bool) -> Bool {
-        guard !composer.slashSuggestions.isEmpty else { return false }
-        let index = min(max(activeSlashSuggestionIndex, 0), composer.slashSuggestions.count - 1)
-        let suggestion = composer.slashSuggestions[index]
+        guard !slashSuggestions.isEmpty else { return false }
+        let index = min(max(activeSlashSuggestionIndex, 0), slashSuggestions.count - 1)
+        let suggestion = slashSuggestions[index]
         guard force || draft != suggestion.insertText || suggestion.insertText.hasSuffix(" ") else {
             return false
         }
