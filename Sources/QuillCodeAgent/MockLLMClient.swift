@@ -131,20 +131,19 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
-        if (lower.contains("make") || lower.contains("create") || lower.contains("write")),
-           lower.contains("file") {
-            let content = lower.contains("hello world") ? "hello world\n" : "\(request)\n"
+        if let fileWrite = AgentFileWriteRequestParser.request(from: request) {
             if tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
                 return .tool(.init(
                     name: ToolDefinition.fileWrite.name,
-                    argumentsJSON: ToolArguments.json([
-                        "path": "hello.txt",
-                        "content": content
-                    ])
+                    argumentsJSON: ToolArguments.json(fileWrite.arguments)
                 ))
             }
             if tools.contains(where: { $0.name == ToolDefinition.shellRun.name }) {
-                let command = "printf %s \(Self.shellSingleQuoted(content)) > hello.txt"
+                let parent = Self.parentDirectory(for: fileWrite.path)
+                let command = [
+                    "mkdir -p \(Self.shellSingleQuoted(parent))",
+                    "printf %s \(Self.shellSingleQuoted(fileWrite.content)) > \(Self.shellSingleQuoted(fileWrite.path))"
+                ].joined(separator: " && ")
                 return .tool(.init(
                     name: ToolDefinition.shellRun.name,
                     argumentsJSON: ToolArguments.json(["cmd": command])
@@ -152,10 +151,7 @@ public struct MockLLMClient: LLMClient {
             }
             return .tool(.init(
                 name: ToolDefinition.fileWrite.name,
-                argumentsJSON: ToolArguments.json([
-                    "path": "hello.txt",
-                    "content": content
-                ])
+                argumentsJSON: ToolArguments.json(fileWrite.arguments)
             ))
         }
 

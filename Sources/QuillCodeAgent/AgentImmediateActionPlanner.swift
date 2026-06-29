@@ -34,11 +34,11 @@ enum AgentImmediateActionPlanner {
             return shell("df -h / /Quill 2>/dev/null || df -h /")
         }
 
-        if let fileWrite = simpleFileWrite(for: request, lowercasedRequest: lower),
+        if let fileWrite = AgentFileWriteRequestParser.request(from: request),
            hasTool(ToolDefinition.fileWrite.name, in: tools) {
             return .tool(.init(
                 name: ToolDefinition.fileWrite.name,
-                argumentsJSON: ToolArguments.json(fileWrite)
+                argumentsJSON: ToolArguments.json(fileWrite.arguments)
             ))
         }
 
@@ -77,20 +77,4 @@ enum AgentImmediateActionPlanner {
             || (lower.contains("how much") && (lower.contains("disk") || lower.contains("storage")))
     }
 
-    private static func simpleFileWrite(
-        for request: String,
-        lowercasedRequest lower: String
-    ) -> [String: String]? {
-        guard lower.contains("file"),
-              lower.contains("hello world"),
-              lower.contains("write") || lower.contains("create") || lower.contains("make")
-        else {
-            return nil
-        }
-
-        return [
-            "path": "hello.txt",
-            "content": "hello world\n"
-        ]
-    }
 }

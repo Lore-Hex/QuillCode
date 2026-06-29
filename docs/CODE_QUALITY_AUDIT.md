@@ -9023,3 +9023,20 @@ Code quality changes:
 Remaining risk:
 
 - This improves the evidence substrate for native click targets. The final A+ layer remains packaged `.app` Accessibility automation that uses these stable IDs to sample real frames and labels from the running app.
+
+## 2026-06-28 Immediate File-Write Intent Pass
+
+Overall grade after this slice: **A- immediate utility, A parser ownership, A ambiguous-request safety**.
+
+QuillCode already recovered common shell commands and the special hello-world file request, but obvious file-write requests still had too much room to depend on provider behavior. That made it possible for weaker models to answer "I'll create it" before using a tool, or to route through a duplicated mock-only heuristic.
+
+Code quality changes:
+
+- Added `AgentFileWriteRequestParser` as the single high-confidence parser for common "write/create/make a file ... that says/with content ..." requests.
+- Replaced the immediate planner's hard-coded hello-world file block with the shared parser while preserving `hello.txt` for the existing hello-world flow.
+- Reused the same parser from `MockLLMClient`, removing the duplicate mock-only file-write heuristic and keeping fallback shell writes path-aware.
+- Added regression tests proving named nested-path writes run without a provider round trip, quoted-content writes default to `note.txt`, and ambiguous "Make a file" still goes through the model instead of manufacturing an empty write.
+
+Remaining risk:
+
+- This deliberately handles only high-confidence file-write phrasing. Full Codex parity still needs model/tool-call reliability across richer edit intents, multi-file creation, and follow-up clarification flows.

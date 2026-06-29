@@ -148,6 +148,58 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Wrote `hello.txt`.")
     }
 
+    func testNamedFileWriteExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Create a file named notes/todo.txt that says \"buy milk\"",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("notes/todo.txt"), encoding: .utf8),
+            "buy milk\n"
+        )
+        let write = try queuedFileWrite(in: result)
+        XCTAssertEqual(write.path, "notes/todo.txt")
+        XCTAssertEqual(write.content, "buy milk\n")
+    }
+
+    func testFileWriteWithQuotedContentDefaultsToNotePath() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Make a file with content `ship the first build`",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("note.txt"), encoding: .utf8),
+            "ship the first build\n"
+        )
+        let write = try queuedFileWrite(in: result)
+        XCTAssertEqual(write.path, "note.txt")
+        XCTAssertEqual(write.content, "ship the first build\n")
+    }
+
+    func testAmbiguousMakeFileRequestStillUsesModel() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FixedSayLLMClient(message: "What should the file contain?"), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send("Make a file", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 0)
+        XCTAssertEqual(result.thread.messages.last?.content, "What should the file contain?")
+    }
+
     func testCommitChangesExecutesImmediately() async throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
@@ -197,6 +249,18 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
         return try arguments.requiredString("cmd")
     }
+
+    private func queuedFileWrite(in result: AgentRunResult) throws -> (path: String, content: String) {
+        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
+        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
+        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        return (
+            try arguments.requiredString("path"),
+            try arguments.requiredString("content")
+        )
+    }
 }
 
 private enum FailingLLMClientError: Error {
@@ -206,5 +270,13 @@ private enum FailingLLMClientError: Error {
 private struct FailingLLMClient: LLMClient {
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         throw FailingLLMClientError.shouldNotBeCalled
+    }
+}
+
+private struct FixedSayLLMClient: LLMClient {
+    var message: String
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        .say(message)
     }
 }
