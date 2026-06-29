@@ -49,6 +49,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
     ]
   },
   {
+    name: 'searches workspace text with the structured file search tool',
+    prompts: ['Where is AgentRunner defined?'],
+    expectedToolNames: ['host.file.search'],
+    regressionGuards: [
+      'file search arguments include a nonempty query',
+      'file search uses host.file.search instead of shell grep fallback',
+      'search results render as final chat text'
+    ]
+  },
+  {
     name: 'answers device diagnostic prompts with concrete shell actions',
     prompts: ['How much hd?', 'Do you have openclaw?'],
     expectedToolNames: ['host.shell.run'],
@@ -225,6 +235,23 @@ test('reads requested file contents immediately with the structured file tool', 
   await expect(page.getByTestId('tool-card-output')).toContainText('# QuillCode');
   await expect(page.getByText(/Contents of `README\.md`:\s*# QuillCode/)).toBeVisible();
   await expect(page.getByText(/No shell command was specified|I'?ll read|I will read|cat README/i)).toHaveCount(0);
+});
+
+test('searches workspace text with the structured file search tool', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('Where is AgentRunner defined?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.search');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"query": "AgentRunner"');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('Sources/Agent.swift');
+  await expect(page.getByText(/Found 1 match for `AgentRunner`:/)).toBeVisible();
+  await expect(page.getByText(/`Sources\/Agent\.swift:1`: struct AgentRunner/)).toBeVisible();
+  await expect(page.getByText(/No shell command was specified|grep AgentRunner|I'?ll search|I will search/i)).toHaveCount(0);
 });
 
 test('answers device diagnostic prompts with concrete shell actions', async ({ page }) => {

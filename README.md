@@ -5,7 +5,7 @@ QuillCode is a Swift and QuillUI coding agent inspired by Codex workflows and ba
 This initial repository contains the compile-stable foundation:
 
 - core thread, tool, approval, project, model, and config types
-- shell, file, and git tool executors
+- shell, file read/write/search, and git tool executors
 - Auto safety review policy with `glm-5.2` and `kimi-k2.6` model slots
 - TrustedRouter LLM and safety-model adapters
 - JSON thread/project persistence and a single secret-store protocol

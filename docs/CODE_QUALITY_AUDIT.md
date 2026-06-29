@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Structured Workspace Search Pass
+
+Overall grade after this slice: **A- source-navigation utility, A bounded execution, B+ semantic search breadth**.
+
+QuillCode could read specific files, but it did not have a first-class agent tool for the common Codex workflow "where is this symbol/text used?" That forced models toward shell grep/find or passive "I'll look" replies, neither of which gives the app a reliable, auditable tool-card contract.
+
+| Before | After |
+| --- | --- |
+| Workspace search depended on model-authored shell commands or no tool at all. | `host.file.search` now performs bounded literal UTF-8 workspace search with file/line/preview matches and artifact links. |
+| Search could scan too much if implemented through ad hoc shell grep. | The native executor skips dependency/build directories, skips large or binary files, streams through files, caps scanned files, and caps result count. |
+| UI and smoke coverage did not prove source navigation. | Immediate-action tests, final-answer tests, subtitle/context tests, Playwright real-world evidence, deterministic CLI smoke, and opt-in live TrustedRouter smoke cover natural file-search prompts. |
+
+Residual risk:
+
+- The tool is intentionally literal text search, not semantic symbol indexing. Full Codex-style project map/search should add indexed symbol search and multi-file summarization after this structured baseline stays green.
+
 ## 2026-06-29 Natural File-Read Smoke Hardening Pass
 
 Overall grade after this slice: **A- release-regression coverage, A structured tool parity, B+ breadth**.

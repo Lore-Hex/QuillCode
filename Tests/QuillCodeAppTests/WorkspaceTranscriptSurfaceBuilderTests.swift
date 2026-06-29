@@ -268,6 +268,14 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceToolCardSubtitleBuilder.subtitle(
                 stateLabel: "Completed",
+                toolName: "host.file.search",
+                inputJSON: ToolArguments.json(["query": "AgentRunner"])
+            ),
+            "Completed · AgentRunner"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
                 toolName: "host.git.diff",
                 inputJSON: ToolArguments.json(["staged": true])
             ),

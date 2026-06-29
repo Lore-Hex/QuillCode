@@ -47,6 +47,27 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(arguments["text"])
     }
 
+    func testCanonicalArgumentsNormalizeFileSearchAliases() {
+        let arguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.fileSearch.name,
+            in: [
+                "arguments": [
+                    "term": "AgentRunner",
+                    "directory": "Sources",
+                    "limit": 5
+                ]
+            ],
+            sourceText: ""
+        )
+
+        XCTAssertEqual(arguments["query"] as? String, "AgentRunner")
+        XCTAssertEqual(arguments["path"] as? String, "Sources")
+        XCTAssertEqual(arguments["maxResults"] as? Int, 5)
+        XCTAssertNil(arguments["term"])
+        XCTAssertNil(arguments["directory"])
+        XCTAssertNil(arguments["limit"])
+    }
+
     func testCanonicalArgumentsNormalizePullRequestCollectionAliases() {
         let arguments = AgentToolArgumentNormalizer.canonicalArguments(
             for: ToolDefinition.gitPullRequestReviewers.name,
@@ -133,6 +154,18 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
             AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
                 for: ToolDefinition.browserInspect.name,
                 arguments: [:]
+            )
+        )
+        XCTAssertFalse(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.fileSearch.name,
+                arguments: ["path": "Sources"]
+            )
+        )
+        XCTAssertTrue(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.fileSearch.name,
+                arguments: ["query": "AgentRunner"]
             )
         )
         XCTAssertTrue(

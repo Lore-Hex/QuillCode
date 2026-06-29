@@ -13,6 +13,7 @@ REQUIRED_SCENARIOS = {
     "runs natural shell requests immediately with nonempty arguments",
     "writes requested file content immediately without a confirmation loop",
     "reads requested file contents immediately with the structured file tool",
+    "searches workspace text with the structured file search tool",
     "answers device diagnostic prompts with concrete shell actions",
     "downloads requested domains with a bounded concrete shell action",
     "answers natural git read requests with structured git tools",
@@ -26,6 +27,7 @@ REQUIRED_PROMPT_FRAGMENTS = [
     "quillcode_polite_smoke",
     "Can you write a file that says",
     "What is in README.md?",
+    "Where is AgentRunner defined?",
     "How much hd?",
     "Do you have openclaw?",
     "Can you download LinkedIn.com?",
@@ -41,13 +43,14 @@ REQUIRED_REGRESSION_GUARDS = [
     "assistant does not answer with passive promises",
     "assistant does not ask for a second confirmation",
     "file read uses host.file.read instead of shell cat fallback",
+    "file search uses host.file.search instead of shell grep fallback",
     "safety review does not block clear user intent",
     "git status uses host.git.status instead of shell fallback",
     "negative shell intent creates no tool card",
 ]
 
-MIN_PROMPT_COUNT = 16
-MIN_REGRESSION_GUARD_COUNT = 21
+MIN_PROMPT_COUNT = 17
+MIN_REGRESSION_GUARD_COUNT = 24
 
 
 def string_items(value: Any) -> list[str]:

@@ -43,6 +43,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - Use the exact tool names and canonical argument keys from the tool schemas below.
         - For shell commands, the argument key is "cmd"; do not use "command", "script", or top-level arguments.
         - For file writes, the argument keys are "path" and "content"; do not use "filename" or "text".
+        - For workspace text or symbol searches, use host.file.search with non-empty "query" and optional "path"; do not use shell grep/find unless the user explicitly asks for a shell command.
         - If the user asks to run a command, create a host.shell.run action immediately. Do not answer first with "I'll run ..." or "I will run ...".
         - host.shell.run MUST include a non-empty "cmd" string. Never emit {} for shell arguments.
         - If the user asks to create or write a file, use host.file.write with non-empty "path" and "content". Do not answer first with "I'll create ..." or "I will create ...".

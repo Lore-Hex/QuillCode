@@ -14,6 +14,7 @@ CLI_SHELL_STATUS="not-run"
 CLI_DIAGNOSTICS_STATUS="not-run"
 CLI_GIT_READ_STATUS="not-run"
 CLI_FILE_READ_STATUS="not-run"
+CLI_FILE_SEARCH_STATUS="not-run"
 CLI_NEGATIVE_ACTION_STATUS="not-run"
 CLI_FILE_CREATION_STATUS="not-run"
 CLI_WORKSPACE_FOLLOWUP_STATUS="not-run"
@@ -50,6 +51,7 @@ write_manifest() {
     "$CLI_DIAGNOSTICS_STATUS" \
     "$CLI_GIT_READ_STATUS" \
     "$CLI_FILE_READ_STATUS" \
+    "$CLI_FILE_SEARCH_STATUS" \
     "$CLI_NEGATIVE_ACTION_STATUS" \
     "$CLI_FILE_CREATION_STATUS" \
     "$CLI_WORKSPACE_FOLLOWUP_STATUS" \
@@ -78,6 +80,7 @@ from datetime import datetime, timezone
     cli_diagnostics_status,
     cli_git_read_status,
     cli_file_read_status,
+    cli_file_search_status,
     cli_negative_action_status,
     cli_file_creation_status,
     cli_workspace_followup_status,
@@ -166,6 +169,7 @@ manifest = {
         "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
         "cliGitRead": {"status": cli_git_read_status},
         "cliFileRead": {"status": cli_file_read_status},
+        "cliFileSearch": {"status": cli_file_search_status},
         "cliNegativeActions": {"status": cli_negative_action_status},
         "cliFileCreation": {"status": cli_file_creation_status},
         "cliWorkspaceFollowUp": {"status": cli_workspace_followup_status},
@@ -263,6 +267,8 @@ prepare_git_workspace() {
   git -C "$SMOKE_WORKSPACE" add tracked.txt
   git -C "$SMOKE_WORKSPACE" commit -m "Add tracked smoke file" >/dev/null
   printf '# QuillCode smoke README\n\nNatural file reads should use host.file.read.\n' > "$SMOKE_WORKSPACE/README.md"
+  mkdir -p "$SMOKE_WORKSPACE/Sources"
+  printf 'struct SmokeSearchSymbol {\n  let value = "needle"\n}\n' > "$SMOKE_WORKSPACE/Sources/SmokeSearch.swift"
   printf 'after\n' > "$SMOKE_WORKSPACE/tracked.txt"
 }
 
@@ -325,6 +331,14 @@ file_read_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORK
 assert_cli_output_contains "$file_read_output" 'Contents of `README.md`' "What is in README.md"
 assert_cli_output_contains "$file_read_output" "QuillCode smoke README" "What is in README.md"
 CLI_FILE_READ_STATUS="passed"
+
+echo "==> Running mock CLI natural file search prompt"
+CLI_FILE_SEARCH_STATUS="running"
+FINAL_DETAIL="mock CLI natural file search prompt failed"
+file_search_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Where is SmokeSearchSymbol defined?")"
+assert_cli_output_contains "$file_search_output" 'Found 1 match for `SmokeSearchSymbol`' "Where is SmokeSearchSymbol defined"
+assert_cli_output_contains "$file_search_output" 'Sources/SmokeSearch.swift:1' "Where is SmokeSearchSymbol defined"
+CLI_FILE_SEARCH_STATUS="passed"
 
 echo "==> Running mock CLI negative action prompts"
 CLI_NEGATIVE_ACTION_STATUS="running"
