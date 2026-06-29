@@ -3,6 +3,7 @@ import QuillCodeCore
 
 public enum AgentTextStreamEvent: Sendable, Hashable {
     case text(String)
+    case reasoning(String)
     case usage(ModelTokenUsage)
 }
 
@@ -52,10 +53,12 @@ public enum AgentActionStreamCollector {
         from stream: AsyncThrowingStream<AgentTextStreamEvent, Error>,
         emptyError: @autoclosure () -> any Error,
         onVisibleAssistantText: ((String) async -> Void)?,
-        onUsage: ((ModelTokenUsage) async -> Void)?
+        onUsage: ((ModelTokenUsage) async -> Void)?,
+        onReasoning: ((String) async -> Void)? = nil
     ) async throws -> AgentAction {
         var rawActionText = ""
         var lastVisibleText = ""
+        var lastReasoningText = ""
         for try await event in stream {
             try Task.checkCancellation()
             switch event {
@@ -70,6 +73,13 @@ public enum AgentActionStreamCollector {
                 }
                 lastVisibleText = visibleText
                 await onVisibleAssistantText?(visibleText)
+            case .reasoning(let summary):
+                let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty, trimmed != lastReasoningText else {
+                    continue
+                }
+                lastReasoningText = trimmed
+                await onReasoning?(trimmed)
             case .usage(let usage):
                 await onUsage?(usage)
             }

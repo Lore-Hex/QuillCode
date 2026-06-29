@@ -205,6 +205,44 @@ final class AgentStreamingTests: XCTestCase {
         XCTAssertEqual(result.thread.events[1].summary, AgentRunner.streamingNotice)
     }
 
+    func testUsageStreamingReasoningSummariesAreRecordedAsThinkingTrace() async throws {
+        let root = try makeTempDirectory()
+        let recorder = ProgressRecorder()
+        let runner = AgentRunner(llm: UsageStreamingActionLLMClient(events: [
+            .reasoning("Inspecting the request."),
+            .reasoning("Choosing the shell tool."),
+            .text(#"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}"#)
+        ]))
+
+        let result = try await runner.send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root,
+            onProgress: { thread in
+                await recorder.record(thread)
+            }
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary == "Thinking: Inspecting the request."
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary == "Thinking: Choosing the shell tool."
+        })
+
+        let snapshots = await recorder.eventSnapshots()
+        XCTAssertTrue(snapshots.contains { events in
+            events.last?.kind == .notice &&
+                events.last?.summary == "Thinking: Inspecting the request."
+        })
+        XCTAssertTrue(snapshots.contains { events in
+            events.last?.kind == .notice &&
+                events.last?.summary == "Thinking: Choosing the shell tool."
+        })
+    }
+
     func testStreamingPromisedWorkDraftIsSuppressedBeforeCorrectionToolRuns() async throws {
         let root = try makeTempDirectory()
         let recorder = ProgressRecorder()

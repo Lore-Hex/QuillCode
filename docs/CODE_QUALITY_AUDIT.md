@@ -9056,3 +9056,20 @@ Code quality changes:
 Remaining risk:
 
 - This deliberately handles only high-confidence file-write phrasing. Full Codex parity still needs model/tool-call reliability across richer edit intents, multi-file creation, and follow-up clarification flows.
+
+## 2026-06-28 Streaming Thinking Trace Pass
+
+Overall grade after this slice: **A live run feedback, A stream event separation, A- provider reasoning coverage**.
+
+The composer already pre-recorded user messages before provider work, which gives the UI the immediate echo Codex users expect. The weaker spot was visibility while the model is planning: streamed provider reasoning or summary deltas were dropped, so the existing thinking trace could show local tool progress but not model-side progress.
+
+Code quality changes:
+
+- Added `AgentTextStreamEvent.reasoning` so provider thinking summaries are represented separately from assistant text and token usage.
+- Updated the TrustedRouter streaming decoder to forward common chat-completion reasoning delta fields without contaminating the final assistant answer.
+- Recorded reasoning summaries as live `Thinking: ...` notices during active runs, letting the existing transcript thinking disclosure render them as trace lines.
+- Added focused streaming tests proving duplicate reasoning summaries are de-duped, live progress receives the trace notices, and tool execution still proceeds normally.
+
+Remaining risk:
+
+- This covers common chat-completion reasoning fields. Full parity still needs live verification against every TrustedRouter provider family and richer controls for hiding, expanding, or copying longer reasoning traces.
