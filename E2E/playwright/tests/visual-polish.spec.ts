@@ -277,6 +277,31 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   await expectHitTarget(page.locator('[data-testid="tool-card-details"] summary'), 'tool details disclosure');
 });
 
+test('mock harness renders labeled composer controls without clipping their text', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // A labeled control must size to its text. A fixed icon-sized (44px square)
+  // hit target clips a word like "Send" inside the square, so labeled controls
+  // use text/capsule hit targets that grow with their content.
+  await page.getByLabel('Message').fill('check');
+
+  const labeledControls = ['send-button', 'model-picker-button', 'mode-picker-button'];
+  for (const testID of labeledControls) {
+    const metrics = await page.getByTestId(testID).evaluate(element => ({
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+      kind: element.dataset.hitTargetKind || '',
+      text: (element.textContent || '').replace(/\s+/g, ' ').trim()
+    }));
+    expect(metrics.text.length, `${testID} should render a visible label`).toBeGreaterThan(0);
+    expect(metrics.kind, `${testID} should not use a fixed icon hit target for a text label`).not.toBe('icon');
+    expect(
+      metrics.scrollWidth,
+      `${testID} ("${metrics.text}") must not clip its label`
+    ).toBeLessThanOrEqual(metrics.clientWidth + 1);
+  }
+});
+
 test('mock harness keeps quiet top bar stable under long status metadata', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 760 });
   await page.goto(harnessURL());
