@@ -8,6 +8,7 @@ DIRECT_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/direct-executable"
 LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/launch-services"
 CLICK_PROBE_MANIFEST="$SMOKE_ROOT/packaged-click-probes.json"
 ACCESSIBILITY_READINESS_MANIFEST="$SMOKE_ROOT/packaged-accessibility-readiness.json"
+ACCESSIBILITY_FRAMES_MANIFEST="$SMOKE_ROOT/packaged-accessibility-frames.json"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 ARTIFACT_DIR="${QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR:-}"
@@ -35,6 +36,9 @@ cleanup() {
     if [[ -e "$ACCESSIBILITY_READINESS_MANIFEST" ]]; then
       cp "$ACCESSIBILITY_READINESS_MANIFEST" "$ARTIFACT_DIR/packaged-accessibility-readiness.json"
     fi
+    if [[ -e "$ACCESSIBILITY_FRAMES_MANIFEST" ]]; then
+      cp "$ACCESSIBILITY_FRAMES_MANIFEST" "$ARTIFACT_DIR/packaged-accessibility-frames.json"
+    fi
     if [[ -e "$WINDOW_REPORT_PATH" ]]; then
       cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
     fi
@@ -52,6 +56,7 @@ cleanup() {
       printf 'launch_services_smoke=launch-services\n'
       printf 'click_probe_manifest=packaged-click-probes.json\n'
       printf 'accessibility_readiness_manifest=packaged-accessibility-readiness.json\n'
+      printf 'accessibility_frames_manifest=packaged-accessibility-frames.json\n'
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
@@ -166,39 +171,10 @@ if [[ ! -s "$WINDOW_SCREENSHOT_PATH" ]]; then
   cat "$WINDOW_REPORT_PATH" >&2 || true
   exit 1
 fi
-"$ROOT_DIR/scripts/native-click-probe-contracts.py" window \
+"$ROOT_DIR/scripts/native-click-probe-contracts.py" frames \
   "$WINDOW_REPORT_PATH" \
-  "$WINDOW_SCREENSHOT_PATH"
-if ! grep -q '"accessibilityFrameSamples"' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not include Accessibility frame samples" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-python3 - "$WINDOW_REPORT_PATH" <<'PY'
-import json
-import sys
-
-report_path = sys.argv[1]
-with open(report_path, "r", encoding="utf-8") as report_file:
-    report = json.load(report_file)
-
-samples = report.get("accessibilityFrameSamples")
-if not isinstance(samples, dict):
-    raise SystemExit("Packaged app live-window smoke did not report Accessibility frame samples")
-if samples.get("ok") is not True:
-    raise SystemExit(f"Packaged app live-window Accessibility frame samples failed: {samples.get('validationIssues')}")
-if samples.get("liveAccessibilitySampling") != "frame-sampled":
-    raise SystemExit("Packaged app live-window smoke did not run live Accessibility frame sampling")
-if samples.get("unresolvedRequiredContractIDs") != []:
-    raise SystemExit(f"Packaged app live-window smoke missed required live Accessibility targets: {samples.get('unresolvedRequiredContractIDs')}")
-if not isinstance(samples.get("sampleCount"), int) or samples["sampleCount"] < len(samples.get("requiredContractIDs", [])):
-    raise SystemExit("Packaged app live-window smoke sampled too few Accessibility targets")
-for sample in samples.get("samples", []):
-    frame = sample.get("frame")
-    if not isinstance(frame, dict):
-        raise SystemExit(f"Malformed Accessibility frame sample: {sample}")
-    if frame.get("width", 0) < sample.get("requiredMinWidth", 44) or frame.get("height", 0) < sample.get("requiredMinHeight", 44):
-        raise SystemExit(f"Undersized Accessibility frame sample: {sample}")
-PY
+  "$WINDOW_SCREENSHOT_PATH" \
+  --click-probe-manifest "$CLICK_PROBE_MANIFEST" \
+  --manifest "$ACCESSIBILITY_FRAMES_MANIFEST"
 
 echo "QuillCode packaged macOS app smoke passed."
