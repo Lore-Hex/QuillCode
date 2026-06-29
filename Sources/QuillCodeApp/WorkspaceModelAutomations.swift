@@ -57,7 +57,7 @@ extension QuillCodeWorkspaceModel {
             now: now,
             calendar: calendar
         ) else {
-            setLastError("Could not understand that follow-up schedule. Try `/follow-up in 30 minutes`, `/follow-up tomorrow at 9 AM`, or `/follow-up daily`.")
+            setLastError("Could not understand that follow-up schedule. Try `/follow-up in 30 minutes`, `/follow-up Friday at 4 PM`, or `/follow-up daily`.")
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return nil
         }
@@ -140,7 +140,7 @@ extension QuillCodeWorkspaceModel {
             now: now,
             calendar: calendar
         ) else {
-            setLastError("Could not understand that workspace-check schedule. Try `/workspace-check in 1 hour`, `/workspace-check tomorrow at 9 AM`, or `/workspace-check every 2 hours`.")
+            setLastError("Could not understand that workspace-check schedule. Try `/workspace-check in 1 hour`, `/workspace-check Friday morning`, or `/workspace-check every 2 hours`.")
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return nil
         }

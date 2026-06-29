@@ -290,6 +290,21 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Primary utility click-target coverage should verify near-edge activation, not only target geometry and semantic classes."
         )
         XCTAssertTrue(
+            interactionSpecText.contains("sidebar and project controls activate from near-edge target points")
+                && interactionSpecText.contains("saved search delete trailing edge")
+                && interactionSpecText.contains("sidebar duplicate action trailing edge")
+                && interactionSpecText.contains("project refresh action trailing edge"),
+            "Sidebar and project rows, menus, saved searches, and destructive controls should prove near-edge activation instead of relying only on broad geometry audits."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("transcript, recovery, and suggestion controls activate from near-edge target points")
+                && interactionSpecText.contains("empty starter trailing edge")
+                && interactionSpecText.contains("slash suggestion leading edge")
+                && interactionSpecText.contains("assistant retry trailing edge")
+                && interactionSpecText.contains("runtime retry leading edge"),
+            "Transcript, slash suggestion, context, and recovery controls should be edge-clicked because these are common small targets users hit during normal work."
+        )
+        XCTAssertTrue(
             interactionSpecText.contains("audits narrow viewport click targets across squeezed states")
                 && interactionSpecText.contains("width: 320"),
             "Click-target coverage should include a narrow squeezed viewport, not only standard desktop and phone widths."

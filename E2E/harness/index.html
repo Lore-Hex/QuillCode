@@ -4004,8 +4004,8 @@
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
       { usage: '/unarchive', title: 'Unarchive chat', detail: 'Restore the current archived thread.', insertText: '/unarchive', aliases: ['unarchive-chat'] },
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
-      { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, tomorrow at 9 AM, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
-      { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, tomorrow morning, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
+      { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
+      { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
       { usage: '/project rename name', title: 'Rename project', detail: 'Rename the selected project in QuillCode.', insertText: '/project rename ', aliases: ['project title'] },
@@ -9544,8 +9544,10 @@
       return `${hour12}:${String(minute).padStart(2, '0')} ${meridiem}`;
     }
 
-    function parseFollowUpClock(value) {
+    function parseFollowUpClock(value, defaultMeridiem = null) {
       let text = String(value).toLowerCase().replaceAll('.', '').replaceAll(' ', '');
+      if (text === 'noon') return { hour: 12, minute: 0 };
+      if (text === 'midnight') return { hour: 0, minute: 0 };
       let meridiem = null;
       if (text.endsWith('am')) {
         meridiem = 'am';
@@ -9553,6 +9555,8 @@
       } else if (text.endsWith('pm')) {
         meridiem = 'pm';
         text = text.slice(0, -2);
+      } else {
+        meridiem = defaultMeridiem;
       }
       const pieces = text.split(':');
       if (pieces.length < 1 || pieces.length > 2) return null;
@@ -9565,6 +9569,55 @@
       if (meridiem === 'pm' && hour < 12) hour += 12;
       if (meridiem === 'am' && hour === 12) hour = 0;
       return hour < 24 ? { hour, minute } : null;
+    }
+
+    function followUpClockRemainder(value) {
+      let text = String(value).trim();
+      for (const prefix of ['at', 'around', 'about']) {
+        if (text.startsWith(`${prefix} `)) {
+          text = text.slice(prefix.length).trim();
+        }
+      }
+      return text;
+    }
+
+    function followUpDayPartClock(value) {
+      switch (String(value).trim()) {
+        case 'morning':
+          return { hour: 9, minute: 0 };
+        case 'afternoon':
+          return { hour: 13, minute: 0 };
+        case 'evening':
+          return { hour: 17, minute: 0 };
+        case 'tonight':
+        case 'night':
+          return { hour: 19, minute: 0 };
+        default:
+          return null;
+      }
+    }
+
+    function followUpWeekdayLabel(value) {
+      const labels = {
+        sunday: 'Sunday',
+        sun: 'Sunday',
+        monday: 'Monday',
+        mon: 'Monday',
+        tuesday: 'Tuesday',
+        tue: 'Tuesday',
+        tues: 'Tuesday',
+        wednesday: 'Wednesday',
+        wed: 'Wednesday',
+        thursday: 'Thursday',
+        thu: 'Thursday',
+        thur: 'Thursday',
+        thurs: 'Thursday',
+        friday: 'Friday',
+        fri: 'Friday',
+        saturday: 'Saturday',
+        sat: 'Saturday'
+      };
+      return labels[value] || null;
     }
 
     function recurrenceSchedule(value) {
@@ -9619,6 +9672,35 @@
         if (remainder === 'evening') return { label: 'Tomorrow at 5:00 PM', isRecurring: false };
         const clock = parseFollowUpClock(remainder.replace(/^at\s+/, '').replace(/^around\s+/, ''));
         return clock ? { label: `Tomorrow at ${clockDescription(clock.hour, clock.minute)}`, isRecurring: false } : null;
+      }
+      if (normalized === 'tonight') {
+        return { label: 'Tonight at 7:00 PM', isRecurring: false };
+      }
+      if (normalized.startsWith('tonight ')) {
+        const clock = parseFollowUpClock(followUpClockRemainder(normalized.slice('tonight'.length)), 'pm');
+        return clock ? { label: `Tonight at ${clockDescription(clock.hour, clock.minute)}`, isRecurring: false } : null;
+      }
+      if (normalized.startsWith('today ')) {
+        const remainder = normalized.slice('today'.length).trim();
+        const clock = followUpDayPartClock(remainder) || parseFollowUpClock(followUpClockRemainder(remainder));
+        return clock ? { label: `Today at ${clockDescription(clock.hour, clock.minute)}`, isRecurring: false } : null;
+      }
+      const weekdayMatch = normalized.match(/^(?:(next|this|on)\s+)?(sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday|rday)?|fri(?:day)?|sat(?:urday)?)(?:\s+(.*))?$/);
+      if (weekdayMatch) {
+        const prefix = weekdayMatch[1] === 'next' ? 'Next ' : '';
+        const weekday = followUpWeekdayLabel(weekdayMatch[2]);
+        const remainder = weekdayMatch[3] || '';
+        const clock = followUpDayPartClock(remainder)
+          || parseFollowUpClock(followUpClockRemainder(remainder))
+          || { hour: 9, minute: 0 };
+        return weekday && clock
+          ? { label: `${prefix}${weekday} at ${clockDescription(clock.hour, clock.minute)}`, isRecurring: false }
+          : null;
+      }
+      const bareClockText = followUpClockRemainder(normalized);
+      if (bareClockText !== normalized || /:/.test(normalized) || /^\d{1,2}\s*(am|pm)$/.test(normalized)) {
+        const clock = parseFollowUpClock(bareClockText);
+        if (clock) return { label: `Today at ${clockDescription(clock.hour, clock.minute)}`, isRecurring: false };
       }
       return null;
     }
@@ -12697,7 +12779,7 @@
           createThreadFollowUpAutomation(schedule.label, { isRecurring: schedule.isRecurring });
           addMessage('assistant', `Scheduled a thread follow-up for ${schedule.label}.`);
         } else {
-          addMessage('assistant', 'Usage: /follow-up in 30 minutes, /follow-up tomorrow at 9 AM, or /follow-up daily');
+          addMessage('assistant', 'Usage: /follow-up in 30 minutes, /follow-up Friday at 4 PM, or /follow-up daily');
         }
       } else if (/^\/(workspace-check|workspacecheck|workspace-schedule|project-check|repo-check)\b/i.test(text)) {
         const scheduleText = text.replace(/^\/(workspace-check|workspacecheck|workspace-schedule|project-check|repo-check)\b/i, '').trim();
@@ -12706,7 +12788,7 @@
           createWorkspaceScheduleAutomation(schedule.label, { isRecurring: schedule.isRecurring });
           addMessage('assistant', `Scheduled a workspace check for ${schedule.label}.`);
         } else {
-          addMessage('assistant', 'Usage: /workspace-check in 1 hour, /workspace-check tomorrow at 9 AM, or /workspace-check daily');
+          addMessage('assistant', 'Usage: /workspace-check in 1 hour, /workspace-check Friday morning, or /workspace-check daily');
         }
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
