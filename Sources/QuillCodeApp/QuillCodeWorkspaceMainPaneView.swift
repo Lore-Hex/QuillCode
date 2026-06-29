@@ -68,6 +68,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onAddReviewComment: onAddReviewComment,
                         onCopyTranscriptItem: onCopyTranscriptItem,
                         onUseMessageAsDraft: useMessageAsDraft,
+                        onSubmitStarterAction: submitStarterAction,
                         onMessageFeedback: onMessageFeedback
                     )
                 } else {
@@ -193,6 +194,13 @@ struct QuillCodeWorkspaceMainPaneView: View {
         draft = text
         DispatchQueue.main.async {
             isComposerFocused.wrappedValue = true
+        }
+    }
+
+    private func submitStarterAction(_ text: String) {
+        draft = text
+        DispatchQueue.main.async {
+            onSend()
         }
     }
 

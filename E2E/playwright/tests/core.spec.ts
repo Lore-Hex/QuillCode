@@ -15,11 +15,6 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
   await expect(page.getByTestId('empty-starter-action')).toHaveCount(3);
-  await page.getByTestId('empty-starter-action').filter({ hasText: 'Review changes' }).click();
-  await expect(page.getByLabel('Message')).toHaveValue('Review the current git diff and call out risks, missing tests, and next steps.');
-  await expect(page.getByLabel('Message')).toBeFocused();
-  await expect(page.getByTestId('send-button')).toBeEnabled();
-  await page.getByLabel('Message').fill('');
   await expect(page.locator('[data-testid="top-bar"] [data-testid="model-picker-button"]')).toHaveCount(0);
   await expect(page.getByTestId('composer-surface')).toBeVisible();
   await expect(page.getByTestId('composer-controls')).toBeVisible();
@@ -128,4 +123,20 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' })).toHaveCount(2);
   await expect(page.getByTestId('message-retry')).toHaveCount(1);
   await expect(page.getByTestId('message-use-as-draft')).toHaveCount(2);
+});
+
+test('empty starter action submits immediately through the normal composer path', async ({ page }) => {
+  await page.goto(harnessURL());
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+
+  await page.getByTestId('empty-starter-action').filter({ hasText: 'Review changes' }).click();
+
+  await expect(page.getByTestId('transcript-empty')).toHaveCount(0);
+  await expect(page.getByTestId('message').filter({
+    hasText: 'Review the current git diff and call out risks, missing tests, and next steps.'
+  })).toBeVisible();
+  await expect(page.getByTestId('tool-card').first()).toContainText('host.git.diff');
+  await expect(page.getByText('Git diff:')).toBeVisible();
+  await expect(page.getByLabel('Message')).toHaveValue('');
+  await expect(page.getByTestId('send-button')).toBeDisabled();
 });

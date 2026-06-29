@@ -23,6 +23,7 @@ struct QuillCodeTranscriptView: View {
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
     var onUseMessageAsDraft: (String) -> Void
+    var onSubmitStarterAction: (String) -> Void
     var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -210,7 +211,7 @@ struct QuillCodeTranscriptView: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 156), spacing: QuillCodeMetrics.controlClusterSpacing)], spacing: QuillCodeMetrics.controlClusterSpacing) {
             ForEach(transcript.emptyStarterActions) { action in
                 Button {
-                    onUseMessageAsDraft(action.prompt)
+                    onSubmitStarterAction(action.prompt)
                 } label: {
                     VStack(spacing: 3) {
                         Text(action.title)
@@ -238,7 +239,7 @@ struct QuillCodeTranscriptView: View {
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .accessibilityLabel(Text(action.title))
-                .accessibilityHint(Text(action.prompt))
+                .accessibilityHint(Text("Runs \(action.prompt)"))
             }
         }
         .frame(maxWidth: 620)
