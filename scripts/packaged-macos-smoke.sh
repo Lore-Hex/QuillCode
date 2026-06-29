@@ -7,6 +7,8 @@ APP_OUTPUT_DIR="$SMOKE_ROOT/app"
 DIRECT_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/direct-executable"
 LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/launch-services"
 CLICK_PROBE_MANIFEST="$SMOKE_ROOT/packaged-click-probes.json"
+WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
+WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 ARTIFACT_DIR="${QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR:-}"
 
 cleanup() {
@@ -29,6 +31,12 @@ cleanup() {
     if [[ -e "$CLICK_PROBE_MANIFEST" ]]; then
       cp "$CLICK_PROBE_MANIFEST" "$ARTIFACT_DIR/packaged-click-probes.json"
     fi
+    if [[ -e "$WINDOW_REPORT_PATH" ]]; then
+      cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
+    fi
+    if [[ -e "$WINDOW_SCREENSHOT_PATH" ]]; then
+      cp "$WINDOW_SCREENSHOT_PATH" "$ARTIFACT_DIR/window.png"
+    fi
     {
       printf 'label=packaged macOS app\n'
       printf 'status=%s\n' "$status"
@@ -39,6 +47,8 @@ cleanup() {
       printf 'direct_smoke=direct-executable\n'
       printf 'launch_services_smoke=launch-services\n'
       printf 'click_probe_manifest=packaged-click-probes.json\n'
+      printf 'window_smoke=window-report.json\n'
+      printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
     echo "QuillCode packaged macOS app smoke artifacts: $ARTIFACT_DIR"
   fi
@@ -69,6 +79,26 @@ assert_plist_value() {
     echo "Packaged app Info.plist $key expected '$expected' but found '$actual'." >&2
     exit 1
   fi
+}
+
+wait_for_smoke_process() {
+  local pid="$1"
+  local timeout_seconds="$2"
+  local label="$3"
+  local elapsed=0
+
+  while kill -0 "$pid" 2>/dev/null; do
+    if [[ "$elapsed" -ge "$timeout_seconds" ]]; then
+      echo "$label timed out after ${timeout_seconds}s." >&2
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      return 124
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  wait "$pid"
 }
 
 if [[ ! -d "$APP_BUNDLE" ]]; then
@@ -103,5 +133,50 @@ QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR
   "$DIRECT_SMOKE_ARTIFACT_DIR/report.json" \
   "$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR/report.json" \
   --manifest "$CLICK_PROBE_MANIFEST"
+
+echo "==> Running packaged macOS app live-window smoke"
+(
+  HOME="$SMOKE_ROOT/home" "$APP_EXECUTABLE" \
+    --native-window-smoke \
+    --window-smoke-report "$WINDOW_REPORT_PATH" \
+    --window-smoke-screenshot "$WINDOW_SCREENSHOT_PATH" \
+    >/dev/null
+) &
+WINDOW_SMOKE_PID="$!"
+if ! wait_for_smoke_process "$WINDOW_SMOKE_PID" 45 "Packaged app live-window smoke"; then
+  cat "$WINDOW_REPORT_PATH" >&2 2>/dev/null || true
+  exit 1
+fi
+
+if [[ ! -s "$WINDOW_REPORT_PATH" ]]; then
+  echo "Packaged app live-window smoke did not write a JSON report" >&2
+  exit 1
+fi
+if [[ ! -s "$WINDOW_SCREENSHOT_PATH" ]]; then
+  echo "Packaged app live-window smoke did not write a screenshot" >&2
+  cat "$WINDOW_REPORT_PATH" >&2 || true
+  exit 1
+fi
+if ! grep -q '"ok" : true' "$WINDOW_REPORT_PATH"; then
+  echo "Packaged app live-window smoke did not report ok=true" >&2
+  cat "$WINDOW_REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q '"appName" : "QuillCode"' "$WINDOW_REPORT_PATH"; then
+  echo "Packaged app live-window smoke did not report the QuillCode app identity" >&2
+  cat "$WINDOW_REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q '"windowTitle" : "QuillCode"' "$WINDOW_REPORT_PATH"; then
+  echo "Packaged app live-window smoke did not report the QuillCode window title" >&2
+  cat "$WINDOW_REPORT_PATH" >&2
+  exit 1
+fi
+if [[ "$(wc -c < "$WINDOW_SCREENSHOT_PATH" | tr -d ' ')" -lt 4096 ]]; then
+  echo "Packaged app live-window smoke rendered a suspiciously small screenshot" >&2
+  ls -l "$WINDOW_SCREENSHOT_PATH" >&2
+  cat "$WINDOW_REPORT_PATH" >&2
+  exit 1
+fi
 
 echo "QuillCode packaged macOS app smoke passed."

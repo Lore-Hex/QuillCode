@@ -31,6 +31,27 @@ struct QuillCodeDesktopSmokeRequest: Sendable {
     }
 }
 
+struct QuillCodeDesktopWindowSmokeRequest: Sendable {
+    var reportPath: String?
+    var screenshotPath: String?
+
+    init?(arguments: [String]) {
+        guard arguments.contains("--native-window-smoke") else {
+            return nil
+        }
+
+        self.reportPath = Self.value(after: "--window-smoke-report", in: arguments)
+        self.screenshotPath = Self.value(after: "--window-smoke-screenshot", in: arguments)
+    }
+
+    private static func value(after flag: String, in arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: flag) else { return nil }
+        let valueIndex = arguments.index(after: index)
+        guard valueIndex < arguments.endIndex else { return nil }
+        return arguments[valueIndex]
+    }
+}
+
 struct QuillCodeDesktopSmokeWorkspaceRoot {
     var root: URL
     var home: URL
@@ -236,6 +257,41 @@ struct QuillCodeDesktopSmokePixelStats {
     }
 }
 
+struct QuillCodeDesktopWindowSmokeReport {
+    var ok: Bool
+    var appName: String
+    var bundleIdentifier: String
+    var windowTitle: String
+    var windowFrame: CGRect
+    var contentSize: CGSize
+    var screenshotPath: String
+    var image: QuillCodeDesktopSmokePixelReport
+
+    func prettyJSON() throws -> Data {
+        try JSONSerialization.data(
+            withJSONObject: [
+                "ok": ok,
+                "appName": appName,
+                "bundleIdentifier": bundleIdentifier,
+                "windowTitle": windowTitle,
+                "windowFrame": [
+                    "x": windowFrame.origin.x,
+                    "y": windowFrame.origin.y,
+                    "width": windowFrame.size.width,
+                    "height": windowFrame.size.height
+                ],
+                "contentSize": [
+                    "width": contentSize.width,
+                    "height": contentSize.height
+                ],
+                "screenshotPath": screenshotPath,
+                "image": image.dictionary
+            ],
+            options: [.prettyPrinted, .sortedKeys]
+        )
+    }
+}
+
 enum QuillCodeDesktopSmokeFailure: Error {
     case bitmapContextFailed
     case chromeCommandDidNotRoute(String)
@@ -255,4 +311,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case renderFailed
     case timedOut
     case toolCardDidNotComplete
+    case windowCaptureFailed
+    case windowContentTooSmall(Double, Double)
+    case windowNotFound
 }
