@@ -8911,3 +8911,19 @@ Code quality changes:
 Remaining risk:
 
 - This still verifies source-level naming. Full A+ native parity needs packaged `.app` Accessibility automation that samples the real accessibility label and frame for icon targets after SwiftUI/AppKit composition.
+
+## 2026-06-28 Menu Trigger Icon Scope Pass
+
+Overall grade after this slice: **A native menu trigger semantics, A source-gate precision, A- packaged accessibility-frame sampling**.
+
+The previous icon naming gate was strong for normal buttons, but menu triggers had one subtle false-positive risk: the source scope could include named menu items inside the body and accidentally treat those names as proof that the compact trigger itself was discoverable.
+
+Code quality changes:
+
+- Scoped icon target naming for `Menu` declarations to the trigger label and outer menu modifiers instead of the full menu body.
+- Added a regression fixture where a menu item has its own help tooltip while the trigger ellipsis remains unnamed, and verified the trigger still fails the native source audit.
+- Documented the menu-trigger naming boundary so future click-target passes do not weaken the opener/item distinction.
+
+Remaining risk:
+
+- The gate now proves trigger naming at source level. The final A+ layer remains packaged `.app` Accessibility automation that samples real menu opener labels and frames after SwiftUI/AppKit composition.

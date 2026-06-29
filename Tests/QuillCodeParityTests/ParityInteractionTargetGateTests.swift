@@ -822,6 +822,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
 
                     Menu {
                         Button("Rename") {}
+                            .help("Rename thread")
                     } label: {
                         Image(systemName: "ellipsis")
                             .quillCodeIconButtonTarget()
@@ -1282,7 +1283,11 @@ private struct SwiftSourceInteractionTargetAudit {
 
             if line.contains("quillCodeIconButtonTarget"),
                !isSharedDesignSystem(relativePath),
-               !hasIconTargetName(in: owningControlScope) {
+               !hasIconTargetName(in: iconTargetNameScope(
+                    in: lines,
+                    modifierIndex: index,
+                    owningControlScope: owningControlScope
+                )) {
                 violations.append("\(relativePath):\(index + 1) icon hit target needs a visible label, accessibilityLabel, or help tooltip")
             }
 
@@ -1362,6 +1367,35 @@ private struct SwiftSourceInteractionTargetAudit {
         sourceWindow.contains("Label(")
             || sourceWindow.contains(".accessibilityLabel(")
             || sourceWindow.contains(".help(")
+    }
+
+    private func iconTargetNameScope(
+        in lines: [String],
+        modifierIndex index: Int,
+        owningControlScope: String
+    ) -> String {
+        let lowerBound = max(0, index - 160)
+        var lineIndex = index
+        while lineIndex >= lowerBound {
+            if isMenuDeclaration(lines[lineIndex]) {
+                let range = controlRange(in: lines, startingAt: lineIndex)
+                guard range.contains(index) else {
+                    lineIndex -= 1
+                    continue
+                }
+                let scopeLines = Array(lines[range])
+                guard let labelOffset = scopeLines.firstIndex(where: { $0.contains("label:") }) else {
+                    return owningControlScope
+                }
+                let labelStart = range.lowerBound + labelOffset
+                if index >= labelStart {
+                    return window(in: lines, from: labelStart, to: range.upperBound)
+                }
+                return owningControlScope
+            }
+            lineIndex -= 1
+        }
+        return owningControlScope
     }
 
     private func usesGenericTargetHelper(_ line: String) -> Bool {
