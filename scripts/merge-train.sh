@@ -11,6 +11,7 @@ delete_branch="${MERGE_TRAIN_DELETE_BRANCH:-true}"
 ignored_check_re="${MERGE_TRAIN_IGNORED_CHECK_RE:-^(Merge Train|train)$}"
 post_merge_workflow="${MERGE_TRAIN_POST_MERGE_WORKFLOW:-}"
 dry_run="${MERGE_TRAIN_DRY_RUN:-false}"
+update_behind_branches="${MERGE_TRAIN_UPDATE_BEHIND_BRANCHES:-false}"
 
 case "$merge_method" in
   merge|squash|rebase) ;;
@@ -106,6 +107,13 @@ if [[ -n "$pending_checks" ]]; then
 fi
 
 if [[ "$merge_state" == "BEHIND" ]]; then
+  if [[ "$update_behind_branches" != "true" ]]; then
+    echo "PR #$number is behind $base_branch; waiting for the branch author to rebase or merge $base_branch and push."
+    echo "Automatic branch updates are disabled by default because updates made with GitHub Actions' GITHUB_TOKEN do not reliably produce normal pull_request CI checks."
+    echo "Set MERGE_TRAIN_UPDATE_BEHIND_BRANCHES=true only when the train token can trigger required PR checks."
+    exit 0
+  fi
+
   echo "PR #$number is behind $base_branch; updating branch and waiting for fresh CI."
   if [[ "$dry_run" == "true" ]]; then
     echo "DRY RUN: gh pr update-branch $number --repo $repo"

@@ -175,6 +175,10 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityCoreModelGateTests.swift", testNames: [
             "testCoreToolModelsLiveOutsideGeneralDomainModels",
             "testProjectModelsLiveOutsideGeneralDomainModels"
+        ]),
+        Suite(fileName: "ParityMergeTrainGateTests.swift", testNames: [
+            "testBehindBranchesDoNotUseActionTokenUpdatesByDefault",
+            "testBehindBranchUpdateRequiresExplicitOptIn"
         ])
     ]
 
