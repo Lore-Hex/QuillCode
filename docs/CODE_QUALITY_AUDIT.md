@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 File Mention Suggestion Engine Pass
+
+Overall grade after this slice: **A bounded workspace indexing, A pure mention-ranking logic, B+ surface wiring (engine only)**.
+
+A core coding-harness usability affordance was missing: there was no way to reference a workspace file from the composer the way Codex/Claude Code support `@path` mentions. This slice lands the deterministic, fully tested foundation for that feature so the composer surfaces (SwiftUI, static HTML, Playwright) can wire onto a stable engine next.
+
+| Before | After |
+| --- | --- |
+| No bounded recursive workspace file listing existed; only single-directory `host.file.list` and content `host.file.search`. | `WorkspaceFileIndexer` returns a bounded, path-sorted index of regular files, skipping `.git`/`.build`/`node_modules`/etc. and hidden entries by default, with a file cap and truncation flag. |
+| The composer could not detect or rank an in-progress `@` mention. | `FileMentionCatalog` detects the active trailing `@token` (and rejects `name@example.com`-style non-mentions), ranks files by name/path prefix, contains, and fuzzy subsequence, and produces a ready-to-apply replacement draft. |
+| No coverage for path-completion logic. | 19 new unit tests cover indexer bounds/exclusions/hidden/truncation and mention detection, ranking order, acceptance text, empty-mention shallow ordering, limits, and fuzzy matching. |
+
+Residual risk:
+
+- This is the engine only. The next slice wires it into the composer suggestion panel across SwiftUI, the static HTML renderer, and Playwright, sourced from a workspace file index refreshed per selected local project.
+
 ## 2026-06-29 Near-Edge Click-Target Activation Pass
 
 Overall grade after this slice: **A target activation coverage, A native/rendered probe parity, A- packaged click synthesis**.
