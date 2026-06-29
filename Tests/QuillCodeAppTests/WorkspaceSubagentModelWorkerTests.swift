@@ -48,6 +48,30 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains(#"{"type":"say","text":"..."}"#))
     }
 
+    func testPromptIncludesPrerequisiteResultsWhenPresent() {
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(
+            objective: "ship release",
+            job: WorkspaceSubagentJob(
+                name: "Verifier",
+                role: "run tests",
+                dependsOn: ["Builder"],
+                priorResults: [WorkspaceSubagentPriorResult(name: "Builder", summary: "compiled the app cleanly")]
+            )
+        )
+
+        XCTAssertTrue(prompt.contains("Results from the prerequisite subagents you depend on:"))
+        XCTAssertTrue(prompt.contains("- Builder: compiled the app cleanly"))
+    }
+
+    func testPromptOmitsPrerequisiteSectionForRootJobs() {
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(
+            objective: "ship release",
+            job: WorkspaceSubagentJob(name: "Builder", role: "compile app")
+        )
+
+        XCTAssertFalse(prompt.contains("Results from the prerequisite subagents"))
+    }
+
     func testRunPropagatesClientErrors() async {
         let worker = LLMWorkspaceSubagentWorker(llm: SubagentStubThrowingLLMClient())
 
