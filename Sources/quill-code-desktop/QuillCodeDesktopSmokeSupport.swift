@@ -267,6 +267,7 @@ struct QuillCodeDesktopWindowSmokeReport {
     var screenshotPath: String
     var image: QuillCodeDesktopSmokePixelReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
+    var surface: QuillCodeDesktopWindowSmokeSurfaceReport
 
     func prettyJSON() throws -> Data {
         try JSONSerialization.data(
@@ -287,7 +288,8 @@ struct QuillCodeDesktopWindowSmokeReport {
                 ],
                 "screenshotPath": screenshotPath,
                 "image": image.dictionary,
-                "nativeHitTargets": nativeHitTargets.dictionary
+                "nativeHitTargets": nativeHitTargets.dictionary,
+                "surface": surface.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]
         )
@@ -316,6 +318,106 @@ enum QuillCodeDesktopNativeHitTargetSmoke {
     }
 }
 
+struct QuillCodeDesktopWindowSmokeSurfaceReport {
+    static let requiredCommandIDs = [
+        "new-chat",
+        "command-palette",
+        "keyboard-shortcuts",
+        "settings",
+        "toggle-terminal",
+        "toggle-browser",
+        "stop-all",
+        "disconnect-all"
+    ]
+
+    static let requiredStarterActionIDs = [
+        "review-changes",
+        "run-tests",
+        "explain-project"
+    ]
+
+    var appName: String
+    var primaryTitle: String
+    var subtitle: String
+    var modelLabel: String
+    var modeLabel: String
+    var agentStatus: String
+    var composerPlaceholder: String
+    var composerCanSend: Bool
+    var sidebarTitle: String
+    var sidebarItemCount: Int
+    var commandIDs: [String]
+    var starterActionIDs: [String]
+
+    init(surface: WorkspaceSurface) throws {
+        self.appName = surface.topBar.appName
+        self.primaryTitle = surface.topBar.primaryTitle
+        self.subtitle = surface.topBar.subtitle
+        self.modelLabel = surface.topBar.modelLabel
+        self.modeLabel = surface.topBar.modeLabel
+        self.agentStatus = surface.topBar.agentStatus
+        self.composerPlaceholder = surface.composer.placeholder
+        self.composerCanSend = surface.composer.canSend
+        self.sidebarTitle = surface.sidebar.title
+        self.sidebarItemCount = surface.sidebar.items.count
+        self.commandIDs = surface.commands.map(\.id).sorted()
+        self.starterActionIDs = surface.transcript.emptyStarterActions.map(\.id)
+
+        try validate()
+    }
+
+    var dictionary: [String: Any] {
+        [
+            "appName": appName,
+            "primaryTitle": primaryTitle,
+            "subtitle": subtitle,
+            "modelLabel": modelLabel,
+            "modeLabel": modeLabel,
+            "agentStatus": agentStatus,
+            "composerPlaceholder": composerPlaceholder,
+            "composerCanSend": composerCanSend,
+            "sidebarTitle": sidebarTitle,
+            "sidebarItemCount": sidebarItemCount,
+            "commandIDs": commandIDs,
+            "requiredCommandIDs": Self.requiredCommandIDs,
+            "starterActionIDs": starterActionIDs,
+            "requiredStarterActionIDs": Self.requiredStarterActionIDs
+        ]
+    }
+
+    private func validate() throws {
+        try require(appName == "QuillCode", "top bar app name was \(appName)")
+        try require(!primaryTitle.trimmedForSmoke.isEmpty, "primary title was empty")
+        try require(!modelLabel.trimmedForSmoke.isEmpty, "model label was empty")
+        try require(!modeLabel.trimmedForSmoke.isEmpty, "mode label was empty")
+        try require(!agentStatus.trimmedForSmoke.isEmpty, "agent status was empty")
+        try require(!composerPlaceholder.trimmedForSmoke.isEmpty, "composer placeholder was empty")
+        try require(composerCanSend == false, "empty composer should not be sendable")
+        try require(sidebarTitle == "Chats", "sidebar title was \(sidebarTitle)")
+
+        let missingCommands = Self.requiredCommandIDs.filter { !commandIDs.contains($0) }
+        try require(missingCommands.isEmpty, "missing commands: \(missingCommands.joined(separator: ", "))")
+
+        let missingStarterActions = Self.requiredStarterActionIDs.filter { !starterActionIDs.contains($0) }
+        try require(
+            missingStarterActions.isEmpty,
+            "missing starter actions: \(missingStarterActions.joined(separator: ", "))"
+        )
+    }
+
+    private func require(_ condition: Bool, _ message: String) throws {
+        guard condition else {
+            throw QuillCodeDesktopSmokeFailure.windowSurfaceIncomplete(message)
+        }
+    }
+}
+
+private extension String {
+    var trimmedForSmoke: String {
+        trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 enum QuillCodeDesktopSmokeFailure: Error {
     case bitmapContextFailed
     case chromeCommandDidNotRoute(String)
@@ -338,4 +440,5 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case windowCaptureFailed
     case windowContentTooSmall(Double, Double)
     case windowNotFound
+    case windowSurfaceIncomplete(String)
 }
