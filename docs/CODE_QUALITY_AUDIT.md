@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Deterministic Smoke Manifest Pass
+
+Overall grade after this slice: **A deterministic release evidence, A real-world wrapper traceability, A- operator ergonomics**.
+
+The real-world smoke wrapper had a top-level manifest and the live TrustedRouter lane had a nested manifest, but the deterministic lane still required terminal-log reading to prove which sublayers actually ran.
+
+| Before | After |
+| --- | --- |
+| `scripts/smoke.sh` produced pass/fail output plus native UI artifacts, but no one-file status record for Swift tests, CLI prompts, packaged app smoke, or Playwright. | `scripts/smoke.sh` now writes `deterministic-smoke-manifest.json` when `QUILLCODE_SMOKE_ARTIFACT_DIR` is set, with step-level status for Swift, CLI shell, natural diagnostic prompts, file creation, local download, live-mode missing-key handling, native desktop, packaged macOS, and Playwright. |
+| `real-world-smoke-manifest.json` listed deterministic artifact files but did not embed the deterministic suite's own verdict details. | The real-world wrapper now embeds the nested deterministic smoke manifest beside the nested live TrustedRouter manifest. |
+| A deterministic failure could be obvious in logs but still weak as preserved release evidence. | Failure traps write the manifest before temp cleanup, preserving the last running step and final detail in the configured artifact folder. |
+
+Residual risk:
+
+- This is structured release evidence, not a new native packaged-window click driver. The next deeper proof layer remains live packaged UI automation using Accessibility/appshot-style frame sampling.
+
 ## 2026-06-29 Real-World Playwright Gate Pass
 
 Overall grade after this slice: **A release-lane honesty, A browser-E2E coverage discipline, A- operator ergonomics**.
