@@ -79,7 +79,7 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
             ModelInfo(id: "vendor/model", provider: "vendor", displayName: "Model", category: "Vendor")
         ])
 
-        XCTAssertEqual(catalog?.first?.id, TrustedRouterDefaults.fastModel)
+        XCTAssertEqual(catalog?.first?.id, TrustedRouterDefaults.socratesModel)
         XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthModel && $0.displayName == "Synth" } == true)
         XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthCodeModel && $0.displayName == "Synth Code" } == true)
         XCTAssertTrue(catalog?.contains { $0.id == "vendor/model" } == true)

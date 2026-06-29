@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-29 Socrates 1.1 Model Pass
+
+Overall grade after this slice: **A model-catalog coverage, A cross-surface parity**.
+
+Adds Socrates 1.1, the currently leading frontier model, as the top Recommended option in the model picker.
+
+| Before | After |
+| --- | --- |
+| The bundled catalog offered Nike 1.0, Synth, and Synth Code as Recommended models. | Socrates 1.1 (`tr/socrates`, aliases `/socrates`, `socrates`, `socrates-1.1`, `trustedrouter/socrates`) leads the Recommended list with display name, slash form, capability/summary copy, and ranking, surfaced in the bundled catalog, default model catalog, and `recommendedModelIDs`. |
+| The default (Nike 1.0) was the first Recommended entry. | Socrates 1.1 ranks first as the leading model while Nike 1.0 stays the selected default; tests assert the new ordering, aliases, and display name across core, agent, app surface, picker, and Playwright harness. |
+
+Residual risk:
+
+- The default user-facing model is unchanged (Nike 1.0); promoting Socrates 1.1 to the default is a follow-up if desired. The bundled `tr/socrates` ID is the offline default and is superseded by the live TrustedRouter catalog when keyed.
+
 ## 2026-06-29 File Mention Harness Parity Pass
 
 Overall grade after this slice: **A cross-surface mention parity, A E2E flow coverage**.

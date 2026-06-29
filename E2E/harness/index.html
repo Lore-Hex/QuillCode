@@ -3298,6 +3298,7 @@
           {
             category: 'Recommended',
             models: [
+              { id: 'tr/socrates', provider: 'trustedrouter', displayName: 'Socrates 1.1', isSelected: false, isFavorite: false, badges: ['Recommended'] },
               { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
               { id: 'tr/synth', provider: 'trustedrouter', displayName: 'Synth', isSelected: false, isFavorite: false, badges: ['Recommended'] },
               { id: 'tr/synth-code', provider: 'trustedrouter', displayName: 'Synth Code', isSelected: false, isFavorite: false, badges: ['Recommended'] }
@@ -7412,6 +7413,7 @@
     }
 
     function modelDisplayLabel(model) {
+      if (model.id === 'tr/socrates') return 'Socrates 1.1';
       if (model.id === 'trustedrouter/fast') return 'Nike 1.0';
       if (model.id === 'tr/synth') return 'Synth';
       if (model.id === 'tr/synth-code') return 'Synth Code';
@@ -7443,13 +7445,19 @@
         'fusion-code': 'tr/synth-code',
         '/fusion-code': 'tr/synth-code',
         'tr/fusion-code': 'tr/synth-code',
-        'trustedrouter/fusion-code': 'tr/synth-code'
+        'trustedrouter/fusion-code': 'tr/synth-code',
+        socrates: 'tr/socrates',
+        '/socrates': 'tr/socrates',
+        'socrates 1.1': 'tr/socrates',
+        'socrates-1.1': 'tr/socrates',
+        'trustedrouter/socrates': 'tr/socrates'
       };
       return aliases[normalized] || String(modelID || '').trim();
     }
 
     function preferredDisplayModelID(modelID) {
       const canonical = canonicalModelID(modelID);
+      if (canonical === 'tr/socrates') return '/socrates';
       if (canonical === 'tr/synth') return '/synth';
       if (canonical === 'tr/synth-code') return '/synth-code';
       return canonical;
@@ -7531,6 +7539,7 @@
 
     function modelMetadataSummary(model, categoryName) {
       if (model.metadataSummary) return model.metadataSummary;
+      if (model.id === 'tr/socrates') return 'Leading frontier model';
       if (model.id === 'trustedrouter/fast') return 'Fast everyday agent';
       if (model.id === 'tr/synth') return 'Deeper planning and review';
       if (model.id === 'tr/synth-code') return 'Code-focused model';
@@ -7541,6 +7550,7 @@
 
     function modelCapabilitySummary(model, categoryName) {
       if (model.capabilitySummary) return model.capabilitySummary;
+      if (model.id === 'tr/socrates') return 'Socrates 1.1 is the leading model for the most demanding coding and reasoning turns.';
       if (model.id === 'trustedrouter/fast') return 'Nike 1.0 is the fast default for coding, shell, and file-editing turns.';
       if (model.id === 'tr/synth') return 'Synth is the balanced model for deeper coding and review turns.';
       if (model.id === 'tr/synth-code') return 'Synth Code is the code-focused model for implementation-heavy turns.';

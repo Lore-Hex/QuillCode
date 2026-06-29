@@ -28,7 +28,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let recommendedModelIDs = surface.topBar.modelCategories
             .first { $0.category == "Recommended" }?
             .models
-            .prefix(3)
+            .prefix(TrustedRouterDefaults.recommendedModelIDs.count)
             .map(\.id) ?? []
         XCTAssertEqual(recommendedModelIDs, TrustedRouterDefaults.recommendedModelIDs)
         let defaultOption = surface.topBar.modelCategories
