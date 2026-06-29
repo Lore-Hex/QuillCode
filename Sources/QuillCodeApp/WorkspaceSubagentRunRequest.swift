@@ -15,10 +15,18 @@ struct WorkspaceSubagentWorkerRequest: Equatable, Sendable, Hashable {
 struct WorkspaceSubagentRunRequest: Equatable, Sendable, Hashable {
     var objective: String
     var workers: [WorkspaceSubagentWorkerRequest]
+    /// Optional cap on how many workers run at once within a dependency wave.
+    /// `nil` means unbounded (every ready worker fans out together).
+    var maxConcurrentWorkers: Int?
 
-    init(objective: String, workers: [WorkspaceSubagentWorkerRequest]) {
+    init(
+        objective: String,
+        workers: [WorkspaceSubagentWorkerRequest],
+        maxConcurrentWorkers: Int? = nil
+    ) {
         self.objective = objective
         self.workers = workers
+        self.maxConcurrentWorkers = maxConcurrentWorkers
     }
 }
 
