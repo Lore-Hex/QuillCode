@@ -647,9 +647,16 @@ public enum QuillCodeNativeHitTargetAudit {
             minWidth: minWidth,
             minHeight: minHeight,
             focusTarget: focusTarget,
-            testID: testID,
+            testID: normalizedNativeTestID(testID),
             commandID: commandID,
             source: source
         )
+    }
+
+    private static func normalizedNativeTestID(_ testID: String?) -> String? {
+        guard let testID else { return nil }
+        let trimmed = testID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return testID }
+        return trimmed.hasPrefix("quillcode-") ? trimmed : "quillcode-\(trimmed)"
     }
 }

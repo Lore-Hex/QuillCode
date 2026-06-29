@@ -190,9 +190,10 @@ surface_contracts = native_targets.get("surfaceContracts", [])
 surface_test_ids = {contract.get("testID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("testID")}
 surface_command_ids = {contract.get("commandID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("commandID")}
 required_test_ids = {
-    "send-button", "model-picker-button", "mode-picker-button", "top-bar-overflow",
-    "sidebar-tools-button", "command-palette-input", "search-input", "browser-address",
-    "browser-action", "terminal-action", "automation-create"
+    "quillcode-send-button", "quillcode-model-picker-button", "quillcode-mode-picker-button",
+    "quillcode-top-bar-overflow", "quillcode-sidebar-tools-button", "quillcode-command-palette-input",
+    "quillcode-search-input", "quillcode-browser-address", "quillcode-browser-action",
+    "quillcode-terminal-action", "quillcode-automation-create"
 }
 missing_test_ids = sorted(required_test_ids - surface_test_ids)
 if missing_test_ids:

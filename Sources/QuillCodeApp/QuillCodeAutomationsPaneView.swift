@@ -93,6 +93,7 @@ struct QuillCodeAutomationsPaneView: View {
             }
             .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 90))
             .quillCodeFormActionTarget(minWidth: 90)
+            .accessibilityIdentifier("quillcode-automation-create")
         }
     }
 

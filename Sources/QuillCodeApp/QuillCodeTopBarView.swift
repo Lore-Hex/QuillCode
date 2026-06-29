@@ -161,6 +161,7 @@ struct QuillCodeTopBarView: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Stop active work")
         .accessibilityLabel("Stop active work")
+        .accessibilityIdentifier("quillcode-top-bar-stop")
     }
 
     private var commandMenu: some View {
@@ -188,6 +189,7 @@ struct QuillCodeTopBarView: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("More")
         .accessibilityLabel("More workspace actions")
+        .accessibilityIdentifier("quillcode-top-bar-overflow")
     }
 }
 
@@ -254,5 +256,6 @@ struct QuillCodeModePickerButton: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose Auto safety mode")
         .accessibilityLabel("Auto safety mode, \(modeLabel)")
+        .accessibilityIdentifier("quillcode-mode-picker-button")
     }
 }

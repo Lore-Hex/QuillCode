@@ -130,6 +130,7 @@ struct QuillCodeComposerView: View {
             }
             .onSubmit(onSend)
             .accessibilityLabel("Message")
+            .accessibilityIdentifier("quillcode-composer-input")
     }
 
     @ViewBuilder
@@ -150,6 +151,7 @@ struct QuillCodeComposerView: View {
             .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
             .keyboardShortcut(.cancelAction)
             .help("Stop the current run")
+            .accessibilityIdentifier("quillcode-stop-button")
         } else {
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
@@ -166,6 +168,7 @@ struct QuillCodeComposerView: View {
             .disabled(!canSendDraft)
             .help("Send")
             .accessibilityLabel("Send message")
+            .accessibilityIdentifier("quillcode-send-button")
         }
     }
 

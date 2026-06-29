@@ -37,12 +37,14 @@ struct QuillCodeTerminalPaneView: View {
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget(minWidth: 56)
                 .disabled(!terminal.canClear)
+                .accessibilityIdentifier("quillcode-terminal-clear")
             if terminal.isRunning {
                 ProgressView()
                     .controlSize(.small)
                 Button("Stop", action: onStop)
                     .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 56))
                     .quillCodeFormActionTarget()
+                    .accessibilityIdentifier("quillcode-terminal-stop")
             }
         }
         .background(TerminalWindowSizeReporter(onResize: onResize))
@@ -85,10 +87,12 @@ struct QuillCodeTerminalPaneView: View {
                     return .handled
                 }
                 .quillCodeTextEntryTarget()
+                .accessibilityIdentifier("quillcode-terminal-command")
             Button(terminal.commandActionTitle, action: onRun)
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget(minWidth: 64)
                 .disabled(!canSubmitDraft)
+                .accessibilityIdentifier("quillcode-terminal-action")
         }
     }
 

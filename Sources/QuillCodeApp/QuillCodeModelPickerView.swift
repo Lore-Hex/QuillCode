@@ -54,6 +54,7 @@ struct QuillCodeModelPickerView: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose model")
         .accessibilityLabel("Model, \(topBar.modelLabel)")
+        .accessibilityIdentifier("quillcode-model-picker-button")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             popoverBody
         }
@@ -115,6 +116,7 @@ struct QuillCodeModelPickerView: View {
             .focused($isSearchFocused)
             .quillCodeTextEntryTarget()
             .accessibilityLabel("Search models")
+            .accessibilityIdentifier("quillcode-model-picker-search")
             .onSubmit(selectHighlightedModel)
     }
 
