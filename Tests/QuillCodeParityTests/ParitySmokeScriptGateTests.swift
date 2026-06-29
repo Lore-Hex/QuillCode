@@ -75,6 +75,24 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("forbidden.html despite explicit negative intent"))
     }
 
+    func testPlaywrightRealWorldManifestValidatorGuardsReleaseEvidence() throws {
+        let script = try Self.scriptText(named: "smoke.sh")
+        let validator = try Self.scriptText(named: "validate-playwright-real-world-manifest.py")
+
+        XCTAssertTrue(script.contains("validate-playwright-real-world-manifest.py"))
+        XCTAssertTrue(validator.contains("REQUIRED_SCENARIOS"))
+        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 13"))
+        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 15"))
+        XCTAssertTrue(validator.contains("runs natural shell requests immediately with nonempty arguments"))
+        XCTAssertTrue(validator.contains("writes requested file content immediately without a confirmation loop"))
+        XCTAssertTrue(validator.contains("answers device diagnostic prompts with concrete shell actions"))
+        XCTAssertTrue(validator.contains("downloads requested domains with a bounded concrete shell action"))
+        XCTAssertTrue(validator.contains("respects explicit negative action prompts without tool cards or side effects"))
+        XCTAssertTrue(validator.contains("shell arguments are never {}"))
+        XCTAssertTrue(validator.contains("assistant does not answer with passive promises"))
+        XCTAssertTrue(validator.contains("safety review does not block clear user intent"))
+    }
+
     func testRealWorldSmokeWorkflowRunsReleaseCandidateWrapperWithArtifacts() throws {
         let workflow = try Self.workflowText(named: "real-world-smoke.yml")
 

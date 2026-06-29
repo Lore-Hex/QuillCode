@@ -448,6 +448,26 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
             smokeScriptText.contains("$ARTIFACT_DIR/playwright-real-world"),
             "Deterministic smoke should collect real-world Playwright artifacts beside other release evidence."
         )
+        XCTAssertTrue(
+            smokeScriptText.contains("assert_playwright_real_world_manifest"),
+            "Deterministic smoke should validate the Playwright real-world action manifest after the browser suite runs."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains("validate-playwright-real-world-manifest.py"),
+            "Deterministic smoke should delegate Playwright real-world manifest validation to the shared validator script."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains("playwright-real-world-actions-manifest.json"),
+            "Deterministic smoke should require the stable Playwright real-world action manifest name."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains("\"realWorldActions\""),
+            "Deterministic smoke should promote Playwright real-world evidence into the top-level smoke manifest."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains("scenarioCount") && smokeScriptText.contains("promptCount") && smokeScriptText.contains("regressionGuardCount"),
+            "Deterministic smoke should preserve reviewable counts for real-world action scenarios, prompts, and guards."
+        )
     }
 
     func testPlaywrightResponsivenessBudgetsStayInFocusedSpec() throws {

@@ -104,7 +104,48 @@ def collect_files(root, limit=200):
                 return files
     return files
 
+def load_json(path):
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, json.JSONDecodeError) as error:
+        return {"error": str(error)}
+
+def relative_artifact_path(path):
+    if not artifact_root or not path:
+        return path
+    try:
+        return os.path.relpath(path, artifact_root)
+    except ValueError:
+        return path
+
 requires_playwright = require_playwright.lower() in {"1", "true", "yes"}
+playwright_real_world_manifest_path = os.path.join(
+    artifact_root,
+    "playwright-real-world",
+    "playwright-real-world-actions-manifest.json",
+)
+playwright_real_world_manifest = load_json(playwright_real_world_manifest_path)
+playwright_step = {
+    "status": playwright_status,
+    "detail": playwright_detail,
+}
+if playwright_real_world_manifest is not None:
+    playwright_step["realWorldActions"] = {
+        "status": "present",
+        "manifestPath": relative_artifact_path(playwright_real_world_manifest_path),
+        "scenarioCount": playwright_real_world_manifest.get("scenarioCount"),
+        "promptCount": playwright_real_world_manifest.get("promptCount"),
+        "regressionGuardCount": playwright_real_world_manifest.get("regressionGuardCount"),
+        "manifest": playwright_real_world_manifest,
+    }
+elif playwright_status == "passed" and artifact_root:
+    playwright_step["realWorldActions"] = {
+        "status": "missing",
+        "manifestPath": relative_artifact_path(playwright_real_world_manifest_path),
+    }
 
 manifest = {
     "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -127,10 +168,7 @@ manifest = {
             "status": packaged_macos_status,
             "detail": packaged_macos_detail,
         },
-        "playwright": {
-            "status": playwright_status,
-            "detail": playwright_detail,
-        },
+        "playwright": playwright_step,
     },
     "artifactFiles": collect_files(artifact_root),
     "workspaceFiles": collect_files(smoke_workspace),
@@ -196,6 +234,15 @@ assert_cli_output_contains() {
     printf '%s\n' "$output" >&2
     exit 1
   fi
+}
+
+assert_playwright_real_world_manifest() {
+  if [[ -z "$ARTIFACT_DIR" ]]; then
+    return 0
+  fi
+
+  local manifest_path="$ARTIFACT_DIR/playwright-real-world/playwright-real-world-actions-manifest.json"
+  "$ROOT_DIR/scripts/validate-playwright-real-world-manifest.py" "$manifest_path"
 }
 
 echo "==> Running Swift test suite"
@@ -359,6 +406,7 @@ if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
     QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/playwright-real-world}" \
       npm test
   )
+  assert_playwright_real_world_manifest
   PLAYWRIGHT_STATUS="passed"
   PLAYWRIGHT_DETAIL="completed"
 elif is_truthy "$REQUIRE_PLAYWRIGHT"; then
