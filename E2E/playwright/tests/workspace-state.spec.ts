@@ -124,6 +124,13 @@ test('mock harness shows context pressure banner and compacts or forks from late
   test.setTimeout(60000);
   await page.goto(harnessURL());
 
+  const showActivity = async () => {
+    if (await page.getByTestId('activity-pane').count() === 0) {
+      await clickSidebarTool(page, 'activity-button');
+    }
+    await expect(page.getByTestId('activity-pane')).toBeVisible();
+  };
+
   const createContextPressure = async (label: string) => {
     await page.getByRole('textbox', { name: 'Message' }).fill(`${label} ${'word '.repeat(22000)}`);
     await page.getByRole('button', { name: 'Send' }).click();
@@ -143,6 +150,11 @@ test('mock harness shows context pressure banner and compacts or forks from late
   await expect(page.getByTestId('context-banner')).toHaveCount(0);
   await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
   await expect(page.getByTestId('message').nth(1)).toContainText('run whoami');
+  await showActivity();
+  await expect(page.getByTestId('activity-context-section')).toContainText('Context');
+  await expect(page.getByTestId('activity-context-section')).toContainText('1 item');
+  await expect(page.getByTestId('activity-context')).toContainText('Context compacted');
+  await expect(page.getByTestId('activity-context')).toContainText('Deterministic summary');
 
   await createContextPressure('long context again');
 
@@ -151,7 +163,7 @@ test('mock harness shows context pressure banner and compacts or forks from late
   await expect(page.getByTestId('top-bar-title')).toContainText('Fork:');
   await expect(page.getByTestId('context-banner')).toHaveCount(0);
   await expect(page.getByTestId('message').first()).toContainText('run whoami');
-  await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
+  await expect(page.getByTestId('timeline').getByText('You are `mock-user` in this workspace.')).toBeVisible();
 
   await createContextPressure('summary fork pressure');
 
@@ -161,6 +173,10 @@ test('mock harness shows context pressure banner and compacts or forks from late
   await expect(page.getByTestId('context-banner')).toHaveCount(0);
   await expect(page.getByTestId('message').first()).toContainText('Context forked from');
   await expect(page.getByTestId('message').nth(1)).toContainText('run whoami');
+  await showActivity();
+  await expect(page.getByTestId('activity-context-section')).toContainText('1 item');
+  await expect(page.getByTestId('activity-context')).toContainText('Fork summary ready');
+  await expect(page.getByTestId('activity-context')).toContainText('Deterministic summary');
 
   await createContextPressure('full fork pressure');
 
@@ -169,5 +185,5 @@ test('mock harness shows context pressure banner and compacts or forks from late
   await expect(page.getByTestId('top-bar-title')).toContainText('Fork full:');
   await expect(page.getByTestId('context-banner')).toBeVisible();
   await expect(page.getByTestId('message').first()).toContainText('Context forked from');
-  await expect(page.getByText('full fork pressure')).toBeVisible();
+  await expect(page.getByTestId('timeline').getByText('full fork pressure')).toBeVisible();
 });

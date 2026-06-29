@@ -20,6 +20,10 @@ enum WorkspaceActivitySurfaceBuilder {
         WorkspaceActivityEventSurfaceBuilder.recentSteps(for: thread)
     }
 
+    static func contextItems(for thread: ChatThread) -> [ActivityItemSurface] {
+        WorkspaceActivityContextSurfaceBuilder.items(for: thread)
+    }
+
     static func toolItems(from toolCards: [ToolCardState]) -> [ActivityItemSurface] {
         toolCards
             .suffix(8)
@@ -59,6 +63,7 @@ enum WorkspaceActivitySurfaceBuilder {
 
     static func sections(
         planItems: [ActivityItemSurface],
+        contextItems: [ActivityItemSurface],
         recentSteps: [ActivityItemSurface],
         subagents: [ActivityItemSurface],
         tools: [ActivityItemSurface],
@@ -74,6 +79,11 @@ enum WorkspaceActivitySurfaceBuilder {
                 kind: .plan,
                 items: planItems,
                 isCollapsed: collapsedSectionIDs.contains(.plan)
+            ),
+            ActivitySectionSurface(
+                kind: .context,
+                items: contextItems,
+                isCollapsed: collapsedSectionIDs.contains(.context)
             ),
             ActivitySectionSurface(
                 kind: .recent,

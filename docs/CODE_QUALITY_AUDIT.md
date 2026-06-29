@@ -9299,3 +9299,20 @@ Code quality changes:
 Remaining risk:
 
 - This still proves source/smoke contracts rather than sampling the packaged `.app` accessibility tree. The final A+ click-target layer remains native Accessibility automation that clicks/validates real frames and labels using the same stable contract IDs.
+
+## 2026-06-28 Activity Context Summary Section Pass
+
+Overall grade after this slice: **A replayable telemetry projection, A Activity parity, A- richer live animation**.
+
+Context compact/fork already recorded model-vs-fallback telemetry, but Activity only showed those notices as generic Recent rows. That made Codex-style continuation recovery harder to audit because users could not immediately tell whether a compact or fork summary came from TrustedRouter or the deterministic fallback.
+
+Code quality changes:
+
+- Added `WorkspaceActivityContextSurfaceBuilder` as the focused projection boundary for source-thread summary notices and continuation-thread `WorkspaceContextSummaryTelemetry`.
+- Added a first-class `context` Activity section kind with stable title, empty copy, test IDs, and collapse command wiring.
+- Thread Activity surfaces now carry `contextItems` through Codable state and derived sections while keeping old payloads backward compatible.
+- Mirrored the section contract in the Playwright harness and extended the context-pressure flow to assert compact and summary-fork outcomes in Activity.
+
+Remaining risk:
+
+- This proves the section and outcome rows. Richer animated live progress while the model summary is still streaming remains pending as part of broader context-recovery polish.

@@ -3647,7 +3647,8 @@
         instructionDiagnostics: [],
         authoredPlan: null,
         authoredSubagents: null,
-        authoredHandoff: null
+        authoredHandoff: null,
+        contextItems: []
       },
       automations: {
         isVisible: false,
@@ -7869,6 +7870,7 @@
         taskTitle: latestUser ? latestUser.text : 'No task selected',
         taskSubtitle: `${messages.length} ${messages.length === 1 ? 'message' : 'messages'} · ${state.transcript.timelineItems.length} timeline ${state.transcript.timelineItems.length === 1 ? 'item' : 'items'}`,
         steps,
+        contextItems: state.activity.contextItems || [],
         tools,
         sources: allSources,
         instructionConflicts,
@@ -7876,6 +7878,7 @@
         finalAnswer: latestAssistant?.text || null,
         sections: activitySections({
           steps,
+          contextItems: state.activity.contextItems || [],
           tools,
           sources: allSources,
           instructionConflicts,
@@ -7903,6 +7906,10 @@
         section('plan', 'Task Plan', 'activity-plan', 'No plan yet', {
           items: activity.planItems,
           countLabel: countLabel(activity.planItems.length, 'item')
+        }),
+        section('context', 'Context', 'activity-context', 'No context compaction yet', {
+          items: activity.contextItems || [],
+          countLabel: countLabel((activity.contextItems || []).length, 'item')
         }),
         section('recent', 'Recent', 'activity-step', 'No task events yet', {
           items: activity.steps,
@@ -7938,6 +7945,7 @@
         })
       ].filter(section => {
         if (section.id === 'instructionReview') return (section.items || []).length > 0;
+        if (section.id === 'context') return (section.items || []).length > 0;
         return (section.id !== 'latestAnswer' && section.id !== 'handoff') || section.bodyText;
       });
     }
@@ -8699,6 +8707,7 @@
       state.activity.authoredPlan = null;
       state.activity.authoredSubagents = null;
       state.activity.authoredHandoff = null;
+      state.activity.contextItems = [];
       state.review = {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -8751,7 +8760,16 @@
       return summaryLines;
     }
 
-    function insertDerivedThread({ title, messages }) {
+    function contextActivityItem({ kind, sourceTitle, summaryText }) {
+      return {
+        id: `context-${state.nextTimelineIndex++}`,
+        title: kind === 'compact' ? 'Context compacted' : 'Fork summary ready',
+        detail: `Deterministic summary · from ${sourceTitle} · ${summaryText.length} characters`,
+        statusLabel: 'Done'
+      };
+    }
+
+    function insertDerivedThread({ title, messages, contextItems = [] }) {
       const threadID = `thread-${state.nextThreadIndex++}`;
 
       state.sidebar.selectedThreadID = threadID;
@@ -8772,6 +8790,7 @@
         kind: 'message',
         message
       }));
+      state.activity.contextItems = contextItems;
       state.review = {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -8796,17 +8815,19 @@
       const latestIDs = new Set(latestMessages.map(message => message.id));
       const olderMessages = visibleMessages.filter(message => !latestIDs.has(message.id));
       if (strategy === 'summary') {
+        const summaryText = contextSummaryLines({
+          sourceTitle,
+          olderMessages,
+          recentMessages: latestMessages,
+          kind: 'fork'
+        }).join('\n');
         insertDerivedThread({
           title: `Fork summary: ${sourceTitle}`,
           messages: [
-            { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: contextSummaryLines({
-              sourceTitle,
-              olderMessages,
-              recentMessages: latestMessages,
-              kind: 'fork'
-            }).join('\n') },
+            { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryText },
             ...latestMessages
-          ]
+          ],
+          contextItems: [contextActivityItem({ kind: 'fork', sourceTitle, summaryText })]
         });
         return;
       }
@@ -8831,17 +8852,19 @@
       const recentMessages = latestTurnMessages(visibleMessages);
       const recentIDs = new Set(recentMessages.map(message => message.id));
       const olderMessages = visibleMessages.filter(message => !recentIDs.has(message.id));
+      const summaryText = contextSummaryLines({
+        sourceTitle,
+        olderMessages,
+        recentMessages,
+        kind: 'compact'
+      }).join('\n');
       insertDerivedThread({
         title: `Compact: ${sourceTitle}`,
         messages: [
-          { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: contextSummaryLines({
-            sourceTitle,
-            olderMessages,
-            recentMessages,
-            kind: 'compact'
-          }).join('\n') },
+          { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryText },
           ...recentMessages
-        ]
+        ],
+        contextItems: [contextActivityItem({ kind: 'compact', sourceTitle, summaryText })]
       });
     }
 
