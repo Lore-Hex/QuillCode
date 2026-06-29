@@ -1,10 +1,12 @@
 import AppKit
 import Foundation
+import QuillCodeApp
 import SwiftUI
 
 @MainActor
 enum QuillCodeDesktopWindowSmokeRunner {
     private static var smokeWindow: NSWindow?
+    private static var smokeController: QuillCodeDesktopController?
 
     static func runAndExit(_ request: QuillCodeDesktopWindowSmokeRequest) async {
         do {
@@ -51,6 +53,9 @@ enum QuillCodeDesktopWindowSmokeRunner {
             minBrightPixelRatio: 0.0005,
             minBlueAccentPixelRatio: 0.0001
         )
+        let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(
+            for: smokeSurface()
+        )
 
         return QuillCodeDesktopWindowSmokeReport(
             ok: true,
@@ -60,7 +65,8 @@ enum QuillCodeDesktopWindowSmokeRunner {
             windowFrame: window.frame,
             contentSize: bounds.size,
             screenshotPath: screenshotURL.path,
-            image: stats.report
+            image: stats.report,
+            nativeHitTargets: nativeHitTargets
         )
     }
 
@@ -93,7 +99,15 @@ enum QuillCodeDesktopWindowSmokeRunner {
         window.contentView = contentView
         window.center()
         window.makeKeyAndOrderFront(nil)
+        smokeController = controller
         smokeWindow = window
+    }
+
+    private static func smokeSurface() -> WorkspaceSurface {
+        if let smokeController {
+            return smokeController.surface
+        }
+        return QuillCodeDesktopController().surface
     }
 
     private static func isSmokeWindow(_ window: NSWindow) -> Bool {

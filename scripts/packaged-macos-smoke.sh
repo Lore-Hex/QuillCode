@@ -181,6 +181,14 @@ if ! grep -q '"windowTitle" : "QuillCode"' "$WINDOW_REPORT_PATH"; then
   cat "$WINDOW_REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"nativeHitTargets"' "$WINDOW_REPORT_PATH"; then
+  echo "Packaged app live-window smoke did not include native hit target evidence" >&2
+  cat "$WINDOW_REPORT_PATH" >&2
+  exit 1
+fi
+"$ROOT_DIR/scripts/native-click-probe-contracts.py" validate \
+  "$WINDOW_REPORT_PATH" \
+  --label "packaged live-window"
 if [[ "$(wc -c < "$WINDOW_SCREENSHOT_PATH" | tr -d ' ')" -lt 4096 ]]; then
   echo "Packaged app live-window smoke rendered a suspiciously small screenshot" >&2
   ls -l "$WINDOW_SCREENSHOT_PATH" >&2

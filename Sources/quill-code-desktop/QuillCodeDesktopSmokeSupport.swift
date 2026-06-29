@@ -266,6 +266,7 @@ struct QuillCodeDesktopWindowSmokeReport {
     var contentSize: CGSize
     var screenshotPath: String
     var image: QuillCodeDesktopSmokePixelReport
+    var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
     func prettyJSON() throws -> Data {
         try JSONSerialization.data(
@@ -285,10 +286,33 @@ struct QuillCodeDesktopWindowSmokeReport {
                     "height": contentSize.height
                 ],
                 "screenshotPath": screenshotPath,
-                "image": image.dictionary
+                "image": image.dictionary,
+                "nativeHitTargets": nativeHitTargets.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]
         )
+    }
+}
+
+enum QuillCodeDesktopNativeHitTargetSmoke {
+    static func validatedReport(for surface: WorkspaceSurface) throws -> QuillCodeNativeHitTargetAuditReport {
+        let nativeHitTargets = QuillCodeNativeHitTargetAudit.report(for: surface)
+        guard nativeHitTargets.isValid else {
+            throw QuillCodeDesktopSmokeFailure.nativeHitTargetAuditFailed(issueMessages(for: nativeHitTargets))
+        }
+        return nativeHitTargets
+    }
+
+    private static func issueMessages(
+        for report: QuillCodeNativeHitTargetAuditReport
+    ) -> [String] {
+        report.validationIssues
+            + report.missingDesignKinds.map { "missing design kind: \($0)" }
+            + report.missingSurfaceFamilies.map { "missing surface family: \($0)" }
+            + report.missingRequiredFocusTargets.map { "missing focus target: \($0)" }
+            + report.missingRequiredCommandIDs.map { "missing command: \($0)" }
+            + report.missingClickProbeContractIDs.map { "missing click probe: \($0)" }
+            + report.clickProbeValidationIssues
     }
 }
 

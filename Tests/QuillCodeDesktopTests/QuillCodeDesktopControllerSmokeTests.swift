@@ -22,6 +22,34 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertNil(QuillCodeDesktopWindowSmokeRequest(arguments: ["QuillCode"]))
     }
 
+    func testDesktopWindowSmokeReportIncludesNativeHitTargets() throws {
+        let model = QuillCodeWorkspaceModel()
+        let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: model.surface())
+        let report = QuillCodeDesktopWindowSmokeReport(
+            ok: true,
+            appName: "QuillCode",
+            bundleIdentifier: "co.lorehex.QuillCode",
+            windowTitle: "QuillCode",
+            windowFrame: CGRect(x: 0, y: 0, width: 1280, height: 928),
+            contentSize: CGSize(width: 1280, height: 900),
+            screenshotPath: "/tmp/quillcode-window.png",
+            image: QuillCodeDesktopSmokePixelReport(
+                width: 2560,
+                height: 1800,
+                opaquePixelRatio: 1,
+                brightPixelRatio: 0.01,
+                blueAccentPixelRatio: 0.01,
+                distinctColorBuckets: 48
+            ),
+            nativeHitTargets: nativeHitTargets
+        )
+
+        let json = String(data: try report.prettyJSON(), encoding: .utf8) ?? ""
+        XCTAssertTrue(json.contains(#""nativeHitTargets""#))
+        XCTAssertTrue(json.contains(#""clickProbes""#))
+        XCTAssertTrue(json.contains(#""quillcode-send-button""#))
+    }
+
     func testDesktopComposerSendPublishesOptimisticTranscriptBeforeAgentReturns() async throws {
         let workspaceRoot = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: DesktopSlowLLMClient()))

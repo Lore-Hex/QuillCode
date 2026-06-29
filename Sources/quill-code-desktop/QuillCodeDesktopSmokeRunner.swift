@@ -88,18 +88,7 @@ enum QuillCodeDesktopSmokeRunner {
             throw QuillCodeDesktopSmokeFailure.followUpReadMismatch(followUpFinalAnswer)
         }
 
-        let nativeHitTargets = QuillCodeNativeHitTargetAudit.report(for: surface)
-        guard nativeHitTargets.isValid else {
-            throw QuillCodeDesktopSmokeFailure.nativeHitTargetAuditFailed(
-                nativeHitTargets.validationIssues
-                    + nativeHitTargets.missingDesignKinds.map { "missing design kind: \($0)" }
-                    + nativeHitTargets.missingSurfaceFamilies.map { "missing surface family: \($0)" }
-                    + nativeHitTargets.missingRequiredFocusTargets.map { "missing focus target: \($0)" }
-                    + nativeHitTargets.missingRequiredCommandIDs.map { "missing command: \($0)" }
-                    + nativeHitTargets.missingClickProbeContractIDs.map { "missing click probe: \($0)" }
-                    + nativeHitTargets.clickProbeValidationIssues
-            )
-        }
+        let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
         guard surface.transcript.messages.count >= 4,
               surface.transcript.toolCards.count >= 2,
               surface.transcript.timelineItems.count >= 6

@@ -849,12 +849,14 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native hit-target audit should emit a click-probe plan with selectors, required dimensions, and normalized interior sample points for every addressable target."
         )
         XCTAssertTrue(
-            smokeRunnerText.contains("QuillCodeNativeHitTargetAudit.report(for: surface)")
-                && smokeRunnerText.contains("nativeHitTargets.isValid")
-                && smokeRunnerText.contains("missingRequiredFocusTargets")
-                && smokeRunnerText.contains("clickProbeValidationIssues")
-                && smokeRunnerText.contains("nativeHitTargetAuditFailed"),
-            "The product executable smoke should fail closed when native hit-target contracts are invalid."
+            smokeSupportText.contains("enum QuillCodeDesktopNativeHitTargetSmoke")
+                && smokeSupportText.contains("QuillCodeNativeHitTargetAudit.report(for: surface)")
+                && smokeSupportText.contains("nativeHitTargets.isValid")
+                && smokeSupportText.contains("missingRequiredFocusTargets")
+                && smokeSupportText.contains("clickProbeValidationIssues")
+                && smokeSupportText.contains("nativeHitTargetAuditFailed")
+                && smokeRunnerText.contains("QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)"),
+            "The product executable smoke should fail closed through the shared native hit-target validator when contracts are invalid."
         )
         XCTAssertTrue(
             smokeScriptText.contains(#""nativeHitTargets""#)

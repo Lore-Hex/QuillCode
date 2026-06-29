@@ -39,10 +39,13 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(appText.contains(".defaultSize(width: 1280, height: 900)"))
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopWindowSmokeRequest"))
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopWindowSmokeReport"))
+        XCTAssertTrue(supportText.contains("enum QuillCodeDesktopNativeHitTargetSmoke"))
+        XCTAssertTrue(supportText.contains(#""nativeHitTargets": nativeHitTargets.dictionary"#))
         XCTAssertTrue(windowSmokeText.contains("waitForWindow()"))
         XCTAssertTrue(windowSmokeText.contains("openSmokeWindow()"))
         XCTAssertTrue(windowSmokeText.contains("NSHostingView(rootView: rootView)"))
         XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopRootView(controller: controller)"))
+        XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopNativeHitTargetSmoke.validatedReport"))
         XCTAssertTrue(windowSmokeText.contains("bitmapImageRepForCachingDisplay"))
         XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopSmokePixelStats"))
         XCTAssertTrue(windowSmokeText.contains("window.title == \"QuillCode\""))
@@ -53,6 +56,9 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(packagedSmoke.contains("window-report.json"))
         XCTAssertTrue(packagedSmoke.contains("window.png"))
         XCTAssertTrue(packagedSmoke.contains(#""windowTitle" : "QuillCode""#))
+        XCTAssertTrue(packagedSmoke.contains(#""nativeHitTargets""#))
+        XCTAssertTrue(packagedSmoke.contains(#"native-click-probe-contracts.py" validate"#))
+        XCTAssertTrue(packagedSmoke.contains(#"--label "packaged live-window""#))
     }
 
     func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {
