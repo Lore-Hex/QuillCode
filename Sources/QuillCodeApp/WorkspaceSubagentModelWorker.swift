@@ -55,6 +55,7 @@ enum WorkspaceSubagentPromptBuilder {
         \(objective)
 
         Your role: \(job.role)
+        \(groupPathSection(for: job))
         \(priorResultsSection(job.priorResults))
         Return exactly one QuillCode action JSON object and no markdown:
         {"type":"say","text":"..."}
@@ -63,6 +64,17 @@ enum WorkspaceSubagentPromptBuilder {
         objective: what you inspected or produced, key findings, and any next
         steps. Keep it to a few sentences. Do not include credentials, tokens,
         private keys, or other secrets.
+        """
+    }
+
+    private static func groupPathSection(for job: WorkspaceSubagentJob) -> String {
+        let groupPath = job.groupPath
+        guard !groupPath.isEmpty else { return "" }
+        return """
+
+        Nested plan path: \((groupPath + [job.name.components(separatedBy: "/").last ?? job.name]).joined(separator: " / "))
+        Parent group: \(groupPath.joined(separator: " / "))
+
         """
     }
 
