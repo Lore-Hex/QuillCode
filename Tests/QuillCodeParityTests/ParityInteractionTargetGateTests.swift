@@ -595,6 +595,61 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(violations, [])
     }
 
+    func testNativeSourceAuditCoversDisclosureGroupTriggers() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct BadDisclosureTarget: View {
+            @State private var expanded = false
+
+            var body: some View {
+                DisclosureGroup(isExpanded: $expanded) {
+                    Button("Copy") {}
+                        .quillCodeTextButtonTarget()
+                        .buttonStyle(QuillCodePressableButtonStyle())
+                } label: {
+                    Text("Details")
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(
+            violations.contains { $0.contains("DisclosureGroup trigger lacks shared hit target") },
+            "A target inside expanded disclosure content must not satisfy the disclosure toggle label."
+        )
+    }
+
+    func testNativeSourceAuditAcceptsDisclosureGroupTriggerContracts() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct GoodDisclosureTarget: View {
+            @State private var expanded = false
+
+            var body: some View {
+                DisclosureGroup(isExpanded: $expanded) {
+                    Text("Raw details")
+                } label: {
+                    HStack {
+                        Text("Details")
+                        Spacer()
+                    }
+                    .quillCodeFullRowButtonTarget()
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
     func testNativeSourceAuditCoversAdjustableControls() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
@@ -1396,6 +1451,14 @@ private struct SwiftSourceInteractionTargetAudit {
                 violations.append("\(relativePath):\(index + 1) Menu trigger lacks explicit press or platform style")
             }
 
+            let disclosureTriggerScope = isDisclosureDeclaration(line)
+                ? triggerScopeForDisclosure(in: lines, startingAt: index, declarationScope: declarationScope)
+                : declarationScope
+            if isDisclosureDeclaration(line),
+               !hasSharedTarget(in: disclosureTriggerScope) {
+                violations.append("\(relativePath):\(index + 1) DisclosureGroup trigger lacks shared hit target")
+            }
+
             if isPickerDeclaration(line),
                !hasSharedTarget(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Picker lacks shared hit target")
@@ -1547,6 +1610,18 @@ private struct SwiftSourceInteractionTargetAudit {
         return scopeLines[labelLine...].joined(separator: "\n")
     }
 
+    private func triggerScopeForDisclosure(
+        in lines: [String],
+        startingAt index: Int,
+        declarationScope: String
+    ) -> String {
+        let scopeLines = declarationScope.components(separatedBy: .newlines)
+        guard let labelLine = scopeLines.firstIndex(where: { $0.contains("label:") }) else {
+            return lines[safe: index] ?? declarationScope
+        }
+        return scopeLines[labelLine...].joined(separator: "\n")
+    }
+
     private func isChainedModifierLine(_ line: String?) -> Bool {
         guard let line else { return false }
         return line.range(
@@ -1618,6 +1693,13 @@ private struct SwiftSourceInteractionTargetAudit {
         ) != nil
     }
 
+    private func isDisclosureDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*DisclosureGroup(?:\(|\s*\{)"#,
+            options: .regularExpression
+        ) != nil
+    }
+
     private func isTextEntryDeclaration(_ line: String) -> Bool {
         line.range(
             of: #"^\s*(TextField|SecureField|TextEditor)\("#,
@@ -1644,6 +1726,7 @@ private struct SwiftSourceInteractionTargetAudit {
             || isMenuDeclaration(line)
             || isPickerDeclaration(line)
             || isLinkDeclaration(line)
+            || isDisclosureDeclaration(line)
             || isTextEntryDeclaration(line)
             || isToggleDeclaration(line)
             || isAdjustableDeclaration(line)
@@ -1684,6 +1767,8 @@ private struct SwiftSourceInteractionTargetAudit {
             "Menu(",
             "Menu {",
             "Picker(",
+            "DisclosureGroup(",
+            "DisclosureGroup {",
             "Toggle(",
             "Link(",
             "TextField(",
