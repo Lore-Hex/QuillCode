@@ -6412,7 +6412,7 @@
       });
       document.querySelectorAll('[data-testid="empty-starter-action"]').forEach(button => {
         button.addEventListener('click', event => {
-          usePromptAsDraft(event.currentTarget.getAttribute('data-prompt'));
+          sendStarterPrompt(event.currentTarget.getAttribute('data-prompt'));
         });
       });
       document.querySelectorAll('[data-testid="message-retry"]').forEach(button => {
@@ -7710,6 +7710,15 @@
       state.composer.slashActiveIndex = 0;
       render();
       focusComposerAtDraftEnd();
+    }
+
+    function sendStarterPrompt(prompt) {
+      const text = String(prompt || '').trim();
+      if (!text) return;
+      state.composer.draft = text;
+      state.composer.canSend = true;
+      state.composer.slashActiveIndex = 0;
+      sendMessage(text);
     }
 
     function focusComposerAtDraftEnd() {
