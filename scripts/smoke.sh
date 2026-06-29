@@ -12,6 +12,7 @@ FINAL_DETAIL="interrupted"
 SWIFT_TESTS_STATUS="not-run"
 CLI_SHELL_STATUS="not-run"
 CLI_DIAGNOSTICS_STATUS="not-run"
+CLI_GIT_READ_STATUS="not-run"
 CLI_NEGATIVE_ACTION_STATUS="not-run"
 CLI_FILE_CREATION_STATUS="not-run"
 CLI_WORKSPACE_FOLLOWUP_STATUS="not-run"
@@ -46,6 +47,7 @@ write_manifest() {
     "$SWIFT_TESTS_STATUS" \
     "$CLI_SHELL_STATUS" \
     "$CLI_DIAGNOSTICS_STATUS" \
+    "$CLI_GIT_READ_STATUS" \
     "$CLI_NEGATIVE_ACTION_STATUS" \
     "$CLI_FILE_CREATION_STATUS" \
     "$CLI_WORKSPACE_FOLLOWUP_STATUS" \
@@ -72,6 +74,7 @@ from datetime import datetime, timezone
     swift_tests_status,
     cli_shell_status,
     cli_diagnostics_status,
+    cli_git_read_status,
     cli_negative_action_status,
     cli_file_creation_status,
     cli_workspace_followup_status,
@@ -158,6 +161,7 @@ manifest = {
         "swiftTests": {"status": swift_tests_status},
         "cliShell": {"status": cli_shell_status},
         "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
+        "cliGitRead": {"status": cli_git_read_status},
         "cliNegativeActions": {"status": cli_negative_action_status},
         "cliFileCreation": {"status": cli_file_creation_status},
         "cliWorkspaceFollowUp": {"status": cli_workspace_followup_status},
@@ -245,6 +249,19 @@ assert_playwright_real_world_manifest() {
   "$ROOT_DIR/scripts/validate-playwright-real-world-manifest.py" "$manifest_path"
 }
 
+prepare_git_workspace() {
+  git -C "$SMOKE_WORKSPACE" init >/dev/null
+  git -C "$SMOKE_WORKSPACE" config user.email quillcode-smoke@example.com
+  git -C "$SMOKE_WORKSPACE" config user.name "QuillCode Smoke"
+  printf 'before\n' > "$SMOKE_WORKSPACE/tracked.txt"
+  git -C "$SMOKE_WORKSPACE" add tracked.txt
+  git -C "$SMOKE_WORKSPACE" commit -m "Add tracked smoke file" >/dev/null
+  printf 'after\n' > "$SMOKE_WORKSPACE/tracked.txt"
+}
+
+FINAL_DETAIL="mock CLI git fixture setup failed"
+prepare_git_workspace
+
 echo "==> Running Swift test suite"
 SWIFT_TESTS_STATUS="running"
 FINAL_DETAIL="Swift test suite failed"
@@ -280,6 +297,19 @@ assert_cli_output_contains "$current_directory_output" "$SMOKE_WORKSPACE_PHYSICA
 openclaw_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do you have openclaw?")"
 assert_cli_output_contains "$openclaw_output" "openclaw" "Do you have openclaw?"
 CLI_DIAGNOSTICS_STATUS="passed"
+
+echo "==> Running mock CLI git read prompts"
+CLI_GIT_READ_STATUS="running"
+FINAL_DETAIL="mock CLI git read prompts failed"
+git_status_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Please check git status.")"
+assert_cli_output_contains "$git_status_output" "Git status:" "Please check git status"
+assert_cli_output_contains "$git_status_output" "tracked.txt" "Please check git status"
+
+git_diff_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "what changed?")"
+assert_cli_output_contains "$git_diff_output" "Git diff:" "what changed?"
+assert_cli_output_contains "$git_diff_output" "tracked.txt" "what changed?"
+assert_cli_output_contains "$git_diff_output" "+after" "what changed?"
+CLI_GIT_READ_STATUS="passed"
 
 echo "==> Running mock CLI negative action prompts"
 CLI_NEGATIVE_ACTION_STATUS="running"

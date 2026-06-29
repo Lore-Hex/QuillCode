@@ -74,9 +74,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("steps should be an object"))
         XCTAssertTrue(script.contains("steps.playwright should be an object"))
         XCTAssertTrue(script.contains("steps.playwright.realWorldActions should be an object"))
-        XCTAssertTrue(script.contains("scenarioCount should be at least 5"))
-        XCTAssertTrue(script.contains("promptCount should be at least 13"))
-        XCTAssertTrue(script.contains("regressionGuardCount should be at least 15"))
+        XCTAssertTrue(script.contains("scenarioCount should be at least 6"))
+        XCTAssertTrue(script.contains("promptCount should be at least 15"))
+        XCTAssertTrue(script.contains("regressionGuardCount should be at least 18"))
     }
 
     func testDeterministicSmokeCoversExplicitNegativeActionIntent() throws {
@@ -93,22 +93,40 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("forbidden.html despite explicit negative intent"))
     }
 
+    func testDeterministicSmokeCoversNaturalGitReadPrompts() throws {
+        let script = try Self.scriptText(named: "smoke.sh")
+
+        XCTAssertTrue(script.contains("CLI_GIT_READ_STATUS=\"not-run\""))
+        XCTAssertTrue(script.contains("\"cliGitRead\""))
+        XCTAssertTrue(script.contains("prepare_git_workspace()"))
+        XCTAssertTrue(script.contains("tracked.txt"))
+        XCTAssertTrue(script.contains("Please check git status."))
+        XCTAssertTrue(script.contains("what changed?"))
+        XCTAssertTrue(script.contains("Git status:"))
+        XCTAssertTrue(script.contains("Git diff:"))
+        XCTAssertTrue(script.contains("+after"))
+    }
+
     func testPlaywrightRealWorldManifestValidatorGuardsReleaseEvidence() throws {
         let script = try Self.scriptText(named: "smoke.sh")
         let validator = try Self.scriptText(named: "validate-playwright-real-world-manifest.py")
 
         XCTAssertTrue(script.contains("validate-playwright-real-world-manifest.py"))
         XCTAssertTrue(validator.contains("REQUIRED_SCENARIOS"))
-        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 13"))
-        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 15"))
+        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 15"))
+        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 18"))
         XCTAssertTrue(validator.contains("runs natural shell requests immediately with nonempty arguments"))
         XCTAssertTrue(validator.contains("writes requested file content immediately without a confirmation loop"))
         XCTAssertTrue(validator.contains("answers device diagnostic prompts with concrete shell actions"))
         XCTAssertTrue(validator.contains("downloads requested domains with a bounded concrete shell action"))
+        XCTAssertTrue(validator.contains("answers natural git read requests with structured git tools"))
         XCTAssertTrue(validator.contains("respects explicit negative action prompts without tool cards or side effects"))
+        XCTAssertTrue(validator.contains("Please check git status."))
+        XCTAssertTrue(validator.contains("what changed?"))
         XCTAssertTrue(validator.contains("shell arguments are never {}"))
         XCTAssertTrue(validator.contains("assistant does not answer with passive promises"))
         XCTAssertTrue(validator.contains("safety review does not block clear user intent"))
+        XCTAssertTrue(validator.contains("git status uses host.git.status instead of shell fallback"))
     }
 
     func testRealWorldSmokeWorkflowRunsReleaseCandidateWrapperWithArtifacts() throws {
