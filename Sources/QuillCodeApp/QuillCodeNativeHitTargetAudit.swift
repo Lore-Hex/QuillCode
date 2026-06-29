@@ -321,6 +321,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var missingRequiredSurfaceFocusTargets: [String]
     public var missingRequiredCommandIDs: [String]
     public var missingClickProbeContractIDs: [String]
+    public var clickProbeValidationIssues: [String]
     public var duplicateContractIDs: [String]
     public var validationIssues: [String]
 
@@ -333,6 +334,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             && missingRequiredSurfaceFocusTargets.isEmpty
             && missingRequiredCommandIDs.isEmpty
             && missingClickProbeContractIDs.isEmpty
+            && clickProbeValidationIssues.isEmpty
             && duplicateContractIDs.isEmpty
             && validationIssues.isEmpty
     }
@@ -356,6 +358,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "missingRequiredSurfaceFocusTargets": missingRequiredSurfaceFocusTargets,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
             "missingClickProbeContractIDs": missingClickProbeContractIDs,
+            "clickProbeValidationIssues": clickProbeValidationIssues,
             "duplicateContractIDs": duplicateContractIDs,
             "validationIssues": validationIssues
         ]
@@ -458,6 +461,10 @@ public enum QuillCodeNativeHitTargetAudit {
             contracts: surfaceContracts,
             probes: clickProbes
         )
+        let clickProbeValidationIssues = validateClickProbes(
+            contracts: surfaceContracts,
+            probes: clickProbes
+        )
 
         return QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: Double(QuillCodeMetrics.minimumHitTarget),
@@ -476,6 +483,7 @@ public enum QuillCodeNativeHitTargetAudit {
             missingRequiredSurfaceFocusTargets: missingSurfaceFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
             missingClickProbeContractIDs: missingClickProbeContractIDs,
+            clickProbeValidationIssues: clickProbeValidationIssues,
             duplicateContractIDs: duplicateContractIDs,
             validationIssues: validationIssues
         )
@@ -558,6 +566,125 @@ public enum QuillCodeNativeHitTargetAudit {
             .sorted()
     }
 
+    public static func validateClickProbes(
+        contracts: [QuillCodeNativeHitTargetContract],
+        probes: [QuillCodeNativeHitTargetProbe]
+    ) -> [String] {
+        let contractsByID = Dictionary(
+            contracts.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var seenProbeIDs: Set<String> = []
+        var issues: [String] = []
+
+        for probe in probes {
+            let contractID = probe.contractID.trimmingCharacters(in: .whitespacesAndNewlines)
+            if contractID.isEmpty {
+                issues.append("click probe has an empty contract id")
+                continue
+            }
+            guard seenProbeIDs.insert(contractID).inserted else {
+                issues.append("\(contractID) has duplicate click probes")
+                continue
+            }
+            guard let contract = contractsByID[contractID] else {
+                issues.append("\(contractID) click probe does not match a surface contract")
+                continue
+            }
+
+            issues.append(contentsOf: selectorValidationIssues(probe: probe, contract: contract))
+            issues.append(contentsOf: semanticValidationIssues(probe: probe, contract: contract))
+            issues.append(contentsOf: dimensionValidationIssues(probe: probe))
+            issues.append(contentsOf: samplePointValidationIssues(probe: probe))
+        }
+
+        return issues.sorted()
+    }
+
+    private static func selectorValidationIssues(
+        probe: QuillCodeNativeHitTargetProbe,
+        contract: QuillCodeNativeHitTargetContract
+    ) -> [String] {
+        let expectedSelector: String?
+        switch probe.selectorKind {
+        case .testID:
+            expectedSelector = contract.testID
+        case .commandID:
+            expectedSelector = contract.commandID
+        case .focusTarget:
+            expectedSelector = contract.focusTarget?.rawValue
+        }
+
+        let selector = probe.selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        if selector.isEmpty {
+            return ["\(probe.contractID) click probe has an empty selector"]
+        }
+        if selector != expectedSelector {
+            return ["\(probe.contractID) click probe selector \(selector) does not match \(probe.selectorKind.rawValue) contract selector"]
+        }
+        return []
+    }
+
+    private static func semanticValidationIssues(
+        probe: QuillCodeNativeHitTargetProbe,
+        contract: QuillCodeNativeHitTargetContract
+    ) -> [String] {
+        var issues: [String] = []
+        if probe.kind != contract.kind {
+            issues.append("\(probe.contractID) click probe kind \(probe.kind.rawValue) does not match \(contract.kind.rawValue)")
+        }
+        if probe.action != contract.action {
+            issues.append("\(probe.contractID) click probe action \(probe.action.rawValue) does not match \(contract.action.rawValue)")
+        }
+        if probe.family != contract.family {
+            issues.append("\(probe.contractID) click probe family \(probe.family.rawValue) does not match \(contract.family.rawValue)")
+        }
+        return issues
+    }
+
+    private static func dimensionValidationIssues(
+        probe: QuillCodeNativeHitTargetProbe
+    ) -> [String] {
+        var issues: [String] = []
+        let minimum = Double(QuillCodeMetrics.minimumHitTarget)
+        if probe.requiredMinWidth < minimum {
+            issues.append("\(probe.contractID) click probe requiredMinWidth \(probe.requiredMinWidth) is below \(minimum)")
+        }
+        if probe.requiredMinHeight < minimum {
+            issues.append("\(probe.contractID) click probe requiredMinHeight \(probe.requiredMinHeight) is below \(minimum)")
+        }
+        return issues
+    }
+
+    private static func samplePointValidationIssues(
+        probe: QuillCodeNativeHitTargetProbe
+    ) -> [String] {
+        var issues: [String] = []
+        let pointNames = Set(probe.samplePoints.map(\.name))
+        let missingPointNames = requiredClickSamplePointNames
+            .filter { !pointNames.contains($0) }
+            .sorted()
+        if !missingPointNames.isEmpty {
+            issues.append("\(probe.contractID) click probe is missing sample points: \(missingPointNames.joined(separator: ", "))")
+        }
+        for point in probe.samplePoints {
+            let pointName = point.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if pointName.isEmpty {
+                issues.append("\(probe.contractID) click probe has an unnamed sample point")
+            } else if let expectedPoint = expectedClickSamplePointsByName[pointName] {
+                if !point.x.isNearlyEqual(to: expectedPoint.x) || !point.y.isNearlyEqual(to: expectedPoint.y) {
+                    issues.append("\(probe.contractID) click probe sample point \(point.name) has unexpected coordinates")
+                }
+            } else {
+                issues.append("\(probe.contractID) click probe has unknown sample point \(point.name)")
+            }
+            if point.x <= 0 || point.x >= 1 || point.y <= 0 || point.y >= 1 {
+                issues.append("\(probe.contractID) click probe sample point \(point.name) is outside the target interior")
+            }
+        }
+        return issues
+    }
+
     private static func clickProbes(
         for contracts: [QuillCodeNativeHitTargetContract]
     ) -> [QuillCodeNativeHitTargetProbe] {
@@ -602,6 +729,14 @@ public enum QuillCodeNativeHitTargetAudit {
         return nil
     }
 
+    private static let requiredClickSamplePointNames: Set<String> = [
+        "center",
+        "leading-interior",
+        "trailing-interior",
+        "top-interior",
+        "bottom-interior"
+    ]
+
     private static let normalizedClickSamplePoints: [QuillCodeNativeHitTargetProbePoint] = [
         QuillCodeNativeHitTargetProbePoint(name: "center", x: 0.5, y: 0.5),
         QuillCodeNativeHitTargetProbePoint(name: "leading-interior", x: 0.18, y: 0.5),
@@ -609,6 +744,10 @@ public enum QuillCodeNativeHitTargetAudit {
         QuillCodeNativeHitTargetProbePoint(name: "top-interior", x: 0.5, y: 0.18),
         QuillCodeNativeHitTargetProbePoint(name: "bottom-interior", x: 0.5, y: 0.82)
     ]
+
+    private static let expectedClickSamplePointsByName = Dictionary(
+        uniqueKeysWithValues: normalizedClickSamplePoints.map { ($0.name, $0) }
+    )
 
     private static func surfaceContracts(for surface: WorkspaceSurface) -> [QuillCodeNativeHitTargetContract] {
         var contracts = persistentSurfaceContracts()
@@ -811,5 +950,11 @@ public enum QuillCodeNativeHitTargetAudit {
         let trimmed = testID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return testID }
         return trimmed.hasPrefix("quillcode-") ? trimmed : "quillcode-\(trimmed)"
+    }
+}
+
+private extension Double {
+    func isNearlyEqual(to other: Double) -> Bool {
+        abs(self - other) <= 1e-9
     }
 }

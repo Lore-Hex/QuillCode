@@ -268,6 +268,8 @@ if missing_probe_contracts:
     raise SystemExit(f"quill-code-desktop native smoke surface contracts are missing click probes: {', '.join(missing_probe_contracts)}")
 if native_targets.get("missingClickProbeContractIDs") != []:
     raise SystemExit(f"quill-code-desktop native smoke reported missing click probes: {native_targets.get('missingClickProbeContractIDs')}")
+if native_targets.get("clickProbeValidationIssues") != []:
+    raise SystemExit(f"quill-code-desktop native smoke reported invalid click probes: {native_targets.get('clickProbeValidationIssues')}")
 
 surface_test_ids = {contract.get("testID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("testID")}
 surface_command_ids = {contract.get("commandID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("commandID")}
