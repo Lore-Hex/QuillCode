@@ -277,6 +277,60 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   await expectHitTarget(page.locator('[data-testid="tool-card-details"] summary'), 'tool details disclosure');
 });
 
+test('mock harness honors reduced motion for press and thinking states', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('run whoami');
+  const sendButton = page.getByTestId('send-button');
+  await expect(sendButton).toBeEnabled();
+
+  const box = await sendButton.boundingBox();
+  expect(box, 'send button should be visible for active-state probing').not.toBeNull();
+  if (!box) {
+    throw new Error('send button should be visible for active-state probing');
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  const activeStyle = await sendButton.evaluate(element => {
+    const style = getComputedStyle(element);
+    return {
+      transform: style.transform,
+      transitionDuration: style.transitionDuration
+    };
+  });
+  await page.mouse.up();
+
+  const transitionDurations = activeStyle.transitionDuration
+    .split(',')
+    .map(value => Number.parseFloat(value.trim()))
+    .filter(value => Number.isFinite(value));
+  expect(
+    activeStyle.transform,
+    'press feedback should not scale controls when the user asks for reduced motion'
+  ).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+  expect(
+    transitionDurations.every(value => value <= 0.001),
+    `reduced-motion transitions should resolve immediately, got ${activeStyle.transitionDuration}`
+  ).toBe(true);
+
+  await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.className = 'thinking-dot';
+    probe.setAttribute('data-testid', 'reduced-motion-thinking-dot');
+    document.body.appendChild(probe);
+  });
+  const thinkingDotStyle = await computedStyleProperties(page, '[data-testid="reduced-motion-thinking-dot"]', [
+    'animation-name',
+    'opacity',
+    'transform'
+  ]);
+
+  expect(thinkingDotStyle['animation-name']).toBe('none');
+  expect(thinkingDotStyle.opacity).toBe('0.72');
+  expect(thinkingDotStyle.transform).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+});
+
 test('mock harness renders labeled composer controls without clipping their text', async ({ page }) => {
   await page.goto(harnessURL());
 
