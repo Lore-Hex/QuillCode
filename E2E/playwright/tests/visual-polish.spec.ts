@@ -302,6 +302,41 @@ test('mock harness renders labeled composer controls without clipping their text
   }
 });
 
+test('mock harness stacks empty-starter title above its subtitle', async ({ page }) => {
+  // The starter actions match the native VStack: a bold title on top and a
+  // muted subtitle below it. A shared text hit target centers its children in a
+  // row by default, which collapsed the two into one line with no separating
+  // space (e.g. "Review changesFind risks..."), so the card overrides the
+  // layout to a left-aligned vertical stack.
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(harnessURL());
+    await expect(page.getByTestId('empty-starter-action').first()).toBeVisible();
+
+    const layout = await page.getByTestId('empty-starter-action').first().evaluate(button => {
+      const title = button.querySelector('strong')?.getBoundingClientRect();
+      const subtitle = button.querySelector('span')?.getBoundingClientRect();
+      if (!title || !subtitle) return null;
+      return {
+        titleBottom: title.bottom,
+        titleLeft: title.left,
+        subtitleTop: subtitle.top,
+        subtitleLeft: subtitle.left
+      };
+    });
+
+    expect(layout, `starter action at ${width}px should expose a title and subtitle`).not.toBeNull();
+    expect(
+      layout.subtitleTop,
+      `starter subtitle should sit below its title at ${width}px, not beside it`
+    ).toBeGreaterThanOrEqual(layout.titleBottom - 1);
+    expect(
+      Math.abs(layout.subtitleLeft - layout.titleLeft),
+      `starter title and subtitle should share a left edge at ${width}px`
+    ).toBeLessThanOrEqual(1);
+  }
+});
+
 test('mock harness keeps quiet top bar stable under long status metadata', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 760 });
   await page.goto(harnessURL());
