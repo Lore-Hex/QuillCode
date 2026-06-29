@@ -4,7 +4,9 @@ enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
     case icon
     case text
     case textEntry = "text-entry"
+    case segmented
     case row
+    case switchRow = "switch-row"
     case capsule
     case formAction = "form-action"
     case adjustable = "adjustable"
@@ -12,40 +14,37 @@ enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
     case owned
 
     var className: String {
-        switch self {
-        case .icon:
-            return "hit-target-icon"
-        case .text:
-            return "hit-target-text"
-        case .textEntry:
-            return "hit-target-text-entry"
-        case .row:
-            return "hit-target-row"
-        case .capsule:
-            return "hit-target-capsule"
-        case .formAction:
-            return "hit-target-form-action"
-        case .adjustable:
-            return "hit-target-adjustable"
-        case .link:
-            return "hit-target-link"
-        case .owned:
-            return "hit-target-owned"
-        }
+        nativeKind.renderedClassName
     }
 
     var action: String {
+        nativeKind.action.rawValue
+    }
+
+    var nativeKind: QuillCodeNativeHitTargetKind {
         switch self {
+        case .icon:
+            return .icon
+        case .text:
+            return .textButton
         case .textEntry:
-            return "text-input"
+            return .textEntry
+        case .segmented:
+            return .segmentedControl
+        case .row:
+            return .fullRow
+        case .switchRow:
+            return .switchRow
+        case .capsule:
+            return .capsule
+        case .formAction:
+            return .formAction
         case .adjustable:
-            return "adjust"
+            return .adjustableControl
         case .link:
-            return "link"
+            return .link
         case .owned:
-            return "owned-gesture"
-        case .icon, .text, .row, .capsule, .formAction:
-            return "press"
+            return .ownedGesture
         }
     }
 }
@@ -58,7 +57,9 @@ enum WorkspaceHTMLPrimitives {
     static let iconHitTargetClass = WorkspaceHTMLHitTargetKind.icon.className
     static let textHitTargetClass = WorkspaceHTMLHitTargetKind.text.className
     static let textEntryHitTargetClass = WorkspaceHTMLHitTargetKind.textEntry.className
+    static let segmentedHitTargetClass = WorkspaceHTMLHitTargetKind.segmented.className
     static let rowHitTargetClass = WorkspaceHTMLHitTargetKind.row.className
+    static let switchRowHitTargetClass = WorkspaceHTMLHitTargetKind.switchRow.className
     static let capsuleHitTargetClass = WorkspaceHTMLHitTargetKind.capsule.className
     static let formActionHitTargetClass = WorkspaceHTMLHitTargetKind.formAction.className
     static let adjustableHitTargetClass = WorkspaceHTMLHitTargetKind.adjustable.className
@@ -328,6 +329,8 @@ enum WorkspaceHTMLPrimitives {
     private static let hitTargetKindByClass: [(String, WorkspaceHTMLHitTargetKind)] = [
         (WorkspaceHTMLHitTargetKind.icon.className, .icon),
         (WorkspaceHTMLHitTargetKind.textEntry.className, .textEntry),
+        (WorkspaceHTMLHitTargetKind.segmented.className, .segmented),
+        (WorkspaceHTMLHitTargetKind.switchRow.className, .switchRow),
         (WorkspaceHTMLHitTargetKind.row.className, .row),
         (WorkspaceHTMLHitTargetKind.capsule.className, .capsule),
         (WorkspaceHTMLHitTargetKind.formAction.className, .formAction),

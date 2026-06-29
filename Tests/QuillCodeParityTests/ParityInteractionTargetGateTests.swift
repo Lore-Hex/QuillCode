@@ -127,10 +127,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             primitivesText.contains("enum WorkspaceHTMLHitTargetKind")
                 && primitivesText.contains("case icon")
                 && primitivesText.contains("case textEntry = \"text-entry\"")
+                && primitivesText.contains("case segmented")
+                && primitivesText.contains("case switchRow = \"switch-row\"")
                 && primitivesText.contains("case formAction = \"form-action\"")
                 && primitivesText.contains("case adjustable = \"adjustable\"")
+                && primitivesText.contains("var nativeKind: QuillCodeNativeHitTargetKind")
                 && primitivesText.contains("var className: String"),
-            "Rendered controls should declare hit-target intent through a typed semantic kind instead of passing target CSS classes as the primary API."
+            "Rendered controls should declare hit-target intent through the same native semantic vocabulary instead of passing target CSS classes as the primary API."
         )
         XCTAssertTrue(
             primitivesText.contains(#"static let hitTargetKindAttributeName = "data-hit-target-kind""#)
@@ -157,13 +160,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && primitivesText.contains("ownedHitTargetClass")
                 && primitivesText.contains("linkHitTargetClass")
                 && primitivesText.contains("textEntryHitTargetClass")
+                && primitivesText.contains("segmentedHitTargetClass")
+                && primitivesText.contains("switchRowHitTargetClass")
                 && primitivesText.contains("formActionHitTargetClass"),
             "The defaulting helper should recognize every shared rendered hit-target class instead of duplicating class-name logic at call sites."
         )
         XCTAssertTrue(
             primitivesText.contains("adjustableHitTargetClass")
-                && primitivesText.contains("hit-target-adjustable"),
-            "Rendered adjustable controls such as range inputs should have their own semantic hit-target class instead of falling through to generic ownership."
+                && primitivesText.contains("nativeKind.renderedClassName"),
+            "Rendered adjustable controls such as range inputs should derive their semantic class from the shared native vocabulary instead of falling through to generic ownership."
         )
     }
 
@@ -366,11 +371,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             harnessText.contains("['hit-target-icon', 'icon']")
                 && harnessText.contains("['hit-target-text-entry', 'text-entry']")
+                && harnessText.contains("element.classList.contains('hit-target-segmented')")
                 && harnessText.contains("['hit-target-row', 'row']")
+                && harnessText.contains("['hit-target-switch-row', 'switch-row']")
                 && harnessText.contains("['hit-target-capsule', 'capsule']")
                 && harnessText.contains("['hit-target-adjustable', 'adjustable']")
                 && harnessText.contains("['hit-target-text', 'text']"),
-            "Dynamic fallback targets should classify controls as icon, text-entry, row, capsule, adjustable, or text before using generic ownership."
+            "Dynamic fallback targets should classify controls as icon, text-entry, row, switch-row, capsule, adjustable, or text before using generic ownership, while preserving explicit segmented targets."
         )
         XCTAssertTrue(
             harnessText.contains("normalizeInteractionTargetContracts(document.getElementById('app'))"),
@@ -1454,7 +1461,9 @@ private struct HTMLSourceInteractionTargetAudit {
         "WorkspaceHTMLPrimitives.iconHitTargetClass",
         "WorkspaceHTMLPrimitives.textHitTargetClass",
         "WorkspaceHTMLPrimitives.textEntryHitTargetClass",
+        "WorkspaceHTMLPrimitives.segmentedHitTargetClass",
         "WorkspaceHTMLPrimitives.rowHitTargetClass",
+        "WorkspaceHTMLPrimitives.switchRowHitTargetClass",
         "WorkspaceHTMLPrimitives.capsuleHitTargetClass",
         "WorkspaceHTMLPrimitives.formActionHitTargetClass",
         "WorkspaceHTMLPrimitives.adjustableHitTargetClass"

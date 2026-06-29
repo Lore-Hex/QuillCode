@@ -9,7 +9,9 @@ export const SHARED_HIT_TARGET_CLASSES = [
   'hit-target-icon',
   'hit-target-text',
   'hit-target-text-entry',
+  'hit-target-segmented',
   'hit-target-row',
+  'hit-target-switch-row',
   'hit-target-capsule',
   'hit-target-form-action',
   'hit-target-adjustable'
@@ -21,7 +23,9 @@ export const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
   'hit-target-icon': 'icon',
   'hit-target-text': 'text',
   'hit-target-text-entry': 'text-entry',
+  'hit-target-segmented': 'segmented',
   'hit-target-row': 'row',
+  'hit-target-switch-row': 'switch-row',
   'hit-target-capsule': 'capsule',
   'hit-target-form-action': 'form-action',
   'hit-target-adjustable': 'adjustable'
@@ -35,6 +39,8 @@ export const EXPECTED_ACTION_BY_KIND: Record<string, string> = {
   link: 'link',
   owned: 'owned-gesture',
   row: 'press',
+  segmented: 'press',
+  'switch-row': 'press',
   text: 'press',
   'text-entry': 'text-input'
 };

@@ -24,11 +24,43 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         for hitTargetCase in cases {
             XCTAssertEqual(hitTargetCase.spec.kind, hitTargetCase.kind)
             XCTAssertEqual(hitTargetCase.spec.action, hitTargetCase.action.rawValue)
+            XCTAssertFalse(hitTargetCase.spec.kind.renderedKind.isEmpty)
+            XCTAssertTrue(hitTargetCase.spec.kind.renderedClassName.hasPrefix("hit-target-"))
             XCTAssertEqual(hitTargetCase.spec.allowsNestedInteractiveChildren, hitTargetCase.kind.allowsNestedInteractiveChildren)
             XCTAssertEqual(hitTargetCase.spec.requiresUnblockedInterior, hitTargetCase.kind.requiresUnblockedInterior)
             XCTAssertGreaterThanOrEqual(hitTargetCase.spec.requiredMinWidth, QuillCodeMetrics.minimumHitTarget)
             XCTAssertGreaterThanOrEqual(hitTargetCase.spec.requiredMinHeight, QuillCodeMetrics.minimumHitTarget)
             XCTAssertGreaterThanOrEqual(hitTargetCase.spec.minHeight, QuillCodeMetrics.minimumHitTarget)
+        }
+    }
+
+    func testRenderedHitTargetKindsBridgeToNativeSemantics() {
+        let expectedNativeKinds: [WorkspaceHTMLHitTargetKind: QuillCodeNativeHitTargetKind] = [
+            .icon: .icon,
+            .text: .textButton,
+            .textEntry: .textEntry,
+            .segmented: .segmentedControl,
+            .row: .fullRow,
+            .switchRow: .switchRow,
+            .capsule: .capsule,
+            .formAction: .formAction,
+            .adjustable: .adjustableControl,
+            .link: .link,
+            .owned: .ownedGesture
+        ]
+
+        XCTAssertEqual(Set(WorkspaceHTMLHitTargetKind.allCases), Set(expectedNativeKinds.keys))
+        XCTAssertEqual(
+            Set(WorkspaceHTMLHitTargetKind.allCases.map(\.nativeKind)),
+            Set(QuillCodeNativeHitTargetKind.allCases),
+            "Rendered and native click-target APIs should cover the same semantic vocabulary."
+        )
+
+        for kind in WorkspaceHTMLHitTargetKind.allCases {
+            XCTAssertEqual(kind.nativeKind, expectedNativeKinds[kind], kind.rawValue)
+            XCTAssertEqual(kind.rawValue, kind.nativeKind.renderedKind, kind.rawValue)
+            XCTAssertEqual(kind.className, kind.nativeKind.renderedClassName, kind.rawValue)
+            XCTAssertEqual(kind.action, kind.nativeKind.action.rawValue, kind.rawValue)
         }
     }
 
