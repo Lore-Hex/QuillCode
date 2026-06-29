@@ -31,7 +31,7 @@ public struct PTYWindowSize: Sendable, Hashable {
 /// A PTY merges the child's stdout and stderr onto one terminal device, so
 /// output is delivered on a single `.stdout` stream and the finished
 /// `ToolResult` carries an empty `stderr`.
-public final class PTYProcessSession: @unchecked Sendable {
+public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendable {
     public let events: AsyncStream<ShellProcessEvent>
 
     private let continuation: AsyncStream<ShellProcessEvent>.Continuation

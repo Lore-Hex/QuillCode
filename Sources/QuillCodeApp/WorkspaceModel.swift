@@ -32,7 +32,7 @@ public final class QuillCodeWorkspaceModel {
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
-    var activeTerminalSession: ShellStreamingSession?
+    var activeTerminalSession: (any ShellInteractiveSession)?
     var subagentScheduler = WorkspaceSubagentScheduler()
 
     public init(
