@@ -14,6 +14,20 @@ Adds Socrates 1.1, the currently leading frontier model, as the top Recommended 
 Residual risk:
 
 - The default user-facing model is unchanged (Nike 1.0); promoting Socrates 1.1 to the default is a follow-up if desired. The bundled `tr/socrates` ID is the offline default and is superseded by the live TrustedRouter catalog when keyed.
+## 2026-06-29 File Mention Live Refresh Pass
+
+Overall grade after this slice: **A mid-session mention freshness**.
+
+Rounds out the file-mention feature so newly created files are referenceable without a manual context refresh.
+
+| Before | After |
+| --- | --- |
+| The composer `@` mention index only refreshed on project add/select/refresh-context, so files created during a session were invisible to mentions until a manual refresh. | A completed agent run refreshes the selected local project's file-mention index, so files the agent just created, moved, or deleted are immediately available to `@` mentions. |
+| No coverage for post-run index freshness. | A new integration test writes a file through a real agent run and asserts the new path appears in `fileMentionIndex`. |
+
+Residual risk:
+
+- The refresh runs once per completed run regardless of whether files changed; it is bounded and inexpensive, but a future optimization could skip it for read-only runs.
 
 ## 2026-06-29 File Mention Harness Parity Pass
 
