@@ -134,8 +134,14 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "context", "summarize", "compact"],
                 isEnabled: availability.selectedThreadHasMessages
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.sidebarSavedSearchCreate.rawValue,
+                title: "Create sidebar search",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "sidebar", "filter"]
             )
-        ] + savedSearches.filter(\.isValid).map(savedSearchCommand)
+        ] + savedSearches.filter(\.isValid).flatMap(savedSearchCommands)
     }
 
     private static func savedFilterCommand(_ filter: SidebarSavedFilterKind) -> WorkspaceCommandSurface {
@@ -147,12 +153,20 @@ enum WorkspaceThreadCommandCatalog {
         )
     }
 
-    private static func savedSearchCommand(_ savedSearch: SidebarSavedSearch) -> WorkspaceCommandSurface {
-        WorkspaceCommandSurface(
-            id: SidebarSavedSearchSurface.commandID(for: savedSearch.id),
-            title: "Show \(savedSearch.title)",
-            category: WorkspaceCommandPalette.threadCategory,
-            keywords: ["thread", "chat", "sidebar", "saved search", "search", savedSearch.query]
-        )
+    private static func savedSearchCommands(_ savedSearch: SidebarSavedSearch) -> [WorkspaceCommandSurface] {
+        [
+            WorkspaceCommandSurface(
+                id: SidebarSavedSearchSurface.commandID(for: savedSearch.id),
+                title: "Show \(savedSearch.title)",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "sidebar", "saved search", "search", savedSearch.query]
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarSavedSearchSurface.deleteCommandID(for: savedSearch.id),
+                title: "Delete saved search \(savedSearch.title)",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "sidebar", "saved search", "delete", savedSearch.query]
+            )
+        ]
     }
 }

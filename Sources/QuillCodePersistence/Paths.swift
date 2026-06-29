@@ -6,6 +6,7 @@ public struct QuillCodePaths: Sendable, Hashable {
     public var configFile: URL { home.appendingPathComponent("config.toml") }
     public var automationsFile: URL { home.appendingPathComponent("automations.json") }
     public var projectsFile: URL { home.appendingPathComponent("projects.json") }
+    public var sidebarSavedSearchesFile: URL { home.appendingPathComponent("sidebar-saved-searches.json") }
     public var threadsDirectory: URL { home.appendingPathComponent("threads") }
     public var memoriesDirectory: URL { home.appendingPathComponent("memories") }
     public var secretsDirectory: URL { home.appendingPathComponent("secrets") }

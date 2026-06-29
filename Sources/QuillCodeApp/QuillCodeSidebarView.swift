@@ -21,9 +21,10 @@ struct QuillCodeSidebarView: View {
                     filters: sidebar.savedFilters,
                     onCommand: onCommand
                 )
-                if !sidebar.customSavedSearches.isEmpty {
+                if let createCommand = savedSearchCreateCommand {
                     QuillCodeSidebarSavedSearchBar(
                         savedSearches: sidebar.customSavedSearches,
+                        createCommand: createCommand,
                         onCommand: onCommand
                     )
                 }
@@ -79,54 +80,90 @@ struct QuillCodeSidebarView: View {
             }
         }
     }
+
+    private var savedSearchCreateCommand: WorkspaceCommandSurface? {
+        commands.first { $0.id == WorkspaceCommandAction.sidebarSavedSearchCreate.rawValue }
+    }
+
 }
 
 private struct QuillCodeSidebarSavedSearchBar: View {
     var savedSearches: [SidebarSavedSearchSurface]
+    var createCommand: WorkspaceCommandSurface
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-            Text("Saved searches")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .lineLimit(1)
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 118), spacing: QuillCodeMetrics.denseControlClusterSpacing, alignment: .leading)],
-                alignment: .leading,
-                spacing: QuillCodeMetrics.denseControlClusterSpacing
-            ) {
-                ForEach(savedSearches) { savedSearch in
-                    Button {
-                        onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: savedSearch))
-                    } label: {
-                        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .imageScale(.small)
-                            Text(savedSearch.title)
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                            Text("\(savedSearch.count)")
-                                .font(.caption2.weight(.bold))
-                                .monospacedDigit()
-                                .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background((savedSearch.isActive ? Color.white : QuillCodePalette.panel).opacity(0.28))
-                                .clipShape(Capsule())
-                        }
-                        .quillCodeCapsuleButtonTarget(minWidth: 88)
-                        .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
-                        .background(savedSearch.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.45))
-                        .clipShape(Capsule())
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Text("Saved searches")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                Spacer()
+                Button {
+                    onCommand(createCommand)
+                } label: {
+                    Label("Save", systemImage: "plus")
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .quillCodeTextButtonTarget(minWidth: 64)
+                .foregroundStyle(QuillCodePalette.blue)
+            }
+
+            if !savedSearches.isEmpty {
+                VStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                    ForEach(savedSearches) { savedSearch in
+                        savedSearchRow(savedSearch)
                     }
-                    .buttonStyle(QuillCodePressableButtonStyle())
-                    .accessibilityLabel(savedSearch.accessibilityLabel)
-                    .accessibilityAddTraits(savedSearch.isActive ? .isSelected : [])
-                    .help(savedSearch.query)
                 }
             }
+        }
+    }
+
+    private func savedSearchRow(_ savedSearch: SidebarSavedSearchSurface) -> some View {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+            Button {
+                onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: savedSearch))
+            } label: {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .imageScale(.small)
+                    Text(savedSearch.title)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 0)
+                    Text("\(savedSearch.count)")
+                        .font(.caption2.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background((savedSearch.isActive ? Color.white : QuillCodePalette.panel).opacity(0.28))
+                        .clipShape(Capsule())
+                }
+                .quillCodeCapsuleButtonTarget(minWidth: 124, alignment: .leading)
+                .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
+                .background(savedSearch.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.45))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .accessibilityLabel(savedSearch.accessibilityLabel)
+            .accessibilityAddTraits(savedSearch.isActive ? .isSelected : [])
+            .help(savedSearch.query)
+
+            Button {
+                onCommand(QuillCodeSidebarCommandAdapter.deleteWorkspaceCommand(for: savedSearch))
+            } label: {
+                Image(systemName: "trash")
+                    .imageScale(.small)
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .quillCodeIconButtonTarget()
+            .foregroundStyle(QuillCodePalette.red)
+            .accessibilityLabel("Delete saved search \(savedSearch.title)")
         }
     }
 }

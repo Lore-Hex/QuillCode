@@ -111,6 +111,10 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(savedSearch.category, WorkspaceCommandPalette.threadCategory)
         XCTAssertTrue(savedSearch.keywords.contains("saved search"))
         XCTAssertTrue(savedSearch.keywords.contains("failed error"))
+        let deleteSavedSearch = try command("sidebar-saved-search-delete:\(searchID.uuidString)", in: commands)
+        XCTAssertEqual(deleteSavedSearch.title, "Delete saved search Failures")
+        XCTAssertTrue(deleteSavedSearch.keywords.contains("delete"))
+        XCTAssertNotNil(commands.first { $0.id == "sidebar-saved-search-create" })
         XCTAssertFalse(commands.contains { $0.title == "Show hidden" })
     }
 

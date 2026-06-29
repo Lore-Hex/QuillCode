@@ -21,10 +21,12 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
         let secretStore = FileSecretStore(directory: paths.secretsDirectory)
         let projects = try projectStore.load()
         let threads = try threadStore.list()
         let automations = try automationStore.load()
+        let sidebarSavedSearches = try sidebarSavedSearchStore.load()
         let selectedThreadID = threads.first(where: { !$0.isArchived })?.id
         let selectedProjectID = selectedThreadID
             .flatMap { id in threads.first { $0.id == id }?.projectID }
@@ -50,11 +52,13 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 trustedRouterAPIKeyConfigured: Self.hasTrustedRouterAPIKey(secretStore: secretStore)
             ),
             automations: AutomationsState(items: automations),
+            sidebarSavedSearches: sidebarSavedSearches,
             runner: runtime.runner,
             contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,
             projectStore: projectStore,
             automationStore: automationStore,
+            sidebarSavedSearchStore: sidebarSavedSearchStore,
             globalMemoryDirectory: paths.memoriesDirectory
         )
         model.refreshSelectedProjectInstructions()

@@ -97,6 +97,7 @@ struct QuillCodeDesktopRootView: View {
             onPruneWorktrees: controller.pruneWorktrees,
             onCopyTranscriptItem: controller.copyTranscriptItem,
             onMessageFeedback: controller.setMessageFeedback,
+            onSaveSidebarSavedSearch: controller.saveSidebarSavedSearch,
             onCommand: controller.runCommand
         )
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in

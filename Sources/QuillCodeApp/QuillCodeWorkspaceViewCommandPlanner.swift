@@ -7,6 +7,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case requestAddProject
     case presentCommandPalette
     case presentKeyboardShortcuts
+    case presentSidebarSavedSearch
     case renameThread(threadID: UUID, title: String)
     case renameProject(projectID: UUID, name: String)
     case presentCreateWorktree
@@ -35,6 +36,8 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
             return .presentCommandPalette
         case "keyboard-shortcuts":
             return .presentKeyboardShortcuts
+        case "sidebar-saved-search-create":
+            return .presentSidebarSavedSearch
         case "thread-rename":
             return selectedThreadRenameAction()
         case "project-rename":

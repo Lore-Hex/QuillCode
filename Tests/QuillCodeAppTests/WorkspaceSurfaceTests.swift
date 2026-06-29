@@ -85,6 +85,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "fork-with-summary",
             "fork-full-context",
             "compact-context",
+            "sidebar-saved-search-create",
             "retry-last-turn",
             "search",
             "find-in-chat",

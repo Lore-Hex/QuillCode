@@ -219,6 +219,47 @@ extension QuillCodeWorkspaceModel {
         return true
     }
 
+    @discardableResult
+    public func saveSidebarSavedSearch(title: String, query: String) -> SidebarSavedSearch? {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackTitle = normalizedQuery.isEmpty ? "" : normalizedQuery
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let savedSearch = SidebarSavedSearch(
+            title: normalizedTitle.isEmpty ? fallbackTitle : normalizedTitle,
+            query: normalizedQuery
+        )
+        guard savedSearch.isValid else { return nil }
+
+        if let existing = sidebarSavedSearches.first(where: {
+            $0.title.caseInsensitiveCompare(savedSearch.title) == .orderedSame
+                && $0.query.caseInsensitiveCompare(savedSearch.query) == .orderedSame
+        }) {
+            _ = setSidebarSavedSearch(existing.id)
+            return existing
+        }
+
+        sidebarSavedSearches.append(savedSearch)
+        activeSidebarSavedSearchID = savedSearch.id
+        clearSidebarSelection()
+        saveSidebarSavedSearches()
+        return savedSearch
+    }
+
+    @discardableResult
+    public func deleteSidebarSavedSearch(_ id: UUID) -> Bool {
+        guard let index = sidebarSavedSearches.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        sidebarSavedSearches.remove(at: index)
+        if activeSidebarSavedSearchID == id {
+            activeSidebarSavedSearchID = nil
+            sidebarFilter = .all
+            clearSidebarSelection()
+        }
+        saveSidebarSavedSearches()
+        return true
+    }
+
     public func selectAllSidebarThreads() {
         sidebarSelection = WorkspaceSidebarSelectionEngine.selectAll(
             orderedThreadIDs: filteredSidebarItems().map(\.id)

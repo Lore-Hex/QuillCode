@@ -117,6 +117,11 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
+    func saveSidebarSavedSearch(title: String, query: String) {
+        _ = model.saveSidebarSavedSearch(title: title, query: query)
+        refresh()
+    }
+
     func selectProject(_ id: UUID?) {
         navigationCoordinator.selectProject(id, model: model)
         refresh()

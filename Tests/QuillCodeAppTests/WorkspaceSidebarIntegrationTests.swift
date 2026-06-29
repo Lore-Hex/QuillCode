@@ -123,4 +123,42 @@ final class WorkspaceSidebarIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.sidebar.customSavedSearches.first?.isActive, false)
         XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Active"])
     }
+
+    func testSavedSearchCreateDeleteAndPersistence() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let store = JSONSidebarSavedSearchStore(
+            fileURL: directory.appendingPathComponent("sidebar-saved-searches.json")
+        )
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [
+                    ChatThread(title: "Fix command flakes", projectID: project.id),
+                    ChatThread(title: "Design sidebar", projectID: project.id)
+                ]
+            ),
+            sidebarSavedSearchStore: store
+        )
+
+        let savedSearch: SidebarSavedSearch = try XCTUnwrap(model.saveSidebarSavedSearch(title: "  ", query: " flakes "))
+        XCTAssertEqual(savedSearch.title, "flakes")
+        XCTAssertEqual(model.activeSidebarSavedSearchID, savedSearch.id)
+        XCTAssertEqual(try store.load(), [savedSearch])
+        XCTAssertEqual(model.surface().sidebar.visibleItems.map { $0.title }, ["Fix command flakes"])
+
+        let duplicate: SidebarSavedSearch = try XCTUnwrap(model.saveSidebarSavedSearch(title: "FLAKES", query: "FLAKES"))
+        XCTAssertEqual(duplicate.id, savedSearch.id)
+        XCTAssertEqual(try store.load(), [savedSearch])
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "sidebar-saved-search-delete:\(savedSearch.id.uuidString)",
+            workspaceRoot: URL(fileURLWithPath: "/tmp")
+        ))
+        XCTAssertNil(model.activeSidebarSavedSearchID)
+        XCTAssertEqual(Set(model.surface().sidebar.visibleItems.map { $0.title }), ["Fix command flakes", "Design sidebar"])
+        let reloaded: [SidebarSavedSearch] = try store.load()
+        XCTAssertEqual(reloaded, [])
+    }
 }

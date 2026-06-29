@@ -244,6 +244,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "The broad click-target audit should cover custom sidebar saved searches, since they are dynamically rendered command targets."
         )
         XCTAssertTrue(
+            interactionSpecText.contains("sidebar saved-search create button")
+                && interactionSpecText.contains("sidebar saved-search delete button")
+                && interactionSpecText.contains("saved-search query leading interior")
+                && interactionSpecText.contains("saved-search title trailing interior"),
+            "Saved-search management should audit create/delete targets and text-entry focus from interior clicks, not only the selected chip."
+        )
+        XCTAssertTrue(
             interactionSpecText.contains("secondary pane controls respond from the full interior click target")
                 && interactionSpecText.contains("terminal run trailing interior")
                 && interactionSpecText.contains("browser new tab leading interior")

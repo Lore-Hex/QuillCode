@@ -46,6 +46,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onPruneWorktrees: (WorkspaceWorktreePruneRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
     public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
+    public var onSaveSidebarSavedSearch: (String, String) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSearchPresented = false
@@ -56,6 +57,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var activeFindIndex = 0
     @State private var commandQuery = ""
     @State private var settingsDraft = QuillCodeSettingsDraft()
+    @State private var sidebarSavedSearchDraft: QuillCodeSidebarSavedSearchDraft?
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
     @StateObject private var worktreeDialogs = QuillCodeWorktreeDialogCoordinator()
@@ -105,6 +107,7 @@ public struct QuillCodeWorkspaceView: View {
         onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void = { _ in },
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
         onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
+        onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -150,6 +153,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onPruneWorktrees = onPruneWorktrees
         self.onCopyTranscriptItem = onCopyTranscriptItem
         self.onMessageFeedback = onMessageFeedback
+        self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
         self.onCommand = onCommand
     }
 
@@ -229,6 +233,7 @@ public struct QuillCodeWorkspaceView: View {
             pruneWorktreeDraft: $worktreeDialogs.pruneDraft,
             renameThreadDraft: $renameThreadDraft,
             renameProjectDraft: $renameProjectDraft,
+            sidebarSavedSearchDraft: $sidebarSavedSearchDraft,
             onSelectThread: onSelectThread,
             onSaveSettings: onSaveSettings,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
@@ -240,7 +245,8 @@ public struct QuillCodeWorkspaceView: View {
             onRetryWorktreePrunePreview: retryWorktreePrunePreview,
             onPruneWorktrees: onPruneWorktrees,
             onRenameThread: onRenameThread,
-            onRenameProject: onRenameProject
+            onRenameProject: onRenameProject,
+            onSaveSidebarSavedSearch: onSaveSidebarSavedSearch
         )
     }
 
@@ -300,6 +306,8 @@ public struct QuillCodeWorkspaceView: View {
             isCommandPalettePresented = true
         case .presentKeyboardShortcuts:
             isKeyboardShortcutsPresented = true
+        case .presentSidebarSavedSearch:
+            sidebarSavedSearchDraft = QuillCodeSidebarSavedSearchDraft()
         case let .renameThread(threadID, title):
             renameThreadDraft = QuillCodeThreadRenameDraft(threadID: threadID, title: title)
         case let .renameProject(projectID, name):
