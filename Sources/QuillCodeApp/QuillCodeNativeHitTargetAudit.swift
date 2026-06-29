@@ -226,12 +226,91 @@ public struct QuillCodeNativeSurfaceTargetPolicy: Codable, Sendable, Hashable {
     }
 }
 
+public enum QuillCodeNativeHitTargetProbeSelectorKind: String, Codable, Sendable, Hashable {
+    case commandID = "command-id"
+    case focusTarget = "focus-target"
+    case testID = "test-id"
+}
+
+public struct QuillCodeNativeHitTargetProbePoint: Codable, Sendable, Hashable {
+    public var name: String
+    public var x: Double
+    public var y: Double
+
+    public init(name: String, x: Double, y: Double) {
+        self.name = name
+        self.x = x
+        self.y = y
+    }
+
+    public var dictionary: [String: Any] {
+        [
+            "name": name,
+            "x": x,
+            "y": y
+        ]
+    }
+}
+
+public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
+    public var contractID: String
+    public var family: QuillCodeInteractionSurfaceFamily
+    public var label: String
+    public var kind: QuillCodeNativeHitTargetKind
+    public var action: QuillCodeNativeHitTargetAction
+    public var selectorKind: QuillCodeNativeHitTargetProbeSelectorKind
+    public var selector: String
+    public var requiredMinWidth: Double
+    public var requiredMinHeight: Double
+    public var samplePoints: [QuillCodeNativeHitTargetProbePoint]
+
+    public init(
+        contractID: String,
+        family: QuillCodeInteractionSurfaceFamily,
+        label: String,
+        kind: QuillCodeNativeHitTargetKind,
+        action: QuillCodeNativeHitTargetAction,
+        selectorKind: QuillCodeNativeHitTargetProbeSelectorKind,
+        selector: String,
+        requiredMinWidth: Double,
+        requiredMinHeight: Double,
+        samplePoints: [QuillCodeNativeHitTargetProbePoint]
+    ) {
+        self.contractID = contractID
+        self.family = family
+        self.label = label
+        self.kind = kind
+        self.action = action
+        self.selectorKind = selectorKind
+        self.selector = selector
+        self.requiredMinWidth = requiredMinWidth
+        self.requiredMinHeight = requiredMinHeight
+        self.samplePoints = samplePoints
+    }
+
+    public var dictionary: [String: Any] {
+        [
+            "contractID": contractID,
+            "family": family.rawValue,
+            "label": label,
+            "kind": kind.rawValue,
+            "action": action.rawValue,
+            "selectorKind": selectorKind.rawValue,
+            "selector": selector,
+            "requiredMinWidth": requiredMinWidth,
+            "requiredMinHeight": requiredMinHeight,
+            "samplePoints": samplePoints.map(\.dictionary)
+        ]
+    }
+}
+
 public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var minimumHitTarget: Double
     public var pressScale: Double
     public var surfacePolicies: [QuillCodeNativeSurfaceTargetPolicy]
     public var designSystemContracts: [QuillCodeNativeHitTargetContract]
     public var surfaceContracts: [QuillCodeNativeHitTargetContract]
+    public var clickProbes: [QuillCodeNativeHitTargetProbe]
     public var missingDesignKinds: [String]
     public var coveredSurfaceFamilies: [String]
     public var missingSurfaceFamilies: [String]
@@ -241,6 +320,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var missingRequiredSurfaceActions: [String]
     public var missingRequiredSurfaceFocusTargets: [String]
     public var missingRequiredCommandIDs: [String]
+    public var missingClickProbeContractIDs: [String]
     public var duplicateContractIDs: [String]
     public var validationIssues: [String]
 
@@ -252,6 +332,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             && missingRequiredSurfaceActions.isEmpty
             && missingRequiredSurfaceFocusTargets.isEmpty
             && missingRequiredCommandIDs.isEmpty
+            && missingClickProbeContractIDs.isEmpty
             && duplicateContractIDs.isEmpty
             && validationIssues.isEmpty
     }
@@ -264,6 +345,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "surfacePolicies": surfacePolicies.map(\.dictionary),
             "designSystemContracts": designSystemContracts.map(\.dictionary),
             "surfaceContracts": surfaceContracts.map(\.dictionary),
+            "clickProbes": clickProbes.map(\.dictionary),
             "missingDesignKinds": missingDesignKinds,
             "coveredSurfaceFamilies": coveredSurfaceFamilies,
             "missingSurfaceFamilies": missingSurfaceFamilies,
@@ -273,6 +355,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "missingRequiredSurfaceActions": missingRequiredSurfaceActions,
             "missingRequiredSurfaceFocusTargets": missingRequiredSurfaceFocusTargets,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
+            "missingClickProbeContractIDs": missingClickProbeContractIDs,
             "duplicateContractIDs": duplicateContractIDs,
             "validationIssues": validationIssues
         ]
@@ -341,6 +424,7 @@ public enum QuillCodeNativeHitTargetAudit {
         let missingCommandIDs = requiredCommandIDs.filter { !commandIDs.contains($0) }
         let surfaceContracts = self.surfaceContracts(for: surface)
         let designContracts = designSystemContracts
+        let clickProbes = clickProbes(for: surfaceContracts)
         let designKinds = Set(designContracts.map(\.kind))
         let missingKinds = QuillCodeNativeHitTargetKind.allCases
             .filter { !designKinds.contains($0) }
@@ -370,6 +454,10 @@ public enum QuillCodeNativeHitTargetAudit {
         )
         let duplicateContractIDs = duplicateIDs(in: allContracts.map(\.id))
         let validationIssues = allContracts.flatMap(\.validationIssues)
+        let missingClickProbeContractIDs = missingClickProbeContractIDs(
+            contracts: surfaceContracts,
+            probes: clickProbes
+        )
 
         return QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: Double(QuillCodeMetrics.minimumHitTarget),
@@ -377,6 +465,7 @@ public enum QuillCodeNativeHitTargetAudit {
             surfacePolicies: requiredSurfacePolicies,
             designSystemContracts: designContracts,
             surfaceContracts: surfaceContracts,
+            clickProbes: clickProbes,
             missingDesignKinds: missingKinds,
             coveredSurfaceFamilies: coveredFamilies.map(\.rawValue).sorted(),
             missingSurfaceFamilies: missingFamilies,
@@ -386,6 +475,7 @@ public enum QuillCodeNativeHitTargetAudit {
             missingRequiredSurfaceActions: missingSurfaceActions,
             missingRequiredSurfaceFocusTargets: missingSurfaceFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
+            missingClickProbeContractIDs: missingClickProbeContractIDs,
             duplicateContractIDs: duplicateContractIDs,
             validationIssues: validationIssues
         )
@@ -456,6 +546,69 @@ public enum QuillCodeNativeHitTargetAudit {
         }
         return duplicates.sorted()
     }
+
+    private static func missingClickProbeContractIDs(
+        contracts: [QuillCodeNativeHitTargetContract],
+        probes: [QuillCodeNativeHitTargetProbe]
+    ) -> [String] {
+        let probedContractIDs = Set(probes.map(\.contractID))
+        return contracts
+            .map(\.id)
+            .filter { !probedContractIDs.contains($0) }
+            .sorted()
+    }
+
+    private static func clickProbes(
+        for contracts: [QuillCodeNativeHitTargetContract]
+    ) -> [QuillCodeNativeHitTargetProbe] {
+        contracts.compactMap { contract in
+            guard let selector = probeSelector(for: contract) else { return nil }
+            return QuillCodeNativeHitTargetProbe(
+                contractID: contract.id,
+                family: contract.family,
+                label: contract.label,
+                kind: contract.kind,
+                action: contract.action,
+                selectorKind: selector.kind,
+                selector: selector.value,
+                requiredMinWidth: max(
+                    contract.minWidth ?? Double(QuillCodeMetrics.minimumHitTarget),
+                    Double(QuillCodeMetrics.minimumHitTarget)
+                ),
+                requiredMinHeight: max(
+                    contract.minHeight,
+                    Double(QuillCodeMetrics.minimumHitTarget)
+                ),
+                samplePoints: normalizedClickSamplePoints
+            )
+        }
+        .sorted { lhs, rhs in
+            lhs.contractID < rhs.contractID
+        }
+    }
+
+    private static func probeSelector(
+        for contract: QuillCodeNativeHitTargetContract
+    ) -> (kind: QuillCodeNativeHitTargetProbeSelectorKind, value: String)? {
+        if let testID = contract.testID?.trimmingCharacters(in: .whitespacesAndNewlines), !testID.isEmpty {
+            return (.testID, testID)
+        }
+        if let commandID = contract.commandID?.trimmingCharacters(in: .whitespacesAndNewlines), !commandID.isEmpty {
+            return (.commandID, commandID)
+        }
+        if let focusTarget = contract.focusTarget {
+            return (.focusTarget, focusTarget.rawValue)
+        }
+        return nil
+    }
+
+    private static let normalizedClickSamplePoints: [QuillCodeNativeHitTargetProbePoint] = [
+        QuillCodeNativeHitTargetProbePoint(name: "center", x: 0.5, y: 0.5),
+        QuillCodeNativeHitTargetProbePoint(name: "leading-interior", x: 0.18, y: 0.5),
+        QuillCodeNativeHitTargetProbePoint(name: "trailing-interior", x: 0.82, y: 0.5),
+        QuillCodeNativeHitTargetProbePoint(name: "top-interior", x: 0.5, y: 0.18),
+        QuillCodeNativeHitTargetProbePoint(name: "bottom-interior", x: 0.5, y: 0.82)
+    ]
 
     private static func surfaceContracts(for surface: WorkspaceSurface) -> [QuillCodeNativeHitTargetContract] {
         var contracts = persistentSurfaceContracts()

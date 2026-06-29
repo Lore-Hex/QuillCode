@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Click-Probe Contract Pass
+
+Overall grade after this slice: **A native click-probe coverage, A smoke contract enforcement, A- packaged Accessibility execution**.
+
+The previous pass made native controls addressable by stable identifiers. This pass turns those identifiers into an explicit probe contract that release smoke can validate before the AppKit Accessibility runner clicks real frames.
+
+| Before | After |
+| --- | --- |
+| Native smoke knew a target had a `testID`, `commandID`, or focus target, but did not publish how automation should sample that target. | Every addressable surface contract now emits a `clickProbes` entry with selector type/value, semantic kind/action, required minimum width/height, and normalized interior sample points. |
+| A future AX runner would have needed to infer probe points and selector precedence separately from the native audit. | Selector precedence and sample points are now centralized in `QuillCodeNativeHitTargetAudit`, so later frame sampling can consume the same JSON report. |
+| The shell smoke validated surface contracts but not one-to-one probe coverage. | `scripts/native-desktop-smoke.sh` now fails if any surface contract lacks a click probe, if probe selectors drift from their contract, or if sample points fall outside the target interior. |
+
+Residual risk:
+
+- The next A+ layer is still packaged macOS Accessibility execution that resolves these selectors into actual on-screen frames and clicks center plus interior edge points.
+
 ## 2026-06-29 Native Accessibility ID Click-Target Pass
 
 Overall grade after this slice: **A native identifier consistency, A- Accessibility frame sampling**.
