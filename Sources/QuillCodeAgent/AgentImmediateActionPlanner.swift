@@ -7,6 +7,15 @@ enum AgentImmediateActionPlanner {
         let request = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return nil }
 
+        for segment in AgentActionIntentSegments.actionableSegments(in: request) {
+            if let action = action(forSegment: segment, tools: tools) {
+                return action
+            }
+        }
+        return nil
+    }
+
+    private static func action(forSegment request: String, tools: [ToolDefinition]) -> AgentAction? {
         let lower = request.lowercased()
 
         if let gitReadCall = AgentGitReadRequestParser.toolCall(for: request, tools: tools) {

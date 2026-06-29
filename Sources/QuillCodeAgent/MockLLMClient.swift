@@ -16,7 +16,14 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
-        let request = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawRequest = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        if AgentActionIntentSegments.isOnlyNegatedActionRequest(rawRequest) {
+            return .say("Okay, I won't take that action.")
+        }
+        let actionableSegments = AgentActionIntentSegments.actionableSegments(in: rawRequest)
+        let request = actionableSegments.first(where: AgentActionIntentSegments.containsActionIntent)
+            ?? actionableSegments.first
+            ?? rawRequest
         let lower = request.lowercased()
 
         if let command = Self.extractExplicitRunCommand(from: request), !command.isEmpty {
