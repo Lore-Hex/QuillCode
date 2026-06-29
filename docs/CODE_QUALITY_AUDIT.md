@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Immediate-Action Negation Safety Pass
+
+Overall grade after this slice: **A preflight safety boundary, A deterministic mock consistency, A- broad natural-language negation coverage**.
+
+The immediate-action planner is intentionally fast: it catches high-confidence local actions before a provider round trip so prompts like `whoami?`, `How much hd?`, and `Do you have openclaw?` execute in one turn. That same speed made the boundary too sharp: an obvious negative prompt such as `Do not run whoami` could still match a high-confidence action phrase before the model or safety review had enough context.
+
+| Before | After |
+| --- | --- |
+| Preflight checked the whole prompt for phrases such as `whoami`, OpenClaw, disk usage, download, and file-write intent. | `AgentActionIntentSegments` splits prompts into coarse clauses and filters out clauses with nearby negated action intent before preflight planning. |
+| `do not run whoami; run pwd` was either too risky to parse broadly or too easy to reject entirely. | Negated clauses are ignored while later affirmative clauses can still execute, preserving utility without running the forbidden command. |
+| The deterministic mock client could still propose a tool for an all-negated prompt and rely on safety to block it. | `MockLLMClient` uses the same segment helper, returning a direct non-action answer for all-negated action requests and avoiding noisy denied tool cards in demos/smoke. |
+
+Residual risk:
+
+- The guard is intentionally conservative and clause-based. It handles common explicit negations around action verbs, but broader conversational negation and user-intent repair still belongs in the model planner plus Auto safety review rather than growing unrestricted local heuristics.
+
 ## 2026-06-29 Click-Probe Interior Semantics Pass
 
 Overall grade after this slice: **A native probe semantics, A packaged manifest readability, A- live Accessibility clicking**.
