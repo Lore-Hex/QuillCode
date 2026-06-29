@@ -1,5 +1,7 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
+import QuillComputerUseKit
 
 enum WorkspaceToolCardSubtitleBuilder {
     private static let detailLimit = 72
@@ -16,62 +18,66 @@ enum WorkspaceToolCardSubtitleBuilder {
             return nil
         }
 
+        // Match on the registered ToolDefinition names rather than string
+        // literals so a renamed tool is a compile error instead of a silently
+        // missing subtitle detail.
         switch toolName {
-        case "host.shell.run":
+        case ToolDefinition.shellRun.name:
             return sanitized(arguments.string("cmd"))
-        case "host.file.read", "host.file.write",
-             "host.git.stage", "host.git.restore",
-             "host.git.stage_hunk", "host.git.restore_hunk",
-             "host.git.pr.diff", "host.git.pr.review_comment",
-             "host.git.worktree.remove":
+        case ToolDefinition.fileRead.name, ToolDefinition.fileWrite.name,
+             ToolDefinition.gitStage.name, ToolDefinition.gitRestore.name,
+             ToolDefinition.gitStageHunk.name, ToolDefinition.gitRestoreHunk.name,
+             ToolDefinition.gitPullRequestDiff.name, ToolDefinition.gitPullRequestReviewComment.name,
+             ToolDefinition.gitWorktreeRemove.name:
             return sanitized(arguments.string("path"))
-        case "host.apply_patch":
+        case ToolDefinition.applyPatch.name:
             return "patch"
-        case "host.git.status":
+        case ToolDefinition.gitStatus.name:
             return nil
-        case "host.git.diff":
+        case ToolDefinition.gitDiff.name:
             return arguments.bool("staged") == true ? "staged diff" : "working tree"
-        case "host.git.commit":
+        case ToolDefinition.gitCommit.name:
             return sanitized(arguments.string("message"))
-        case "host.git.push":
+        case ToolDefinition.gitPush.name:
             return pushDetail(arguments)
-        case "host.git.pr.create":
+        case ToolDefinition.gitPullRequestCreate.name:
             return sanitized(arguments.string("title"))
-        case "host.git.pr.view", "host.git.pr.checks", "host.git.pr.checkout",
-             "host.git.pr.reviewers", "host.git.pr.labels", "host.git.pr.comment",
-             "host.git.pr.review", "host.git.pr.review_reply", "host.git.pr.review_threads",
-             "host.git.pr.merge":
+        case ToolDefinition.gitPullRequestView.name, ToolDefinition.gitPullRequestChecks.name,
+             ToolDefinition.gitPullRequestCheckout.name, ToolDefinition.gitPullRequestReviewers.name,
+             ToolDefinition.gitPullRequestLabels.name, ToolDefinition.gitPullRequestComment.name,
+             ToolDefinition.gitPullRequestReview.name, ToolDefinition.gitPullRequestReviewReply.name,
+             ToolDefinition.gitPullRequestReviewThreads.name, ToolDefinition.gitPullRequestMerge.name:
             return sanitized(arguments.string("selector"))
-        case "host.git.pr.review_thread":
+        case ToolDefinition.gitPullRequestReviewThread.name:
             return sanitized(arguments.string("action")) ?? sanitized(arguments.string("threadId"))
-        case "host.git.worktree.create":
+        case ToolDefinition.gitWorktreeCreate.name:
             return sanitized(arguments.string("branch")) ?? sanitized(arguments.string("path"))
-        case "host.plan.update":
+        case ToolDefinition.planUpdate.name:
             return "plan"
-        case "host.handoff.update":
+        case ToolDefinition.handoffUpdate.name:
             return "handoff"
-        case "host.subagents.update":
+        case ToolDefinition.subagentsUpdate.name:
             return "subagents"
-        case "host.browser.open":
+        case ToolDefinition.browserOpen.name:
             return sanitized(arguments.string("url"))
-        case "host.memory.remember":
+        case ToolDefinition.memoryRemember.name:
             return sanitized(arguments.string("content"))
-        case "host.mcp.call":
+        case ToolDefinition.mcpCall.name:
             return sanitized(arguments.string("toolName"))
-        case "host.mcp.resource.read":
+        case ToolDefinition.mcpReadResource.name:
             return sanitized(arguments.string("resourceName"))
                 ?? sanitized(arguments.string("name"))
                 ?? sanitized(arguments.string("resourceURI"))
                 ?? sanitized(arguments.string("uri"))
-        case "host.mcp.prompt.get":
+        case ToolDefinition.mcpGetPrompt.name:
             return sanitized(arguments.string("promptName")) ?? sanitized(arguments.string("name"))
-        case "host.computer.click", "host.computer.move":
+        case ToolDefinition.computerClick.name, ToolDefinition.computerMove.name:
             return coordinateDetail(arguments, "x", "y")
-        case "host.computer.scroll":
+        case ToolDefinition.computerScroll.name:
             return coordinateDetail(arguments, "dx", "dy")
-        case "host.computer.type":
+        case ToolDefinition.computerType.name:
             return sanitized(arguments.string("text"))
-        case "host.computer.key":
+        case ToolDefinition.computerKey.name:
             return sanitized(arguments.string("key"))
         default:
             return nil
