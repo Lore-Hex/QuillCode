@@ -16,6 +16,22 @@ Residual risk:
 
 - The tool is intentionally literal text search, not semantic symbol indexing. Full Codex-style project map/search should add indexed symbol search and multi-file summarization after this structured baseline stays green.
 
+## 2026-06-29 Packaged Accessibility Hit-Test Pass
+
+Overall grade after this slice: **A native hit-target evidence, A packaged smoke integrity, A- nonmutating click proof**.
+
+The packaged frame sampler already proved visible controls had stable Accessibility frames and expected center/interior coordinates. That was still one step short of the user problem: a target can look correct and still be impossible to click if another live AX element owns the point.
+
+| Before | After |
+| --- | --- |
+| Live Accessibility samples proved target frame size and expected sample-point coordinates only. | Each sample point now records AX hit-test availability, error, identifier, role, label, ancestor identifiers, and whether it routes back to the intended target. |
+| Required unblocked targets could pass even if their interior was visually or semantically covered by another element. | The Swift sampler and Python release validator now fail required unblocked targets whose center/interior points hit another AX owner when the OS returns point hit-test data. |
+| Packaged frame manifests summarized sampled controls without showing OS-level routing evidence. | `packaged-accessibility-frames.json` preserves hit-test-aware sample summaries through the shared validator. |
+
+Residual risk:
+
+- This deliberately does not synthesize real clicks because packaged smoke runs against live app controls. It is the safer CI layer for dead/occluded target detection when macOS point hit-testing is available; opt-in click synthesis can build on this evidence later.
+
 ## 2026-06-29 Natural File-Read Smoke Hardening Pass
 
 Overall grade after this slice: **A- release-regression coverage, A structured tool parity, B+ breadth**.

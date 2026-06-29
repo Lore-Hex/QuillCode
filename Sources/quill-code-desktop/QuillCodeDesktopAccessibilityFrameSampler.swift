@@ -14,6 +14,8 @@ struct QuillCodeDesktopAccessibilityFrameSample {
     var frame: CGRect
     var requiredMinWidth: Double
     var requiredMinHeight: Double
+    var allowsNestedInteractiveChildren: Bool
+    var requiresUnblockedInterior: Bool
     var samplePoints: [[String: Any]]
 
     var dictionary: [String: Any] {
@@ -33,6 +35,8 @@ struct QuillCodeDesktopAccessibilityFrameSample {
             ],
             "requiredMinWidth": requiredMinWidth,
             "requiredMinHeight": requiredMinHeight,
+            "allowsNestedInteractiveChildren": allowsNestedInteractiveChildren,
+            "requiresUnblockedInterior": requiresUnblockedInterior,
             "samplePoints": samplePoints
         ]
     }
@@ -128,7 +132,9 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
                 frame: frame,
                 requiredMinWidth: probe.requiredMinWidth,
                 requiredMinHeight: probe.requiredMinHeight,
-                samplePoints: samplePoints(for: probe, in: frame)
+                allowsNestedInteractiveChildren: probe.allowsNestedInteractiveChildren,
+                requiresUnblockedInterior: probe.requiresUnblockedInterior,
+                samplePoints: samplePoints(for: probe, target: element, in: frame)
             )
         }
         .sorted { $0.contractID < $1.contractID }
@@ -189,13 +195,31 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
 
     private static func samplePoints(
         for probe: QuillCodeNativeHitTargetProbe,
+        target: AccessibilityElementSnapshot,
         in frame: CGRect
     ) -> [[String: Any]] {
         probe.samplePoints.map { point in
-            [
+            let absolutePoint = CGPoint(
+                x: frame.minX + (frame.width * point.x),
+                y: frame.minY + (frame.height * point.y)
+            )
+            let hitTest = AccessibilityTree.hitTest(at: absolutePoint)
+            let hitTestSnapshot = hitTest.snapshot
+            let hitTestAncestorIdentifiers = hitTestSnapshot?.ancestorIdentifiers ?? []
+            let hitTestMatchesTarget = hitTestSnapshot?.identifier == target.identifier
+                || hitTestAncestorIdentifiers.contains(target.identifier)
+
+            return [
                 "name": point.name,
-                "x": frame.minX + (frame.width * point.x),
-                "y": frame.minY + (frame.height * point.y)
+                "x": absolutePoint.x,
+                "y": absolutePoint.y,
+                "hitTestAvailable": hitTest.isAvailable,
+                "hitTestError": hitTest.errorDescription,
+                "hitTestIdentifier": hitTestSnapshot?.identifier ?? "",
+                "hitTestRole": hitTestSnapshot?.role ?? "",
+                "hitTestLabel": hitTestSnapshot?.bestLabel ?? "",
+                "hitTestAncestorIdentifiers": hitTestAncestorIdentifiers,
+                "hitTestMatchesTarget": hitTestMatchesTarget
             ]
         }
     }
@@ -225,6 +249,19 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
                 }
                 if !sample.frame.contains(CGPoint(x: x, y: y)) {
                     issues.append("\(sample.contractID) live sample point \(point["name"] ?? "?") is outside the target frame")
+                }
+                guard let hitTestAvailable = point["hitTestAvailable"] as? Bool,
+                      let hitTestMatchesTarget = point["hitTestMatchesTarget"] as? Bool
+                else {
+                    issues.append("\(sample.contractID) emitted a malformed hit-test result for \(point["name"] ?? "?")")
+                    continue
+                }
+                if sample.requiresUnblockedInterior && hitTestAvailable && !hitTestMatchesTarget {
+                    let identifier = point["hitTestIdentifier"] as? String ?? ""
+                    issues.append(
+                        "\(sample.contractID) live sample point \(point["name"] ?? "?") "
+                            + "hit \(identifier.isEmpty ? "no Accessibility element" : identifier)"
+                    )
                 }
             }
         }
@@ -269,6 +306,7 @@ private struct AccessibilityElementSnapshot {
     var help: String
     var value: String
     var frame: CGRect?
+    var ancestorIdentifiers: [String]
 
     var bestLabel: String {
         [title, accessibilityLabel, help, value]
@@ -279,6 +317,29 @@ private struct AccessibilityElementSnapshot {
     var frameArea: CGFloat {
         guard let frame else { return 0 }
         return frame.width * frame.height
+    }
+
+    var hasUsableHitTestIdentity: Bool {
+        !identifier.isEmpty || !ancestorIdentifiers.isEmpty
+    }
+}
+
+private struct AccessibilityHitTestResult {
+    var snapshot: AccessibilityElementSnapshot?
+    var error: AXError
+
+    var isAvailable: Bool {
+        error == .success && snapshot?.hasUsableHitTestIdentity == true
+    }
+
+    var errorDescription: String {
+        if error != .success {
+            return String(describing: error)
+        }
+        guard let snapshot else {
+            return "successWithoutElement"
+        }
+        return snapshot.hasUsableHitTestIdentity ? "" : "unidentifiedElement"
     }
 }
 
@@ -293,6 +354,22 @@ private struct AccessibilityTree {
         let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
         Self.collect(from: application, into: &collected, visited: &visited)
         elements = collected
+    }
+
+    static func hitTest(at point: CGPoint) -> AccessibilityHitTestResult {
+        let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        var hitElement: AXUIElement?
+        let result = AXUIElementCopyElementAtPosition(application, Float(point.x), Float(point.y), &hitElement)
+        guard result == .success, let hitElement else {
+            return AccessibilityHitTestResult(snapshot: nil, error: result)
+        }
+        return AccessibilityHitTestResult(
+            snapshot: snapshot(
+                for: hitElement,
+                ancestorIdentifiers: ancestorIdentifiers(of: hitElement)
+            ),
+            error: result
+        )
     }
 
     private static func collect(
@@ -312,7 +389,10 @@ private struct AccessibilityTree {
         }
     }
 
-    private static func snapshot(for element: AXUIElement) -> AccessibilityElementSnapshot? {
+    private static func snapshot(
+        for element: AXUIElement,
+        ancestorIdentifiers: [String] = []
+    ) -> AccessibilityElementSnapshot? {
         let identifier = stringAttribute(kAXIdentifierAttribute, from: element)
         let role = stringAttribute(kAXRoleAttribute, from: element)
         let title = stringAttribute(kAXTitleAttribute, from: element)
@@ -328,8 +408,32 @@ private struct AccessibilityTree {
             accessibilityLabel: description,
             help: help,
             value: value,
-            frame: frame
+            frame: frame,
+            ancestorIdentifiers: ancestorIdentifiers
         )
+    }
+
+    private static func ancestorIdentifiers(of element: AXUIElement) -> [String] {
+        var identifiers: [String] = []
+        var visited = Set<CFHashCode>()
+        var current: AXUIElement? = element
+        while let parent = current.flatMap(parentElement) {
+            let identity = CFHash(parent)
+            guard visited.insert(identity).inserted else { break }
+            let identifier = stringAttribute(kAXIdentifierAttribute, from: parent)
+            if !identifier.isEmpty {
+                identifiers.append(identifier)
+            }
+            current = parent
+        }
+        return identifiers
+    }
+
+    private static func parentElement(of element: AXUIElement) -> AXUIElement? {
+        guard let value = axAttribute(kAXParentAttribute, from: element) else { return nil }
+        let cfValue = value as CFTypeRef
+        guard CFGetTypeID(cfValue) == AXUIElementGetTypeID() else { return nil }
+        return unsafeDowncast(cfValue, to: AXUIElement.self)
     }
 
     private static func children(of element: AXUIElement) -> [AXUIElement] {
