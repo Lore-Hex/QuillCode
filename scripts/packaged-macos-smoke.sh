@@ -166,72 +166,8 @@ if [[ ! -s "$WINDOW_SCREENSHOT_PATH" ]]; then
   cat "$WINDOW_REPORT_PATH" >&2 || true
   exit 1
 fi
-if ! grep -q '"ok" : true' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not report ok=true" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-if ! grep -q '"appName" : "QuillCode"' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not report the QuillCode app identity" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-if ! grep -q '"windowTitle" : "QuillCode"' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not report the QuillCode window title" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-if ! grep -q '"nativeHitTargets"' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not include native hit target evidence" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-"$ROOT_DIR/scripts/native-click-probe-contracts.py" validate \
+"$ROOT_DIR/scripts/native-click-probe-contracts.py" window \
   "$WINDOW_REPORT_PATH" \
-  --label "packaged live-window"
-if ! grep -q '"surface"' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not report workspace surface semantics" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-if ! grep -q '"composerCanSend" : false' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not prove the empty composer is disabled" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-if ! grep -q '"sidebarTitle" : "Chats"' "$WINDOW_REPORT_PATH"; then
-  echo "Packaged app live-window smoke did not prove the Chats sidebar is present" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
-for command_id in \
-  new-chat \
-  command-palette \
-  keyboard-shortcuts \
-  settings \
-  toggle-terminal \
-  toggle-browser \
-  stop-all \
-  disconnect-all
-do
-  if ! grep -q "\"$command_id\"" "$WINDOW_REPORT_PATH"; then
-    echo "Packaged app live-window smoke did not prove command '$command_id' is present" >&2
-    cat "$WINDOW_REPORT_PATH" >&2
-    exit 1
-  fi
-done
-for starter_action_id in review-changes run-tests explain-project; do
-  if ! grep -q "\"$starter_action_id\"" "$WINDOW_REPORT_PATH"; then
-    echo "Packaged app live-window smoke did not prove starter action '$starter_action_id' is present" >&2
-    cat "$WINDOW_REPORT_PATH" >&2
-    exit 1
-  fi
-done
-if [[ "$(wc -c < "$WINDOW_SCREENSHOT_PATH" | tr -d ' ')" -lt 4096 ]]; then
-  echo "Packaged app live-window smoke rendered a suspiciously small screenshot" >&2
-  ls -l "$WINDOW_SCREENSHOT_PATH" >&2
-  cat "$WINDOW_REPORT_PATH" >&2
-  exit 1
-fi
+  "$WINDOW_SCREENSHOT_PATH"
 
 echo "QuillCode packaged macOS app smoke passed."

@@ -10,6 +10,22 @@ from pathlib import Path
 from typing import Any
 
 MINIMUM_HIT_TARGET = 44
+MINIMUM_WINDOW_SCREENSHOT_BYTES = 4096
+REQUIRED_WINDOW_COMMAND_IDS = [
+    "new-chat",
+    "command-palette",
+    "keyboard-shortcuts",
+    "settings",
+    "toggle-terminal",
+    "toggle-browser",
+    "stop-all",
+    "disconnect-all",
+]
+REQUIRED_WINDOW_STARTER_ACTION_IDS = [
+    "review-changes",
+    "run-tests",
+    "explain-project",
+]
 EXPECTED_SAMPLE_POINTS = {
     "center": (0.5, 0.5),
     "leading-interior": (0.18, 0.5),
@@ -173,6 +189,62 @@ def validate_report(report_path: Path, label: str) -> None:
     normalized_probe_contracts(load_report(report_path), label)
 
 
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(message)
+
+
+def validate_packaged_window_report(report_path: Path, screenshot_path: Path) -> None:
+    report = load_report(report_path)
+    require(report.get("ok") is True, f"{report_path} does not report ok=true")
+    require(report.get("appName") == "QuillCode", f"{report_path} does not report the QuillCode app identity")
+    require(report.get("windowTitle") == "QuillCode", f"{report_path} does not report the QuillCode window title")
+
+    normalized_probe_contracts(report, "packaged live-window")
+
+    surface = report.get("surface")
+    require(isinstance(surface, dict), f"{report_path} is missing workspace surface semantics")
+    require(surface.get("appName") == "QuillCode", f"{report_path} surface appName is not QuillCode")
+    require(isinstance(surface.get("primaryTitle"), str) and surface["primaryTitle"].strip(), f"{report_path} surface primaryTitle is empty")
+    require(isinstance(surface.get("modelLabel"), str) and surface["modelLabel"].strip(), f"{report_path} surface modelLabel is empty")
+    require(isinstance(surface.get("modeLabel"), str) and surface["modeLabel"].strip(), f"{report_path} surface modeLabel is empty")
+    require(isinstance(surface.get("agentStatus"), str) and surface["agentStatus"].strip(), f"{report_path} surface agentStatus is empty")
+    require(isinstance(surface.get("composerPlaceholder"), str) and surface["composerPlaceholder"].strip(), f"{report_path} surface composerPlaceholder is empty")
+    require(surface.get("composerCanSend") is False, f"{report_path} does not prove the empty composer is disabled")
+    require(surface.get("sidebarTitle") == "Chats", f"{report_path} does not prove the Chats sidebar is present")
+
+    command_ids = surface.get("commandIDs")
+    require(isinstance(command_ids, list), f"{report_path} surface commandIDs is not a list")
+    missing_commands = sorted(set(REQUIRED_WINDOW_COMMAND_IDS) - {value for value in command_ids if isinstance(value, str)})
+    require(not missing_commands, f"{report_path} surface is missing commands: {', '.join(missing_commands)}")
+
+    starter_action_ids = surface.get("starterActionIDs")
+    require(isinstance(starter_action_ids, list), f"{report_path} surface starterActionIDs is not a list")
+    missing_starter_actions = sorted(
+        set(REQUIRED_WINDOW_STARTER_ACTION_IDS) - {value for value in starter_action_ids if isinstance(value, str)}
+    )
+    require(not missing_starter_actions, f"{report_path} surface is missing starter actions: {', '.join(missing_starter_actions)}")
+
+    image = report.get("image")
+    require(isinstance(image, dict), f"{report_path} does not include image diagnostics")
+    width = image.get("width")
+    height = image.get("height")
+    distinct_color_buckets = image.get("distinctColorBuckets")
+    require(isinstance(width, int) and width > 0, f"{report_path} image width is invalid: {width!r}")
+    require(isinstance(height, int) and height > 0, f"{report_path} image height is invalid: {height!r}")
+    require(
+        isinstance(distinct_color_buckets, int) and distinct_color_buckets >= 10,
+        f"{report_path} image distinctColorBuckets is suspicious: {distinct_color_buckets!r}",
+    )
+
+    require(screenshot_path.is_file(), f"packaged live-window screenshot is missing: {screenshot_path}")
+    screenshot_bytes = screenshot_path.stat().st_size
+    require(
+        screenshot_bytes >= MINIMUM_WINDOW_SCREENSHOT_BYTES,
+        f"packaged live-window screenshot is suspiciously small: {screenshot_bytes} bytes",
+    )
+
+
 def write_comparison_manifest(
     direct_report_path: Path,
     launch_services_report_path: Path,
@@ -309,6 +381,10 @@ def main() -> None:
     readiness_parser.add_argument("artifact_root", type=Path)
     readiness_parser.add_argument("--manifest", required=True, type=Path)
 
+    window_parser = subparsers.add_parser("window", help="validate packaged live-window smoke report and screenshot")
+    window_parser.add_argument("report", type=Path)
+    window_parser.add_argument("screenshot", type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -316,6 +392,8 @@ def main() -> None:
         write_comparison_manifest(args.direct_report, args.launch_services_report, args.manifest)
     elif args.command == "readiness":
         write_accessibility_readiness_manifest(args.artifact_root, args.manifest)
+    elif args.command == "window":
+        validate_packaged_window_report(args.report, args.screenshot)
 
 
 if __name__ == "__main__":
