@@ -374,6 +374,42 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
         data-testid="missing-contract-target"
         style="position: fixed; left: 24px; top: 348px; z-index: 1000; width: 112px; height: 48px; cursor: pointer;"
       >No contract</button>
+      <button
+        type="button"
+        class="hit-target-text-entry"
+        data-testid="button-declared-as-text-entry-target"
+        data-hit-target-kind="text-entry"
+        data-hit-target-action="text-input"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 164px; top: 24px; z-index: 1000; width: 156px; height: 48px; cursor: pointer;"
+      >Wrong kind</button>
+      <button
+        type="button"
+        class="hit-target-text"
+        data-testid="button-declared-as-link-action"
+        data-hit-target-kind="text"
+        data-hit-target-action="link"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 164px; top: 84px; z-index: 1000; width: 156px; height: 48px; cursor: pointer;"
+      >Wrong action</button>
+      <a
+        href="#"
+        class="hit-target-text"
+        data-testid="link-declared-as-press-target"
+        data-hit-target-kind="text"
+        data-hit-target-action="press"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 164px; top: 144px; z-index: 1000; width: 156px; height: 48px; cursor: pointer;"
+      >Wrong link</a>
+      <button
+        type="button"
+        class="hit-target-row"
+        data-testid="kind-class-mismatch-target"
+        data-hit-target-kind="icon"
+        data-hit-target-action="press"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 164px; top: 204px; z-index: 1000; width: 156px; height: 48px; cursor: pointer;"
+      >Mismatch</button>
       <span
         aria-hidden="true"
         style="position: fixed; left: 24px; top: 144px; z-index: 1001; width: 28px; height: 28px; background: rgba(255, 93, 82, 0.85);"
@@ -417,6 +453,11 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
   expect(issueFor('near-edge-blocked-target')?.reason).toContain('interior_click_area_blocked');
   expect(issueFor('missing-affordance-target')?.reason).toContain('missing_click_affordance');
   expect(issueFor('missing-contract-target')?.reason).toContain('missing_shared_hit_target_contract');
+  expect(issueFor('button-declared-as-text-entry-target')?.reason).toContain('element_action_mismatch');
+  expect(issueFor('button-declared-as-link-action')?.reason).toContain('hit_target_action_mismatch');
+  expect(issueFor('button-declared-as-link-action')?.reason).toContain('element_action_mismatch');
+  expect(issueFor('link-declared-as-press-target')?.reason).toContain('element_action_mismatch');
+  expect(issueFor('kind-class-mismatch-target')?.reason).toContain('hit_target_kind_class_mismatch');
   expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
   expect(issueFor('disabled-checkbox-label')).toBeUndefined();

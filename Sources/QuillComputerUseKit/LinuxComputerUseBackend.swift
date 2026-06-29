@@ -221,8 +221,14 @@ private enum LinuxScrollButton {
     }
 }
 
-public enum LinuxComputerUseProcessRunner {
-    public static func run(_ arguments: [String]) async throws -> LinuxComputerUseCommandResult {
+public struct LinuxComputerUseProcessRunner: Sendable {
+    private let environment: [String: String]?
+
+    public init(environment: [String: String]? = nil) {
+        self.environment = environment
+    }
+
+    public func run(_ arguments: [String]) async throws -> LinuxComputerUseCommandResult {
         guard let executable = arguments.first else {
             throw ComputerUseError.unavailable("Linux helper command is empty.")
         }
@@ -231,6 +237,7 @@ public enum LinuxComputerUseProcessRunner {
         let stderr = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [executable] + Array(arguments.dropFirst())
+        process.environment = environment
         process.standardOutput = stdout
         process.standardError = stderr
 
@@ -245,5 +252,9 @@ public enum LinuxComputerUseProcessRunner {
             ) ?? "",
             exitCode: process.terminationStatus
         )
+    }
+
+    public static func run(_ arguments: [String]) async throws -> LinuxComputerUseCommandResult {
+        try await LinuxComputerUseProcessRunner().run(arguments)
     }
 }
