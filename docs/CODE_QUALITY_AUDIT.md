@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Packaged Window Hit-Target Evidence Pass
+
+Overall grade after this slice: **A packaged hit-target evidence, A smoke validator reuse, A- live Accessibility frame sampling**.
+
+The packaged live-window smoke produced a screenshot, but reviewers still had to correlate that image with the separate render-smoke native target report. This pass embeds the same validated `nativeHitTargets` report in `window-report.json` and runs the shared click-probe validator against it.
+
+| Before | After |
+| --- | --- |
+| `window-report.json` proved live pixels but not the semantic click-probe plan for the visible app chrome. | The live-window report now includes `nativeHitTargets`, including surface contracts and click probes, from the same Swift audit used by native render smoke. |
+| Native hit-target validation logic was available for direct and Launch Services reports only. | `scripts/packaged-macos-smoke.sh` now runs `native-click-probe-contracts.py validate` on the live-window report too. |
+| Hit-target audit issue formatting was duplicated in the render smoke runner. | `QuillCodeDesktopNativeHitTargetSmoke` owns validated report creation and issue formatting for both render and live-window smoke paths. |
+
+Residual risk:
+
+- The next layer is still real Accessibility frame resolution and edge/interior clicking against the packaged window; this pass makes the live-window artifact carry the contract that runner should consume.
+
 ## 2026-06-29 Packaged Accessibility Readiness Manifest Pass
 
 Overall grade after this slice: **A release artifact contract, A click-probe reuse, A- live Accessibility frame sampling**.
