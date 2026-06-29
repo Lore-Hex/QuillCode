@@ -4574,6 +4574,7 @@
         'host.git.stage_hunk',
         'host.git.restore_hunk',
         'host.git.pr.diff',
+        'host.git.pr.review_comment',
         'host.git.worktree.remove'
       ]);
       if (toolName === 'host.shell.run') return toolCardSanitized(args.cmd);
@@ -4588,19 +4589,36 @@
         return remote || branch || '';
       }
       if (toolName === 'host.git.pr.create') return toolCardSanitized(args.title);
+      if (toolName === 'host.git.pr.review_thread') return toolCardSanitized(args.action) || toolCardSanitized(args.threadId);
       if (toolName?.startsWith('host.git.pr.')) return toolCardSanitized(args.selector);
       if (toolName === 'host.git.worktree.create') return toolCardSanitized(args.branch) || toolCardSanitized(args.path);
       if (toolName === 'host.plan.update') return 'plan';
       if (toolName === 'host.handoff.update') return 'handoff';
       if (toolName === 'host.subagents.update') return 'subagents';
-      if (toolName === 'host.browser.inspect') return toolCardSanitized(args.url);
       if (toolName === 'host.browser.open') return toolCardSanitized(args.url);
       if (toolName === 'host.memory.remember') return toolCardSanitized(args.content);
-      if (toolName === 'host.mcp.call') return toolCardSanitized(args.tool);
-      if (toolName === 'host.mcp.read_resource' || toolName === 'host.mcp.get_prompt') {
-        return toolCardSanitized(args.name) || toolCardSanitized(args.uri);
+      if (toolName === 'host.mcp.call') return toolCardSanitized(args.toolName);
+      if (toolName === 'host.mcp.resource.read') {
+        return toolCardSanitized(args.resourceName) || toolCardSanitized(args.name)
+          || toolCardSanitized(args.resourceURI) || toolCardSanitized(args.uri);
       }
+      if (toolName === 'host.mcp.prompt.get') {
+        return toolCardSanitized(args.promptName) || toolCardSanitized(args.name);
+      }
+      if (toolName === 'host.computer.click' || toolName === 'host.computer.move') {
+        return toolCardCoordinate(args.x, args.y);
+      }
+      if (toolName === 'host.computer.scroll') return toolCardCoordinate(args.dx, args.dy);
+      if (toolName === 'host.computer.type') return toolCardSanitized(args.text);
+      if (toolName === 'host.computer.key') return toolCardSanitized(args.key);
       return '';
+    }
+
+    function toolCardCoordinate(x, y) {
+      const sx = toolCardSanitized(x === undefined || x === null ? '' : String(x));
+      const sy = toolCardSanitized(y === undefined || y === null ? '' : String(y));
+      if (sx && sy) return `${sx}, ${sy}`;
+      return sx || sy || '';
     }
 
     function toolCardSanitized(value) {

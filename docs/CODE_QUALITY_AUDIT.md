@@ -1,5 +1,37 @@
 # Code Quality Audit
 
+## 2026-06-29 MCP and Computer Use Subtitle Pass
+
+Overall grade after this slice: **A tool-card scannability across tool families, A native/HTML subtitle parity, A- regression-guard coverage**.
+
+A full enumeration of registered tool names against `WorkspaceToolCardSubtitleBuilder` surfaced that the MCP tool family used wrong argument keys and wrong case names, and the Computer Use family had no subtitle detail at all — so MCP and GUI-automation cards rendered a bare state label.
+
+| Before | After |
+| --- | --- |
+| `host.mcp.call` read a non-existent `tool` argument (the canonical key is `toolName`), and the resource/prompt cases matched `host.mcp.read_resource`/`host.mcp.get_prompt` instead of the registered `host.mcp.resource.read`/`host.mcp.prompt.get` — so all three MCP cards showed no detail. | The builder reads `toolName` for calls, the resource identifier (`resourceName`/`name`/`resourceURI`/`uri`) for resource reads, and `promptName`/`name` for prompt gets. |
+| Computer Use cards (`click`, `move`, `scroll`, `type`, `key`) showed only the state label. | `click`/`move` show `x, y`, `scroll` shows `dx, dy`, and `type`/`key` show their text; `screenshot` correctly stays detail-free. |
+| The static-harness `toolCardDetail` mirror had the same wrong MCP keys/names and no Computer Use cases. | The mirror was corrected to the same keys, keeping the Swift and HTML subtitles identical. Swift and Playwright tests pin every MCP and Computer Use case. |
+
+Residual risk:
+
+- The subtitle detail map is still maintained by hand on two surfaces. The paired tests now fail if either drifts, but a shared declaration generated from the tool definitions remains the longer-term hardening.
+
+## 2026-06-29 Tool-Card Subtitle Detail Correctness Pass
+
+Overall grade after this slice: **A tool-card scannability, A native/HTML subtitle parity, A- regression-guard coverage**.
+
+`WorkspaceToolCardSubtitleBuilder` (the shared logic feeding both the native SwiftUI and static-HTML tool cards) keyed the URL detail to the wrong browser tool. Two focused bug-hunt subagent reviews of the safety policy, tool input validators, and slash/command parsers found no high-confidence correctness bugs in those mature areas; this defect was in the tool-card subtitle builder.
+
+| Before | After |
+| --- | --- |
+| The Swift builder matched `host.browser.inspect` (no arguments) to read `url`, so it always produced an empty detail, while `host.browser.open` (which carries `url`) fell through to the default and showed no URL. `host.git.pr.review_comment` also produced no detail. | `host.browser.open` reads its `url`, and `host.git.pr.review_comment` joins the path tools to show its changed-file path. `host.browser.inspect` correctly resolves to no detail. |
+| The static-harness `toolCardDetail` mirror handled `host.browser.open` but kept a dead `host.browser.inspect` branch, sent `host.git.pr.review_comment` through the generic `host.git.pr.*` selector fallback, and lacked the `host.git.pr.review_thread` action branch — diverging from the Swift builder. | The mirror drops the dead branch, adds `host.git.pr.review_comment` to its path set, and adds the explicit `host.git.pr.review_thread` action branch before the selector fallback, so both surfaces emit identical subtitles. |
+| No test covered the opened-URL or reviewed-file-path subtitles. | A Swift test asserts the `host.browser.open` URL and `host.git.pr.review_comment` path subtitles (and that `host.browser.inspect` has no detail); a Playwright test asserts the same on the rendered static surface. |
+
+Residual risk:
+
+- The two subtitle code paths are still maintained by hand in parallel. A future pass could generate the static-harness detail map from a shared declaration, but the paired tests now fail if either surface drifts on these tools.
+
 ## 2026-06-29 Secondary-Pane Action Label Clipping Pass
 
 Overall grade after this slice: **A constrained-width action legibility, A- regression-guard breadth**.
