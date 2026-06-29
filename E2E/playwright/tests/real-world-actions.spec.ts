@@ -98,6 +98,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
     ]
   },
   {
+    name: 'starter cards launch real workspace actions immediately',
+    prompts: ['Review changes starter card'],
+    expectedToolNames: ['host.git.diff'],
+    regressionGuards: [
+      'starter card creates a user turn without draft-only limbo',
+      'starter card dispatches the normal git diff tool',
+      'composer is cleared after starter submission'
+    ]
+  },
+  {
     name: 'respects explicit negative action prompts without tool cards or side effects',
     prompts: [
       'Do not run whoami.',
@@ -346,6 +356,27 @@ test('answers natural git read requests with structured git tools', async ({ pag
   await expect(page.getByTestId('tool-card-output').last()).toContainText('diff --git a/Sources/App.swift b/Sources/App.swift');
   await expect(page.getByText(/Git diff:\s*diff --git a\/Sources\/App.swift b\/Sources\/App.swift/)).toBeVisible();
   await expect(page.getByText(/No shell command was specified|I'?ll check|should I|do you want me to/i)).toHaveCount(0);
+});
+
+test('starter cards launch real workspace actions immediately', async ({ page }) => {
+  await page.goto(harnessURL());
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+
+  await page.getByTestId('empty-starter-action').filter({ hasText: 'Review changes' }).click();
+
+  await expect(page.getByTestId('transcript-empty')).toHaveCount(0);
+  await expect(page.getByTestId('message').filter({
+    hasText: 'Review the current git diff and call out risks, missing tests, and next steps.'
+  })).toBeVisible();
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.diff');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('diff --git a/Sources/App.swift b/Sources/App.swift');
+  await expect(page.getByText(/Git diff:\s*diff --git a\/Sources\/App.swift b\/Sources\/App.swift/)).toBeVisible();
+  await expect(page.getByLabel('Message')).toHaveValue('');
+  await expect(page.getByTestId('send-button')).toBeDisabled();
+  await expect(page.getByText(/I'?ll review|I will review|should I|do you want me to|ok\?/i)).toHaveCount(0);
 });
 
 test('respects explicit negative action prompts without tool cards or side effects', async ({ page }) => {
