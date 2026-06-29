@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-28 Launch Services Smoke Pass
+
+Overall grade after this slice: **A packaged entrypoint coverage, A- Launch Services coverage, A- release packaging maturity**.
+
+The packaged smoke now proves the same native render-smoke contract through the app bundle's Launch Services entrypoint, not only by invoking the bundle executable directly.
+
+| Before | After |
+| --- | --- |
+| `scripts/native-desktop-smoke.sh` could run SwiftPM or a direct executable path, but could not validate app-bundle launch semantics. | The smoke accepts `QUILLCODE_DESKTOP_APP_BUNDLE` and runs `open -W -n "$APP_BUNDLE" --args ...`, while keeping the same JSON, PNG, HTML, side-effect, transcript, chrome, and hit-target assertions. |
+| `scripts/packaged-macos-smoke.sh` proved bundle metadata and direct executable behavior. | It now runs both direct bundle executable smoke and Launch Services smoke, catching missing argument forwarding, bad package metadata, and release entrypoint drift earlier. |
+| Launch Services was listed as a residual packaging gap. | Launch Services argument-passing is now covered; signing/notarization, packaged Accessibility automation, appshot capture, and Linux packaging remain the deeper release gates. |
+
+Residual risk:
+
+- `open -W` proves release entrypoint and argument plumbing, but it does not yet click a real packaged window or verify notarized distribution behavior.
+
 ## 2026-06-28 Packaged macOS Smoke Pass
 
 Overall grade after this slice: **A packaged entrypoint coverage, A- release packaging maturity, B+ Launch Services coverage**.
@@ -12,9 +28,9 @@ The macOS desktop app now has a deterministic bundle smoke lane instead of only 
 | Packaged launch remained a manual checklist item. | `scripts/packaged-macos-smoke.sh` validates bundle metadata and reuses the native render-smoke harness through `QUILLCODE_DESKTOP_EXECUTABLE`, so the packaged executable must pass the same side-effect, transcript, HTML, PNG, chrome, and hit-target checks. |
 | `scripts/smoke.sh` covered native desktop behavior on macOS but could miss bundle-entrypoint drift. | Darwin smoke now runs the packaged macOS app smoke after the native executable smoke. |
 
-Residual risk:
+Historical residual risk at that point:
 
-- The smoke executes the packaged app's bundle executable directly. Full `open -W` Launch Services behavior, signing/notarization, Accessibility-driven packaged UI automation, and Linux packaging still need separate release gates.
+- This earlier smoke executed the packaged app's bundle executable directly. The later Launch Services smoke pass closes the `open -W` argument-passing gap; signing/notarization, Accessibility-driven packaged UI automation, and Linux packaging still need separate release gates.
 
 ## 2026-06-28 Click-Target Action Contract Pass
 
