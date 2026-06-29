@@ -63,6 +63,20 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains("- Builder: compiled the app cleanly"))
     }
 
+    func testPromptIncludesNestedPlanPathWhenPresent() {
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(
+            objective: "ship interface",
+            job: WorkspaceSubagentJob(
+                name: "Frontend/Verifier",
+                role: "test click targets",
+                groupPath: ["Frontend"]
+            )
+        )
+
+        XCTAssertTrue(prompt.contains("Nested plan path: Frontend / Verifier"))
+        XCTAssertTrue(prompt.contains("Parent group: Frontend"))
+    }
+
     func testPromptOmitsPrerequisiteSectionForRootJobs() {
         let prompt = WorkspaceSubagentPromptBuilder.prompt(
             objective: "ship release",

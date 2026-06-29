@@ -4,7 +4,8 @@ import QuillCodeCore
 enum SubagentProgressToolExecutor {
     private static let maxSubagentCount = 12
     private static let maxObjectiveCharacters = 260
-    private static let maxNameCharacters = 48
+    private static let maxGroupPathComponentCharacters = 32
+    private static let maxNameCharacters = 72
     private static let maxRoleCharacters = 140
     private static let maxSummaryCharacters = 220
 
@@ -30,7 +31,7 @@ enum SubagentProgressToolExecutor {
         return update.subagents.enumerated().map { index, item in
             ActivityItemSurface(
                 id: "subagent-\(index)-\(item.name)",
-                title: item.name,
+                title: displayTitle(for: item),
                 detail: detail(for: item, objective: update.objective),
                 kind: "subagent",
                 statusLabel: item.status.label
@@ -69,16 +70,19 @@ enum SubagentProgressToolExecutor {
     }
 
     private static func normalizedItem(_ item: SubagentProgressItem) -> SubagentProgressItem {
-        SubagentProgressItem(
-            name: boundedLine(item.name, limit: maxNameCharacters),
+        let name = boundedLine(item.name, limit: maxNameCharacters)
+        return SubagentProgressItem(
+            name: name,
             role: boundedLine(item.role, limit: maxRoleCharacters),
             status: item.status,
-            summary: boundedOptionalText(item.summary, limit: maxSummaryCharacters)
+            summary: boundedOptionalText(item.summary, limit: maxSummaryCharacters),
+            groupPath: normalizedGroupPath(item.groupPath, fallbackName: name)
         )
     }
 
     private static func detail(for item: SubagentProgressItem, objective: String?) -> String {
         let parts = [
+            groupPathDetail(for: item),
             item.role,
             item.summary,
             objective.map { "Goal: \($0)" }
@@ -87,6 +91,35 @@ enum SubagentProgressToolExecutor {
             return text
         }
         return boundedLine(parts.joined(separator: " - "), limit: 220)
+    }
+
+    private static func displayTitle(for item: SubagentProgressItem) -> String {
+        guard !item.groupPath.isEmpty,
+              let leaf = item.name.split(separator: "/").last
+        else { return item.name }
+        return String(leaf)
+    }
+
+    private static func groupPathDetail(for item: SubagentProgressItem) -> String? {
+        let path = normalizedGroupPath(item.groupPath, fallbackName: item.name)
+        guard !path.isEmpty else { return nil }
+        let leaf = item.name.split(separator: "/").last.map(String.init) ?? item.name
+        return "Path: \((path + [leaf]).joined(separator: " / "))"
+    }
+
+    private static func normalizedGroupPath(_ explicitPath: [String], fallbackName: String) -> [String] {
+        let path = explicitPath.isEmpty ? inferredGroupPath(from: fallbackName) : explicitPath
+        return path
+            .map { boundedLine($0, limit: maxGroupPathComponentCharacters) }
+            .filter { !$0.isEmpty }
+    }
+
+    private static func inferredGroupPath(from name: String) -> [String] {
+        let components = name
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+        guard components.count > 1 else { return [] }
+        return Array(components.dropLast())
     }
 
     private static func boundedOptionalText(_ text: String?, limit: Int) -> String? {

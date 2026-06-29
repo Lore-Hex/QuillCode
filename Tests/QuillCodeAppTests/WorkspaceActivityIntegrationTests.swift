@@ -563,6 +563,13 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
                     role: "Run focused checks.",
                     status: .running,
                     summary: "Waiting on Swift tests."
+                ),
+                SubagentProgressItem(
+                    name: "Frontend/UX",
+                    role: "Inspect the interaction flow.",
+                    status: .blocked,
+                    summary: "Waiting on design notes.",
+                    groupPath: ["Frontend"]
                 )
             ]
         )
@@ -577,13 +584,15 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
 
         XCTAssertTrue(result.ok, result.error ?? "")
         XCTAssertEqual(decoded.objective, "Split the validation pass across specialists.")
-        XCTAssertEqual(decoded.subagents.map(\.name), ["Explorer", "Verifier"])
+        XCTAssertEqual(decoded.subagents.map(\.name), ["Explorer", "Verifier", "Frontend/UX"])
+        XCTAssertEqual(decoded.subagents[2].groupPath, ["Frontend"])
         XCTAssertEqual(model.selectedThread?.events.last?.summary, "\(ToolDefinition.subagentsUpdate.name) completed")
-        XCTAssertEqual(model.surface().activity.subagents.map(\.title), ["Explorer", "Verifier"])
-        XCTAssertEqual(model.surface().activity.subagents.map(\.statusLabel), ["Done", "Running"])
-        XCTAssertEqual(model.surface().activity.subagents.map(\.kind), ["subagent", "subagent"])
+        XCTAssertEqual(model.surface().activity.subagents.map(\.title), ["Explorer", "Verifier", "UX"])
+        XCTAssertEqual(model.surface().activity.subagents.map(\.statusLabel), ["Done", "Running", "Blocked"])
+        XCTAssertEqual(model.surface().activity.subagents.map(\.kind), ["subagent", "subagent", "subagent"])
         XCTAssertTrue(model.surface().activity.subagents[0].detail.contains("Goal: Split the validation pass"))
-        XCTAssertEqual(subagentSection.countLabel, "2 items")
+        XCTAssertTrue(model.surface().activity.subagents[2].detail.contains("Path: Frontend / UX"))
+        XCTAssertEqual(subagentSection.countLabel, "3 items")
         XCTAssertEqual(subagentSection.itemTestID, "activity-subagent")
     }
 

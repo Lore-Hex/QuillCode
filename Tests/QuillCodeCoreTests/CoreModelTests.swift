@@ -143,6 +143,13 @@ final class CoreModelTests: XCTestCase {
                     name: "Verifier",
                     role: "Run focused checks.",
                     status: .running
+                ),
+                SubagentProgressItem(
+                    name: "Frontend/UX",
+                    role: "Inspect the interaction flow.",
+                    status: .blocked,
+                    summary: "Waiting on design notes.",
+                    groupPath: ["Frontend"]
                 )
             ]
         )
@@ -151,12 +158,14 @@ final class CoreModelTests: XCTestCase {
         let decoded = try JSONHelpers.decode(SubagentProgressUpdate.self, from: encoded)
 
         XCTAssertEqual(decoded, update)
+        XCTAssertEqual(decoded.subagents[2].groupPath, ["Frontend"])
         XCTAssertEqual(ToolDefinition.subagentsUpdate.name, "host.subagents.update")
         XCTAssertEqual(ToolDefinition.subagentsUpdate.host, .local)
         XCTAssertEqual(ToolDefinition.subagentsUpdate.risk, .read)
         XCTAssertEqual(SubagentStatus.completed.label, "Done")
         XCTAssertEqual(SubagentStatus.cancelled.label, "Cancelled")
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""subagents""#))
+        XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""groupPath""#))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("blocked"))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("cancelled"))
     }

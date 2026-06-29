@@ -195,6 +195,36 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertEqual(builderJob?.priorResults, [], "Root jobs should not receive prior results.")
     }
 
+    func testSchedulerPreservesNestedGroupPathInJobsAndProgress() async throws {
+        let capture = JobCapture()
+        let scheduler = WorkspaceSubagentScheduler { job in
+            await capture.record(job)
+            return "checked \(job.name)"
+        }
+        let request = WorkspaceSubagentRunRequest(
+            objective: "ship nested plan",
+            workers: [
+                .init(name: "Frontend/UX", role: "inspect flow", groupPath: ["Frontend"]),
+                .init(
+                    name: "Frontend/Tests",
+                    role: "run UI checks",
+                    dependsOn: ["Frontend/UX"],
+                    groupPath: ["Frontend"]
+                )
+            ]
+        )
+
+        let result = await scheduler.run(request: request)
+
+        let verifierJob = await capture.job(named: "Frontend/Tests")
+        XCTAssertEqual(verifierJob?.groupPath, ["Frontend"])
+        XCTAssertEqual(verifierJob?.priorResults, [
+            WorkspaceSubagentPriorResult(name: "Frontend/UX", summary: "checked Frontend/UX")
+        ])
+        XCTAssertEqual(result.update.subagents.map(\.name), ["Frontend/UX", "Frontend/Tests"])
+        XCTAssertEqual(result.update.subagents.map(\.groupPath), [["Frontend"], ["Frontend"]])
+    }
+
     func testSchedulerBreaksDependencyCyclesInsteadOfDeadlocking() async throws {
         let scheduler = WorkspaceSubagentScheduler { job in "did \(job.role)" }
         let request = WorkspaceSubagentRunRequest(

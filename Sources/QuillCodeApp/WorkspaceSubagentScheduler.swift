@@ -17,6 +17,7 @@ struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
     var role: String
     var objective: String
     var dependsOn: [String]
+    var groupPath: [String]
     var priorResults: [WorkspaceSubagentPriorResult]
 
     init(
@@ -24,12 +25,14 @@ struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
         role: String,
         objective: String = "",
         dependsOn: [String] = [],
+        groupPath: [String] = [],
         priorResults: [WorkspaceSubagentPriorResult] = []
     ) {
         self.name = name
         self.role = role
         self.objective = objective
         self.dependsOn = dependsOn
+        self.groupPath = groupPath
         self.priorResults = priorResults
     }
 }
@@ -64,11 +67,12 @@ struct WorkspaceSubagentScheduler {
                 name: $0.name,
                 role: $0.role,
                 objective: request.objective,
-                dependsOn: $0.dependsOn
+                dependsOn: $0.dependsOn,
+                groupPath: $0.groupPath
             )
         }
         var items = jobs.map {
-            SubagentProgressItem(name: $0.name, role: $0.role, status: .queued)
+            SubagentProgressItem(name: $0.name, role: $0.role, status: .queued, groupPath: $0.groupPath)
         }
         await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
 

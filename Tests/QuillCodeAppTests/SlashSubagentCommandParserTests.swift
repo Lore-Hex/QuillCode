@@ -89,6 +89,30 @@ final class SlashSubagentCommandParserTests: XCTestCase {
         )
     }
 
+    func testSubagentCommandParsesNestedWorkerGroups() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/subagents ship app | Frontend/UX: inspect flow | Frontend/Tests after UX: run UI checks | Backend/API after Frontend/UX: verify endpoints"),
+            .subagents(.init(
+                objective: "ship app",
+                workers: [
+                    .init(name: "Frontend/UX", role: "inspect flow", groupPath: ["Frontend"]),
+                    .init(
+                        name: "Frontend/Tests",
+                        role: "run UI checks",
+                        dependsOn: ["Frontend/UX"],
+                        groupPath: ["Frontend"]
+                    ),
+                    .init(
+                        name: "Backend/API",
+                        role: "verify endpoints",
+                        dependsOn: ["Frontend/UX"],
+                        groupPath: ["Backend"]
+                    )
+                ]
+            ))
+        )
+    }
+
     func testSubagentCommandClampsConcurrencyTokenToWorkerLimit() {
         XCTAssertEqual(
             SlashCommandParser.parse("/subagents X9 audit | Sec: inspect"),

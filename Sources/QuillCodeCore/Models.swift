@@ -107,12 +107,50 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
     public var role: String
     public var status: SubagentStatus
     public var summary: String?
+    public var groupPath: [String]
 
     public init(name: String, role: String, status: SubagentStatus, summary: String? = nil) {
         self.name = name
         self.role = role
         self.status = status
         self.summary = summary
+        self.groupPath = []
+    }
+
+    public init(name: String, role: String, status: SubagentStatus, summary: String? = nil, groupPath: [String]) {
+        self.name = name
+        self.role = role
+        self.status = status
+        self.summary = summary
+        self.groupPath = groupPath
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case groupPath
+        case role
+        case status
+        case summary
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        role = try container.decode(String.self, forKey: .role)
+        status = try container.decode(SubagentStatus.self, forKey: .status)
+        summary = try container.decodeIfPresent(String.self, forKey: .summary)
+        groupPath = try container.decodeIfPresent([String].self, forKey: .groupPath) ?? []
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        if !groupPath.isEmpty {
+            try container.encode(groupPath, forKey: .groupPath)
+        }
+        try container.encode(role, forKey: .role)
+        try container.encode(status, forKey: .status)
+        try container.encodeIfPresent(summary, forKey: .summary)
     }
 }
 
