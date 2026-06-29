@@ -64,6 +64,14 @@ test('critical click-target registry covers primary workspace surfaces', async (
       ]
     },
     {
+      label: 'project list',
+      requiredKinds: ['icon', 'row'],
+      probes: [
+        { label: 'open project', locator: page.getByTestId('add-project-button'), expectedKind: 'icon' },
+        { label: 'first project row', locator: page.getByTestId('project-item').first(), expectedKind: 'row' }
+      ]
+    },
+    {
       label: 'top bar actions',
       requiredKinds: ['capsule', 'icon'],
       probes: [
@@ -555,6 +563,10 @@ test('command routing audit catches visible dead command targets', async ({ page
 
 test('critical controls respond from the full interior click target, not only the center', async ({ page }) => {
   await page.goto(harnessURL());
+
+  const initialProjectCount = await page.getByTestId('project-item').count();
+  await clickTargetInteriorPoint(page.getByTestId('add-project-button'), 'add project bottom interior', 0.5, 0.82);
+  await expect(page.getByTestId('project-item')).toHaveCount(initialProjectCount + 1);
 
   await clickTargetInteriorPoint(page.getByTestId('top-bar-overflow-button'), 'top-bar overflow leading interior', 0.2, 0.5);
   await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');

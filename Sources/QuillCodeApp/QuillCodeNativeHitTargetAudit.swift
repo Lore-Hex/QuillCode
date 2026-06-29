@@ -375,6 +375,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
 
 public enum QuillCodeNativeHitTargetAudit {
     public static let requiredCommandIDs = [
+        "add-project",
         "new-chat",
         "search",
         "toggle-extensions",
@@ -781,6 +782,7 @@ public enum QuillCodeNativeHitTargetAudit {
             contract("composer.mode-picker", family: .composer, surface: "Composer", label: "Mode picker", kind: .capsule, minWidth: nil, testID: "mode-picker-button"),
             contract("top-bar.overflow", family: .topBar, surface: "Top bar", label: "More workspace actions", kind: .icon, minWidth: 44, testID: "top-bar-overflow"),
             contract("sidebar.tools-menu", family: .sidebar, surface: "Sidebar", label: "Tools", kind: .fullRow, minWidth: nil, testID: "sidebar-tools-button"),
+            contract("project.clear", family: .sidebar, surface: "Project header", label: "Clear project", kind: .icon, minWidth: 44, testID: "project-clear-button"),
             contract("workspace.chrome", family: .workspaceChrome, surface: "Workspace chrome", label: "Workspace command", kind: .fullRow, minWidth: nil, testID: "workspace-command")
         ]
     }
@@ -835,19 +837,28 @@ public enum QuillCodeNativeHitTargetAudit {
     private static func commandContract(_ command: WorkspaceCommandSurface) -> QuillCodeNativeHitTargetContract {
         let kind: QuillCodeNativeHitTargetKind
         let surface: String
+        let minWidth: Double?
         switch command.id {
+        case "add-project":
+            kind = .icon
+            surface = "Project header"
+            minWidth = 44
         case "new-chat", "search", "toggle-extensions", "toggle-automations":
             kind = .fullRow
             surface = "Sidebar primary"
+            minWidth = nil
         case "toggle-terminal", "toggle-browser", "toggle-memories", "toggle-activity", "command-palette":
             kind = .fullRow
             surface = "Sidebar tools"
+            minWidth = nil
         case "keyboard-shortcuts", "settings":
             kind = .fullRow
             surface = "Top bar overflow"
+            minWidth = nil
         default:
             kind = .textButton
             surface = "Workspace command"
+            minWidth = nil
         }
         return contract(
             "command.\(command.id)",
@@ -855,7 +866,7 @@ public enum QuillCodeNativeHitTargetAudit {
             surface: surface,
             label: command.title,
             kind: kind,
-            minWidth: nil,
+            minWidth: minWidth,
             commandID: command.id,
             source: "WorkspaceCommandSurface"
         )
@@ -863,7 +874,7 @@ public enum QuillCodeNativeHitTargetAudit {
 
     private static func commandFamily(_ commandID: String) -> QuillCodeInteractionSurfaceFamily {
         switch commandID {
-        case "new-chat", "search", "toggle-extensions", "toggle-automations",
+        case "add-project", "new-chat", "search", "toggle-extensions", "toggle-automations",
             "toggle-terminal", "toggle-browser", "toggle-memories", "toggle-activity":
             return .sidebar
         case "keyboard-shortcuts", "settings":

@@ -65,7 +65,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="settings-button""#))
         XCTAssertFalse(html.contains(#"class="sidebar-utility-strip""#))
         XCTAssertFalse(html.contains(#"class="sidebar-workspace-actions""#))
-        XCTAssertTrue(html.contains(#"data-testid="add-project-button""#))
+        assertCommandButton(html, testID: "add-project-button", commandID: "add-project", title: "+")
         XCTAssertTrue(html.contains(#"data-testid="project-item""#))
         XCTAssertTrue(html.contains(#"data-testid="transcript""#))
         XCTAssertTrue(html.contains(#"data-testid="composer""#))

@@ -70,11 +70,13 @@ struct QuillCodeDesktopAccessibilityFrameSampleReport {
 enum QuillCodeDesktopAccessibilityFrameSampler {
     private static let identifierPrefix = "quillcode-"
     static let requiredPrimarySidebarContractIDs: Set<String> = [
+        "command.add-project",
         "command.new-chat",
         "command.search",
         "command.toggle-automations",
         "command.toggle-extensions",
-        "command.settings"
+        "command.settings",
+        "project.clear"
     ]
 
     private static let requiredCoreLiveContractIDs: Set<String> = [
