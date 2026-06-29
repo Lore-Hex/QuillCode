@@ -4,9 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KEY_FILE="${QUILLCODE_LIVE_KEY_FILE:-$HOME/.quill.code.keyfile}"
 REQUIRE_LIVE="${QUILLCODE_REQUIRE_LIVE_SMOKE:-0}"
+REQUIRE_PLAYWRIGHT="${QUILLCODE_REAL_WORLD_REQUIRE_PLAYWRIGHT:-1}"
 ARTIFACT_DIR="${QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR:-}"
 STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 DETERMINISTIC_STATUS="not-run"
+DETERMINISTIC_DETAIL="not-started"
 LIVE_STATUS="not-run"
 LIVE_DETAIL="not-started"
 FINAL_DETAIL="interrupted"
@@ -25,6 +27,21 @@ has_live_key() {
   [[ -s "$KEY_FILE" ]]
 }
 
+is_truthy() {
+  case "$1" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+playwright_dependencies_ready() {
+  [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]
+}
+
 write_manifest() {
   local exit_code="$1"
   local detail="$2"
@@ -38,8 +55,10 @@ write_manifest() {
     "$detail" \
     "$STARTED_AT" \
     "$DETERMINISTIC_STATUS" \
+    "$DETERMINISTIC_DETAIL" \
     "$LIVE_STATUS" \
     "$LIVE_DETAIL" \
+    "$REQUIRE_PLAYWRIGHT" \
     "$ARTIFACT_DIR" <<'PY'
 import json
 import os
@@ -52,8 +71,10 @@ from datetime import datetime, timezone
     detail,
     started_at,
     deterministic_status,
+    deterministic_detail,
     live_status,
     live_detail,
+    require_playwright,
     artifact_root,
 ) = sys.argv[1:]
 
@@ -87,6 +108,7 @@ def collect_files(root, limit=200):
 deterministic_dir = os.path.join(artifact_root, "deterministic")
 live_dir = os.path.join(artifact_root, "live-trustedrouter")
 live_manifest = load_json(os.path.join(live_dir, "live-smoke-manifest.json"))
+requires_playwright = require_playwright.lower() in {"1", "true", "yes"}
 
 manifest = {
     "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -96,6 +118,8 @@ manifest = {
     "artifactRoot": artifact_root,
     "deterministic": {
         "status": deterministic_status,
+        "detail": deterministic_detail,
+        "requiresPlaywright": requires_playwright,
         "artifactDir": deterministic_dir if os.path.isdir(deterministic_dir) else None,
         "artifactFiles": collect_files(deterministic_dir),
     },
@@ -125,13 +149,25 @@ finish() {
 }
 trap finish EXIT
 
+if is_truthy "$REQUIRE_PLAYWRIGHT" && ! playwright_dependencies_ready; then
+  DETERMINISTIC_STATUS="missing-playwright-dependencies"
+  DETERMINISTIC_DETAIL="Playwright E2E dependencies are required, but E2E/playwright/node_modules is missing"
+  FINAL_DETAIL="$DETERMINISTIC_DETAIL"
+  echo "$DETERMINISTIC_DETAIL." >&2
+  echo "Run npm ci in E2E/playwright, or set QUILLCODE_REAL_WORLD_REQUIRE_PLAYWRIGHT=0 for a lighter local run." >&2
+  exit 2
+fi
+
 echo "==> Running deterministic QuillCode smoke suite"
-if QUILLCODE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/deterministic}" \
+if QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE="$REQUIRE_PLAYWRIGHT" \
+  QUILLCODE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/deterministic}" \
   "$ROOT_DIR/scripts/smoke.sh"; then
   DETERMINISTIC_STATUS="passed"
+  DETERMINISTIC_DETAIL="completed"
 else
   status=$?
   DETERMINISTIC_STATUS="failed"
+  DETERMINISTIC_DETAIL="deterministic smoke failed"
   FINAL_DETAIL="deterministic smoke failed"
   exit "$status"
 fi

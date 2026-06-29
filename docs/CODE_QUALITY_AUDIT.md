@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Real-World Playwright Gate Pass
+
+Overall grade after this slice: **A release-lane honesty, A browser-E2E coverage discipline, A- operator ergonomics**.
+
+The real-world wrapper now fails closed when browser E2E dependencies are missing, instead of producing a release-candidate run that looks successful while silently skipping Playwright coverage.
+
+| Before | After |
+| --- | --- |
+| `scripts/smoke.sh` skipped Playwright when `E2E/playwright/node_modules` was missing, which is convenient locally but too easy to miss in a release wrapper. | `scripts/smoke.sh` now supports `QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE=1`, failing with a focused setup message instead of skipping. |
+| `scripts/real-world-smoke.sh` could produce a top-level manifest for a run that did not include browser E2E. | The real-world wrapper defaults `QUILLCODE_REAL_WORLD_REQUIRE_PLAYWRIGHT=1` and preflights dependencies before partial release evidence is generated. |
+| Missing Playwright dependencies were only visible in terminal logs. | `real-world-smoke-manifest.json` records `deterministic.status=missing-playwright-dependencies`, a clear detail string, and `requiresPlaywright=true`. |
+
+Residual risk:
+
+- The release wrapper now requires Playwright dependencies, but it still expects the caller to run `npm ci`. A future CI-only convenience mode could bootstrap dependencies in an isolated cache, but local scripts should stay explicit to avoid surprising network work.
+
 ## 2026-06-29 Real-World Smoke Manifest Pass
 
 Overall grade after this slice: **A release-lane auditability, A- operator ergonomics, A- failure forensics**.
@@ -14,7 +30,7 @@ The live smoke artifact index made real-provider evidence reviewable, but the re
 
 Residual risk:
 
-- The wrapper now indexes the existing evidence, but it still depends on local Playwright dependencies being installed for the deterministic lane to include browser E2E. A later pass should make the wrapper optionally bootstrap or explicitly fail on missing Playwright dependencies for release-mode runs.
+- The wrapper indexes the existing evidence, but deeper native-window live automation is still separate future work.
 
 ## 2026-06-29 Live Smoke Artifact Index Pass
 
