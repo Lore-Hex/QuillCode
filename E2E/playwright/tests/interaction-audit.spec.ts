@@ -174,6 +174,15 @@ test('mock harness audits every visible interactive click target across workspac
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await page.evaluate(() => {
+    const harness = window as unknown as {
+      addSidebarSavedSearch: (title: string, query: string, id: string) => string | null;
+    };
+    harness.addSidebarSavedSearch('Shell work', 'whoami', 'saved-shell-work');
+  });
+  await expect(page.getByTestId('sidebar-saved-search')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'sidebar saved-search controls');
+  await expectHitTarget(page.getByTestId('sidebar-saved-search'), 'sidebar saved-search chip');
 
   await page.getByTestId('sidebar-item-actions').first().locator('summary').click();
   await expect(page.getByTestId('sidebar-item-actions').first()).toHaveAttribute('open', '');

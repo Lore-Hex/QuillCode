@@ -205,9 +205,18 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func setSidebarFilter(_ filter: SidebarSavedFilterKind) {
-        guard sidebarFilter != filter else { return }
+        guard sidebarFilter != filter || activeSidebarSavedSearchID != nil else { return }
         sidebarFilter = filter
+        activeSidebarSavedSearchID = nil
         clearSidebarSelection()
+    }
+
+    public func setSidebarSavedSearch(_ id: UUID) -> Bool {
+        guard sidebarSavedSearches.contains(where: { $0.id == id }) else { return false }
+        guard activeSidebarSavedSearchID != id else { return true }
+        activeSidebarSavedSearchID = id
+        clearSidebarSelection()
+        return true
     }
 
     public func selectAllSidebarThreads() {

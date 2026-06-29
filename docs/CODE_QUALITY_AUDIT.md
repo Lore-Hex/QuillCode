@@ -48,6 +48,22 @@ Residual risk:
 
 - This remains a CLI live-provider release lane. A later native live-window lane should reuse the same artifact-index idea once live desktop runs are stable enough to be cost-effective.
 
+## 2026-06-29 Sidebar Saved-Search Click-Target Pass
+
+Overall grade after this slice: **A sidebar command architecture, A rendered click-target coverage, A- saved-search persistence**.
+
+Custom sidebar saved searches now share the same command, filtering, and click-target machinery as built-in All/Pinned/Recent/Archived filters. The implementation keeps saved searches as typed state surfaces instead of one-off DOM buttons, so future persistence and user-authored search management can be added without changing routing semantics.
+
+| Before | After |
+| --- | --- |
+| Built-in saved filters had scoped counts and selection behavior, but custom saved searches were still a parity gap and could have become ad hoc sidebar buttons later. | `SidebarSavedSearch` and `SidebarSavedSearchSurface` now provide typed IDs, query/count projection, active state, accessibility labels, and stable `sidebar-saved-search:*` command IDs. |
+| The Playwright harness had no saved-search rendering path, so broad click-target audits could not prove dynamic search chips were reachable, named, or routable. | The harness renders saved-search chips with shared capsule hit-target classes, command-routing registry support, and edge-click coverage in sidebar plus broad interaction-audit specs. |
+| Switching scopes could have left hidden rows selected if custom searches were layered separately from filters. | Saved filters and saved searches are peer scopes; changing either clears transient selection, and Select all acts only on the visible filtered rows. |
+
+Residual risk:
+
+- This slice covers typed in-memory saved-search surfaces and tests. User-authored saved-search creation, persistence, ordering, and drag/drop sidebar polish remain future Codex-parity work.
+
 ## 2026-06-29 Result-Focused Native Smoke Evidence Pass
 
 Overall grade after this slice: **A native result evidence, A CI review ergonomics, A- packaged-window observability**.

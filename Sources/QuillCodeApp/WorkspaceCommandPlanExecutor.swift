@@ -50,6 +50,8 @@ extension QuillCodeWorkspaceModel {
         case .setSidebarFilter(let filter):
             setSidebarFilter(filter)
             return true
+        case .setSidebarSavedSearch(let id):
+            return setSidebarSavedSearch(id)
         case .newBrowserTab:
             _ = newBrowserTab()
             return true

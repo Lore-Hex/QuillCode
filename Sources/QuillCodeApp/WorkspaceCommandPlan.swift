@@ -21,6 +21,7 @@ enum WorkspaceCommandPlan: Equatable {
     case updateExtension(id: String)
     case toggleThreadSelection(id: UUID)
     case setSidebarFilter(SidebarSavedFilterKind)
+    case setSidebarSavedSearch(UUID)
     case newBrowserTab
     case selectBrowserTab(id: UUID)
     case closeBrowserTab(id: UUID)
@@ -142,6 +143,9 @@ enum WorkspaceCommandPlan: Equatable {
         if let rawFilter = commandID.value(after: "sidebar-filter:"),
            let filter = SidebarSavedFilterKind(rawValue: rawFilter) {
             return .setSidebarFilter(filter)
+        }
+        if let id = commandID.uuidValue(after: "sidebar-saved-search:") {
+            return .setSidebarSavedSearch(id)
         }
         if commandID == "browser-tab-new" {
             return .newBrowserTab

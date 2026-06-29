@@ -13,6 +13,8 @@ struct WorkspaceNavigationSurfaceBuilder {
     var selectedThreadID: UUID?
     var threads: [ChatThread]
     var activeSidebarFilter: SidebarSavedFilterKind
+    var activeSidebarSavedSearchID: UUID? = nil
+    var sidebarSavedSearches: [SidebarSavedSearch] = []
     var selectionIsActive: Bool
     var selectedThreadIDs: Set<UUID>
 
@@ -37,6 +39,8 @@ struct WorkspaceNavigationSurfaceBuilder {
                 },
                 selectedThreadID: selectedThreadID,
                 activeFilter: activeSidebarFilter,
+                activeSavedSearchID: activeSidebarSavedSearchID,
+                customSavedSearches: sidebarSavedSearches,
                 isSelectionMode: selectionIsActive,
                 selectedThreadIDs: resolvedSelectedThreadIDs,
                 bulkActions: sidebarBulkActions(
@@ -54,7 +58,12 @@ struct WorkspaceNavigationSurfaceBuilder {
     }
 
     private func filteredSidebarItems() -> [SidebarItem] {
-        sidebarItems.filter {
+        if let activeSearch = sidebarSavedSearches.first(where: { $0.id == activeSidebarSavedSearchID }) {
+            return sidebarItems.filter {
+                SidebarThreadListBuilder.matches($0, query: activeSearch.query)
+            }
+        }
+        return sidebarItems.filter {
             activeSidebarFilter.includes(isPinned: $0.isPinned, isArchived: $0.isArchived)
         }
     }

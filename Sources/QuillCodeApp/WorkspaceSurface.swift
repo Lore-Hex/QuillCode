@@ -87,6 +87,8 @@ public extension QuillCodeWorkspaceModel {
             selectedThreadID: root.selectedThreadID,
             threads: root.threads,
             activeSidebarFilter: sidebarFilter,
+            activeSidebarSavedSearchID: activeSidebarSavedSearchID,
+            sidebarSavedSearches: sidebarSavedSearches,
             selectionIsActive: sidebarSelection.isActive,
             selectedThreadIDs: sidebarSelectedThreadIDs
         ).surface()
@@ -187,6 +189,7 @@ public extension QuillCodeWorkspaceModel {
             selectedSidebarThreads: selectedSidebarThreads,
             sidebarSelectionIsActive: sidebarSelection.isActive,
             sidebarItemCount: visibleSidebarItemCount,
+            sidebarSavedSearches: sidebarSavedSearches,
             hasActiveWorkspaceRoot: activeWorkspaceRoot != nil,
             canRetryLastUserTurn: canRetryLastUserTurn,
             composerIsSending: composer.isSending,

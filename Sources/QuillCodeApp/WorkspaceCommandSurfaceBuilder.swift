@@ -8,6 +8,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var selectedSidebarThreads: [ChatThread]
     var sidebarSelectionIsActive: Bool
     var sidebarItemCount: Int
+    var sidebarSavedSearches: [SidebarSavedSearch] = []
     var hasActiveWorkspaceRoot: Bool
     var canRetryLastUserTurn: Bool
     var composerIsSending: Bool
@@ -23,7 +24,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
 
     var commands: [WorkspaceCommandSurface] {
         WorkspaceThreadCommandCatalog.commands(
-            availability: threadAvailability
+            availability: threadAvailability,
+            savedSearches: sidebarSavedSearches
         )
         + WorkspaceCommandStaticCatalog.retryCommands(
             canRetryLastUserTurn: canRetryLastUserTurn

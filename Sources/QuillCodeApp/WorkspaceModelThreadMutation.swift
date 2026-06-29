@@ -30,7 +30,12 @@ extension QuillCodeWorkspaceModel {
     }
 
     func filteredSidebarItems() -> [SidebarItem] {
-        root.allSidebarItems.filter {
+        if let activeSearch = sidebarSavedSearches.first(where: { $0.id == activeSidebarSavedSearchID }) {
+            return root.allSidebarItems.filter {
+                SidebarThreadListBuilder.matches($0, query: activeSearch.query)
+            }
+        }
+        return root.allSidebarItems.filter {
             sidebarFilter.includes(isPinned: $0.isPinned, isArchived: $0.isArchived)
         }
     }

@@ -8,19 +8,35 @@ struct SidebarThreadListBuilder {
         guard !normalizedQuery.isEmpty else {
             return items
         }
-        return items.filter { item in
-            let pinLabel = item.isPinned ? "pinned" : ""
-            let archivedLabel = item.isArchived ? "archived" : ""
-            return item.title.localizedCaseInsensitiveContains(normalizedQuery)
-                || item.subtitle.localizedCaseInsensitiveContains(normalizedQuery)
-                || item.searchText.localizedCaseInsensitiveContains(normalizedQuery)
-                || pinLabel.localizedCaseInsensitiveContains(normalizedQuery)
-                || archivedLabel.localizedCaseInsensitiveContains(normalizedQuery)
-        }
+        return items.filter { Self.matches($0, query: normalizedQuery) }
     }
 
     func items(for filter: SidebarSavedFilterKind) -> [SidebarItemSurface] {
         items.filter { filter.includes(isPinned: $0.isPinned, isArchived: $0.isArchived) }
+    }
+
+    static func matches(_ item: SidebarItemSurface, query: String) -> Bool {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty else { return true }
+        let pinLabel = item.isPinned ? "pinned" : ""
+        let archivedLabel = item.isArchived ? "archived" : ""
+        return item.title.localizedCaseInsensitiveContains(normalizedQuery)
+            || item.subtitle.localizedCaseInsensitiveContains(normalizedQuery)
+            || item.searchText.localizedCaseInsensitiveContains(normalizedQuery)
+            || pinLabel.localizedCaseInsensitiveContains(normalizedQuery)
+            || archivedLabel.localizedCaseInsensitiveContains(normalizedQuery)
+    }
+
+    static func matches(_ item: SidebarItem, query: String) -> Bool {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty else { return true }
+        let pinLabel = item.isPinned ? "pinned" : ""
+        let archivedLabel = item.isArchived ? "archived" : ""
+        return item.title.localizedCaseInsensitiveContains(normalizedQuery)
+            || item.subtitle.localizedCaseInsensitiveContains(normalizedQuery)
+            || item.searchText.localizedCaseInsensitiveContains(normalizedQuery)
+            || pinLabel.localizedCaseInsensitiveContains(normalizedQuery)
+            || archivedLabel.localizedCaseInsensitiveContains(normalizedQuery)
     }
 
     var pinnedItems: [SidebarItemSurface] {
@@ -31,12 +47,20 @@ struct SidebarThreadListBuilder {
         items(for: filter).filter { $0.isPinned && !$0.isArchived }
     }
 
+    func pinnedItems(matching query: String) -> [SidebarItemSurface] {
+        filteredItems(matching: query).filter { $0.isPinned && !$0.isArchived }
+    }
+
     var recentItems: [SidebarItemSurface] {
         recentItems(for: .all)
     }
 
     func recentItems(for filter: SidebarSavedFilterKind) -> [SidebarItemSurface] {
         items(for: filter).filter { !$0.isPinned && !$0.isArchived }
+    }
+
+    func recentItems(matching query: String) -> [SidebarItemSurface] {
+        filteredItems(matching: query).filter { !$0.isPinned && !$0.isArchived }
     }
 
     func recentSections(
@@ -51,7 +75,22 @@ struct SidebarThreadListBuilder {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> [SidebarThreadSectionSurface] {
-        let recent = recentItems(for: filter)
+        recentSections(items: recentItems(for: filter), now: now, calendar: calendar)
+    }
+
+    func recentSections(
+        matching query: String,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [SidebarThreadSectionSurface] {
+        recentSections(items: recentItems(matching: query), now: now, calendar: calendar)
+    }
+
+    private func recentSections(
+        items recent: [SidebarItemSurface],
+        now: Date,
+        calendar: Calendar
+    ) -> [SidebarThreadSectionSurface] {
         guard !recent.isEmpty else { return [] }
 
         let grouped = Dictionary(grouping: recent) { item in
@@ -77,6 +116,10 @@ struct SidebarThreadListBuilder {
 
     func archivedItems(for filter: SidebarSavedFilterKind) -> [SidebarItemSurface] {
         items(for: filter).filter(\.isArchived)
+    }
+
+    func archivedItems(matching query: String) -> [SidebarItemSurface] {
+        filteredItems(matching: query).filter(\.isArchived)
     }
 }
 
