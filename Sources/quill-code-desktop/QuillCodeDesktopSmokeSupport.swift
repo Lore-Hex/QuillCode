@@ -5,6 +5,7 @@ import QuillCodeApp
 struct QuillCodeDesktopSmokeRequest: Sendable {
     var reportPath: String?
     var renderPath: String?
+    var resultRenderPath: String?
     var chromeRenderPath: String?
     var htmlPath: String?
     var workspacePath: String?
@@ -16,6 +17,7 @@ struct QuillCodeDesktopSmokeRequest: Sendable {
 
         self.reportPath = Self.value(after: "--smoke-report", in: arguments)
         self.renderPath = Self.value(after: "--smoke-render", in: arguments)
+        self.resultRenderPath = Self.value(after: "--smoke-result-render", in: arguments)
         self.chromeRenderPath = Self.value(after: "--smoke-chrome-render", in: arguments)
         self.htmlPath = Self.value(after: "--smoke-html", in: arguments)
         self.workspacePath = Self.value(after: "--smoke-workspace", in: arguments)
@@ -61,6 +63,13 @@ struct QuillCodeDesktopSmokeWorkspaceRoot {
         return root.appendingPathComponent("quillcode-desktop-chrome-smoke.png")
     }
 
+    func resultRenderURL(request: QuillCodeDesktopSmokeRequest) -> URL {
+        if let resultRenderPath = request.resultRenderPath, !resultRenderPath.isEmpty {
+            return URL(fileURLWithPath: resultRenderPath)
+        }
+        return root.appendingPathComponent("quillcode-desktop-result-smoke.png")
+    }
+
     func htmlURL(request: QuillCodeDesktopSmokeRequest) -> URL {
         if let htmlPath = request.htmlPath, !htmlPath.isEmpty {
             return URL(fileURLWithPath: htmlPath)
@@ -80,9 +89,11 @@ struct QuillCodeDesktopSmokeReport {
     var workspacePath: String
     var createdFilePath: String
     var renderPath: String
+    var resultRenderPath: String
     var chromeRenderPath: String
     var htmlPath: String
     var image: QuillCodeDesktopSmokePixelReport
+    var resultImage: QuillCodeDesktopSmokePixelReport
     var chromeImage: QuillCodeDesktopSmokePixelReport
     var chrome: QuillCodeDesktopChromeSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
@@ -100,9 +111,11 @@ struct QuillCodeDesktopSmokeReport {
                 "workspacePath": workspacePath,
                 "createdFilePath": createdFilePath,
                 "renderPath": renderPath,
+                "resultRenderPath": resultRenderPath,
                 "chromeRenderPath": chromeRenderPath,
                 "htmlPath": htmlPath,
                 "image": image.dictionary,
+                "resultImage": resultImage.dictionary,
                 "chromeImage": chromeImage.dictionary,
                 "chrome": chrome.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary

@@ -96,6 +96,21 @@ enum QuillCodeDesktopSmokeRunner {
             minBlueAccentPixelRatio: 0.0001
         )
 
+        let resultRenderURL = root.resultRenderURL(request: request)
+        let resultImage = try renderResultEvidence(
+            surface: surface,
+            createdFilePath: createdFile.path,
+            renderURL: resultRenderURL
+        )
+        let resultStats = try QuillCodeDesktopSmokePixelStats(image: resultImage)
+        try resultStats.validate(
+            expectedWidth: 820,
+            expectedHeight: 720,
+            minDistinctColorBuckets: 28,
+            minBrightPixelRatio: 0.004,
+            minBlueAccentPixelRatio: 0.0004
+        )
+
         let chromeRenderURL = root.chromeRenderURL(request: request)
         let chromeImage = try QuillCodeDesktopChromeSmoke.render(chrome, to: chromeRenderURL)
         let chromeStats = try QuillCodeDesktopSmokePixelStats(image: chromeImage)
@@ -127,9 +142,11 @@ enum QuillCodeDesktopSmokeRunner {
             workspacePath: root.workspace.path,
             createdFilePath: createdFile.path,
             renderPath: renderURL.path,
+            resultRenderPath: resultRenderURL.path,
             chromeRenderPath: chromeRenderURL.path,
             htmlPath: htmlURL.path,
             image: stats.report,
+            resultImage: resultStats.report,
             chromeImage: chromeStats.report,
             chrome: chrome,
             nativeHitTargets: nativeHitTargets
@@ -164,6 +181,36 @@ enum QuillCodeDesktopSmokeRunner {
         renderer.scale = 1
         renderer.isOpaque = true
         renderer.proposedSize = ProposedViewSize(width: 1280, height: 900)
+
+        guard let image = renderer.cgImage else {
+            throw QuillCodeDesktopSmokeFailure.renderFailed
+        }
+
+        let rep = NSBitmapImageRep(cgImage: image)
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            throw QuillCodeDesktopSmokeFailure.pngEncodingFailed
+        }
+        try FileManager.default.createDirectory(
+            at: renderURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try data.write(to: renderURL, options: .atomic)
+        return image
+    }
+
+    private static func renderResultEvidence(
+        surface: WorkspaceSurface,
+        createdFilePath: String,
+        renderURL: URL
+    ) throws -> CGImage {
+        let view = QuillCodeSmokeResultEvidenceView(
+            surface: surface,
+            createdFilePath: createdFilePath
+        )
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1
+        renderer.isOpaque = true
+        renderer.proposedSize = ProposedViewSize(width: 820, height: 720)
 
         guard let image = renderer.cgImage else {
             throw QuillCodeDesktopSmokeFailure.renderFailed
