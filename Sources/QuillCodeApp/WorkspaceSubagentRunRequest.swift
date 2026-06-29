@@ -58,7 +58,33 @@ enum SlashSubagentCommandParser {
         let workers = workerSegments.enumerated().map { index, segment in
             worker(from: segment, fallbackIndex: index + 1)
         }
-        return .subagents(WorkspaceSubagentRunRequest(objective: objective, workers: workers))
+        let (resolvedObjective, limit) = objectiveAndConcurrency(from: objective)
+        return .subagents(WorkspaceSubagentRunRequest(
+            objective: resolvedObjective,
+            workers: workers,
+            maxConcurrentWorkers: limit
+        ))
+    }
+
+    /// Extracts an optional leading `xN` concurrency token from the objective, e.g.
+    /// `x2 ship release` -> ("ship release", 2). The token is only honored when it is the first
+    /// whitespace-delimited word, fully matches `x` followed by digits, and leaves a non-empty
+    /// objective behind, so ordinary objectives like `xerox audit` are untouched.
+    private static func objectiveAndConcurrency(from objective: String) -> (objective: String, limit: Int?) {
+        let parts = objective.split(separator: " ", maxSplits: 1)
+        guard parts.count == 2, let limit = concurrencyToken(String(parts[0])) else {
+            return (objective, nil)
+        }
+        let remaining = boundedLine(String(parts[1]), limit: maxObjectiveCharacters)
+        guard !remaining.isEmpty else { return (objective, nil) }
+        return (remaining, limit)
+    }
+
+    private static func concurrencyToken(_ token: String) -> Int? {
+        let lowered = token.lowercased()
+        guard lowered.hasPrefix("x"), lowered.count >= 2, lowered.count <= 3 else { return nil }
+        guard let value = Int(lowered.dropFirst()), value >= 1 else { return nil }
+        return min(value, maxWorkers)
     }
 
     private static func worker(from segment: String, fallbackIndex: Int) -> WorkspaceSubagentWorkerRequest {
