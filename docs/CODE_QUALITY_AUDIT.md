@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 Real-World Smoke Runtime Evidence Pass
+
+Overall grade after this slice: **A release evidence traceability, A secret hygiene, A- live-provider matrix breadth**.
+
+The real-world smoke wrapper already embedded deterministic and live TrustedRouter artifacts, but reviewers still had to inspect nested logs to know which live model/base URL/key source was used. That makes release evidence weaker when testing cheap models or comparing provider endpoints.
+
+| Before | After |
+| --- | --- |
+| `live-tr-smoke.sh` resolved the live key but did not record a secret-free source label in the manifest. | The live manifest now records `keySource` as `env:QUILLCODE_API_KEY`, `env:TRUSTEDROUTER_API_KEY`, `key-file`, or `missing`, plus `secretFree=true`; it never passes the raw key into the manifest writer. |
+| The live manifest exposed only the normalized model under `model`. | It now records `transport`, `rawModel`, and `normalizedModel`, so shorthand such as `deepseekv4flash` can be audited alongside the real model ID. |
+| The top-level real-world manifest did not summarize live runtime configuration before opening nested artifacts. | It now includes a secret-free `liveTrustedRouter.configured` block with transport, raw model, base URL, and key source. |
+| Smoke-script evidence contracts were not protected by a focused parity gate. | `ParitySmokeScriptGateTests` checks that live and real-world smoke manifests keep the runtime evidence fields and do not add raw API-key manifest plumbing. |
+
+Residual risk:
+
+- This pass improves evidence metadata, not scenario breadth. Future live-provider smoke should still add deeper git review, patch, browser, and Computer Use flows as those end-to-end paths stabilize.
+
 ## 2026-06-29 Git Read Real-World Smoke Pass
 
 Overall grade after this slice: **A read-only git reliability, A parser ownership, A- broader git workflow coverage**.

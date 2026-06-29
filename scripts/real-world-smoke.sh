@@ -12,6 +12,9 @@ DETERMINISTIC_DETAIL="not-started"
 LIVE_STATUS="not-run"
 LIVE_DETAIL="not-started"
 FINAL_DETAIL="interrupted"
+LIVE_KEY_SOURCE="missing"
+LIVE_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash}"
+LIVE_BASE_URL="${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}"
 
 cd "$ROOT_DIR"
 
@@ -25,6 +28,22 @@ has_live_key() {
     return 0
   fi
   [[ -s "$KEY_FILE" ]]
+}
+
+live_key_source() {
+  if [[ -n "${QUILLCODE_API_KEY:-}" ]]; then
+    printf 'env:QUILLCODE_API_KEY'
+    return
+  fi
+  if [[ -n "${TRUSTEDROUTER_API_KEY:-}" ]]; then
+    printf 'env:TRUSTEDROUTER_API_KEY'
+    return
+  fi
+  if [[ -s "$KEY_FILE" ]]; then
+    printf 'key-file'
+    return
+  fi
+  printf 'missing'
 }
 
 is_truthy() {
@@ -58,6 +77,9 @@ write_manifest() {
     "$DETERMINISTIC_DETAIL" \
     "$LIVE_STATUS" \
     "$LIVE_DETAIL" \
+    "$LIVE_KEY_SOURCE" \
+    "$LIVE_MODEL" \
+    "$LIVE_BASE_URL" \
     "$REQUIRE_PLAYWRIGHT" \
     "$ARTIFACT_DIR" <<'PY'
 import json
@@ -74,6 +96,9 @@ from datetime import datetime, timezone
     deterministic_detail,
     live_status,
     live_detail,
+    live_key_source,
+    live_model,
+    live_base_url,
     require_playwright,
     artifact_root,
 ) = sys.argv[1:]
@@ -128,6 +153,13 @@ manifest = {
     "liveTrustedRouter": {
         "status": live_status,
         "detail": live_detail,
+        "configured": {
+            "transport": "TrustedRouter",
+            "rawModel": live_model,
+            "baseURL": live_base_url,
+            "keySource": live_key_source,
+            "secretFree": True,
+        },
         "artifactDir": live_dir if os.path.isdir(live_dir) else None,
         "manifest": live_manifest,
         "artifactFiles": collect_files(live_dir),
@@ -175,6 +207,7 @@ else
 fi
 
 if has_live_key; then
+  LIVE_KEY_SOURCE="$(live_key_source)"
   echo "==> Running live TrustedRouter real-world smoke suite"
   if QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/live-trustedrouter}" \
     "$ROOT_DIR/scripts/live-tr-smoke.sh"; then

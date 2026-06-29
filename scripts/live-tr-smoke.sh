@@ -12,6 +12,7 @@ RAW_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash}"
 BASE_URL="${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}"
 KEEP_ARTIFACTS="${QUILLCODE_LIVE_KEEP_ARTIFACTS:-0}"
 ARTIFACT_DIR="${QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR:-}"
+API_KEY_SOURCE="missing"
 CURRENT_SCENARIO=""
 CURRENT_PROMPT=""
 CURRENT_SCENARIO_START=0
@@ -66,22 +67,18 @@ trim() {
   awk '{$1=$1; print}'
 }
 
-configured_key() {
-  if [[ -n "${QUILLCODE_API_KEY:-}" ]]; then
-    printf '%s' "$QUILLCODE_API_KEY" | trim
-    return
-  fi
-  if [[ -n "${TRUSTEDROUTER_API_KEY:-}" ]]; then
-    printf '%s' "$TRUSTEDROUTER_API_KEY" | trim
-    return
-  fi
-  if [[ -f "$KEY_FILE" ]]; then
-    trim < "$KEY_FILE"
-    return
-  fi
-}
-
-API_KEY="$(configured_key || true)"
+if [[ -n "${QUILLCODE_API_KEY:-}" ]]; then
+  API_KEY="$(printf '%s' "$QUILLCODE_API_KEY" | trim)"
+  API_KEY_SOURCE="env:QUILLCODE_API_KEY"
+elif [[ -n "${TRUSTEDROUTER_API_KEY:-}" ]]; then
+  API_KEY="$(printf '%s' "$TRUSTEDROUTER_API_KEY" | trim)"
+  API_KEY_SOURCE="env:TRUSTEDROUTER_API_KEY"
+elif [[ -s "$KEY_FILE" ]]; then
+  API_KEY="$(trim < "$KEY_FILE")"
+  API_KEY_SOURCE="key-file"
+else
+  API_KEY=""
+fi
 if [[ -z "$API_KEY" ]]; then
   echo "No TrustedRouter key found. Set QUILLCODE_API_KEY, TRUSTEDROUTER_API_KEY, or create $KEY_FILE." >&2
   exit 2
@@ -269,8 +266,10 @@ write_artifact_manifest() {
     --arg generatedAt "$generated_at" \
     --arg status "$status" \
     --arg detail "$detail" \
+    --arg rawModel "$RAW_MODEL" \
     --arg model "$MODEL" \
     --arg baseURL "$BASE_URL" \
+    --arg keySource "$API_KEY_SOURCE" \
     --arg root "$SMOKE_ROOT" \
     --arg home "$SMOKE_HOME" \
     --arg workspace "$SMOKE_WORKSPACE" \
@@ -282,8 +281,13 @@ write_artifact_manifest() {
       generatedAt: $generatedAt,
       status: ($status | tonumber),
       detail: $detail,
+      transport: "TrustedRouter",
+      rawModel: $rawModel,
+      normalizedModel: $model,
       model: $model,
       baseURL: $baseURL,
+      keySource: $keySource,
+      secretFree: true,
       smokeRoot: $root,
       home: $home,
       workspace: $workspace,
