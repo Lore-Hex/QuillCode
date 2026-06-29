@@ -52,6 +52,20 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testDeterministicSmokeCoversExplicitNegativeActionIntent() throws {
+        let script = try Self.scriptText(named: "smoke.sh")
+
+        XCTAssertTrue(script.contains("CLI_NEGATIVE_ACTION_STATUS=\"not-run\""))
+        XCTAssertTrue(script.contains("\"cliNegativeActions\""))
+        XCTAssertTrue(script.contains("Do not run whoami."))
+        XCTAssertTrue(script.contains("Do not write"))
+        XCTAssertTrue(script.contains("forbidden.txt"))
+        XCTAssertTrue(script.contains("Don't download https://example.com"))
+        XCTAssertTrue(script.contains("downloads/forbidden.html"))
+        XCTAssertTrue(script.contains("forbidden.txt despite explicit negative intent"))
+        XCTAssertTrue(script.contains("forbidden.html despite explicit negative intent"))
+    }
+
     func testRealWorldSmokeWorkflowRunsReleaseCandidateWrapperWithArtifacts() throws {
         let workflow = try Self.workflowText(named: "real-world-smoke.yml")
 

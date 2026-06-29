@@ -12,6 +12,7 @@ FINAL_DETAIL="interrupted"
 SWIFT_TESTS_STATUS="not-run"
 CLI_SHELL_STATUS="not-run"
 CLI_DIAGNOSTICS_STATUS="not-run"
+CLI_NEGATIVE_ACTION_STATUS="not-run"
 CLI_FILE_CREATION_STATUS="not-run"
 CLI_WORKSPACE_FOLLOWUP_STATUS="not-run"
 CLI_DOWNLOAD_STATUS="not-run"
@@ -45,6 +46,7 @@ write_manifest() {
     "$SWIFT_TESTS_STATUS" \
     "$CLI_SHELL_STATUS" \
     "$CLI_DIAGNOSTICS_STATUS" \
+    "$CLI_NEGATIVE_ACTION_STATUS" \
     "$CLI_FILE_CREATION_STATUS" \
     "$CLI_WORKSPACE_FOLLOWUP_STATUS" \
     "$CLI_DOWNLOAD_STATUS" \
@@ -70,6 +72,7 @@ from datetime import datetime, timezone
     swift_tests_status,
     cli_shell_status,
     cli_diagnostics_status,
+    cli_negative_action_status,
     cli_file_creation_status,
     cli_workspace_followup_status,
     cli_download_status,
@@ -114,6 +117,7 @@ manifest = {
         "swiftTests": {"status": swift_tests_status},
         "cliShell": {"status": cli_shell_status},
         "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
+        "cliNegativeActions": {"status": cli_negative_action_status},
         "cliFileCreation": {"status": cli_file_creation_status},
         "cliWorkspaceFollowUp": {"status": cli_workspace_followup_status},
         "cliLocalDownload": {"status": cli_download_status},
@@ -229,6 +233,32 @@ assert_cli_output_contains "$current_directory_output" "$SMOKE_WORKSPACE_PHYSICA
 openclaw_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do you have openclaw?")"
 assert_cli_output_contains "$openclaw_output" "openclaw" "Do you have openclaw?"
 CLI_DIAGNOSTICS_STATUS="passed"
+
+echo "==> Running mock CLI negative action prompts"
+CLI_NEGATIVE_ACTION_STATUS="running"
+FINAL_DETAIL="mock CLI negative action prompts failed"
+negated_run_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do not run whoami.")"
+assert_cli_output_contains "$negated_run_output" "won't take that action" "Do not run whoami"
+if grep -Fqi "You are" <<<"$negated_run_output"; then
+  echo "quill-code ran whoami despite explicit negative intent" >&2
+  printf '%s\n' "$negated_run_output" >&2
+  exit 1
+fi
+
+negated_write_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do not write \`forbidden.txt\` with content \`nope\`.")"
+assert_cli_output_contains "$negated_write_output" "won't take that action" "Do not write forbidden.txt"
+if [[ -e "$SMOKE_WORKSPACE/forbidden.txt" ]]; then
+  echo "quill-code created forbidden.txt despite explicit negative intent" >&2
+  exit 1
+fi
+
+negated_download_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Don't download https://example.com into \`downloads/forbidden.html\`.")"
+assert_cli_output_contains "$negated_download_output" "won't take that action" "Don't download forbidden.html"
+if [[ -e "$SMOKE_WORKSPACE/downloads/forbidden.html" ]]; then
+  echo "quill-code downloaded forbidden.html despite explicit negative intent" >&2
+  exit 1
+fi
+CLI_NEGATIVE_ACTION_STATUS="passed"
 
 echo "==> Running mock CLI file creation"
 CLI_FILE_CREATION_STATUS="running"
