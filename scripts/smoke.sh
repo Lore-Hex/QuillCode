@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-smoke.XXXXXX")"
 SMOKE_HOME="$SMOKE_ROOT/home"
 SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
+ARTIFACT_DIR="${QUILLCODE_SMOKE_ARTIFACT_DIR:-}"
 
 cleanup() {
   rm -rf "$SMOKE_ROOT"
@@ -113,10 +114,12 @@ if grep -q "Fatal error" "$LIVE_ERROR_STDERR"; then
   exit 1
 fi
 
-"$ROOT_DIR/scripts/native-desktop-smoke.sh"
+QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/native-desktop}" \
+  "$ROOT_DIR/scripts/native-desktop-smoke.sh"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  "$ROOT_DIR/scripts/packaged-macos-smoke.sh"
+  QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/packaged-macos}" \
+    "$ROOT_DIR/scripts/packaged-macos-smoke.sh"
 fi
 
 if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then

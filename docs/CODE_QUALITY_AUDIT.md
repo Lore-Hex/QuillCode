@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Smoke Artifact Evidence Pass
+
+Overall grade after this slice: **A native smoke evidence, A CI review ergonomics, A- packaged-window observability**.
+
+Native smoke already rendered the actual SwiftUI workspace and desktop chrome, but that evidence disappeared with the temp directory. This pass makes those images and reports a stable CI artifact so UI polish, hit-target, and release-entrypoint regressions can be inspected visually after every smoke run.
+
+| Before | After |
+| --- | --- |
+| `scripts/native-desktop-smoke.sh` generated `workspace.png`, `chrome.png`, `workspace.html`, `report.json`, and `stdout.log`, then deleted the temp root before a PR reviewer or another agent could inspect them. | The script now accepts `QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR`, copies every smoke evidence file plus a manifest into that folder, and still preserves the old cleanup behavior unless explicit artifact preservation is requested. |
+| Packaged macOS smoke proved direct bundle executable and Launch Services paths, but their screenshots and reports were not separated by launch path. | `scripts/packaged-macos-smoke.sh` now writes direct-executable and Launch Services artifact subfolders plus packaged `Info.plist`, making launch-path regressions easier to compare. |
+| CI smoke was a pass/fail log for the native UI evidence. | The smoke job now sets `QUILLCODE_SMOKE_ARTIFACT_DIR` and uploads short-retention UI artifacts on success or failure, so rendered workspace/chrome screenshots are attached to the run. |
+
+Residual risk:
+
+- These artifacts make native smoke inspectable, but they still come from the deterministic render-smoke path. The next deeper layer remains packaged-window Accessibility automation that clicks and samples the real app surface.
+
 ## 2026-06-29 Live TrustedRouter Smoke Observability Pass
 
 Overall grade after this slice: **A real-provider failure observability, A- release-lane operator ergonomics, A- live workflow evidence**.

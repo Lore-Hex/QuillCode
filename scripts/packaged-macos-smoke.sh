@@ -4,9 +4,32 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-packaged-macos-smoke.XXXXXX")"
 APP_OUTPUT_DIR="$SMOKE_ROOT/app"
+ARTIFACT_DIR="${QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR:-}"
 
 cleanup() {
+  local status=$?
+  set +e
+
+  if [[ -n "$ARTIFACT_DIR" ]]; then
+    mkdir -p "$ARTIFACT_DIR"
+    if [[ -n "${INFO_PLIST:-}" && -e "$INFO_PLIST" ]]; then
+      cp "$INFO_PLIST" "$ARTIFACT_DIR/Info.plist"
+    fi
+    {
+      printf 'label=packaged macOS app\n'
+      printf 'status=%s\n' "$status"
+      printf 'source=%s\n' "$SMOKE_ROOT"
+      if [[ -n "${APP_BUNDLE:-}" ]]; then
+        printf 'app_bundle=%s\n' "$APP_BUNDLE"
+      fi
+      printf 'direct_smoke=direct-executable\n'
+      printf 'launch_services_smoke=launch-services\n'
+    } > "$ARTIFACT_DIR/manifest.txt"
+    echo "QuillCode packaged macOS app smoke artifacts: $ARTIFACT_DIR"
+  fi
+
   rm -rf "$SMOKE_ROOT"
+  exit "$status"
 }
 trap cleanup EXIT
 
@@ -53,10 +76,12 @@ assert_plist_value NSPrincipalClass NSApplication
 
 QUILLCODE_DESKTOP_EXECUTABLE="$APP_EXECUTABLE" \
 QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL="packaged macOS app" \
+QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/direct-executable}" \
   "$ROOT_DIR/scripts/native-desktop-smoke.sh"
 
 QUILLCODE_DESKTOP_APP_BUNDLE="$APP_BUNDLE" \
 QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL="packaged macOS app Launch Services" \
+QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/launch-services}" \
   "$ROOT_DIR/scripts/native-desktop-smoke.sh"
 
 echo "QuillCode packaged macOS app smoke passed."
