@@ -154,6 +154,8 @@ private struct QuillCodeSidebarSavedSearchBar: View {
             .accessibilityAddTraits(savedSearch.isActive ? .isSelected : [])
             .help(savedSearch.query)
 
+            savedSearchMoveButton(savedSearch, direction: .up, systemImage: "chevron.up")
+            savedSearchMoveButton(savedSearch, direction: .down, systemImage: "chevron.down")
             Button {
                 onCommand(QuillCodeSidebarCommandAdapter.deleteWorkspaceCommand(for: savedSearch))
             } label: {
@@ -165,6 +167,25 @@ private struct QuillCodeSidebarSavedSearchBar: View {
             .foregroundStyle(QuillCodePalette.red)
             .accessibilityLabel("Delete saved search \(savedSearch.title)")
         }
+    }
+
+    private func savedSearchMoveButton(
+        _ savedSearch: SidebarSavedSearchSurface,
+        direction: SidebarSavedSearchMoveDirection,
+        systemImage: String
+    ) -> some View {
+        let command = QuillCodeSidebarCommandAdapter.moveWorkspaceCommand(for: savedSearch, direction: direction)
+        return Button {
+            onCommand(command)
+        } label: {
+            Image(systemName: systemImage)
+                .imageScale(.small)
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .quillCodeIconButtonTarget()
+        .foregroundStyle(command.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
+        .disabled(!command.isEnabled)
+        .accessibilityLabel("Move saved search \(savedSearch.title) \(direction.rawValue)")
     }
 }
 

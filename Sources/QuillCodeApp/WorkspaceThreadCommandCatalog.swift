@@ -141,7 +141,7 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "sidebar", "filter"]
             )
-        ] + savedSearches.filter(\.isValid).flatMap(savedSearchCommands)
+        ] + savedSearchCommands(savedSearches)
     }
 
     private static func savedFilterCommand(_ filter: SidebarSavedFilterKind) -> WorkspaceCommandSurface {
@@ -153,20 +153,37 @@ enum WorkspaceThreadCommandCatalog {
         )
     }
 
-    private static func savedSearchCommands(_ savedSearch: SidebarSavedSearch) -> [WorkspaceCommandSurface] {
-        [
-            WorkspaceCommandSurface(
-                id: SidebarSavedSearchSurface.commandID(for: savedSearch.id),
-                title: "Show \(savedSearch.title)",
-                category: WorkspaceCommandPalette.threadCategory,
-                keywords: ["thread", "chat", "sidebar", "saved search", "search", savedSearch.query]
-            ),
-            WorkspaceCommandSurface(
-                id: SidebarSavedSearchSurface.deleteCommandID(for: savedSearch.id),
-                title: "Delete saved search \(savedSearch.title)",
-                category: WorkspaceCommandPalette.threadCategory,
-                keywords: ["thread", "chat", "sidebar", "saved search", "delete", savedSearch.query]
-            )
-        ]
+    private static func savedSearchCommands(_ savedSearches: [SidebarSavedSearch]) -> [WorkspaceCommandSurface] {
+        let validSavedSearches = savedSearches.filter(\.isValid)
+        return validSavedSearches.enumerated().flatMap { index, savedSearch in
+            [
+                WorkspaceCommandSurface(
+                    id: SidebarSavedSearchSurface.commandID(for: savedSearch.id),
+                    title: "Show \(savedSearch.title)",
+                    category: WorkspaceCommandPalette.threadCategory,
+                    keywords: ["thread", "chat", "sidebar", "saved search", "search", savedSearch.query]
+                ),
+                WorkspaceCommandSurface(
+                    id: SidebarSavedSearchSurface.moveCommandID(for: savedSearch.id, direction: .up),
+                    title: "Move saved search \(savedSearch.title) up",
+                    category: WorkspaceCommandPalette.threadCategory,
+                    keywords: ["thread", "chat", "sidebar", "saved search", "move", "up", savedSearch.query],
+                    isEnabled: index > 0
+                ),
+                WorkspaceCommandSurface(
+                    id: SidebarSavedSearchSurface.moveCommandID(for: savedSearch.id, direction: .down),
+                    title: "Move saved search \(savedSearch.title) down",
+                    category: WorkspaceCommandPalette.threadCategory,
+                    keywords: ["thread", "chat", "sidebar", "saved search", "move", "down", savedSearch.query],
+                    isEnabled: index < validSavedSearches.count - 1
+                ),
+                WorkspaceCommandSurface(
+                    id: SidebarSavedSearchSurface.deleteCommandID(for: savedSearch.id),
+                    title: "Delete saved search \(savedSearch.title)",
+                    category: WorkspaceCommandPalette.threadCategory,
+                    keywords: ["thread", "chat", "sidebar", "saved search", "delete", savedSearch.query]
+                )
+            ]
+        }
     }
 }

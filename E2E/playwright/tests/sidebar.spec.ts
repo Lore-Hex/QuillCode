@@ -299,6 +299,48 @@ test('mock harness creates and deletes custom saved searches from explicit sideb
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
 });
 
+test('mock harness reorders custom saved searches from explicit sidebar targets', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  for (const prompt of ['run whoami', 'write hello world notes', 'run df -h']) {
+    await page.getByLabel('Message').fill(prompt);
+    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByTestId('new-chat-button').click();
+  }
+
+  await page.evaluate(() => {
+    const harness = window as unknown as {
+      addSidebarSavedSearch: (title: string, query: string, id: string) => string | null;
+    };
+    harness.addSidebarSavedSearch('Shell runs', 'run', 'saved-shell-runs');
+    harness.addSidebarSavedSearch('Notes', 'notes', 'saved-notes');
+  });
+
+  const row = (index: number) => page.getByTestId('sidebar-saved-search-row').nth(index);
+  await expect(row(0).getByTestId('sidebar-saved-search')).toContainText('Shell runs');
+  await expect(row(0).getByTestId('sidebar-saved-search-move-up')).toBeDisabled();
+  await expect(row(0).getByTestId('sidebar-saved-search-move-down')).toBeEnabled();
+  await expect(row(1).getByTestId('sidebar-saved-search')).toContainText('Notes');
+  await expect(row(1).getByTestId('sidebar-saved-search-move-up')).toBeEnabled();
+  await expect(row(1).getByTestId('sidebar-saved-search-move-down')).toBeDisabled();
+  await expect(page.locator('[data-testid="sidebar-saved-search"][data-saved-search-id="saved-notes"]')).toHaveAttribute('aria-pressed', 'true');
+
+  await row(0).getByTestId('sidebar-saved-search-move-down').click({ position: { x: 8, y: 8 } });
+  await expect(row(0).getByTestId('sidebar-saved-search')).toContainText('Notes');
+  await expect(row(1).getByTestId('sidebar-saved-search')).toContainText('Shell runs');
+  await expect(row(0).getByTestId('sidebar-saved-search-move-up')).toBeDisabled();
+  await expect(row(1).getByTestId('sidebar-saved-search-move-down')).toBeDisabled();
+  await expect(page.locator('[data-testid="sidebar-saved-search"][data-saved-search-id="saved-notes"]')).toHaveAttribute('aria-pressed', 'true');
+
+  await row(1).getByTestId('sidebar-saved-search-move-up').click({ position: { x: 8, y: 8 } });
+  await expect(row(0).getByTestId('sidebar-saved-search')).toContainText('Shell runs');
+  await expect(row(1).getByTestId('sidebar-saved-search')).toContainText('Notes');
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('>move saved search notes up');
+  await expect(page.getByTestId('command-palette-result')).toContainText('Move saved search Notes up');
+});
+
 test('mock harness manages projects from the sidebar', async ({ page }) => {
   await page.goto(harnessURL());
 

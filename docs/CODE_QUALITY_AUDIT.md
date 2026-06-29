@@ -163,18 +163,19 @@ Residual risk:
 
 Overall grade after this slice: **A sidebar command architecture, A rendered click-target coverage, A saved-search persistence**.
 
-Custom sidebar saved searches now share the same command, filtering, persistence, and click-target machinery as built-in All/Pinned/Recent/Archived filters. The implementation keeps saved searches as typed state surfaces instead of one-off DOM buttons, and it deliberately separates the wide select target from the smaller destructive delete target.
+Custom sidebar saved searches now share the same command, filtering, persistence, ordering, and click-target machinery as built-in All/Pinned/Recent/Archived filters. The implementation keeps saved searches as typed state surfaces instead of one-off DOM buttons, and it deliberately separates the wide select target from smaller reorder/delete targets.
 
 | Before | After |
 | --- | --- |
 | Built-in saved filters had scoped counts and selection behavior, but custom saved searches were still a parity gap and could have become ad hoc sidebar buttons later. | `SidebarSavedSearch` and `SidebarSavedSearchSurface` now provide typed IDs, query/count projection, active state, accessibility labels, and stable `sidebar-saved-search:*` command IDs. |
 | User-authored saved searches were not persisted, so sidebar organization would reset between launches. | `JSONSidebarSavedSearchStore` normalizes, deduplicates, saves, and loads saved searches from `~/.quillcode/sidebar-saved-searches.json`, with focused unit and integration coverage. |
-| The Playwright harness had no saved-search management path, so broad click-target audits could not prove dynamic search chips, create buttons, delete buttons, or dialog text fields were reachable, named, and routable. | The harness renders saved-search create/select/delete controls with shared hit-target classes, command-routing registry support, text-entry focus probes, and edge-click coverage in sidebar plus broad interaction-audit specs. |
+| Saved-search organization could not be adjusted after creation without deleting and recreating records. | `sidebar-saved-search-move-up/down:*` commands reorder records through the same persisted model, expose disabled edge states, and render as separate icon targets in SwiftUI and HTML. |
+| The Playwright harness had no saved-search management path, so broad click-target audits could not prove dynamic search chips, create buttons, reorder buttons, delete buttons, or dialog text fields were reachable, named, and routable. | The harness renders saved-search create/select/reorder/delete controls with shared hit-target classes, command-routing registry support, text-entry focus probes, and edge-click coverage in sidebar plus broad interaction-audit specs. |
 | Switching scopes could have left hidden rows selected if custom searches were layered separately from filters. | Saved filters and saved searches are peer scopes; changing either clears transient selection, and Select all acts only on the visible filtered rows. |
 
 Residual risk:
 
-- Saved-search ordering and drag/drop sidebar polish remain future Codex-parity work, but the create/delete/select target contract is now covered before ordering is added.
+- Drag/drop sidebar polish remains future Codex-parity work, but create/select/reorder/delete now share one command and click-target contract.
 
 ## 2026-06-29 Result-Focused Native Smoke Evidence Pass
 
@@ -462,7 +463,7 @@ Code quality changes:
 
 Remaining risk:
 
-- These are fixed built-in filters, not user-authored saved searches. Custom saved searches, drag/drop ordering, and packaged-native click automation remain future Codex-parity work, but the command IDs and visible-row selection contract should not need to change.
+- These are fixed built-in filters. User-authored saved searches now exist separately with persisted create/select/reorder/delete behavior; drag/drop polish and packaged-native click automation remain future Codex-parity work.
 
 ## 2026-06-27 HTML Command Routing Contract Pass
 

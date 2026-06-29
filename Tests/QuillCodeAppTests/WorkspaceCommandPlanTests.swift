@@ -152,6 +152,14 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .deleteSidebarSavedSearch(id)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "sidebar-saved-search-move-up:\(id.uuidString)"),
+            .moveSidebarSavedSearch(id, .up)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "sidebar-saved-search-move-down:\(id.uuidString)"),
+            .moveSidebarSavedSearch(id, .down)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "browser-tab-new"),
             .newBrowserTab
         )
@@ -256,6 +264,8 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-filter:not-real"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-saved-search:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-saved-search-delete:not-a-uuid"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-saved-search-move-up:not-a-uuid"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-saved-search-move-down:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-toggle-section:not-real"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "slash-command:9999"))
     }

@@ -246,9 +246,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             interactionSpecText.contains("sidebar saved-search create button")
                 && interactionSpecText.contains("sidebar saved-search delete button")
+                && interactionSpecText.contains("sidebar saved-search move down button")
+                && interactionSpecText.contains("sidebar saved-search move up button")
                 && interactionSpecText.contains("saved-search query leading interior")
                 && interactionSpecText.contains("saved-search title trailing interior"),
-            "Saved-search management should audit create/delete targets and text-entry focus from interior clicks, not only the selected chip."
+            "Saved-search management should audit create/delete/reorder targets and text-entry focus from interior clicks, not only the selected chip."
         )
         XCTAssertTrue(
             interactionSpecText.contains("secondary pane controls respond from the full interior click target")

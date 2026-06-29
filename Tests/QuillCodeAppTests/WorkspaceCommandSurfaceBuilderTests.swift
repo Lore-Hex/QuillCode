@@ -99,9 +99,11 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
 
     func testSavedSearchesAppearAsThreadCommands() throws {
         let searchID = try XCTUnwrap(UUID(uuidString: "44444444-4444-4444-4444-444444444444"))
+        let secondSearchID = try XCTUnwrap(UUID(uuidString: "55555555-5555-5555-5555-555555555555"))
         let commands = makeBuilder(
             sidebarSavedSearches: [
                 SidebarSavedSearch(id: searchID, title: "Failures", query: "failed error"),
+                SidebarSavedSearch(id: secondSearchID, title: "OpenClaw", query: "openclaw"),
                 SidebarSavedSearch(title: "", query: "hidden")
             ]
         ).commands
@@ -114,6 +116,22 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         let deleteSavedSearch = try command("sidebar-saved-search-delete:\(searchID.uuidString)", in: commands)
         XCTAssertEqual(deleteSavedSearch.title, "Delete saved search Failures")
         XCTAssertTrue(deleteSavedSearch.keywords.contains("delete"))
+        XCTAssertEqual(
+            try command("sidebar-saved-search-move-up:\(searchID.uuidString)", in: commands).isEnabled,
+            false
+        )
+        XCTAssertEqual(
+            try command("sidebar-saved-search-move-down:\(searchID.uuidString)", in: commands).isEnabled,
+            true
+        )
+        XCTAssertEqual(
+            try command("sidebar-saved-search-move-up:\(secondSearchID.uuidString)", in: commands).isEnabled,
+            true
+        )
+        XCTAssertEqual(
+            try command("sidebar-saved-search-move-down:\(secondSearchID.uuidString)", in: commands).isEnabled,
+            false
+        )
         XCTAssertNotNil(commands.first { $0.id == "sidebar-saved-search-create" })
         XCTAssertFalse(commands.contains { $0.title == "Show hidden" })
     }

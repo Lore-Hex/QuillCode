@@ -179,12 +179,16 @@ test('mock harness audits every visible interactive click target across workspac
       addSidebarSavedSearch: (title: string, query: string, id: string) => string | null;
     };
     harness.addSidebarSavedSearch('Shell work', 'whoami', 'saved-shell-work');
+    harness.addSidebarSavedSearch('Run work', 'run', 'saved-run-work');
   });
-  await expect(page.getByTestId('sidebar-saved-search')).toBeVisible();
+  await expect(page.getByTestId('sidebar-saved-search')).toHaveCount(2);
+  await expect(page.getByTestId('sidebar-saved-search').first()).toBeVisible();
   await expectInteractionTargetsClean(page, 'sidebar saved-search controls');
   await expectHitTarget(page.getByTestId('sidebar-saved-search-create'), 'sidebar saved-search create button');
-  await expectHitTarget(page.getByTestId('sidebar-saved-search'), 'sidebar saved-search chip');
-  await expectHitTarget(page.getByTestId('sidebar-saved-search-delete'), 'sidebar saved-search delete button');
+  await expectHitTarget(page.getByTestId('sidebar-saved-search').first(), 'sidebar saved-search chip');
+  await expectHitTarget(page.getByTestId('sidebar-saved-search-move-down').first(), 'sidebar saved-search move down button');
+  await expectHitTarget(page.getByTestId('sidebar-saved-search-move-up').last(), 'sidebar saved-search move up button');
+  await expectHitTarget(page.getByTestId('sidebar-saved-search-delete').first(), 'sidebar saved-search delete button');
 
   await page.getByTestId('sidebar-saved-search-create').click();
   await expect(page.getByTestId('sidebar-saved-search-panel')).toBeVisible();

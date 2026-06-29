@@ -54,6 +54,8 @@ extension QuillCodeWorkspaceModel {
             return setSidebarSavedSearch(id)
         case .deleteSidebarSavedSearch(let id):
             return deleteSidebarSavedSearch(id)
+        case .moveSidebarSavedSearch(let id, let direction):
+            return moveSidebarSavedSearch(id, direction: direction)
         case .newBrowserTab:
             _ = newBrowserTab()
             return true
