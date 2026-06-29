@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-native-desktop-smoke.XXXXXX")"
 REPORT_PATH="$SMOKE_ROOT/report.json"
 RENDER_PATH="$SMOKE_ROOT/workspace.png"
+RESULT_RENDER_PATH="$SMOKE_ROOT/result.png"
 CHROME_RENDER_PATH="$SMOKE_ROOT/chrome.png"
 HTML_PATH="$SMOKE_ROOT/workspace.html"
 STDOUT_PATH="$SMOKE_ROOT/stdout.log"
@@ -20,7 +21,7 @@ cleanup() {
 
   if [[ -n "$ARTIFACT_DIR" ]]; then
     mkdir -p "$ARTIFACT_DIR"
-    for artifact_path in "$REPORT_PATH" "$RENDER_PATH" "$CHROME_RENDER_PATH" "$HTML_PATH" "$STDOUT_PATH"; do
+    for artifact_path in "$REPORT_PATH" "$RENDER_PATH" "$RESULT_RENDER_PATH" "$CHROME_RENDER_PATH" "$HTML_PATH" "$STDOUT_PATH"; do
       if [[ -e "$artifact_path" ]]; then
         cp "$artifact_path" "$ARTIFACT_DIR/$(basename "$artifact_path")"
       fi
@@ -31,6 +32,7 @@ cleanup() {
       printf 'source=%s\n' "$SMOKE_ROOT"
       printf 'report=report.json\n'
       printf 'workspace_png=workspace.png\n'
+      printf 'result_png=result.png\n'
       printf 'chrome_png=chrome.png\n'
       printf 'workspace_html=workspace.html\n'
       printf 'stdout=stdout.log\n'
@@ -81,6 +83,7 @@ echo "==> Running $TARGET_LABEL render smoke"
   --smoke-workspace "$SMOKE_ROOT" \
   --smoke-report "$REPORT_PATH" \
   --smoke-render "$RENDER_PATH" \
+  --smoke-result-render "$RESULT_RENDER_PATH" \
   --smoke-chrome-render "$CHROME_RENDER_PATH" \
   --smoke-html "$HTML_PATH" \
   >"$STDOUT_PATH"
@@ -91,6 +94,11 @@ if [[ ! -s "$REPORT_PATH" ]]; then
 fi
 if [[ ! -s "$RENDER_PATH" ]]; then
   echo "quill-code-desktop native smoke did not write a rendered PNG" >&2
+  cat "$REPORT_PATH" >&2 || true
+  exit 1
+fi
+if [[ ! -s "$RESULT_RENDER_PATH" ]]; then
+  echo "quill-code-desktop native smoke did not write a result evidence PNG" >&2
   cat "$REPORT_PATH" >&2 || true
   exit 1
 fi
@@ -111,6 +119,11 @@ if ! grep -q '"ok" : true' "$REPORT_PATH"; then
 fi
 if ! grep -q '"toolName" : "host.file.write"' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not execute the expected file-write tool" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q '"resultRenderPath"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report the result evidence image" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi
@@ -211,6 +224,12 @@ fi
 if [[ "$(wc -c < "$RENDER_PATH" | tr -d ' ')" -lt 4096 ]]; then
   echo "quill-code-desktop native smoke rendered a suspiciously small PNG" >&2
   ls -l "$RENDER_PATH" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if [[ "$(wc -c < "$RESULT_RENDER_PATH" | tr -d ' ')" -lt 4096 ]]; then
+  echo "quill-code-desktop native smoke rendered a suspiciously small result evidence PNG" >&2
+  ls -l "$RESULT_RENDER_PATH" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi

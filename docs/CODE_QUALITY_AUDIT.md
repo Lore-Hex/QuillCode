@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Result-Focused Native Smoke Evidence Pass
+
+Overall grade after this slice: **A native result evidence, A CI review ergonomics, A- packaged-window observability**.
+
+The existing native smoke artifact preserved full-window `workspace.png` and menu-bar `chrome.png` evidence, but the full workspace screenshot can legitimately show mostly empty transcript space when the result has scrolled or the main shell is vertically sparse. This pass adds a deterministic, result-focused SwiftUI evidence render so reviewers can inspect the action outcome without guessing where it is in the workspace screenshot.
+
+| Before | After |
+| --- | --- |
+| Full-window `workspace.png` proved the desktop shell was nonblank, but it could make the completed prompt/tool/final answer hard to inspect. | `QuillCodeSmokeResultEvidenceView` renders a compact `result.png` with the latest prompt, completed tool card summary, final assistant answer, and created artifact name. |
+| The smoke JSON only reported broad workspace and chrome image stats. | The report now includes `resultRenderPath` and `resultImage` pixel stats, with size/color/accent validation for the focused result evidence. |
+| Preserved artifacts listed `workspace.png`, `chrome.png`, `workspace.html`, `report.json`, and logs. | Native and packaged smoke artifact folders now also include `result.png`, and the manifest exposes it as `result_png=result.png`. |
+
+Residual risk:
+
+- The new result image is deterministic SwiftUI evidence, not an Accessibility-driven packaged-window click/sample. Full packaged-window automation remains the next deeper release gate.
+
 ## 2026-06-29 Native Smoke Artifact Evidence Pass
 
 Overall grade after this slice: **A native smoke evidence, A CI review ergonomics, A- packaged-window observability**.
