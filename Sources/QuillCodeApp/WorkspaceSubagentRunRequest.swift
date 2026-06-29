@@ -3,10 +3,12 @@ import Foundation
 struct WorkspaceSubagentWorkerRequest: Equatable, Sendable, Hashable {
     var name: String
     var role: String
+    var dependsOn: [String]
 
-    init(name: String, role: String) {
+    init(name: String, role: String, dependsOn: [String] = []) {
         self.name = name
         self.role = role
+        self.dependsOn = dependsOn
     }
 }
 
@@ -54,16 +56,37 @@ enum SlashSubagentCommandParser {
     private static func worker(from segment: String, fallbackIndex: Int) -> WorkspaceSubagentWorkerRequest {
         let parts = segment.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: true)
         if parts.count == 2 {
-            let name = boundedLine(String(parts[0]), limit: 48)
+            let (name, dependsOn) = nameAndDependencies(from: String(parts[0]))
             let role = boundedLine(String(parts[1]), limit: 140)
             if !name.isEmpty && !role.isEmpty {
-                return WorkspaceSubagentWorkerRequest(name: name, role: role)
+                return WorkspaceSubagentWorkerRequest(name: name, role: role, dependsOn: dependsOn)
             }
         }
         return WorkspaceSubagentWorkerRequest(
             name: "Worker \(fallbackIndex)",
             role: boundedLine(segment, limit: 140)
         )
+    }
+
+    /// Splits a worker name segment into its display name and any `after`-declared
+    /// dependencies, e.g. `Verifier after Builder, Linter` -> ("Verifier", ["Builder", "Linter"]).
+    /// The `after` keyword is matched case-insensitively and only when surrounded by spaces so
+    /// names that merely contain the substring (e.g. "Drafter") are left intact.
+    private static func nameAndDependencies(from rawName: String) -> (name: String, dependsOn: [String]) {
+        let collapsed = boundedLine(rawName, limit: 200)
+        guard let afterRange = collapsed.range(of: " after ", options: .caseInsensitive) else {
+            return (boundedLine(collapsed, limit: 48), [])
+        }
+        let name = boundedLine(String(collapsed[collapsed.startIndex..<afterRange.lowerBound]), limit: 48)
+        let dependencyList = String(collapsed[afterRange.upperBound...])
+        let dependsOn = dependencyList
+            .split(separator: ",", omittingEmptySubsequences: true)
+            .map { boundedLine(String($0), limit: 48) }
+            .filter { !$0.isEmpty }
+        guard !name.isEmpty else {
+            return (boundedLine(collapsed, limit: 48), [])
+        }
+        return (name, Array(dependsOn.prefix(maxWorkers)))
     }
 
     private static func boundedLine(_ text: String, limit: Int) -> String {
