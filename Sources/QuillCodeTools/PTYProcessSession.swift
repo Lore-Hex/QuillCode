@@ -89,6 +89,24 @@ public final class PTYProcessSession: ShellProcessSession, @unchecked Sendable {
         return write(text, to: fd)
     }
 
+    /// Applies a new terminal window size to a running session (e.g. when the
+    /// user resizes the workspace terminal). Programs that handle `SIGWINCH` or
+    /// re-query the size — shells, pagers, ncurses TUIs — pick up the change.
+    /// Returns `false` if the session has finished or has no live master fd.
+    @discardableResult
+    public func resize(to windowSize: PTYWindowSize) -> Bool {
+        let fd: Int32
+        lock.lock()
+        guard !didFinish, !didCancel, !didTimeOut, masterFD >= 0 else {
+            lock.unlock()
+            return false
+        }
+        fd = masterFD
+        lock.unlock()
+
+        return cquill_pty_set_winsize(fd, windowSize.rows, windowSize.columns) == 0
+    }
+
     private func run() {
         let trimmed = request.command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
