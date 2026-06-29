@@ -13,6 +13,7 @@ SWIFT_TESTS_STATUS="not-run"
 CLI_SHELL_STATUS="not-run"
 CLI_DIAGNOSTICS_STATUS="not-run"
 CLI_FILE_CREATION_STATUS="not-run"
+CLI_WORKSPACE_FOLLOWUP_STATUS="not-run"
 CLI_DOWNLOAD_STATUS="not-run"
 LIVE_ERROR_STATUS="not-run"
 NATIVE_DESKTOP_STATUS="not-run"
@@ -45,6 +46,7 @@ write_manifest() {
     "$CLI_SHELL_STATUS" \
     "$CLI_DIAGNOSTICS_STATUS" \
     "$CLI_FILE_CREATION_STATUS" \
+    "$CLI_WORKSPACE_FOLLOWUP_STATUS" \
     "$CLI_DOWNLOAD_STATUS" \
     "$LIVE_ERROR_STATUS" \
     "$NATIVE_DESKTOP_STATUS" \
@@ -69,6 +71,7 @@ from datetime import datetime, timezone
     cli_shell_status,
     cli_diagnostics_status,
     cli_file_creation_status,
+    cli_workspace_followup_status,
     cli_download_status,
     live_error_status,
     native_desktop_status,
@@ -112,6 +115,7 @@ manifest = {
         "cliShell": {"status": cli_shell_status},
         "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
         "cliFileCreation": {"status": cli_file_creation_status},
+        "cliWorkspaceFollowUp": {"status": cli_workspace_followup_status},
         "cliLocalDownload": {"status": cli_download_status},
         "liveModeMissingKeyError": {"status": live_error_status},
         "nativeDesktop": {"status": native_desktop_status},
@@ -228,6 +232,16 @@ if [[ "$(tr -d '\r' < "$SMOKE_WORKSPACE/hello.txt")" != "hello world" ]]; then
   exit 1
 fi
 CLI_FILE_CREATION_STATUS="passed"
+
+echo "==> Running mock CLI workspace follow-up"
+CLI_WORKSPACE_FOLLOWUP_STATUS="running"
+FINAL_DETAIL="mock CLI workspace follow-up failed"
+list_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Run \`ls -1\` and tell me whether hello.txt is present")"
+assert_cli_output_contains "$list_output" "hello.txt" "list created hello.txt"
+
+read_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Read \`hello.txt\` and tell me its exact content")"
+assert_cli_output_contains "$read_output" "hello world" "read created hello.txt"
+CLI_WORKSPACE_FOLLOWUP_STATUS="passed"
 
 echo "==> Running mock CLI local download"
 CLI_DOWNLOAD_STATUS="running"

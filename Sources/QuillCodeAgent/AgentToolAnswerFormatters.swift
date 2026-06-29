@@ -5,6 +5,7 @@ enum AgentToolAnswerFormatters {
 
     static var all: [Formatter] {
         [
+            AgentUtilityToolAnswerFormatters.fileReadAnswer,
             AgentUtilityToolAnswerFormatters.fileWriteAnswer,
             AgentUtilityToolAnswerFormatters.applyPatchAnswer,
             AgentGitToolAnswerFormatters.worktreePruneAnswer,

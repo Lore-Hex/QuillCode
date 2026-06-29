@@ -155,6 +155,14 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if let fileReadPath = AgentFileReadRequestParser.path(from: request),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": fileReadPath])
+            ))
+        }
+
         if lower.contains("git status") {
             return .tool(.init(name: ToolDefinition.gitStatus.name, argumentsJSON: "{}"))
         }
