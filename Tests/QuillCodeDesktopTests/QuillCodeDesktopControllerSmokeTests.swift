@@ -27,6 +27,29 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         let surface = model.surface()
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
         let surfaceReport = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: surface)
+        let accessibilityFrameSamples = QuillCodeDesktopAccessibilityFrameSampleReport(
+            liveAccessibilitySampling: "frame-sampled",
+            minimumHitTarget: 44,
+            requiredContractIDs: ["composer.send"],
+            sampledContractIDs: ["composer.send"],
+            unresolvedRequiredContractIDs: [],
+            skippedContractIDs: [],
+            samples: [
+                QuillCodeDesktopAccessibilityFrameSample(
+                    contractID: "composer.send",
+                    selectorKind: "test-id",
+                    selector: "quillcode-send-button",
+                    resolvedIdentifier: "quillcode-send-button",
+                    role: "AXButton",
+                    label: "Send message",
+                    frame: CGRect(x: 100, y: 100, width: 44, height: 44),
+                    requiredMinWidth: 44,
+                    requiredMinHeight: 44,
+                    samplePoints: [["name": "center", "x": 122, "y": 122]]
+                )
+            ],
+            validationIssues: []
+        )
         let report = QuillCodeDesktopWindowSmokeReport(
             ok: true,
             appName: "QuillCode",
@@ -44,6 +67,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                 distinctColorBuckets: 48
             ),
             nativeHitTargets: nativeHitTargets,
+            accessibilityFrameSamples: accessibilityFrameSamples,
             surface: surfaceReport
         )
 
@@ -51,6 +75,8 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(json.contains(#""nativeHitTargets""#))
         XCTAssertTrue(json.contains(#""clickProbes""#))
         XCTAssertTrue(json.contains(#""quillcode-send-button""#))
+        XCTAssertTrue(json.contains(#""accessibilityFrameSamples""#))
+        XCTAssertTrue(json.contains(#""liveAccessibilitySampling" : "frame-sampled""#))
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
     }

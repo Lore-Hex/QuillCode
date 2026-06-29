@@ -55,6 +55,11 @@ enum QuillCodeDesktopWindowSmokeRunner {
         )
         let workspaceSurface = try smokeSurface()
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: workspaceSurface)
+        let accessibilityFrameSamples = try QuillCodeDesktopAccessibilityFrameSampler.validatedReport(
+            window: window,
+            contentView: contentView,
+            nativeHitTargets: nativeHitTargets
+        )
         let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
 
         return QuillCodeDesktopWindowSmokeReport(
@@ -67,6 +72,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
             screenshotPath: screenshotURL.path,
             image: stats.report,
             nativeHitTargets: nativeHitTargets,
+            accessibilityFrameSamples: accessibilityFrameSamples,
             surface: surface
         )
     }
