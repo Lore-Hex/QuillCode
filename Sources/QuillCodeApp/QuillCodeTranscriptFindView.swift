@@ -131,6 +131,8 @@ struct QuillCodeTranscriptFindBar: View {
             .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeIconButtonTarget()
             .disabled(matchCount == 0)
+            .help("Previous match")
+            .accessibilityLabel("Previous match")
 
             Button(action: onNext) {
                 Image(systemName: "chevron.down")
@@ -138,6 +140,8 @@ struct QuillCodeTranscriptFindBar: View {
             .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeIconButtonTarget()
             .disabled(matchCount == 0)
+            .help("Next match")
+            .accessibilityLabel("Next match")
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
@@ -145,6 +149,8 @@ struct QuillCodeTranscriptFindBar: View {
             .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeIconButtonTarget()
             .keyboardShortcut(.cancelAction)
+            .help("Close find")
+            .accessibilityLabel("Close find")
         }
     }
 }

@@ -71,6 +71,8 @@ struct QuillCodeSidebarThreadRowView: View {
                 .foregroundStyle(QuillCodePalette.muted)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
+        .help("Thread actions")
+        .accessibilityLabel("Thread actions for \(item.title)")
     }
 
     private func toggleSelection() {
