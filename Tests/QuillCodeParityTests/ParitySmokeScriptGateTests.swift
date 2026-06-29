@@ -83,12 +83,17 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("DIRECT_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/direct-executable\""))
         XCTAssertTrue(script.contains("LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/launch-services\""))
         XCTAssertTrue(script.contains("CLICK_PROBE_MANIFEST=\"$SMOKE_ROOT/packaged-click-probes.json\""))
+        XCTAssertTrue(script.contains("ACCESSIBILITY_READINESS_MANIFEST=\"$SMOKE_ROOT/packaged-accessibility-readiness.json\""))
         XCTAssertTrue(script.contains("QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR=\"$DIRECT_SMOKE_ARTIFACT_DIR\""))
         XCTAssertTrue(script.contains("QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR=\"$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR\""))
         XCTAssertTrue(script.contains("scripts/native-click-probe-contracts.py"))
         XCTAssertTrue(script.contains(" compare \\"))
         XCTAssertTrue(script.contains("--manifest \"$CLICK_PROBE_MANIFEST\""))
+        XCTAssertTrue(script.contains(" readiness \\"))
+        XCTAssertTrue(script.contains("--manifest \"$ACCESSIBILITY_READINESS_MANIFEST\""))
         XCTAssertTrue(script.contains("packaged-click-probes.json"))
+        XCTAssertTrue(script.contains("packaged-accessibility-readiness.json"))
+        XCTAssertTrue(script.contains("accessibility_readiness_manifest=packaged-accessibility-readiness.json"))
         XCTAssertTrue(validator.contains("normalized_probe_contracts"))
         XCTAssertTrue(validator.contains("click_probes = targets.get(\"clickProbes\")"))
         XCTAssertTrue(validator.contains("samplePoints"))
@@ -96,9 +101,12 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("direct_probe_contracts != launch_services_probe_contracts"))
         XCTAssertTrue(validator.contains("missingFromLaunch"))
         XCTAssertTrue(validator.contains("driftingContracts"))
+        XCTAssertTrue(validator.contains("write_accessibility_readiness_manifest"))
+        XCTAssertTrue(validator.contains("report-ready-for-accessibility-frame-sampling"))
+        XCTAssertTrue(validator.contains("liveAccessibilitySampling"))
     }
 
-    func testNativeClickProbeValidatorCLIValidatesAndWritesComparisonManifest() throws {
+    func testNativeClickProbeValidatorCLIValidatesAndWritesPackagedManifests() throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-click-probe-validator-tests")
             .appendingPathComponent(UUID().uuidString)
@@ -106,8 +114,17 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
         let report = temporaryDirectory.appendingPathComponent("report.json")
-        let manifest = temporaryDirectory.appendingPathComponent("manifest.json")
+        let directDirectory = temporaryDirectory.appendingPathComponent("direct-executable")
+        let launchServicesDirectory = temporaryDirectory.appendingPathComponent("launch-services")
+        let directReport = directDirectory.appendingPathComponent("report.json")
+        let launchServicesReport = launchServicesDirectory.appendingPathComponent("report.json")
+        let manifest = temporaryDirectory.appendingPathComponent("packaged-click-probes.json")
+        let readiness = temporaryDirectory.appendingPathComponent("packaged-accessibility-readiness.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
+        try Self.minimalClickProbeReport.write(to: directReport, atomically: true, encoding: .utf8)
+        try Self.minimalClickProbeReport.write(to: launchServicesReport, atomically: true, encoding: .utf8)
 
         let validator = Self.packageRoot()
             .appendingPathComponent("scripts")
@@ -116,8 +133,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
 
         let compare = try Self.runPython(validator, arguments: [
             "compare",
-            report.path,
-            report.path,
+            directReport.path,
+            launchServicesReport.path,
             "--manifest",
             manifest.path
         ])
@@ -135,6 +152,34 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
             "top-interior",
             "trailing-interior"
         ])
+
+        let readinessResult = try Self.runPython(validator, arguments: [
+            "readiness",
+            temporaryDirectory.path,
+            "--manifest",
+            readiness.path
+        ])
+        XCTAssertEqual(readinessResult.exitCode, 0, readinessResult.output)
+
+        let readinessData = try Data(contentsOf: readiness)
+        let readinessObject = try XCTUnwrap(JSONSerialization.jsonObject(with: readinessData) as? [String: Any])
+        XCTAssertEqual(readinessObject["ok"] as? Bool, true)
+        XCTAssertEqual(readinessObject["stage"] as? String, "report-ready-for-accessibility-frame-sampling")
+        XCTAssertEqual(readinessObject["liveAccessibilitySampling"] as? String, "not-run")
+        XCTAssertEqual(readinessObject["clickProbeManifest"] as? String, "packaged-click-probes.json")
+        XCTAssertEqual(readinessObject["directReport"] as? String, "direct-executable/report.json")
+        XCTAssertEqual(readinessObject["launchServicesReport"] as? String, "launch-services/report.json")
+        XCTAssertEqual(readinessObject["launchServicesMatchesDirect"] as? Bool, true)
+        XCTAssertEqual(readinessObject["clickProbeCount"] as? Int, 1)
+        XCTAssertEqual(readinessObject["minimumHitTarget"] as? Int, 44)
+        XCTAssertEqual(readinessObject["requiredSamplePointNames"] as? [String], [
+            "bottom-interior",
+            "center",
+            "leading-interior",
+            "top-interior",
+            "trailing-interior"
+        ])
+        XCTAssertEqual(readinessObject["contractIDs"] as? [String], ["composer.send"])
     }
 
     private struct ScriptResult {
