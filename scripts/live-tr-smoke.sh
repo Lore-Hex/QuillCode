@@ -6,15 +6,18 @@ SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-live-smoke.XXXXXX")"
 SMOKE_HOME="$SMOKE_ROOT/home"
 SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
 REPORT_FILE="$SMOKE_ROOT/live-smoke-report.jsonl"
+MANIFEST_FILE="$SMOKE_ROOT/live-smoke-manifest.json"
 KEY_FILE="${QUILLCODE_LIVE_KEY_FILE:-$HOME/.quill.code.keyfile}"
 RAW_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash}"
 BASE_URL="${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}"
 KEEP_ARTIFACTS="${QUILLCODE_LIVE_KEEP_ARTIFACTS:-0}"
+ARTIFACT_DIR="${QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR:-}"
 CURRENT_SCENARIO=""
 CURRENT_PROMPT=""
 CURRENT_SCENARIO_START=0
 CURRENT_STDOUT=""
 CURRENT_STDERR=""
+ARTIFACTS_COPIED=0
 
 case "$RAW_MODEL" in
   deepseekv4flash|deepseek-v4-flash)
@@ -34,6 +37,15 @@ require_tool() {
 
 cleanup() {
   local status=$?
+  set +e
+
+  if type write_artifact_manifest >/dev/null 2>&1; then
+    write_artifact_manifest "$status" "exit status $status"
+  fi
+  if type copy_live_artifacts >/dev/null 2>&1; then
+    copy_live_artifacts "$status"
+  fi
+
   if [[ "$status" -eq 0 && "$KEEP_ARTIFACTS" != "1" ]]; then
     rm -rf "$SMOKE_ROOT"
     return
@@ -184,6 +196,119 @@ print_report_summary() {
     )
     | @tsv
   ' "$REPORT_FILE"
+}
+
+write_artifact_manifest() {
+  local status="${1:-0}"
+  local detail="${2:-completed}"
+  local scenarios_json="$SMOKE_ROOT/scenarios.json"
+  local workspace_files_json="$SMOKE_ROOT/workspace-files.json"
+  local threads_json="$SMOKE_ROOT/thread-summaries.json"
+  local generated_at
+
+  generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  if [[ -s "$REPORT_FILE" ]]; then
+    jq -s '.' "$REPORT_FILE" > "$scenarios_json"
+  else
+    printf '[]\n' > "$scenarios_json"
+  fi
+
+  if [[ -d "$SMOKE_WORKSPACE" ]]; then
+    find "$SMOKE_WORKSPACE" -maxdepth 5 -type f -print | sort | while IFS= read -r file_path; do
+      local relative_path
+      local byte_count
+      relative_path="${file_path#$SMOKE_WORKSPACE/}"
+      byte_count="$(wc -c < "$file_path" | tr -d ' ')"
+      jq -n \
+        --arg path "$relative_path" \
+        --argjson bytes "$byte_count" \
+        '{path: $path, bytes: $bytes}'
+    done | jq -s '.' > "$workspace_files_json"
+  else
+    printf '[]\n' > "$workspace_files_json"
+  fi
+
+  if [[ -d "$SMOKE_HOME/threads" ]]; then
+    find "$SMOKE_HOME/threads" -maxdepth 1 -type f -name '*.json' -print | sort | while IFS= read -r thread_path; do
+      jq \
+        --arg path "$thread_path" \
+        --arg basename "$(basename "$thread_path")" \
+        '{
+          path: $path,
+          file: $basename,
+          id: .id,
+          title: .title,
+          model: .model,
+          messageCount: (.messages | length),
+          queuedToolCount: ([.events[]? | select(.kind == "toolQueued")] | length),
+          completedToolCount: ([.events[]? | select(.kind == "toolCompleted")] | length),
+          failedToolCount: ([.events[]? | select(.kind == "toolFailed")] | length)
+        }' "$thread_path"
+    done | jq -s '.' > "$threads_json"
+  else
+    printf '[]\n' > "$threads_json"
+  fi
+
+  jq -n \
+    --arg generatedAt "$generated_at" \
+    --arg status "$status" \
+    --arg detail "$detail" \
+    --arg model "$MODEL" \
+    --arg baseURL "$BASE_URL" \
+    --arg root "$SMOKE_ROOT" \
+    --arg home "$SMOKE_HOME" \
+    --arg workspace "$SMOKE_WORKSPACE" \
+    --arg report "$REPORT_FILE" \
+    --slurpfile scenarios "$scenarios_json" \
+    --slurpfile workspaceFiles "$workspace_files_json" \
+    --slurpfile threads "$threads_json" \
+    '{
+      generatedAt: $generatedAt,
+      status: ($status | tonumber),
+      detail: $detail,
+      model: $model,
+      baseURL: $baseURL,
+      smokeRoot: $root,
+      home: $home,
+      workspace: $workspace,
+      report: $report,
+      scenarioCount: ($scenarios[0] | length),
+      passedScenarioCount: ([$scenarios[0][] | select(.status == "pass")] | length),
+      failedScenarioCount: ([$scenarios[0][] | select(.status == "fail")] | length),
+      workspaceFileCount: ($workspaceFiles[0] | length),
+      threadCount: ($threads[0] | length),
+      scenarios: $scenarios[0],
+      workspaceFiles: $workspaceFiles[0],
+      threads: $threads[0]
+    }' > "$MANIFEST_FILE"
+}
+
+copy_live_artifacts() {
+  local status="${1:-0}"
+  if [[ -z "$ARTIFACT_DIR" ]]; then
+    return
+  fi
+  if [[ "$ARTIFACTS_COPIED" == "1" ]]; then
+    return
+  fi
+
+  mkdir -p "$ARTIFACT_DIR"
+  for artifact_path in "$REPORT_FILE" "$MANIFEST_FILE" "$SMOKE_ROOT"/*.stdout "$SMOKE_ROOT"/*.stderr; do
+    if [[ -e "$artifact_path" ]]; then
+      cp "$artifact_path" "$ARTIFACT_DIR/$(basename "$artifact_path")"
+    fi
+  done
+  {
+    printf 'status=%s\n' "$status"
+    printf 'source=%s\n' "$SMOKE_ROOT"
+    printf 'manifest=live-smoke-manifest.json\n'
+    printf 'report=live-smoke-report.jsonl\n'
+    printf 'model=%s\n' "$MODEL"
+    printf 'base_url=%s\n' "$BASE_URL"
+  } > "$ARTIFACT_DIR/manifest.txt"
+  ARTIFACTS_COPIED=1
+  echo "QuillCode live TrustedRouter smoke artifacts: $ARTIFACT_DIR"
 }
 
 fail_smoke() {
@@ -447,5 +572,7 @@ begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "C
 assert_saved_transcripts_are_actionable 7
 finish_scenario "" ""
 
+write_artifact_manifest 0 "completed"
+copy_live_artifacts 0
 print_report_summary
 echo "QuillCode live TrustedRouter smoke passed."

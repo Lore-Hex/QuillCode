@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Live Smoke Artifact Index Pass
+
+Overall grade after this slice: **A- release evidence, A live-run auditability, A- operator ergonomics**.
+
+The live TrustedRouter smoke already caught the costly real-provider regressions, but successful release-candidate runs still required digging through a temporary directory to understand which files and transcripts were produced. This pass adds a secret-free manifest and stable artifact-copy contract for release evidence.
+
+| Before | After |
+| --- | --- |
+| `live-tr-smoke.sh` wrote a scenario JSONL report, but successful runs did not have one compact index of produced workspace files and persisted thread/tool counts. | `live-smoke-manifest.json` now summarizes scenario pass/fail counts, workspace file paths/sizes, and thread queued/completed/failed tool counts. |
+| Preserving successful live evidence required keeping the entire temp root. | `QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR` copies the manifest, report, and per-scenario stdout/stderr files into a stable review folder. |
+| `real-world-smoke.sh` could run deterministic and live lanes, but did not coordinate their artifacts. | `QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR` now creates `deterministic/` and `live-trustedrouter/` evidence subfolders for one release-candidate run. |
+
+Residual risk:
+
+- This remains a CLI live-provider release lane. A later native live-window lane should reuse the same artifact-index idea once live desktop runs are stable enough to be cost-effective.
+
 ## 2026-06-29 Result-Focused Native Smoke Evidence Pass
 
 Overall grade after this slice: **A native result evidence, A CI review ergonomics, A- packaged-window observability**.
