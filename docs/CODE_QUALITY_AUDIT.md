@@ -9466,3 +9466,21 @@ Code quality changes:
 Remaining risk:
 
 - This is still contract and smoke evidence. The A+ layer remains real packaged `.app` Accessibility automation that samples actual frames, focus transfer, and action ownership for each contract ID.
+
+## 2026-06-29 Real-World Smoke Workflow Pass
+
+Overall grade after this slice: **A release-candidate entrypoint, A artifact contract, A- real-provider secret coverage**.
+
+The release-candidate smoke wrapper had become strong enough to prove deterministic, Playwright, native, packaged, and live TrustedRouter behavior from one command, but it was still mostly a local convention. That left too much room for release validation to drift from normal GitHub evidence, especially when several agents are landing parser, prompt, runtime, or safety changes in parallel.
+
+Code quality changes:
+
+- Added a `Real World Smoke` GitHub Actions workflow that runs `./scripts/real-world-smoke.sh` directly instead of bypassing the deterministic wrapper with the live-only smoke.
+- Installed Playwright dependencies before invoking the wrapper, preserving its fail-closed release default for browser E2E coverage.
+- Made manual runs default to requiring the `QUILLCODE_LIVE_API_KEY` secret while scheduled runs still produce deterministic release evidence when the live secret is absent.
+- Uploaded the full `QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR` for 30 days so reviewers can inspect `real-world-smoke-manifest.json`, deterministic smoke evidence, and live TrustedRouter evidence from one workflow run.
+- Added a parity gate that prevents future workflow changes from accidentally skipping the release wrapper, disabling Playwright, or dropping the uploaded artifact contract.
+
+Remaining risk:
+
+- The workflow can only prove live-provider behavior when the repository secret is configured. Real-provider coverage across multiple model families and provider outages still depends on scheduled/manual runs being monitored.
