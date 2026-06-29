@@ -5,10 +5,16 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-live-smoke.XXXXXX")"
 SMOKE_HOME="$SMOKE_ROOT/home"
 SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
+REPORT_FILE="$SMOKE_ROOT/live-smoke-report.jsonl"
 KEY_FILE="${QUILLCODE_LIVE_KEY_FILE:-$HOME/.quill.code.keyfile}"
 RAW_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash}"
 BASE_URL="${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}"
 KEEP_ARTIFACTS="${QUILLCODE_LIVE_KEEP_ARTIFACTS:-0}"
+CURRENT_SCENARIO=""
+CURRENT_PROMPT=""
+CURRENT_SCENARIO_START=0
+CURRENT_STDOUT=""
+CURRENT_STDERR=""
 
 case "$RAW_MODEL" in
   deepseekv4flash|deepseek-v4-flash)
@@ -76,7 +82,10 @@ run_live_prompt() {
   local output_file="$2"
   local stderr_file="$3"
 
-  swift run quill-code \
+  CURRENT_STDOUT="$output_file"
+  CURRENT_STDERR="$stderr_file"
+
+  if swift run quill-code \
     --live \
     --api-key "$API_KEY" \
     --base-url "$BASE_URL" \
@@ -85,7 +94,141 @@ run_live_prompt() {
     --cwd "$SMOKE_WORKSPACE" \
     "$prompt" \
     >"$output_file" \
-    2>"$stderr_file"
+    2>"$stderr_file"; then
+    return
+  else
+    local status=$?
+    fail_smoke "quill-code exited with status $status" "$output_file" "$stderr_file" "$status"
+  fi
+}
+
+begin_scenario() {
+  CURRENT_SCENARIO="$1"
+  CURRENT_PROMPT="$2"
+  CURRENT_SCENARIO_START="$(date +%s)"
+  echo "==> [$CURRENT_SCENARIO] $3"
+}
+
+finish_scenario() {
+  local output_file="$1"
+  local stderr_file="$2"
+  record_scenario "pass" "completed" "$output_file" "$stderr_file"
+  CURRENT_SCENARIO=""
+  CURRENT_PROMPT=""
+  CURRENT_SCENARIO_START=0
+  CURRENT_STDOUT=""
+  CURRENT_STDERR=""
+}
+
+record_scenario() {
+  local status="$1"
+  local detail="$2"
+  local output_file="$3"
+  local stderr_file="$4"
+  local finished_at
+  local duration
+  local stdout_bytes=0
+  local stderr_bytes=0
+
+  finished_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  if [[ "$CURRENT_SCENARIO_START" -gt 0 ]]; then
+    duration="$(( $(date +%s) - CURRENT_SCENARIO_START ))"
+  else
+    duration="0"
+  fi
+  if [[ -f "$output_file" ]]; then
+    stdout_bytes="$(wc -c < "$output_file" | tr -d ' ')"
+  fi
+  if [[ -f "$stderr_file" ]]; then
+    stderr_bytes="$(wc -c < "$stderr_file" | tr -d ' ')"
+  fi
+
+  jq -n \
+    --arg scenario "$CURRENT_SCENARIO" \
+    --arg prompt "$CURRENT_PROMPT" \
+    --arg status "$status" \
+    --arg detail "$detail" \
+    --arg model "$MODEL" \
+    --arg baseURL "$BASE_URL" \
+    --arg finishedAt "$finished_at" \
+    --arg stdout "$output_file" \
+    --arg stderr "$stderr_file" \
+    --argjson durationSeconds "$duration" \
+    --argjson stdoutBytes "$stdout_bytes" \
+    --argjson stderrBytes "$stderr_bytes" \
+    '{
+      scenario: $scenario,
+      status: $status,
+      detail: $detail,
+      model: $model,
+      baseURL: $baseURL,
+      finishedAt: $finishedAt,
+      durationSeconds: $durationSeconds,
+      stdoutBytes: $stdoutBytes,
+      stderrBytes: $stderrBytes,
+      stdout: $stdout,
+      stderr: $stderr,
+      prompt: $prompt
+    }' >> "$REPORT_FILE"
+}
+
+print_report_summary() {
+  if [[ ! -s "$REPORT_FILE" ]]; then
+    return
+  fi
+  echo "Live smoke scenario report:"
+  jq -rs '
+    (
+      ["status", "scenario", "duration", "stdout", "stderr", "detail"],
+      (.[] | [.status, .scenario, ((.durationSeconds | tostring) + "s"), (.stdoutBytes | tostring), (.stderrBytes | tostring), .detail])
+    )
+    | @tsv
+  ' "$REPORT_FILE"
+}
+
+fail_smoke() {
+  local message="$1"
+  local output_file="${2:-$CURRENT_STDOUT}"
+  local stderr_file="${3:-$CURRENT_STDERR}"
+  local exit_code="${4:-1}"
+
+  if [[ -n "$CURRENT_SCENARIO" ]]; then
+    record_scenario "fail" "$message" "$output_file" "$stderr_file"
+  fi
+
+  echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
+  echo "$message" >&2
+  if [[ -n "$CURRENT_PROMPT" ]]; then
+    echo "Prompt: $CURRENT_PROMPT" >&2
+  fi
+  if [[ -n "$output_file" ]]; then
+    echo "stdout: $output_file" >&2
+    if [[ -s "$output_file" ]]; then
+      echo "--- stdout tail ---" >&2
+      tail -n 80 "$output_file" >&2
+    fi
+  fi
+  if [[ -n "$stderr_file" ]]; then
+    echo "stderr: $stderr_file" >&2
+    if [[ -s "$stderr_file" ]]; then
+      echo "--- stderr tail ---" >&2
+      tail -n 80 "$stderr_file" >&2
+    fi
+  fi
+  print_report_summary >&2
+  exit "$exit_code"
+}
+
+fail_workspace_assertion() {
+  local message="$1"
+  local max_depth="$2"
+  record_scenario "fail" "$message" "$CURRENT_STDOUT" "$CURRENT_STDERR"
+  echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
+  echo "$message" >&2
+  echo "Workspace files:" >&2
+  find "$SMOKE_WORKSPACE" -maxdepth "$max_depth" -type f -print >&2
+  print_report_summary >&2
+  exit 1
 }
 
 assert_useful_output() {
@@ -95,9 +238,7 @@ assert_useful_output() {
 
   assert_no_action_regression "$output_file" "$stderr_file"
   if ! grep -Fq "$expected" "$output_file"; then
-    echo "live smoke output did not contain expected text: $expected" >&2
-    cat "$output_file" >&2
-    exit 1
+    fail_smoke "live smoke output did not contain expected text: $expected" "$output_file" "$stderr_file"
   fi
 }
 
@@ -106,19 +247,13 @@ assert_no_action_regression() {
   local stderr_file="$2"
 
   if [[ ! -s "$output_file" ]]; then
-    echo "live smoke returned no stdout" >&2
-    cat "$stderr_file" >&2 || true
-    exit 1
+    fail_smoke "live smoke returned no stdout" "$output_file" "$stderr_file"
   fi
   if grep -qi "No shell command was specified" "$output_file"; then
-    echo "live smoke regressed into an empty shell command" >&2
-    cat "$output_file" >&2
-    exit 1
+    fail_smoke "live smoke regressed into an empty shell command" "$output_file" "$stderr_file"
   fi
   if grep -Eq "I'?ll (run|check|do|download|create|write)" "$output_file"; then
-    echo "live smoke returned a passive promise instead of executing" >&2
-    cat "$output_file" >&2
-    exit 1
+    fail_smoke "live smoke returned a passive promise instead of executing" "$output_file" "$stderr_file"
   fi
 }
 
@@ -128,17 +263,18 @@ assert_workspace_file_contains_exactly() {
   local file_path="$SMOKE_WORKSPACE/$relative_path"
 
   if [[ ! -f "$file_path" ]]; then
-    echo "live smoke did not create expected workspace file: $relative_path" >&2
-    find "$SMOKE_WORKSPACE" -maxdepth 2 -type f -print >&2
-    exit 1
+    fail_workspace_assertion "live smoke did not create expected workspace file: $relative_path" 2
   fi
 
   local actual_content
   actual_content="$(tr -d '\r' < "$file_path")"
   actual_content="${actual_content%$'\n'}"
   if [[ "$actual_content" != "$expected_content" ]]; then
+    record_scenario "fail" "live smoke file content mismatch for $relative_path" "$CURRENT_STDOUT" "$CURRENT_STDERR"
+    echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
     echo "live smoke file content mismatch for $relative_path" >&2
     printf 'expected: %s\nactual: %s\n' "$expected_content" "$actual_content" >&2
+    print_report_summary >&2
     exit 1
   fi
 }
@@ -148,9 +284,7 @@ assert_workspace_file_nonempty() {
   local file_path="$SMOKE_WORKSPACE/$relative_path"
 
   if [[ ! -s "$file_path" ]]; then
-    echo "live smoke expected a non-empty workspace file: $relative_path" >&2
-    find "$SMOKE_WORKSPACE" -maxdepth 3 -type f -print >&2
-    exit 1
+    fail_workspace_assertion "live smoke expected a non-empty workspace file: $relative_path" 3
   fi
 }
 
@@ -162,9 +296,7 @@ assert_output_matches() {
 
   assert_no_action_regression "$output_file" "$stderr_file"
   if ! grep -Eiq "$pattern" "$output_file"; then
-    echo "live smoke output did not match expected $description" >&2
-    cat "$output_file" >&2
-    exit 1
+    fail_smoke "live smoke output did not match expected $description" "$output_file" "$stderr_file"
   fi
 }
 
@@ -173,15 +305,17 @@ assert_saved_transcripts_are_actionable() {
   local threads_dir="$SMOKE_HOME/threads"
 
   if [[ ! -d "$threads_dir" ]]; then
-    echo "live smoke did not persist any thread directory" >&2
-    exit 1
+    fail_smoke "live smoke did not persist any thread directory" "" ""
   fi
 
   local thread_count
   thread_count="$(find "$threads_dir" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')"
   if [[ "$thread_count" -lt "$minimum_thread_count" ]]; then
+    record_scenario "fail" "live smoke expected at least $minimum_thread_count persisted thread transcripts, found $thread_count" "" ""
+    echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
     echo "live smoke expected at least $minimum_thread_count persisted thread transcripts, found $thread_count" >&2
     find "$threads_dir" -maxdepth 1 -type f -name '*.json' -print >&2
+    print_report_summary >&2
     exit 1
   fi
 
@@ -211,57 +345,107 @@ assert_saved_transcripts_are_actionable() {
       and all(completed_results[]; .ok == true)
     ))
   ' "$threads_dir"/*.json >/dev/null || {
+    record_scenario "fail" "live smoke persisted transcript integrity check failed" "" ""
+    echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
     echo "live smoke persisted transcript integrity check failed" >&2
     jq '. | {title, messages, events}' "$threads_dir"/*.json >&2 || true
+    print_report_summary >&2
     exit 1
   }
 }
 
-echo "==> Running live TrustedRouter shell-action smoke with $MODEL"
-RUN_OUTPUT="$SMOKE_ROOT/run.stdout"
-RUN_ERROR="$SMOKE_ROOT/run.stderr"
-run_live_prompt "Run \`printf quillcode_live_smoke\`" "$RUN_OUTPUT" "$RUN_ERROR"
-assert_useful_output "$RUN_OUTPUT" "$RUN_ERROR" "quillcode_live_smoke"
+run_scenario() {
+  local scenario="$1"
+  local prompt="$2"
+  local description="$3"
+  local validator="$4"
+  shift 4
 
-echo "==> Running live TrustedRouter diagnostic-question smoke with $MODEL"
-DIAG_OUTPUT="$SMOKE_ROOT/diag.stdout"
-DIAG_ERROR="$SMOKE_ROOT/diag.stderr"
-run_live_prompt "whoami?" "$DIAG_OUTPUT" "$DIAG_ERROR"
-assert_useful_output "$DIAG_OUTPUT" "$DIAG_ERROR" "$(id -un)"
+  local output_file="$SMOKE_ROOT/$scenario.stdout"
+  local stderr_file="$SMOKE_ROOT/$scenario.stderr"
 
-echo "==> Running live TrustedRouter disk-usage smoke with $MODEL"
-DISK_OUTPUT="$SMOKE_ROOT/disk.stdout"
-DISK_ERROR="$SMOKE_ROOT/disk.stderr"
-run_live_prompt "How much hd?" "$DISK_OUTPUT" "$DISK_ERROR"
-assert_output_matches "$DISK_OUTPUT" "$DISK_ERROR" "Disk usage|available|used|[0-9]+%" "disk usage result"
+  begin_scenario "$scenario" "$prompt" "$description"
+  run_live_prompt "$prompt" "$output_file" "$stderr_file"
+  "$validator" "$output_file" "$stderr_file" "$@"
+  finish_scenario "$output_file" "$stderr_file"
+}
 
-echo "==> Running live TrustedRouter file-write smoke with $MODEL"
-FILE_OUTPUT="$SMOKE_ROOT/file.stdout"
-FILE_ERROR="$SMOKE_ROOT/file.stderr"
-run_live_prompt "Create \`live-smoke.txt\` in this workspace with exactly this content: \`quillcode_live_file_smoke\`." "$FILE_OUTPUT" "$FILE_ERROR"
-assert_no_action_regression "$FILE_OUTPUT" "$FILE_ERROR"
-assert_workspace_file_contains_exactly "live-smoke.txt" "quillcode_live_file_smoke"
+validate_expected_output() {
+  assert_useful_output "$1" "$2" "$3"
+}
 
-echo "==> Running live TrustedRouter natural file-write smoke with $MODEL"
-HELLO_OUTPUT="$SMOKE_ROOT/hello.stdout"
-HELLO_ERROR="$SMOKE_ROOT/hello.stderr"
-run_live_prompt "Can you write \`hello-world.txt\` with exactly this content: \`hello world\`?" "$HELLO_OUTPUT" "$HELLO_ERROR"
-assert_no_action_regression "$HELLO_OUTPUT" "$HELLO_ERROR"
-assert_workspace_file_contains_exactly "hello-world.txt" "hello world"
+validate_output_pattern() {
+  assert_output_matches "$1" "$2" "$3" "$4"
+}
 
-echo "==> Running live TrustedRouter OpenClaw discovery smoke with $MODEL"
-OPENCLAW_OUTPUT="$SMOKE_ROOT/openclaw.stdout"
-OPENCLAW_ERROR="$SMOKE_ROOT/openclaw.stderr"
-run_live_prompt "Do you have openclaw?" "$OPENCLAW_OUTPUT" "$OPENCLAW_ERROR"
-assert_output_matches "$OPENCLAW_OUTPUT" "$OPENCLAW_ERROR" "openclaw|not found" "OpenClaw discovery result"
+validate_exact_workspace_file() {
+  assert_no_action_regression "$1" "$2"
+  assert_workspace_file_contains_exactly "$3" "$4"
+}
 
-echo "==> Running live TrustedRouter download smoke with $MODEL"
-DOWNLOAD_OUTPUT="$SMOKE_ROOT/download.stdout"
-DOWNLOAD_ERROR="$SMOKE_ROOT/download.stderr"
-run_live_prompt "Download https://example.com into \`downloads/example.html\` in this workspace." "$DOWNLOAD_OUTPUT" "$DOWNLOAD_ERROR"
-assert_output_matches "$DOWNLOAD_OUTPUT" "$DOWNLOAD_ERROR" "downloads/example\\.html|download" "download result"
-assert_workspace_file_nonempty "downloads/example.html"
+validate_nonempty_workspace_file() {
+  assert_output_matches "$1" "$2" "$3" "$4"
+  assert_workspace_file_nonempty "$5"
+}
 
+run_scenario \
+  "shell-action" \
+  "Run \`printf quillcode_live_smoke\`" \
+  "Running live TrustedRouter shell-action smoke with $MODEL" \
+  validate_expected_output \
+  "quillcode_live_smoke"
+
+run_scenario \
+  "diagnostic-question" \
+  "whoami?" \
+  "Running live TrustedRouter diagnostic-question smoke with $MODEL" \
+  validate_expected_output \
+  "$(id -un)"
+
+run_scenario \
+  "disk-usage" \
+  "How much hd?" \
+  "Running live TrustedRouter disk-usage smoke with $MODEL" \
+  validate_output_pattern \
+  "Disk usage|available|used|[0-9]+%" \
+  "disk usage result"
+
+run_scenario \
+  "file-write-explicit" \
+  "Create \`live-smoke.txt\` in this workspace with exactly this content: \`quillcode_live_file_smoke\`." \
+  "Running live TrustedRouter file-write smoke with $MODEL" \
+  validate_exact_workspace_file \
+  "live-smoke.txt" \
+  "quillcode_live_file_smoke"
+
+run_scenario \
+  "file-write-natural" \
+  "Can you write \`hello-world.txt\` with exactly this content: \`hello world\`?" \
+  "Running live TrustedRouter natural file-write smoke with $MODEL" \
+  validate_exact_workspace_file \
+  "hello-world.txt" \
+  "hello world"
+
+run_scenario \
+  "openclaw-discovery" \
+  "Do you have openclaw?" \
+  "Running live TrustedRouter OpenClaw discovery smoke with $MODEL" \
+  validate_output_pattern \
+  "openclaw|not found" \
+  "OpenClaw discovery result"
+
+run_scenario \
+  "download" \
+  "Download https://example.com into \`downloads/example.html\` in this workspace." \
+  "Running live TrustedRouter download smoke with $MODEL" \
+  validate_nonempty_workspace_file \
+  "downloads/example\\.html|download" \
+  "download result" \
+  "downloads/example.html"
+
+begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "Checking persisted live smoke transcripts"
 assert_saved_transcripts_are_actionable 7
+finish_scenario "" ""
 
+print_report_summary
 echo "QuillCode live TrustedRouter smoke passed."

@@ -1,5 +1,9 @@
 # QuillCode Decisions
 
+## 2026-06-29
+
+- Live TrustedRouter smoke needs scenario-level observability because real-provider failures are workflow failures, not just command failures. `scripts/live-tr-smoke.sh` records one JSONL row per scenario with model, base URL, prompt, duration, stdout/stderr byte counts, and artifact paths, and failure output names the scenario, prompt, stdout/stderr tails, and report summary. This keeps paid/network smoke opt-in while making “empty command”, passive-promise, missing-file, and transcript-integrity failures immediately actionable.
+
 ## 2026-06-28
 
 - Rendered click targets must declare three pieces of intent: target kind, target action, and source. Source markup/primitives should produce non-`auto` `data-hit-target-kind`, `data-hit-target-action`, and `data-hit-target-source`; the runtime normalizer may label fallback controls as `auto-*`, but broad Playwright audits fail those so primary UI cannot pass by inference after render.
