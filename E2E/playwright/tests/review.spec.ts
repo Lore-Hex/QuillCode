@@ -96,6 +96,34 @@ test('mock harness shows denied review cards as needs review without actions', a
   await expect(page.getByTestId('tool-card-action')).toHaveCount(0);
 });
 
+test('mock harness summarizes opened URL and reviewed file path in tool-card subtitles', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      addToolCard: (card: Record<string, unknown>) => void;
+      render: () => void;
+    };
+    // host.browser.open carries the URL it opened; the subtitle should surface it.
+    harness.addToolCard({
+      title: 'host.browser.open',
+      status: 'done',
+      inputJSON: JSON.stringify({ url: 'https://example.com/docs' })
+    });
+    // host.git.pr.review_comment carries the changed file path, like other path tools.
+    harness.addToolCard({
+      title: 'host.git.pr.review_comment',
+      status: 'done',
+      inputJSON: JSON.stringify({ path: 'Sources/App.swift', line: 12, body: 'nit' })
+    });
+    harness.render();
+  });
+
+  const subtitles = page.getByTestId('tool-card-subtitle');
+  await expect(subtitles.nth(0)).toContainText('https://example.com/docs');
+  await expect(subtitles.nth(1)).toContainText('Sources/App.swift');
+});
+
 test('mock harness shows git review summary for diff flow', async ({ page }) => {
   await page.goto(harnessURL());
 

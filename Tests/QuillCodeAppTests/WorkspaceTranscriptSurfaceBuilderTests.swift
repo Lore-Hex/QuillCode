@@ -283,6 +283,34 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         )
     }
 
+    func testToolCardSubtitleBuilderSummarizesBrowserOpenAndReviewComment() {
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.browser.open",
+                inputJSON: ToolArguments.json(["url": "https://example.com/docs"])
+            ),
+            "Completed · https://example.com/docs"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.git.pr.review_comment",
+                inputJSON: ToolArguments.json(["path": "Sources/App.swift", "line": 12, "body": "nit"])
+            ),
+            "Completed · Sources/App.swift"
+        )
+        // host.browser.inspect takes no arguments, so it has no detail to show.
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.browser.inspect",
+                inputJSON: "{}"
+            ),
+            "Completed"
+        )
+    }
+
     func testToolCardSubtitleBuilderFallsBackForInvalidOrUnknownInput() {
         XCTAssertEqual(
             WorkspaceToolCardSubtitleBuilder.subtitle(
