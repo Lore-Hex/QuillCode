@@ -827,10 +827,8 @@ public enum QuillCodeNativeHitTargetAudit {
     }
 
     private static func commandContracts(from commands: [WorkspaceCommandSurface]) -> [QuillCodeNativeHitTargetContract] {
-        let commandByID = Dictionary(uniqueKeysWithValues: commands.map { ($0.id, $0) })
-        return requiredCommandIDs.compactMap { commandID in
-            guard let command = commandByID[commandID] else { return nil }
-            return commandContract(command)
+        commands.map { command in
+            commandContract(command)
         }
     }
 
@@ -851,13 +849,13 @@ public enum QuillCodeNativeHitTargetAudit {
             kind = .fullRow
             surface = "Sidebar tools"
             minWidth = nil
-        case "keyboard-shortcuts", "settings":
+        case "computer-use-setup", "keyboard-shortcuts", "settings", "disconnect-all":
             kind = .fullRow
             surface = "Top bar overflow"
             minWidth = nil
         default:
-            kind = .textButton
-            surface = "Workspace command"
+            kind = .fullRow
+            surface = "Command palette"
             minWidth = nil
         }
         return contract(
@@ -877,10 +875,10 @@ public enum QuillCodeNativeHitTargetAudit {
         case "add-project", "new-chat", "search", "toggle-extensions", "toggle-automations",
             "toggle-terminal", "toggle-browser", "toggle-memories", "toggle-activity":
             return .sidebar
-        case "keyboard-shortcuts", "settings":
+        case "computer-use-setup", "keyboard-shortcuts", "settings", "disconnect-all":
             return .topBar
         default:
-            return .workspaceChrome
+            return .commandPalette
         }
     }
 

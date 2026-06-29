@@ -93,6 +93,12 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
 
         let contractsByID = Dictionary(uniqueKeysWithValues: report.surfaceContracts.map { ($0.id, $0) })
         let probesByContractID = Dictionary(uniqueKeysWithValues: report.clickProbes.map { ($0.contractID, $0) })
+        let commandContractIDs = Set(report.surfaceContracts.compactMap(\.commandID))
+        XCTAssertEqual(
+            commandContractIDs,
+            Set(surface.commands.map(\.id)),
+            "Every workspace command should declare a native click-target contract so command-palette, menu, and chrome routes cannot drift."
+        )
         for requiredID in [
             "composer.input",
             "composer.send",
@@ -176,6 +182,12 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["transcript.thinking-trace"]?.kind, .capsule)
         XCTAssertEqual(contractsByID["command.add-project"]?.kind, .icon)
         XCTAssertEqual(contractsByID["project.clear"]?.kind, .icon)
+        XCTAssertEqual(contractsByID["command.git-status"]?.family, .commandPalette)
+        XCTAssertEqual(contractsByID["command.git-status"]?.surface, "Command palette")
+        XCTAssertEqual(contractsByID["command.git-status"]?.kind, .fullRow)
+        XCTAssertEqual(contractsByID["command.disconnect-all"]?.family, .topBar)
+        XCTAssertEqual(contractsByID["command.disconnect-all"]?.surface, "Top bar overflow")
+        XCTAssertEqual(contractsByID["command.computer-use-setup"]?.family, .topBar)
         XCTAssertEqual(contractsByID["browser.comment"]?.action, .textInput)
         XCTAssertEqual(contractsByID["transcript.artifact-link"]?.action, .link)
         XCTAssertEqual(contractsByID["browser.new-tab"]?.action, .press)

@@ -9693,3 +9693,20 @@ Code quality changes:
 Remaining risk:
 
 - The workflow can only prove live-provider behavior when the repository secret is configured. Real-provider coverage across multiple model families and provider outages still depends on scheduled/manual runs being monitored.
+
+## 2026-06-29 Workspace Command Click-Target Inventory Pass
+
+Overall grade after this slice: **A command interaction inventory, A native click-probe coverage, A- live Accessibility clicking**.
+
+The hit-target audit had strong geometry and surface-family coverage, but command coverage was still hand-picked around the primary chrome. That left generated commands, palette-only rows, project actions, MCP actions, and automation shortcuts easier to forget even though they are real things users click.
+
+Code quality changes:
+
+- `QuillCodeNativeHitTargetAudit` now emits a hit-target contract for every `WorkspaceCommandSurface`, not only required chrome commands.
+- Non-persistent commands are modeled as full-row command-palette targets with routed `commandID` selectors, while sidebar and top-bar commands keep their actual visible surface families.
+- Added a regression assertion that the native command contract IDs exactly match `surface.commands.map(\.id)`.
+- Documented the rule that generated workspace commands are part of the click-target inventory, not exempt dynamic data.
+
+Remaining risk:
+
+- This gives packaged smoke and future Accessibility automation a complete command probe plan. The next A+ layer is resolving those probes against a running packaged window and clicking representative generated command rows end to end.
