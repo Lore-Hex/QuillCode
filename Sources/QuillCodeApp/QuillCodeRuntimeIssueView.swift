@@ -6,7 +6,7 @@ struct QuillCodeRuntimeIssueView: View {
     var onAction: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: issue.severity == .error ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(tint)
                 .frame(width: 20)
@@ -37,7 +37,7 @@ struct QuillCodeRuntimeIssueView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(QuillCodePalette.muted)
                         ForEach(issue.diagnostics) { diagnostic in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline, spacing: QuillCodeMetrics.controlClusterSpacing) {
                                 Text(diagnostic.label)
                                     .font(.caption2.weight(.semibold))
                                     .foregroundStyle(QuillCodePalette.muted)

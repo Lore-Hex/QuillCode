@@ -11,7 +11,7 @@ struct QuillCodeTopBarView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            HStack(spacing: 12) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 if leadingInset > 0 {
                     Color.clear
                         .frame(width: leadingInset)
@@ -142,7 +142,7 @@ struct QuillCodeTopBarView: View {
         Button {
             onCommand(command)
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 Image(systemName: "stop.fill")
                     .font(.caption.weight(.bold))
                     .accessibilityHidden(true)
@@ -233,7 +233,7 @@ struct QuillCodeModePickerButton: View {
                 .quillCodePlatformMenuItemTarget(reason: "AppKit owns mode picker menu row geometry; the mode trigger carries the custom hit-target contract.")
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 Circle()
                     .fill(selectedModeColor)
                     .frame(width: 7, height: 7)

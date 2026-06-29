@@ -23,7 +23,7 @@ struct QuillCodeMemoriesPaneView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "brain.head.profile")
                 .foregroundStyle(QuillCodePalette.blue)
             VStack(alignment: .leading, spacing: 2) {
@@ -34,7 +34,7 @@ struct QuillCodeMemoriesPaneView: View {
                     .foregroundStyle(QuillCodePalette.muted)
             }
             Spacer()
-            HStack(spacing: 6) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 QuillCodePaneCountPill(label: "Global", count: memories.globalCount)
                 QuillCodePaneCountPill(label: "Project", count: memories.projectCount)
             }
@@ -50,7 +50,7 @@ struct QuillCodeMemoriesPaneView: View {
 
     private var memoryCards: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 10) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 ForEach(memories.items) { item in
                     memoryCard(item)
                 }
@@ -60,7 +60,7 @@ struct QuillCodeMemoriesPaneView: View {
 
     private func memoryCard(_ item: MemoryNoteSurface) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 6) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 Text(item.scopeLabel)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(QuillCodePalette.blue)
@@ -73,7 +73,7 @@ struct QuillCodeMemoriesPaneView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                 Spacer()
                 if item.canEdit || item.canDelete {
-                    HStack(spacing: 8) {
+                    HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                         if let editCommandID = item.editCommandID {
                             Button {
                                 onCommand(editCommandID)

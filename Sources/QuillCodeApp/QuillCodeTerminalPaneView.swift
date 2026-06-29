@@ -23,7 +23,7 @@ struct QuillCodeTerminalPaneView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "terminal")
                 .foregroundStyle(QuillCodePalette.blue)
             Text("Terminal")
@@ -69,7 +69,7 @@ struct QuillCodeTerminalPaneView: View {
     }
 
     private var commandLine: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Text("$")
                 .font(.body.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)

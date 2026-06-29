@@ -198,7 +198,7 @@ private struct QuillCodeSlashSuggestionPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 10) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Text("Slash commands")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
@@ -236,7 +236,7 @@ private struct QuillCodeSlashSuggestionRow: View {
         Button {
             onSelect(suggestion)
         } label: {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Text(suggestion.usage)
                     .font(.system(.caption, design: .monospaced).weight(.semibold))
                     .lineLimit(1)

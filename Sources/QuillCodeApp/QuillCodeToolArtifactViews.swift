@@ -29,7 +29,7 @@ struct QuillCodeArtifactChip: View {
     }
 
     private var label: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Image(systemName: iconName)
             VStack(alignment: .leading, spacing: 1) {
                 Text(artifact.label)
@@ -95,7 +95,7 @@ struct QuillCodeArtifactDocumentPreview: View {
     }
 
     private var content: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(QuillCodePalette.blue.opacity(0.14))
@@ -251,7 +251,7 @@ struct QuillCodeArtifactTextPreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Image(systemName: "doc.plaintext")
                     .foregroundStyle(QuillCodePalette.blue)
                 Text(artifact.label)

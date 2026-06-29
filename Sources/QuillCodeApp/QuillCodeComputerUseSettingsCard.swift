@@ -29,7 +29,7 @@ struct QuillCodeComputerUseSettingsCard: View {
     }
 
     private var cardHeader: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Computer Use")
                     .font(.headline)
@@ -110,7 +110,7 @@ private struct QuillCodePermissionRow: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
             ZStack {
                 Circle()
                     .fill(iconTint.opacity(0.14))

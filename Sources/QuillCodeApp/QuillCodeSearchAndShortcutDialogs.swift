@@ -184,7 +184,7 @@ private struct QuillCodeShortcutRow: View {
     var command: WorkspaceCommandSurface
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(command.title)
                     .font(.callout.weight(.semibold))
@@ -226,7 +226,7 @@ private struct QuillCodeSearchResultRow: View {
         Button {
             onSelect(item.id)
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Image(systemName: item.isPinned ? "pin.fill" : "text.bubble")
                     .foregroundStyle(item.isSelected ? QuillCodePalette.blue : QuillCodePalette.muted)
                     .frame(width: 22)

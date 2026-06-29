@@ -46,7 +46,7 @@ struct QuillCodeReviewPaneView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.title3)
                 .foregroundStyle(QuillCodePalette.blue)
@@ -198,7 +198,7 @@ private struct QuillCodePullRequestReviewDraftView: View {
 
             submitSummary
 
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 if let submitBlockReason {
                     Text(submitBlockReason)
                         .font(.caption2)
@@ -234,7 +234,7 @@ private struct QuillCodePullRequestReviewDraftView: View {
     private var submitSummary: some View {
         let summary = draft.submitSummary
         let tint = summary.status == .ready ? QuillCodePalette.green : QuillCodePalette.yellow
-        return HStack(alignment: .top, spacing: 10) {
+        return HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: summary.status == .ready ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(tint)
@@ -304,7 +304,7 @@ private struct QuillCodePullRequestReviewDraftView: View {
         _ comment: WorkspacePullRequestReviewDraftCommentSurface,
         index: Int
     ) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(comment.locationLabel)
                     .font(.caption.monospaced())
@@ -446,7 +446,7 @@ private struct QuillCodePullRequestReviewThreadRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Image(systemName: thread.isResolved ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow)
@@ -487,7 +487,7 @@ private struct QuillCodePullRequestReviewThreadRowView: View {
     }
 
     private var threadActions: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             if let replyTarget = thread.replyTarget {
                 Button {
                     isReplyExpanded.toggle()
@@ -533,7 +533,7 @@ private struct QuillCodePullRequestReviewThreadRowView: View {
     }
 
     private var replyForm: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
             TextField("Reply to review thread", text: $replyDraft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(.callout)

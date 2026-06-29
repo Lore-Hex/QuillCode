@@ -26,7 +26,7 @@ struct QuillCodeBrowserPaneView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "globe")
                 .foregroundStyle(QuillCodePalette.blue)
             Text("Browser")
@@ -40,12 +40,12 @@ struct QuillCodeBrowserPaneView: View {
 
     private var tabStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 ForEach(browser.tabs) { tab in
                     Button {
                         onCommand(tab.selectCommandID)
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                             Text(tab.title)
                                 .font(.caption.weight(tab.isActive ? .semibold : .regular))
                                 .lineLimit(1)
@@ -92,7 +92,7 @@ struct QuillCodeBrowserPaneView: View {
     }
 
     private var horizontalNavigationBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             browserNavigationControls
             browserAddressControls
         }
@@ -106,7 +106,7 @@ struct QuillCodeBrowserPaneView: View {
     }
 
     private var browserNavigationControls: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             browserNavigationButton(
                 systemName: "chevron.left",
                 label: "Back",
@@ -140,7 +140,7 @@ struct QuillCodeBrowserPaneView: View {
     }
 
     private var browserAddressControls: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             TextField("localhost:3000, docs/page.html, or https://example.com", text: $addressDraft)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(onOpen)
@@ -166,7 +166,7 @@ struct QuillCodeBrowserPaneView: View {
 
     private func currentPageSummary(currentURL: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Text(browser.title)
                     .font(.callout.weight(.semibold))
                     .lineLimit(1)
@@ -254,7 +254,7 @@ struct QuillCodeBrowserPaneView: View {
     }
 
     private var commentInput: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             TextField("Add browser comment", text: $commentDraft)
                 .textFieldStyle(.roundedBorder)
                 .disabled(browser.currentURL == nil)
@@ -273,7 +273,7 @@ struct QuillCodeBrowserPaneView: View {
     private var comments: some View {
         if !browser.comments.isEmpty {
             ScrollView(.horizontal) {
-                HStack(spacing: 8) {
+                HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                     ForEach(browser.comments) { comment in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(comment.text)

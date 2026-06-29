@@ -24,7 +24,7 @@ struct QuillCodeActivityPaneView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "list.bullet.rectangle")
                 .foregroundStyle(QuillCodePalette.blue)
             VStack(alignment: .leading, spacing: 2) {
@@ -70,7 +70,7 @@ private struct QuillCodeActivitySectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: { onCommand(section.toggleCommandID) }) {
-                HStack(spacing: 8) {
+                HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                     Image(systemName: section.isCollapsed ? "chevron.right" : "chevron.down")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(QuillCodePalette.muted)
@@ -130,7 +130,7 @@ private struct QuillCodeActivityItemView: View {
                     .frame(width: 7, height: 7)
                     .padding(.top, 5)
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                         Text(item.title)
                             .font(.caption.weight(.semibold))
                             .lineLimit(1)
@@ -150,7 +150,7 @@ private struct QuillCodeActivityItemView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             if !item.actions.isEmpty {
-                HStack(spacing: 6) {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                     ForEach(item.actions) { action in
                         Button(action.title) {
                             onCommand(action.commandID)

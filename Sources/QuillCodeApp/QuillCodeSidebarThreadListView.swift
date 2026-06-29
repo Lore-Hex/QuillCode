@@ -62,7 +62,7 @@ struct QuillCodeSidebarBulkActionsView: View {
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                     ForEach(actions) { action in
                         Button(action.title) {
                             onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: action))

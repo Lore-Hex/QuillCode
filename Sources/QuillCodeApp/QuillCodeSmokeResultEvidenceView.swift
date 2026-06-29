@@ -82,7 +82,7 @@ public struct QuillCodeSmokeResultEvidenceView: View {
     private var toolSummary: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionLabel("Tool")
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Image(systemName: toolIconName)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(toolTint)
@@ -91,7 +91,7 @@ public struct QuillCodeSmokeResultEvidenceView: View {
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                         Text(latestToolCard?.title ?? "Tool")
                             .font(.headline.weight(.semibold))
                             .lineLimit(1)
@@ -135,7 +135,7 @@ public struct QuillCodeSmokeResultEvidenceView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Label(fileDisplayName, systemImage: "doc.text")
                 .font(.caption.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)

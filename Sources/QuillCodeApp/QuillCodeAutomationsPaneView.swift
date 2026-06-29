@@ -27,7 +27,7 @@ struct QuillCodeAutomationsPaneView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "clock.arrow.circlepath")
                 .foregroundStyle(QuillCodePalette.blue)
             VStack(alignment: .leading, spacing: 2) {
@@ -139,7 +139,7 @@ struct QuillCodeAutomationsPaneView: View {
     private func automationActions(for workflow: AutomationWorkflowSurface) -> some View {
         if workflow.runCommandID != nil || workflow.primaryCommandID != nil || workflow.deleteCommandID != nil {
             Divider()
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 if let commandID = workflow.runCommandID,
                    let actionTitle = workflow.runActionTitle {
                     Button(actionTitle) {
