@@ -87,6 +87,42 @@ final class PTYProcessSessionTests: XCTestCase {
         XCTAssertEqual(result?.ok, true)
     }
 
+    func testResizeUpdatesARunningSessionsWindow() async throws {
+        let request = ShellExecutionRequest(
+            command: "read x; stty size",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 15
+        )
+        let session = PTYProcessSession(request: request, windowSize: PTYWindowSize(rows: 24, columns: 80))
+        session.start()
+
+        // Resize the live session, then unblock the read so `stty size` reports the new size.
+        var resized = false
+        for _ in 0..<300 {
+            if session.resize(to: PTYWindowSize(rows: 30, columns: 100)) {
+                resized = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(resized, "Expected to resize the running pty session.")
+        _ = session.sendInput("\n")
+
+        var output = ""
+        var result: ToolResult?
+        for await event in session.events {
+            switch event {
+            case .stdout(let text), .stderr(let text):
+                output += text
+            case .finished(let toolResult):
+                result = toolResult
+            }
+        }
+
+        XCTAssertTrue(output.contains("30 100"), "Expected the resized terminal size, got: \(output)")
+        XCTAssertEqual(result?.ok, true)
+    }
+
     func testSendInputIsRejectedAfterTheSessionFinishes() async throws {
         let request = ShellExecutionRequest(
             command: "printf done",
