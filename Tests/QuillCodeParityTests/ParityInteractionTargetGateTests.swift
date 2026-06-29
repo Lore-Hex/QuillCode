@@ -43,6 +43,14 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "The rendered click-target audit should keep the same 44 px minimum for whole-screen audits and explicit critical-control probes."
         )
         XCTAssertTrue(
+            auditHelperText.contains("MINIMUM_TARGET_CLEARANCE = 4")
+                && auditHelperText.contains("clearanceIssues")
+                && auditHelperText.contains("expectNoAmbiguousAdjacentInteractiveTargets")
+                && auditHelperText.contains("allowsTightClearance")
+                && auditHelperText.contains(#"[data-testid="sidebar-compose-zone"]"#),
+            "The rendered click-target audit should reject peer controls that are nearly touching, while allowing intentional menu/list rows and segmented controls."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("export type CriticalTargetProbe")
                 && auditHelperText.contains("expectedKind?: string")
                 && auditHelperText.contains("expectCriticalTargetRegistry"),
@@ -306,6 +314,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && interactionSpecText.contains("hit_target_action_mismatch")
                 && interactionSpecText.contains("element_action_mismatch"),
             "The click-target audit should include fixtures for semantic mismatches so controls cannot pass by being large while lying about button/link/text-entry behavior."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("too-close-a")
+                && interactionSpecText.contains("too-close-b")
+                && interactionSpecText.contains("report.clearanceIssues")
+                && interactionSpecText.contains("gap: 2"),
+            "The click-target audit should include a near-miss spacing fixture so adjacent controls cannot pass solely because they do not overlap."
         )
     }
 
