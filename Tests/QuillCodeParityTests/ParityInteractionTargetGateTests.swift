@@ -516,6 +516,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                         .quillCodeIconButtonTarget()
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
+                .help("More actions")
 
                 Picker("Mode", selection: $selected) {
                     Text("One").tag(1)
@@ -803,6 +804,84 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             1,
             "Native links need link semantics; button-sized geometry alone is not enough."
         )
+    }
+
+    func testNativeSourceAuditRejectsUnnamedIconTargets() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct UnnamedIconChrome: View {
+            var body: some View {
+                VStack {
+                    Button {
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .quillCodeIconButtonTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+
+                    Menu {
+                        Button("Rename") {}
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .quillCodeIconButtonTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(
+            violations.filter { $0.contains("icon hit target needs a visible label, accessibilityLabel, or help tooltip") }.count,
+            2,
+            "Icon-sized controls need discoverable names, not only a large hit rectangle."
+        )
+    }
+
+    func testNativeSourceAuditAcceptsNamedIconTargets() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct NamedIconChrome: View {
+            var body: some View {
+                VStack {
+                    Button {
+                    } label: {
+                        Image(systemName: "xmark")
+                            .quillCodeIconButtonTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .accessibilityLabel("Close")
+
+                    Button {
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                            .labelStyle(.iconOnly)
+                            .quillCodeIconButtonTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+
+                    Menu {
+                        Button("Rename") {}
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .quillCodeIconButtonTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .help("More actions")
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
     }
 
     func testNativeSourceAuditRejectsRawShapeAndHitTestingOverrides() throws {
@@ -1201,6 +1280,12 @@ private struct SwiftSourceInteractionTargetAudit {
                 violations.append("\(relativePath):\(index + 1) icon-only control lacks icon hit target")
             }
 
+            if line.contains("quillCodeIconButtonTarget"),
+               !isSharedDesignSystem(relativePath),
+               !hasIconTargetName(in: owningControlScope) {
+                violations.append("\(relativePath):\(index + 1) icon hit target needs a visible label, accessibilityLabel, or help tooltip")
+            }
+
             if isButtonDeclaration(line),
                !isSystemMenuItemButton(lines: lines, index: index),
                !hasSharedTarget(in: declarationScope) {
@@ -1271,6 +1356,12 @@ private struct SwiftSourceInteractionTargetAudit {
 
     private func hasButtonStyle(in sourceWindow: String) -> Bool {
         sourceWindow.contains(".buttonStyle(")
+    }
+
+    private func hasIconTargetName(in sourceWindow: String) -> Bool {
+        sourceWindow.contains("Label(")
+            || sourceWindow.contains(".accessibilityLabel(")
+            || sourceWindow.contains(".help(")
     }
 
     private func usesGenericTargetHelper(_ line: String) -> Bool {

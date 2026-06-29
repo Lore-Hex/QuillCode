@@ -8895,3 +8895,19 @@ Code quality changes:
 Remaining risk:
 
 - This is still semantic/source/native-smoke evidence. The next A+ layer is packaged native UI automation that samples actual Accessibility frames for each family on a built `.app`, matching the rendered Playwright interior sampling already used for the HTML harness.
+
+## 2026-06-28 Icon Target Naming Pass
+
+Overall grade after this slice: **A native icon target clarity, A source-gate coverage, A- packaged accessibility-frame sampling**.
+
+The click-target model now treats icon-only controls as a naming problem as well as a sizing problem. A 44 pt ellipsis, chevron, or close button is still poor UX if the target has no discoverable label or tooltip.
+
+Code quality changes:
+
+- Tightened `SwiftSourceInteractionTargetAudit` so every native `.quillCodeIconButtonTarget` outside the design system must be in a control scope with `Label(...)`, `.accessibilityLabel(...)`, or `.help(...)`.
+- Added regression fixtures proving bare-image icon buttons and menus fail while named icon buttons, icon-only labels with text, and tooltipped menus pass.
+- Named the sidebar thread action ellipsis and transcript Find previous/next/close buttons with explicit help and accessibility labels.
+
+Remaining risk:
+
+- This still verifies source-level naming. Full A+ native parity needs packaged `.app` Accessibility automation that samples the real accessibility label and frame for icon targets after SwiftUI/AppKit composition.
