@@ -54,10 +54,13 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             Set(QuillCodeNativeFocusTarget.allCases.map(\.rawValue))
         )
         XCTAssertEqual(report.missingRequiredCommandIDs, [])
+        XCTAssertEqual(report.missingClickProbeContractIDs, [])
         XCTAssertEqual(report.duplicateContractIDs, [])
         XCTAssertEqual(report.validationIssues, [])
+        XCTAssertEqual(Set(report.clickProbes.map(\.contractID)), Set(report.surfaceContracts.map(\.id)))
 
         let contractsByID = Dictionary(uniqueKeysWithValues: report.surfaceContracts.map { ($0.id, $0) })
+        let probesByContractID = Dictionary(uniqueKeysWithValues: report.clickProbes.map { ($0.contractID, $0) })
         for requiredID in [
             "composer.input",
             "composer.send",
@@ -156,6 +159,27 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["automations.delete"]?.testID, "quillcode-automation-delete")
         XCTAssertEqual(contractsByID["command.new-chat"]?.commandID, "new-chat")
         XCTAssertEqual(contractsByID["command.settings"]?.commandID, "settings")
+        XCTAssertEqual(probesByContractID["composer.send"]?.selectorKind, .testID)
+        XCTAssertEqual(probesByContractID["composer.send"]?.selector, "quillcode-send-button")
+        XCTAssertEqual(probesByContractID["command.new-chat"]?.selectorKind, .commandID)
+        XCTAssertEqual(probesByContractID["command.new-chat"]?.selector, "new-chat")
+        XCTAssertEqual(probesByContractID["terminal.command"]?.selectorKind, .testID)
+        XCTAssertEqual(probesByContractID["terminal.command"]?.selector, "quillcode-terminal-command")
+        XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinWidth ?? 0, 44)
+        XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinHeight ?? 0, 44)
+        XCTAssertEqual(
+            Set(probesByContractID["composer.send"]?.samplePoints.map(\.name) ?? []),
+            Set(["center", "leading-interior", "trailing-interior", "top-interior", "bottom-interior"])
+        )
+        for probe in report.clickProbes {
+            XCTAssertFalse(probe.selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            XCTAssertGreaterThanOrEqual(probe.requiredMinWidth, 44)
+            XCTAssertGreaterThanOrEqual(probe.requiredMinHeight, 44)
+            XCTAssertEqual(probe.samplePoints.count, 5)
+            XCTAssertTrue(probe.samplePoints.allSatisfy { point in
+                point.x > 0 && point.x < 1 && point.y > 0 && point.y < 1
+            })
+        }
         XCTAssertTrue(report.surfaceContracts.allSatisfy { contract in
             contract.focusTarget != nil || contract.testID?.isEmpty == false || contract.commandID?.isEmpty == false
         })
@@ -272,6 +296,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             ],
             designSystemContracts: [],
             surfaceContracts: [invalidContract],
+            clickProbes: [],
             missingDesignKinds: [],
             coveredSurfaceFamilies: [],
             missingSurfaceFamilies: [],
@@ -281,6 +306,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             missingRequiredSurfaceActions: ["top-bar:press"],
             missingRequiredSurfaceFocusTargets: ["composer:composer.message"],
             missingRequiredCommandIDs: [],
+            missingClickProbeContractIDs: ["top-bar.overflow"],
             duplicateContractIDs: ["top-bar.overflow"],
             validationIssues: invalidContract.validationIssues
         )
@@ -290,6 +316,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceKinds"] as? [String], ["top-bar:icon"])
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceActions"] as? [String], ["top-bar:press"])
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceFocusTargets"] as? [String], ["composer:composer.message"])
+        XCTAssertEqual(report.dictionary["missingClickProbeContractIDs"] as? [String], ["top-bar.overflow"])
         XCTAssertEqual(report.dictionary["duplicateContractIDs"] as? [String], ["top-bar.overflow"])
         XCTAssertEqual((invalidContract.dictionary["testID"] as? String), "")
         XCTAssertEqual((invalidContract.dictionary["commandID"] as? String), "")
