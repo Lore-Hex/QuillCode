@@ -76,6 +76,24 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testPackagedMacOSSmokeComparesDirectAndLaunchServicesClickProbes() throws {
+        let script = try Self.scriptText(named: "packaged-macos-smoke.sh")
+
+        XCTAssertTrue(script.contains("DIRECT_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/direct-executable\""))
+        XCTAssertTrue(script.contains("LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/launch-services\""))
+        XCTAssertTrue(script.contains("CLICK_PROBE_MANIFEST=\"$SMOKE_ROOT/packaged-click-probes.json\""))
+        XCTAssertTrue(script.contains("QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR=\"$DIRECT_SMOKE_ARTIFACT_DIR\""))
+        XCTAssertTrue(script.contains("QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR=\"$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR\""))
+        XCTAssertTrue(script.contains("normalized_probe_contracts"))
+        XCTAssertTrue(script.contains("click_probes = native_targets.get(\"clickProbes\")"))
+        XCTAssertTrue(script.contains("samplePoints"))
+        XCTAssertTrue(script.contains("launchServicesMatchesDirect"))
+        XCTAssertTrue(script.contains("packaged-click-probes.json"))
+        XCTAssertTrue(script.contains("direct_probe_contracts != launch_services_probe_contracts"))
+        XCTAssertTrue(script.contains("missingFromLaunch"))
+        XCTAssertTrue(script.contains("driftingContracts"))
+    }
+
     private static func scriptText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("scripts")

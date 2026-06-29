@@ -16,6 +16,22 @@ Residual risk:
 
 - The final A+ native click layer is still an Accessibility runner that opens the packaged app, resolves `testID`/command/focus selectors to live frames, and clicks the center plus interior edge points.
 
+## 2026-06-29 Packaged Click-Probe Manifest Pass
+
+Overall grade after this slice: **A packaged launch parity evidence, A smoke artifact auditability, A- live Accessibility frame sampling**.
+
+The native click-probe contract was validated per launch path, but release smoke did not prove the packaged executable and Launch Services entrypoint produced the same probe plan.
+
+| Before | After |
+| --- | --- |
+| `scripts/packaged-macos-smoke.sh` ran direct executable smoke and Launch Services smoke independently. | The packaged smoke now keeps both artifact folders internally, compares their `nativeHitTargets.clickProbes`, and fails if selectors, semantics, minimum sizes, or normalized sample points drift. |
+| CI artifacts showed two report folders, but reviewers had to compare them manually. | The script writes `packaged-click-probes.json` with `launchServicesMatchesDirect`, click-probe count, contract IDs, and sample point names, then copies it beside the packaged artifact manifest. |
+| The packaged smoke behavior was protected only by end-to-end execution. | `ParitySmokeScriptGateTests` now pins the manifest, direct/Launch Services report comparison, and drift diagnostics. |
+
+Residual risk:
+
+- The final A+ native layer is still a macOS Accessibility runner that resolves the packaged app's selectors to live window frames and clicks the center plus interior edge samples.
+
 ## 2026-06-29 Native Click-Probe Contract Pass
 
 Overall grade after this slice: **A native click-probe coverage, A smoke contract enforcement, A- packaged Accessibility execution**.
