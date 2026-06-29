@@ -26,6 +26,14 @@ enum QuillCodeSidebarCommandAdapter {
         )
     }
 
+    static func deleteWorkspaceCommand(for savedSearch: SidebarSavedSearchSurface) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: SidebarSavedSearchSurface.deleteCommandID(for: savedSearch.id),
+            title: "Delete \(savedSearch.title)",
+            category: WorkspaceCommandPalette.threadCategory
+        )
+    }
+
     static func toggleSelectionCommand(for item: SidebarItemSurface) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
             id: "thread-selection-toggle:\(item.id.uuidString)",

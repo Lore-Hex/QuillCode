@@ -27,6 +27,7 @@ public final class QuillCodeWorkspaceModel {
     let threadPersistence: WorkspaceThreadPersistence
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
+    private let sidebarSavedSearchStore: JSONSidebarSavedSearchStore?
     let globalMemoryDirectory: URL?
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
@@ -53,6 +54,7 @@ public final class QuillCodeWorkspaceModel {
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil,
         automationStore: JSONAutomationStore? = nil,
+        sidebarSavedSearchStore: JSONSidebarSavedSearchStore? = nil,
         globalMemoryDirectory: URL? = nil,
         computerUseBackend: (any ComputerUseBackend)? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
@@ -67,7 +69,7 @@ public final class QuillCodeWorkspaceModel {
         self.automations = automations
         self.pullRequestReviewDraft = pullRequestReviewDraft
         self.sidebarFilter = sidebarFilter
-        self.sidebarSavedSearches = sidebarSavedSearches.filter(\.isValid)
+        self.sidebarSavedSearches = JSONSidebarSavedSearchStore.normalized(sidebarSavedSearches)
         self.activeSidebarSavedSearchID = self.sidebarSavedSearches.contains { $0.id == activeSidebarSavedSearchID }
             ? activeSidebarSavedSearchID
             : nil
@@ -77,6 +79,7 @@ public final class QuillCodeWorkspaceModel {
         self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)
         self.projectStore = projectStore
         self.automationStore = automationStore
+        self.sidebarSavedSearchStore = sidebarSavedSearchStore
         self.globalMemoryDirectory = globalMemoryDirectory
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
@@ -182,6 +185,10 @@ public final class QuillCodeWorkspaceModel {
 
     private func saveAutomations() {
         try? automationStore?.save(automations.items)
+    }
+
+    func saveSidebarSavedSearches() {
+        try? sidebarSavedSearchStore?.save(sidebarSavedSearches)
     }
 
 }

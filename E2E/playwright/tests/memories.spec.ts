@@ -49,9 +49,9 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
 
   await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>save');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
-  await expect(page.getByTestId('command-palette-result')).toContainText('Add memory');
-  await page.getByTestId('command-palette-result').click();
+  const addMemoryResult = page.getByTestId('command-palette-result').filter({ hasText: 'Add memory' });
+  await expect(addMemoryResult).toHaveCount(1);
+  await addMemoryResult.click();
 
   await expect(page.getByLabel('Message')).toHaveValue('/remember ');
   await page.getByLabel('Message').fill('/remember Prefer small reviewable commits');

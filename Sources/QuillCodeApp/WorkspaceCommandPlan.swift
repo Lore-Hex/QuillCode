@@ -22,6 +22,7 @@ enum WorkspaceCommandPlan: Equatable {
     case toggleThreadSelection(id: UUID)
     case setSidebarFilter(SidebarSavedFilterKind)
     case setSidebarSavedSearch(UUID)
+    case deleteSidebarSavedSearch(UUID)
     case newBrowserTab
     case selectBrowserTab(id: UUID)
     case closeBrowserTab(id: UUID)
@@ -147,6 +148,9 @@ enum WorkspaceCommandPlan: Equatable {
         if let id = commandID.uuidValue(after: "sidebar-saved-search:") {
             return .setSidebarSavedSearch(id)
         }
+        if let id = commandID.uuidValue(after: "sidebar-saved-search-delete:") {
+            return .deleteSidebarSavedSearch(id)
+        }
         if commandID == "browser-tab-new" {
             return .newBrowserTab
         }
@@ -223,6 +227,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case threadBulkArchive = "thread-bulk-archive"
     case threadBulkUnarchive = "thread-bulk-unarchive"
     case threadBulkDelete = "thread-bulk-delete"
+    case sidebarSavedSearchCreate = "sidebar-saved-search-create"
     case retryLastTurn = "retry-last-turn"
     case forkFromLast = "fork-from-last"
     case forkWithSummary = "fork-with-summary"

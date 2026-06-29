@@ -266,6 +266,39 @@ test('mock harness filters sidebar chats with custom saved searches', async ({ p
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
 });
 
+test('mock harness creates and deletes custom saved searches from explicit sidebar targets', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  for (const prompt of ['run whoami', 'write hello world notes', 'run df -h']) {
+    await page.getByLabel('Message').fill(prompt);
+    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByTestId('new-chat-button').click();
+  }
+
+  await page.getByTestId('sidebar-saved-search-create').click();
+  await expect(page.getByTestId('sidebar-saved-search-panel')).toBeVisible();
+  await expect(page.getByTestId('sidebar-saved-search-query')).toBeFocused();
+
+  await page.getByTestId('sidebar-saved-search-query').fill('run');
+  await page.getByTestId('sidebar-saved-search-title').fill('Shell runs');
+  await page.getByTestId('sidebar-saved-search-save').click();
+
+  const savedSearch = page.getByTestId('sidebar-saved-search');
+  await expect(savedSearch).toContainText('Shell runs');
+  await expect(savedSearch.getByTestId('sidebar-saved-search-count')).toHaveText('2');
+  await expect(savedSearch).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
+  await expect(page.getByTestId('sidebar')).toContainText('run whoami');
+  await expect(page.getByTestId('sidebar')).toContainText('run df -h');
+  await expect(page.getByTestId('sidebar')).not.toContainText('write hello world notes');
+
+  await page.getByTestId('sidebar-saved-search-delete').click();
+  await expect(page.getByTestId('sidebar-saved-search')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar-saved-search-empty')).toBeVisible();
+  await expect(page.locator('[data-testid="sidebar-filter"][data-filter-id="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
+});
+
 test('mock harness manages projects from the sidebar', async ({ page }) => {
   await page.goto(harnessURL());
 

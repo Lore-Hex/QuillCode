@@ -14,7 +14,7 @@ enum WorkspaceHTMLSidebarRenderer {
           <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
             \(renderThreadHeader(sidebar))
             \(renderSavedFilters(sidebar))
-            \(renderSavedSearches(sidebar))
+            \(renderSavedSearches(sidebar, commands: commands))
             \(renderBulkToolbar(sidebar))
             \(renderThreadSections(sidebar))
           </div>
@@ -108,31 +108,60 @@ enum WorkspaceHTMLSidebarRenderer {
         """
     }
 
-    private static func renderSavedSearches(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.customSavedSearches.isEmpty else { return "" }
+    private static func renderSavedSearches(_ sidebar: SidebarSurface, commands: [WorkspaceCommandSurface]) -> String {
+        guard !sidebar.items.isEmpty else { return "" }
+        let createCommandID = WorkspaceCommandAction.sidebarSavedSearchCreate.rawValue
+        guard commands.contains(where: { $0.id == createCommandID }) || !sidebar.customSavedSearches.isEmpty else {
+            return ""
+        }
         let savedSearches = sidebar.customSavedSearches.map { savedSearch in
-            WorkspaceHTMLPrimitives.commandButton(
-                "\(savedSearch.title) \(savedSearch.count)",
-                testID: "sidebar-saved-search",
-                commandID: savedSearch.commandID,
-                hitTargetKind: .capsule,
-                classes: [
-                    "sidebar-filter",
-                    "sidebar-saved-search",
-                    savedSearch.isActive ? "active" : ""
-                ],
-                ariaLabel: savedSearch.accessibilityLabel,
-                attributes: [
-                    ("aria-pressed", String(savedSearch.isActive)),
-                    ("data-saved-search-id", savedSearch.id.uuidString),
-                    ("data-query", savedSearch.query)
-                ]
-            )
+            """
+            <div class="sidebar-saved-search-row" data-testid="sidebar-saved-search-row">
+              \(WorkspaceHTMLPrimitives.commandButton(
+                  "\(savedSearch.title) \(savedSearch.count)",
+                  testID: "sidebar-saved-search",
+                  commandID: savedSearch.commandID,
+                  hitTargetKind: .capsule,
+                  classes: [
+                      "sidebar-filter",
+                      "sidebar-saved-search",
+                      savedSearch.isActive ? "active" : ""
+                  ],
+                  ariaLabel: savedSearch.accessibilityLabel,
+                  attributes: [
+                      ("aria-pressed", String(savedSearch.isActive)),
+                      ("data-saved-search-id", savedSearch.id.uuidString),
+                      ("data-query", savedSearch.query)
+                  ]
+              ))
+              \(WorkspaceHTMLPrimitives.commandButton(
+                  "Delete",
+                  testID: "sidebar-saved-search-delete",
+                  commandID: SidebarSavedSearchSurface.deleteCommandID(for: savedSearch.id),
+                  hitTargetKind: .icon,
+                  classes: ["sidebar-saved-search-delete"],
+                  ariaLabel: "Delete saved search \(savedSearch.title)",
+                  attributes: [
+                      ("data-saved-search-id", savedSearch.id.uuidString)
+                  ]
+              ))
+            </div>
+            """
         }.joined(separator: "\n")
         return """
         <div class="sidebar-filter-bar sidebar-saved-search-bar" data-testid="sidebar-saved-search-bar">
-          <span class="sidebar-saved-search-label">Saved searches</span>
-          \(savedSearches)
+          <div class="sidebar-saved-search-header">
+            <span class="sidebar-saved-search-label">Saved searches</span>
+            \(WorkspaceHTMLPrimitives.commandButton(
+                "Save",
+                testID: "sidebar-saved-search-create",
+                commandID: createCommandID,
+                hitTargetKind: .text,
+                classes: ["sidebar-saved-search-create"],
+                ariaLabel: "Save sidebar search"
+            ))
+          </div>
+          \(savedSearches.isEmpty ? #"<p class="sidebar-saved-search-empty" data-testid="sidebar-saved-search-empty">No saved searches yet</p>"# : savedSearches)
         </div>
         """
     }

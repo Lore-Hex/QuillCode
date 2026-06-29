@@ -294,6 +294,10 @@ public struct SidebarSavedSearchSurface: Codable, Sendable, Hashable, Identifiab
         "sidebar-saved-search:\(id.uuidString)"
     }
 
+    public static func deleteCommandID(for id: UUID) -> String {
+        "sidebar-saved-search-delete:\(id.uuidString)"
+    }
+
     public static func savedSearches(
         _ savedSearches: [SidebarSavedSearch],
         items: [SidebarItemSurface],

@@ -852,6 +852,53 @@
       line-height: 1;
       font-variant-numeric: tabular-nums;
     }
+    .sidebar-saved-search-bar {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .sidebar-saved-search-header,
+    .sidebar-saved-search-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--hit-target);
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-saved-search-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .sidebar-saved-search-create,
+    .sidebar-saved-search-delete {
+      min-width: var(--hit-target);
+      min-height: var(--hit-target);
+      border-radius: 999px;
+    }
+    .sidebar-saved-search-create {
+      color: var(--blue);
+      background: rgba(65,184,232,.12);
+      border-color: rgba(65,184,232,.22);
+    }
+    .sidebar-saved-search-delete {
+      color: #ff7d77;
+      background: rgba(255,91,84,.10);
+      border-color: rgba(255,91,84,.18);
+    }
+    .sidebar-saved-search-row .sidebar-saved-search {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .sidebar-saved-search-empty {
+      min-height: var(--hit-target);
+      display: flex;
+      align-items: center;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
     .sidebar-icon-button {
       width: var(--hit-target);
       height: var(--hit-target);
@@ -3205,6 +3252,11 @@
         activeFilter: 'all',
         activeSavedSearchID: null,
         savedSearches: [],
+        savedSearchDialog: {
+          isOpen: false,
+          title: '',
+          query: ''
+        },
         isSelectionMode: false,
         selectedThreadIDs: [],
         items: []
@@ -3466,6 +3518,7 @@
         { id: 'fork-with-summary', title: 'Fork summary', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'fork', 'compact'], isEnabled: false },
         { id: 'fork-full-context', title: 'Fork full', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'full', 'fork', 'copy'], isEnabled: false },
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
+        { id: 'sidebar-saved-search-create', title: 'Create sidebar search', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter'], isEnabled: true },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
@@ -4849,16 +4902,30 @@
       const hasUnarchivedBulkSelection = selectedThreads.some(item => !item.isArchived);
       const hasArchivedBulkSelection = selectedThreads.some(item => item.isArchived);
       const hasSidebarThreads = visibleSidebarItems.length > 0;
-      const savedSearchCommands = sidebarSavedSearches().map(savedSearch => ({
-        id: savedSearch.commandID,
-        title: `Show ${savedSearch.title}`,
-        shortcut: '',
-        category: 'Thread',
-        keywords: ['thread', 'chat', 'sidebar', 'saved search', savedSearch.title, savedSearch.query],
-        isEnabled: true
-      }));
+      const savedSearchCommands = sidebarSavedSearches().flatMap(savedSearch => [
+        {
+          id: savedSearch.commandID,
+          title: `Show ${savedSearch.title}`,
+          shortcut: '',
+          category: 'Thread',
+          keywords: ['thread', 'chat', 'sidebar', 'saved search', savedSearch.title, savedSearch.query],
+          isEnabled: true
+        },
+        {
+          id: `sidebar-saved-search-delete:${savedSearch.id}`,
+          title: `Delete saved search ${savedSearch.title}`,
+          shortcut: '',
+          category: 'Thread',
+          keywords: ['thread', 'chat', 'sidebar', 'saved search', 'delete', savedSearch.title, savedSearch.query],
+          isEnabled: true
+        }
+      ]);
       state.commands = state.commands
-        .filter(command => !String(command.id || '').startsWith('sidebar-saved-search:'))
+        .filter(command => {
+          const id = String(command.id || '');
+          return !id.startsWith('sidebar-saved-search:')
+            && !id.startsWith('sidebar-saved-search-delete:');
+        })
         .map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
@@ -5866,22 +5933,40 @@
             </button>
           `).join('')}
         </div>` : '';
-      const savedSearchBar = savedSearches.length ? `
+      const savedSearchBar = state.sidebar.items.length ? `
         <div class="sidebar-filter-bar sidebar-saved-search-bar" data-testid="sidebar-saved-search-bar" aria-label="Saved searches">
-          ${savedSearches.map(savedSearch => `
+          <div class="sidebar-saved-search-header">
+            <span class="sidebar-saved-search-label">Saved searches</span>
             <button
-              class="sidebar-filter hit-target-capsule ${savedSearch.isActive ? 'active' : ''}"
+              class="sidebar-saved-search-create hit-target-text"
               type="button"
-              data-testid="sidebar-saved-search"
-              data-saved-search-id="${escapeHTML(savedSearch.id)}"
-              data-query="${escapeHTML(savedSearch.query)}"
-              data-command-id="${escapeHTML(savedSearch.commandID)}"
-              aria-pressed="${savedSearch.isActive ? 'true' : 'false'}"
-              aria-label="${escapeHTML(`${savedSearch.title} saved search, ${savedSearch.count}`)}">
-              <span>${escapeHTML(savedSearch.title)}</span>
-              <span class="sidebar-filter-count" data-testid="sidebar-saved-search-count">${escapeHTML(String(savedSearch.count))}</span>
-            </button>
-          `).join('')}
+              data-testid="sidebar-saved-search-create"
+              data-command-id="sidebar-saved-search-create"
+              aria-label="Save sidebar search">Save</button>
+          </div>
+          ${savedSearches.length ? savedSearches.map(savedSearch => `
+            <div class="sidebar-saved-search-row" data-testid="sidebar-saved-search-row">
+              <button
+                class="sidebar-filter sidebar-saved-search hit-target-capsule ${savedSearch.isActive ? 'active' : ''}"
+                type="button"
+                data-testid="sidebar-saved-search"
+                data-saved-search-id="${escapeHTML(savedSearch.id)}"
+                data-query="${escapeHTML(savedSearch.query)}"
+                data-command-id="${escapeHTML(savedSearch.commandID)}"
+                aria-pressed="${savedSearch.isActive ? 'true' : 'false'}"
+                aria-label="${escapeHTML(`${savedSearch.title} saved search, ${savedSearch.count}`)}">
+                <span>${escapeHTML(savedSearch.title)}</span>
+                <span class="sidebar-filter-count" data-testid="sidebar-saved-search-count">${escapeHTML(String(savedSearch.count))}</span>
+              </button>
+              <button
+                class="sidebar-saved-search-delete hit-target-icon"
+                type="button"
+                data-testid="sidebar-saved-search-delete"
+                data-saved-search-id="${escapeHTML(savedSearch.id)}"
+                data-command-id="${escapeHTML(`sidebar-saved-search-delete:${savedSearch.id}`)}"
+                aria-label="${escapeHTML(`Delete saved search ${savedSearch.title}`)}">×</button>
+            </div>
+          `).join('') : '<p class="sidebar-saved-search-empty" data-testid="sidebar-saved-search-empty">No saved searches yet</p>'}
         </div>` : '';
       const sidebarHeaderAction = !state.sidebar.isSelectionMode && bulkActions.length ? `
         <button class="sidebar-bulk-action hit-target-text" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(bulkActions[0].commandID)}" data-action="${escapeHTML(bulkActions[0].id)}" data-destructive="false" ${bulkActions[0].enabled ? '' : 'disabled'}>${escapeHTML(bulkActions[0].title)}</button>
@@ -6080,6 +6165,7 @@
           ${state.commandPalette.isOpen ? renderCommandPalette() : ''}
           ${state.shortcuts.isOpen ? renderKeyboardShortcutsPanel() : ''}
           ${state.worktreeDialog.mode ? renderWorktreeDialog() : ''}
+          ${renderSidebarSavedSearchDialog()}
         </section>`;
 
       normalizeInteractionTargetContracts(document.getElementById('app'));
@@ -6380,10 +6466,34 @@
           render();
         });
       });
-      document.querySelectorAll('[data-testid="sidebar-bulk-action"], [data-testid="sidebar-filter"], [data-testid="sidebar-saved-search"]').forEach(button => {
+      document.querySelectorAll('[data-testid="sidebar-bulk-action"], [data-testid="sidebar-filter"], [data-testid="sidebar-saved-search"], [data-testid="sidebar-saved-search-create"], [data-testid="sidebar-saved-search-delete"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
+      });
+      document.querySelector('[data-testid="sidebar-saved-search-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const dialog = state.sidebar.savedSearchDialog || {};
+        const id = saveSidebarSavedSearch(dialog.title, dialog.query);
+        if (id) {
+          closeSidebarSavedSearchDialog();
+          updateDynamicCommands();
+          render();
+        }
+      });
+      document.querySelectorAll('[data-testid="sidebar-saved-search-close"], [data-testid="sidebar-saved-search-cancel"]').forEach(button => {
+        button.addEventListener('click', () => {
+          closeSidebarSavedSearchDialog();
+          render();
+        });
+      });
+      document.querySelector('[data-testid="sidebar-saved-search-query"]')?.addEventListener('input', event => {
+        state.sidebar.savedSearchDialog.query = event.currentTarget.value;
+        const saveButton = document.querySelector('[data-testid="sidebar-saved-search-save"]');
+        if (saveButton) saveButton.disabled = !state.sidebar.savedSearchDialog.query.trim();
+      });
+      document.querySelector('[data-testid="sidebar-saved-search-title"]')?.addEventListener('input', event => {
+        state.sidebar.savedSearchDialog.title = event.currentTarget.value;
       });
       document.querySelectorAll('[data-testid="sidebar-thread-action"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -7326,6 +7436,47 @@
               ${searchResultsHTML()}
             </div>
           </section>
+        </div>`;
+    }
+
+    function renderSidebarSavedSearchDialog() {
+      const dialog = state.sidebar.savedSearchDialog || {};
+      if (!dialog.isOpen) return '';
+      const query = String(dialog.query || '');
+      const title = String(dialog.title || '');
+      return `
+        <div class="search-panel" data-testid="sidebar-saved-search-panel">
+          <form class="search-card" data-testid="sidebar-saved-search-form" role="dialog" aria-label="Save sidebar search">
+            <header>
+              <div>
+                <h2>Save Sidebar Search</h2>
+                <p>Create a reusable sidebar filter for chats matching this query.</p>
+              </div>
+              <button class="hit-target-text" type="button" data-testid="sidebar-saved-search-close">Cancel</button>
+            </header>
+            <label>
+              <span>Query</span>
+              <input
+                class="hit-target-text-entry"
+                data-testid="sidebar-saved-search-query"
+                aria-label="Sidebar saved search query"
+                placeholder="error failed openclaw"
+                value="${escapeHTML(query)}">
+            </label>
+            <label>
+              <span>Name</span>
+              <input
+                class="hit-target-text-entry"
+                data-testid="sidebar-saved-search-title"
+                aria-label="Sidebar saved search name"
+                placeholder="Defaults to the query"
+                value="${escapeHTML(title)}">
+            </label>
+            <footer class="dialog-actions">
+              <button class="hit-target-text" type="button" data-testid="sidebar-saved-search-cancel">Cancel</button>
+              <button class="hit-target-form-action" type="submit" data-testid="sidebar-saved-search-save" ${query.trim() ? '' : 'disabled'}>Save</button>
+            </footer>
+          </form>
         </div>`;
     }
 
@@ -8334,6 +8485,61 @@
         clearSidebarSelection();
       }
       return true;
+    }
+
+    function openSidebarSavedSearchDialog() {
+      state.sidebar.savedSearchDialog = {
+        isOpen: true,
+        title: '',
+        query: ''
+      };
+    }
+
+    function closeSidebarSavedSearchDialog() {
+      state.sidebar.savedSearchDialog = {
+        isOpen: false,
+        title: '',
+        query: ''
+      };
+    }
+
+    function saveSidebarSavedSearch(title, query, id = null) {
+      const normalizedQuery = String(query || '').trim();
+      const normalizedTitle = String(title || '').trim() || normalizedQuery;
+      const normalizedID = String(id || `saved-${Date.now()}`).trim();
+      if (!normalizedID || !normalizedTitle || !normalizedQuery) return null;
+      const existing = validSidebarSavedSearches().find(savedSearch => (
+        savedSearch.title.toLowerCase() === normalizedTitle.toLowerCase()
+          && savedSearch.query.toLowerCase() === normalizedQuery.toLowerCase()
+      ));
+      if (existing) {
+        state.sidebar.activeSavedSearchID = existing.id;
+        clearSidebarSelection();
+        return existing.id;
+      }
+      state.sidebar.savedSearches = validSidebarSavedSearches()
+        .filter(savedSearch => savedSearch.id !== normalizedID)
+        .concat([{
+          id: normalizedID,
+          title: normalizedTitle,
+          query: normalizedQuery
+        }]);
+      state.sidebar.activeSavedSearchID = normalizedID;
+      clearSidebarSelection();
+      return normalizedID;
+    }
+
+    function deleteSidebarSavedSearch(savedSearchID) {
+      const normalizedID = String(savedSearchID || '').trim();
+      const beforeCount = validSidebarSavedSearches().length;
+      state.sidebar.savedSearches = validSidebarSavedSearches()
+        .filter(savedSearch => savedSearch.id !== normalizedID);
+      if (state.sidebar.activeSavedSearchID === normalizedID) {
+        state.sidebar.activeSavedSearchID = null;
+        state.sidebar.activeFilter = 'all';
+        clearSidebarSelection();
+      }
+      return state.sidebar.savedSearches.length !== beforeCount;
     }
 
     function sidebarBulkActions() {
@@ -9349,6 +9555,7 @@
       'retry-last-turn',
       'search',
       'settings',
+      'sidebar-saved-search-create',
       'stop-all',
       'terminal-clear',
       'thread-archive',
@@ -9397,6 +9604,7 @@
       'memory-edit:',
       'sidebar-filter:',
       'sidebar-saved-search:',
+      'sidebar-saved-search-delete:',
       'thread-selection-toggle:'
     ];
 
@@ -9538,6 +9746,20 @@
       if (commandID?.startsWith('sidebar-filter:')) {
         state.commandPalette.isOpen = false;
         setSidebarFilter(commandID.slice('sidebar-filter:'.length));
+        render();
+        return;
+      }
+      if (commandID === 'sidebar-saved-search-create') {
+        state.commandPalette.isOpen = false;
+        openSidebarSavedSearchDialog();
+        render();
+        document.querySelector('[data-testid="sidebar-saved-search-query"]')?.focus();
+        return;
+      }
+      if (commandID?.startsWith('sidebar-saved-search-delete:')) {
+        state.commandPalette.isOpen = false;
+        deleteSidebarSavedSearch(commandID.slice('sidebar-saved-search-delete:'.length));
+        updateDynamicCommands();
         render();
         return;
       }
@@ -11371,20 +11593,11 @@
     }
 
     function addSidebarSavedSearch(title, query, id = null) {
-      const normalizedTitle = String(title || '').trim();
-      const normalizedQuery = String(query || '').trim();
-      const normalizedID = String(id || `saved-${Date.now()}`).trim();
-      if (!normalizedID || !normalizedTitle || !normalizedQuery) return null;
-      state.sidebar.savedSearches = validSidebarSavedSearches()
-        .filter(savedSearch => savedSearch.id !== normalizedID)
-        .concat([{
-          id: normalizedID,
-          title: normalizedTitle,
-          query: normalizedQuery
-        }]);
+      const savedID = saveSidebarSavedSearch(title, query, id);
+      if (!savedID) return null;
       updateDynamicCommands();
       render();
-      return normalizedID;
+      return savedID;
     }
 
     function syncSelectedThreadSearchText() {

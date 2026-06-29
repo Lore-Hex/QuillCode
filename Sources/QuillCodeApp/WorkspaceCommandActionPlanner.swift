@@ -107,6 +107,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .sidebarBulkAction(.unarchive)
         case .threadBulkDelete:
             return .sidebarBulkAction(.delete)
+        case .sidebarSavedSearchCreate:
+            return nil
         case .retryLastTurn:
             return .retryLastTurn
         case .forkFromLast:

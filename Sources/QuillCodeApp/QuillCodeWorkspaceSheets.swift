@@ -17,6 +17,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var pruneWorktreeDraft: QuillCodeWorktreePruneDraft
     @Binding var renameThreadDraft: QuillCodeThreadRenameDraft?
     @Binding var renameProjectDraft: QuillCodeProjectRenameDraft?
+    @Binding var sidebarSavedSearchDraft: QuillCodeSidebarSavedSearchDraft?
     var onSelectThread: (UUID) -> Void
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     var onStartTrustedRouterSignIn: () -> Void
@@ -29,6 +30,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onPruneWorktrees: (WorkspaceWorktreePruneRequest) -> Void
     var onRenameThread: (UUID, String) -> Void
     var onRenameProject: (UUID, String) -> Void
+    var onSaveSidebarSavedSearch: (String, String) -> Void
 
     func body(content: Content) -> some View {
         content
@@ -114,6 +116,13 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                     onSave: saveProjectRename
                 )
             }
+            .sheet(item: $sidebarSavedSearchDraft) { draft in
+                QuillCodeSidebarSavedSearchView(
+                    draft: draft,
+                    onCancel: dismissSidebarSavedSearch,
+                    onSave: saveSidebarSavedSearch
+                )
+            }
     }
 
     private func dismissSettings() {
@@ -196,6 +205,15 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         onRenameProject(projectID, name)
         renameProjectDraft = nil
     }
+
+    private func dismissSidebarSavedSearch() {
+        sidebarSavedSearchDraft = nil
+    }
+
+    private func saveSidebarSavedSearch(title: String, query: String) {
+        onSaveSidebarSavedSearch(title, query)
+        sidebarSavedSearchDraft = nil
+    }
 }
 
 extension View {
@@ -215,6 +233,7 @@ extension View {
         pruneWorktreeDraft: Binding<QuillCodeWorktreePruneDraft>,
         renameThreadDraft: Binding<QuillCodeThreadRenameDraft?>,
         renameProjectDraft: Binding<QuillCodeProjectRenameDraft?>,
+        sidebarSavedSearchDraft: Binding<QuillCodeSidebarSavedSearchDraft?>,
         onSelectThread: @escaping (UUID) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
@@ -226,7 +245,8 @@ extension View {
         onRetryWorktreePrunePreview: @escaping () -> Void,
         onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
-        onRenameProject: @escaping (UUID, String) -> Void
+        onRenameProject: @escaping (UUID, String) -> Void,
+        onSaveSidebarSavedSearch: @escaping (String, String) -> Void
     ) -> some View {
         modifier(QuillCodeWorkspaceSheetsModifier(
             surface: surface,
@@ -244,6 +264,7 @@ extension View {
             pruneWorktreeDraft: pruneWorktreeDraft,
             renameThreadDraft: renameThreadDraft,
             renameProjectDraft: renameProjectDraft,
+            sidebarSavedSearchDraft: sidebarSavedSearchDraft,
             onSelectThread: onSelectThread,
             onSaveSettings: onSaveSettings,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
@@ -255,7 +276,8 @@ extension View {
             onRetryWorktreePrunePreview: onRetryWorktreePrunePreview,
             onPruneWorktrees: onPruneWorktrees,
             onRenameThread: onRenameThread,
-            onRenameProject: onRenameProject
+            onRenameProject: onRenameProject,
+            onSaveSidebarSavedSearch: onSaveSidebarSavedSearch
         ))
     }
 }

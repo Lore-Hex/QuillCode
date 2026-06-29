@@ -182,7 +182,16 @@ test('mock harness audits every visible interactive click target across workspac
   });
   await expect(page.getByTestId('sidebar-saved-search')).toBeVisible();
   await expectInteractionTargetsClean(page, 'sidebar saved-search controls');
+  await expectHitTarget(page.getByTestId('sidebar-saved-search-create'), 'sidebar saved-search create button');
   await expectHitTarget(page.getByTestId('sidebar-saved-search'), 'sidebar saved-search chip');
+  await expectHitTarget(page.getByTestId('sidebar-saved-search-delete'), 'sidebar saved-search delete button');
+
+  await page.getByTestId('sidebar-saved-search-create').click();
+  await expect(page.getByTestId('sidebar-saved-search-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'sidebar saved-search dialog');
+  await expectTextEntryFocusFromInteriorPoint(page.getByTestId('sidebar-saved-search-query'), 'saved-search query leading interior', 0.15, 0.5);
+  await expectTextEntryFocusFromInteriorPoint(page.getByTestId('sidebar-saved-search-title'), 'saved-search title trailing interior', 0.85, 0.5);
+  await page.getByTestId('sidebar-saved-search-cancel').click();
 
   await page.getByTestId('sidebar-item-actions').first().locator('summary').click();
   await expect(page.getByTestId('sidebar-item-actions').first()).toHaveAttribute('open', '');
