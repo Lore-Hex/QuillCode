@@ -35,6 +35,33 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertEqual(updates.last?.subagents.map(\.status), [.completed, .completed])
     }
 
+    func testSchedulerCapsConcurrencyAtTheRequestedLimit() async throws {
+        let probe = ConcurrencyProbe()
+        let scheduler = WorkspaceSubagentScheduler { job in
+            await probe.started(job.name)
+            try await Task.sleep(nanoseconds: 20_000_000)
+            await probe.finished(job.name)
+            return "checked \(job.role)"
+        }
+        let request = WorkspaceSubagentRunRequest(
+            objective: "audit",
+            workers: [
+                .init(name: "A", role: "one"),
+                .init(name: "B", role: "two"),
+                .init(name: "C", role: "three"),
+                .init(name: "D", role: "four")
+            ],
+            maxConcurrentWorkers: 2
+        )
+
+        let result = await scheduler.run(request: request)
+
+        let maxRunning = await probe.maximumRunningCount()
+        XCTAssertEqual(maxRunning, 2, "No more than the requested number of workers should run at once.")
+        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed, .completed, .completed])
+        XCTAssertTrue(result.summary.contains("Subagents completed 4 workers"))
+    }
+
     func testSchedulerMarksFailedWorkersWithoutDroppingSuccessfulResults() async throws {
         enum WorkerFailure: LocalizedError {
             case failed

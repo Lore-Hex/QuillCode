@@ -121,8 +121,16 @@ struct WorkspaceSubagentScheduler {
             }
             await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
 
+            // Cap how many ready workers run at once. `nil` (the default) keeps the original
+            // behavior of fanning every runnable worker out together; a bound seeds that many
+            // tasks and starts one more each time a worker finishes.
+            let waveLimit = max(1, request.maxConcurrentWorkers ?? runnable.count)
             await withTaskGroup(of: (Int, WorkspaceSubagentWorkerOutcome).self) { group in
-                for index in runnable {
+                var queued = runnable[...]
+
+                func startNextWorker() {
+                    guard let index = queued.first else { return }
+                    queued = queued.dropFirst()
                     var job = jobs[index]
                     // Hand the worker the concrete results of its completed prerequisites so a
                     // dependent model turn can build on what its dependencies actually produced.
@@ -145,7 +153,11 @@ struct WorkspaceSubagentScheduler {
                     }
                 }
 
-                for await (index, outcome) in group {
+                for _ in 0..<min(waveLimit, runnable.count) {
+                    startNextWorker()
+                }
+
+                while let (index, outcome) = await group.next() {
                     switch outcome {
                     case .completed(let summary):
                         items[index].status = .completed
@@ -158,6 +170,7 @@ struct WorkspaceSubagentScheduler {
                         items[index].summary = Self.boundedSummary(summary)
                     }
                     await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
+                    startNextWorker()
                 }
             }
         }
