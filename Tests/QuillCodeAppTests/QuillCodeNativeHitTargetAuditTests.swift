@@ -75,6 +75,9 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.missingRequiredSurfaceKinds, [])
         XCTAssertEqual(report.missingRequiredSurfaceActions, [])
         XCTAssertEqual(report.missingRequiredSurfaceFocusTargets, [])
+        XCTAssertEqual(report.unexpectedSurfaceKinds, [])
+        XCTAssertEqual(report.unexpectedSurfaceActions, [])
+        XCTAssertEqual(report.unexpectedSurfaceFocusTargets, [])
         XCTAssertEqual(report.missingRequiredFocusTargets, [])
         XCTAssertEqual(
             Set(report.coveredSurfaceFamilies),
@@ -270,6 +273,18 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             Set([.composerMessage])
         )
         XCTAssertEqual(
+            Set(policyByFamily[.transcript]?.requiredKinds ?? []),
+            Set([.icon, .link])
+        )
+        XCTAssertEqual(
+            Set(policyByFamily[.transcript]?.allowedKinds ?? []),
+            Set([.icon, .link, .capsule])
+        )
+        XCTAssertEqual(
+            Set(policyByFamily[.sidebar]?.allowedKinds ?? []),
+            Set([.fullRow, .icon])
+        )
+        XCTAssertEqual(
             Set(policyByFamily[.settings]?.requiredKinds ?? []),
             Set([.textEntry, .formAction])
         )
@@ -327,6 +342,9 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.missingRequiredSurfaceKinds, [])
         XCTAssertEqual(report.missingRequiredSurfaceActions, [])
         XCTAssertEqual(report.missingRequiredSurfaceFocusTargets, [])
+        XCTAssertEqual(report.unexpectedSurfaceKinds, [])
+        XCTAssertEqual(report.unexpectedSurfaceActions, [])
+        XCTAssertEqual(report.unexpectedSurfaceFocusTargets, [])
         XCTAssertEqual(report.missingRequiredFocusTargets, [])
         XCTAssertEqual(report.clickProbeValidationIssues, [])
         XCTAssertEqual(
@@ -380,6 +398,9 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             missingRequiredFocusTargets: [],
             missingRequiredSurfaceActions: ["top-bar:press"],
             missingRequiredSurfaceFocusTargets: ["composer:composer.message"],
+            unexpectedSurfaceKinds: ["top-bar:top-bar.overflow:textButton"],
+            unexpectedSurfaceActions: ["top-bar:top-bar.overflow:link"],
+            unexpectedSurfaceFocusTargets: ["composer:composer.input:composer.message"],
             missingRequiredCommandIDs: [],
             missingClickProbeContractIDs: ["top-bar.overflow"],
             clickProbeValidationIssues: ["top-bar.overflow click probe selector drift"],
@@ -392,6 +413,9 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceKinds"] as? [String], ["top-bar:icon"])
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceActions"] as? [String], ["top-bar:press"])
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceFocusTargets"] as? [String], ["composer:composer.message"])
+        XCTAssertEqual(report.dictionary["unexpectedSurfaceKinds"] as? [String], ["top-bar:top-bar.overflow:textButton"])
+        XCTAssertEqual(report.dictionary["unexpectedSurfaceActions"] as? [String], ["top-bar:top-bar.overflow:link"])
+        XCTAssertEqual(report.dictionary["unexpectedSurfaceFocusTargets"] as? [String], ["composer:composer.input:composer.message"])
         XCTAssertEqual(report.dictionary["missingClickProbeContractIDs"] as? [String], ["top-bar.overflow"])
         XCTAssertEqual(report.dictionary["clickProbeValidationIssues"] as? [String], ["top-bar.overflow click probe selector drift"])
         XCTAssertEqual(report.dictionary["duplicateContractIDs"] as? [String], ["top-bar.overflow"])
