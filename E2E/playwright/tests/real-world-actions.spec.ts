@@ -28,6 +28,17 @@ test('runs natural shell requests immediately with nonempty arguments', async ({
   await expect(page.getByTestId('tool-card-output').last()).toContainText('ran: ls');
   await expect(page.getByText('Output:\nran: ls')).toBeVisible();
   await expect(page.getByText(/No shell command was specified/i)).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('Please run `printf quillcode_now_smoke` now and report the output.');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(3);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"cmd": "printf quillcode_now_smoke"');
+  await expect(page.getByTestId('tool-card-input').last()).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('quillcode_now_smoke');
+  await expect(page.getByText('Output:\nquillcode_now_smoke')).toBeVisible();
+  await expect(page.getByText(/I'?ll run|I'?ll check|should I|do you want me to|ok\?/i)).toHaveCount(0);
 });
 
 test('writes requested file content immediately without a confirmation loop', async ({ page }) => {

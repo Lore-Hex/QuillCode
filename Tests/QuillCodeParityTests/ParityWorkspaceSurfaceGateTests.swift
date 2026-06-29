@@ -413,6 +413,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionSpecText.contains("harnessURL()"), "Focused real-world action flows should reuse the shared harness URL helper.")
         XCTAssertTrue(actionSpecText.contains("whoami?"), "Focused real-world action flows should cover natural command punctuation.")
         XCTAssertTrue(actionSpecText.contains("Run `ls`"), "Focused real-world action flows should cover backticked command extraction.")
+        XCTAssertTrue(actionSpecText.contains("quillcode_now_smoke"), "Focused real-world action flows should cover do-it-now command follow-through.")
         XCTAssertTrue(actionSpecText.contains("No shell command was specified"), "Focused real-world action flows should guard against empty shell argument regressions.")
         XCTAssertTrue(actionSpecText.contains("confirmation loop"), "Focused real-world action flows should guard against extra acknowledgement turns.")
         for flowName in actionFlowNames {

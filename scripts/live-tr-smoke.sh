@@ -556,6 +556,13 @@ run_scenario \
   "quillcode_live_smoke"
 
 run_scenario \
+  "shell-action-now" \
+  "Please run \`printf quillcode_live_now_smoke\` now and report the output." \
+  "Running live TrustedRouter shell-action-now smoke with $MODEL" \
+  validate_expected_output \
+  "quillcode_live_now_smoke"
+
+run_scenario \
   "diagnostic-question" \
   "whoami?" \
   "Running live TrustedRouter diagnostic-question smoke with $MODEL" \
@@ -636,7 +643,7 @@ run_scenario \
   "downloads/example.html"
 
 begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "Checking persisted live smoke transcripts"
-assert_saved_transcripts_are_actionable 11
+assert_saved_transcripts_are_actionable 12
 finish_scenario "" ""
 
 write_artifact_manifest 0 "completed"
