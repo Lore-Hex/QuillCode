@@ -107,6 +107,7 @@ def collect_files(root, limit=200):
 
 deterministic_dir = os.path.join(artifact_root, "deterministic")
 live_dir = os.path.join(artifact_root, "live-trustedrouter")
+deterministic_manifest = load_json(os.path.join(deterministic_dir, "deterministic-smoke-manifest.json"))
 live_manifest = load_json(os.path.join(live_dir, "live-smoke-manifest.json"))
 requires_playwright = require_playwright.lower() in {"1", "true", "yes"}
 
@@ -121,6 +122,7 @@ manifest = {
         "detail": deterministic_detail,
         "requiresPlaywright": requires_playwright,
         "artifactDir": deterministic_dir if os.path.isdir(deterministic_dir) else None,
+        "manifest": deterministic_manifest,
         "artifactFiles": collect_files(deterministic_dir),
     },
     "liveTrustedRouter": {

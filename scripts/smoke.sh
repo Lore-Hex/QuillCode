@@ -7,9 +7,143 @@ SMOKE_HOME="$SMOKE_ROOT/home"
 SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
 ARTIFACT_DIR="${QUILLCODE_SMOKE_ARTIFACT_DIR:-}"
 REQUIRE_PLAYWRIGHT="${QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE:-0}"
+STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+FINAL_DETAIL="interrupted"
+SWIFT_TESTS_STATUS="not-run"
+CLI_SHELL_STATUS="not-run"
+CLI_DIAGNOSTICS_STATUS="not-run"
+CLI_FILE_CREATION_STATUS="not-run"
+CLI_DOWNLOAD_STATUS="not-run"
+LIVE_ERROR_STATUS="not-run"
+NATIVE_DESKTOP_STATUS="not-run"
+PACKAGED_MACOS_STATUS="skipped"
+PACKAGED_MACOS_DETAIL="not Darwin"
+PLAYWRIGHT_STATUS="not-run"
+PLAYWRIGHT_DETAIL="not-started"
+
+if [[ -n "$ARTIFACT_DIR" ]]; then
+  mkdir -p "$ARTIFACT_DIR"
+  ARTIFACT_DIR="$(cd "$ARTIFACT_DIR" && pwd)"
+fi
+
+write_manifest() {
+  local exit_code="$1"
+  local detail="$2"
+
+  if [[ -z "$ARTIFACT_DIR" ]]; then
+    return 0
+  fi
+
+  python3 - "$ARTIFACT_DIR/deterministic-smoke-manifest.json" \
+    "$exit_code" \
+    "$detail" \
+    "$STARTED_AT" \
+    "$REQUIRE_PLAYWRIGHT" \
+    "$ARTIFACT_DIR" \
+    "$SMOKE_WORKSPACE" \
+    "$SWIFT_TESTS_STATUS" \
+    "$CLI_SHELL_STATUS" \
+    "$CLI_DIAGNOSTICS_STATUS" \
+    "$CLI_FILE_CREATION_STATUS" \
+    "$CLI_DOWNLOAD_STATUS" \
+    "$LIVE_ERROR_STATUS" \
+    "$NATIVE_DESKTOP_STATUS" \
+    "$PACKAGED_MACOS_STATUS" \
+    "$PACKAGED_MACOS_DETAIL" \
+    "$PLAYWRIGHT_STATUS" \
+    "$PLAYWRIGHT_DETAIL" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+(
+    manifest_path,
+    exit_code,
+    detail,
+    started_at,
+    require_playwright,
+    artifact_root,
+    smoke_workspace,
+    swift_tests_status,
+    cli_shell_status,
+    cli_diagnostics_status,
+    cli_file_creation_status,
+    cli_download_status,
+    live_error_status,
+    native_desktop_status,
+    packaged_macos_status,
+    packaged_macos_detail,
+    playwright_status,
+    playwright_detail,
+) = sys.argv[1:]
+
+def collect_files(root, limit=200):
+    if not root or not os.path.isdir(root):
+        return []
+    files = []
+    for current_root, directories, names in os.walk(root):
+        directories.sort()
+        for name in sorted(names):
+            path = os.path.join(current_root, name)
+            try:
+                stat = os.stat(path)
+            except OSError:
+                continue
+            files.append({
+                "path": os.path.relpath(path, root),
+                "bytes": stat.st_size,
+            })
+            if len(files) >= limit:
+                return files
+    return files
+
+requires_playwright = require_playwright.lower() in {"1", "true", "yes"}
+
+manifest = {
+    "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    "startedAt": started_at,
+    "exitCode": int(exit_code),
+    "detail": detail,
+    "requiresPlaywright": requires_playwright,
+    "artifactRoot": artifact_root,
+    "steps": {
+        "swiftTests": {"status": swift_tests_status},
+        "cliShell": {"status": cli_shell_status},
+        "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
+        "cliFileCreation": {"status": cli_file_creation_status},
+        "cliLocalDownload": {"status": cli_download_status},
+        "liveModeMissingKeyError": {"status": live_error_status},
+        "nativeDesktop": {"status": native_desktop_status},
+        "packagedMacOS": {
+            "status": packaged_macos_status,
+            "detail": packaged_macos_detail,
+        },
+        "playwright": {
+            "status": playwright_status,
+            "detail": playwright_detail,
+        },
+    },
+    "artifactFiles": collect_files(artifact_root),
+    "workspaceFiles": collect_files(smoke_workspace),
+}
+
+with open(manifest_path, "w", encoding="utf-8") as handle:
+    json.dump(manifest, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+PY
+}
 
 cleanup() {
+  local status=$?
+  set +e
+  write_manifest "$status" "$FINAL_DETAIL"
+  if [[ -n "$ARTIFACT_DIR" ]]; then
+    echo "QuillCode deterministic smoke artifacts: $ARTIFACT_DIR"
+  fi
   rm -rf "$SMOKE_ROOT"
+  trap - EXIT
+  exit "$status"
 }
 trap cleanup EXIT
 
@@ -56,13 +190,21 @@ assert_cli_output_contains() {
 }
 
 echo "==> Running Swift test suite"
+SWIFT_TESTS_STATUS="running"
+FINAL_DETAIL="Swift test suite failed"
 swift test
+SWIFT_TESTS_STATUS="passed"
 
 echo "==> Running mock CLI shell command"
+CLI_SHELL_STATUS="running"
+FINAL_DETAIL="mock CLI shell command failed"
 whoami_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "run whoami")"
 assert_cli_no_action_regression "$whoami_output" "run whoami"
+CLI_SHELL_STATUS="passed"
 
 echo "==> Running mock CLI natural diagnostic prompts"
+CLI_DIAGNOSTICS_STATUS="running"
+FINAL_DETAIL="mock CLI natural diagnostic prompts failed"
 whoami_question_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "whoami?")"
 assert_cli_output_contains "$whoami_question_output" "$(id -un)" "whoami?"
 
@@ -71,8 +213,11 @@ assert_cli_output_contains "$disk_output" "Disk usage" "How much hd?"
 
 openclaw_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do you have openclaw?")"
 assert_cli_output_contains "$openclaw_output" "openclaw" "Do you have openclaw?"
+CLI_DIAGNOSTICS_STATUS="passed"
 
 echo "==> Running mock CLI file creation"
+CLI_FILE_CREATION_STATUS="running"
+FINAL_DETAIL="mock CLI file creation failed"
 swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "make a file that says hello world" >/dev/null
 if [[ ! -f "$SMOKE_WORKSPACE/hello.txt" ]]; then
   echo "quill-code did not create hello.txt in the smoke workspace" >&2
@@ -82,8 +227,11 @@ if [[ "$(tr -d '\r' < "$SMOKE_WORKSPACE/hello.txt")" != "hello world" ]]; then
   echo "hello.txt did not contain the expected smoke content" >&2
   exit 1
 fi
+CLI_FILE_CREATION_STATUS="passed"
 
 echo "==> Running mock CLI local download"
+CLI_DOWNLOAD_STATUS="running"
+FINAL_DETAIL="mock CLI local download failed"
 DOWNLOAD_SOURCE="$SMOKE_ROOT/source.html"
 printf '<!doctype html><title>QuillCode smoke</title>\n' > "$DOWNLOAD_SOURCE"
 download_output="$(swift run quill-code \
@@ -101,8 +249,11 @@ if ! grep -q "QuillCode smoke" "$SMOKE_WORKSPACE/downloads/example.html"; then
   cat "$SMOKE_WORKSPACE/downloads/example.html" >&2
   exit 1
 fi
+CLI_DOWNLOAD_STATUS="passed"
 
 echo "==> Verifying CLI live-mode errors are readable"
+LIVE_ERROR_STATUS="running"
+FINAL_DETAIL="CLI live-mode missing-key error check failed"
 LIVE_ERROR_STDOUT="$SMOKE_ROOT/live-error.stdout"
 LIVE_ERROR_STDERR="$SMOKE_ROOT/live-error.stderr"
 if env -u QUILLCODE_API_KEY -u TRUSTEDROUTER_API_KEY swift run quill-code \
@@ -125,24 +276,44 @@ if grep -q "Fatal error" "$LIVE_ERROR_STDERR"; then
   cat "$LIVE_ERROR_STDERR" >&2
   exit 1
 fi
+LIVE_ERROR_STATUS="passed"
 
+NATIVE_DESKTOP_STATUS="running"
+FINAL_DETAIL="native desktop smoke failed"
 QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/native-desktop}" \
   "$ROOT_DIR/scripts/native-desktop-smoke.sh"
+NATIVE_DESKTOP_STATUS="passed"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
+  PACKAGED_MACOS_STATUS="running"
+  PACKAGED_MACOS_DETAIL="running"
+  FINAL_DETAIL="packaged macOS smoke failed"
   QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/packaged-macos}" \
     "$ROOT_DIR/scripts/packaged-macos-smoke.sh"
+  PACKAGED_MACOS_STATUS="passed"
+  PACKAGED_MACOS_DETAIL="completed"
 fi
 
 if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
   echo "==> Running Playwright E2E suite"
+  PLAYWRIGHT_STATUS="running"
+  PLAYWRIGHT_DETAIL="running"
+  FINAL_DETAIL="Playwright E2E failed"
   (cd "$ROOT_DIR/E2E/playwright" && npm test)
+  PLAYWRIGHT_STATUS="passed"
+  PLAYWRIGHT_DETAIL="completed"
 elif is_truthy "$REQUIRE_PLAYWRIGHT"; then
+  PLAYWRIGHT_STATUS="missing-dependencies"
+  PLAYWRIGHT_DETAIL="E2E/playwright/node_modules is missing"
+  FINAL_DETAIL="Playwright E2E dependencies are missing"
   echo "Playwright E2E was required, but E2E/playwright/node_modules is missing." >&2
   echo "Run npm ci in E2E/playwright before running this smoke gate." >&2
   exit 2
 else
+  PLAYWRIGHT_STATUS="skipped"
+  PLAYWRIGHT_DETAIL="E2E/playwright/node_modules is missing and Playwright is not required"
   echo "==> Skipping Playwright E2E; run npm install in E2E/playwright to include it"
 fi
 
+FINAL_DETAIL="completed"
 echo "QuillCode smoke passed."
