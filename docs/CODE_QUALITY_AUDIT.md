@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Packaged Command Contract Evidence Pass
+
+Overall grade after this slice: **A command contract evidence, A smoke validator DRYness, A- end-to-end native clicking**.
+
+The packaged window surface already recorded the visible command inventory, and native smoke emitted click probes. The missing release-gate proof was the relationship between those two artifacts: a packaged window could report a command as available while losing the hit-target contract future Accessibility automation needs to resolve and click it.
+
+| Before | After |
+| --- | --- |
+| `window-report.json` listed `surface.commandIDs`, but packaged validation only checked a hand-picked required subset. | The shared validator derives every `command.<id>` contract from `surface.commandIDs` and fails if the native hit-target report lacks a matching click probe. |
+| `packaged-accessibility-frames.json` exposed sampled frame evidence, but not the command-contract inventory behind the window surface. | The frame manifest now records `windowCommandContractCount` and sorted `windowCommandContractIDs` for release review. |
+| Fixture coverage only modeled the composer click probe for packaged manifest generation. | The parity fixture now generates command surface contracts and click probes for every minimal packaged command, so the validator test exercises the real relationship. |
+
+Residual risk:
+
+- This proves command IDs and native click-probe contracts are tied together in packaged artifacts. The next A+ layer remains OS-level Accessibility clicking of representative command rows against a running packaged window.
+
 ## 2026-06-29 Native Hit-Target Policy Ownership Pass
 
 Overall grade after this slice: **A native click-target ownership, A policy expressiveness, A- live click automation depth**.
