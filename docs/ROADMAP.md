@@ -7,7 +7,7 @@
 - Auto safety policy and reviewer protocol.
 - Persistence and secret-store API.
 - Unit tests for direct command execution and safety behavior.
-- Current status: shell, file read/write, apply patch, git status/diff, file/hunk-level git stage/restore, local git commit, named-remote git push, GitHub PR creation, PR view/comments, PR checks, PR diff, PR checkout, PR comments, PR reviews, PR reviewer requests/removals, PR label add/removal, PR merge/automerge, and git worktree list/create/open/remove/prune are implemented with unit coverage. CI runs on pushes, pull requests, and merge-group candidates, and a serialized merge-train workflow is available for agent PRs labeled `merge-train`.
+- Current status: shell, file read/write/search, apply patch, git status/diff, file/hunk-level git stage/restore, local git commit, named-remote git push, GitHub PR creation, PR view/comments, PR checks, PR diff, PR checkout, PR comments, PR reviews, PR reviewer requests/removals, PR label add/removal, PR merge/automerge, and git worktree list/create/open/remove/prune are implemented with unit coverage. CI runs on pushes, pull requests, and merge-group candidates, and a serialized merge-train workflow is available for agent PRs labeled `merge-train`.
 
 ## Milestone 1: Native Workspace UI
 

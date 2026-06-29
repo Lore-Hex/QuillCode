@@ -3383,7 +3383,8 @@
         ]
       },
       mockFiles: {
-        '/mock/QuillCode/README.md': '# QuillCode\n\nMock workspace README for natural file-read smoke.\n'
+        '/mock/QuillCode/README.md': '# QuillCode\n\nMock workspace README for natural file-read smoke.\n',
+        '/mock/QuillCode/Sources/Agent.swift': 'struct AgentRunner {\n  func run() {}\n}\n'
       },
       review: {
         title: 'Review changes',
@@ -4560,6 +4561,7 @@
       return [
         'host.shell.run',
         'host.file.read',
+        'host.file.search',
         'host.file.write',
         'host.apply_patch',
         'host.git.status',
@@ -4666,6 +4668,7 @@
         'host.git.worktree.remove'
       ]);
       if (toolName === 'host.shell.run') return toolCardSanitized(args.cmd);
+      if (toolName === 'host.file.search') return toolCardSanitized(args.query);
       if (pathTools.has(toolName)) return toolCardSanitized(args.path);
       if (toolName === 'host.apply_patch') return 'patch';
       if (toolName === 'host.git.diff') return args.staged === true ? 'staged diff' : 'working tree';
@@ -10935,6 +10938,39 @@
         .find(isSafeRelativeFilePath) || null;
     }
 
+    function fileSearchRequestFromPrompt(text) {
+      const value = String(text || '').trim();
+      if (!/\b(find|search|grep)\b|\bwhere (?:is|are)\b|\bdefined\b|\bused\b/i.test(value)) return null;
+      const query = fileSearchQueryFromPrompt(value);
+      if (!query || ['file', 'files', 'where', 'defined', 'used'].includes(query.toLowerCase())) return null;
+      const path = fileSearchPathFromPrompt(value);
+      return path ? { query, path } : { query };
+    }
+
+    function fileSearchQueryFromPrompt(text) {
+      const quoted = text.match(/`([^`]+)`/)?.[1]
+        || text.match(/["“”]([^"“”]+)["“”]/)?.[1]
+        || text.match(/'([^']+)'/)?.[1];
+      if (quoted) return cleanFileSearchQuery(quoted);
+
+      const markerMatch = text.match(/\b(?:search for|find|grep|where is|where are)\s+(.+)$/i);
+      if (!markerMatch) return '';
+      return cleanFileSearchQuery(markerMatch[1].replace(/\s+(?:in|under|inside|within)\s+.+$/i, ''));
+    }
+
+    function fileSearchPathFromPrompt(text) {
+      const scopeMatch = text.match(/\b(?:in|under|inside|within)\s+(`[^`]+`|"[^"]+"|'[^']+'|[^\s,.;!?]+)/i);
+      const candidate = scopeMatch?.[1]?.replace(/^['"`]+|['"`]+$/g, '');
+      return isSafeRelativeWorkspacePath(candidate) ? candidate : null;
+    }
+
+    function cleanFileSearchQuery(text) {
+      return String(text || '')
+        .replace(/\s+(?:is|are)?\s*(?:defined|used)\??$/i, '')
+        .replace(/[.:;!?]+$/g, '')
+        .trim();
+    }
+
     function isSafeRelativeFilePath(value) {
       const path = String(value || '').trim();
       const lower = path.toLowerCase();
@@ -10948,6 +10984,18 @@
         return false;
       }
       return path.includes('/') || path.split('/').at(-1)?.includes('.');
+    }
+
+    function isSafeRelativeWorkspacePath(value) {
+      const path = String(value || '').trim();
+      const lower = path.toLowerCase();
+      return Boolean(path
+        && !path.startsWith('/')
+        && !path.startsWith('~')
+        && !lower.startsWith('http://')
+        && !lower.startsWith('https://')
+        && !lower.startsWith('file://')
+        && !path.split('/').includes('..'));
     }
 
     function mockFileContentsForPath(path, isRemoteProject) {
@@ -10980,6 +11028,53 @@
         ok
           ? `Contents of \`${path}\`:\n${contents.trim()}`
           : `Could not read \`${path}\`:\nFile not found.`
+      );
+    }
+
+    function runMockFileSearchAction(request, selectedProject, isRemoteProject) {
+      const root = isRemoteProject ? selectedProject.path : '/mock/QuillCode';
+      const scopedPath = request.path || '.';
+      const lowerQuery = request.query.toLowerCase();
+      const matches = [];
+      let scannedFiles = 0;
+      for (const [absolutePath, contents] of Object.entries(state.mockFiles)) {
+        const relativePath = absolutePath.startsWith('/mock/QuillCode/')
+          ? absolutePath.slice('/mock/QuillCode/'.length)
+          : absolutePath;
+        if (scopedPath !== '.' && !relativePath.startsWith(`${scopedPath.replace(/\/$/, '')}/`)) continue;
+        scannedFiles += 1;
+        const lines = String(contents).split(/\r?\n/);
+        for (let index = 0; index < lines.length; index += 1) {
+          const line = lines[index];
+          if (!line.toLowerCase().includes(lowerQuery)) continue;
+          matches.push({
+            path: relativePath,
+            line: index + 1,
+            preview: line.trim().replace(/\s+/g, ' ').slice(0, 240)
+          });
+        }
+      }
+      const output = {
+        query: request.query,
+        path: scopedPath,
+        matches,
+        scannedFiles,
+        skippedFiles: 0,
+        truncated: false
+      };
+      const artifacts = matches.map(match => `${root}/${match.path}`);
+      addToolCard({
+        title: 'host.file.search',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify(request, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(output, null, 2), artifacts }, null, 2)
+      });
+      addMessage(
+        'assistant',
+        matches.length
+          ? `Found ${matches.length} match${matches.length === 1 ? '' : 'es'} for \`${request.query}\`:\n${matches.slice(0, 12).map(match => `- \`${match.path}:${match.line}\`: ${match.preview}`).join('\n')}`
+          : `No matches for \`${request.query}\` in \`${scopedPath}\`.`
       );
     }
 
@@ -12186,6 +12281,7 @@
       const browserTarget = browserOpenTargetFromPrompt(text);
       const fileWriteRequest = fileWriteRequestFromPrompt(text);
       const fileReadPath = fileReadPathFromPrompt(text);
+      const fileSearchRequest = fileSearchRequestFromPrompt(text);
       if (isOnlyNegatedActionRequest(text)) {
         addMessage('assistant', "Okay, I won't take that action.");
       } else if (text.toLowerCase().includes('slow task')) {
@@ -12490,6 +12586,8 @@
           outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
         });
         addMessage('assistant', 'Updated the handoff summary.');
+      } else if (fileSearchRequest) {
+        runMockFileSearchAction(fileSearchRequest, selectedProject, isRemoteProject);
       } else if (fileReadPath) {
         runMockFileReadAction(fileReadPath, selectedProject, isRemoteProject);
       } else if (browserTarget) {

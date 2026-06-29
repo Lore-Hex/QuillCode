@@ -81,9 +81,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("steps should be an object"))
         XCTAssertTrue(script.contains("steps.playwright should be an object"))
         XCTAssertTrue(script.contains("steps.playwright.realWorldActions should be an object"))
-        XCTAssertTrue(script.contains("scenarioCount should be at least 7"))
-        XCTAssertTrue(script.contains("promptCount should be at least 16"))
-        XCTAssertTrue(script.contains("regressionGuardCount should be at least 21"))
+        XCTAssertTrue(script.contains("scenarioCount should be at least 8"))
+        XCTAssertTrue(script.contains("promptCount should be at least 17"))
+        XCTAssertTrue(script.contains("regressionGuardCount should be at least 24"))
     }
 
     func testDeterministicSmokeCoversExplicitNegativeActionIntent() throws {
@@ -134,11 +134,12 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(script.contains("validate-playwright-real-world-manifest.py"))
         XCTAssertTrue(validator.contains("REQUIRED_SCENARIOS"))
-        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 16"))
-        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 21"))
+        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 17"))
+        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 24"))
         XCTAssertTrue(validator.contains("runs natural shell requests immediately with nonempty arguments"))
         XCTAssertTrue(validator.contains("writes requested file content immediately without a confirmation loop"))
         XCTAssertTrue(validator.contains("reads requested file contents immediately with the structured file tool"))
+        XCTAssertTrue(validator.contains("searches workspace text with the structured file search tool"))
         XCTAssertTrue(validator.contains("answers device diagnostic prompts with concrete shell actions"))
         XCTAssertTrue(validator.contains("downloads requested domains with a bounded concrete shell action"))
         XCTAssertTrue(validator.contains("answers natural git read requests with structured git tools"))
@@ -146,9 +147,11 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("Please check git status."))
         XCTAssertTrue(validator.contains("what changed?"))
         XCTAssertTrue(validator.contains("What is in README.md?"))
+        XCTAssertTrue(validator.contains("Where is AgentRunner defined?"))
         XCTAssertTrue(validator.contains("shell arguments are never {}"))
         XCTAssertTrue(validator.contains("assistant does not answer with passive promises"))
         XCTAssertTrue(validator.contains("file read uses host.file.read instead of shell cat fallback"))
+        XCTAssertTrue(validator.contains("file search uses host.file.search instead of shell grep fallback"))
         XCTAssertTrue(validator.contains("safety review does not block clear user intent"))
         XCTAssertTrue(validator.contains("git status uses host.git.status instead of shell fallback"))
     }

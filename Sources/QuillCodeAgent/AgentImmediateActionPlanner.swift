@@ -67,6 +67,14 @@ enum AgentImmediateActionPlanner {
             ))
         }
 
+        if let fileSearch = AgentFileSearchRequestParser.request(from: request),
+           hasTool(ToolDefinition.fileSearch.name, in: tools) {
+            return .tool(.init(
+                name: ToolDefinition.fileSearch.name,
+                argumentsJSON: ToolArguments.json(fileSearch.arguments)
+            ))
+        }
+
         return nil
     }
 

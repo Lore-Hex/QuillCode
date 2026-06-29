@@ -30,6 +30,54 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertEqual(answer, "openclaw is not installed or is not on PATH.")
     }
 
+    func testFileSearchFinalAnswerSummarizesMatches() throws {
+        let output = FileSearchToolOutput(
+            query: "AgentRunner",
+            path: ".",
+            matches: [
+                FileSearchMatch(path: "Sources/Agent.swift", line: 12, preview: "struct AgentRunner {"),
+                FileSearchMatch(path: "Tests/AgentTests.swift", line: 5, preview: "let runner = AgentRunner()")
+            ],
+            scannedFiles: 12,
+            skippedFiles: 1,
+            truncated: false
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.fileSearch.name,
+                argumentsJSON: ToolArguments.json(["query": "AgentRunner"])
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertTrue(answer.contains("Found 2 matches for `AgentRunner`:"))
+        XCTAssertTrue(answer.contains("`Sources/Agent.swift:12`"))
+        XCTAssertTrue(answer.contains("struct AgentRunner"))
+        XCTAssertFalse(answer.contains("scannedFiles"))
+    }
+
+    func testFileSearchFinalAnswerSummarizesNoMatches() throws {
+        let output = FileSearchToolOutput(
+            query: "MissingSymbol",
+            path: "Sources",
+            matches: [],
+            scannedFiles: 4,
+            skippedFiles: 0,
+            truncated: false
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.fileSearch.name,
+                argumentsJSON: ToolArguments.json(["query": "MissingSymbol", "path": "Sources"])
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertEqual(answer, "No matches for `MissingSymbol` in `Sources`.")
+    }
+
     func testWorktreePruneDryRunReportsNoStaleRecords() {
         let answer = AgentFinalAnswerBuilder.finalAnswer(
             for: ToolCall(

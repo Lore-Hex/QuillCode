@@ -26,6 +26,9 @@ enum AgentToolArgumentNormalizer {
         if toolName == ToolDefinition.browserOpen.name {
             return stringValue(in: arguments, keys: ["url"]) != nil
         }
+        if toolName == ToolDefinition.fileSearch.name {
+            return stringValue(in: arguments, keys: ["query"]) != nil
+        }
         return true
     }
 

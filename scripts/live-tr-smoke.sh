@@ -749,6 +749,13 @@ run_scenario \
   "quillcode_live_file_smoke"
 
 run_scenario \
+  "workspace-search-natural" \
+  "Where is quillcode_live_file_smoke defined?" \
+  "Running live TrustedRouter natural file-search smoke with $MODEL" \
+  validate_expected_output \
+  "live-smoke.txt"
+
+run_scenario \
   "openclaw-discovery" \
   "Do you have openclaw?" \
   "Running live TrustedRouter OpenClaw discovery smoke with $MODEL" \

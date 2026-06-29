@@ -497,6 +497,48 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
 
+    func testNaturalFileSearchExecutesImmediatelyWithStructuredFileTool() async throws {
+        let root = try makeTempDirectory()
+        let sources = root.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
+        try "struct AgentRunner {}\n".write(
+            to: sources.appendingPathComponent("Agent.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Find AgentRunner",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let search = try queuedFileSearch(in: result)
+        XCTAssertEqual(search.query, "AgentRunner")
+        XCTAssertNil(search.path)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("Found 1 match for `AgentRunner`:") == true)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("`Sources/Agent.swift:1`") == true)
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll search") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
+    func testOpenClawFindRequestKeepsAvailabilityDiagnosticPriority() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "find openclaw",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertEqual(try queuedShellCommand(in: result), "command -v openclaw || which openclaw || echo 'not found'")
+    }
+
     func testFileWriteWithQuotedContentDefaultsToNotePath() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
@@ -593,6 +635,18 @@ final class AgentImmediateActionTests: XCTestCase {
         let arguments = try ToolArguments(call.argumentsJSON)
         XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
         return try arguments.requiredString("path")
+    }
+
+    private func queuedFileSearch(in result: AgentRunResult) throws -> (query: String, path: String?) {
+        let queued = try XCTUnwrap(result.thread.events.last { $0.kind == .toolQueued })
+        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
+        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.fileSearch.name)
+        return (
+            try arguments.requiredString("query"),
+            arguments.string("path")
+        )
     }
 
     private func queuedToolCall(in result: AgentRunResult) throws -> ToolCall {

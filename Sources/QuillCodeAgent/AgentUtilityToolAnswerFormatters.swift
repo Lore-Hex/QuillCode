@@ -3,6 +3,33 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 enum AgentUtilityToolAnswerFormatters {
+    static func fileSearchAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.fileSearch.name else {
+            return nil
+        }
+        guard let output = try? JSONHelpers.decode(FileSearchToolOutput.self, from: result.stdout) else {
+            return nil
+        }
+
+        guard !output.matches.isEmpty else {
+            return "No matches for `\(output.query)` in `\(output.path)`."
+        }
+
+        let lines = output.matches.prefix(12).map { match in
+            "- `\(match.path):\(match.line)`: \(match.preview)"
+        }
+        var answer = "Found \(output.matches.count) match\(output.matches.count == 1 ? "" : "es") for `\(output.query)`:"
+        answer += "\n\(lines.joined(separator: "\n"))"
+        if output.truncated || output.matches.count > lines.count {
+            answer += "\n\n[more matches are available in the tool card]"
+        }
+        return answer
+    }
+
     static func fileReadAnswer(
         call: ToolCall,
         result: ToolResult,

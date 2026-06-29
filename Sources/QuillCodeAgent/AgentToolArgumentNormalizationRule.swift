@@ -62,6 +62,22 @@ enum AgentToolArgumentNormalizationRules {
             ]
         ),
         .init(
+            toolNames: [ToolDefinition.fileSearch.name],
+            stringArguments: [
+                .init(
+                    canonicalKey: "query",
+                    aliases: ["term", "text", "pattern", "needle", "search", "searchTerm", "search_term"]
+                ),
+                .init(
+                    canonicalKey: "path",
+                    aliases: ["folder", "directory", "dir", "root", "scope"]
+                )
+            ],
+            valueArguments: [
+                .init(canonicalKey: "maxResults", aliases: ["limit", "max", "count", "max_results"])
+            ]
+        ),
+        .init(
             toolNames: [ToolDefinition.applyPatch.name],
             stringArguments: [.init(canonicalKey: "patch", aliases: ["diff"])]
         ),
