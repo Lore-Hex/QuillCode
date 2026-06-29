@@ -16,6 +16,23 @@ Residual risk:
 
 - This hardens one very common natural file-read shape. Broader source navigation, symbol lookup, and multi-file summarization still need product-level real-world flows before file exploration reaches A/A+ parity.
 
+## 2026-06-29 Click-Target Taxonomy Refactor Pass
+
+Overall grade after this slice: **A click-target architecture, A rendered/native parity, A- packaged OS click automation**.
+
+The hit-target system had accumulated strong tests, but the rendered HTML harness and native SwiftUI source audit still carried parallel spellings for the same interaction concepts. This pass makes the native taxonomy the canonical contract and lets rendered surfaces derive kind, action, and class names from it.
+
+| Before | After |
+| --- | --- |
+| Native and rendered hit-target taxonomies were maintained independently. | `WorkspaceHTMLHitTargetKind` now bridges to `QuillCodeNativeHitTargetKind` and derives rendered kind, class, and action from it. |
+| Segmented controls and switch rows were audited natively but had no explicit rendered vocabulary. | `hit-target-segmented` and `hit-target-switch-row` are first-class shared classes with Playwright action/kind expectations. |
+| Dynamic harness fallback treated checkbox/radio labels as generic rows. | Toggle and checkbox labels fall back to switch-row semantics, while explicit classes remain preferred. |
+| Parity tests checked selected literal class strings. | Tests now require every rendered hit-target kind to map back to the native taxonomy and every native kind to be represented. |
+
+Residual risk:
+
+- This unifies source, rendered, and Playwright semantics. The remaining A+ layer is packaged OS-level click automation that samples every required live Accessibility frame against the same taxonomy.
+
 ## 2026-06-29 Passive Promise Smoke Hardening Pass
 
 Overall grade after this slice: **A release-regression coverage, A prompt/smoke alignment, A- provider behavior proof**.

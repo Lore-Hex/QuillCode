@@ -36,6 +36,37 @@ public enum QuillCodeNativeFocusTarget: String, Codable, Sendable, Hashable, Cas
 }
 
 extension QuillCodeNativeHitTargetKind {
+    public var renderedKind: String {
+        switch self {
+        case .icon:
+            return "icon"
+        case .textButton:
+            return "text"
+        case .formAction:
+            return "form-action"
+        case .link:
+            return "link"
+        case .textEntry:
+            return "text-entry"
+        case .segmentedControl:
+            return "segmented"
+        case .adjustableControl:
+            return "adjustable"
+        case .switchRow:
+            return "switch-row"
+        case .ownedGesture:
+            return "owned"
+        case .fullRow:
+            return "row"
+        case .capsule:
+            return "capsule"
+        }
+    }
+
+    public var renderedClassName: String {
+        "hit-target-\(renderedKind)"
+    }
+
     var action: QuillCodeNativeHitTargetAction {
         switch self {
         case .textEntry:

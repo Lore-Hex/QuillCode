@@ -63,7 +63,9 @@
     .hit-target-link,
     .hit-target-text,
     .hit-target-text-entry,
+    .hit-target-segmented,
     .hit-target-row,
+    .hit-target-switch-row,
     .hit-target-capsule,
     .hit-target-form-action,
     .hit-target-adjustable {
@@ -73,7 +75,9 @@
     }
     .hit-target-link,
     .hit-target-text,
+    .hit-target-segmented,
     .hit-target-row,
+    .hit-target-switch-row,
     .hit-target-capsule,
     .hit-target-form-action,
     .hit-target-adjustable {
@@ -89,7 +93,8 @@
       display: inline-grid;
       place-items: center;
     }
-    .hit-target-row {
+    .hit-target-row,
+    .hit-target-switch-row {
       width: 100%;
       justify-content: flex-start;
     }
@@ -125,7 +130,9 @@
     [role="tab"],
     .hit-target-icon,
     .hit-target-text,
+    .hit-target-segmented,
     .hit-target-row,
+    .hit-target-switch-row,
     .hit-target-capsule,
     .hit-target-form-action,
     .hit-target-adjustable {
@@ -3054,7 +3061,9 @@
     [role="tab"]:focus-visible,
     .hit-target-icon:focus-visible,
     .hit-target-text:focus-visible,
+    .hit-target-segmented:focus-visible,
     .hit-target-row:focus-visible,
+    .hit-target-switch-row:focus-visible,
     .hit-target-capsule:focus-visible,
     .hit-target-form-action:focus-visible,
     .hit-target-adjustable:focus-visible {
@@ -3180,7 +3189,9 @@
       [role="tab"],
       .hit-target-icon,
       .hit-target-text,
+      .hit-target-segmented,
       .hit-target-row,
+      .hit-target-switch-row,
       .hit-target-capsule,
       .hit-target-form-action,
       .hit-target-adjustable,
@@ -3802,7 +3813,9 @@
       'hit-target-icon',
       'hit-target-text',
       'hit-target-text-entry',
+      'hit-target-segmented',
       'hit-target-row',
+      'hit-target-switch-row',
       'hit-target-capsule',
       'hit-target-form-action',
       'hit-target-adjustable'
@@ -3851,7 +3864,9 @@
       if (element.classList.contains('hit-target-icon')) return 'icon';
       if (element.classList.contains('hit-target-text')) return 'text';
       if (element.classList.contains('hit-target-text-entry')) return 'text-entry';
+      if (element.classList.contains('hit-target-segmented')) return 'segmented';
       if (element.classList.contains('hit-target-row')) return 'row';
+      if (element.classList.contains('hit-target-switch-row')) return 'switch-row';
       if (element.classList.contains('hit-target-capsule')) return 'capsule';
       if (element.classList.contains('hit-target-form-action')) return 'form-action';
       if (element.classList.contains('hit-target-adjustable')) return 'adjustable';
@@ -3873,13 +3888,16 @@
         return ['hit-target-adjustable', 'adjustable'];
       }
       if (isRenderedTextEntry(element)) return ['hit-target-text-entry', 'text-entry'];
-      if (isRenderedLabelTarget(element)) return ['hit-target-row', 'row'];
+      if (isRenderedLabelTarget(element)) return ['hit-target-switch-row', 'switch-row'];
       if (element.matches('summary')) {
         return isIconOnlyRenderedTarget(element)
           ? ['hit-target-icon', 'icon']
           : ['hit-target-row', 'row'];
       }
-      if (element.matches('[role="option"],[role="menuitem"],[role="checkbox"],[role="switch"]')) {
+      if (element.matches('[role="checkbox"],[role="switch"]')) {
+        return ['hit-target-switch-row', 'switch-row'];
+      }
+      if (element.matches('[role="option"],[role="menuitem"]')) {
         return ['hit-target-row', 'row'];
       }
       if (element.matches('[role="tab"]')) return ['hit-target-capsule', 'capsule'];
