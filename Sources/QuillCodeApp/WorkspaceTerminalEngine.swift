@@ -5,6 +5,8 @@ import QuillCodeTools
 enum WorkspaceTerminalEngine {
     static let stoppedMessage = "Command stopped."
     static let missingRemoteHostMessage = "SSH Remote project is missing a usable host."
+    static let minimumWindowRows = 4
+    static let minimumWindowColumns = 20
 
     static func normalizedCommand(_ input: String) -> String {
         input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -27,6 +29,14 @@ enum WorkspaceTerminalEngine {
 
     static func canSendProcessInput(_ input: String, terminal: TerminalState) -> Bool {
         !input.isEmpty && terminal.isRunning
+    }
+
+    static func normalizedWindowSize(rows: Int, columns: Int) -> TerminalWindowSize? {
+        guard rows > 0, columns > 0 else { return nil }
+        return TerminalWindowSize(
+            rows: UInt16(clamping: max(minimumWindowRows, rows)),
+            columns: UInt16(clamping: max(minimumWindowColumns, columns))
+        )
     }
 
     @discardableResult

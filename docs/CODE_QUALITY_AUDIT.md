@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 Live Terminal Resize Pass
+
+Overall grade after this slice: **A terminal PTY fidelity, A native-model separation, A- terminal-emulator completeness**.
+
+The PTY runner could already apply a fixed window size and resize itself, but the active app never gave it the SwiftUI terminal pane's real dimensions. That left `stty size`, pagers, and TUI programs with stale or default dimensions in the integrated workspace terminal.
+
+| Before | After |
+| --- | --- |
+| `ShellInteractiveSession` exposed input and cancellation only, so the workspace model could not resize the active session through the shared terminal abstraction. | The protocol now exposes `resize(to:)`; local PTY sessions apply it and pipe/SSH-backed streaming sessions return `false` without special-case checks in the model. |
+| `TerminalState` did not remember terminal dimensions, and local terminal commands always launched `PTYProcessSession` with no app-provided size. | `TerminalWindowSize` is stored as cell dimensions, normalized to useful minimums, and passed into new local PTY sessions. |
+| The SwiftUI terminal pane rendered at a fixed point size but never translated that to PTY cells. | `QuillCodeTerminalPaneView` estimates cell rows/columns from rendered geometry and reports changes up through the workspace view to the desktop controller/model. |
+| Low-level PTY resize tests existed, but the app path had no proof that `stty size` saw either stored dimensions or live resize changes. | `WorkspaceTerminalIntegrationTests` now verifies both launch-time size propagation and live resize propagation through `QuillCodeWorkspaceModel`; view/engine tests pin estimator and clamping behavior. |
+
+Residual risk:
+
+- This pass wires correct dimensions into active local PTY sessions. Full terminal-emulator parity still needs job control, richer alternate-screen/TUI redraw handling, and scrollback semantics beyond the current streamed-text surface.
+
 ## 2026-06-29 Real-World Smoke Runtime Evidence Pass
 
 Overall grade after this slice: **A release evidence traceability, A secret hygiene, A- live-provider matrix breadth**.

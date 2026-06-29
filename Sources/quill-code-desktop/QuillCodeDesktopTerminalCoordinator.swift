@@ -64,6 +64,13 @@ struct QuillCodeDesktopTerminalCoordinator {
         )
     }
 
+    func resizeTerminal(_ windowSize: TerminalWindowSize, model: QuillCodeWorkspaceModel) {
+        model.setTerminalWindowSize(
+            rows: Int(windowSize.rows),
+            columns: Int(windowSize.columns)
+        )
+    }
+
     private func recallCommand(
         draft: inout String,
         model: QuillCodeWorkspaceModel,

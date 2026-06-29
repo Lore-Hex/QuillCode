@@ -9,6 +9,7 @@ struct QuillCodeTerminalPaneView: View {
     var onClear: () -> Void
     var onHistoryPrevious: () -> Void
     var onHistoryNext: () -> Void
+    var onResize: (TerminalWindowSize) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -44,6 +45,7 @@ struct QuillCodeTerminalPaneView: View {
                     .quillCodeFormActionTarget()
             }
         }
+        .background(TerminalWindowSizeReporter(onResize: onResize))
     }
 
     private var entries: some View {
@@ -92,5 +94,44 @@ struct QuillCodeTerminalPaneView: View {
 
     private var canSubmitDraft: Bool {
         terminal.isRunning ? !draft.isEmpty : !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+enum TerminalWindowSizeEstimator {
+    private static let cellWidth: CGFloat = 8.4
+    private static let cellHeight: CGFloat = 18
+
+    static func terminalWindowSize(for pointSize: CGSize) -> TerminalWindowSize? {
+        guard pointSize.width > 0, pointSize.height > 0 else { return nil }
+        return WorkspaceTerminalEngine.normalizedWindowSize(
+            rows: max(1, Int(pointSize.height / cellHeight)),
+            columns: max(1, Int(pointSize.width / cellWidth))
+        )
+    }
+}
+
+private struct TerminalWindowSizeReporter: View {
+    var onResize: (TerminalWindowSize) -> Void
+    @State private var lastReportedSize: TerminalWindowSize?
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear {
+                    report(proxy.size)
+                }
+                .onChange(of: proxy.size) { _, size in
+                    report(size)
+                }
+        }
+    }
+
+    private func report(_ pointSize: CGSize) {
+        guard let windowSize = TerminalWindowSizeEstimator.terminalWindowSize(for: pointSize),
+              windowSize != lastReportedSize else {
+            return
+        }
+        lastReportedSize = windowSize
+        onResize(windowSize)
     }
 }

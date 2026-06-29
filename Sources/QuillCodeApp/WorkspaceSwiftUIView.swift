@@ -15,6 +15,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onRunTerminalCommand: () -> Void
     public var onTerminalHistoryPrevious: () -> Void
     public var onTerminalHistoryNext: () -> Void
+    public var onTerminalResize: (TerminalWindowSize) -> Void
     public var onOpenBrowserPreview: () -> Void
     public var onOpenBrowserSession: (() -> Void)?
     public var onAddBrowserComment: (String) -> Void
@@ -76,6 +77,7 @@ public struct QuillCodeWorkspaceView: View {
         onRunTerminalCommand: @escaping () -> Void,
         onTerminalHistoryPrevious: @escaping () -> Void = {},
         onTerminalHistoryNext: @escaping () -> Void = {},
+        onTerminalResize: @escaping (TerminalWindowSize) -> Void = { _ in },
         onOpenBrowserPreview: @escaping () -> Void,
         onOpenBrowserSession: (() -> Void)? = nil,
         onAddBrowserComment: @escaping (String) -> Void,
@@ -122,6 +124,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onRunTerminalCommand = onRunTerminalCommand
         self.onTerminalHistoryPrevious = onTerminalHistoryPrevious
         self.onTerminalHistoryNext = onTerminalHistoryNext
+        self.onTerminalResize = onTerminalResize
         self.onOpenBrowserPreview = onOpenBrowserPreview
         self.onOpenBrowserSession = onOpenBrowserSession
         self.onAddBrowserComment = onAddBrowserComment
@@ -198,6 +201,7 @@ public struct QuillCodeWorkspaceView: View {
                     onRunTerminalCommand: onRunTerminalCommand,
                     onTerminalHistoryPrevious: onTerminalHistoryPrevious,
                     onTerminalHistoryNext: onTerminalHistoryNext,
+                    onTerminalResize: onTerminalResize,
                     onOpenBrowserPreview: onOpenBrowserPreview,
                     onOpenBrowserSession: onOpenBrowserSession,
                     onAddBrowserComment: onAddBrowserComment,

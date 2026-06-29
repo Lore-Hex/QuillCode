@@ -230,6 +230,19 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertEqual(terminal.entries[0].status, .running)
     }
 
+    func testTerminalWindowSizeNormalizationRejectsZeroAndClampsToUsableCells() {
+        XCTAssertNil(WorkspaceTerminalEngine.normalizedWindowSize(rows: 0, columns: 80))
+        XCTAssertNil(WorkspaceTerminalEngine.normalizedWindowSize(rows: 24, columns: 0))
+
+        let tiny = WorkspaceTerminalEngine.normalizedWindowSize(rows: 1, columns: 1)
+        XCTAssertEqual(tiny?.rows, 4)
+        XCTAssertEqual(tiny?.columns, 20)
+
+        let normal = WorkspaceTerminalEngine.normalizedWindowSize(rows: 32, columns: 120)
+        XCTAssertEqual(normal?.rows, 32)
+        XCTAssertEqual(normal?.columns, 120)
+    }
+
     func testTerminalRunLifecycleHandlesMissingContextAndStreamingEvents() {
         let entryID = UUID()
         var terminal = TerminalState()
