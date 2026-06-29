@@ -23,8 +23,9 @@ final class ParityTopBarGateTests: QuillCodeParityTestCase {
         let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
         let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
 
-        XCTAssertTrue(topBarViewText.contains("contextLabel"), "Native top bar should preserve a quiet leading context label.")
-        XCTAssertTrue(topBarViewText.contains("threadTitle"), "Native top bar should center the active thread title.")
+        XCTAssertTrue(topBarViewText.contains("leadingInset"), "Native top bar should reserve the sidebar column so identity aligns with the main workspace.")
+        XCTAssertTrue(topBarViewText.contains("identityGroup"), "Native top bar should keep the active thread title and context together as one quiet identity group.")
+        XCTAssertTrue(designText.contains("static let sidebarWidth"), "Native top bar and sidebar should share the same sidebar width metric.")
         XCTAssertTrue(topBarViewText.contains("showsActivityHairline"), "Native top bar should show run/error state as a subtle hairline instead of another pill.")
         XCTAssertTrue(designText.contains("static let topBarHeight: CGFloat = 44"), "Native top bar should keep a compact Codex-style 44 pt hit target height.")
         XCTAssertFalse(topBarViewText.contains("statusIndicator"), "Native top bar should not reintroduce a permanent status pill.")

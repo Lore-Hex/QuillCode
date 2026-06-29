@@ -5,9 +5,10 @@ enum WorkspaceHTMLTopBarRenderer {
         """
         <header class="topbar" data-testid="top-bar" aria-label="\(escape(topBarAccessibilityLabel(topBar)))">
           \(renderStatusMetadata(topBar))
-          <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
+          <div class="topbar-sidebar-slot" aria-hidden="true"></div>
           <div class="topbar-title-group" data-testid="top-bar-title-group">
             <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
+            <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
           </div>
           <div class="topbar-clusters" data-testid="top-bar-clusters">
             \(renderActionCluster(topBar, commands: commands))

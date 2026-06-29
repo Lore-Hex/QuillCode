@@ -9333,3 +9333,20 @@ Code quality changes:
 Remaining risk:
 
 - This proves the section and outcome rows. Richer animated live progress while the model summary is still streaming remains pending as part of broader context-recovery polish.
+
+## 2026-06-29 Main-Column Top Bar Alignment Pass
+
+Overall grade after this slice: **A UI chrome geometry, A native/static contract parity, A- packaged native screenshot automation**.
+
+The top bar was visually calm, but its identity block was still centered across the entire app width while the transcript and primary work lived to the right of the sidebar. That made the chrome feel less like Codex and made long metadata/status states harder to reason about because the title was not optically attached to the main workspace.
+
+Code quality changes:
+
+- Added a shared native `QuillCodeMetrics.sidebarWidth` and used it for both the SwiftUI sidebar frame and the top-bar leading inset.
+- Reworked `QuillCodeTopBarView` so the title and quiet context subtitle are one baseline-aligned `identityGroup` at the main-pane leading edge.
+- Mirrored the structure in `WorkspaceHTMLTopBarRenderer` and the Playwright harness, with one `--workspace-sidebar-width` CSS variable shared by top bar and workspace grid.
+- Updated parity gates and visual-polish Playwright coverage so CI now checks that the top-bar identity aligns with the transcript, metadata remains hidden, and compact mobile layout does not keep an empty sidebar spacer.
+
+Remaining risk:
+
+- The rendered HTML harness has screenshot and Playwright coverage. The next A+ layer is packaged native screenshot/accessibility automation that verifies the SwiftUI top bar alignment against a built `.app` window.

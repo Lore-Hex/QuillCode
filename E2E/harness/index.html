@@ -24,6 +24,7 @@
       --shadow-panel: 0 0 0 1px rgba(255,255,255,.09), 0 18px 54px rgba(0,0,0,.30);
       --shadow-surface-hover: 0 0 0 1px rgba(255,255,255,.14), 0 12px 30px rgba(0,0,0,.18);
       --hit-target: 44px;
+      --workspace-sidebar-width: 272px;
     }
     * { box-sizing: border-box; }
     .visually-hidden {
@@ -161,7 +162,7 @@
     .topbar {
       position: relative;
       display: grid;
-      grid-template-columns: minmax(120px, 240px) minmax(0, 1fr) auto;
+      grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) auto;
       align-items: center;
       gap: 14px;
       min-height: var(--hit-target);
@@ -169,12 +170,15 @@
       border-bottom: 1px solid rgba(255,255,255,.10);
       background: rgba(12, 18, 22, .94);
     }
+    .topbar-sidebar-slot {
+      min-width: 0;
+      height: 1px;
+    }
     .topbar-status-metadata {
       display: none;
     }
     .topbar-context-label {
       min-width: 0;
-      max-width: 240px;
       margin: 0;
       color: var(--muted);
       font-size: 12px;
@@ -185,11 +189,14 @@
     }
     .topbar-title-group {
       min-width: 0;
-      text-align: center;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      text-align: left;
     }
     .topbar strong { font-size: 17px; }
     .topbar-title-group strong {
-      display: block;
+      flex: 0 1 auto;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -740,8 +747,8 @@
     .permission-status-pill { flex: none; max-width: 180px; padding: 5px 10px; border-radius: 999px; color: var(--yellow); background: rgba(255,184,77,.14); font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .permission-status-pill[data-available="true"] { color: var(--green); background: rgba(67,212,120,.14); }
     .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
-    .workspace-grid { min-height: 0; display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 16px; padding: 14px 18px 18px 0; }
-    .workspace-grid.with-activity { grid-template-columns: 272px minmax(0, 1fr) 320px; }
+    .workspace-grid { min-height: 0; display: grid; grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr); gap: 16px; padding: 14px 18px 18px 0; }
+    .workspace-grid.with-activity { grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) 320px; }
     .sidebar, .transcript {
       min-height: 0;
     }
@@ -3189,6 +3196,7 @@
         grid-template-columns: 1fr;
         align-items: flex-start;
       }
+      .topbar-sidebar-slot { display: none; }
       .topbar-clusters {
         width: 100%;
         grid-template-columns: 1fr;
@@ -6158,9 +6166,10 @@
               <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
             </div>
-            <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
+            <div class="topbar-sidebar-slot" aria-hidden="true"></div>
             <div class="topbar-title-group" data-testid="top-bar-title-group">
               <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
+              <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">

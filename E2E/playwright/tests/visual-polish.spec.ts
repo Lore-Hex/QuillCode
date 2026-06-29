@@ -403,7 +403,10 @@ test('mock harness keeps quiet top bar stable under long status metadata', async
   const [
     viewportMetrics,
     clustersStyle,
+    titleGroupStyle,
     contextStyle,
+    titleRect,
+    transcriptRect,
     metadataRect,
     topBarRect,
     actionRect
@@ -413,7 +416,10 @@ test('mock harness keeps quiet top bar stable under long status metadata', async
       viewportWidth: document.documentElement.clientWidth
     })),
     computedStyleProperties(page, '[data-testid="top-bar-clusters"]', ['display', 'grid-template-columns']),
+    computedStyleProperties(page, '[data-testid="top-bar-title-group"]', ['display', 'text-align']),
     computedStyleProperties(page, '[data-testid="top-bar-subtitle"]', ['overflow', 'text-overflow']),
+    elementRect(page, '[data-testid="top-bar-title-group"]'),
+    elementRect(page, '[data-testid="transcript"]'),
     elementRect(page, '[data-testid="top-bar-status-metadata"]'),
     elementRect(page, '[data-testid="top-bar"]'),
     elementRect(page, '[data-testid="top-bar-action-cluster"]')
@@ -424,6 +430,10 @@ test('mock harness keeps quiet top bar stable under long status metadata', async
     scrollWidth: viewportMetrics.scrollWidth,
     clustersDisplay: clustersStyle.display,
     clustersColumns: clustersStyle['grid-template-columns'],
+    titleGroupDisplay: titleGroupStyle.display,
+    titleTextAlign: titleGroupStyle['text-align'],
+    titleLeft: titleRect.left,
+    transcriptLeft: transcriptRect.left,
     contextOverflow: contextStyle.overflow,
     contextTextOverflow: contextStyle['text-overflow'],
     metadataWidth: metadataRect.width,
@@ -442,6 +452,12 @@ test('mock harness keeps quiet top bar stable under long status metadata', async
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth);
   expect(metrics.clustersDisplay).toBe('flex');
   expect(metrics.clustersColumns).toBe('none');
+  expect(metrics.titleGroupDisplay).toBe('flex');
+  expect(metrics.titleTextAlign).toBe('left');
+  expect(
+    Math.abs(metrics.titleLeft - metrics.transcriptLeft),
+    'top-bar identity should align with the main workspace column, not the full window center'
+  ).toBeLessThanOrEqual(16);
   expect(metrics.contextOverflow).toBe('hidden');
   expect(metrics.contextTextOverflow).toBe('ellipsis');
   expect(metrics.metadataWidth).toBeLessThanOrEqual(1);
