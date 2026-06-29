@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Live TrustedRouter Smoke Observability Pass
+
+Overall grade after this slice: **A real-provider failure observability, A- release-lane operator ergonomics, A- live workflow evidence**.
+
+The live smoke already covered the high-risk behaviors that hurt QuillConnect/QuillCode usability: passive “I'll do it” replies, empty shell arguments, missing file side effects, public download side effects, and malformed persisted tool events. This pass makes those failures inspectable without rerunning the provider call.
+
+| Before | After |
+| --- | --- |
+| `scripts/live-tr-smoke.sh` printed stage labels and ad hoc assertion messages, but a failure could still require manual reconstruction of which prompt, output file, and transcript state mattered. | Every scenario now has an explicit ID, prompt, start/end timing, and JSONL report row with stdout/stderr byte counts plus artifact paths. |
+| A live CLI nonzero exit or assertion failure could lose the most useful context behind shell cleanup or scattered `cat` output. | Failures now print the scenario name, prompt, stdout/stderr paths, bounded stdout/stderr tails, and the accumulated scenario report summary before preserving artifacts. |
+| Successful live smoke gave only a final pass line. | Successful runs now print a compact table of all real-provider scenarios so release reviewers can see which paths were exercised and how long they took. |
+
+Residual risk:
+
+- This still drives the CLI live path, not the packaged SwiftUI app. The next higher-fidelity layer should run these same prompts through the native desktop window with a live or recorded TrustedRouter transport and inspect the saved transcript/artifact state.
+
 ## 2026-06-28 Launch Services Smoke Pass
 
 Overall grade after this slice: **A packaged entrypoint coverage, A- Launch Services coverage, A- release packaging maturity**.
