@@ -10,6 +10,7 @@ import {
 import {
   expectAllVisibleInteractiveTargets,
   expectCriticalTargetRegistry,
+  expectCriticalTargetSurfaceRegistry,
   expectHitTarget,
   interactionAuditReport,
   clickTargetInteriorPoint,
@@ -52,22 +53,46 @@ async function expectCommandTargetsRoutable(page: Page, label: string) {
 test('critical click-target registry covers primary workspace surfaces', async ({ page }) => {
   await page.goto(harnessURL());
 
-  await expectCriticalTargetRegistry('primary workspace chrome', [
-    { label: 'new chat', locator: page.getByTestId('new-chat-button'), expectedKind: 'text' },
-    { label: 'sidebar search', locator: page.getByTestId('sidebar-search-button'), expectedKind: 'text' },
-    { label: 'sidebar tools', locator: page.getByTestId('sidebar-tools-button'), expectedKind: 'row' },
-    { label: 'model picker', locator: page.getByTestId('model-picker-button'), expectedKind: 'capsule' },
-    { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button'), expectedKind: 'icon' },
-    { label: 'composer text entry', locator: page.getByLabel('Message'), expectedKind: 'text-entry' },
-    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'text' }
+  await expectCriticalTargetSurfaceRegistry('primary workspace chrome', [
+    {
+      label: 'sidebar primary actions',
+      requiredKinds: ['row'],
+      probes: [
+        { label: 'new chat', locator: page.getByTestId('new-chat-button'), expectedKind: 'row' },
+        { label: 'sidebar search', locator: page.getByTestId('sidebar-search-button'), expectedKind: 'row' },
+        { label: 'sidebar tools', locator: page.getByTestId('sidebar-tools-button'), expectedKind: 'row' }
+      ]
+    },
+    {
+      label: 'top bar actions',
+      requiredKinds: ['capsule', 'icon'],
+      probes: [
+        { label: 'model picker', locator: page.getByTestId('model-picker-button'), expectedKind: 'capsule' },
+        { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button'), expectedKind: 'icon' }
+      ]
+    },
+    {
+      label: 'composer',
+      requiredKinds: ['text-entry', 'text'],
+      probes: [
+        { label: 'composer text entry', locator: page.getByLabel('Message'), expectedKind: 'text-entry' },
+        { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'text' }
+      ]
+    }
   ]);
 
   await openTopBarOverflow(page);
-  await expectCriticalTargetRegistry('top-bar overflow menu', [
-    { label: 'search', locator: page.getByTestId('top-bar-overflow-search'), expectedKind: 'row' },
-    { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette'), expectedKind: 'row' },
-    { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts'), expectedKind: 'row' },
-    { label: 'settings', locator: page.getByTestId('top-bar-overflow-settings'), expectedKind: 'row' }
+  await expectCriticalTargetSurfaceRegistry('top-bar overflow menu', [
+    {
+      label: 'menu rows',
+      requiredKinds: ['row'],
+      probes: [
+        { label: 'search', locator: page.getByTestId('top-bar-overflow-search'), expectedKind: 'row' },
+        { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette'), expectedKind: 'row' },
+        { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts'), expectedKind: 'row' },
+        { label: 'settings', locator: page.getByTestId('top-bar-overflow-settings'), expectedKind: 'row' }
+      ]
+    }
   ]);
   await page.getByTestId('top-bar-overflow-button').click();
 

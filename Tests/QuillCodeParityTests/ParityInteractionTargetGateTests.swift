@@ -49,6 +49,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "High-risk click targets should be declared through a named registry with expected semantic target kinds instead of scattered one-off assertions."
         )
         XCTAssertTrue(
+            auditHelperText.contains("export type CriticalTargetSurface")
+                && auditHelperText.contains("requiredKinds: string[]")
+                && auditHelperText.contains("expectCriticalTargetSurfaceRegistry")
+                && auditHelperText.contains("should declare semantic click-target intent"),
+            "Critical click-target probes should be grouped by interaction surface and should fail when a probe only checks geometry without semantic target intent."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("target.evaluate")
                 && auditHelperText.contains("elementFromPoint")
                 && auditHelperText.contains("clickableInteriorIssues"),
@@ -277,6 +284,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             interactionSpecText.contains("expectedKind: 'form-action'")
                 || interactionSpecText.contains("expectedKind: 'capsule'"),
             "Critical click-target probes should include compact form-action or capsule controls, not only generic row/text/icon controls."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("expectCriticalTargetSurfaceRegistry")
+                && interactionSpecText.contains("primary workspace chrome")
+                && interactionSpecText.contains("requiredKinds: ['text-entry', 'text']")
+                && interactionSpecText.contains("requiredKinds: ['capsule', 'icon']"),
+            "Critical click-target coverage should be organized by surface-level target mixes, not just a flat list of controls."
         )
         XCTAssertTrue(
             interactionSpecText.contains("button-declared-as-text-entry-target")

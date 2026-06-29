@@ -112,6 +112,12 @@ export type CriticalTargetProbe = {
   locator: Locator;
 };
 
+export type CriticalTargetSurface = {
+  label: string;
+  probes: CriticalTargetProbe[];
+  requiredKinds: string[];
+};
+
 export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
   return page.evaluate(({ activeLayerSelector, edgeSampleFractions, expectedActionByKind, expectedKindByClass, interiorSampleFractions, minimumHitTarget, selector, sharedHitTargetClasses }) => {
     type VisibleTarget = {
@@ -799,6 +805,10 @@ export async function expectHitTarget(locator: Locator, label: string) {
 export async function expectCriticalTargetRegistry(label: string, probes: CriticalTargetProbe[]) {
   expect(probes.length, `${label} should declare at least one critical click target`).toBeGreaterThan(0);
   for (const probe of probes) {
+    expect(
+      Boolean(probe.expectedKind || probe.expectedClass),
+      `${label}: ${probe.label} should declare semantic click-target intent`
+    ).toBe(true);
     await expectHitTarget(probe.locator, `${label}: ${probe.label}`);
     if (probe.expectedKind) {
       const expectedClass = Object.entries(EXPECTED_KIND_BY_CLASS)
@@ -849,6 +859,27 @@ export async function expectCriticalTargetRegistry(label: string, probes: Critic
     }
     await expect(probe.locator.first(), `${label}: ${probe.label} should not rely on auto-inferred hit-target semantics`)
       .not.toHaveAttribute('data-hit-target-source', 'auto');
+  }
+}
+
+export async function expectCriticalTargetSurfaceRegistry(label: string, surfaces: CriticalTargetSurface[]) {
+  expect(surfaces.length, `${label} should declare at least one interaction surface`).toBeGreaterThan(0);
+
+  for (const surface of surfaces) {
+    await expectCriticalTargetRegistry(`${label}: ${surface.label}`, surface.probes);
+
+    const declaredKinds = new Set(surface.probes.map((probe) => {
+      if (probe.expectedKind) return probe.expectedKind;
+      if (probe.expectedClass) return EXPECTED_KIND_BY_CLASS[probe.expectedClass];
+      return '';
+    }).filter(Boolean));
+
+    for (const requiredKind of surface.requiredKinds) {
+      expect(
+        declaredKinds.has(requiredKind),
+        `${label}: ${surface.label} should include a ${requiredKind} target`
+      ).toBe(true);
+    }
   }
 }
 
