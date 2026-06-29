@@ -426,6 +426,7 @@ def validated_accessibility_sample_points(
     contract_id: str,
     frame: dict[str, float],
     sample_points: Any,
+    requires_unblocked_interior: bool,
 ) -> list[str]:
     if not isinstance(sample_points, list):
         raise SystemExit(f"{report_path} has malformed samplePoints for {contract_id}")
@@ -447,6 +448,38 @@ def validated_accessibility_sample_points(
         point = points_by_name[name]
         x = numeric_value(point.get("x"), f"{contract_id}.{name}.x")
         y = numeric_value(point.get("y"), f"{contract_id}.{name}.y")
+        hit_test_available = point.get("hitTestAvailable")
+        hit_test_error = point.get("hitTestError")
+        hit_test_identifier = point.get("hitTestIdentifier")
+        hit_test_role = point.get("hitTestRole")
+        hit_test_label = point.get("hitTestLabel")
+        hit_test_ancestor_identifiers = point.get("hitTestAncestorIdentifiers")
+        hit_test_matches_target = point.get("hitTestMatchesTarget")
+        if not isinstance(hit_test_available, bool):
+            raise SystemExit(f"{report_path} Accessibility sample point is missing hitTestAvailable for {contract_id}.{name}")
+        if not isinstance(hit_test_error, str):
+            raise SystemExit(f"{report_path} Accessibility sample point is missing hitTestError for {contract_id}.{name}")
+        if not isinstance(hit_test_identifier, str):
+            raise SystemExit(f"{report_path} Accessibility sample point is missing hitTestIdentifier for {contract_id}.{name}")
+        if not isinstance(hit_test_role, str):
+            raise SystemExit(f"{report_path} Accessibility sample point is missing hitTestRole for {contract_id}.{name}")
+        if not isinstance(hit_test_label, str):
+            raise SystemExit(f"{report_path} Accessibility sample point is missing hitTestLabel for {contract_id}.{name}")
+        if (
+            not isinstance(hit_test_ancestor_identifiers, list)
+            or not all(isinstance(value, str) for value in hit_test_ancestor_identifiers)
+        ):
+            raise SystemExit(
+                f"{report_path} Accessibility sample point has malformed hitTestAncestorIdentifiers "
+                f"for {contract_id}.{name}"
+            )
+        if not isinstance(hit_test_matches_target, bool):
+            raise SystemExit(f"{report_path} Accessibility sample point is missing hitTestMatchesTarget for {contract_id}.{name}")
+        if requires_unblocked_interior and hit_test_available and not hit_test_matches_target:
+            raise SystemExit(
+                f"{report_path} Accessibility sample point {contract_id}.{name} "
+                f"hit {hit_test_identifier!r} instead of the target"
+            )
         expected_x = frame["x"] + frame["width"] * normalized_point[0]
         expected_y = frame["y"] + frame["height"] * normalized_point[1]
         if not math.isclose(x, expected_x, rel_tol=0.0, abs_tol=1e-6) or not math.isclose(y, expected_y, rel_tol=0.0, abs_tol=1e-6):
@@ -481,6 +514,12 @@ def validated_accessibility_frame_sample(
     }
     required_min_width = numeric_value(sample.get("requiredMinWidth"), f"{contract_id}.requiredMinWidth")
     required_min_height = numeric_value(sample.get("requiredMinHeight"), f"{contract_id}.requiredMinHeight")
+    allows_nested_interactive_children = sample.get("allowsNestedInteractiveChildren")
+    requires_unblocked_interior = sample.get("requiresUnblockedInterior")
+    if not isinstance(allows_nested_interactive_children, bool):
+        raise SystemExit(f"{report_path} has malformed allowsNestedInteractiveChildren for {contract_id}")
+    if not isinstance(requires_unblocked_interior, bool):
+        raise SystemExit(f"{report_path} has malformed requiresUnblockedInterior for {contract_id}")
     if frame["width"] < required_min_width or frame["height"] < required_min_height:
         raise SystemExit(f"{report_path} has undersized Accessibility frame sample for {contract_id}")
 
@@ -489,6 +528,7 @@ def validated_accessibility_frame_sample(
         contract_id,
         frame,
         sample.get("samplePoints"),
+        requires_unblocked_interior,
     )
 
     return contract_id, {
@@ -499,6 +539,8 @@ def validated_accessibility_frame_sample(
         "resolvedIdentifier": resolved_identifier,
         "role": role,
         "label": label,
+        "allowsNestedInteractiveChildren": allows_nested_interactive_children,
+        "requiresUnblockedInterior": requires_unblocked_interior,
         "frame": frame,
         "samplePointNames": sample_point_names,
     }

@@ -46,7 +46,20 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                     frame: CGRect(x: 100, y: 100, width: 44, height: 44),
                     requiredMinWidth: 44,
                     requiredMinHeight: 44,
-                    samplePoints: [["name": "center", "x": 122, "y": 122]]
+                    allowsNestedInteractiveChildren: false,
+                    requiresUnblockedInterior: true,
+                    samplePoints: [[
+                        "name": "center",
+                        "x": 122,
+                        "y": 122,
+                        "hitTestAvailable": true,
+                        "hitTestError": "",
+                        "hitTestIdentifier": "quillcode-send-button",
+                        "hitTestRole": "AXButton",
+                        "hitTestLabel": "Send message",
+                        "hitTestAncestorIdentifiers": [],
+                        "hitTestMatchesTarget": true
+                    ]]
                 )
             ],
             validationIssues: []
@@ -79,6 +92,8 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(json.contains(#""collisionScope" : "composer:composer""#))
         XCTAssertTrue(json.contains(#""accessibilityFrameSamples""#))
         XCTAssertTrue(json.contains(#""liveAccessibilitySampling" : "frame-sampled""#))
+        XCTAssertTrue(json.contains(#""hitTestAvailable" : true"#))
+        XCTAssertTrue(json.contains(#""hitTestMatchesTarget" : true"#))
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
     }
