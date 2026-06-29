@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-29 Starter Action Stack Layout Pass
+
+Overall grade after this slice: **A empty-state first read, A native/HTML layout parity, A- regression-guard coverage**.
+
+The empty-state starter actions are meant to read as cards with a bold title above a muted subtitle, matching the native SwiftUI `VStack(spacing: 3)`. The HTML/static surface instead rendered the title and subtitle side by side with no separating space, because the button carried the shared `hit-target-text` primitive (`display: inline-flex` with centered row alignment) and that overrode the intended `display: block` / `text-align: left` stack.
+
+| Before | After |
+| --- | --- |
+| `.empty-starter` inherited `hit-target-text`'s centered inline-flex row, so `<strong>` and `<span>` sat on one line (`strong.right === span.left`), reading as "Review changesFind risks in the current diff" — worst on narrow/mobile widths. | `.empty-starter` sets a left-aligned vertical column (`display: flex; flex-direction: column; align-items: stretch; justify-content: center`) with a 72px minimum height, so the title stacks above the subtitle and matches the native `VStack`. |
+| The horizontal-clipping audit checked viewport overflow but never asserted intra-card stacking, so the collapsed two-line card passed. | A Playwright invariant asserts the starter subtitle sits below the title and shares its left edge at both 1440px and 390px. |
+
+Residual risk:
+
+- This fix targets the starter-action card specifically. Other multi-line content placed inside a single-label hit target would hit the same centered-row default; a future primitive could expose an explicit "stacked card" hit target so card-shaped buttons do not each re-declare column layout.
+
 ## 2026-06-29 Deterministic Smoke Manifest Pass
 
 Overall grade after this slice: **A deterministic release evidence, A real-world wrapper traceability, A- operator ergonomics**.
