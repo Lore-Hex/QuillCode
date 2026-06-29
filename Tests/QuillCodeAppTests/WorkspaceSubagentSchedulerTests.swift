@@ -85,6 +85,88 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         let updates = await progress.updates
         XCTAssertEqual(updates.last?.subagents.map(\.status), [.completed, .cancelled])
     }
+    func testSchedulerRunsDependentWorkerOnlyAfterItsDependencyCompletes() async throws {
+        let order = OrderRecorder()
+        let scheduler = WorkspaceSubagentScheduler { job in
+            await order.start(job.name)
+            try await Task.sleep(nanoseconds: 10_000_000)
+            await order.finish(job.name)
+            return "did \(job.role)"
+        }
+        let request = WorkspaceSubagentRunRequest(
+            objective: "ship release",
+            workers: [
+                .init(name: "Builder", role: "compile app"),
+                .init(name: "Verifier", role: "run tests", dependsOn: ["Builder"])
+            ]
+        )
+        let progress = ProgressRecorder()
+
+        let result = await scheduler.run(request: request) { update in
+            await progress.record(update)
+        }
+
+        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed])
+        // Verifier must not start until Builder has finished.
+        let starts = await order.startOrder
+        let finishes = await order.finishOrder
+        XCTAssertEqual(starts, ["Builder", "Verifier"])
+        XCTAssertEqual(finishes.first, "Builder")
+        // The dependent worker surfaces as blocked while it waits.
+        let updates = await progress.updates
+        let sawBlockedVerifier = updates.contains { update in
+            update.subagents.contains { $0.name == "Verifier" && $0.status == .blocked }
+        }
+        XCTAssertTrue(sawBlockedVerifier, "Dependent worker should publish blocked progress while waiting.")
+    }
+
+    func testSchedulerSkipsDependentWhenItsDependencyFails() async throws {
+        enum WorkerFailure: LocalizedError {
+            case failed
+            var errorDescription: String? { "builder exploded" }
+        }
+        let scheduler = WorkspaceSubagentScheduler { job in
+            if job.name == "Builder" { throw WorkerFailure.failed }
+            return "did \(job.role)"
+        }
+        let request = WorkspaceSubagentRunRequest(
+            objective: "ship release",
+            workers: [
+                .init(name: "Builder", role: "compile app"),
+                .init(name: "Verifier", role: "run tests", dependsOn: ["Builder"])
+            ]
+        )
+
+        let result = await scheduler.run(request: request)
+
+        XCTAssertEqual(result.update.subagents.map(\.status), [.failed, .cancelled])
+        XCTAssertEqual(result.update.subagents[1].summary, "Skipped: dependency Builder did not complete")
+        XCTAssertTrue(result.summary.contains("0 completed, 1 cancelled, and 1 failed"))
+    }
+
+    func testSchedulerBreaksDependencyCyclesInsteadOfDeadlocking() async throws {
+        let scheduler = WorkspaceSubagentScheduler { job in "did \(job.role)" }
+        let request = WorkspaceSubagentRunRequest(
+            objective: "cyclic",
+            workers: [
+                .init(name: "A", role: "first", dependsOn: ["B"]),
+                .init(name: "B", role: "second", dependsOn: ["A"])
+            ]
+        )
+
+        let result = await scheduler.run(request: request)
+
+        // A cycle must still terminate with both workers completing.
+        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed])
+    }
+}
+
+private actor OrderRecorder {
+    private(set) var startOrder: [String] = []
+    private(set) var finishOrder: [String] = []
+
+    func start(_ name: String) { startOrder.append(name) }
+    func finish(_ name: String) { finishOrder.append(name) }
 }
 
 private actor ConcurrencyProbe {
