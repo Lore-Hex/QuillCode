@@ -41,6 +41,7 @@ jobs:
           MERGE_TRAIN_BLOCK_LABEL: do-not-merge
           MERGE_TRAIN_METHOD: squash
           MERGE_TRAIN_DELETE_BRANCH: "true"
+          MERGE_TRAIN_UPDATE_BEHIND_BRANCHES: "false"
           MERGE_TRAIN_IGNORED_CHECK_RE: "^(Merge Train|train)$"
           MERGE_TRAIN_POST_MERGE_WORKFLOW: ci.yml
         run: ./scripts/merge-train.sh
