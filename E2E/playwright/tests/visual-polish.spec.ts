@@ -337,6 +337,52 @@ test('mock harness stacks empty-starter title above its subtitle', async ({ page
   }
 });
 
+test('mock harness keeps secondary-pane action labels unclipped at tablet width', async ({ page }) => {
+  // Header action buttons carry a shared text hit target whose 44px min-width
+  // lets a flex row shrink them below their own label, clipping words like
+  // "Add memory" at constrained widths. Sweep the secondary panes at a tablet
+  // width and require every visible labeled button to fit its text.
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto(harnessURL());
+
+  // The Activity pane claims right-side width, narrowing the main column where
+  // the secondary panes live and squeezing their header action buttons.
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await clickSidebarTool(page, 'memories-button');
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await page.getByTestId('extensions-button').click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await page.getByTestId('automations-button').click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+
+  const clipped = await page.evaluate(() => {
+    const offenders: Array<{ testID: string; text: string; scrollWidth: number; clientWidth: number }> = [];
+    for (const button of Array.from(document.querySelectorAll('button'))) {
+      const rect = button.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) continue;
+      const style = getComputedStyle(button);
+      if (style.visibility === 'hidden' || style.display === 'none') continue;
+      // Skip controls that intentionally scroll or ellipsize their content.
+      if (style.overflowX !== 'visible' || style.textOverflow === 'ellipsis') continue;
+      if (button.scrollWidth > button.clientWidth + 1) {
+        offenders.push({
+          testID: button.getAttribute('data-testid') || '',
+          text: (button.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+          scrollWidth: button.scrollWidth,
+          clientWidth: button.clientWidth
+        });
+      }
+    }
+    return offenders;
+  });
+
+  expect(
+    clipped,
+    `secondary-pane buttons must fit their labels at 768px: ${JSON.stringify(clipped)}`
+  ).toEqual([]);
+});
+
 test('mock harness keeps quiet top bar stable under long status metadata', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 760 });
   await page.goto(harnessURL());
