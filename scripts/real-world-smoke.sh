@@ -5,8 +5,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KEY_FILE="${QUILLCODE_LIVE_KEY_FILE:-$HOME/.quill.code.keyfile}"
 REQUIRE_LIVE="${QUILLCODE_REQUIRE_LIVE_SMOKE:-0}"
 ARTIFACT_DIR="${QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR:-}"
+STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+DETERMINISTIC_STATUS="not-run"
+LIVE_STATUS="not-run"
+LIVE_DETAIL="not-started"
+FINAL_DETAIL="interrupted"
 
 cd "$ROOT_DIR"
+
+if [[ -n "$ARTIFACT_DIR" ]]; then
+  mkdir -p "$ARTIFACT_DIR"
+  ARTIFACT_DIR="$(cd "$ARTIFACT_DIR" && pwd)"
+fi
 
 has_live_key() {
   if [[ -n "${QUILLCODE_API_KEY:-}" || -n "${TRUSTEDROUTER_API_KEY:-}" ]]; then
@@ -15,24 +25,147 @@ has_live_key() {
   [[ -s "$KEY_FILE" ]]
 }
 
+write_manifest() {
+  local exit_code="$1"
+  local detail="$2"
+
+  if [[ -z "$ARTIFACT_DIR" ]]; then
+    return 0
+  fi
+
+  python3 - "$ARTIFACT_DIR/real-world-smoke-manifest.json" \
+    "$exit_code" \
+    "$detail" \
+    "$STARTED_AT" \
+    "$DETERMINISTIC_STATUS" \
+    "$LIVE_STATUS" \
+    "$LIVE_DETAIL" \
+    "$ARTIFACT_DIR" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+(
+    manifest_path,
+    exit_code,
+    detail,
+    started_at,
+    deterministic_status,
+    live_status,
+    live_detail,
+    artifact_root,
+) = sys.argv[1:]
+
+def load_json(path):
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        return None
+
+def collect_files(root, limit=200):
+    if not root or not os.path.isdir(root):
+        return []
+    files = []
+    for current_root, directories, names in os.walk(root):
+        directories.sort()
+        for name in sorted(names):
+            path = os.path.join(current_root, name)
+            try:
+                stat = os.stat(path)
+            except OSError:
+                continue
+            files.append({
+                "path": os.path.relpath(path, root),
+                "bytes": stat.st_size,
+            })
+            if len(files) >= limit:
+                return files
+    return files
+
+deterministic_dir = os.path.join(artifact_root, "deterministic")
+live_dir = os.path.join(artifact_root, "live-trustedrouter")
+live_manifest = load_json(os.path.join(live_dir, "live-smoke-manifest.json"))
+
+manifest = {
+    "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    "startedAt": started_at,
+    "exitCode": int(exit_code),
+    "detail": detail,
+    "artifactRoot": artifact_root,
+    "deterministic": {
+        "status": deterministic_status,
+        "artifactDir": deterministic_dir if os.path.isdir(deterministic_dir) else None,
+        "artifactFiles": collect_files(deterministic_dir),
+    },
+    "liveTrustedRouter": {
+        "status": live_status,
+        "detail": live_detail,
+        "artifactDir": live_dir if os.path.isdir(live_dir) else None,
+        "manifest": live_manifest,
+        "artifactFiles": collect_files(live_dir),
+    },
+}
+
+with open(manifest_path, "w", encoding="utf-8") as handle:
+    json.dump(manifest, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+PY
+}
+
+finish() {
+  local status=$?
+  set +e
+  write_manifest "$status" "$FINAL_DETAIL"
+  if [[ -n "$ARTIFACT_DIR" ]]; then
+    echo "QuillCode real-world smoke artifacts: $ARTIFACT_DIR"
+  fi
+  exit "$status"
+}
+trap finish EXIT
+
 echo "==> Running deterministic QuillCode smoke suite"
-QUILLCODE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/deterministic}" \
-  "$ROOT_DIR/scripts/smoke.sh"
+if QUILLCODE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/deterministic}" \
+  "$ROOT_DIR/scripts/smoke.sh"; then
+  DETERMINISTIC_STATUS="passed"
+else
+  status=$?
+  DETERMINISTIC_STATUS="failed"
+  FINAL_DETAIL="deterministic smoke failed"
+  exit "$status"
+fi
 
 if has_live_key; then
   echo "==> Running live TrustedRouter real-world smoke suite"
-  QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/live-trustedrouter}" \
-    "$ROOT_DIR/scripts/live-tr-smoke.sh"
+  if QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/live-trustedrouter}" \
+    "$ROOT_DIR/scripts/live-tr-smoke.sh"; then
+    LIVE_STATUS="passed"
+    LIVE_DETAIL="completed"
+  else
+    status=$?
+    LIVE_STATUS="failed"
+    LIVE_DETAIL="live TrustedRouter smoke failed"
+    FINAL_DETAIL="live TrustedRouter smoke failed"
+    exit "$status"
+  fi
+  FINAL_DETAIL="completed"
   echo "QuillCode real-world smoke passed."
   exit 0
 fi
 
 if [[ "$REQUIRE_LIVE" == "1" || "$REQUIRE_LIVE" == "true" ]]; then
+  LIVE_STATUS="missing-required-key"
+  LIVE_DETAIL="live TrustedRouter smoke was required, but no key was found"
+  FINAL_DETAIL="$LIVE_DETAIL"
   echo "Live TrustedRouter smoke was required, but no key was found." >&2
   echo "Set QUILLCODE_API_KEY, TRUSTEDROUTER_API_KEY, or create $KEY_FILE." >&2
   exit 2
 fi
 
+LIVE_STATUS="skipped"
+LIVE_DETAIL="no TrustedRouter key found"
+FINAL_DETAIL="deterministic smoke passed; live TrustedRouter smoke skipped"
 echo "No TrustedRouter key found; skipped live TrustedRouter smoke."
 echo "Set QUILLCODE_REQUIRE_LIVE_SMOKE=1 to make that a hard release gate."
 echo "QuillCode deterministic smoke passed."

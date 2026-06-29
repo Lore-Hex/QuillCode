@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Real-World Smoke Manifest Pass
+
+Overall grade after this slice: **A release-lane auditability, A- operator ergonomics, A- failure forensics**.
+
+The live smoke artifact index made real-provider evidence reviewable, but the release-candidate wrapper still required reading terminal logs to know whether deterministic smoke passed, live smoke ran, or live smoke was intentionally skipped. This pass adds a top-level manifest that makes the wrapper outcome explicit and machine-readable.
+
+| Before | After |
+| --- | --- |
+| `real-world-smoke.sh` delegated to deterministic and live sub-suites but had no wrapper-level verdict artifact. | `real-world-smoke-manifest.json` records the wrapper exit code, deterministic status, live TrustedRouter status, skip/failure detail, and artifact root. |
+| Release reviewers had to inspect subfolders manually to know which evidence existed. | The manifest lists deterministic and live artifact files with sizes and embeds the nested live smoke manifest when present. |
+| A required-live missing-key failure printed a readable terminal error but left no structured artifact when an artifact root was configured. | The wrapper now writes the same manifest on success, deterministic failure, live failure, required-live missing-key failure, or live-skip success. |
+
+Residual risk:
+
+- The wrapper now indexes the existing evidence, but it still depends on local Playwright dependencies being installed for the deterministic lane to include browser E2E. A later pass should make the wrapper optionally bootstrap or explicitly fail on missing Playwright dependencies for release-mode runs.
+
 ## 2026-06-29 Live Smoke Artifact Index Pass
 
 Overall grade after this slice: **A- release evidence, A live-run auditability, A- operator ergonomics**.
