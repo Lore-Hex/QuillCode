@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Semantic Click-Target Contract Pass
+
+Overall grade after this slice: **A semantic interaction gating, A native source coverage, A- live accessibility sampling**.
+
+The native click-target system already enforced 44 pt sizing, named helpers, focus ownership, surface-family coverage, and source gates for raw controls. The remaining loophole was semantic mismatch: a control could technically carry a shared helper while using the wrong one for its behavior.
+
+| Before | After |
+| --- | --- |
+| A `Button` with `quillCodeTextEntryTarget()` or a segmented `Picker` with `quillCodeFullRowButtonTarget()` could satisfy the generic "has a shared target" source gate. | The source audit now checks compatible helper families for buttons, menu triggers, and pickers, while the existing text-entry, toggle, link, and adjustable checks remain exact. |
+| The regression suite proved missing helpers but not mismatched helpers. | Added a focused mismatch fixture covering button/text-entry, text-field/button, segmented-picker/row, toggle/text-button, and slider/text-button regressions. |
+| The design note said controls must declare intent, but did not explicitly say helper intent must match the control type. | `docs/DECISIONS.md` now states that click-target helpers are semantic contracts rather than interchangeable geometry shims. |
+
+Residual risk:
+
+- This is still source-level proof plus existing rendered Playwright probes. The final A+ native layer remains packaged-window Accessibility sampling that clicks real app frames by stable contract IDs.
+
 ## 2026-06-29 Live Terminal Resize Pass
 
 Overall grade after this slice: **A terminal PTY fidelity, A native-model separation, A- terminal-emulator completeness**.

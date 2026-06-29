@@ -949,6 +949,65 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testNativeSourceAuditRejectsMismatchedSemanticTargets() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct MismatchedChrome: View {
+            @State private var query = ""
+            @State private var selected = 0
+            @State private var value = 0.5
+
+            var body: some View {
+                VStack {
+                    Button("Run") {}
+                        .quillCodeTextEntryTarget()
+                        .buttonStyle(QuillCodePressableButtonStyle())
+
+                    TextField("Search", text: $query)
+                        .quillCodeTextButtonTarget()
+
+                    Picker("Mode", selection: $selected) {
+                        Text("Auto").tag(0)
+                    }
+                    .pickerStyle(.segmented)
+                    .quillCodeFullRowButtonTarget()
+
+                    Toggle("Enable", isOn: .constant(true))
+                        .quillCodeTextButtonTarget()
+
+                    Slider(value: $value)
+                        .quillCodeTextButtonTarget()
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(
+            violations.contains { $0.contains("Button uses incompatible shared hit target") },
+            "Buttons should not pass with text-entry or other non-button semantic targets."
+        )
+        XCTAssertTrue(
+            violations.contains { $0.contains("text-entry control lacks shared text-entry hit target") },
+            "Text fields need text-entry semantics, not a visual button helper."
+        )
+        XCTAssertTrue(
+            violations.contains { $0.contains("Picker uses incompatible shared hit target") },
+            "Segmented pickers need segmented-control semantics, not row/button geometry."
+        )
+        XCTAssertTrue(
+            violations.contains { $0.contains("toggle control lacks shared switch-row hit target") },
+            "Toggles need switch-row semantics so the whole row is intentionally owned."
+        )
+        XCTAssertTrue(
+            violations.contains { $0.contains("adjustable control lacks shared adjustable hit target") },
+            "Sliders and other adjustable controls need adjust semantics."
+        )
+    }
+
     func testNativeSourceAuditRejectsUnnamedIconTargets() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
@@ -1442,6 +1501,13 @@ private struct SwiftSourceInteractionTargetAudit {
 
             if isButtonDeclaration(line),
                !isSystemMenuItemButton(lines: lines, index: index),
+               hasSharedTarget(in: declarationScope),
+               !hasButtonCompatibleTarget(in: declarationScope) {
+                violations.append("\(relativePath):\(index + 1) Button uses incompatible shared hit target")
+            }
+
+            if isButtonDeclaration(line),
+               !isSystemMenuItemButton(lines: lines, index: index),
                !hasButtonStyle(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Button lacks explicit press or platform style")
             }
@@ -1452,6 +1518,12 @@ private struct SwiftSourceInteractionTargetAudit {
             if isMenuDeclaration(line),
                !hasSharedTarget(in: menuTriggerScope) {
                 violations.append("\(relativePath):\(index + 1) Menu trigger lacks shared hit target")
+            }
+
+            if isMenuDeclaration(line),
+               hasSharedTarget(in: menuTriggerScope),
+               !hasMenuCompatibleTarget(in: menuTriggerScope) {
+                violations.append("\(relativePath):\(index + 1) Menu trigger uses incompatible shared hit target")
             }
 
             if isMenuDeclaration(line),
@@ -1470,6 +1542,12 @@ private struct SwiftSourceInteractionTargetAudit {
             if isPickerDeclaration(line),
                !hasSharedTarget(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Picker lacks shared hit target")
+            }
+
+            if isPickerDeclaration(line),
+               hasSharedTarget(in: declarationScope),
+               !hasPickerCompatibleTarget(in: declarationScope) {
+                violations.append("\(relativePath):\(index + 1) Picker uses incompatible shared hit target")
             }
 
             if isLinkDeclaration(line),
@@ -1508,6 +1586,38 @@ private struct SwiftSourceInteractionTargetAudit {
 
     private func hasSharedTarget(in sourceWindow: String) -> Bool {
         targetMarkers.contains { sourceWindow.contains($0) }
+    }
+
+    private func hasButtonCompatibleTarget(in sourceWindow: String) -> Bool {
+        [
+            "quillCodeTextButtonTarget",
+            "quillCodeIconButtonTarget",
+            "quillCodeFullRowButtonTarget",
+            "quillCodeCapsuleButtonTarget",
+            "quillCodeFormActionTarget"
+        ].contains { sourceWindow.contains($0) }
+    }
+
+    private func hasMenuCompatibleTarget(in sourceWindow: String) -> Bool {
+        [
+            "quillCodeTextButtonTarget",
+            "quillCodeIconButtonTarget",
+            "quillCodeFullRowButtonTarget",
+            "quillCodeCapsuleButtonTarget",
+            "quillCodeFormActionTarget"
+        ].contains { sourceWindow.contains($0) }
+    }
+
+    private func hasPickerCompatibleTarget(in sourceWindow: String) -> Bool {
+        if sourceWindow.contains(".pickerStyle(.segmented)") {
+            return sourceWindow.contains("quillCodeSegmentedControlTarget")
+        }
+        return [
+            "quillCodeFullRowButtonTarget",
+            "quillCodeTextButtonTarget",
+            "quillCodeCapsuleButtonTarget",
+            "quillCodeSegmentedControlTarget"
+        ].contains { sourceWindow.contains($0) }
     }
 
     private func hasButtonStyle(in sourceWindow: String) -> Bool {
