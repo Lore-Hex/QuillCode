@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 MCP and Computer Use Subtitle Pass
+
+Overall grade after this slice: **A tool-card scannability across tool families, A native/HTML subtitle parity, A- regression-guard coverage**.
+
+A full enumeration of registered tool names against `WorkspaceToolCardSubtitleBuilder` surfaced that the MCP tool family used wrong argument keys and wrong case names, and the Computer Use family had no subtitle detail at all — so MCP and GUI-automation cards rendered a bare state label.
+
+| Before | After |
+| --- | --- |
+| `host.mcp.call` read a non-existent `tool` argument (the canonical key is `toolName`), and the resource/prompt cases matched `host.mcp.read_resource`/`host.mcp.get_prompt` instead of the registered `host.mcp.resource.read`/`host.mcp.prompt.get` — so all three MCP cards showed no detail. | The builder reads `toolName` for calls, the resource identifier (`resourceName`/`name`/`resourceURI`/`uri`) for resource reads, and `promptName`/`name` for prompt gets. |
+| Computer Use cards (`click`, `move`, `scroll`, `type`, `key`) showed only the state label. | `click`/`move` show `x, y`, `scroll` shows `dx, dy`, and `type`/`key` show their text; `screenshot` correctly stays detail-free. |
+| The static-harness `toolCardDetail` mirror had the same wrong MCP keys/names and no Computer Use cases. | The mirror was corrected to the same keys, keeping the Swift and HTML subtitles identical. Swift and Playwright tests pin every MCP and Computer Use case. |
+
+Residual risk:
+
+- The subtitle detail map is still maintained by hand on two surfaces. The paired tests now fail if either drifts, but a shared declaration generated from the tool definitions remains the longer-term hardening.
+
 ## 2026-06-29 Tool-Card Subtitle Detail Correctness Pass
 
 Overall grade after this slice: **A tool-card scannability, A native/HTML subtitle parity, A- regression-guard coverage**.

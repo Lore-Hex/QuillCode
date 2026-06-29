@@ -311,6 +311,66 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         )
     }
 
+    func testToolCardSubtitleBuilderSummarizesMCPAndComputerUseArguments() {
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.mcp.call",
+                inputJSON: ToolArguments.json(["serverID": "fs", "toolName": "list_dir"])
+            ),
+            "Completed · list_dir"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.mcp.resource.read",
+                inputJSON: ToolArguments.json(["serverID": "fs", "resourceName": "README"])
+            ),
+            "Completed · README"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.mcp.prompt.get",
+                inputJSON: ToolArguments.json(["serverID": "fs", "promptName": "summarize"])
+            ),
+            "Completed · summarize"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.computer.click",
+                inputJSON: ToolArguments.json(["x": 120, "y": 340])
+            ),
+            "Completed · 120, 340"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.computer.type",
+                inputJSON: ToolArguments.json(["text": "hello world"])
+            ),
+            "Completed · hello world"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.computer.key",
+                inputJSON: ToolArguments.json(["key": "cmd+s"])
+            ),
+            "Completed · cmd+s"
+        )
+        // host.computer.screenshot takes no arguments, so it has no detail.
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.computer.screenshot",
+                inputJSON: "{}"
+            ),
+            "Completed"
+        )
+    }
+
     func testToolCardSubtitleBuilderFallsBackForInvalidOrUnknownInput() {
         XCTAssertEqual(
             WorkspaceToolCardSubtitleBuilder.subtitle(

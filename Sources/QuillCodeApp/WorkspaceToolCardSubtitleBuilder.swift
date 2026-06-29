@@ -57,10 +57,38 @@ enum WorkspaceToolCardSubtitleBuilder {
         case "host.memory.remember":
             return sanitized(arguments.string("content"))
         case "host.mcp.call":
-            return sanitized(arguments.string("tool"))
-        case "host.mcp.read_resource", "host.mcp.get_prompt":
-            return sanitized(arguments.string("name")) ?? sanitized(arguments.string("uri"))
+            return sanitized(arguments.string("toolName"))
+        case "host.mcp.resource.read":
+            return sanitized(arguments.string("resourceName"))
+                ?? sanitized(arguments.string("name"))
+                ?? sanitized(arguments.string("resourceURI"))
+                ?? sanitized(arguments.string("uri"))
+        case "host.mcp.prompt.get":
+            return sanitized(arguments.string("promptName")) ?? sanitized(arguments.string("name"))
+        case "host.computer.click", "host.computer.move":
+            return coordinateDetail(arguments, "x", "y")
+        case "host.computer.scroll":
+            return coordinateDetail(arguments, "dx", "dy")
+        case "host.computer.type":
+            return sanitized(arguments.string("text"))
+        case "host.computer.key":
+            return sanitized(arguments.string("key"))
         default:
+            return nil
+        }
+    }
+
+    private static func coordinateDetail(_ arguments: ToolArguments, _ xKey: String, _ yKey: String) -> String? {
+        let x = sanitized(arguments.string(xKey))
+        let y = sanitized(arguments.string(yKey))
+        switch (x, y) {
+        case (.some(let x), .some(let y)):
+            return "\(x), \(y)"
+        case (.some(let x), nil):
+            return x
+        case (nil, .some(let y)):
+            return y
+        case (nil, nil):
             return nil
         }
     }
