@@ -257,6 +257,17 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertFalse(missingReport.isValid)
     }
 
+    func testSwiftInteractiveControlsDeclareHitTargetContractAtSource() throws {
+        let sourceRoot = packageRoot()
+            .appendingPathComponent("Sources", isDirectory: true)
+            .appendingPathComponent("QuillCodeApp", isDirectory: true)
+        let issues = try swiftSourceFiles(in: sourceRoot)
+            .flatMap { try sourceHitTargetContractIssues(in: $0, sourceRoot: sourceRoot) }
+            .sorted()
+
+        XCTAssertEqual(issues, [])
+    }
+
     func testAuditCoversEverySurfaceFamilyForPlainWorkspaceSnapshot() {
         let report = QuillCodeNativeHitTargetAudit.report(for: QuillCodeWorkspaceModel().surface())
 
@@ -498,5 +509,90 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             scheduleDescription: "Every morning",
             nextRunAt: Date(timeIntervalSince1970: 100)
         )
+    }
+
+    private func packageRoot(filePath: StaticString = #filePath) -> URL {
+        URL(fileURLWithPath: "\(filePath)")
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func swiftSourceFiles(in directory: URL) throws -> [URL] {
+        let resourceKeys: Set<URLResourceKey> = [.isRegularFileKey]
+        let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: Array(resourceKeys)
+        )
+        guard let enumerator else { return [] }
+
+        return try enumerator.compactMap { item -> URL? in
+            guard let url = item as? URL else { return nil }
+            let values = try url.resourceValues(forKeys: resourceKeys)
+            guard values.isRegularFile == true, url.pathExtension == "swift" else { return nil }
+            return url
+        }
+        .sorted { $0.path < $1.path }
+    }
+
+    private func sourceHitTargetContractIssues(in fileURL: URL, sourceRoot: URL) throws -> [String] {
+        let source = try String(contentsOf: fileURL, encoding: .utf8)
+        let lines = source.components(separatedBy: .newlines)
+        let interactivePattern = try NSRegularExpression(
+            pattern: #"(?<![A-Za-z0-9_])(Button|Link|NavigationLink)\s*(?:\(|\{)"#
+        )
+        let markers = [
+            ".quillCodeTextButtonTarget",
+            ".quillCodeFormActionTarget",
+            ".quillCodeTextEntryTarget",
+            ".quillCodeSegmentedControlTarget",
+            ".quillCodeAdjustableControlTarget",
+            ".quillCodeLinkTarget",
+            ".quillCodeSwitchRowTarget",
+            ".quillCodeOwnedGestureTarget",
+            ".quillCodeIconButtonTarget",
+            ".quillCodeFullRowButtonTarget",
+            ".quillCodeCapsuleButtonTarget",
+            ".quillCodePlatformMenuItemTarget"
+        ]
+
+        return lines.enumerated().compactMap { index, line in
+            let range = NSRange(line.startIndex..<line.endIndex, in: line)
+            guard interactivePattern.firstMatch(in: line, range: range) != nil else { return nil }
+            let snippet = interactiveControlSnippet(
+                from: index,
+                in: lines,
+                interactivePattern: interactivePattern
+            )
+            guard !markers.contains(where: snippet.contains) else { return nil }
+            let relativePath = fileURL.path.replacingOccurrences(of: sourceRoot.path + "/", with: "")
+            return "\(relativePath):\(index + 1) missing QuillCode hit-target marker near `\(line.trimmingCharacters(in: .whitespaces))`"
+        }
+    }
+
+    private func interactiveControlSnippet(
+        from startIndex: Int,
+        in lines: [String],
+        interactivePattern: NSRegularExpression
+    ) -> String {
+        let startIndent = leadingWhitespaceCount(lines[startIndex])
+        var endIndex = min(startIndex + 64, lines.endIndex)
+        if startIndex + 1 < endIndex {
+            for candidateIndex in (startIndex + 1)..<endIndex {
+                let line = lines[candidateIndex]
+                let range = NSRange(line.startIndex..<line.endIndex, in: line)
+                let startsPeerControl = interactivePattern.firstMatch(in: line, range: range) != nil
+                    && leadingWhitespaceCount(line) <= startIndent
+                if startsPeerControl {
+                    endIndex = candidateIndex
+                    break
+                }
+            }
+        }
+        return lines[startIndex..<endIndex].joined(separator: "\n")
+    }
+
+    private func leadingWhitespaceCount(_ line: String) -> Int {
+        line.prefix { $0 == " " || $0 == "\t" }.count
     }
 }

@@ -64,6 +64,7 @@ struct QuillCodeSidebarThreadRowView: View {
                 } label: {
                     Text(action.kind.title)
                 }
+                .quillCodePlatformMenuItemTarget(reason: "AppKit owns thread action menu row geometry; the ellipsis trigger carries the custom hit-target contract.")
             }
         } label: {
             Image(systemName: "ellipsis")

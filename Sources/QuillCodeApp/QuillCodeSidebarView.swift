@@ -294,6 +294,7 @@ private struct QuillCodeSidebarUtilityActionsView: View {
                                     systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
                                 )
                             }
+                            .quillCodePlatformMenuItemTarget(reason: "AppKit owns sidebar tools menu row geometry; the Tools trigger carries the custom hit-target contract.")
                             .disabled(!command.isEnabled)
                         }
                     }

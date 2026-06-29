@@ -176,6 +176,7 @@ struct QuillCodeTopBarView: View {
                         Text(command.title)
                     }
                 }
+                .quillCodePlatformMenuItemTarget(reason: "AppKit owns top-bar overflow menu row geometry; the overflow trigger carries the custom hit-target contract.")
                 .disabled(!command.isEnabled)
             }
         } label: {
@@ -229,6 +230,7 @@ struct QuillCodeModePickerButton: View {
                         }
                     }
                 }
+                .quillCodePlatformMenuItemTarget(reason: "AppKit owns mode picker menu row geometry; the mode trigger carries the custom hit-target contract.")
             }
         } label: {
             HStack(spacing: 6) {
