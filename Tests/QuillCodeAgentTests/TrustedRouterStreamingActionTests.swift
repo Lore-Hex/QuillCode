@@ -46,6 +46,30 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertEqual(action, .say("hello"))
     }
 
+    func testCollectActionPublishesReasoningSummariesSeparatelyFromText() async throws {
+        var reasoning: [String] = []
+        let action = try await AgentActionStreamCollector.collect(
+            from: eventStream([
+                .reasoning("Inspecting request."),
+                .reasoning("Inspecting request."),
+                .reasoning("Choosing shell."),
+                .text(#"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}"#)
+            ]),
+            emptyError: AgentError.emptyStreamingResponse,
+            onVisibleAssistantText: nil,
+            onUsage: nil,
+            onReasoning: { summary in
+                reasoning.append(summary)
+            }
+        )
+
+        XCTAssertEqual(reasoning, ["Inspecting request.", "Choosing shell."])
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected streamed tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+    }
+
     func testStreamingPreviewExposesOnlySayText() {
         XCTAssertEqual(
             AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say","text":"hello\nwor"#),
@@ -59,6 +83,15 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         AsyncThrowingStream { continuation in
             for chunk in chunks {
                 continuation.yield(chunk)
+            }
+            continuation.finish()
+        }
+    }
+
+    private func eventStream(_ events: [AgentTextStreamEvent]) -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            for event in events {
+                continuation.yield(event)
             }
             continuation.finish()
         }

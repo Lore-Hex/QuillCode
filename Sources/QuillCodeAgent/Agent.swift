@@ -344,6 +344,10 @@ public struct AgentRunner: Sendable {
             },
             onUsage: { usage in
                 latestUsage = usage
+            },
+            onReasoning: { summary in
+                publishReasoningSummary(summary, in: &draftThread)
+                await onProgress?(draftThread)
             }
         )
 
@@ -363,6 +367,17 @@ public struct AgentRunner: Sendable {
         } else {
             thread.messages.append(.init(role: .assistant, content: text))
         }
+        thread.updatedAt = Date()
+    }
+
+    private static func publishReasoningSummary(_ summary: String, in thread: inout ChatThread) {
+        let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let notice = "Thinking: \(trimmed)"
+        guard thread.events.last?.kind != .notice || thread.events.last?.summary != notice else {
+            return
+        }
+        thread.events.append(.init(kind: .notice, summary: notice))
         thread.updatedAt = Date()
     }
 
