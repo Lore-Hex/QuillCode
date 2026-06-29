@@ -110,6 +110,7 @@ private struct QuillCodeProjectRowView: View {
                     } label: {
                         Text(action.kind.title)
                     }
+                    .quillCodePlatformMenuItemTarget(reason: "AppKit owns project action menu row geometry; the ellipsis trigger carries the custom hit-target contract.")
                     .disabled(!action.isEnabled)
                     .help(action.disabledReason ?? action.kind.title)
                 }

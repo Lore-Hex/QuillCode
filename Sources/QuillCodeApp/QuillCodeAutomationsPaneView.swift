@@ -62,12 +62,14 @@ struct QuillCodeAutomationsPaneView: View {
                     Button(createCommand.title) {
                         onCommand(createCommand)
                     }
+                    .quillCodePlatformMenuItemTarget(reason: "AppKit owns automation menu row geometry; the Create trigger carries the custom hit-target contract.")
                     .disabled(!createCommand.isEnabled)
                 }
                 if let createCommand = automations.createWorkspaceScheduleCommand {
                     Button(createCommand.title) {
                         onCommand(createCommand)
                     }
+                    .quillCodePlatformMenuItemTarget(reason: "AppKit owns automation menu row geometry; the Create trigger carries the custom hit-target contract.")
                     .disabled(!createCommand.isEnabled)
                 }
                 if !automations.scheduleThreadFollowUpCommands.isEmpty {
@@ -76,6 +78,7 @@ struct QuillCodeAutomationsPaneView: View {
                         Button(command.title) {
                             onCommand(command)
                         }
+                        .quillCodePlatformMenuItemTarget(reason: "AppKit owns automation menu row geometry; the Create trigger carries the custom hit-target contract.")
                         .disabled(!command.isEnabled)
                     }
                 }
@@ -85,6 +88,7 @@ struct QuillCodeAutomationsPaneView: View {
                         Button(command.title) {
                             onCommand(command)
                         }
+                        .quillCodePlatformMenuItemTarget(reason: "AppKit owns automation menu row geometry; the Create trigger carries the custom hit-target contract.")
                         .disabled(!command.isEnabled)
                     }
                 }

@@ -491,6 +491,10 @@ extension View {
             .accessibilityHidden(true)
     }
 
+    public func quillCodePlatformMenuItemTarget(reason: String) -> some View {
+        modifier(QuillCodePlatformMenuItemTargetModifier(reason: reason))
+    }
+
     func quillCodeSurface(
         fill: Color,
         radius: CGFloat,
@@ -576,5 +580,14 @@ private struct QuillCodeImageOutlineModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
             )
+    }
+}
+
+private struct QuillCodePlatformMenuItemTargetModifier: ViewModifier {
+    var reason: String
+
+    func body(content: Content) -> some View {
+        _ = reason
+        return content
     }
 }
