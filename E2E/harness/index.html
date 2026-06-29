@@ -6053,7 +6053,7 @@
                     <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
                     ${state.composer.isSending
                       ? '<button type="button" class="stop-button hit-target-text" data-testid="stop-button">Stop</button>'
-                      : `<button class="hit-target-icon" type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
+                      : `<button class="hit-target-text" type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
                   </div>
                   <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
                     <div class="model-picker-wrap">

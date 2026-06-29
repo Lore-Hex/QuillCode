@@ -133,6 +133,21 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="send-button""#))
     }
 
+    func testHTMLRendererSendButtonUsesTextHitTargetForItsLabel() {
+        let html = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel().surface())
+
+        // The "Send" label is a word, not a glyph, so it must use a text hit
+        // target that grows with its content. A fixed icon-sized (44pt square)
+        // target clips the label, matching the active-send "Stop" sibling.
+        XCTAssertTrue(html.contains(
+            #"class="hit-target-text" data-hit-target-kind="text" data-hit-target-action="press" data-hit-target-source="explicit" data-testid="send-button""#
+        ))
+        XCTAssertTrue(html.contains(">Send</button>"))
+        XCTAssertFalse(html.contains(
+            #"data-hit-target-kind="icon" data-hit-target-action="press" data-hit-target-source="explicit" data-testid="send-button""#
+        ))
+    }
+
     func testHTMLRendererIncludesEmptyStarterActions() {
         let html = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel().surface())
 

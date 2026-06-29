@@ -59,7 +59,7 @@ test('critical click-target registry covers primary workspace surfaces', async (
     { label: 'model picker', locator: page.getByTestId('model-picker-button'), expectedKind: 'capsule' },
     { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button'), expectedKind: 'icon' },
     { label: 'composer text entry', locator: page.getByLabel('Message'), expectedKind: 'text-entry' },
-    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'icon' }
+    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'text' }
   ]);
 
   await openTopBarOverflow(page);
@@ -161,7 +161,7 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await expectCriticalTargetRegistry('transcript tool card', [
     { label: 'tool disclosure', locator: page.getByTestId('tool-card-details').last().locator('summary'), expectedKind: 'row' },
     { label: 'message composer', locator: page.getByLabel('Message'), expectedKind: 'text-entry' },
-    { label: 'send after transcript update', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'icon' }
+    { label: 'send after transcript update', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'text' }
   ]);
 });
 

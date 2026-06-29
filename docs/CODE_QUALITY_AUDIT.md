@@ -16,6 +16,22 @@ Residual risk:
 
 - This is structured release evidence, not a new native packaged-window click driver. The next deeper proof layer remains live packaged UI automation using Accessibility/appshot-style frame sampling.
 
+## 2026-06-29 Composer Send Label Clipping Pass
+
+Overall grade after this slice: **A composer first-action legibility, A click-target semantics, A- regression-guard coverage**.
+
+The static/HTML composer "Send" button was rendered with an icon-sized hit target (`hitTargetKind: .icon`, a fixed 44pt square) even though its content is the word "Send". The base button style already sizes to content with horizontal padding, but the fixed icon width clamped the button to 44px and clipped the label, so the primary first-turn action read as a cut-off word. The existing horizontal-clipping audit only compared element bounding boxes to the viewport, so text-inside-box overflow passed.
+
+| Before | After |
+| --- | --- |
+| `WorkspaceHTMLTranscriptRenderer.renderComposer` emitted the Send button with `hitTargetKind: .icon`, so `hit-target-icon`'s `width: var(--hit-target)` clamped the labeled button to 44px and clipped "Send" (`scrollWidth` 58 vs `clientWidth` 44). | The Send button uses `hitTargetKind: .text` like its active-send "Stop" sibling, so it sizes to its label with the shared 18px button padding (`scrollWidth` == `clientWidth`). The native SwiftUI Send button keeps its `arrow.up` glyph + icon target and is unchanged. |
+| The clipping audit only checked geometry against the viewport, so a labeled control clipped by its own fixed-width target still passed. | A Playwright invariant asserts labeled composer controls (`send-button`, `model-picker-button`, `mode-picker-button`) never report `scrollWidth > clientWidth` and never declare the `icon` kind. The critical-target registry now expects the Send button's semantic kind to be `text`. |
+| No renderer-level test pinned the Send button's hit-target contract. | `WorkspaceHTMLChromeRendererTests` asserts the idle Send button renders the text hit-target class/kind/action and rejects the icon kind for that label. |
+
+Residual risk:
+
+- This pass fixes the one labeled control that used an icon target. A future sweep could assert at the primitive level that any `WorkspaceHTMLPrimitives.button` whose label is longer than a single glyph uses a non-icon hit target, rather than relying on per-control registry coverage.
+
 ## 2026-06-29 Real-World Playwright Gate Pass
 
 Overall grade after this slice: **A release-lane honesty, A browser-E2E coverage discipline, A- operator ergonomics**.

@@ -46,7 +46,7 @@ enum WorkspaceHTMLTranscriptRenderer {
                 "Send",
                 testID: "send-button",
                 type: "submit",
-                hitTargetKind: .icon,
+                hitTargetKind: .text,
                 disabled: !composer.canSend
             )
         return """
