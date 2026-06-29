@@ -408,6 +408,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         let actionFlowNames = [
             "runs natural shell requests immediately with nonempty arguments",
             "writes requested file content immediately without a confirmation loop",
+            "answers natural git read requests with structured git tools",
             "respects explicit negative action prompts without tool cards or side effects"
         ]
 
@@ -418,6 +419,11 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionSpecText.contains("quillcode_polite_smoke"), "Focused real-world action flows should cover polite bare command follow-through.")
         XCTAssertTrue(actionSpecText.contains("Can you list the files here?"), "Focused real-world action flows should cover natural workspace listing.")
         XCTAssertTrue(actionSpecText.contains("Can you show me the current directory?"), "Focused real-world action flows should cover natural current-directory diagnostics.")
+        XCTAssertTrue(actionSpecText.contains("Please check git status."), "Focused real-world action flows should cover natural git status requests.")
+        XCTAssertTrue(actionSpecText.contains("what changed?"), "Focused real-world action flows should cover natural git diff requests.")
+        XCTAssertTrue(actionSpecText.contains("host.git.status"), "Focused real-world action flows should use the structured git status tool.")
+        XCTAssertTrue(actionSpecText.contains("host.git.diff"), "Focused real-world action flows should use the structured git diff tool.")
+        XCTAssertTrue(actionSpecText.contains("git status uses host.git.status instead of shell fallback"), "Focused real-world action evidence should guard against shell fallback for git status.")
         XCTAssertTrue(actionSpecText.contains("Do not run whoami."), "Focused real-world action flows should cover explicit negative shell intent.")
         XCTAssertTrue(actionSpecText.contains("forbidden.txt"), "Focused real-world action flows should prove explicit negative write intent has no artifact side effect.")
         XCTAssertTrue(actionSpecText.contains("downloads/forbidden.html"), "Focused real-world action flows should prove explicit negative download intent has no artifact side effect.")

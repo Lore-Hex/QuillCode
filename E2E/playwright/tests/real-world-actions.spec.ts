@@ -59,6 +59,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
     ]
   },
   {
+    name: 'answers natural git read requests with structured git tools',
+    prompts: ['Please check git status.', 'what changed?'],
+    expectedToolNames: ['host.git.status', 'host.git.diff'],
+    regressionGuards: [
+      'git status uses host.git.status instead of shell fallback',
+      'natural diff wording uses host.git.diff',
+      'git read outputs render as final chat text'
+    ]
+  },
+  {
     name: 'respects explicit negative action prompts without tool cards or side effects',
     prompts: [
       'Do not run whoami.',
@@ -239,6 +249,32 @@ test('downloads requested domains with a bounded concrete shell action', async (
   await expect(page.getByText('Downloaded to `downloads/linkedin.com.html`.')).toBeVisible();
   await expect(page.getByText(/No shell command was specified/i)).toHaveCount(0);
   await expect(page.getByText(/I'?ll download|should I|do you want me to|confirm user intent/i)).toHaveCount(0);
+});
+
+test('answers natural git read requests with structured git tools', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('Please check git status.');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.status');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('Sources/App.swift');
+  await expect(page.getByText(/Git status:\s*## main\s*M Sources\/App.swift/)).toBeVisible();
+  await expect(page.getByText(/No shell command was specified|I'?ll check|should I|do you want me to/i)).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('what changed?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('{}');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('diff --git a/Sources/App.swift b/Sources/App.swift');
+  await expect(page.getByText(/Git diff:\s*diff --git a\/Sources\/App.swift b\/Sources\/App.swift/)).toBeVisible();
+  await expect(page.getByText(/No shell command was specified|I'?ll check|should I|do you want me to/i)).toHaveCount(0);
 });
 
 test('respects explicit negative action prompts without tool cards or side effects', async ({ page }) => {

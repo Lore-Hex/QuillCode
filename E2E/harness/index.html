@@ -9083,7 +9083,7 @@
         inputJSON: JSON.stringify({}, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
       });
-      addMessage('assistant', 'Output:\n' + stdout);
+      addMessage('assistant', 'Git status:\n' + stdout);
       render();
     }
 
@@ -9097,7 +9097,7 @@
         inputJSON: JSON.stringify({}, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
       });
-      addMessage('assistant', 'Output:\n' + diff);
+      addMessage('assistant', 'Git diff:\n' + diff);
       render();
     }
 
@@ -10843,6 +10843,35 @@
       return asksForFiles && asksForListing && scopesWorkspace;
     }
 
+    function isNaturalGitDiffRequest(text) {
+      const lower = String(text || '').toLowerCase();
+      const words = promptWordSet(text);
+      if (lower.includes('git diff')
+        || lower.includes('what changed')
+        || lower.includes('what has changed')
+        || lower.includes('show me the changes')
+        || lower.includes('show changes')) {
+        return true;
+      }
+      if (words.has('diff') && (words.has('git') || words.has('changes'))) {
+        return true;
+      }
+      return words.has('review') && words.has('changes');
+    }
+
+    function isNaturalGitStatusRequest(text) {
+      const lower = String(text || '').toLowerCase();
+      const words = promptWordSet(text);
+      if (lower.includes('git status')
+        || lower.includes('repo status')
+        || lower.includes('repository status')
+        || lower.includes('working tree status')
+        || lower.includes('working directory status')) {
+        return true;
+      }
+      return words.has('status') && (words.has('git') || words.has('repo'));
+    }
+
     function mockShellOutputForPrompt(command, selectedProject, isRemoteProject) {
       const cmd = command.trim();
       if (isRemoteProject) return remoteTerminalOutput(cmd, selectedProject.path, {});
@@ -12513,10 +12542,10 @@
           outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
         });
         addMessage('assistant', 'Patch applied. Review the resulting diff below.');
-      } else if (text.toLowerCase().includes('git diff')) {
+      } else if (isNaturalGitDiffRequest(text)) {
         runGitDiffAction();
         return;
-      } else if (text.toLowerCase().includes('git status')) {
+      } else if (isNaturalGitStatusRequest(text)) {
         runGitStatusAction();
         return;
       } else if (isNaturalCurrentDirectoryRequest(text)) {
