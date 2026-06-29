@@ -407,7 +407,8 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         )
         let actionFlowNames = [
             "runs natural shell requests immediately with nonempty arguments",
-            "writes requested file content immediately without a confirmation loop"
+            "writes requested file content immediately without a confirmation loop",
+            "respects explicit negative action prompts without tool cards or side effects"
         ]
 
         XCTAssertTrue(actionSpecText.contains("harnessURL()"), "Focused real-world action flows should reuse the shared harness URL helper.")
@@ -417,6 +418,9 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionSpecText.contains("quillcode_polite_smoke"), "Focused real-world action flows should cover polite bare command follow-through.")
         XCTAssertTrue(actionSpecText.contains("Can you list the files here?"), "Focused real-world action flows should cover natural workspace listing.")
         XCTAssertTrue(actionSpecText.contains("Can you show me the current directory?"), "Focused real-world action flows should cover natural current-directory diagnostics.")
+        XCTAssertTrue(actionSpecText.contains("Do not run whoami."), "Focused real-world action flows should cover explicit negative shell intent.")
+        XCTAssertTrue(actionSpecText.contains("forbidden.txt"), "Focused real-world action flows should prove explicit negative write intent has no artifact side effect.")
+        XCTAssertTrue(actionSpecText.contains("downloads/forbidden.html"), "Focused real-world action flows should prove explicit negative download intent has no artifact side effect.")
         XCTAssertTrue(actionSpecText.contains("No shell command was specified"), "Focused real-world action flows should guard against empty shell argument regressions.")
         XCTAssertTrue(actionSpecText.contains("confirmation loop"), "Focused real-world action flows should guard against extra acknowledgement turns.")
         for flowName in actionFlowNames {

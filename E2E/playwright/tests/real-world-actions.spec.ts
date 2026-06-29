@@ -143,3 +143,33 @@ test('downloads requested domains with a bounded concrete shell action', async (
   await expect(page.getByText(/No shell command was specified/i)).toHaveCount(0);
   await expect(page.getByText(/I'?ll download|should I|do you want me to|confirm user intent/i)).toHaveCount(0);
 });
+
+test('respects explicit negative action prompts without tool cards or side effects', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('Do not run whoami.');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('message')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card')).toHaveCount(0);
+  await expect(page.getByText("Okay, I won't take that action.")).toBeVisible();
+  await expect(page.getByText(/You are `mock-user`|No shell command was specified/i)).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('Do not write `forbidden.txt` with content `nope`.');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('message')).toHaveCount(4);
+  await expect(page.getByTestId('tool-card')).toHaveCount(0);
+  await expect(page.getByText("Okay, I won't take that action.")).toHaveCount(2);
+  await expect(page.getByText('Wrote `forbidden.txt`.')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveCount(0);
+
+  await page.getByLabel('Message').fill("Don't download https://example.com into `downloads/forbidden.html`.");
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('message')).toHaveCount(6);
+  await expect(page.getByTestId('tool-card')).toHaveCount(0);
+  await expect(page.getByText("Okay, I won't take that action.")).toHaveCount(3);
+  await expect(page.getByText('Downloaded to `downloads/forbidden.html`.')).toHaveCount(0);
+  await expect(page.getByText(/I'?ll run|I'?ll write|I'?ll download|should I|do you want me to/i)).toHaveCount(0);
+});

@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Negative-Intent Real-World Smoke Pass
+
+Overall grade after this slice: **A release-smoke intent coverage, A desktop/UI no-side-effect evidence, A- live-provider negation breadth**.
+
+The previous negation pass fixed production immediate-action planning, but its strongest coverage lived in parser and agent unit tests. Real users see the app surface, smoke scripts, and release artifacts, so explicit negative instructions need to be proven there too.
+
+| Before | After |
+| --- | --- |
+| Deterministic smoke proved `run`, `write`, and `download` execute immediately, but did not prove their negative forms avoid execution. | `scripts/smoke.sh` now has a dedicated negative-action step for `Do not run`, `Do not write`, and `Don't download`, and checks that forbidden files are absent. |
+| Playwright real-world actions only covered positive tool cards and no passive-promise regressions. | The focused real-world spec now covers no tool cards, no artifacts, and the visible non-action response for shell, file-write, and download negations. |
+| Native desktop controller smoke proved one-turn action execution, but not no-side-effect behavior for all-negated prompts. | The desktop controller smoke now sends the same negative prompts through the real controller and asserts no new tool card and no forbidden workspace file. |
+
+Residual risk:
+
+- Live TrustedRouter smoke still emphasizes positive execution and transcript integrity. A future pass should add live-provider negative-intent scenarios once transcript integrity can distinguish intentional no-tool answers from missing tool coverage without making provider wording flaky.
+
 ## 2026-06-29 Immediate-Action Negation Safety Pass
 
 Overall grade after this slice: **A preflight safety boundary, A deterministic mock consistency, A- broad natural-language negation coverage**.

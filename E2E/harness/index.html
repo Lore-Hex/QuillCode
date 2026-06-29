@@ -10717,6 +10717,62 @@
       return new Set(String(text || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
     }
 
+    function isOnlyNegatedActionRequest(text) {
+      const clauses = String(text || '')
+        .split(/;|[?!]|\n|\.(?:\s|$)/)
+        .map(segment => segment.trim())
+        .filter(Boolean);
+      if (!clauses.length) return false;
+      const hasNegatedAction = clauses.some(containsNegatedActionIntent);
+      if (!hasNegatedAction) return false;
+      return !clauses
+        .filter(segment => !containsNegatedActionIntent(segment))
+        .some(containsActionIntent);
+    }
+
+    function containsNegatedActionIntent(segment) {
+      const tokens = actionIntentTokens(segment);
+      const actionIndex = tokens.findIndex(token => actionIntentWords.has(token));
+      if (actionIndex < 0) return false;
+      const prefix = tokens.slice(Math.max(0, actionIndex - 6), actionIndex);
+      if (prefix.some(token => ['dont', 'never', 'without'].includes(token))) return true;
+      if (prefix.at(-1) === 'no') return true;
+      return hasAdjacentTokens(prefix, 'do', 'not')
+        || hasAdjacentTokens(prefix, 'does', 'not')
+        || hasAdjacentTokens(prefix, 'did', 'not');
+    }
+
+    function containsActionIntent(segment) {
+      return actionIntentTokens(segment).some(token => actionIntentWords.has(token));
+    }
+
+    const actionIntentWords = new Set([
+      'check',
+      'create',
+      'download',
+      'execute',
+      'fetch',
+      'list',
+      'make',
+      'read',
+      'run',
+      'save',
+      'show',
+      'write'
+    ]);
+
+    function actionIntentTokens(value) {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/['’]/g, '')
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean);
+    }
+
+    function hasAdjacentTokens(tokens, first, second) {
+      return tokens.some((token, index) => token === first && tokens[index + 1] === second);
+    }
+
     function isNaturalCurrentDirectoryRequest(text) {
       const lower = String(text || '').toLowerCase();
       const words = promptWordSet(text);
@@ -11984,7 +12040,9 @@
       const isRemoteProject = Boolean(selectedProject?.isRemote);
       const browserTarget = browserOpenTargetFromPrompt(text);
       const fileWriteRequest = fileWriteRequestFromPrompt(text);
-      if (text.toLowerCase().includes('slow task')) {
+      if (isOnlyNegatedActionRequest(text)) {
+        addMessage('assistant', "Okay, I won't take that action.");
+      } else if (text.toLowerCase().includes('slow task')) {
         const card = addToolCard({
           title: 'host.shell.run',
           subtitle: 'Running',

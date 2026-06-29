@@ -253,6 +253,58 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         }
     }
 
+    func testDesktopControllerRespectsOnlyNegatedActionPromptsWithoutSideEffects() async throws {
+        let workspaceRoot = try makeTempDirectory()
+        let controller = try makeController(workspaceRoot: workspaceRoot)
+        let cases = [
+            DesktopNegativeActionSmokeCase(
+                prompt: "Do not run whoami.",
+                forbiddenOutput: "You are `",
+                absentPath: nil
+            ),
+            DesktopNegativeActionSmokeCase(
+                prompt: "Do not write `forbidden.txt` with content `nope`.",
+                forbiddenOutput: "Wrote `forbidden.txt`.",
+                absentPath: "forbidden.txt"
+            ),
+            DesktopNegativeActionSmokeCase(
+                prompt: "Don't download https://example.com into `downloads/forbidden.html`.",
+                forbiddenOutput: "Downloaded to `downloads/forbidden.html`.",
+                absentPath: "downloads/forbidden.html"
+            )
+        ]
+
+        for testCase in cases {
+            let previousTimelineCount = controller.surface.transcript.timelineItems.count
+            let previousToolCount = controller.surface.transcript.toolCards.count
+            controller.draft = testCase.prompt
+            controller.send()
+
+            try await waitForDesktopRun(
+                controller,
+                previousTimelineCount: previousTimelineCount,
+                expectedAnswer: "Okay, I won't take that action.",
+                expectedTimelineDelta: 2
+            )
+
+            let surface = controller.surface
+            XCTAssertFalse(surface.composer.isSending, testCase.prompt)
+            XCTAssertNil(surface.lastError, testCase.prompt)
+            XCTAssertEqual(surface.transcript.toolCards.count, previousToolCount, testCase.prompt)
+            XCTAssertFalse(surface.transcript.messages.last?.text.contains(testCase.forbiddenOutput) == true, testCase.prompt)
+            XCTAssertFalse(
+                surface.transcript.messages.contains { $0.text.localizedCaseInsensitiveContains("No shell command was specified") },
+                testCase.prompt
+            )
+            if let absentPath = testCase.absentPath {
+                XCTAssertFalse(
+                    FileManager.default.fileExists(atPath: workspaceRoot.appendingPathComponent(absentPath).path),
+                    testCase.prompt
+                )
+            }
+        }
+    }
+
     func testDesktopControllerReadsBackCreatedWorkspaceFileInFollowupTurn() async throws {
         let workspaceRoot = try makeTempDirectory()
         let controller = try makeController(workspaceRoot: workspaceRoot)
@@ -315,6 +367,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         _ controller: QuillCodeDesktopController,
         previousTimelineCount: Int,
         expectedAnswer: String,
+        expectedTimelineDelta: Int = 3,
         file: StaticString = #filePath,
         line: UInt = #line
     ) async throws {
@@ -322,7 +375,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
             let timelineCount = controller.surface.transcript.timelineItems.count
             let latestAnswer = controller.surface.transcript.messages.last?.text ?? ""
             if !controller.surface.composer.isSending,
-               timelineCount >= previousTimelineCount + 3,
+               timelineCount >= previousTimelineCount + expectedTimelineDelta,
                latestAnswer.contains(expectedAnswer) {
                 return
             }
@@ -386,6 +439,12 @@ private struct DesktopRealWorldSmokeCase {
     var inputContains: [String]
     var answerContains: String
     var sideEffect: DesktopRealWorldSmokeSideEffect?
+}
+
+private struct DesktopNegativeActionSmokeCase {
+    var prompt: String
+    var forbiddenOutput: String
+    var absentPath: String?
 }
 
 private enum DesktopRealWorldSmokeSideEffect {
