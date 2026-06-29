@@ -19,12 +19,16 @@ EXPECTED_SAMPLE_POINTS = {
 }
 
 
+def load_json_object(path: Path, label: str) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as json_file:
+        value = json.load(json_file)
+    if not isinstance(value, dict):
+        raise SystemExit(f"{label} at {path} did not contain a JSON object")
+    return value
+
+
 def load_report(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as report_file:
-        report = json.load(report_file)
-    if not isinstance(report, dict):
-        raise SystemExit(f"{path} did not contain a JSON object")
-    return report
+    return load_json_object(path, "native smoke report")
 
 
 def native_targets(report: dict[str, Any], label: str) -> dict[str, Any]:
@@ -201,6 +205,60 @@ def write_comparison_manifest(
         manifest_file.write("\n")
 
 
+def validated_comparison_manifest(path: Path) -> dict[str, Any]:
+    manifest = load_json_object(path, "packaged click probe manifest")
+    if manifest.get("ok") is not True:
+        raise SystemExit(f"{path} does not record a passing packaged click-probe comparison")
+    if manifest.get("launchServicesMatchesDirect") is not True:
+        raise SystemExit(f"{path} does not prove Launch Services probes match direct executable probes")
+
+    for key in ("directReport", "launchServicesReport"):
+        if not isinstance(manifest.get(key), str) or not manifest[key].strip():
+            raise SystemExit(f"{path} is missing {key}")
+    if not isinstance(manifest.get("contractIDs"), list) or not all(isinstance(value, str) for value in manifest["contractIDs"]):
+        raise SystemExit(f"{path} has malformed contractIDs")
+    if not isinstance(manifest.get("samplePointNames"), list) or sorted(manifest["samplePointNames"]) != sorted(EXPECTED_SAMPLE_POINTS):
+        raise SystemExit(f"{path} does not list the required click-probe sample points")
+    if manifest.get("clickProbeCount") != len(manifest["contractIDs"]):
+        raise SystemExit(f"{path} clickProbeCount does not match contractIDs")
+    return manifest
+
+
+def write_accessibility_readiness_manifest(artifact_root: Path, manifest_path: Path) -> None:
+    click_probe_manifest_path = artifact_root / "packaged-click-probes.json"
+    packaged_manifest = validated_comparison_manifest(click_probe_manifest_path)
+
+    direct_report_path = artifact_root / packaged_manifest["directReport"]
+    launch_services_report_path = artifact_root / packaged_manifest["launchServicesReport"]
+    direct_probe_contracts = normalized_probe_contracts(load_report(direct_report_path), "direct executable")
+    launch_services_probe_contracts = normalized_probe_contracts(load_report(launch_services_report_path), "Launch Services")
+    if direct_probe_contracts != launch_services_probe_contracts:
+        raise SystemExit("Packaged readiness cannot proceed because Launch Services click probes drifted from direct executable probes")
+
+    contract_ids = [probe["contractID"] for probe in direct_probe_contracts]
+    if sorted(contract_ids) != sorted(packaged_manifest["contractIDs"]):
+        raise SystemExit("Packaged readiness cannot proceed because packaged manifest contract IDs drift from report probes")
+
+    readiness = {
+        "ok": True,
+        "stage": "report-ready-for-accessibility-frame-sampling",
+        "artifactRoot": ".",
+        "clickProbeManifest": "packaged-click-probes.json",
+        "directReport": packaged_manifest["directReport"],
+        "launchServicesReport": packaged_manifest["launchServicesReport"],
+        "launchServicesMatchesDirect": True,
+        "clickProbeCount": len(direct_probe_contracts),
+        "contractIDs": contract_ids,
+        "requiredSamplePointNames": sorted(EXPECTED_SAMPLE_POINTS),
+        "minimumHitTarget": MINIMUM_HIT_TARGET,
+        "liveAccessibilitySampling": "not-run",
+        "nextLayer": "resolve selectors to live packaged-window accessibility frames and click center plus interior samples",
+    }
+    with manifest_path.open("w", encoding="utf-8") as manifest_file:
+        json.dump(readiness, manifest_file, indent=2, sort_keys=True)
+        manifest_file.write("\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -214,11 +272,17 @@ def main() -> None:
     compare_parser.add_argument("launch_services_report", type=Path)
     compare_parser.add_argument("--manifest", required=True, type=Path)
 
+    readiness_parser = subparsers.add_parser("readiness", help="write packaged native Accessibility readiness evidence")
+    readiness_parser.add_argument("artifact_root", type=Path)
+    readiness_parser.add_argument("--manifest", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
     elif args.command == "compare":
         write_comparison_manifest(args.direct_report, args.launch_services_report, args.manifest)
+    elif args.command == "readiness":
+        write_accessibility_readiness_manifest(args.artifact_root, args.manifest)
 
 
 if __name__ == "__main__":

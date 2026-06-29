@@ -7,6 +7,7 @@ APP_OUTPUT_DIR="$SMOKE_ROOT/app"
 DIRECT_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/direct-executable"
 LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/launch-services"
 CLICK_PROBE_MANIFEST="$SMOKE_ROOT/packaged-click-probes.json"
+ACCESSIBILITY_READINESS_MANIFEST="$SMOKE_ROOT/packaged-accessibility-readiness.json"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 ARTIFACT_DIR="${QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR:-}"
@@ -31,6 +32,9 @@ cleanup() {
     if [[ -e "$CLICK_PROBE_MANIFEST" ]]; then
       cp "$CLICK_PROBE_MANIFEST" "$ARTIFACT_DIR/packaged-click-probes.json"
     fi
+    if [[ -e "$ACCESSIBILITY_READINESS_MANIFEST" ]]; then
+      cp "$ACCESSIBILITY_READINESS_MANIFEST" "$ARTIFACT_DIR/packaged-accessibility-readiness.json"
+    fi
     if [[ -e "$WINDOW_REPORT_PATH" ]]; then
       cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
     fi
@@ -47,6 +51,7 @@ cleanup() {
       printf 'direct_smoke=direct-executable\n'
       printf 'launch_services_smoke=launch-services\n'
       printf 'click_probe_manifest=packaged-click-probes.json\n'
+      printf 'accessibility_readiness_manifest=packaged-accessibility-readiness.json\n'
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
@@ -133,6 +138,10 @@ QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR
   "$DIRECT_SMOKE_ARTIFACT_DIR/report.json" \
   "$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR/report.json" \
   --manifest "$CLICK_PROBE_MANIFEST"
+
+"$ROOT_DIR/scripts/native-click-probe-contracts.py" readiness \
+  "$SMOKE_ROOT" \
+  --manifest "$ACCESSIBILITY_READINESS_MANIFEST"
 
 echo "==> Running packaged macOS app live-window smoke"
 (

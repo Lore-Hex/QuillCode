@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Packaged Accessibility Readiness Manifest Pass
+
+Overall grade after this slice: **A release artifact contract, A click-probe reuse, A- live Accessibility frame sampling**.
+
+Packaged smoke compared direct executable and Launch Services click probes, but the next native UI automation layer still had to infer whether the artifact folder contained every input needed to resolve live Accessibility frames.
+
+| Before | After |
+| --- | --- |
+| `packaged-click-probes.json` proved direct-vs-Launch Services parity, but no artifact stated that the packaged smoke folder was ready for frame-sampling automation. | `scripts/native-click-probe-contracts.py readiness` reloads `packaged-click-probes.json`, direct executable `report.json`, and Launch Services `report.json`, verifies they still agree, and writes `packaged-accessibility-readiness.json`. |
+| Reviewers had to know which report paths and sample names the future Accessibility runner should consume. | The relocatable readiness manifest records report paths, contract IDs, required sample names, 44 pt minimum target size, and the explicit next layer: resolving selectors to live packaged-window frames and clicking center plus interior samples. |
+| Packaged smoke artifacts preserved only the click-probe comparison. | `scripts/packaged-macos-smoke.sh` now preserves the readiness manifest beside the direct/Launch Services reports, click-probe manifest, and `Info.plist`. |
+
+Residual risk:
+
+- This still does not synthesize native mouse or keyboard events against the packaged app. The final A+ layer remains a macOS Accessibility/appshot runner that launches the packaged window, resolves the manifest selectors to live frames, and performs the center plus interior click samples.
+
 ## 2026-06-29 Native Click-Probe Validator DRY Pass
 
 Overall grade after this slice: **A click-probe architecture, A smoke maintainability, A- live Accessibility frame sampling**.
