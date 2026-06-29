@@ -423,11 +423,31 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionSpecText.contains("downloads/forbidden.html"), "Focused real-world action flows should prove explicit negative download intent has no artifact side effect.")
         XCTAssertTrue(actionSpecText.contains("No shell command was specified"), "Focused real-world action flows should guard against empty shell argument regressions.")
         XCTAssertTrue(actionSpecText.contains("confirmation loop"), "Focused real-world action flows should guard against extra acknowledgement turns.")
+        XCTAssertTrue(actionSpecText.contains("QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR"), "Focused real-world action flows should publish a release-smoke evidence manifest.")
+        XCTAssertTrue(actionSpecText.contains("playwright-real-world-actions-manifest.json"), "Focused real-world action evidence should have a stable manifest name.")
+        XCTAssertTrue(actionSpecText.contains("regressionGuardCount"), "Focused real-world action evidence should summarize regression guard coverage.")
         for flowName in actionFlowNames {
             XCTAssertTrue(actionSpecText.contains(flowName), "\(flowName) should live in real-world-actions.spec.ts.")
             XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
             XCTAssertFalse(artifactSpecText.contains(flowName), "\(flowName) should not drift back into artifacts.spec.ts.")
         }
+    }
+
+    func testDeterministicSmokeCollectsPlaywrightRealWorldActionEvidence() throws {
+        let packageRoot = Self.packageRoot()
+        let smokeScriptText = try String(
+            contentsOf: packageRoot.appendingPathComponent("scripts/smoke.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            smokeScriptText.contains("QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR"),
+            "Deterministic smoke should pass an artifact directory to Playwright real-world action tests."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains("$ARTIFACT_DIR/playwright-real-world"),
+            "Deterministic smoke should collect real-world Playwright artifacts beside other release evidence."
+        )
     }
 
     func testPlaywrightResponsivenessBudgetsStayInFocusedSpec() throws {

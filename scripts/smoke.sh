@@ -354,7 +354,11 @@ if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
   PLAYWRIGHT_STATUS="running"
   PLAYWRIGHT_DETAIL="running"
   FINAL_DETAIL="Playwright E2E failed"
-  (cd "$ROOT_DIR/E2E/playwright" && npm test)
+  (
+    cd "$ROOT_DIR/E2E/playwright"
+    QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/playwright-real-world}" \
+      npm test
+  )
   PLAYWRIGHT_STATUS="passed"
   PLAYWRIGHT_DETAIL="completed"
 elif is_truthy "$REQUIRE_PLAYWRIGHT"; then

@@ -1,5 +1,102 @@
 import { test, expect } from '@playwright/test';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { harnessURL } from './harness-helpers';
+
+type RealWorldEvidenceScenario = {
+  name: string;
+  prompts: string[];
+  expectedToolNames: string[];
+  regressionGuards: string[];
+};
+
+const evidenceScenarios: RealWorldEvidenceScenario[] = [
+  {
+    name: 'runs natural shell requests immediately with nonempty arguments',
+    prompts: [
+      'whoami?',
+      'Run `ls`',
+      'Please run `printf quillcode_now_smoke` now and report the output.',
+      'Can you run printf quillcode_polite_smoke?',
+      'Can you list the files here?',
+      'Can you show me the current directory?'
+    ],
+    expectedToolNames: ['host.shell.run'],
+    regressionGuards: [
+      'shell arguments are never {}',
+      'assistant does not answer with passive promises',
+      'output is visible in the chat transcript'
+    ]
+  },
+  {
+    name: 'writes requested file content immediately without a confirmation loop',
+    prompts: ['Can you write a file that says "hello world"'],
+    expectedToolNames: ['host.file.write'],
+    regressionGuards: [
+      'file write arguments include path and content',
+      'artifact preview renders the written file',
+      'assistant does not ask for a second confirmation'
+    ]
+  },
+  {
+    name: 'answers device diagnostic prompts with concrete shell actions',
+    prompts: ['How much hd?', 'Do you have openclaw?'],
+    expectedToolNames: ['host.shell.run'],
+    regressionGuards: [
+      'diagnostic shell arguments are never {}',
+      'device answers are rendered as final chat text',
+      'empty shell failures stay absent'
+    ]
+  },
+  {
+    name: 'downloads requested domains with a bounded concrete shell action',
+    prompts: ['Can you download LinkedIn.com?'],
+    expectedToolNames: ['host.shell.run'],
+    regressionGuards: [
+      'download command is bounded to a workspace-relative output path',
+      'download command is concrete and nonempty',
+      'safety review does not block clear user intent'
+    ]
+  },
+  {
+    name: 'respects explicit negative action prompts without tool cards or side effects',
+    prompts: [
+      'Do not run whoami.',
+      'Do not write `forbidden.txt` with content `nope`.',
+      "Don't download https://example.com into `downloads/forbidden.html`."
+    ],
+    expectedToolNames: [],
+    regressionGuards: [
+      'negative shell intent creates no tool card',
+      'negative write intent creates no artifact',
+      'negative download intent creates no artifact'
+    ]
+  }
+];
+
+test.afterAll(() => {
+  const artifactDir = process.env.QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR;
+  if (!artifactDir) {
+    return;
+  }
+
+  mkdirSync(artifactDir, { recursive: true });
+  writeFileSync(
+    join(artifactDir, 'playwright-real-world-actions-manifest.json'),
+    `${JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      suite: 'playwright-real-world-actions',
+      scenarioCount: evidenceScenarios.length,
+      promptCount: evidenceScenarios.reduce((count, scenario) => count + scenario.prompts.length, 0),
+      regressionGuardCount: evidenceScenarios.reduce(
+        (count, scenario) => count + scenario.regressionGuards.length,
+        0
+      ),
+      scenarios: evidenceScenarios
+    }, null, 2)}\n`,
+    'utf8'
+  );
+});
 
 test('runs natural shell requests immediately with nonempty arguments', async ({ page }) => {
   await page.goto(harnessURL());
