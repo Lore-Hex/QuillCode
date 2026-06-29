@@ -15,6 +15,7 @@ extension QuillCodeWorkspaceModel {
         )
         root.selectedProjectID = result.projectID
         syncTerminalSessionToSelectedProject()
+        refreshFileMentionIndex()
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return result.projectID
@@ -29,6 +30,7 @@ extension QuillCodeWorkspaceModel {
         case .success(let result):
             root.selectedProjectID = result.projectID
             syncTerminalSessionToSelectedProject()
+            refreshFileMentionIndex()
             saveProjects()
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return result.projectID

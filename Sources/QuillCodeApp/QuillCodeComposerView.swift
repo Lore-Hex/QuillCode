@@ -1,9 +1,11 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeTools
 
 struct QuillCodeComposerView: View {
     var composer: ComposerSurface
     var topBar: TopBarSurface
+    var fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex()
     @Binding var draft: String
     @Binding var isModelPickerPresented: Bool
     var isFocused: FocusState<Bool>.Binding
@@ -15,6 +17,7 @@ struct QuillCodeComposerView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var activeSlashSuggestionIndex = 0
+    @State private var activeFileMentionIndex = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -25,6 +28,13 @@ struct QuillCodeComposerView: View {
                     onSelect: acceptSlashSuggestion
                 )
                 .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .bottom)))
+            } else if !fileMentionSuggestions.isEmpty {
+                QuillCodeFileMentionSuggestionPanel(
+                    suggestions: fileMentionSuggestions,
+                    selectedIndex: activeFileMentionIndex,
+                    onSelect: acceptFileMention
+                )
+                .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .bottom)))
             }
 
             composerSurface
@@ -33,12 +43,20 @@ struct QuillCodeComposerView: View {
         .background(QuillCodePalette.panel)
         .onChange(of: draft) { _, _ in
             activeSlashSuggestionIndex = 0
+            activeFileMentionIndex = 0
         }
         .onChange(of: slashSuggestions) { _, suggestions in
             if suggestions.isEmpty {
                 activeSlashSuggestionIndex = 0
             } else {
                 activeSlashSuggestionIndex = min(activeSlashSuggestionIndex, suggestions.count - 1)
+            }
+        }
+        .onChange(of: fileMentionSuggestions) { _, suggestions in
+            if suggestions.isEmpty {
+                activeFileMentionIndex = 0
+            } else {
+                activeFileMentionIndex = min(activeFileMentionIndex, suggestions.count - 1)
             }
         }
     }
@@ -64,7 +82,7 @@ struct QuillCodeComposerView: View {
     }
 
     private var composerSurfaceStroke: Color {
-        if !slashSuggestions.isEmpty {
+        if !slashSuggestions.isEmpty || !fileMentionSuggestions.isEmpty {
             return QuillCodePalette.blue.opacity(0.34)
         }
         return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
@@ -72,6 +90,11 @@ struct QuillCodeComposerView: View {
 
     private var slashSuggestions: [SlashCommandSuggestionSurface] {
         SlashCommandCatalog.suggestions(for: draft)
+    }
+
+    private var fileMentionSuggestions: [FileMentionSuggestionSurface] {
+        guard slashSuggestions.isEmpty else { return [] }
+        return FileMentionCatalog.suggestions(for: draft, in: fileMentionIndex)
     }
 
     private var canSendDraft: Bool {
@@ -111,22 +134,36 @@ struct QuillCodeComposerView: View {
             .disabled(composer.isSending)
             .focused(isFocused)
             .onKeyPress(.downArrow) {
-                guard !slashSuggestions.isEmpty else { return .ignored }
-                activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, slashSuggestions.count - 1)
-                return .handled
+                if !slashSuggestions.isEmpty {
+                    activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, slashSuggestions.count - 1)
+                    return .handled
+                }
+                if !fileMentionSuggestions.isEmpty {
+                    activeFileMentionIndex = min(activeFileMentionIndex + 1, fileMentionSuggestions.count - 1)
+                    return .handled
+                }
+                return .ignored
             }
             .onKeyPress(.upArrow) {
-                guard !slashSuggestions.isEmpty else { return .ignored }
-                activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
-                return .handled
+                if !slashSuggestions.isEmpty {
+                    activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
+                    return .handled
+                }
+                if !fileMentionSuggestions.isEmpty {
+                    activeFileMentionIndex = max(activeFileMentionIndex - 1, 0)
+                    return .handled
+                }
+                return .ignored
             }
             .onKeyPress(.tab) {
-                guard acceptActiveSlashSuggestion(force: true) else { return .ignored }
-                return .handled
+                if acceptActiveSlashSuggestion(force: true) { return .handled }
+                if acceptActiveFileMention(force: true) { return .handled }
+                return .ignored
             }
             .onKeyPress(.return) {
-                guard acceptActiveSlashSuggestion(force: false) else { return .ignored }
-                return .handled
+                if acceptActiveSlashSuggestion(force: false) { return .handled }
+                if acceptActiveFileMention(force: false) { return .handled }
+                return .ignored
             }
             .onSubmit(onSend)
             .accessibilityLabel("Message")
@@ -184,6 +221,22 @@ struct QuillCodeComposerView: View {
     }
 
     private func acceptSlashSuggestion(_ suggestion: SlashCommandSuggestionSurface) {
+        draft = suggestion.insertText
+        DispatchQueue.main.async {
+            isFocused.wrappedValue = true
+        }
+    }
+
+    private func acceptActiveFileMention(force: Bool) -> Bool {
+        guard !fileMentionSuggestions.isEmpty else { return false }
+        let index = min(max(activeFileMentionIndex, 0), fileMentionSuggestions.count - 1)
+        let suggestion = fileMentionSuggestions[index]
+        guard force || draft != suggestion.insertText else { return false }
+        acceptFileMention(suggestion)
+        return true
+    }
+
+    private func acceptFileMention(_ suggestion: FileMentionSuggestionSurface) {
         draft = suggestion.insertText
         DispatchQueue.main.async {
             isFocused.wrappedValue = true
@@ -277,5 +330,93 @@ private struct QuillCodeSlashSuggestionRow: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .accessibilityLabel("\(suggestion.usage), \(suggestion.title)")
         .accessibilityHint(suggestion.detail)
+    }
+}
+
+private struct QuillCodeFileMentionSuggestionPanel: View {
+    var suggestions: [FileMentionSuggestionSurface]
+    var selectedIndex: Int
+    var onSelect: (FileMentionSuggestionSurface) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Text("Files")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .textCase(.uppercase)
+                Spacer()
+                Text("↑↓ choose · Tab complete")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+
+            ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                QuillCodeFileMentionSuggestionRow(
+                    suggestion: suggestion,
+                    isSelected: index == selectedIndex,
+                    onSelect: onSelect
+                )
+            }
+        }
+        .padding(10)
+        .background(QuillCodePalette.background.opacity(0.78))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.09), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("File mentions")
+    }
+}
+
+private struct QuillCodeFileMentionSuggestionRow: View {
+    var suggestion: FileMentionSuggestionSurface
+    var isSelected: Bool
+    var onSelect: (FileMentionSuggestionSurface) -> Void
+
+    var body: some View {
+        Button {
+            onSelect(suggestion)
+        } label: {
+            HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Image(systemName: "doc.text")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(suggestion.name)
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(suggestion.path)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "arrow.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(isSelected ? QuillCodePalette.blue : QuillCodePalette.muted.opacity(0.7))
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .quillCodeFullRowButtonTarget(radius: 12)
+            .background(isSelected ? QuillCodePalette.blue.opacity(0.13) : Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? QuillCodePalette.blue.opacity(0.24) : Color.clear, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .accessibilityLabel("Mention \(suggestion.path)")
+        .accessibilityHint(suggestion.directory.isEmpty ? "Workspace root" : "In \(suggestion.directory)")
     }
 }
