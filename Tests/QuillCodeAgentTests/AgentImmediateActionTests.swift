@@ -169,6 +169,25 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertEqual(write.content, "buy milk\n")
     }
 
+    func testBacktickFileReadExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try "hello world\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Read `hello.txt` and tell me its exact content",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedFileRead(in: result), "hello.txt")
+        XCTAssertEqual(result.thread.messages.last?.content, "Contents of `hello.txt`:\nhello world")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll read") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
     func testFileWriteWithQuotedContentDefaultsToNotePath() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
@@ -260,6 +279,15 @@ final class AgentImmediateActionTests: XCTestCase {
             try arguments.requiredString("path"),
             try arguments.requiredString("content")
         )
+    }
+
+    private func queuedFileRead(in result: AgentRunResult) throws -> String {
+        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
+        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
+        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
+        return try arguments.requiredString("path")
     }
 }
 

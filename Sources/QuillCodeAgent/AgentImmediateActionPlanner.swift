@@ -42,6 +42,14 @@ enum AgentImmediateActionPlanner {
             ))
         }
 
+        if let fileReadPath = AgentFileReadRequestParser.path(from: request),
+           hasTool(ToolDefinition.fileRead.name, in: tools) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": fileReadPath])
+            ))
+        }
+
         return nil
     }
 

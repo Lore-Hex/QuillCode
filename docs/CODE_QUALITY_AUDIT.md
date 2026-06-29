@@ -30,6 +30,23 @@ Residual risk:
 
 - This fix targets the starter-action card specifically. Other multi-line content placed inside a single-label hit target would hit the same centered-row default; a future primitive could expose an explicit "stacked card" hit target so card-shaped buttons do not each re-declare column layout.
 
+## 2026-06-29 Workspace Follow-Through Smoke Pass
+
+Overall grade after this slice: **A real-world workflow regression coverage, A immediate file-read routing, A- live smoke runtime budget**.
+
+The smoke lanes already caught empty shell arguments, passive "I'll do it" replies, file creation failures, and missing download side effects. They did not yet prove a user could naturally follow up on a created workspace file by listing the workspace or reading the file contents back.
+
+| Before | After |
+| --- | --- |
+| Direct file-read prompts such as `Read \`hello.txt\`` could fall through to a generic capability answer in the deterministic mock path. | `AgentFileReadRequestParser` maps direct workspace-relative read/content requests to `host.file.read`, and the final answer renders the actual file contents. |
+| `scripts/smoke.sh` proved file creation, but not practical follow-through on the new workspace state. | Deterministic smoke now lists the workspace after creating `hello.txt` and reads `hello.txt` back, with a dedicated `cliWorkspaceFollowUp` manifest step. |
+| Live TrustedRouter smoke proved file writes and downloads, but a model could still regress on next-turn workspace follow-up. | Live smoke now adds `workspace-list-followup` and `workspace-read-followup` scenarios after file writes, and transcript integrity expects nine actionable live threads. |
+| Memory-redaction tests used a real-looking QuillCloud key fixture. | The fixture is now an explicitly synthetic secret-shaped value, preserving rejection coverage without storing user credentials in source. |
+
+Residual risk:
+
+- This still drives the CLI live path. A packaged-window live lane should eventually replay the same follow-up prompts through the native app surface and inspect the visible transcript/tool cards.
+
 ## 2026-06-29 Deterministic Smoke Manifest Pass
 
 Overall grade after this slice: **A deterministic release evidence, A real-world wrapper traceability, A- operator ergonomics**.

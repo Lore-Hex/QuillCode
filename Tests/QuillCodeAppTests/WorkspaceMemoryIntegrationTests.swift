@@ -346,7 +346,7 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         let call = ToolCall(
             name: ToolDefinition.memoryRemember.name,
             argumentsJSON: ToolArguments.json([
-                "content": "api_key=sk-qc-v1-ob4rbJAb9WOqdNIhSsT8oumjqaLZUX8p2zLHr1WOGn8"
+                "content": "api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE"
             ])
         )
         let model = QuillCodeWorkspaceModel(
@@ -463,7 +463,7 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         let globalMemories = try makeQuillCodeTestDirectory()
         let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
 
-        model.setDraft("/remember api_key=sk-qc-v1-ob4rbJAb9WOqdNIhSsT8oumjqaLZUX8p2zLHr1WOGn8")
+        model.setDraft("/remember api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE")
         await model.submitComposer(workspaceRoot: root)
 
         XCTAssertEqual(model.root.globalMemories, [])

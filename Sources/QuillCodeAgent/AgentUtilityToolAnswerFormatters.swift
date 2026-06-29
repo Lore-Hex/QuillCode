@@ -3,6 +3,30 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 enum AgentUtilityToolAnswerFormatters {
+    static func fileReadAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.fileRead.name else {
+            return nil
+        }
+        let path = AgentToolAnswerFormatterSupport.argument("path", in: call) ?? "the file"
+        if !result.ok {
+            let details = [result.error, result.stderr.trimmedNonEmpty]
+                .compactMap { $0 }
+                .joined(separator: "\n")
+            return details.isEmpty
+                ? "Could not read `\(path)`."
+                : "Could not read `\(path)`:\n\(AgentToolAnswerFormatters.truncated(details))"
+        }
+        let output = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !output.isEmpty else {
+            return "`\(path)` is empty."
+        }
+        return "Contents of `\(path)`:\n\(AgentToolAnswerFormatters.truncated(output))"
+    }
+
     static func fileWriteAnswer(
         call: ToolCall,
         result: ToolResult,

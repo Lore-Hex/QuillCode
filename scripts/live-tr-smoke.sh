@@ -503,6 +503,11 @@ validate_output_pattern() {
   assert_output_matches "$1" "$2" "$3" "$4"
 }
 
+validate_two_expected_outputs() {
+  assert_useful_output "$1" "$2" "$3"
+  assert_useful_output "$1" "$2" "$4"
+}
+
 validate_exact_workspace_file() {
   assert_no_action_regression "$1" "$2"
   assert_workspace_file_contains_exactly "$3" "$4"
@@ -552,6 +557,21 @@ run_scenario \
   "hello world"
 
 run_scenario \
+  "workspace-list-followup" \
+  "Run \`ls -1\` in this workspace and tell me whether \`live-smoke.txt\` and \`hello-world.txt\` are present." \
+  "Running live TrustedRouter workspace-list follow-up smoke with $MODEL" \
+  validate_two_expected_outputs \
+  "live-smoke.txt" \
+  "hello-world.txt"
+
+run_scenario \
+  "workspace-read-followup" \
+  "Read \`hello-world.txt\` and tell me its exact content." \
+  "Running live TrustedRouter workspace-read follow-up smoke with $MODEL" \
+  validate_expected_output \
+  "hello world"
+
+run_scenario \
   "openclaw-discovery" \
   "Do you have openclaw?" \
   "Running live TrustedRouter OpenClaw discovery smoke with $MODEL" \
@@ -569,7 +589,7 @@ run_scenario \
   "downloads/example.html"
 
 begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "Checking persisted live smoke transcripts"
-assert_saved_transcripts_are_actionable 7
+assert_saved_transcripts_are_actionable 9
 finish_scenario "" ""
 
 write_artifact_manifest 0 "completed"
