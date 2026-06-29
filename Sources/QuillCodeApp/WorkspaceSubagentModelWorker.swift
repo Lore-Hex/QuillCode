@@ -55,7 +55,7 @@ enum WorkspaceSubagentPromptBuilder {
         \(objective)
 
         Your role: \(job.role)
-
+        \(priorResultsSection(job.priorResults))
         Return exactly one QuillCode action JSON object and no markdown:
         {"type":"say","text":"..."}
 
@@ -63,6 +63,19 @@ enum WorkspaceSubagentPromptBuilder {
         objective: what you inspected or produced, key findings, and any next
         steps. Keep it to a few sentences. Do not include credentials, tokens,
         private keys, or other secrets.
+        """
+    }
+
+    /// Renders the results of completed prerequisite workers so a dependent job can build on them.
+    /// Returns an empty string when the job has no prerequisites, keeping root-job prompts unchanged.
+    private static func priorResultsSection(_ priorResults: [WorkspaceSubagentPriorResult]) -> String {
+        guard !priorResults.isEmpty else { return "" }
+        let lines = priorResults.map { "- \($0.name): \($0.summary)" }.joined(separator: "\n")
+        return """
+
+        Results from the prerequisite subagents you depend on:
+        \(lines)
+
         """
     }
 }

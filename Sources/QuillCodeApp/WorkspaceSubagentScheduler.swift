@@ -1,18 +1,36 @@
 import Foundation
 import QuillCodeCore
 
+struct WorkspaceSubagentPriorResult: Sendable, Hashable {
+    var name: String
+    var summary: String
+
+    init(name: String, summary: String) {
+        self.name = name
+        self.summary = summary
+    }
+}
+
 struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
     var id: String { name }
     var name: String
     var role: String
     var objective: String
     var dependsOn: [String]
+    var priorResults: [WorkspaceSubagentPriorResult]
 
-    init(name: String, role: String, objective: String = "", dependsOn: [String] = []) {
+    init(
+        name: String,
+        role: String,
+        objective: String = "",
+        dependsOn: [String] = [],
+        priorResults: [WorkspaceSubagentPriorResult] = []
+    ) {
         self.name = name
         self.role = role
         self.objective = objective
         self.dependsOn = dependsOn
+        self.priorResults = priorResults
     }
 }
 
@@ -105,7 +123,14 @@ struct WorkspaceSubagentScheduler {
 
             await withTaskGroup(of: (Int, WorkspaceSubagentWorkerOutcome).self) { group in
                 for index in runnable {
-                    let job = jobs[index]
+                    var job = jobs[index]
+                    // Hand the worker the concrete results of its completed prerequisites so a
+                    // dependent model turn can build on what its dependencies actually produced.
+                    job.priorResults = dependencies[index].compactMap { depIndex in
+                        guard items[depIndex].status == .completed,
+                              let summary = items[depIndex].summary else { return nil }
+                        return WorkspaceSubagentPriorResult(name: items[depIndex].name, summary: summary)
+                    }
                     group.addTask {
                         do {
                             try Task.checkCancellation()

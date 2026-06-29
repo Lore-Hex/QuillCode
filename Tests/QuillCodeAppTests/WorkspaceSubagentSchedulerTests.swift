@@ -144,6 +144,30 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertTrue(result.summary.contains("0 completed, 1 cancelled, and 1 failed"))
     }
 
+    func testSchedulerHandsCompletedDependencyResultsToDependentWorker() async throws {
+        let capture = JobCapture()
+        let scheduler = WorkspaceSubagentScheduler { job in
+            await capture.record(job)
+            return "compiled the app cleanly"
+        }
+        let request = WorkspaceSubagentRunRequest(
+            objective: "ship release",
+            workers: [
+                .init(name: "Builder", role: "compile app"),
+                .init(name: "Verifier", role: "run tests", dependsOn: ["Builder"])
+            ]
+        )
+
+        _ = await scheduler.run(request: request)
+
+        let verifierJob = await capture.job(named: "Verifier")
+        XCTAssertEqual(verifierJob?.priorResults, [
+            WorkspaceSubagentPriorResult(name: "Builder", summary: "compiled the app cleanly")
+        ])
+        let builderJob = await capture.job(named: "Builder")
+        XCTAssertEqual(builderJob?.priorResults, [], "Root jobs should not receive prior results.")
+    }
+
     func testSchedulerBreaksDependencyCyclesInsteadOfDeadlocking() async throws {
         let scheduler = WorkspaceSubagentScheduler { job in "did \(job.role)" }
         let request = WorkspaceSubagentRunRequest(
@@ -167,6 +191,13 @@ private actor OrderRecorder {
 
     func start(_ name: String) { startOrder.append(name) }
     func finish(_ name: String) { finishOrder.append(name) }
+}
+
+private actor JobCapture {
+    private var jobs: [WorkspaceSubagentJob] = []
+
+    func record(_ job: WorkspaceSubagentJob) { jobs.append(job) }
+    func job(named name: String) -> WorkspaceSubagentJob? { jobs.first { $0.name == name } }
 }
 
 private actor ConcurrencyProbe {
