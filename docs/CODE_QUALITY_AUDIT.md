@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-29 File Mention Harness Parity Pass
+
+Overall grade after this slice: **A cross-surface mention parity, A E2E flow coverage**.
+
+Completes the file-mention feature across the test harness so the `@` mention flow is exercised end-to-end the same way slash commands are.
+
+| Before | After |
+| --- | --- |
+| The mock JS harness only mirrored slash-command suggestions; it had no notion of `@` file mentions. | The harness mirrors `FileMentionCatalog`/`WorkspaceFileIndexer`: it derives a file index from the selected local project's mock files, detects the active `@` token, ranks files, and renders a `file-mention-suggestions` panel with keyboard/Tab/Enter/click acceptance, mutually exclusive with slash suggestions. |
+| No E2E coverage for file mentions. | A Playwright test drives the full flow: bare `@` shallow ordering, ArrowDown navigation, email non-mention rejection, name-prefix ranking, Enter/Tab/click acceptance with `@path ` replacement, and slash precedence. Full Playwright suite stays green (119 tests). |
+
+Residual risk:
+
+- New session-created files still surface on the next Refresh context rather than instantly; an agent-run-driven index refresh remains a future polish.
+
 ## 2026-06-29 Native Composer File Mention Pass
 
 Overall grade after this slice: **A native composer wiring, A per-project index lifecycle, B+ cross-surface parity (native + data; JS harness/Playwright pending)**.

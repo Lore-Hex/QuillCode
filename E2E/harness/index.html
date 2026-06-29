@@ -3508,7 +3508,8 @@
         placeholder: 'Message QuillCode',
         isSending: false,
         canSend: false,
-        slashActiveIndex: 0
+        slashActiveIndex: 0,
+        mentionActiveIndex: 0
       },
       settings: {
         isOpen: false,
@@ -4255,6 +4256,132 @@
       const nextHeight = Math.min(input.scrollHeight, maxHeight);
       input.style.height = `${nextHeight}px`;
       input.style.overflowY = input.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    }
+
+    function workspaceMentionFiles() {
+      const selected = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      if (!selected || selected.isRemote) return [];
+      const prefix = '/mock/QuillCode/';
+      return Object.keys(state.mockFiles)
+        .filter(absolute => absolute.startsWith(prefix))
+        .map(absolute => {
+          const path = absolute.slice(prefix.length);
+          const slash = path.lastIndexOf('/');
+          return {
+            path,
+            name: slash >= 0 ? path.slice(slash + 1) : path,
+            directory: slash >= 0 ? path.slice(0, slash) : ''
+          };
+        })
+        .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
+    }
+
+    function activeFileMention(draft) {
+      const text = String(draft);
+      if (!text) return null;
+      let index = text.length;
+      while (index > 0) {
+        const character = text[index - 1];
+        if (/\s/.test(character)) return null;
+        if (character === '@') {
+          if (index - 1 === 0 || /\s/.test(text[index - 2])) {
+            return { prefix: text.slice(0, index - 1), query: text.slice(index) };
+          }
+          return null;
+        }
+        index -= 1;
+      }
+      return null;
+    }
+
+    function isMentionSubsequence(needle, haystack) {
+      if (!needle) return true;
+      let cursor = 0;
+      for (const character of haystack) {
+        if (character === needle[cursor]) {
+          cursor += 1;
+          if (cursor === needle.length) return true;
+        }
+      }
+      return false;
+    }
+
+    function fileMentionScore(entry, query) {
+      if (!query) {
+        const depth = (entry.path.match(/\//g) || []).length;
+        return 100 - Math.min(depth, 20);
+      }
+      const name = entry.name.toLowerCase();
+      const path = entry.path.toLowerCase();
+      if (name === query) return 200;
+      if (name.startsWith(query)) return 170;
+      if (path.startsWith(query)) return 150;
+      if (name.includes(query)) return 120;
+      if (path.includes(query)) return 90;
+      if (isMentionSubsequence(query, name)) return 60;
+      if (isMentionSubsequence(query, path)) return 40;
+      return null;
+    }
+
+    function fileMentionSuggestions(draft, limit = 6) {
+      if (slashSuggestions(draft).length) return [];
+      const mention = activeFileMention(draft);
+      if (!mention) return [];
+      const query = mention.query.toLowerCase();
+      return workspaceMentionFiles()
+        .map(entry => ({ entry, score: fileMentionScore(entry, query) }))
+        .filter(item => item.score !== null)
+        .sort((left, right) =>
+          right.score - left.score
+          || left.entry.path.length - right.entry.path.length
+          || (left.entry.path < right.entry.path ? -1 : left.entry.path > right.entry.path ? 1 : 0))
+        .slice(0, limit)
+        .map(item => ({
+          path: item.entry.path,
+          name: item.entry.name,
+          directory: item.entry.directory,
+          insertText: `${mention.prefix}@${item.entry.path} `
+        }));
+    }
+
+    function clampFileMentionActiveIndex(suggestions = fileMentionSuggestions(state.composer.draft)) {
+      if (!suggestions.length) {
+        state.composer.mentionActiveIndex = 0;
+        return;
+      }
+      state.composer.mentionActiveIndex = Math.max(
+        0,
+        Math.min(state.composer.mentionActiveIndex || 0, suggestions.length - 1)
+      );
+    }
+
+    function moveFileMentionSuggestion(delta) {
+      const suggestions = fileMentionSuggestions(state.composer.draft);
+      if (!suggestions.length) return false;
+      const current = state.composer.mentionActiveIndex || 0;
+      state.composer.mentionActiveIndex = (current + delta + suggestions.length) % suggestions.length;
+      render();
+      const input = document.getElementById('message');
+      input?.focus();
+      resizeComposerInput(input);
+      return true;
+    }
+
+    function acceptFileMentionSuggestion({ force = false } = {}) {
+      const suggestions = fileMentionSuggestions(state.composer.draft);
+      if (!suggestions.length) return false;
+      clampFileMentionActiveIndex(suggestions);
+      const suggestion = suggestions[state.composer.mentionActiveIndex];
+      if (!force && state.composer.draft === suggestion.insertText) return false;
+      state.composer.draft = suggestion.insertText;
+      state.composer.canSend = state.composer.draft.trim().length > 0;
+      state.composer.mentionActiveIndex = 0;
+      render();
+      const input = document.getElementById('message');
+      input?.focus();
+      input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+      resizeComposerInput(input);
+      return true;
     }
 
     function authModeLabel(authMode) {
@@ -6299,6 +6426,7 @@
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
 	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
               ${renderSlashSuggestions()}
+              ${renderFileMentionSuggestions()}
               <form class="composer" data-testid="composer">
                 <div class="composer-surface" data-testid="composer-surface">
                   <label class="composer-sr-only" for="message">Message</label>
@@ -6341,9 +6469,13 @@
         state.composer.draft = event.target.value;
         state.composer.canSend = state.composer.draft.trim().length > 0;
         state.composer.slashActiveIndex = 0;
+        state.composer.mentionActiveIndex = 0;
         resizeComposerInput(event.target);
-        const shouldRenderSuggestions = state.composer.draft.trimStart().startsWith('/');
-        if (shouldRenderSuggestions || document.querySelector('[data-testid="slash-suggestions"]')) {
+        const shouldRenderSuggestions = state.composer.draft.trimStart().startsWith('/')
+          || activeFileMention(state.composer.draft) !== null;
+        if (shouldRenderSuggestions
+          || document.querySelector('[data-testid="slash-suggestions"]')
+          || document.querySelector('[data-testid="file-mention-suggestions"]')) {
           const cursor = state.composer.draft.length;
           render();
           const nextInput = document.getElementById('message');
@@ -6356,6 +6488,7 @@
       });
       input.addEventListener('keydown', event => {
         const suggestions = slashSuggestions(state.composer.draft);
+        const mentions = suggestions.length ? [] : fileMentionSuggestions(state.composer.draft);
         if (suggestions.length && event.key === 'ArrowDown') {
           event.preventDefault();
           moveSlashSuggestion(1);
@@ -6365,9 +6498,22 @@
         } else if (suggestions.length && event.key === 'Tab') {
           event.preventDefault();
           acceptSlashSuggestion({ force: true });
+        } else if (mentions.length && event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveFileMentionSuggestion(1);
+        } else if (mentions.length && event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveFileMentionSuggestion(-1);
+        } else if (mentions.length && event.key === 'Tab') {
+          event.preventDefault();
+          acceptFileMentionSuggestion({ force: true });
         } else if (event.key === 'Enter') {
           if (event.shiftKey) return;
           if (suggestions.length && acceptSlashSuggestion({ force: false })) {
+            event.preventDefault();
+            return;
+          }
+          if (mentions.length && acceptFileMentionSuggestion({ force: false })) {
             event.preventDefault();
             return;
           }
@@ -6426,6 +6572,18 @@
           state.composer.canSend = state.composer.draft.trim().length > 0;
           state.composer.slashActiveIndex = 0;
           acceptSlashSuggestion({ force: true });
+        });
+      });
+      document.querySelectorAll('[data-testid="file-mention-suggestion"]').forEach(button => {
+        button.addEventListener('click', event => {
+          state.composer.draft = event.currentTarget.getAttribute('data-insert-text') || '';
+          state.composer.canSend = state.composer.draft.trim().length > 0;
+          state.composer.mentionActiveIndex = 0;
+          render();
+          const nextInput = document.getElementById('message');
+          nextInput?.focus();
+          nextInput?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+          resizeComposerInput(nextInput);
         });
       });
       document.querySelector('[data-testid="model-picker-button"]').addEventListener('click', () => {
@@ -7782,6 +7940,34 @@
       return `
         <section class="slash-suggestions" data-testid="slash-suggestions" aria-label="Slash commands">
           <h3>Slash commands</h3>
+          <div class="slash-suggestion-list">${rows}</div>
+        </section>`;
+    }
+
+    function renderFileMentionSuggestions() {
+      if (slashSuggestions(state.composer.draft).length) return '';
+      const suggestions = fileMentionSuggestions(state.composer.draft);
+      if (!suggestions.length) return '';
+      clampFileMentionActiveIndex(suggestions);
+      const rows = suggestions.map((suggestion, index) => `
+        <button
+          class="slash-suggestion hit-target-row ${index === state.composer.mentionActiveIndex ? 'selected' : ''}"
+          type="button"
+          data-testid="file-mention-suggestion"
+          data-insert-text="${escapeHTML(suggestion.insertText)}"
+          data-path="${escapeHTML(suggestion.path)}"
+          data-selected="${index === state.composer.mentionActiveIndex ? 'true' : 'false'}"
+        >
+          <span class="slash-usage">${escapeHTML(suggestion.name)}</span>
+          <span>
+            <span class="slash-title">${escapeHTML(suggestion.path)}</span>
+            <span class="slash-detail">${escapeHTML(suggestion.directory || 'Workspace root')}</span>
+          </span>
+        </button>
+      `).join('');
+      return `
+        <section class="slash-suggestions" data-testid="file-mention-suggestions" aria-label="File mentions">
+          <h3>Files</h3>
           <div class="slash-suggestion-list">${rows}</div>
         </section>`;
     }
