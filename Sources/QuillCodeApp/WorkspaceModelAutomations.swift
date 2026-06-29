@@ -196,6 +196,14 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runAutomationReport(id: UUID, now: Date = Date()) -> AutomationRunReport? {
+        runAutomationReport(id: id, now: now, eventDescription: nil)
+    }
+
+    private func runAutomationReport(
+        id: UUID,
+        now: Date,
+        eventDescription: String?
+    ) -> AutomationRunReport? {
         guard let automation = automations.items.first(where: { $0.id == id }) else { return nil }
         guard automation.status == .active else { return nil }
 
@@ -205,7 +213,7 @@ extension QuillCodeWorkspaceModel {
         case .workspaceSchedule:
             return runWorkspaceScheduleAutomation(automation, now: now)
         case .monitor:
-            return runMonitorAutomation(automation, now: now)
+            return runMonitorAutomation(automation, eventDescription: eventDescription, now: now)
         }
     }
 
@@ -216,12 +224,19 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runDueAutomationReports(now: Date = Date(), limit: Int = 5) -> [AutomationRunReport] {
-        let dueAutomationIDs = WorkspaceAutomationRunner.dueAutomationIDs(
+        let triggers = WorkspaceAutomationRunner.dueAutomationTriggers(
             in: automations.items,
             now: now,
+            eventSources: automationEventSources(),
             limit: limit
         )
-        return dueAutomationIDs.compactMap { runAutomationReport(id: $0, now: now) }
+        return triggers.compactMap {
+            runAutomationReport(
+                id: $0.automationID,
+                now: now,
+                eventDescription: $0.eventDescription
+            )
+        }
     }
 
     public func deleteAutomation(id: UUID) -> Bool {
@@ -288,6 +303,7 @@ extension QuillCodeWorkspaceModel {
 
     private func runMonitorAutomation(
         _ automation: QuillAutomation,
+        eventDescription: String?,
         now: Date
     ) -> AutomationRunReport? {
         var resolvedProject: ProjectRef?
@@ -314,6 +330,7 @@ extension QuillCodeWorkspaceModel {
             model: root.config.defaultModel,
             instructions: context?.instructions ?? [],
             memories: context?.memories ?? [],
+            triggerDescription: eventDescription,
             now: now
         )
         return applyAutomationRunDraft(draft)
@@ -335,5 +352,23 @@ extension QuillCodeWorkspaceModel {
         )
         guard mutation.value else { return }
         applyAutomationState(mutation.state)
+    }
+
+    private func automationEventSources() -> [UUID: any AutomationEventSource] {
+        var sources: [UUID: any AutomationEventSource] = [:]
+        for automation in automations.items
+        where automation.status == .active
+            && automation.kind == .monitor
+            && automation.scheduleKind == .event {
+            guard let eventSource = automation.eventSource else { continue }
+            let resolvedProject = automation.projectID.flatMap { project(id: $0) }
+            if let source = AutomationEventSourceResolver.eventSource(
+                for: eventSource,
+                project: resolvedProject
+            ) {
+                sources[automation.id] = source
+            }
+        }
+        return sources
     }
 }

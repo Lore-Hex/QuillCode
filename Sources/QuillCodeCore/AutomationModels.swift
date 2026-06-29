@@ -48,6 +48,30 @@ public enum QuillAutomationScheduleKind: String, Codable, Sendable, Hashable, Ca
     }
 }
 
+public enum QuillAutomationEventSourceKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case fileChange = "file_change"
+
+    public var label: String {
+        switch self {
+        case .fileChange:
+            return "File change"
+        }
+    }
+}
+
+public struct QuillAutomationEventSource: Codable, Sendable, Hashable {
+    public var kind: QuillAutomationEventSourceKind
+    public var path: String
+
+    public init(
+        kind: QuillAutomationEventSourceKind,
+        path: String
+    ) {
+        self.kind = kind
+        self.path = path
+    }
+}
+
 public enum QuillAutomationRecurrenceUnit: String, Codable, Sendable, Hashable, CaseIterable {
     case minutes
     case hours
@@ -116,6 +140,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
     public var scheduleDescription: String
     public var projectID: UUID?
     public var threadID: UUID?
+    public var eventSource: QuillAutomationEventSource?
     public var createdAt: Date
     public var updatedAt: Date
     public var lastRunAt: Date?
@@ -132,6 +157,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         scheduleDescription: String,
         projectID: UUID? = nil,
         threadID: UUID? = nil,
+        eventSource: QuillAutomationEventSource? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         lastRunAt: Date? = nil,
@@ -147,6 +173,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         self.scheduleDescription = scheduleDescription
         self.projectID = projectID
         self.threadID = threadID
+        self.eventSource = eventSource
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.lastRunAt = lastRunAt
