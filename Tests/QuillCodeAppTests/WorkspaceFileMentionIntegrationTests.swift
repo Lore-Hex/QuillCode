@@ -67,6 +67,18 @@ final class WorkspaceFileMentionIntegrationTests: XCTestCase {
         XCTAssertTrue(model.fileMentionIndex.entries.map(\.path).contains("Sources/Added.swift"))
     }
 
+    func testFileMentionIndexRefreshesAfterAgentFileWrite() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        _ = model.addProject(path: root, name: "Demo")
+        XCTAssertFalse(model.fileMentionIndex.entries.map(\.path).contains("hello.txt"))
+
+        model.setDraft("Can you write a file that says hello world")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertTrue(model.fileMentionIndex.entries.map(\.path).contains("hello.txt"))
+    }
+
     func testSelectingSSHRemoteProjectClearsFileMentionIndex() throws {
         let root = try makeProject(files: ["Sources/App.swift"])
         let model = QuillCodeWorkspaceModel()
