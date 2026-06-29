@@ -115,6 +115,10 @@ fi
 
 "$ROOT_DIR/scripts/native-desktop-smoke.sh"
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  "$ROOT_DIR/scripts/packaged-macos-smoke.sh"
+fi
+
 if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
   echo "==> Running Playwright E2E suite"
   (cd "$ROOT_DIR/E2E/playwright" && npm test)
