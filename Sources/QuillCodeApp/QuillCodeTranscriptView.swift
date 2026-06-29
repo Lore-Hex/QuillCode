@@ -107,6 +107,10 @@ struct QuillCodeTranscriptView: View {
                         .frame(maxWidth: .infinity)
                         .padding(22)
                     }
+                    .defaultScrollAnchor(.bottom)
+                    .onAppear {
+                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
+                    }
                     .onChange(of: scrollAnchorID) { _, id in
                         scrollToTranscriptEnd(proxy, id: id)
                     }

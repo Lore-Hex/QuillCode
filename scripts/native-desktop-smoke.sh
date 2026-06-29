@@ -11,9 +11,40 @@ STDOUT_PATH="$SMOKE_ROOT/stdout.log"
 TARGET_LABEL="${QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL:-native desktop executable}"
 DESKTOP_EXECUTABLE="${QUILLCODE_DESKTOP_EXECUTABLE:-}"
 DESKTOP_APP_BUNDLE="${QUILLCODE_DESKTOP_APP_BUNDLE:-}"
+ARTIFACT_DIR="${QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR:-}"
+KEEP_ARTIFACTS="${QUILLCODE_NATIVE_DESKTOP_SMOKE_KEEP_ARTIFACTS:-}"
 
 cleanup() {
-  rm -rf "$SMOKE_ROOT"
+  local status=$?
+  set +e
+
+  if [[ -n "$ARTIFACT_DIR" ]]; then
+    mkdir -p "$ARTIFACT_DIR"
+    for artifact_path in "$REPORT_PATH" "$RENDER_PATH" "$CHROME_RENDER_PATH" "$HTML_PATH" "$STDOUT_PATH"; do
+      if [[ -e "$artifact_path" ]]; then
+        cp "$artifact_path" "$ARTIFACT_DIR/$(basename "$artifact_path")"
+      fi
+    done
+    {
+      printf 'label=%s\n' "$TARGET_LABEL"
+      printf 'status=%s\n' "$status"
+      printf 'source=%s\n' "$SMOKE_ROOT"
+      printf 'report=report.json\n'
+      printf 'workspace_png=workspace.png\n'
+      printf 'chrome_png=chrome.png\n'
+      printf 'workspace_html=workspace.html\n'
+      printf 'stdout=stdout.log\n'
+    } > "$ARTIFACT_DIR/manifest.txt"
+    echo "QuillCode $TARGET_LABEL smoke artifacts: $ARTIFACT_DIR"
+  fi
+
+  if [[ "$KEEP_ARTIFACTS" == "1" ]]; then
+    echo "QuillCode $TARGET_LABEL temporary smoke root preserved: $SMOKE_ROOT"
+  else
+    rm -rf "$SMOKE_ROOT"
+  fi
+
+  exit "$status"
 }
 trap cleanup EXIT
 

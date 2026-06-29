@@ -72,4 +72,14 @@ jobs:
           npm ci
           npx playwright install chromium
       - name: Smoke
+        env:
+          QUILLCODE_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/.quillcode-smoke-artifacts
         run: ./scripts/smoke.sh
+      - name: Upload smoke UI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quillcode-smoke-ui-${{ runner.os }}
+          path: .quillcode-smoke-artifacts
+          if-no-files-found: ignore
+          retention-days: 14
