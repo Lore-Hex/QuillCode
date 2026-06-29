@@ -203,17 +203,26 @@ public struct QuillCodeNativeSurfaceTargetPolicy: Codable, Sendable, Hashable {
     public var requiredKinds: [QuillCodeNativeHitTargetKind]
     public var requiredActions: [QuillCodeNativeHitTargetAction]
     public var requiredFocusTargets: [QuillCodeNativeFocusTarget]
+    public var allowedKinds: [QuillCodeNativeHitTargetKind]
+    public var allowedActions: [QuillCodeNativeHitTargetAction]
+    public var allowedFocusTargets: [QuillCodeNativeFocusTarget]
 
     public init(
         family: QuillCodeInteractionSurfaceFamily,
         requiredKinds: [QuillCodeNativeHitTargetKind],
         requiredActions: [QuillCodeNativeHitTargetAction] = [],
-        requiredFocusTargets: [QuillCodeNativeFocusTarget] = []
+        requiredFocusTargets: [QuillCodeNativeFocusTarget] = [],
+        allowedKinds: [QuillCodeNativeHitTargetKind]? = nil,
+        allowedActions: [QuillCodeNativeHitTargetAction]? = nil,
+        allowedFocusTargets: [QuillCodeNativeFocusTarget]? = nil
     ) {
         self.family = family
         self.requiredKinds = requiredKinds
         self.requiredActions = requiredActions
         self.requiredFocusTargets = requiredFocusTargets
+        self.allowedKinds = allowedKinds ?? requiredKinds
+        self.allowedActions = allowedActions ?? requiredActions
+        self.allowedFocusTargets = allowedFocusTargets ?? requiredFocusTargets
     }
 
     public var dictionary: [String: Any] {
@@ -221,7 +230,10 @@ public struct QuillCodeNativeSurfaceTargetPolicy: Codable, Sendable, Hashable {
             "family": family.rawValue,
             "requiredKinds": requiredKinds.map(\.rawValue),
             "requiredActions": requiredActions.map(\.rawValue),
-            "requiredFocusTargets": requiredFocusTargets.map(\.rawValue)
+            "requiredFocusTargets": requiredFocusTargets.map(\.rawValue),
+            "allowedKinds": allowedKinds.map(\.rawValue),
+            "allowedActions": allowedActions.map(\.rawValue),
+            "allowedFocusTargets": allowedFocusTargets.map(\.rawValue)
         ]
     }
 }
@@ -327,6 +339,9 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var missingRequiredFocusTargets: [String]
     public var missingRequiredSurfaceActions: [String]
     public var missingRequiredSurfaceFocusTargets: [String]
+    public var unexpectedSurfaceKinds: [String]
+    public var unexpectedSurfaceActions: [String]
+    public var unexpectedSurfaceFocusTargets: [String]
     public var missingRequiredCommandIDs: [String]
     public var missingClickProbeContractIDs: [String]
     public var clickProbeValidationIssues: [String]
@@ -340,6 +355,9 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             && missingRequiredFocusTargets.isEmpty
             && missingRequiredSurfaceActions.isEmpty
             && missingRequiredSurfaceFocusTargets.isEmpty
+            && unexpectedSurfaceKinds.isEmpty
+            && unexpectedSurfaceActions.isEmpty
+            && unexpectedSurfaceFocusTargets.isEmpty
             && missingRequiredCommandIDs.isEmpty
             && missingClickProbeContractIDs.isEmpty
             && clickProbeValidationIssues.isEmpty
@@ -364,6 +382,9 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "missingRequiredFocusTargets": missingRequiredFocusTargets,
             "missingRequiredSurfaceActions": missingRequiredSurfaceActions,
             "missingRequiredSurfaceFocusTargets": missingRequiredSurfaceFocusTargets,
+            "unexpectedSurfaceKinds": unexpectedSurfaceKinds,
+            "unexpectedSurfaceActions": unexpectedSurfaceActions,
+            "unexpectedSurfaceFocusTargets": unexpectedSurfaceFocusTargets,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
             "missingClickProbeContractIDs": missingClickProbeContractIDs,
             "clickProbeValidationIssues": clickProbeValidationIssues,
@@ -394,11 +415,11 @@ public enum QuillCodeNativeHitTargetAudit {
     public static let requiredSurfacePolicies: [QuillCodeNativeSurfaceTargetPolicy] = [
         policy(.designSystem, kinds: QuillCodeNativeHitTargetKind.allCases, actions: QuillCodeNativeHitTargetAction.allCases),
         policy(.workspaceChrome, kinds: [.fullRow], actions: [.press]),
-        policy(.sidebar, kinds: [.fullRow], actions: [.press]),
+        policy(.sidebar, kinds: [.fullRow], actions: [.press], allowedKinds: [.fullRow, .icon]),
         policy(.sidebarThreadList, kinds: [.fullRow, .icon], actions: [.press]),
         policy(.topBar, kinds: [.icon, .fullRow], actions: [.press]),
         policy(.composer, kinds: [.textEntry, .icon, .capsule], actions: [.textInput, .press], focusTargets: [.composerMessage]),
-        policy(.transcript, kinds: [.icon, .link], actions: [.press, .link]),
+        policy(.transcript, kinds: [.icon, .link], actions: [.press, .link], allowedKinds: [.icon, .link, .capsule]),
         policy(.toolCard, kinds: [.fullRow, .textButton], actions: [.press]),
         policy(.contextBanner, kinds: [.textButton], actions: [.press]),
         policy(.commandPalette, kinds: [.textEntry, .fullRow], actions: [.textInput, .press], focusTargets: [.commandPaletteSearch]),
@@ -464,6 +485,18 @@ public enum QuillCodeNativeHitTargetAudit {
             policies: requiredSurfacePolicies,
             contracts: allContracts
         )
+        let unexpectedSurfaceKinds = unexpectedSurfaceKinds(
+            policies: requiredSurfacePolicies,
+            contracts: allContracts
+        )
+        let unexpectedSurfaceActions = unexpectedSurfaceActions(
+            policies: requiredSurfacePolicies,
+            contracts: allContracts
+        )
+        let unexpectedSurfaceFocusTargets = unexpectedSurfaceFocusTargets(
+            policies: requiredSurfacePolicies,
+            contracts: allContracts
+        )
         let duplicateContractIDs = duplicateIDs(in: allContracts.map(\.id))
         let validationIssues = allContracts.flatMap(\.validationIssues)
         let missingClickProbeContractIDs = missingClickProbeContractIDs(
@@ -490,6 +523,9 @@ public enum QuillCodeNativeHitTargetAudit {
             missingRequiredFocusTargets: missingFocusTargets,
             missingRequiredSurfaceActions: missingSurfaceActions,
             missingRequiredSurfaceFocusTargets: missingSurfaceFocusTargets,
+            unexpectedSurfaceKinds: unexpectedSurfaceKinds,
+            unexpectedSurfaceActions: unexpectedSurfaceActions,
+            unexpectedSurfaceFocusTargets: unexpectedSurfaceFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
             missingClickProbeContractIDs: missingClickProbeContractIDs,
             clickProbeValidationIssues: clickProbeValidationIssues,
@@ -502,13 +538,19 @@ public enum QuillCodeNativeHitTargetAudit {
         _ family: QuillCodeInteractionSurfaceFamily,
         kinds: [QuillCodeNativeHitTargetKind],
         actions: [QuillCodeNativeHitTargetAction] = [],
-        focusTargets: [QuillCodeNativeFocusTarget] = []
+        focusTargets: [QuillCodeNativeFocusTarget] = [],
+        allowedKinds: [QuillCodeNativeHitTargetKind]? = nil,
+        allowedActions: [QuillCodeNativeHitTargetAction]? = nil,
+        allowedFocusTargets: [QuillCodeNativeFocusTarget]? = nil
     ) -> QuillCodeNativeSurfaceTargetPolicy {
         QuillCodeNativeSurfaceTargetPolicy(
             family: family,
             requiredKinds: kinds,
             requiredActions: actions,
-            requiredFocusTargets: focusTargets
+            requiredFocusTargets: focusTargets,
+            allowedKinds: allowedKinds,
+            allowedActions: allowedActions,
+            allowedFocusTargets: allowedFocusTargets
         )
     }
 
@@ -550,6 +592,65 @@ public enum QuillCodeNativeHitTargetAudit {
             return policy.requiredFocusTargets.compactMap { focusTarget in
                 coveredFocusTargets.contains(focusTarget) ? nil : "\(policy.family.rawValue):\(focusTarget.rawValue)"
             }
+        }
+        .sorted()
+    }
+
+    private static func unexpectedSurfaceKinds(
+        policies: [QuillCodeNativeSurfaceTargetPolicy],
+        contracts: [QuillCodeNativeHitTargetContract]
+    ) -> [String] {
+        unexpectedPolicyValues(
+            policies: policies,
+            contracts: contracts,
+            allowedValues: \.allowedKinds,
+            contractValue: { $0.kind },
+            valueDescription: \.rawValue
+        )
+    }
+
+    private static func unexpectedSurfaceActions(
+        policies: [QuillCodeNativeSurfaceTargetPolicy],
+        contracts: [QuillCodeNativeHitTargetContract]
+    ) -> [String] {
+        unexpectedPolicyValues(
+            policies: policies,
+            contracts: contracts,
+            allowedValues: \.allowedActions,
+            contractValue: { $0.action },
+            valueDescription: \.rawValue
+        )
+    }
+
+    private static func unexpectedSurfaceFocusTargets(
+        policies: [QuillCodeNativeSurfaceTargetPolicy],
+        contracts: [QuillCodeNativeHitTargetContract]
+    ) -> [String] {
+        unexpectedPolicyValues(
+            policies: policies,
+            contracts: contracts,
+            allowedValues: \.allowedFocusTargets,
+            contractValue: \.focusTarget,
+            valueDescription: \.rawValue
+        )
+    }
+
+    private static func unexpectedPolicyValues<Value: Hashable>(
+        policies: [QuillCodeNativeSurfaceTargetPolicy],
+        contracts: [QuillCodeNativeHitTargetContract],
+        allowedValues: (QuillCodeNativeSurfaceTargetPolicy) -> [Value],
+        contractValue: (QuillCodeNativeHitTargetContract) -> Value?,
+        valueDescription: (Value) -> String
+    ) -> [String] {
+        let allowedValuesByFamily = Dictionary(
+            uniqueKeysWithValues: policies.map { ($0.family, Set(allowedValues($0))) }
+        )
+        return contracts.compactMap { contract in
+            guard let value = contractValue(contract),
+                  let allowedValues = allowedValuesByFamily[contract.family],
+                  !allowedValues.contains(value)
+            else { return nil }
+            return "\(contract.family.rawValue):\(contract.id):\(valueDescription(value))"
         }
         .sorted()
     }

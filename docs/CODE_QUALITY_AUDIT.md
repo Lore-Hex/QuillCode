@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Hit-Target Policy Ownership Pass
+
+Overall grade after this slice: **A native click-target ownership, A policy expressiveness, A- live click automation depth**.
+
+The native hit-target audit covered every visible command and surface family, but the family policy was only a lower-bound checklist. A surface could introduce a new clickable kind without explicitly naming it in policy, which is exactly the kind of drift that makes click targets feel inconsistent.
+
+| Before | After |
+| --- | --- |
+| Surface policy only recorded required kinds/actions/focus targets. | Surface policy now separates required targets from allowed targets. |
+| Optional UI state had to be either falsely required or not policy-owned. | Optional project-header icons and transcript thinking capsules are allowed without being required on every snapshot. |
+| The audit did not reject extra target kinds/actions/focus targets emitted by a surface. | The audit now reports `unexpectedSurfaceKinds`, `unexpectedSurfaceActions`, and `unexpectedSurfaceFocusTargets`, and `isValid` fails on any of them. |
+
+Residual risk:
+
+- This proves policy ownership and probe metadata. The final native confidence layer is still real Accessibility/appshot clicking for every sampled point.
+
 ## 2026-06-29 Packaged Accessibility Frame Artifact Pass
 
 Overall grade after this slice: **A native evidence contract, A smoke-script DRYness, A- packaged click automation depth**.
