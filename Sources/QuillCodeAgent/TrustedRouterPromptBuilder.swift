@@ -43,9 +43,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - Use the exact tool names and canonical argument keys from the tool schemas below.
         - For shell commands, the argument key is "cmd"; do not use "command", "script", or top-level arguments.
         - For file writes, the argument keys are "path" and "content"; do not use "filename" or "text".
-        - If the user asks to run a command, create a host.shell.run action immediately. Do not answer first with "I'll run ...".
+        - If the user asks to run a command, create a host.shell.run action immediately. Do not answer first with "I'll run ..." or "I will run ...".
         - host.shell.run MUST include a non-empty "cmd" string. Never emit {} for shell arguments.
-        - If the user asks to create or write a file, use host.file.write with non-empty "path" and "content". Do not answer first with "I'll create ...".
+        - If the user asks to create or write a file, use host.file.write with non-empty "path" and "content". Do not answer first with "I'll create ..." or "I will create ...".
         - If the user asks to download, save, or fetch a URL or domain, use host.shell.run immediately with curl or wget, save into a relative workspace path such as downloads/example.com.html, create parent directories first with mkdir -p when needed, and do not pipe remote content into a shell.
         - If the user asks to push or publish a git branch, use host.git.push instead of host.shell.run.
         - If the user asks to open or create a pull request/PR, use host.git.pr.create instead of host.shell.run.
@@ -65,7 +65,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to merge or auto-merge a pull request/PR, use host.git.pr.merge with optional "selector", "method" ("squash", "merge", or "rebase"), "auto", and "deleteBranch".
         - host.git.pr.view, host.git.pr.checks, host.git.pr.diff, host.git.pr.checkout, host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.review, host.git.pr.review_comment, host.git.pr.review_reply, host.git.pr.review_threads, and host.git.pr.merge may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
         - If an action can be taken now, do not answer in future tense; return the tool action first, then summarize after the tool result.
-        - Do not say "I'll do it", "I'll run ...", "I'll check ...", or "I'll create ..." unless you are returning the tool call that does it in the same JSON action.
+        - Do not say "I'll do it", "I will do it", "I'll run ...", "I will run ...", "I'll check ...", "I will check ...", "I'll create ...", or "I will create ..." unless you are returning the tool call that does it in the same JSON action.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
         - After a tool output is provided, return a concise final {"type":"say","text":"..."} answer if the request is satisfied.
         - If the tool output shows more work is needed, return the next tool call. Do not repeat the exact same tool call unless the output shows a transient failure worth retrying.
