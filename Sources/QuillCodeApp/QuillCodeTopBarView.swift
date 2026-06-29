@@ -254,6 +254,9 @@ struct QuillCodeModePickerButton: View {
                 Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1)
             }
             .clipShape(Capsule())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Auto safety mode, \(modeLabel)")
+            .accessibilityIdentifier("quillcode-mode-picker-button")
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose Auto safety mode")

@@ -169,5 +169,36 @@ fi
 "$ROOT_DIR/scripts/native-click-probe-contracts.py" window \
   "$WINDOW_REPORT_PATH" \
   "$WINDOW_SCREENSHOT_PATH"
+if ! grep -q '"accessibilityFrameSamples"' "$WINDOW_REPORT_PATH"; then
+  echo "Packaged app live-window smoke did not include Accessibility frame samples" >&2
+  cat "$WINDOW_REPORT_PATH" >&2
+  exit 1
+fi
+python3 - "$WINDOW_REPORT_PATH" <<'PY'
+import json
+import sys
+
+report_path = sys.argv[1]
+with open(report_path, "r", encoding="utf-8") as report_file:
+    report = json.load(report_file)
+
+samples = report.get("accessibilityFrameSamples")
+if not isinstance(samples, dict):
+    raise SystemExit("Packaged app live-window smoke did not report Accessibility frame samples")
+if samples.get("ok") is not True:
+    raise SystemExit(f"Packaged app live-window Accessibility frame samples failed: {samples.get('validationIssues')}")
+if samples.get("liveAccessibilitySampling") != "frame-sampled":
+    raise SystemExit("Packaged app live-window smoke did not run live Accessibility frame sampling")
+if samples.get("unresolvedRequiredContractIDs") != []:
+    raise SystemExit(f"Packaged app live-window smoke missed required live Accessibility targets: {samples.get('unresolvedRequiredContractIDs')}")
+if not isinstance(samples.get("sampleCount"), int) or samples["sampleCount"] < len(samples.get("requiredContractIDs", [])):
+    raise SystemExit("Packaged app live-window smoke sampled too few Accessibility targets")
+for sample in samples.get("samples", []):
+    frame = sample.get("frame")
+    if not isinstance(frame, dict):
+        raise SystemExit(f"Malformed Accessibility frame sample: {sample}")
+    if frame.get("width", 0) < sample.get("requiredMinWidth", 44) or frame.get("height", 0) < sample.get("requiredMinHeight", 44):
+        raise SystemExit(f"Undersized Accessibility frame sample: {sample}")
+PY
 
 echo "QuillCode packaged macOS app smoke passed."
