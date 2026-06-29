@@ -127,6 +127,45 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
 
+    func testGitStatusExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try "working tree\n".write(to: root.appendingPathComponent("status.txt"), atomically: true, encoding: .utf8)
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send("git status", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let call = try queuedToolCall(in: result)
+        XCTAssertEqual(call.name, ToolDefinition.gitStatus.name)
+        XCTAssertEqual(call.argumentsJSON, "{}")
+        XCTAssertTrue(result.thread.messages.last?.content.contains("Git status:") == true)
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll check") })
+    }
+
+    func testWhatChangedUsesGitDiffImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let path = root.appendingPathComponent("tracked.txt")
+        try "before\n".write(to: path, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "tracked.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "Add tracked file").ok)
+        try "after\n".write(to: path, atomically: true, encoding: .utf8)
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send("what changed?", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let call = try queuedToolCall(in: result)
+        XCTAssertEqual(call.name, ToolDefinition.gitDiff.name)
+        XCTAssertEqual(call.argumentsJSON, "{}")
+        XCTAssertTrue(result.thread.messages.last?.content.contains("Git diff:") == true)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("tracked.txt") == true)
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll review") })
+    }
+
     func testBacktickCommandDoesNotBecomeEmptyToolCall() async throws {
         let root = try makeTempDirectory()
         let result = try await AgentRunner().send("Run `pwd`", in: ChatThread(mode: .auto), workspaceRoot: root)
@@ -284,18 +323,14 @@ final class AgentImmediateActionTests: XCTestCase {
     }
 
     private func queuedShellCommand(in result: AgentRunResult) throws -> String {
-        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
-        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
-        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let call = try queuedToolCall(in: result)
         let arguments = try ToolArguments(call.argumentsJSON)
         XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
         return try arguments.requiredString("cmd")
     }
 
     private func queuedFileWrite(in result: AgentRunResult) throws -> (path: String, content: String) {
-        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
-        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
-        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let call = try queuedToolCall(in: result)
         let arguments = try ToolArguments(call.argumentsJSON)
         XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
         return (
@@ -311,6 +346,12 @@ final class AgentImmediateActionTests: XCTestCase {
         let arguments = try ToolArguments(call.argumentsJSON)
         XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
         return try arguments.requiredString("path")
+    }
+
+    private func queuedToolCall(in result: AgentRunResult) throws -> ToolCall {
+        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
+        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
+        return try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
     }
 }
 

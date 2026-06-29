@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 Git Read Real-World Smoke Pass
+
+Overall grade after this slice: **A read-only git reliability, A parser ownership, A- broader git workflow coverage**.
+
+Basic repository inspection is one of the first things users ask a coding agent to do. It should execute in one turn, use the structured git tools, and summarize real output instead of depending on provider phrasing.
+
+| Before | After |
+| --- | --- |
+| Live preflight covered common shell, disk, download, OpenClaw, file-write, and file-read intents, but obvious read-only git prompts such as `git status` or `what changed?` could still depend on the provider choosing the exact structured tool call. | `AgentGitReadRequestParser` maps high-confidence read-only git prompts to canonical `host.git.status` / `host.git.diff` calls before the provider round trip when those tools are available. |
+| The deterministic mock path had separate hard-coded `git status` / `git diff` heuristics, so mock and live behavior could drift. | Mock and live preflight now share the same parser, keeping deterministic tests aligned with the production planner. |
+| Final-answer formatting did not have concise git status/diff summaries. | `AgentGitToolAnswerFormatters` now renders clean states, unstaged/staged empty diffs, and bounded real output under `Git status:` / `Git diff:` headings. |
+| Live TrustedRouter smoke verified file and shell workflows, but not basic repository read workflows. | The live smoke suite now initializes a tiny repo, modifies a tracked file, verifies `git status` and `what changed?`, and updates transcript integrity to allow `{}` only for these read-only git tools while still catching empty action calls. |
+
+Residual risk:
+
+- This pass covers read-only local git inspection. Richer model-authored git workflows such as staging selected hunks, committing with good messages, PR handoff, and multi-step review still need broader real-world smoke beyond the existing deterministic and parity gates.
+
 ## 2026-06-29 MCP and Computer Use Subtitle Pass
 
 Overall grade after this slice: **A tool-card scannability across tool families, A native/HTML subtitle parity, A- regression-guard coverage**.

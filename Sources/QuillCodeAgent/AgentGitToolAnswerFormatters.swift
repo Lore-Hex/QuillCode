@@ -3,6 +3,38 @@ import QuillCodeCore
 import QuillCodeTools
 
 enum AgentGitToolAnswerFormatters {
+    static func statusAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.gitStatus.name else {
+            return nil
+        }
+        let output = combinedOutput(result)
+        guard !output.isEmpty else {
+            return "Git status is clean."
+        }
+        return "Git status:\n\(AgentToolAnswerFormatters.truncated(output))"
+    }
+
+    static func diffAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.gitDiff.name else {
+            return nil
+        }
+        let staged = AgentToolAnswerFormatterSupport.boolArgument("staged", in: call) ?? false
+        let output = combinedOutput(result)
+        guard !output.isEmpty else {
+            return staged ? "No staged git diff." : "No unstaged git diff."
+        }
+        let title = staged ? "Staged git diff" : "Git diff"
+        return "\(title):\n\(AgentToolAnswerFormatters.truncated(output))"
+    }
+
     static func worktreePruneAnswer(
         call: ToolCall,
         result: ToolResult,
@@ -27,9 +59,7 @@ enum AgentGitToolAnswerFormatters {
 
     private static func gitWorktreePruneAnswer(call: ToolCall, result: ToolResult) -> String {
         let dryRun = AgentToolAnswerFormatterSupport.boolArgument("dryRun", in: call) ?? false
-        let output = [result.stdout, result.stderr]
-            .compactMap(\.trimmedNonEmpty)
-            .joined(separator: "\n")
+        let output = combinedOutput(result)
         let lines = output
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -130,6 +160,12 @@ enum AgentGitToolAnswerFormatters {
             return lower.hasPrefix("removing ") || lower.contains(": gitdir file points")
         }
         return removingLines.isEmpty ? lines.count : removingLines.count
+    }
+
+    private static func combinedOutput(_ result: ToolResult) -> String {
+        [result.stdout, result.stderr]
+            .compactMap(\.trimmedNonEmpty)
+            .joined(separator: "\n")
     }
 }
 
