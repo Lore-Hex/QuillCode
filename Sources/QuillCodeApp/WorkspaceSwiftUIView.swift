@@ -162,6 +162,7 @@ public struct QuillCodeWorkspaceView: View {
             QuillCodeTopBarView(
                 topBar: surface.topBar,
                 commands: surface.commands,
+                leadingInset: QuillCodeMetrics.sidebarWidth,
                 onCommand: handleCommand
             )
             Divider()
@@ -177,7 +178,7 @@ public struct QuillCodeWorkspaceView: View {
                     onThreadAction: handleThreadAction,
                     onCommand: handleCommand
                 )
-                    .frame(width: 280)
+                    .frame(width: QuillCodeMetrics.sidebarWidth)
                 Divider()
                 QuillCodeWorkspaceMainPaneView(
                     surface: surface,

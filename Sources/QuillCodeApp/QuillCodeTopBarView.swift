@@ -6,16 +6,22 @@ struct QuillCodeTopBarView: View {
 
     var topBar: TopBarSurface
     var commands: [WorkspaceCommandSurface]
+    var leadingInset: CGFloat = 0
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
         ZStack(alignment: .bottom) {
             HStack(spacing: 12) {
-                contextLabel
-                    .layoutPriority(1)
+                if leadingInset > 0 {
+                    Color.clear
+                        .frame(width: leadingInset)
+                        .accessibilityHidden(true)
+                }
 
-                threadTitle
+                identityGroup
                     .layoutPriority(3)
+
+                Spacer(minLength: 8)
 
                 topBarActions
                     .layoutPriority(2)
@@ -36,22 +42,21 @@ struct QuillCodeTopBarView: View {
         .accessibilityLabel(topBarAccessibilityLabel)
     }
 
-    private var contextLabel: some View {
-        Text(topBar.subtitle)
-            .font(.caption)
-            .foregroundStyle(QuillCodePalette.muted)
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .frame(maxWidth: 240, alignment: .leading)
-    }
+    private var identityGroup: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(topBar.primaryTitle)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.text)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
-    private var threadTitle: some View {
-        Text(topBar.primaryTitle)
-            .font(.headline.weight(.semibold))
-            .foregroundStyle(QuillCodePalette.text)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .frame(maxWidth: .infinity, alignment: .center)
+            Text(topBar.subtitle)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var agentStatus: TopBarStatusPresentation {
