@@ -1371,7 +1371,7 @@
       text-transform: uppercase;
       letter-spacing: .08em;
     }
-    .activity-section button {
+    .activity-section [data-testid="activity-section-toggle"] {
       width: 100%;
       min-height: var(--hit-target);
       display: flex;
@@ -1388,7 +1388,7 @@
       text-transform: uppercase;
       cursor: pointer;
     }
-    .activity-section button span:last-child {
+    .activity-section [data-testid="activity-section-toggle"] span:last-child {
       color: #62c9f3;
       letter-spacing: 0;
       text-transform: none;
@@ -1419,12 +1419,18 @@
       margin-top: 5px;
     }
     .activity-source-action {
+      flex: 0 0 auto;
+      width: auto;
+      min-width: var(--hit-target);
+      justify-content: center;
       border: 1px solid rgba(120, 220, 255, 0.24);
       background: rgba(31, 164, 219, 0.14);
       color: var(--accent);
       border-radius: 10px;
       font: 700 12px/1 var(--font-sans);
+      letter-spacing: 0;
       padding: 0 12px;
+      text-transform: none;
     }
     .terminal-pane code,
     .terminal-entry code,
@@ -8104,7 +8110,16 @@
       }
       return `
         <section class="activity-section" data-testid="${section.itemTestID}-section" data-collapsed="${section.isCollapsed ? 'true' : 'false'}">
-          <button type="button" class="hit-target-row" data-testid="activity-section-toggle" data-command-id="${escapeHTML(section.commandID)}">
+          <button
+            type="button"
+            class="hit-target-row"
+            data-testid="activity-section-toggle"
+            data-command-id="${escapeHTML(section.commandID)}"
+            data-section-title="${escapeHTML(section.title)}"
+            data-hit-target-kind="row"
+            data-hit-target-action="press"
+            data-hit-target-source="explicit"
+          >
             <span>${section.isCollapsed ? '&gt;' : 'v'} ${escapeHTML(section.title)}</span>
             <span>${escapeHTML(section.countLabel)}</span>
           </button>
@@ -8121,6 +8136,9 @@
           data-testid="activity-source-action"
           data-command-id="${escapeHTML(action.commandID)}"
           data-action-kind="${escapeHTML(action.kind || '')}"
+          data-hit-target-kind="form-action"
+          data-hit-target-action="press"
+          data-hit-target-source="explicit"
         >${escapeHTML(action.title)}</button>`).join('');
       return `<div class="activity-item-actions">${buttons}</div>`;
     }

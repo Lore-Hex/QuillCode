@@ -394,9 +394,16 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Disclosure summaries should keep a minimum click target in the harness."
         )
         XCTAssertTrue(
-            harnessText.contains(".activity-section button")
+            harnessText.contains(#".activity-section [data-testid="activity-section-toggle"]"#)
                 && harnessText.contains("min-height: var(--hit-target);"),
             "Activity disclosure rows should keep full-row 44 px click targets in the harness."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".activity-source-action")
+                && harnessText.contains("flex: 0 0 auto;")
+                && harnessText.contains("width: auto;")
+                && harnessText.contains("min-width: var(--hit-target);"),
+            "Activity source actions should keep compact explicit 44 px targets instead of inheriting full-width row styling."
         )
         XCTAssertTrue(
             harnessText.contains(".memory-edit-button,\n    .memory-delete-button")

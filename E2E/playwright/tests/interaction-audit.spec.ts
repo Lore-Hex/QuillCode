@@ -111,6 +111,14 @@ test('critical click-target registry covers primary workspace surfaces', async (
     { label: 'run', locator: page.getByTestId('terminal-run'), expectedKind: 'text' }
   ]);
 
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expectCriticalTargetRegistry('activity pane', [
+    { label: 'plan section toggle', locator: page.getByTestId('activity-plan-section').getByTestId('activity-section-toggle'), expectedKind: 'row' },
+    { label: 'source open', locator: page.getByTestId('activity-source-action').filter({ hasText: 'Open' }), expectedKind: 'form-action' },
+    { label: 'source edit', locator: page.getByTestId('activity-source-action').filter({ hasText: 'Edit' }), expectedKind: 'form-action' }
+  ]);
+
   await clickSidebarTool(page, 'browser-button');
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expectCriticalTargetRegistry('browser pane', [
@@ -547,6 +555,47 @@ test('critical controls respond from the full interior click target, not only th
 
 test('secondary pane controls respond from the full interior click target', async ({ page }) => {
   await page.goto(harnessURL());
+
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await clickTargetInteriorPoint(
+    page.getByTestId('activity-plan-section').getByTestId('activity-section-toggle'),
+    'activity plan toggle trailing interior',
+    0.85,
+    0.5
+  );
+  await expect(page.getByTestId('activity-plan-section')).toHaveAttribute('data-collapsed', 'true');
+  await clickTargetInteriorPoint(
+    page.getByTestId('activity-plan-section').getByTestId('activity-section-toggle'),
+    'activity plan toggle leading interior',
+    0.15,
+    0.5
+  );
+  await expect(page.getByTestId('activity-plan-section')).toHaveAttribute('data-collapsed', 'false');
+  await clickTargetInteriorPoint(
+    page.getByTestId('activity-source-action').filter({ hasText: 'Open' }),
+    'activity source Open leading interior',
+    0.2,
+    0.5
+  );
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.file.read');
+  await clickTargetInteriorPoint(
+    page.getByTestId('activity-source-action').filter({ hasText: 'Edit' }),
+    'activity source Edit trailing interior',
+    0.8,
+    0.5
+  );
+  await expect(page.getByLabel('Message')).toHaveValue('Edit instruction source AGENTS.md: ');
+  const activityActionLayout = await page.getByTestId('activity-source-action').first().evaluate((button) => {
+    const section = button.closest('[data-testid="activity-source-section"]');
+    const buttonRect = button.getBoundingClientRect();
+    const sectionRect = section?.getBoundingClientRect();
+    return {
+      buttonWidth: Math.round(buttonRect.width),
+      sectionWidth: Math.round(sectionRect?.width ?? 0)
+    };
+  });
+  expect(activityActionLayout.buttonWidth).toBeLessThan(activityActionLayout.sectionWidth - 24);
 
   await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();

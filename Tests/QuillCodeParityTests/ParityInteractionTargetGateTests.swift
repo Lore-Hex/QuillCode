@@ -334,6 +334,22 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "The dynamic HTML harness should mark fallback targets as auto-inferred so audits can reject accidental missing semantic contracts."
         )
         XCTAssertTrue(
+            harnessText.contains(#"data-testid="activity-section-toggle""#)
+                && harnessText.contains(#"data-hit-target-kind="row""#)
+                && harnessText.contains(#"data-hit-target-action="press""#)
+                && harnessText.contains(#"data-hit-target-source="explicit""#)
+                && harnessText.contains(#"data-testid="activity-source-action""#)
+                && harnessText.contains(#"data-hit-target-kind="form-action""#),
+            "Activity section toggles and source actions should declare explicit rendered hit-target contracts instead of relying on post-render normalization."
+        )
+        XCTAssertTrue(
+            harnessText.contains(#".activity-section [data-testid="activity-section-toggle"]"#)
+                && harnessText.contains("flex: 0 0 auto;")
+                && harnessText.contains("width: auto;")
+                && harnessText.contains("min-width: var(--hit-target);"),
+            "Activity source actions should not inherit the full-width section-toggle layout; compact actions still need fixed 44 px target floors."
+        )
+        XCTAssertTrue(
             harnessText.contains("['hit-target-icon', 'icon']")
                 && harnessText.contains("['hit-target-text-entry', 'text-entry']")
                 && harnessText.contains("['hit-target-row', 'row']")
