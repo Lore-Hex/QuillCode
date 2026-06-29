@@ -131,6 +131,79 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(activity.sections.first { $0.kind == .sources }?.countLabel, "5 items")
     }
 
+    func testActivitySurfaceShowsContextSummaryProgressNotices() throws {
+        let fallbackOutcome = WorkspaceContextSummaryOutcome(
+            summaryOverride: nil,
+            source: .deterministicFallback,
+            errorDescription: "summary timeout"
+        )
+        let thread = ChatThread(
+            title: "Large thread",
+            messages: [.init(role: .user, content: "compact this")],
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact)
+                ),
+                .init(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                        outcome: fallbackOutcome,
+                        purpose: .compact
+                    )
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+        let contextSection = try XCTUnwrap(activity.sections.first { $0.kind == .context })
+
+        XCTAssertEqual(activity.contextItems.map(\.title), [
+            "Compacting context",
+            "Deterministic fallback used"
+        ])
+        XCTAssertEqual(activity.contextItems.map(\.statusLabel), ["Running", "Checked"])
+        XCTAssertEqual(contextSection.title, "Context")
+        XCTAssertEqual(contextSection.itemTestID, "activity-context")
+        XCTAssertEqual(contextSection.countLabel, "2 items")
+    }
+
+    func testActivitySurfaceShowsContextSummaryContinuationTelemetry() throws {
+        let modelOutcome = WorkspaceContextSummaryOutcome(
+            summaryOverride: "Keep the current repo and validation details.",
+            source: .model
+        )
+        let thread = ChatThread(
+            title: "Compact continuation",
+            messages: [.init(role: .assistant, content: "Context compacted.")],
+            events: [
+                WorkspaceContextSummaryTelemetryPlanner.continuationEvent(
+                    outcome: modelOutcome,
+                    sourceTitle: "Large thread",
+                    purpose: .compact
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+        let contextItem = try XCTUnwrap(activity.contextItems.first)
+        let contextSection = try XCTUnwrap(activity.sections.first { $0.kind == .context })
+
+        XCTAssertEqual(contextItem.title, "Context compacted")
+        XCTAssertEqual(contextItem.detail, "Model summary · from Large thread · 45 characters")
+        XCTAssertEqual(contextItem.statusLabel, "Done")
+        XCTAssertEqual(contextSection.items, [contextItem])
+        XCTAssertEqual(activity.sections.map(\.kind).prefix(3), [.plan, .context, .recent])
+    }
+
     func testActivitySourcesSurfaceInstructionSemanticConflictDiagnostics() throws {
         let instructions = [
             ProjectInstruction(

@@ -2,6 +2,7 @@ import Foundation
 
 public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterable {
     case plan
+    case context
     case recent
     case subagents
     case handoff
@@ -15,6 +16,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return "Task Plan"
+        case .context:
+            return "Context"
         case .recent:
             return "Recent"
         case .subagents:
@@ -38,6 +41,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return "No plan yet"
+        case .context:
+            return "No context compaction yet"
         case .recent:
             return "No task events yet"
         case .subagents:
@@ -61,6 +66,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return "activity-plan"
+        case .context:
+            return "activity-context"
         case .recent:
             return "activity-step"
         case .subagents:
@@ -84,9 +91,7 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return true
-        case .handoff, .latestAnswer:
-            return false
-        case .instructionReview:
+        case .context, .handoff, .instructionReview, .latestAnswer:
             return false
         case .recent, .subagents, .tools, .sources, .artifacts:
             return true
