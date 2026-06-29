@@ -28,7 +28,8 @@ let package = Package(
     targets: [
         .target(name: "QuillCodeCore"),
         .target(name: "QuillCodeSafety", dependencies: ["QuillCodeCore"]),
-        .target(name: "QuillCodeTools", dependencies: ["QuillCodeCore"]),
+        .target(name: "CQuillPTY"),
+        .target(name: "QuillCodeTools", dependencies: ["QuillCodeCore", "CQuillPTY"]),
         .target(name: "QuillCodePersistence", dependencies: ["QuillCodeCore"]),
         .target(name: "QuillComputerUseKit", dependencies: ["QuillCodeCore"]),
         .target(
