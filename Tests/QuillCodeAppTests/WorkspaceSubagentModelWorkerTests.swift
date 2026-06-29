@@ -6,7 +6,7 @@ import QuillCodeCore
 final class WorkspaceSubagentModelWorkerTests: XCTestCase {
     func testRunReturnsCollapsedModelSayText() async throws {
         let worker = LLMWorkspaceSubagentWorker(
-            llm: FixedSayLLMClient(text: "  Inspected the parser\n  and found two edge cases.  ")
+            llm: SubagentStubSayLLMClient(text: "  Inspected the parser\n  and found two edge cases.  ")
         )
 
         let summary = try await worker.run(
@@ -17,7 +17,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
     }
 
     func testRunFallsBackToRoleForEmptySay() async throws {
-        let worker = LLMWorkspaceSubagentWorker(llm: FixedSayLLMClient(text: "   \n  "))
+        let worker = LLMWorkspaceSubagentWorker(llm: SubagentStubSayLLMClient(text: "   \n  "))
 
         let summary = try await worker.run(
             WorkspaceSubagentJob(name: "Verifier", role: "run focused tests", objective: "ship the release")
@@ -27,7 +27,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
     }
 
     func testRunSummarizesToolAction() async throws {
-        let worker = LLMWorkspaceSubagentWorker(llm: FixedToolLLMClient(toolName: "host.shell.run"))
+        let worker = LLMWorkspaceSubagentWorker(llm: SubagentStubToolLLMClient(toolName: "host.shell.run"))
 
         let summary = try await worker.run(
             WorkspaceSubagentJob(name: "Runner", role: "execute checks", objective: "build and verify")
@@ -49,7 +49,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
     }
 
     func testRunPropagatesClientErrors() async {
-        let worker = LLMWorkspaceSubagentWorker(llm: ThrowingLLMClient())
+        let worker = LLMWorkspaceSubagentWorker(llm: SubagentStubThrowingLLMClient())
 
         do {
             _ = try await worker.run(
@@ -62,7 +62,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
     }
 }
 
-private struct FixedSayLLMClient: LLMClient {
+private struct SubagentStubSayLLMClient: LLMClient {
     var text: String
 
     func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
@@ -70,7 +70,7 @@ private struct FixedSayLLMClient: LLMClient {
     }
 }
 
-private struct FixedToolLLMClient: LLMClient {
+private struct SubagentStubToolLLMClient: LLMClient {
     var toolName: String
 
     func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
@@ -78,7 +78,7 @@ private struct FixedToolLLMClient: LLMClient {
     }
 }
 
-private struct ThrowingLLMClient: LLMClient {
+private struct SubagentStubThrowingLLMClient: LLMClient {
     struct Failure: Error {}
 
     func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
