@@ -16,6 +16,9 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var activity: WorkspaceActivitySurface
     public var automations: WorkspaceAutomationsSurface
     public var composer: ComposerSurface
+    /// Cached index of the selected local project's files, used by the native
+    /// composer to rank `@` mention suggestions live as the user types.
+    public var fileMentionIndex: WorkspaceFileIndex
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
     public var runtimeIssue: RuntimeIssueSurface?
@@ -35,6 +38,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         activity: WorkspaceActivitySurface = WorkspaceActivitySurface(),
         automations: WorkspaceAutomationsSurface = WorkspaceAutomationsSurface(),
         composer: ComposerSurface,
+        fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex(),
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
         runtimeIssue: RuntimeIssueSurface? = nil,
@@ -53,6 +57,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.activity = activity
         self.automations = automations
         self.composer = composer
+        self.fileMentionIndex = fileMentionIndex
         self.commands = commands
         self.settings = settings
         self.runtimeIssue = runtimeIssue
@@ -156,7 +161,8 @@ public extension QuillCodeWorkspaceModel {
                 hasSelectedThread: thread != nil,
                 hasSelectedProject: selectedProject != nil
             ).surface(),
-            composer: ComposerSurface(composer: composer),
+            composer: ComposerSurface(composer: composer, fileMentionIndex: fileMentionIndex),
+            fileMentionIndex: fileMentionIndex,
             commands: commandSurfaceBuilder().commands,
             settings: WorkspaceSettingsSurface(
                 config: root.config,

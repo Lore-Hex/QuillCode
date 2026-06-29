@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Composer File Mention Pass
+
+Overall grade after this slice: **A native composer wiring, A per-project index lifecycle, B+ cross-surface parity (native + data; JS harness/Playwright pending)**.
+
+Builds on the file-mention engine: the native SwiftUI composer now offers Codex-style `@path` mentions as the user types, ranked against a cached per-project file index.
+
+| Before | After |
+| --- | --- |
+| The engine existed but nothing rendered mentions; the composer only suggested slash commands. | `QuillCodeComposerView` renders a file-mention panel (reusing the audited row/press primitives) when the trailing token is an `@` mention, with ↑/↓ navigation, Tab/Return accept, and click-to-insert, mutually exclusive with slash suggestions. |
+| No workspace file index existed in the model. | The model caches a bounded `WorkspaceFileIndex` for the selected local project, refreshed on add/select/refresh-context and cleared for SSH Remote or unselected projects, surfaced through `WorkspaceSurface.fileMentionIndex` and `ComposerSurface.fileMentionSuggestions`. |
+| No coverage for composer mention wiring. | 6 new integration tests cover index population on project add, active-mention suggestions and acceptance text, no-mention and slash-suppression cases, refresh-context picking up new files, and SSH Remote index clearing. |
+
+Residual risk:
+
+- The static HTML renderer and JS harness still render slash/mention suggestions only at the live (JS) layer; the next slice mirrors `FileMentionCatalog` into the harness and adds Playwright `@` mention coverage. New session-created files surface on the next Refresh context rather than instantly.
+
 ## 2026-06-29 File Mention Suggestion Engine Pass
 
 Overall grade after this slice: **A bounded workspace indexing, A pure mention-ranking logic, B+ surface wiring (engine only)**.

@@ -34,6 +34,9 @@ public final class QuillCodeWorkspaceModel {
     let mcpRuntime: WorkspaceMCPRuntime
     var activeTerminalSession: (any ShellInteractiveSession)?
     var subagentScheduler = WorkspaceSubagentScheduler()
+    /// Bounded, cached index of the selected local project's files, used to power
+    /// composer `@` file mentions. Empty for remote or unselected projects.
+    public internal(set) var fileMentionIndex = WorkspaceFileIndex()
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
@@ -92,6 +95,7 @@ public final class QuillCodeWorkspaceModel {
         }
         syncTerminalSessionToSelectedProject()
         refreshTopBar()
+        refreshFileMentionIndex()
     }
 
     deinit {
@@ -137,6 +141,17 @@ public final class QuillCodeWorkspaceModel {
             projectID: id,
             projects: &root.projects
         )
+        refreshFileMentionIndex()
+    }
+
+    /// Recomputes the cached composer file-mention index from the selected local
+    /// project. Remote or unselected projects clear the index so mentions stay empty.
+    func refreshFileMentionIndex() {
+        guard let activeWorkspaceRoot else {
+            fileMentionIndex = WorkspaceFileIndex()
+            return
+        }
+        fileMentionIndex = WorkspaceFileIndexer(workspaceRoot: activeWorkspaceRoot).index()
     }
 
     func workspaceThreadContext(_ projectID: UUID?) -> WorkspaceThreadContextSnapshot {
