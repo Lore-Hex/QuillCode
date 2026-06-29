@@ -866,6 +866,10 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("click_probes = native_targets.get(\"clickProbes\")")
                 && smokeScriptText.contains("missing_probe_contracts")
                 && smokeScriptText.contains("missingClickProbeContractIDs")
+                && smokeScriptText.contains("expected_sample_points")
+                && smokeScriptText.contains(#""leading-interior": (0.18, 0.5)"#)
+                && smokeScriptText.contains(#""trailing-interior": (0.82, 0.5)"#)
+                && smokeScriptText.contains("unexpected click probe point coordinates")
                 && smokeScriptText.contains("required_sample_names")
                 && smokeScriptText.contains("selector_kind == \"test-id\"")
                 && smokeScriptText.contains("selector_kind == \"command-id\"")
@@ -875,7 +879,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains(#"for optional_field in ("testID", "commandID")"#)
                 && smokeScriptText.contains("unaddressable native hit target")
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
-            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, addressable test/command/focus handle, click probe, and non-empty metadata field."
+            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, addressable test/command/focus handle, exact click probe, and non-empty metadata field."
         )
         XCTAssertTrue(
             smokeScriptText.contains("required_focus_targets")

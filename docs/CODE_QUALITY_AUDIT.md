@@ -11,6 +11,7 @@ The previous pass made native controls addressable by stable identifiers. This p
 | Native smoke knew a target had a `testID`, `commandID`, or focus target, but did not publish how automation should sample that target. | Every addressable surface contract now emits a `clickProbes` entry with selector type/value, semantic kind/action, required minimum width/height, and normalized interior sample points. |
 | A future AX runner would have needed to infer probe points and selector precedence separately from the native audit. | Selector precedence and sample points are now centralized in `QuillCodeNativeHitTargetAudit`, so later frame sampling can consume the same JSON report. |
 | The shell smoke validated surface contracts but not one-to-one probe coverage. | `scripts/native-desktop-smoke.sh` now fails if any surface contract lacks a click probe, if probe selectors drift from their contract, or if sample points fall outside the target interior. |
+| Smoke checked that required sample names existed, but not their exact coordinates. | Smoke now validates the normalized coordinate map for center, leading/trailing interior, and top/bottom interior samples, so a future frame sampler cannot drift while preserving names. |
 
 Residual risk:
 
