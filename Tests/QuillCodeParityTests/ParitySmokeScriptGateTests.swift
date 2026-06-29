@@ -153,6 +153,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("packaged-click-probes.json"))
         XCTAssertTrue(script.contains("packaged-accessibility-readiness.json"))
         XCTAssertTrue(script.contains("accessibility_readiness_manifest=packaged-accessibility-readiness.json"))
+        XCTAssertTrue(script.contains(" window \\"))
+        XCTAssertTrue(script.contains("$WINDOW_REPORT_PATH"))
+        XCTAssertTrue(script.contains("$WINDOW_SCREENSHOT_PATH"))
         XCTAssertTrue(validator.contains("normalized_probe_contracts"))
         XCTAssertTrue(validator.contains("click_probes = targets.get(\"clickProbes\")"))
         XCTAssertTrue(validator.contains("samplePoints"))
@@ -167,6 +170,10 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("write_accessibility_readiness_manifest"))
         XCTAssertTrue(validator.contains("report-ready-for-accessibility-frame-sampling"))
         XCTAssertTrue(validator.contains("liveAccessibilitySampling"))
+        XCTAssertTrue(validator.contains("validate_packaged_window_report"))
+        XCTAssertTrue(validator.contains("REQUIRED_WINDOW_COMMAND_IDS"))
+        XCTAssertTrue(validator.contains("REQUIRED_WINDOW_STARTER_ACTION_IDS"))
+        XCTAssertTrue(validator.contains("MINIMUM_WINDOW_SCREENSHOT_BYTES"))
     }
 
     func testNativeClickProbeValidatorCLIValidatesAndWritesPackagedManifests() throws {
@@ -183,11 +190,15 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         let launchServicesReport = launchServicesDirectory.appendingPathComponent("report.json")
         let manifest = temporaryDirectory.appendingPathComponent("packaged-click-probes.json")
         let readiness = temporaryDirectory.appendingPathComponent("packaged-accessibility-readiness.json")
+        let windowReport = temporaryDirectory.appendingPathComponent("window-report.json")
+        let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
         try Self.minimalClickProbeReport.write(to: directReport, atomically: true, encoding: .utf8)
         try Self.minimalClickProbeReport.write(to: launchServicesReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowReport.write(to: windowReport, atomically: true, encoding: .utf8)
+        try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
             .appendingPathComponent("scripts")
@@ -253,6 +264,13 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
             "trailing-interior"
         ])
         XCTAssertEqual(readinessObject["contractIDs"] as? [String], ["composer.send"])
+
+        let windowResult = try Self.runPython(validator, arguments: [
+            "window",
+            windowReport.path,
+            windowScreenshot.path
+        ])
+        XCTAssertEqual(windowResult.exitCode, 0, windowResult.output)
     }
 
     private struct ScriptResult {
@@ -292,6 +310,82 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
     private static var minimalClickProbeReport: String {
         """
         {
+          "nativeHitTargets": {
+            "surfaceContracts": [
+              {
+                "id": "composer.send",
+                "testID": "quillcode-send-button",
+                "kind": "icon",
+                "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true
+              }
+            ],
+            "clickProbes": [
+              {
+                "contractID": "composer.send",
+                "selectorKind": "test-id",
+                "selector": "quillcode-send-button",
+                "kind": "icon",
+                "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true,
+                "requiredMinWidth": 44,
+                "requiredMinHeight": 44,
+                "samplePoints": [
+                  {"name": "center", "x": 0.5, "y": 0.5},
+                  {"name": "leading-interior", "x": 0.18, "y": 0.5},
+                  {"name": "trailing-interior", "x": 0.82, "y": 0.5},
+                  {"name": "top-interior", "x": 0.5, "y": 0.18},
+                  {"name": "bottom-interior", "x": 0.5, "y": 0.82}
+                ]
+              }
+            ],
+            "missingClickProbeContractIDs": [],
+            "clickProbeValidationIssues": []
+          }
+        }
+        """
+    }
+
+    private static var minimalPackagedWindowReport: String {
+        """
+        {
+          "ok": true,
+          "appName": "QuillCode",
+          "bundleIdentifier": "co.lorehex.QuillCode",
+          "windowTitle": "QuillCode",
+          "screenshotPath": "window.png",
+          "image": {
+            "width": 1280,
+            "height": 900,
+            "distinctColorBuckets": 16
+          },
+          "surface": {
+            "appName": "QuillCode",
+            "primaryTitle": "run whoami",
+            "modelLabel": "Nike 1.0",
+            "modeLabel": "Auto",
+            "agentStatus": "TrustedRouter signed in",
+            "composerPlaceholder": "Message QuillCode",
+            "composerCanSend": false,
+            "sidebarTitle": "Chats",
+            "commandIDs": [
+              "new-chat",
+              "command-palette",
+              "keyboard-shortcuts",
+              "settings",
+              "toggle-terminal",
+              "toggle-browser",
+              "stop-all",
+              "disconnect-all"
+            ],
+            "starterActionIDs": [
+              "review-changes",
+              "run-tests",
+              "explain-project"
+            ]
+          },
           "nativeHitTargets": {
             "surfaceContracts": [
               {
