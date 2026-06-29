@@ -124,6 +124,44 @@ test('mock harness summarizes opened URL and reviewed file path in tool-card sub
   await expect(subtitles.nth(1)).toContainText('Sources/App.swift');
 });
 
+test('mock harness summarizes MCP and Computer Use arguments in tool-card subtitles', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      addToolCard: (card: Record<string, unknown>) => void;
+      render: () => void;
+    };
+    harness.addToolCard({
+      title: 'host.mcp.call',
+      status: 'done',
+      inputJSON: JSON.stringify({ serverID: 'fs', toolName: 'list_dir' })
+    });
+    harness.addToolCard({
+      title: 'host.mcp.resource.read',
+      status: 'done',
+      inputJSON: JSON.stringify({ serverID: 'fs', resourceName: 'README' })
+    });
+    harness.addToolCard({
+      title: 'host.computer.click',
+      status: 'done',
+      inputJSON: JSON.stringify({ x: 120, y: 340 })
+    });
+    harness.addToolCard({
+      title: 'host.computer.type',
+      status: 'done',
+      inputJSON: JSON.stringify({ text: 'hello world' })
+    });
+    harness.render();
+  });
+
+  const subtitles = page.getByTestId('tool-card-subtitle');
+  await expect(subtitles.nth(0)).toContainText('list_dir');
+  await expect(subtitles.nth(1)).toContainText('README');
+  await expect(subtitles.nth(2)).toContainText('120, 340');
+  await expect(subtitles.nth(3)).toContainText('hello world');
+});
+
 test('mock harness shows git review summary for diff flow', async ({ page }) => {
   await page.goto(harnessURL());
 
