@@ -93,6 +93,8 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     public var requiresUnblockedInterior: Bool
     public var source: String
     public var focusTarget: QuillCodeNativeFocusTarget?
+    public var testID: String?
+    public var commandID: String?
 
     public init(
         id: String,
@@ -103,6 +105,8 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         minWidth: Double?,
         minHeight: Double = Double(QuillCodeMetrics.minimumHitTarget),
         focusTarget: QuillCodeNativeFocusTarget? = nil,
+        testID: String? = nil,
+        commandID: String? = nil,
         source: String
     ) {
         self.id = id
@@ -117,6 +121,8 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         self.requiresUnblockedInterior = kind.requiresUnblockedInterior
         self.source = source
         self.focusTarget = focusTarget
+        self.testID = testID
+        self.commandID = commandID
     }
 
     public var dictionary: [String: Any] {
@@ -137,6 +143,12 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         }
         if let focusTarget {
             value["focusTarget"] = focusTarget.rawValue
+        }
+        if let testID {
+            value["testID"] = testID
+        }
+        if let commandID {
+            value["commandID"] = commandID
         }
         return value
     }
@@ -169,6 +181,18 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         }
         if kind == .textEntry && family != .designSystem && focusTarget == nil {
             issues.append("\(id) text entry does not declare a focus target")
+        }
+        if let testID, testID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append("\(id) has an empty test id")
+        }
+        if let commandID, commandID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append("\(id) has an empty command id")
+        }
+        if family != .designSystem,
+           focusTarget == nil,
+           testID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+           commandID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            issues.append("\(id) does not declare a stable test id, command id, or focus target")
         }
         return issues
     }
@@ -443,52 +467,52 @@ public enum QuillCodeNativeHitTargetAudit {
 
     private static func persistentSurfaceContracts() -> [QuillCodeNativeHitTargetContract] {
         [
-            contract("composer.input", family: .composer, surface: "Composer", label: "Message", kind: .textEntry, minWidth: nil, focusTarget: .composerMessage),
-            contract("composer.send", family: .composer, surface: "Composer", label: "Send message", kind: .icon, minWidth: 44),
-            contract("composer.model-picker", family: .composer, surface: "Composer", label: "Model picker", kind: .capsule, minWidth: nil),
-            contract("composer.mode-picker", family: .composer, surface: "Composer", label: "Mode picker", kind: .capsule, minWidth: nil),
-            contract("top-bar.overflow", family: .topBar, surface: "Top bar", label: "More workspace actions", kind: .icon, minWidth: 44),
-            contract("sidebar.tools-menu", family: .sidebar, surface: "Sidebar", label: "Tools", kind: .fullRow, minWidth: nil),
-            contract("workspace.chrome", family: .workspaceChrome, surface: "Workspace chrome", label: "Workspace command", kind: .fullRow, minWidth: nil)
+            contract("composer.input", family: .composer, surface: "Composer", label: "Message", kind: .textEntry, minWidth: nil, focusTarget: .composerMessage, testID: "composer-input"),
+            contract("composer.send", family: .composer, surface: "Composer", label: "Send message", kind: .icon, minWidth: 44, testID: "send-button"),
+            contract("composer.model-picker", family: .composer, surface: "Composer", label: "Model picker", kind: .capsule, minWidth: nil, testID: "model-picker-button"),
+            contract("composer.mode-picker", family: .composer, surface: "Composer", label: "Mode picker", kind: .capsule, minWidth: nil, testID: "mode-picker-button"),
+            contract("top-bar.overflow", family: .topBar, surface: "Top bar", label: "More workspace actions", kind: .icon, minWidth: 44, testID: "top-bar-overflow"),
+            contract("sidebar.tools-menu", family: .sidebar, surface: "Sidebar", label: "Tools", kind: .fullRow, minWidth: nil, testID: "sidebar-tools-button"),
+            contract("workspace.chrome", family: .workspaceChrome, surface: "Workspace chrome", label: "Workspace command", kind: .fullRow, minWidth: nil, testID: "workspace-command")
         ]
     }
 
     private static func canonicalTransientSurfaceContracts() -> [QuillCodeNativeHitTargetContract] {
         [
-            contract("sidebar.thread-row", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row", kind: .fullRow, minWidth: nil),
-            contract("sidebar.thread-action", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row action", kind: .icon, minWidth: 44),
-            contract("transcript.message-action", family: .transcript, surface: "Transcript", label: "Message action", kind: .icon, minWidth: 44),
-            contract("transcript.artifact-link", family: .transcript, surface: "Transcript", label: "Artifact link", kind: .link, minWidth: 96),
-            contract("transcript.tool-card", family: .toolCard, surface: "Tool card", label: "Tool details", kind: .fullRow, minWidth: nil),
-            contract("transcript.tool-card-action", family: .toolCard, surface: "Tool card", label: "Tool action", kind: .textButton, minWidth: 72),
-            contract("transcript.context-banner-action", family: .contextBanner, surface: "Context banner", label: "Context action", kind: .textButton, minWidth: 72),
-            contract("command-palette.input", family: .commandPalette, surface: "Command palette", label: "Command search", kind: .textEntry, minWidth: nil, focusTarget: .commandPaletteSearch),
-            contract("command-palette.result", family: .commandPalette, surface: "Command palette", label: "Command result", kind: .fullRow, minWidth: nil),
-            contract("search.input", family: .search, surface: "Search", label: "Search chats", kind: .textEntry, minWidth: nil, focusTarget: .searchChats),
-            contract("search.result", family: .search, surface: "Search", label: "Search result", kind: .fullRow, minWidth: nil),
-            contract("settings.text-entry", family: .settings, surface: "Settings", label: "Settings text entry", kind: .textEntry, minWidth: nil, focusTarget: .settingsTrustedRouterBaseURL),
-            contract("settings.action", family: .settings, surface: "Settings", label: "Settings action", kind: .formAction, minWidth: 72),
-            contract("model-picker.search", family: .modelPicker, surface: "Model picker", label: "Model search", kind: .textEntry, minWidth: nil, focusTarget: .modelPickerSearch),
-            contract("model-picker.option", family: .modelPicker, surface: "Model picker", label: "Model option", kind: .fullRow, minWidth: nil),
-            contract("model-picker.option-action", family: .modelPicker, surface: "Model picker", label: "Model option action", kind: .icon, minWidth: 44),
-            contract("review.body", family: .review, surface: "Review", label: "Review body", kind: .textEntry, minWidth: nil, focusTarget: .reviewBody),
-            contract("review.thread-reply", family: .review, surface: "Review", label: "Review thread reply", kind: .textEntry, minWidth: nil, focusTarget: .reviewThreadReply),
-            contract("review.mode", family: .review, surface: "Review", label: "Review mode", kind: .segmentedControl, minWidth: nil),
-            contract("review.file-row", family: .review, surface: "Review", label: "Review file", kind: .fullRow, minWidth: nil),
-            contract("review.action", family: .review, surface: "Review", label: "Review action", kind: .formAction, minWidth: 72),
-            contract("secondary-pane.tab", family: .secondaryPane, surface: "Secondary pane", label: "Pane tab", kind: .capsule, minWidth: 72),
-            contract("terminal.family-entry", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil, focusTarget: .terminalCommand),
-            contract("terminal.family-action", family: .terminal, surface: "Terminal", label: "Terminal action", kind: .textButton, minWidth: 64),
-            contract("browser.family-entry", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil, focusTarget: .browserAddress),
-            contract("browser.family-action", family: .browser, surface: "Browser", label: "Browser action", kind: .textButton, minWidth: 64),
-            contract("browser.family-icon", family: .browser, surface: "Browser", label: "Browser icon action", kind: .icon, minWidth: 44),
-            contract("browser.comment-entry", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil, focusTarget: .browserComment),
-            contract("extensions.family-entry", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74),
-            contract("extensions.reference-action", family: .extensions, surface: "Extensions", label: "MCP resource or prompt action", kind: .capsule, minWidth: 96),
-            contract("memories.family-entry", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56),
-            contract("memories.item-action", family: .memories, surface: "Memories", label: "Memory row action", kind: .icon, minWidth: 44),
-            contract("automations.family-entry", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90),
-            contract("menu-bar.action", family: .menuBar, surface: "Menu bar", label: "Menu bar action", kind: .fullRow, minWidth: nil)
+            contract("sidebar.thread-row", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row", kind: .fullRow, minWidth: nil, testID: "sidebar-item"),
+            contract("sidebar.thread-action", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row action", kind: .icon, minWidth: 44, testID: "sidebar-thread-action"),
+            contract("transcript.message-action", family: .transcript, surface: "Transcript", label: "Message action", kind: .icon, minWidth: 44, testID: "message-action"),
+            contract("transcript.artifact-link", family: .transcript, surface: "Transcript", label: "Artifact link", kind: .link, minWidth: 96, testID: "tool-card-artifact"),
+            contract("transcript.tool-card", family: .toolCard, surface: "Tool card", label: "Tool details", kind: .fullRow, minWidth: nil, testID: "tool-card-details"),
+            contract("transcript.tool-card-action", family: .toolCard, surface: "Tool card", label: "Tool action", kind: .textButton, minWidth: 72, testID: "tool-card-action"),
+            contract("transcript.context-banner-action", family: .contextBanner, surface: "Context banner", label: "Context action", kind: .textButton, minWidth: 72, testID: "context-banner-action"),
+            contract("command-palette.input", family: .commandPalette, surface: "Command palette", label: "Command search", kind: .textEntry, minWidth: nil, focusTarget: .commandPaletteSearch, testID: "command-palette-input"),
+            contract("command-palette.result", family: .commandPalette, surface: "Command palette", label: "Command result", kind: .fullRow, minWidth: nil, testID: "command-palette-result"),
+            contract("search.input", family: .search, surface: "Search", label: "Search chats", kind: .textEntry, minWidth: nil, focusTarget: .searchChats, testID: "search-input"),
+            contract("search.result", family: .search, surface: "Search", label: "Search result", kind: .fullRow, minWidth: nil, testID: "search-result"),
+            contract("settings.text-entry", family: .settings, surface: "Settings", label: "Settings text entry", kind: .textEntry, minWidth: nil, focusTarget: .settingsTrustedRouterBaseURL, testID: "settings-text-entry"),
+            contract("settings.action", family: .settings, surface: "Settings", label: "Settings action", kind: .formAction, minWidth: 72, testID: "settings-action"),
+            contract("model-picker.search", family: .modelPicker, surface: "Model picker", label: "Model search", kind: .textEntry, minWidth: nil, focusTarget: .modelPickerSearch, testID: "model-picker-search"),
+            contract("model-picker.option", family: .modelPicker, surface: "Model picker", label: "Model option", kind: .fullRow, minWidth: nil, testID: "model-picker-option"),
+            contract("model-picker.option-action", family: .modelPicker, surface: "Model picker", label: "Model option action", kind: .icon, minWidth: 44, testID: "model-picker-option-action"),
+            contract("review.body", family: .review, surface: "Review", label: "Review body", kind: .textEntry, minWidth: nil, focusTarget: .reviewBody, testID: "review-body"),
+            contract("review.thread-reply", family: .review, surface: "Review", label: "Review thread reply", kind: .textEntry, minWidth: nil, focusTarget: .reviewThreadReply, testID: "pr-review-thread-reply-input"),
+            contract("review.mode", family: .review, surface: "Review", label: "Review mode", kind: .segmentedControl, minWidth: nil, testID: "review-mode"),
+            contract("review.file-row", family: .review, surface: "Review", label: "Review file", kind: .fullRow, minWidth: nil, testID: "review-file"),
+            contract("review.action", family: .review, surface: "Review", label: "Review action", kind: .formAction, minWidth: 72, testID: "review-action"),
+            contract("secondary-pane.tab", family: .secondaryPane, surface: "Secondary pane", label: "Pane tab", kind: .capsule, minWidth: 72, testID: "secondary-pane-tab"),
+            contract("terminal.family-entry", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil, focusTarget: .terminalCommand, testID: "terminal-command"),
+            contract("terminal.family-action", family: .terminal, surface: "Terminal", label: "Terminal action", kind: .textButton, minWidth: 64, testID: "terminal-action"),
+            contract("browser.family-entry", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil, focusTarget: .browserAddress, testID: "browser-address"),
+            contract("browser.family-action", family: .browser, surface: "Browser", label: "Browser action", kind: .textButton, minWidth: 64, testID: "browser-action"),
+            contract("browser.family-icon", family: .browser, surface: "Browser", label: "Browser icon action", kind: .icon, minWidth: 44, testID: "browser-icon-action"),
+            contract("browser.comment-entry", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil, focusTarget: .browserComment, testID: "browser-comment-input"),
+            contract("extensions.family-entry", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74, testID: "extension-action"),
+            contract("extensions.reference-action", family: .extensions, surface: "Extensions", label: "MCP resource or prompt action", kind: .capsule, minWidth: 96, testID: "extension-reference-action"),
+            contract("memories.family-entry", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56, testID: "memory-add"),
+            contract("memories.item-action", family: .memories, surface: "Memories", label: "Memory row action", kind: .icon, minWidth: 44, testID: "memory-row-action"),
+            contract("automations.family-entry", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90, testID: "automation-create"),
+            contract("menu-bar.action", family: .menuBar, surface: "Menu bar", label: "Menu bar action", kind: .fullRow, minWidth: nil, testID: "menu-bar-action")
         ]
     }
 
@@ -524,6 +548,7 @@ public enum QuillCodeNativeHitTargetAudit {
             label: command.title,
             kind: kind,
             minWidth: nil,
+            commandID: command.id,
             source: "WorkspaceCommandSurface"
         )
     }
@@ -544,57 +569,57 @@ public enum QuillCodeNativeHitTargetAudit {
         var contracts: [QuillCodeNativeHitTargetContract] = []
 
         if surface.terminal.isVisible {
-            contracts.append(contract("terminal.command", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil, focusTarget: .terminalCommand))
-            contracts.append(contract("terminal.run", family: .terminal, surface: "Terminal", label: surface.terminal.commandActionTitle, kind: .textButton, minWidth: 64))
-            contracts.append(contract("terminal.clear", family: .terminal, surface: "Terminal", label: "Clear", kind: .textButton, minWidth: 56))
+            contracts.append(contract("terminal.command", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil, focusTarget: .terminalCommand, testID: "terminal-command"))
+            contracts.append(contract("terminal.run", family: .terminal, surface: "Terminal", label: surface.terminal.commandActionTitle, kind: .textButton, minWidth: 64, testID: "terminal-run"))
+            contracts.append(contract("terminal.clear", family: .terminal, surface: "Terminal", label: "Clear", kind: .textButton, minWidth: 56, testID: "terminal-clear"))
         }
 
         if surface.browser.isVisible {
-            contracts.append(contract("browser.address", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil, focusTarget: .browserAddress))
-            contracts.append(contract("browser.open", family: .browser, surface: "Browser", label: "Open", kind: .textButton, minWidth: 64))
-            contracts.append(contract("browser.new-tab", family: .browser, surface: "Browser", label: "New tab", kind: .icon, minWidth: 44))
-            contracts.append(contract("browser.comment", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil, focusTarget: .browserComment))
-            contracts.append(contract("browser.add-comment", family: .browser, surface: "Browser", label: "Add comment", kind: .textButton, minWidth: 92))
+            contracts.append(contract("browser.address", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil, focusTarget: .browserAddress, testID: "browser-address"))
+            contracts.append(contract("browser.open", family: .browser, surface: "Browser", label: "Open", kind: .textButton, minWidth: 64, testID: "browser-open"))
+            contracts.append(contract("browser.new-tab", family: .browser, surface: "Browser", label: "New tab", kind: .icon, minWidth: 44, testID: "browser-new-tab"))
+            contracts.append(contract("browser.comment", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil, focusTarget: .browserComment, testID: "browser-comment-input"))
+            contracts.append(contract("browser.add-comment", family: .browser, surface: "Browser", label: "Add comment", kind: .textButton, minWidth: 92, testID: "browser-add-comment"))
         }
 
         if surface.extensions.isVisible {
             if surface.extensions.items.contains(where: { item in
                 item.installCommandID != nil || item.updateCommandID != nil || item.startCommandID != nil || item.stopCommandID != nil
             }) {
-                contracts.append(contract("extensions.action", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74))
+                contracts.append(contract("extensions.action", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74, testID: "extension-action"))
             }
             if surface.extensions.items.contains(where: { !$0.resourceActions.isEmpty || !$0.promptActions.isEmpty }) {
-                contracts.append(contract("extensions.mcp-reference", family: .extensions, surface: "Extensions", label: "MCP resource or prompt action", kind: .capsule, minWidth: 96))
+                contracts.append(contract("extensions.mcp-reference", family: .extensions, surface: "Extensions", label: "MCP resource or prompt action", kind: .capsule, minWidth: 96, testID: "extension-reference-action"))
             }
         }
 
         if surface.memories.isVisible {
-            contracts.append(contract("memories.add", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56))
+            contracts.append(contract("memories.add", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56, testID: "memory-add"))
             if surface.memories.items.contains(where: { $0.canEdit }) {
-                contracts.append(contract("memories.edit", family: .memories, surface: "Memories", label: "Edit memory", kind: .icon, minWidth: 44))
+                contracts.append(contract("memories.edit", family: .memories, surface: "Memories", label: "Edit memory", kind: .icon, minWidth: 44, testID: "memory-edit"))
             }
             if surface.memories.items.contains(where: { $0.canDelete }) {
-                contracts.append(contract("memories.delete", family: .memories, surface: "Memories", label: "Forget memory", kind: .icon, minWidth: 44))
+                contracts.append(contract("memories.delete", family: .memories, surface: "Memories", label: "Forget memory", kind: .icon, minWidth: 44, testID: "memory-delete"))
             }
         }
 
         if surface.automations.isVisible {
             if surface.automations.createThreadFollowUpCommand != nil || surface.automations.createWorkspaceScheduleCommand != nil {
-                contracts.append(contract("automations.create", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90))
+                contracts.append(contract("automations.create", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90, testID: "automation-create"))
             }
             if surface.automations.workflows.contains(where: { $0.runCommandID != nil }) {
-                contracts.append(contract("automations.run", family: .automations, surface: "Automations", label: "Run automation", kind: .formAction, minWidth: 56))
+                contracts.append(contract("automations.run", family: .automations, surface: "Automations", label: "Run automation", kind: .formAction, minWidth: 56, testID: "automation-run"))
             }
             if surface.automations.workflows.contains(where: { $0.primaryCommandID != nil }) {
-                contracts.append(contract("automations.primary", family: .automations, surface: "Automations", label: "Pause or resume automation", kind: .formAction, minWidth: 56))
+                contracts.append(contract("automations.primary", family: .automations, surface: "Automations", label: "Pause or resume automation", kind: .formAction, minWidth: 56, testID: "automation-primary-action"))
             }
             if surface.automations.workflows.contains(where: { $0.deleteCommandID != nil }) {
-                contracts.append(contract("automations.delete", family: .automations, surface: "Automations", label: "Delete automation", kind: .formAction, minWidth: 56))
+                contracts.append(contract("automations.delete", family: .automations, surface: "Automations", label: "Delete automation", kind: .formAction, minWidth: 56, testID: "automation-delete"))
             }
         }
 
         if surface.transcript.thinking?.traceLines.isEmpty == false {
-            contracts.append(contract("transcript.thinking-trace", family: .transcript, surface: "Transcript", label: "Thinking trace", kind: .capsule, minWidth: 96))
+            contracts.append(contract("transcript.thinking-trace", family: .transcript, surface: "Transcript", label: "Thinking trace", kind: .capsule, minWidth: 96, testID: "thinking-trace"))
         }
 
         return contracts
@@ -609,6 +634,8 @@ public enum QuillCodeNativeHitTargetAudit {
         minWidth: Double?,
         minHeight: Double = Double(QuillCodeMetrics.minimumHitTarget),
         focusTarget: QuillCodeNativeFocusTarget? = nil,
+        testID: String? = nil,
+        commandID: String? = nil,
         source: String = "SwiftUI"
     ) -> QuillCodeNativeHitTargetContract {
         QuillCodeNativeHitTargetContract(
@@ -620,6 +647,8 @@ public enum QuillCodeNativeHitTargetAudit {
             minWidth: minWidth,
             minHeight: minHeight,
             focusTarget: focusTarget,
+            testID: testID,
+            commandID: commandID,
             source: source
         )
     }

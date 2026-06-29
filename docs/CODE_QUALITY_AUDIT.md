@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Click-Target Testability Contract Pass
+
+Overall grade after this slice: **A native target addressability, A smoke evidence enforcement, A- packaged Accessibility sampling**.
+
+The click-target contract had strong geometry and semantic checks, but the native smoke report could still describe a target that was difficult to address from UI automation. This pass makes every native target either directly testable, command-routable, or focus-addressable.
+
+| Before | After |
+| --- | --- |
+| Native target contracts proved the surface family, semantic kind, action, and focus coverage, but not a stable handle for non-text controls. | `QuillCodeNativeHitTargetContract` now carries `testID` and `commandID` metadata beside `focusTarget`. |
+| A non-design-system target could be valid with only a generic label/source, making later Accessibility automation guess how to find it. | Contract validation now rejects targets without a stable test ID, command ID, or focus target. |
+| The shell smoke parser trusted `isValid` plus kind/action/focus policy checks. | `scripts/native-desktop-smoke.sh` now validates non-empty `testID`/`commandID` fields and checks representative IDs such as `send-button`, `top-bar-overflow`, `browser-action`, and core command IDs. |
+
+Residual risk:
+
+- Native smoke still consumes the contract report rather than sampling packaged app frames through Accessibility. The new IDs are intentionally shaped so that deeper packaged click sampling can reuse the same registry.
+
 ## 2026-06-29 Semantic Click-Target Contract Pass
 
 Overall grade after this slice: **A semantic interaction gating, A native source coverage, A- live accessibility sampling**.

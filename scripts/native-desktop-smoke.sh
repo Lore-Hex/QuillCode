@@ -179,6 +179,30 @@ for contract in contracts:
         value = contract.get(field)
         if not isinstance(value, str) or not value.strip():
             raise SystemExit(f"quill-code-desktop native smoke reported native hit target with empty {field}: {contract}")
+    for optional_field in ("testID", "commandID"):
+        value = contract.get(optional_field)
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise SystemExit(f"quill-code-desktop native smoke reported native hit target with empty {optional_field}: {contract}")
+    if contract.get("family") != "design-system" and not any(contract.get(field) for field in ("focusTarget", "testID", "commandID")):
+        raise SystemExit(f"quill-code-desktop native smoke reported unaddressable native hit target: {contract}")
+
+surface_contracts = native_targets.get("surfaceContracts", [])
+surface_test_ids = {contract.get("testID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("testID")}
+surface_command_ids = {contract.get("commandID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("commandID")}
+required_test_ids = {
+    "send-button", "model-picker-button", "mode-picker-button", "top-bar-overflow",
+    "sidebar-tools-button", "command-palette-input", "search-input", "browser-address",
+    "browser-action", "terminal-action", "automation-create"
+}
+missing_test_ids = sorted(required_test_ids - surface_test_ids)
+if missing_test_ids:
+    raise SystemExit(f"quill-code-desktop native smoke did not include stable native test IDs: {', '.join(missing_test_ids)}")
+
+required_command_contract_ids = {"new-chat", "search", "toggle-terminal", "toggle-browser", "settings"}
+missing_command_contract_ids = sorted(required_command_contract_ids - surface_command_ids)
+if missing_command_contract_ids:
+    raise SystemExit(f"quill-code-desktop native smoke did not include native command IDs: {', '.join(missing_command_contract_ids)}")
+
 contract_kinds = {contract.get("kind") for contract in contracts if isinstance(contract, dict)}
 required_kinds = {"icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule"}
 missing_kinds = sorted(required_kinds - contract_kinds)

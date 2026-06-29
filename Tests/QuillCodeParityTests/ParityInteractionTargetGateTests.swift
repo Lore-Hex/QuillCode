@@ -769,6 +769,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native text-entry targets should have named focus contracts so search, command palette, terminal, browser, and composer typing regressions fail product smoke."
         )
         XCTAssertTrue(
+            auditText.contains("public var testID: String?")
+                && auditText.contains("public var commandID: String?")
+                && auditText.contains(#"value["testID"] = testID"#)
+                && auditText.contains(#"value["commandID"] = commandID"#)
+                && auditText.contains("does not declare a stable test id, command id, or focus target")
+                && auditText.contains("commandID: command.id"),
+            "Native hit-target contracts should be addressable by a stable test id, routed command id, or focus target so smoke automation can click the same targets users see."
+        )
+        XCTAssertTrue(
             auditText.contains("public enum QuillCodeInteractionSurfaceFamily")
                 && auditText.contains("case sidebarThreadList")
                 && auditText.contains("case commandPalette")
@@ -841,10 +850,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("surfacePolicies")
                 && smokeScriptText.contains("expected_policy_actions")
                 && smokeScriptText.contains("expected_policy_focus_targets")
+                && smokeScriptText.contains("surface_test_ids")
+                && smokeScriptText.contains("required_test_ids")
+                && smokeScriptText.contains("required_command_contract_ids")
                 && smokeScriptText.contains(#""browser": {"textEntry", "textButton", "icon"}"#)
                 && smokeScriptText.contains(#"for field in ("id", "label", "source", "surface")"#)
+                && smokeScriptText.contains(#"for optional_field in ("testID", "commandID")"#)
+                && smokeScriptText.contains("unaddressable native hit target")
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
-            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, and non-empty metadata field."
+            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, addressable test/command handle, and non-empty metadata field."
         )
         XCTAssertTrue(
             smokeScriptText.contains("required_focus_targets")
