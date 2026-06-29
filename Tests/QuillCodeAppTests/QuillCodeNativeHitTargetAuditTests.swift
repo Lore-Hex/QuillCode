@@ -55,6 +55,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         )
         XCTAssertEqual(report.missingRequiredCommandIDs, [])
         XCTAssertEqual(report.missingClickProbeContractIDs, [])
+        XCTAssertEqual(report.clickProbeValidationIssues, [])
         XCTAssertEqual(report.duplicateContractIDs, [])
         XCTAssertEqual(report.validationIssues, [])
         XCTAssertEqual(Set(report.clickProbes.map(\.contractID)), Set(report.surfaceContracts.map(\.id)))
@@ -262,6 +263,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.missingRequiredSurfaceActions, [])
         XCTAssertEqual(report.missingRequiredSurfaceFocusTargets, [])
         XCTAssertEqual(report.missingRequiredFocusTargets, [])
+        XCTAssertEqual(report.clickProbeValidationIssues, [])
         XCTAssertEqual(
             Set(report.coveredSurfaceFamilies),
             Set(QuillCodeInteractionSurfaceFamily.allCases.map(\.rawValue))
@@ -315,6 +317,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             missingRequiredSurfaceFocusTargets: ["composer:composer.message"],
             missingRequiredCommandIDs: [],
             missingClickProbeContractIDs: ["top-bar.overflow"],
+            clickProbeValidationIssues: ["top-bar.overflow click probe selector drift"],
             duplicateContractIDs: ["top-bar.overflow"],
             validationIssues: invalidContract.validationIssues
         )
@@ -325,9 +328,57 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceActions"] as? [String], ["top-bar:press"])
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceFocusTargets"] as? [String], ["composer:composer.message"])
         XCTAssertEqual(report.dictionary["missingClickProbeContractIDs"] as? [String], ["top-bar.overflow"])
+        XCTAssertEqual(report.dictionary["clickProbeValidationIssues"] as? [String], ["top-bar.overflow click probe selector drift"])
         XCTAssertEqual(report.dictionary["duplicateContractIDs"] as? [String], ["top-bar.overflow"])
         XCTAssertEqual((invalidContract.dictionary["testID"] as? String), "")
         XCTAssertEqual((invalidContract.dictionary["commandID"] as? String), "")
+    }
+
+    func testClickProbeValidationRejectsSelectorSemanticAndGeometryDrift() {
+        let contract = QuillCodeNativeHitTargetContract(
+            id: "composer.send",
+            family: .composer,
+            surface: "Composer",
+            label: "Send message",
+            kind: .icon,
+            minWidth: 44,
+            testID: "quillcode-send-button",
+            source: "SwiftUI"
+        )
+        let probe = QuillCodeNativeHitTargetProbe(
+            contractID: "composer.send",
+            family: .topBar,
+            label: "Send message",
+            kind: .textButton,
+            action: .link,
+            selectorKind: .testID,
+            selector: "quillcode-wrong-button",
+            requiredMinWidth: 20,
+            requiredMinHeight: 20,
+            samplePoints: [
+                QuillCodeNativeHitTargetProbePoint(name: "center", x: 0.5, y: 0.5),
+                QuillCodeNativeHitTargetProbePoint(name: "leading-interior", x: 0.2, y: 0.5),
+                QuillCodeNativeHitTargetProbePoint(name: "", x: 0.5, y: 0.5),
+                QuillCodeNativeHitTargetProbePoint(name: "outside", x: 1.2, y: 0.5)
+            ]
+        )
+
+        let issues = QuillCodeNativeHitTargetAudit.validateClickProbes(
+            contracts: [contract],
+            probes: [probe]
+        )
+
+        XCTAssertTrue(issues.contains("composer.send click probe selector quillcode-wrong-button does not match test-id contract selector"))
+        XCTAssertTrue(issues.contains("composer.send click probe kind textButton does not match icon"))
+        XCTAssertTrue(issues.contains("composer.send click probe action link does not match press"))
+        XCTAssertTrue(issues.contains("composer.send click probe family top-bar does not match composer"))
+        XCTAssertTrue(issues.contains("composer.send click probe requiredMinWidth 20.0 is below 44.0"))
+        XCTAssertTrue(issues.contains("composer.send click probe requiredMinHeight 20.0 is below 44.0"))
+        XCTAssertTrue(issues.contains("composer.send click probe has an unnamed sample point"))
+        XCTAssertTrue(issues.contains("composer.send click probe has unknown sample point outside"))
+        XCTAssertTrue(issues.contains("composer.send click probe sample point leading-interior has unexpected coordinates"))
+        XCTAssertTrue(issues.contains("composer.send click probe sample point outside is outside the target interior"))
+        XCTAssertTrue(issues.contains("composer.send click probe is missing sample points: bottom-interior, top-interior, trailing-interior"))
     }
 
     private func makeWorkspaceSurfaceWithRepresentativePanes() -> WorkspaceSurface {

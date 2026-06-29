@@ -836,6 +836,10 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditText.contains("clickProbes: [QuillCodeNativeHitTargetProbe]")
                 && auditText.contains(#""clickProbes": clickProbes.map(\.dictionary)"#)
                 && auditText.contains("missingClickProbeContractIDs")
+                && auditText.contains("clickProbeValidationIssues")
+                && auditText.contains("validateClickProbes")
+                && auditText.contains("expectedClickSamplePointsByName")
+                && auditText.contains("has unexpected coordinates")
                 && auditText.contains("normalizedClickSamplePoints")
                 && auditText.contains(#"QuillCodeNativeHitTargetProbePoint(name: "center", x: 0.5, y: 0.5)"#),
             "Native hit-target audit should emit a click-probe plan with selectors, required dimensions, and normalized interior sample points for every addressable target."
@@ -844,6 +848,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             smokeRunnerText.contains("QuillCodeNativeHitTargetAudit.report(for: surface)")
                 && smokeRunnerText.contains("nativeHitTargets.isValid")
                 && smokeRunnerText.contains("missingRequiredFocusTargets")
+                && smokeRunnerText.contains("clickProbeValidationIssues")
                 && smokeRunnerText.contains("nativeHitTargetAuditFailed"),
             "The product executable smoke should fail closed when native hit-target contracts are invalid."
         )
@@ -866,6 +871,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("click_probes = native_targets.get(\"clickProbes\")")
                 && smokeScriptText.contains("missing_probe_contracts")
                 && smokeScriptText.contains("missingClickProbeContractIDs")
+                && smokeScriptText.contains("clickProbeValidationIssues")
                 && smokeScriptText.contains("expected_sample_points")
                 && smokeScriptText.contains(#""leading-interior": (0.18, 0.5)"#)
                 && smokeScriptText.contains(#""trailing-interior": (0.82, 0.5)"#)

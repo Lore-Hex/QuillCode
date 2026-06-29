@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Click-Probe Validator Pass
+
+Overall grade after this slice: **A typed probe validation, A smoke diagnostics, A- packaged Accessibility execution**.
+
+The click-probe plan existed, but most drift checks lived in the shell smoke wrapper. This pass moves the selector, semantic, size, and sample-point validation into the Swift audit report so the app emits its own native click-target health instead of depending on a script-only parser.
+
+| Before | After |
+| --- | --- |
+| `scripts/native-desktop-smoke.sh` knew how to detect selector drift, malformed sample points, exact coordinate drift, and undersized probe targets, but the typed audit report only exposed missing probe coverage. | `QuillCodeNativeHitTargetAudit.validateClickProbes` validates selector-kind/value alignment, kind/action/family alignment, 44 pt minimum probe dimensions, exact normalized sample coordinates, and interior sample coverage. |
+| A product smoke failure could say the native audit failed without naming broken probe selectors or geometry. | `QuillCodeDesktopSmokeRunner` now includes `clickProbeValidationIssues` and missing probe IDs in the native audit failure payload. |
+| Future packaged Accessibility automation would have needed to duplicate the probe integrity rules before it could resolve frames. | The report now serializes `clickProbeValidationIssues`, so the packaged runner can first require a clean typed contract, then focus only on resolving selectors to real frames and clicking sample points. |
+
+Residual risk:
+
+- The final A+ native click layer is still an Accessibility runner that opens the packaged app, resolves `testID`/command/focus selectors to live frames, and clicks the center plus interior edge points.
+
 ## 2026-06-29 Native Click-Probe Contract Pass
 
 Overall grade after this slice: **A native click-probe coverage, A smoke contract enforcement, A- packaged Accessibility execution**.
