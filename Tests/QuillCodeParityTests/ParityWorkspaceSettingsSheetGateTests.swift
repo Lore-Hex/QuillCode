@@ -161,6 +161,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             "Activity section toggles should keep a full-row 44 pt hit target."
         )
         XCTAssertTrue(
+            activityText.contains(".quillCodeCapsuleButtonTarget(minWidth: 58)"),
+            "Activity item actions should keep compact capsule targets instead of shrinking to plain text buttons."
+        )
+        XCTAssertTrue(
             activityText.contains("QuillCodePressableButtonStyle()"),
             "Activity section toggles should keep shared 0.96 press feedback."
         )
