@@ -52,6 +52,15 @@ enum AgentShellCommandRecovery {
         "check "
     ]
     private static let standaloneImperativeMarkers = ["run ", "execute ", "check "]
+    private static let politeExecutionPrefixes = [
+        "can you",
+        "could you",
+        "would you",
+        "will you",
+        "please",
+        "pls",
+        "plz"
+    ]
     private static let plainCommandPlaceholders = [
         "it",
         "that",
@@ -191,7 +200,15 @@ enum AgentShellCommandRecovery {
             return true
         }
         let prefix = text[..<range.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
-        return prefix.isEmpty
+        return prefix.isEmpty || isPoliteExecutionPrefix(prefix)
+    }
+
+    private static func isPoliteExecutionPrefix(_ prefix: String) -> Bool {
+        let normalized = prefix
+            .lowercased()
+            .replacingOccurrences(of: "?", with: "")
+            .trimmingCharacters(in: CharacterSet(charactersIn: " \t\r\n,.;:"))
+        return politeExecutionPrefixes.contains(normalized)
     }
 
     private static func containsNegativeExecutionIntent(_ text: String) -> Bool {

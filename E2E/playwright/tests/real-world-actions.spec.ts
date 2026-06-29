@@ -39,6 +39,17 @@ test('runs natural shell requests immediately with nonempty arguments', async ({
   await expect(page.getByTestId('tool-card-output').last()).toContainText('quillcode_now_smoke');
   await expect(page.getByText('Output:\nquillcode_now_smoke')).toBeVisible();
   await expect(page.getByText(/I'?ll run|I'?ll check|should I|do you want me to|ok\?/i)).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('Can you run printf quillcode_polite_smoke?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(4);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"cmd": "printf quillcode_polite_smoke"');
+  await expect(page.getByTestId('tool-card-input').last()).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('quillcode_polite_smoke');
+  await expect(page.getByText('Output:\nquillcode_polite_smoke')).toBeVisible();
+  await expect(page.getByText(/I'?ll run|I'?ll check|should I|do you want me to|ok\?/i)).toHaveCount(0);
 });
 
 test('writes requested file content immediately without a confirmation loop', async ({ page }) => {

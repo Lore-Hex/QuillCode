@@ -18,6 +18,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("secretFree: true"))
         XCTAssertTrue(script.contains("shell-action-now"))
         XCTAssertTrue(script.contains("quillcode_live_now_smoke"))
+        XCTAssertTrue(script.contains("shell-action-polite-bare"))
+        XCTAssertTrue(script.contains("quillcode_live_polite_smoke"))
         XCTAssertFalse(
             script.contains("--arg apiKey \"$API_KEY\""),
             "Live smoke manifests must not pass the raw API key into jq."
