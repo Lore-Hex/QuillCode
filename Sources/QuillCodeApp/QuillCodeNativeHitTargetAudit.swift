@@ -258,6 +258,8 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
     public var label: String
     public var kind: QuillCodeNativeHitTargetKind
     public var action: QuillCodeNativeHitTargetAction
+    public var allowsNestedInteractiveChildren: Bool
+    public var requiresUnblockedInterior: Bool
     public var selectorKind: QuillCodeNativeHitTargetProbeSelectorKind
     public var selector: String
     public var requiredMinWidth: Double
@@ -270,6 +272,8 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
         label: String,
         kind: QuillCodeNativeHitTargetKind,
         action: QuillCodeNativeHitTargetAction,
+        allowsNestedInteractiveChildren: Bool,
+        requiresUnblockedInterior: Bool,
         selectorKind: QuillCodeNativeHitTargetProbeSelectorKind,
         selector: String,
         requiredMinWidth: Double,
@@ -281,6 +285,8 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
         self.label = label
         self.kind = kind
         self.action = action
+        self.allowsNestedInteractiveChildren = allowsNestedInteractiveChildren
+        self.requiresUnblockedInterior = requiresUnblockedInterior
         self.selectorKind = selectorKind
         self.selector = selector
         self.requiredMinWidth = requiredMinWidth
@@ -295,6 +301,8 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
             "label": label,
             "kind": kind.rawValue,
             "action": action.rawValue,
+            "allowsNestedInteractiveChildren": allowsNestedInteractiveChildren,
+            "requiresUnblockedInterior": requiresUnblockedInterior,
             "selectorKind": selectorKind.rawValue,
             "selector": selector,
             "requiredMinWidth": requiredMinWidth,
@@ -639,6 +647,12 @@ public enum QuillCodeNativeHitTargetAudit {
         if probe.family != contract.family {
             issues.append("\(probe.contractID) click probe family \(probe.family.rawValue) does not match \(contract.family.rawValue)")
         }
+        if probe.allowsNestedInteractiveChildren != contract.allowsNestedInteractiveChildren {
+            issues.append("\(probe.contractID) click probe nested-child policy does not match contract")
+        }
+        if probe.requiresUnblockedInterior != contract.requiresUnblockedInterior {
+            issues.append("\(probe.contractID) click probe interior-blocking policy does not match contract")
+        }
         return issues
     }
 
@@ -696,6 +710,8 @@ public enum QuillCodeNativeHitTargetAudit {
                 label: contract.label,
                 kind: contract.kind,
                 action: contract.action,
+                allowsNestedInteractiveChildren: contract.allowsNestedInteractiveChildren,
+                requiresUnblockedInterior: contract.requiresUnblockedInterior,
                 selectorKind: selector.kind,
                 selector: selector.value,
                 requiredMinWidth: max(
