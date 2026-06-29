@@ -24,7 +24,7 @@ enum AgentImmediateActionPlanner {
             return shell("command -v openclaw || which openclaw || echo 'not found'")
         }
 
-        if let downloadCommand = MockLLMClient.downloadCommand(from: request, lowercasedRequest: lower),
+        if let downloadCommand = AgentDownloadRequestParser.shellCommand(from: request),
            hasTool(ToolDefinition.shellRun.name, in: tools) {
             return shell(downloadCommand)
         }

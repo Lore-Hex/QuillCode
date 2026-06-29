@@ -36,11 +36,14 @@ final class ParityAgentGateTests: QuillCodeParityTestCase {
     func testMockLLMClientLivesOutsideAgentRunnerFile() throws {
         let agentText = try Self.agentSourceText(named: "Agent.swift")
         let mockText = try Self.agentSourceText(named: "MockLLMClient.swift")
+        let downloadParserText = try Self.agentSourceText(named: "AgentDownloadRequestParser.swift")
         let pullRequestPlannerText = try Self.agentSourceText(named: "MockPullRequestIntentPlanner.swift")
         let pullRequestExtractorText = try Self.agentSourceText(named: "MockPullRequestArgumentExtractor.swift")
 
         XCTAssertTrue(mockText.contains("public struct MockLLMClient"), "The deterministic mock LLM client should live in its own file.")
         XCTAssertTrue(mockText.contains("MockPullRequestIntentPlanner.toolCall"), "The mock LLM client should delegate PR-specific planning.")
+        XCTAssertTrue(mockText.contains("AgentDownloadRequestParser.shellCommand"), "The mock LLM client should reuse production download planning.")
+        XCTAssertTrue(downloadParserText.contains("enum AgentDownloadRequestParser"), "Download request planning should live in a production parser.")
         XCTAssertTrue(mockText.contains("AgentRunner.finalAnswer"), "Mock tool feedback should still reuse the production final-answer contract.")
         XCTAssertTrue(pullRequestPlannerText.contains("enum MockPullRequestIntentPlanner"), "Mock PR intent detection should live in a focused planner.")
         XCTAssertTrue(pullRequestPlannerText.contains("MockPullRequestArgumentExtractor.createArguments"), "Mock PR planner should delegate payload construction.")
@@ -48,6 +51,8 @@ final class ParityAgentGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(pullRequestExtractorText.contains("static func createArguments"), "Mock PR create argument extraction should stay out of intent routing.")
         XCTAssertFalse(agentText.contains("public struct MockLLMClient"), "Agent.swift should not own mock LLM planning.")
         XCTAssertFalse(agentText.contains("extractPullRequestArguments"), "Agent.swift should not own mock PR parsing heuristics.")
+        XCTAssertFalse(mockText.contains("downloadCommand("), "MockLLMClient.swift should not own download parsing heuristics.")
+        XCTAssertFalse(mockText.contains("extractDownloadTarget"), "MockLLMClient.swift should not own download target parsing.")
         XCTAssertFalse(mockText.contains("extractPullRequestArguments"), "MockLLMClient.swift should not own PR parsing heuristics.")
         XCTAssertFalse(mockText.contains("isPullRequestRequest"), "MockLLMClient.swift should not own PR intent detection.")
         XCTAssertFalse(pullRequestPlannerText.contains("static func createArguments"), "Mock PR planner should not own argument extraction.")
