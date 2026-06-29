@@ -150,6 +150,15 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["terminal.command"]?.focusTarget, .terminalCommand)
         XCTAssertEqual(contractsByID["browser.address"]?.focusTarget, .browserAddress)
         XCTAssertEqual(contractsByID["browser.comment"]?.focusTarget, .browserComment)
+        XCTAssertEqual(contractsByID["composer.send"]?.testID, "send-button")
+        XCTAssertEqual(contractsByID["command-palette.input"]?.testID, "command-palette-input")
+        XCTAssertEqual(contractsByID["browser.add-comment"]?.testID, "browser-add-comment")
+        XCTAssertEqual(contractsByID["automations.delete"]?.testID, "automation-delete")
+        XCTAssertEqual(contractsByID["command.new-chat"]?.commandID, "new-chat")
+        XCTAssertEqual(contractsByID["command.settings"]?.commandID, "settings")
+        XCTAssertTrue(report.surfaceContracts.allSatisfy { contract in
+            contract.focusTarget != nil || contract.testID?.isEmpty == false || contract.commandID?.isEmpty == false
+        })
         XCTAssertEqual(contractsByID["memories.edit"]?.requiresUnblockedInterior, true)
         XCTAssertEqual(contractsByID["model-picker.option"]?.allowsNestedInteractiveChildren, false)
         XCTAssertEqual(contractsByID["command-palette.input"]?.family, .commandPalette)
@@ -240,6 +249,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             kind: .icon,
             minWidth: nil,
             minHeight: 20,
+            testID: "",
+            commandID: "",
             source: ""
         )
 
@@ -249,6 +260,9 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty source"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" icon target should declare an explicit minimum width"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" minHeight 20.0 is below 44.0"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty test id"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty command id"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" does not declare a stable test id, command id, or focus target"))
 
         let report = QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: 44,
@@ -277,6 +291,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceActions"] as? [String], ["top-bar:press"])
         XCTAssertEqual(report.dictionary["missingRequiredSurfaceFocusTargets"] as? [String], ["composer:composer.message"])
         XCTAssertEqual(report.dictionary["duplicateContractIDs"] as? [String], ["top-bar.overflow"])
+        XCTAssertEqual((invalidContract.dictionary["testID"] as? String), "")
+        XCTAssertEqual((invalidContract.dictionary["commandID"] as? String), "")
     }
 
     private func makeWorkspaceSurfaceWithRepresentativePanes() -> WorkspaceSurface {
