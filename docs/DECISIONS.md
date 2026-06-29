@@ -2,6 +2,7 @@
 
 ## 2026-06-29
 
+- Successful live TrustedRouter smoke needs a reviewable artifact contract, not only pass/fail terminal output. `scripts/live-tr-smoke.sh` now writes `live-smoke-manifest.json` with scenario counts, workspace files, and persisted thread summaries, and copies the manifest/report/stdout/stderr bundle when `QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR` is set. `scripts/real-world-smoke.sh` forwards `QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR` into deterministic and live subfolders so release-candidate runs have one auditable evidence root without exposing API keys.
 - Live TrustedRouter smoke needs scenario-level observability because real-provider failures are workflow failures, not just command failures. `scripts/live-tr-smoke.sh` records one JSONL row per scenario with model, base URL, prompt, duration, stdout/stderr byte counts, and artifact paths, and failure output names the scenario, prompt, stdout/stderr tails, and report summary. This keeps paid/network smoke opt-in while making “empty command”, passive-promise, missing-file, and transcript-integrity failures immediately actionable.
 
 ## 2026-06-28

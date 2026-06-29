@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KEY_FILE="${QUILLCODE_LIVE_KEY_FILE:-$HOME/.quill.code.keyfile}"
 REQUIRE_LIVE="${QUILLCODE_REQUIRE_LIVE_SMOKE:-0}"
+ARTIFACT_DIR="${QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR:-}"
 
 cd "$ROOT_DIR"
 
@@ -15,11 +16,13 @@ has_live_key() {
 }
 
 echo "==> Running deterministic QuillCode smoke suite"
-"$ROOT_DIR/scripts/smoke.sh"
+QUILLCODE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/deterministic}" \
+  "$ROOT_DIR/scripts/smoke.sh"
 
 if has_live_key; then
   echo "==> Running live TrustedRouter real-world smoke suite"
-  "$ROOT_DIR/scripts/live-tr-smoke.sh"
+  QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/live-trustedrouter}" \
+    "$ROOT_DIR/scripts/live-tr-smoke.sh"
   echo "QuillCode real-world smoke passed."
   exit 0
 fi
