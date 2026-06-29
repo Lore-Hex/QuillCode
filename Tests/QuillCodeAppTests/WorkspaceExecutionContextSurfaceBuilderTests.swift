@@ -122,6 +122,7 @@ final class WorkspaceExecutionContextSurfaceBuilderTests: XCTestCase {
     func testProjectExecutionToolSetIncludesWorkspaceToolsAndExcludesNonWorkspaceTools() {
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.shellRun.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.fileRead.name))
+        XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.fileList.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.fileSearch.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitPullRequestMerge.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitWorktreeCreate.name))

@@ -59,6 +59,7 @@ struct WorkspaceExecutionContextSurfaceBuilder: Sendable, Hashable {
     private static let projectExecutionToolNames: Set<String> = [
         ToolDefinition.shellRun.name,
         ToolDefinition.fileRead.name,
+        ToolDefinition.fileList.name,
         ToolDefinition.fileSearch.name,
         ToolDefinition.fileWrite.name,
         ToolDefinition.applyPatch.name,

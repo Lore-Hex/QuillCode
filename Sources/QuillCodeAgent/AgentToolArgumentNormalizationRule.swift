@@ -62,6 +62,19 @@ enum AgentToolArgumentNormalizationRules {
             ]
         ),
         .init(
+            toolNames: [ToolDefinition.fileList.name],
+            stringArguments: [
+                .init(
+                    canonicalKey: "path",
+                    aliases: ["folder", "directory", "dir", "root", "scope"]
+                )
+            ],
+            valueArguments: [
+                .init(canonicalKey: "includeHidden", aliases: ["hidden", "showHidden", "show_hidden", "all"]),
+                .init(canonicalKey: "maxEntries", aliases: ["limit", "max", "count", "max_entries"])
+            ]
+        ),
+        .init(
             toolNames: [ToolDefinition.fileSearch.name],
             stringArguments: [
                 .init(

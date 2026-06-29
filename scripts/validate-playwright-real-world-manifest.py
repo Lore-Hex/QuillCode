@@ -11,6 +11,7 @@ from typing import Any
 
 REQUIRED_SCENARIOS = {
     "runs natural shell requests immediately with nonempty arguments",
+    "lists workspace entries with the structured file list tool",
     "writes requested file content immediately without a confirmation loop",
     "reads requested file contents immediately with the structured file tool",
     "searches workspace text with the structured file search tool",
@@ -25,6 +26,7 @@ REQUIRED_PROMPT_FRAGMENTS = [
     "Run `ls`",
     "quillcode_now_smoke",
     "quillcode_polite_smoke",
+    "Can you list the files here?",
     "Can you write a file that says",
     "What is in README.md?",
     "Where is AgentRunner defined?",
@@ -42,6 +44,7 @@ REQUIRED_REGRESSION_GUARDS = [
     "shell arguments are never {}",
     "assistant does not answer with passive promises",
     "assistant does not ask for a second confirmation",
+    "file list uses host.file.list instead of shell ls fallback",
     "file read uses host.file.read instead of shell cat fallback",
     "file search uses host.file.search instead of shell grep fallback",
     "safety review does not block clear user intent",
@@ -50,7 +53,7 @@ REQUIRED_REGRESSION_GUARDS = [
 ]
 
 MIN_PROMPT_COUNT = 17
-MIN_REGRESSION_GUARD_COUNT = 24
+MIN_REGRESSION_GUARD_COUNT = 27
 
 
 def string_items(value: Any) -> list[str]:

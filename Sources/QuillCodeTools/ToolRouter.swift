@@ -22,6 +22,7 @@ public struct ToolRouter: Sendable {
 
     public static let definitions: [ToolDefinition] = ShellToolCallDispatcher.definitions + [
         .fileRead,
+        .fileList,
         .fileSearch,
         .fileWrite,
         .applyPatch
@@ -45,6 +46,12 @@ public struct ToolRouter: Sendable {
             switch call.name {
             case ToolDefinition.fileRead.name:
                 return files.read(path: try args.requiredString("path"))
+            case ToolDefinition.fileList.name:
+                return files.list(
+                    path: args.string("path") ?? ".",
+                    includeHidden: args.bool("includeHidden") ?? false,
+                    maxEntries: args.int("maxEntries")
+                )
             case ToolDefinition.fileSearch.name:
                 return files.search(
                     query: try args.requiredString("query"),

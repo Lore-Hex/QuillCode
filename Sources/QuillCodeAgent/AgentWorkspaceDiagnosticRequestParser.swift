@@ -11,9 +11,6 @@ enum AgentWorkspaceDiagnosticRequestParser {
         if isCurrentDirectoryRequest(lower) {
             return shell("pwd")
         }
-        if isFileListingRequest(lower) {
-            return shell("ls -la")
-        }
         return nil
     }
 
@@ -34,27 +31,6 @@ enum AgentWorkspaceDiagnosticRequestParser {
         }
         return tokens.contains("pwd")
             || (tokens.contains("where") && tokens.contains("am") && tokens.contains("i"))
-    }
-
-    private static func isFileListingRequest(_ lower: String) -> Bool {
-        let tokens = tokenizeWords(lower)
-        if lower.contains("list files")
-            || lower.contains("list the files")
-            || lower.contains("show files")
-            || lower.contains("show the files") {
-            return true
-        }
-
-        let asksForFiles = tokens.contains("files") || tokens.contains("folder") || tokens.contains("directory")
-        let asksForListing = tokens.contains("list") || tokens.contains("show") || tokens.contains("what")
-        let scopesWorkspace = tokens.contains("here")
-            || tokens.contains("workspace")
-            || tokens.contains("project")
-            || tokens.contains("repo")
-            || tokens.contains("directory")
-            || tokens.contains("folder")
-
-        return asksForFiles && asksForListing && scopesWorkspace
     }
 
     private static func tokenizeWords(_ lower: String) -> Set<String> {

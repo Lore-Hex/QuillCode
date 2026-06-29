@@ -30,6 +30,52 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertEqual(answer, "openclaw is not installed or is not on PATH.")
     }
 
+    func testFileListFinalAnswerSummarizesEntries() throws {
+        let output = FileListToolOutput(
+            path: ".",
+            entries: [
+                FileListEntry(name: "Sources", path: "Sources", kind: "directory", bytes: nil, isHidden: false),
+                FileListEntry(name: "README.md", path: "README.md", kind: "file", bytes: 42, isHidden: false)
+            ],
+            totalEntries: 2,
+            includedHidden: false,
+            truncated: false
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.fileList.name,
+                argumentsJSON: ToolArguments.json(["path": "."])
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertTrue(answer.contains("`.` contains 2 entries:"))
+        XCTAssertTrue(answer.contains("`Sources/` · directory"))
+        XCTAssertTrue(answer.contains("`README.md` · file · 42 bytes"))
+        XCTAssertFalse(answer.contains("includedHidden"))
+    }
+
+    func testFileListFinalAnswerSummarizesEmptyDirectory() throws {
+        let output = FileListToolOutput(
+            path: "Sources",
+            entries: [],
+            totalEntries: 0,
+            includedHidden: false,
+            truncated: false
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.fileList.name,
+                argumentsJSON: ToolArguments.json(["path": "Sources"])
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertEqual(answer, "`Sources` has no visible entries.")
+    }
+
     func testFileSearchFinalAnswerSummarizesMatches() throws {
         let output = FileSearchToolOutput(
             query: "AgentRunner",

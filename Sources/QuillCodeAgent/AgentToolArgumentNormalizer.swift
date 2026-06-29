@@ -140,6 +140,9 @@ enum AgentToolArgumentNormalizer {
             if let value = object[key] as? Int {
                 return value
             }
+            if let value = object[key] as? Bool {
+                return value
+            }
         }
         return nil
     }
@@ -182,6 +185,7 @@ enum AgentToolArgumentNormalizer {
             ToolDefinition.gitPullRequestMerge.name,
             ToolDefinition.gitWorktreeList.name,
             ToolDefinition.gitWorktreePrune.name,
+            ToolDefinition.fileList.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.computerScreenshot.name:
             return false

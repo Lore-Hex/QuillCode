@@ -6,6 +6,7 @@ public enum FileToolError: Error, CustomStringConvertible {
     case invalidUTF8(String)
     case emptySearchQuery
     case pathNotFound(String)
+    case notDirectory(String)
 
     public var description: String {
         switch self {
@@ -17,7 +18,47 @@ public enum FileToolError: Error, CustomStringConvertible {
             return "File search query must not be empty."
         case .pathNotFound(let path):
             return "Path does not exist in the workspace: \(path)"
+        case .notDirectory(let path):
+            return "Path is not a directory in the workspace: \(path)"
         }
+    }
+}
+
+public struct FileListToolOutput: Codable, Sendable, Hashable {
+    public var path: String
+    public var entries: [FileListEntry]
+    public var totalEntries: Int
+    public var includedHidden: Bool
+    public var truncated: Bool
+
+    public init(
+        path: String,
+        entries: [FileListEntry],
+        totalEntries: Int,
+        includedHidden: Bool,
+        truncated: Bool
+    ) {
+        self.path = path
+        self.entries = entries
+        self.totalEntries = totalEntries
+        self.includedHidden = includedHidden
+        self.truncated = truncated
+    }
+}
+
+public struct FileListEntry: Codable, Sendable, Hashable {
+    public var name: String
+    public var path: String
+    public var kind: String
+    public var bytes: Int?
+    public var isHidden: Bool
+
+    public init(name: String, path: String, kind: String, bytes: Int?, isHidden: Bool) {
+        self.name = name
+        self.path = path
+        self.kind = kind
+        self.bytes = bytes
+        self.isHidden = isHidden
     }
 }
 
@@ -69,6 +110,8 @@ public struct FileToolExecutor: Sendable {
 
     private static let defaultSearchMaxResults = 20
     private static let absoluteSearchMaxResults = 100
+    private static let defaultListMaxEntries = 200
+    private static let absoluteListMaxEntries = 500
     private static let maxSearchFileBytes = 1_000_000
     private static let maxSearchScannedFiles = 2_000
     private static let maxSearchPreviewCharacters = 240
@@ -112,6 +155,45 @@ public struct FileToolExecutor: Sendable {
         }
     }
 
+    public func list(path: String = ".", includeHidden: Bool = false, maxEntries: Int? = nil) -> ToolResult {
+        do {
+            let normalizedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+            let directoryURL = try resolve(normalizedPath.isEmpty ? "." : normalizedPath)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory) else {
+                throw FileToolError.pathNotFound(path)
+            }
+            guard isDirectory.boolValue else {
+                throw FileToolError.notDirectory(path)
+            }
+
+            let allEntries = try FileManager.default.contentsOfDirectory(
+                at: directoryURL,
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+                options: []
+            )
+            let visibleEntries = allEntries
+                .filter { includeHidden || !$0.lastPathComponent.hasPrefix(".") }
+                .sorted(by: listEntrySort)
+            let limit = boundedListEntryLimit(maxEntries)
+            let entries = visibleEntries.prefix(limit).map(fileListEntry)
+            let output = FileListToolOutput(
+                path: relativePath(for: directoryURL),
+                entries: entries,
+                totalEntries: visibleEntries.count,
+                includedHidden: includeHidden,
+                truncated: visibleEntries.count > entries.count
+            )
+            return ToolResult(
+                ok: true,
+                stdout: encode(output),
+                artifacts: entries.map { workspaceRoot.appendingPathComponent($0.path).path }
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func search(query: String, path: String = ".", maxResults: Int? = nil) -> ToolResult {
         do {
             let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -148,6 +230,50 @@ public struct FileToolExecutor: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private func listEntrySort(_ lhs: URL, _ rhs: URL) -> Bool {
+        let lhsKind = fileListEntryKind(lhs)
+        let rhsKind = fileListEntryKind(rhs)
+        if lhsKind != rhsKind {
+            return lhsKind == "directory"
+        }
+        return lhs.lastPathComponent.localizedCaseInsensitiveCompare(rhs.lastPathComponent) == .orderedAscending
+    }
+
+    private func fileListEntry(_ url: URL) -> FileListEntry {
+        let values = try? url.resourceValues(forKeys: [
+            .isDirectoryKey,
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+            .fileSizeKey
+        ])
+        let kind = fileListEntryKind(url, values: values)
+        return FileListEntry(
+            name: url.lastPathComponent,
+            path: relativePath(for: url),
+            kind: kind,
+            bytes: kind == "file" ? values?.fileSize : nil,
+            isHidden: url.lastPathComponent.hasPrefix(".")
+        )
+    }
+
+    private func fileListEntryKind(_ url: URL, values: URLResourceValues? = nil) -> String {
+        let values = values ?? (try? url.resourceValues(forKeys: [
+            .isDirectoryKey,
+            .isRegularFileKey,
+            .isSymbolicLinkKey
+        ]))
+        if values?.isSymbolicLink == true {
+            return "symlink"
+        }
+        if values?.isDirectory == true {
+            return "directory"
+        }
+        if values?.isRegularFile == true {
+            return "file"
+        }
+        return "other"
     }
 
     public func resolve(_ path: String) throws -> URL {
@@ -267,6 +393,10 @@ public struct FileToolExecutor: Sendable {
         min(max(value ?? Self.defaultSearchMaxResults, 1), Self.absoluteSearchMaxResults)
     }
 
+    private func boundedListEntryLimit(_ value: Int?) -> Int {
+        min(max(value ?? Self.defaultListMaxEntries, 1), Self.absoluteListMaxEntries)
+    }
+
     private func boundedSearchPreview(_ line: String) -> String {
         let collapsed = line
             .components(separatedBy: .whitespacesAndNewlines)
@@ -288,7 +418,7 @@ public struct FileToolExecutor: Sendable {
         return relative.isEmpty ? "." : relative
     }
 
-    private func encode(_ output: FileSearchToolOutput) -> String {
+    private func encode<T: Encodable>(_ output: T) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(output) else {
@@ -303,6 +433,14 @@ public extension ToolDefinition {
         name: "host.file.read",
         description: "Read a UTF-8 file inside the project workspace.",
         parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#,
+        host: .local,
+        risk: .read
+    )
+
+    static let fileList = ToolDefinition(
+        name: "host.file.list",
+        description: "List immediate files and directories inside a workspace directory. Returns bounded structured entries with name, path, kind, size, and hidden-file metadata.",
+        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string","description":"Optional workspace-relative directory to list. Defaults to the workspace root."},"includeHidden":{"type":"boolean","description":"Whether to include dotfiles and other hidden entries. Defaults to false."},"maxEntries":{"type":"integer","minimum":1,"maximum":500,"description":"Maximum number of directory entries to return. Defaults to 200."}}}"#,
         host: .local,
         risk: .read
     )

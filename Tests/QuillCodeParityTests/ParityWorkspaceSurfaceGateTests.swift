@@ -407,6 +407,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         )
         let actionFlowNames = [
             "runs natural shell requests immediately with nonempty arguments",
+            "lists workspace entries with the structured file list tool",
             "writes requested file content immediately without a confirmation loop",
             "reads requested file contents immediately with the structured file tool",
             "answers natural git read requests with structured git tools",
@@ -419,6 +420,8 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionSpecText.contains("quillcode_now_smoke"), "Focused real-world action flows should cover do-it-now command follow-through.")
         XCTAssertTrue(actionSpecText.contains("quillcode_polite_smoke"), "Focused real-world action flows should cover polite bare command follow-through.")
         XCTAssertTrue(actionSpecText.contains("Can you list the files here?"), "Focused real-world action flows should cover natural workspace listing.")
+        XCTAssertTrue(actionSpecText.contains("host.file.list"), "Focused real-world action flows should use the structured file-list tool.")
+        XCTAssertTrue(actionSpecText.contains("file list uses host.file.list instead of shell ls fallback"), "Focused real-world action evidence should guard against shell fallback for file listings.")
         XCTAssertTrue(actionSpecText.contains("Can you show me the current directory?"), "Focused real-world action flows should cover natural current-directory diagnostics.")
         XCTAssertTrue(actionSpecText.contains("What is in README.md?"), "Focused real-world action flows should cover natural file-read requests.")
         XCTAssertTrue(actionSpecText.contains("host.file.read"), "Focused real-world action flows should use the structured file-read tool.")

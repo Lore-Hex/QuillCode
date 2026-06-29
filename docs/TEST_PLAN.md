@@ -45,6 +45,7 @@ Drive the QuillCode test harness with mock LLM:
 - find within the active chat with `Cmd+F`, focused input, result counts, next/previous navigation, and close behavior
 - search and select a model, including current/default/recommended badges, provider/category/model metadata rows, metadata-backed search, and duplicate-free search results
 - run shell
+- list workspace entries with `host.file.list`, visible directory/file entries, artifact links, and no shell `ls` fallback for natural listing prompts
 - search workspace text with `host.file.search`, visible file/line previews, artifact links, and no shell grep fallback
 - surface file/URL artifacts from tool-card output, with source/text preview metadata visible and raw successful-tool JSON collapsed until opened
 - open the Activity pane and verify the deterministic task plan, current task, recent events, tools, sources, artifacts, latest answer, handoff summary, and collapsible section state are reconstructed from the same transcript state
@@ -76,6 +77,7 @@ Drive the QuillCode test harness with mock LLM:
 ## Native Smoke Tests
 
 - Real-world smoke must include natural file-reading such as "What is in README.md?" and prove it routes through `host.file.read`, not shell `cat` fallback or passive chat.
+- Real-world smoke must include natural workspace listing such as "Can you list the files here?" and prove it routes through `host.file.list`, not shell `ls` fallback or passive chat.
 - Real-world smoke must include natural workspace text search such as "Where is SmokeSearchSymbol defined?" and prove it routes through `host.file.search`, not shell grep fallback or passive chat.
 - `WorkspaceComposerIntegrationTests/testWorkspaceSurfaceCoversRealWorldActionPromptFamily` runs the same high-risk prompt family through the Swift workspace model and shared `WorkspaceSurface`, proving native app state, tool cards, final answers, and local side effects stay aligned.
 - `QuillCodeDesktopControllerSmokeTests/testDesktopControllerSendPathCoversRealWorldActionPromptFamily` runs that same prompt family through `QuillCodeDesktopController.send()` with isolated temp app state, proving the native desktop controller/coordinator path clears drafts, dispatches async sends, refreshes the renderable surface, and preserves local side effects. `QuillCodeDesktopControllerSmokeTests/testDesktopComposerSendPublishesOptimisticTranscriptBeforeAgentReturns` uses a slow mock LLM to prove the desktop coordinator publishes the user bubble and Thinking surface immediately, before the async agent returns.
