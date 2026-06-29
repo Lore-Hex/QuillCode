@@ -41,6 +41,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(Set(report.designSystemContracts.map(\.kind)), Set(QuillCodeNativeHitTargetKind.allCases))
         XCTAssertEqual(report.missingDesignKinds, [])
         XCTAssertEqual(report.missingSurfaceFamilies, [])
+        XCTAssertEqual(report.missingRequiredSurfaceKinds, [])
         XCTAssertEqual(report.missingRequiredFocusTargets, [])
         XCTAssertEqual(
             Set(report.coveredSurfaceFamilies),
@@ -81,6 +82,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "model-picker.option-action",
             "review.body",
             "review.thread-reply",
+            "review.mode",
             "review.file-row",
             "review.action",
             "secondary-pane.tab",
@@ -97,16 +99,21 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "command.keyboard-shortcuts",
             "command.settings",
             "terminal.command",
+            "terminal.family-action",
             "terminal.run",
             "terminal.clear",
             "browser.address",
+            "browser.family-action",
+            "browser.family-icon",
             "browser.open",
             "browser.new-tab",
             "browser.comment",
             "browser.add-comment",
             "extensions.action",
+            "extensions.reference-action",
             "extensions.mcp-reference",
             "memories.add",
+            "memories.item-action",
             "memories.edit",
             "memories.delete",
             "automations.create",
@@ -119,10 +126,14 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         }
 
         XCTAssertEqual(contractsByID["extensions.mcp-reference"]?.kind, .capsule)
+        XCTAssertEqual(contractsByID["extensions.reference-action"]?.kind, .capsule)
         XCTAssertEqual(contractsByID["transcript.artifact-link"]?.kind, .link)
         XCTAssertEqual(contractsByID["memories.edit"]?.kind, .icon)
+        XCTAssertEqual(contractsByID["memories.item-action"]?.kind, .icon)
         XCTAssertEqual(contractsByID["automations.create"]?.kind, .formAction)
+        XCTAssertEqual(contractsByID["review.mode"]?.kind, .segmentedControl)
         XCTAssertEqual(contractsByID["browser.comment"]?.kind, .textEntry)
+        XCTAssertEqual(contractsByID["browser.family-icon"]?.kind, .icon)
         XCTAssertEqual(contractsByID["transcript.thinking-trace"]?.kind, .capsule)
         XCTAssertEqual(contractsByID["browser.comment"]?.action, .textInput)
         XCTAssertEqual(contractsByID["transcript.artifact-link"]?.action, .link)
@@ -147,6 +158,23 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.id.isEmpty })
         XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.label.isEmpty })
         XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.source.isEmpty })
+        let policyByFamily = Dictionary(uniqueKeysWithValues: report.surfacePolicies.map { ($0.family, $0) })
+        XCTAssertEqual(
+            Set(policyByFamily[.composer]?.requiredKinds ?? []),
+            Set([.textEntry, .icon, .capsule])
+        )
+        XCTAssertEqual(
+            Set(policyByFamily[.settings]?.requiredKinds ?? []),
+            Set([.textEntry, .formAction])
+        )
+        XCTAssertEqual(
+            Set(policyByFamily[.browser]?.requiredKinds ?? []),
+            Set([.textEntry, .textButton, .icon])
+        )
+        XCTAssertEqual(
+            Set(policyByFamily[.review]?.requiredKinds ?? []),
+            Set([.textEntry, .segmentedControl, .fullRow, .formAction])
+        )
 
         surface.commands.removeAll { $0.id == "toggle-extensions" }
         let missingReport = QuillCodeNativeHitTargetAudit.report(for: surface)
@@ -159,6 +187,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
 
         XCTAssertTrue(report.isValid)
         XCTAssertEqual(report.missingSurfaceFamilies, [])
+        XCTAssertEqual(report.missingRequiredSurfaceKinds, [])
         XCTAssertEqual(report.missingRequiredFocusTargets, [])
         XCTAssertEqual(
             Set(report.coveredSurfaceFamilies),
@@ -192,11 +221,15 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         let report = QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: 44,
             pressScale: 0.96,
+            surfacePolicies: [
+                QuillCodeNativeSurfaceTargetPolicy(family: .topBar, requiredKinds: [.icon])
+            ],
             designSystemContracts: [],
             surfaceContracts: [invalidContract],
             missingDesignKinds: [],
             coveredSurfaceFamilies: [],
             missingSurfaceFamilies: [],
+            missingRequiredSurfaceKinds: ["top-bar:icon"],
             coveredFocusTargets: [],
             missingRequiredFocusTargets: [],
             missingRequiredCommandIDs: [],
@@ -206,6 +239,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
 
         XCTAssertFalse(report.isValid)
         XCTAssertEqual(report.duplicateContractIDs, ["top-bar.overflow"])
+        XCTAssertEqual(report.dictionary["missingRequiredSurfaceKinds"] as? [String], ["top-bar:icon"])
         XCTAssertEqual(report.dictionary["duplicateContractIDs"] as? [String], ["top-bar.overflow"])
     }
 

@@ -184,6 +184,40 @@ missing_families = sorted(required_families - contract_families)
 if missing_families:
     raise SystemExit(f"quill-code-desktop native smoke did not include native target surface families: {', '.join(missing_families)}")
 
+missing_surface_kinds = native_targets.get("missingRequiredSurfaceKinds")
+if missing_surface_kinds != []:
+    raise SystemExit(f"quill-code-desktop native smoke reported incomplete surface target policies: {missing_surface_kinds}")
+
+surface_policies = native_targets.get("surfacePolicies")
+if not isinstance(surface_policies, list) or not surface_policies:
+    raise SystemExit("quill-code-desktop native smoke did not include surface target policies")
+policy_by_family = {}
+for policy in surface_policies:
+    if not isinstance(policy, dict):
+        raise SystemExit(f"quill-code-desktop native smoke reported malformed surface target policy: {policy}")
+    family = policy.get("family")
+    required_kinds = policy.get("requiredKinds")
+    if not isinstance(family, str) or not family:
+        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with missing family: {policy}")
+    if not isinstance(required_kinds, list) or not all(isinstance(kind, str) for kind in required_kinds):
+        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with malformed requiredKinds: {policy}")
+    policy_by_family[family] = set(required_kinds)
+expected_policy_kinds = {
+    "composer": {"textEntry", "icon", "capsule"},
+    "top-bar": {"icon", "fullRow"},
+    "settings": {"textEntry", "formAction"},
+    "model-picker": {"textEntry", "fullRow", "icon"},
+    "review": {"textEntry", "segmentedControl", "fullRow", "formAction"},
+    "terminal": {"textEntry", "textButton"},
+    "browser": {"textEntry", "textButton", "icon"},
+    "extensions": {"formAction", "capsule"},
+    "memories": {"formAction", "icon"},
+}
+for family, required_policy_kinds in expected_policy_kinds.items():
+    if not required_policy_kinds.issubset(policy_by_family.get(family, set())):
+        missing_policy_kinds = sorted(required_policy_kinds - policy_by_family.get(family, set()))
+        raise SystemExit(f"quill-code-desktop native smoke surface policy for {family} is missing: {', '.join(missing_policy_kinds)}")
+
 covered_focus_targets = set(native_targets.get("coveredFocusTargets", []))
 required_focus_targets = {
     "browser.address", "browser.comment", "command-palette.search", "composer.message",

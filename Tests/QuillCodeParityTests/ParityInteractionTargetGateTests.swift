@@ -680,6 +680,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native hit-target audit should inventory whole interaction surface families, not only individual button kinds."
         )
         XCTAssertTrue(
+            auditText.contains("public struct QuillCodeNativeSurfaceTargetPolicy")
+                && auditText.contains("requiredSurfacePolicies")
+                && auditText.contains("missingRequiredSurfaceKinds")
+                && auditText.contains("policy(.composer, kinds: [.textEntry, .icon, .capsule])")
+                && auditText.contains("policy(.browser, kinds: [.textEntry, .textButton, .icon])")
+                && auditText.contains("policy(.review, kinds: [.textEntry, .segmentedControl, .fullRow, .formAction])"),
+            "Native hit-target audit should define the expected target mix per surface family, not just prove that each family has one example control."
+        )
+        XCTAssertTrue(
             auditText.contains("duplicateContractIDs")
                 && auditText.contains("duplicateIDs(in:")
                 && auditText.contains("has an empty accessible label")
@@ -722,6 +731,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 44"#)
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
                 && smokeScriptText.contains("duplicateContractIDs")
+                && smokeScriptText.contains("missingRequiredSurfaceKinds")
+                && smokeScriptText.contains("surfacePolicies")
+                && smokeScriptText.contains(#""browser": {"textEntry", "textButton", "icon"}"#)
                 && smokeScriptText.contains(#"for field in ("id", "label", "source", "surface")"#)
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
             "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind, unique ID, and non-empty metadata field."

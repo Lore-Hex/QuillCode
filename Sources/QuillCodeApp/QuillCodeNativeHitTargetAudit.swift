@@ -174,14 +174,36 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     }
 }
 
+public struct QuillCodeNativeSurfaceTargetPolicy: Codable, Sendable, Hashable {
+    public var family: QuillCodeInteractionSurfaceFamily
+    public var requiredKinds: [QuillCodeNativeHitTargetKind]
+
+    public init(
+        family: QuillCodeInteractionSurfaceFamily,
+        requiredKinds: [QuillCodeNativeHitTargetKind]
+    ) {
+        self.family = family
+        self.requiredKinds = requiredKinds
+    }
+
+    public var dictionary: [String: Any] {
+        [
+            "family": family.rawValue,
+            "requiredKinds": requiredKinds.map(\.rawValue)
+        ]
+    }
+}
+
 public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var minimumHitTarget: Double
     public var pressScale: Double
+    public var surfacePolicies: [QuillCodeNativeSurfaceTargetPolicy]
     public var designSystemContracts: [QuillCodeNativeHitTargetContract]
     public var surfaceContracts: [QuillCodeNativeHitTargetContract]
     public var missingDesignKinds: [String]
     public var coveredSurfaceFamilies: [String]
     public var missingSurfaceFamilies: [String]
+    public var missingRequiredSurfaceKinds: [String]
     public var coveredFocusTargets: [String]
     public var missingRequiredFocusTargets: [String]
     public var missingRequiredCommandIDs: [String]
@@ -191,6 +213,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var isValid: Bool {
         missingDesignKinds.isEmpty
             && missingSurfaceFamilies.isEmpty
+            && missingRequiredSurfaceKinds.isEmpty
             && missingRequiredFocusTargets.isEmpty
             && missingRequiredCommandIDs.isEmpty
             && duplicateContractIDs.isEmpty
@@ -202,11 +225,13 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "minimumHitTarget": minimumHitTarget,
             "pressScale": pressScale,
             "isValid": isValid,
+            "surfacePolicies": surfacePolicies.map(\.dictionary),
             "designSystemContracts": designSystemContracts.map(\.dictionary),
             "surfaceContracts": surfaceContracts.map(\.dictionary),
             "missingDesignKinds": missingDesignKinds,
             "coveredSurfaceFamilies": coveredSurfaceFamilies,
             "missingSurfaceFamilies": missingSurfaceFamilies,
+            "missingRequiredSurfaceKinds": missingRequiredSurfaceKinds,
             "coveredFocusTargets": coveredFocusTargets,
             "missingRequiredFocusTargets": missingRequiredFocusTargets,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
@@ -233,6 +258,29 @@ public enum QuillCodeNativeHitTargetAudit {
 
     public static let requiredSurfaceFamilies = QuillCodeInteractionSurfaceFamily.allCases
     public static let requiredFocusTargets = QuillCodeNativeFocusTarget.allCases
+    public static let requiredSurfacePolicies: [QuillCodeNativeSurfaceTargetPolicy] = [
+        policy(.designSystem, kinds: QuillCodeNativeHitTargetKind.allCases),
+        policy(.workspaceChrome, kinds: [.fullRow]),
+        policy(.sidebar, kinds: [.fullRow]),
+        policy(.sidebarThreadList, kinds: [.fullRow, .icon]),
+        policy(.topBar, kinds: [.icon, .fullRow]),
+        policy(.composer, kinds: [.textEntry, .icon, .capsule]),
+        policy(.transcript, kinds: [.icon, .link]),
+        policy(.toolCard, kinds: [.fullRow, .textButton]),
+        policy(.contextBanner, kinds: [.textButton]),
+        policy(.commandPalette, kinds: [.textEntry, .fullRow]),
+        policy(.search, kinds: [.textEntry, .fullRow]),
+        policy(.settings, kinds: [.textEntry, .formAction]),
+        policy(.modelPicker, kinds: [.textEntry, .fullRow, .icon]),
+        policy(.review, kinds: [.textEntry, .segmentedControl, .fullRow, .formAction]),
+        policy(.secondaryPane, kinds: [.capsule]),
+        policy(.terminal, kinds: [.textEntry, .textButton]),
+        policy(.browser, kinds: [.textEntry, .textButton, .icon]),
+        policy(.extensions, kinds: [.formAction, .capsule]),
+        policy(.memories, kinds: [.formAction, .icon]),
+        policy(.automations, kinds: [.formAction]),
+        policy(.menuBar, kinds: [.fullRow])
+    ]
 
     public static var designSystemContracts: [QuillCodeNativeHitTargetContract] {
         [
@@ -264,29 +312,56 @@ public enum QuillCodeNativeHitTargetAudit {
             .filter { !coveredFamilies.contains($0) }
             .map(\.rawValue)
             .sorted()
+        let allContracts = designContracts + surfaceContracts
+        let missingSurfaceKinds = missingRequiredSurfaceKinds(
+            policies: requiredSurfacePolicies,
+            contracts: allContracts
+        )
         let coveredFocusTargets = Set(surfaceContracts.compactMap(\.focusTarget))
         let missingFocusTargets = requiredFocusTargets
             .filter { !coveredFocusTargets.contains($0) }
             .map(\.rawValue)
             .sorted()
-        let allContracts = designContracts + surfaceContracts
         let duplicateContractIDs = duplicateIDs(in: allContracts.map(\.id))
         let validationIssues = allContracts.flatMap(\.validationIssues)
 
         return QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: Double(QuillCodeMetrics.minimumHitTarget),
             pressScale: Double(QuillCodeMetrics.pressScale),
+            surfacePolicies: requiredSurfacePolicies,
             designSystemContracts: designContracts,
             surfaceContracts: surfaceContracts,
             missingDesignKinds: missingKinds,
             coveredSurfaceFamilies: coveredFamilies.map(\.rawValue).sorted(),
             missingSurfaceFamilies: missingFamilies,
+            missingRequiredSurfaceKinds: missingSurfaceKinds,
             coveredFocusTargets: coveredFocusTargets.map(\.rawValue).sorted(),
             missingRequiredFocusTargets: missingFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
             duplicateContractIDs: duplicateContractIDs,
             validationIssues: validationIssues
         )
+    }
+
+    private static func policy(
+        _ family: QuillCodeInteractionSurfaceFamily,
+        kinds: [QuillCodeNativeHitTargetKind]
+    ) -> QuillCodeNativeSurfaceTargetPolicy {
+        QuillCodeNativeSurfaceTargetPolicy(family: family, requiredKinds: kinds)
+    }
+
+    private static func missingRequiredSurfaceKinds(
+        policies: [QuillCodeNativeSurfaceTargetPolicy],
+        contracts: [QuillCodeNativeHitTargetContract]
+    ) -> [String] {
+        let contractsByFamily = Dictionary(grouping: contracts, by: \.family)
+        return policies.flatMap { policy in
+            let coveredKinds = Set(contractsByFamily[policy.family, default: []].map(\.kind))
+            return policy.requiredKinds.compactMap { kind in
+                coveredKinds.contains(kind) ? nil : "\(policy.family.rawValue):\(kind.rawValue)"
+            }
+        }
+        .sorted()
     }
 
     private static func duplicateIDs(in ids: [String]) -> [String] {
@@ -339,14 +414,20 @@ public enum QuillCodeNativeHitTargetAudit {
             contract("model-picker.option-action", family: .modelPicker, surface: "Model picker", label: "Model option action", kind: .icon, minWidth: 44),
             contract("review.body", family: .review, surface: "Review", label: "Review body", kind: .textEntry, minWidth: nil, focusTarget: .reviewBody),
             contract("review.thread-reply", family: .review, surface: "Review", label: "Review thread reply", kind: .textEntry, minWidth: nil, focusTarget: .reviewThreadReply),
+            contract("review.mode", family: .review, surface: "Review", label: "Review mode", kind: .segmentedControl, minWidth: nil),
             contract("review.file-row", family: .review, surface: "Review", label: "Review file", kind: .fullRow, minWidth: nil),
             contract("review.action", family: .review, surface: "Review", label: "Review action", kind: .formAction, minWidth: 72),
             contract("secondary-pane.tab", family: .secondaryPane, surface: "Secondary pane", label: "Pane tab", kind: .capsule, minWidth: 72),
             contract("terminal.family-entry", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil, focusTarget: .terminalCommand),
+            contract("terminal.family-action", family: .terminal, surface: "Terminal", label: "Terminal action", kind: .textButton, minWidth: 64),
             contract("browser.family-entry", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil, focusTarget: .browserAddress),
+            contract("browser.family-action", family: .browser, surface: "Browser", label: "Browser action", kind: .textButton, minWidth: 64),
+            contract("browser.family-icon", family: .browser, surface: "Browser", label: "Browser icon action", kind: .icon, minWidth: 44),
             contract("browser.comment-entry", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil, focusTarget: .browserComment),
             contract("extensions.family-entry", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74),
+            contract("extensions.reference-action", family: .extensions, surface: "Extensions", label: "MCP resource or prompt action", kind: .capsule, minWidth: 96),
             contract("memories.family-entry", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56),
+            contract("memories.item-action", family: .memories, surface: "Memories", label: "Memory row action", kind: .icon, minWidth: 44),
             contract("automations.family-entry", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90),
             contract("menu-bar.action", family: .menuBar, surface: "Menu bar", label: "Menu bar action", kind: .fullRow, minWidth: nil)
         ]
