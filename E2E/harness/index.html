@@ -936,10 +936,12 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      justify-content: flex-start;
       text-align: left;
       color: var(--text);
       background: transparent;
       border: 1px solid transparent;
+      border-radius: 10px;
       box-shadow: none;
       transition-property: transform, background-color, box-shadow, border-color;
       transition-duration: 150ms;
@@ -952,20 +954,33 @@
     .sidebar-action[data-secondary="true"] {
       color: var(--muted);
     }
+    .sidebar-action[data-command-id="new-chat"] {
+      background: rgba(255,255,255,.055);
+      border-color: rgba(255,255,255,.08);
+      box-shadow: var(--shadow-border);
+    }
     .sidebar-action::before,
     .sidebar-tools-menu summary::before,
     .sidebar-tool-action::before {
       flex: 0 0 auto;
-      width: 20px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
       color: var(--muted);
       text-align: center;
-      font-size: 16px;
+      font-size: 15px;
       line-height: 1;
+      border-radius: 8px;
+      background: rgba(255,255,255,.045);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
     }
     .sidebar-action:hover::before,
     .sidebar-tools-menu summary:hover::before,
     .sidebar-tool-action:hover::before {
       color: var(--text);
+      background: rgba(65,184,232,.16);
+      box-shadow: inset 0 0 0 1px rgba(65,184,232,.26);
     }
     .sidebar-action[data-icon="new"]::before { content: "✎"; }
     .sidebar-action[data-icon="search"]::before { content: "⌕"; }
@@ -6163,10 +6178,10 @@
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" data-testid="sidebar-compose-zone" aria-label="Primary chat actions">
-                <button class="sidebar-action hit-target-text" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
-                <button class="sidebar-action hit-target-text" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search</button>
-                <button class="sidebar-action hit-target-text" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
-                <button class="sidebar-action hit-target-text" type="button" data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations</button>
+                <button class="sidebar-action hit-target-row" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
+                <button class="sidebar-action hit-target-row" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search</button>
+                <button class="sidebar-action hit-target-row" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
+                <button class="sidebar-action hit-target-row" type="button" data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations</button>
               </div>
               <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
                 ${sidebarThreadHeader}
