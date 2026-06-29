@@ -6,6 +6,7 @@ SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-smoke.XXXXXX")"
 SMOKE_HOME="$SMOKE_ROOT/home"
 SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
 ARTIFACT_DIR="${QUILLCODE_SMOKE_ARTIFACT_DIR:-}"
+REQUIRE_PLAYWRIGHT="${QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE:-0}"
 
 cleanup() {
   rm -rf "$SMOKE_ROOT"
@@ -14,6 +15,17 @@ trap cleanup EXIT
 
 mkdir -p "$SMOKE_HOME" "$SMOKE_WORKSPACE"
 cd "$ROOT_DIR"
+
+is_truthy() {
+  case "$1" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
 assert_cli_no_action_regression() {
   local output="$1"
@@ -125,6 +137,10 @@ fi
 if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
   echo "==> Running Playwright E2E suite"
   (cd "$ROOT_DIR/E2E/playwright" && npm test)
+elif is_truthy "$REQUIRE_PLAYWRIGHT"; then
+  echo "Playwright E2E was required, but E2E/playwright/node_modules is missing." >&2
+  echo "Run npm ci in E2E/playwright before running this smoke gate." >&2
+  exit 2
 else
   echo "==> Skipping Playwright E2E; run npm install in E2E/playwright to include it"
 fi
