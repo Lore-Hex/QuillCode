@@ -41,8 +41,14 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopWindowSmokeReport"))
         XCTAssertTrue(supportText.contains("enum QuillCodeDesktopNativeHitTargetSmoke"))
         XCTAssertTrue(supportText.contains(#""nativeHitTargets": nativeHitTargets.dictionary"#))
+        XCTAssertTrue(supportText.contains("struct QuillCodeDesktopWindowSmokeSurfaceReport"))
+        XCTAssertTrue(supportText.contains("requiredCommandIDs"))
+        XCTAssertTrue(supportText.contains("requiredStarterActionIDs"))
+        XCTAssertTrue(supportText.contains(#""surface": surface.dictionary"#))
         XCTAssertTrue(windowSmokeText.contains("waitForWindow()"))
         XCTAssertTrue(windowSmokeText.contains("openSmokeWindow()"))
+        XCTAssertTrue(windowSmokeText.contains("smokeController"))
+        XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)"))
         XCTAssertTrue(windowSmokeText.contains("NSHostingView(rootView: rootView)"))
         XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopRootView(controller: controller)"))
         XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopNativeHitTargetSmoke.validatedReport"))
@@ -59,6 +65,15 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(packagedSmoke.contains(#""nativeHitTargets""#))
         XCTAssertTrue(packagedSmoke.contains(#"native-click-probe-contracts.py" validate"#))
         XCTAssertTrue(packagedSmoke.contains(#"--label "packaged live-window""#))
+        XCTAssertTrue(packagedSmoke.contains(#""surface""#))
+        XCTAssertTrue(packagedSmoke.contains(#""composerCanSend" : false"#))
+        XCTAssertTrue(packagedSmoke.contains(#""sidebarTitle" : "Chats""#))
+        for commandID in ["new-chat", "command-palette", "keyboard-shortcuts", "settings", "toggle-terminal", "toggle-browser", "stop-all", "disconnect-all"] {
+            XCTAssertTrue(packagedSmoke.contains(commandID), "Packaged smoke should validate live-window command \(commandID).")
+        }
+        for actionID in ["review-changes", "run-tests", "explain-project"] {
+            XCTAssertTrue(packagedSmoke.contains(actionID), "Packaged smoke should validate starter action \(actionID).")
+        }
     }
 
     func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {

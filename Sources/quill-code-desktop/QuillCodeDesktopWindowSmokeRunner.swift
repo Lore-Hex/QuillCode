@@ -53,9 +53,9 @@ enum QuillCodeDesktopWindowSmokeRunner {
             minBrightPixelRatio: 0.0005,
             minBlueAccentPixelRatio: 0.0001
         )
-        let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(
-            for: smokeSurface()
-        )
+        let workspaceSurface = try smokeSurface()
+        let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: workspaceSurface)
+        let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
 
         return QuillCodeDesktopWindowSmokeReport(
             ok: true,
@@ -66,18 +66,23 @@ enum QuillCodeDesktopWindowSmokeRunner {
             contentSize: bounds.size,
             screenshotPath: screenshotURL.path,
             image: stats.report,
-            nativeHitTargets: nativeHitTargets
+            nativeHitTargets: nativeHitTargets,
+            surface: surface
         )
     }
 
     private static func waitForWindow() async throws -> NSWindow {
         NSApplication.shared.activate(ignoringOtherApps: true)
+        if smokeWindow == nil {
+            openSmokeWindow()
+        }
         for _ in 0..<100 {
-            if let window = NSApplication.shared.windows.first(where: isSmokeWindow) {
+            if let window = smokeWindow, isSmokeWindow(window) {
                 return window
             }
-            if smokeWindow == nil {
-                openSmokeWindow()
+            if let window = NSApplication.shared.windows.first(where: isSmokeWindow) {
+                smokeWindow = window
+                return window
             }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
@@ -103,11 +108,11 @@ enum QuillCodeDesktopWindowSmokeRunner {
         smokeWindow = window
     }
 
-    private static func smokeSurface() -> WorkspaceSurface {
-        if let smokeController {
-            return smokeController.surface
+    private static func smokeSurface() throws -> WorkspaceSurface {
+        guard let smokeController else {
+            throw QuillCodeDesktopSmokeFailure.windowSurfaceIncomplete("smoke controller was not retained")
         }
-        return QuillCodeDesktopController().surface
+        return smokeController.surface
     }
 
     private static func isSmokeWindow(_ window: NSWindow) -> Bool {

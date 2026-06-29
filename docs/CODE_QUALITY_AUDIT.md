@@ -16,6 +16,22 @@ Residual risk:
 
 - The next layer is still real Accessibility frame resolution and edge/interior clicking against the packaged window; this pass makes the live-window artifact carry the contract that runner should consume.
 
+## 2026-06-29 Packaged Live-Window Semantic Surface Pass
+
+Overall grade after this slice: **A live-window semantic evidence, A smoke diagnostics, A- live Accessibility clicking**.
+
+The packaged live-window smoke proved that a real SwiftUI window could open and render nonblank pixels, but it did not prove that the window was backed by a healthy QuillCode workspace surface. A future UI regression could keep the screenshot nonblank while losing core commands, starter actions, or composer/sidebar state.
+
+| Before | After |
+| --- | --- |
+| `window-report.json` captured app identity, window geometry, screenshot path, and pixel statistics only. | The report now includes a `surface` block derived from the retained desktop controller: top-bar identity, title/model/mode/status, composer placeholder/sendability, sidebar title/count, command IDs, and starter action IDs. |
+| The live-window runner could accidentally validate whichever visible `QuillCode` window AppKit returned first. | The runner opens and retains its own smoke controller/window before waiting, then validates the exact controller surface used for the captured window. |
+| Packaged smoke grepped only identity/title/pixel evidence. | `scripts/packaged-macos-smoke.sh` now fails if the live report lacks the surface block, disabled empty composer, `Chats` sidebar, core workspace command IDs, or default starter actions. |
+
+Residual risk:
+
+- This still validates semantic state from inside the app process. The final native confidence layer remains a packaged macOS Accessibility/appshot runner that resolves stable selectors to live frames and performs the click samples against the actual window server surface.
+
 ## 2026-06-29 Packaged Accessibility Readiness Manifest Pass
 
 Overall grade after this slice: **A release artifact contract, A click-probe reuse, A- live Accessibility frame sampling**.

@@ -24,7 +24,9 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
 
     func testDesktopWindowSmokeReportIncludesNativeHitTargets() throws {
         let model = QuillCodeWorkspaceModel()
-        let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: model.surface())
+        let surface = model.surface()
+        let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
+        let surfaceReport = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: surface)
         let report = QuillCodeDesktopWindowSmokeReport(
             ok: true,
             appName: "QuillCode",
@@ -41,13 +43,46 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                 blueAccentPixelRatio: 0.01,
                 distinctColorBuckets: 48
             ),
-            nativeHitTargets: nativeHitTargets
+            nativeHitTargets: nativeHitTargets,
+            surface: surfaceReport
         )
 
         let json = String(data: try report.prettyJSON(), encoding: .utf8) ?? ""
         XCTAssertTrue(json.contains(#""nativeHitTargets""#))
         XCTAssertTrue(json.contains(#""clickProbes""#))
         XCTAssertTrue(json.contains(#""quillcode-send-button""#))
+        XCTAssertTrue(json.contains(#""surface""#))
+        XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
+    }
+
+    func testDesktopWindowSmokeSurfaceReportSummarizesWorkspaceChrome() throws {
+        let controller = try makeController(workspaceRoot: try makeTempDirectory())
+        let report = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: controller.surface)
+
+        XCTAssertEqual(report.appName, "QuillCode")
+        XCTAssertFalse(report.primaryTitle.isEmpty)
+        XCTAssertFalse(report.modelLabel.isEmpty)
+        XCTAssertFalse(report.modeLabel.isEmpty)
+        XCTAssertFalse(report.agentStatus.isEmpty)
+        XCTAssertFalse(report.composerPlaceholder.isEmpty)
+        XCTAssertFalse(report.composerCanSend)
+        XCTAssertEqual(report.sidebarTitle, "Chats")
+        XCTAssertGreaterThanOrEqual(
+            report.commandIDs.count,
+            QuillCodeDesktopWindowSmokeSurfaceReport.requiredCommandIDs.count
+        )
+
+        for commandID in QuillCodeDesktopWindowSmokeSurfaceReport.requiredCommandIDs {
+            XCTAssertTrue(report.commandIDs.contains(commandID), commandID)
+        }
+        for actionID in QuillCodeDesktopWindowSmokeSurfaceReport.requiredStarterActionIDs {
+            XCTAssertTrue(report.starterActionIDs.contains(actionID), actionID)
+        }
+
+        let dictionary = report.dictionary
+        XCTAssertEqual(dictionary["appName"] as? String, "QuillCode")
+        XCTAssertEqual(dictionary["composerCanSend"] as? Bool, false)
+        XCTAssertEqual(dictionary["sidebarTitle"] as? String, "Chats")
     }
 
     func testDesktopComposerSendPublishesOptimisticTranscriptBeforeAgentReturns() async throws {
