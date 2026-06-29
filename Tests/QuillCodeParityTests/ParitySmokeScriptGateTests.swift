@@ -265,8 +265,10 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         let probePolicies = try XCTUnwrap(manifestObject["clickProbePolicies"] as? [[String: Any]])
         let probePolicy = try XCTUnwrap(probePolicies.first)
         XCTAssertEqual(probePolicy["contractID"] as? String, "composer.send")
+        XCTAssertEqual(probePolicy["collisionScope"] as? String, "composer:composer")
         XCTAssertEqual(probePolicy["allowsNestedInteractiveChildren"] as? Bool, false)
         XCTAssertEqual(probePolicy["requiresUnblockedInterior"] as? Bool, true)
+        XCTAssertEqual(manifestObject["collisionScopes"] as? [String], ["composer:composer"])
         XCTAssertEqual(manifestObject["samplePointNames"] as? [String], [
             "bottom-interior",
             "center",
@@ -297,6 +299,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         let readinessPolicies = try XCTUnwrap(readinessObject["clickProbePolicies"] as? [[String: Any]])
         let readinessPolicy = try XCTUnwrap(readinessPolicies.first)
         XCTAssertEqual(readinessPolicy["contractID"] as? String, "composer.send")
+        XCTAssertEqual(readinessPolicy["collisionScope"] as? String, "composer:composer")
         XCTAssertEqual(readinessPolicy["allowsNestedInteractiveChildren"] as? Bool, false)
         XCTAssertEqual(readinessPolicy["requiresUnblockedInterior"] as? Bool, true)
         XCTAssertEqual(readinessObject["requiredSamplePointNames"] as? [String], [
@@ -358,6 +361,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
               {
                 "id": "composer.send",
                 "testID": "quillcode-send-button",
+                "collisionScope": "composer:composer",
                 "kind": "icon",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
@@ -369,6 +373,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "contractID": "composer.send",
                 "selectorKind": "test-id",
                 "selector": "quillcode-send-button",
+                "collisionScope": "composer:composer",
                 "kind": "icon",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
@@ -460,6 +465,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
               {
                 "id": "composer.send",
                 "testID": "quillcode-send-button",
+                "collisionScope": "composer:composer",
                 "kind": "icon",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
@@ -474,6 +480,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "contractID": "composer.send",
                 "selectorKind": "test-id",
                 "selector": "quillcode-send-button",
+                "collisionScope": "composer:composer",
                 "kind": "icon",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
@@ -496,6 +503,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
               {
                 "id": "command.\(commandID)",
                 "commandID": "\(commandID)",
+                "collisionScope": "command:workspace-chrome",
                 "kind": "fullRow",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
@@ -510,6 +518,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "contractID": "command.\(commandID)",
                 "selectorKind": "command-id",
                 "selector": "\(commandID)",
+                "collisionScope": "command:workspace-chrome",
                 "kind": "fullRow",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
