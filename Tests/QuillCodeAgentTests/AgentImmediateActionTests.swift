@@ -191,6 +191,38 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
 
+    func testPoliteBareCommandExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Can you run printf quillcode_polite_smoke?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "printf quillcode_polite_smoke")
+        XCTAssertEqual(result.thread.messages.last?.content, "Output:\nquillcode_polite_smoke")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll run") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
+    func testIncidentalBareCommandMentionStillUsesModel() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FixedSayLLMClient(message: "Mention noted."), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "The docs say run ls after setup.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 0)
+        XCTAssertEqual(result.thread.messages.last?.content, "Mention noted.")
+    }
+
     func testMakeHelloWorldFileExecutesImmediately() async throws {
         let root = try makeTempDirectory()
         let result = try await AgentRunner().send(

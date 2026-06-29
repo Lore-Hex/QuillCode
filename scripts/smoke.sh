@@ -206,6 +206,8 @@ whoami_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPA
 assert_cli_no_action_regression "$whoami_output" "run whoami"
 do_it_now_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Please run \`printf quillcode_now_smoke\` now and report the output.")"
 assert_cli_output_contains "$do_it_now_output" "quillcode_now_smoke" "run command now"
+polite_bare_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Can you run printf quillcode_polite_smoke?")"
+assert_cli_output_contains "$polite_bare_output" "quillcode_polite_smoke" "polite bare command"
 CLI_SHELL_STATUS="passed"
 
 echo "==> Running mock CLI natural diagnostic prompts"
