@@ -71,6 +71,67 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll check") })
     }
 
+    func testListFilesQuestionExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try "alpha\n".write(to: root.appendingPathComponent("alpha.txt"), atomically: true, encoding: .utf8)
+        try "beta\n".write(to: root.appendingPathComponent("beta.txt"), atomically: true, encoding: .utf8)
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Can you list the files here?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "ls -la")
+        XCTAssertTrue(result.thread.messages.last?.content.contains("alpha.txt") == true)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("beta.txt") == true)
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll list") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
+    func testCurrentDirectoryQuestionExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Can you show me the current directory?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "pwd")
+        XCTAssertTrue(result.thread.messages.last?.content.contains(root.path) == true)
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll show") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
+    func testPoliteGitStatusUsesStructuredGitStatusBeforeGenericShellRecovery() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try "working tree\n".write(to: root.appendingPathComponent("status.txt"), atomically: true, encoding: .utf8)
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Please check git status.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let call = try queuedToolCall(in: result)
+        XCTAssertEqual(call.name, ToolDefinition.gitStatus.name)
+        XCTAssertEqual(call.argumentsJSON, "{}")
+        XCTAssertTrue(result.thread.messages.last?.content.contains("Git status:") == true)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("status.txt") == true)
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll check") })
+    }
+
     func testDownloadDomainExecutesImmediatelyWithWorkspaceBoundedPath() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(toolExecutionOverride: { call, _ in

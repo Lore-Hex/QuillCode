@@ -9,9 +9,12 @@ enum AgentImmediateActionPlanner {
 
         let lower = request.lowercased()
 
-        if let command = AgentShellCommandRecovery.explicitCommand(from: request),
-           hasTool(ToolDefinition.shellRun.name, in: tools) {
-            return shell(command)
+        if let gitReadCall = AgentGitReadRequestParser.toolCall(for: request, tools: tools) {
+            return .tool(gitReadCall)
+        }
+
+        if let workspaceDiagnostic = AgentWorkspaceDiagnosticRequestParser.toolCall(for: request, tools: tools) {
+            return .tool(workspaceDiagnostic)
         }
 
         if lower.contains("whoami"),
@@ -34,8 +37,9 @@ enum AgentImmediateActionPlanner {
             return shell("df -h / /Quill 2>/dev/null || df -h /")
         }
 
-        if let gitReadCall = AgentGitReadRequestParser.toolCall(for: request, tools: tools) {
-            return .tool(gitReadCall)
+        if let command = AgentShellCommandRecovery.explicitCommand(from: request),
+           hasTool(ToolDefinition.shellRun.name, in: tools) {
+            return shell(command)
         }
 
         if let fileWrite = AgentFileWriteRequestParser.request(from: request),

@@ -85,6 +85,7 @@ if [[ -z "$API_KEY" ]]; then
 fi
 
 mkdir -p "$SMOKE_HOME" "$SMOKE_WORKSPACE"
+SMOKE_WORKSPACE_PHYSICAL="$(cd "$SMOKE_WORKSPACE" && pwd -P)"
 cd "$ROOT_DIR"
 
 prepare_git_workspace() {
@@ -593,6 +594,14 @@ run_scenario \
   "tracked.txt"
 
 run_scenario \
+  "git-status-polite" \
+  "Please check git status." \
+  "Running live TrustedRouter polite git-status smoke with $MODEL" \
+  validate_two_expected_outputs \
+  "Git status:" \
+  "tracked.txt"
+
+run_scenario \
   "git-diff" \
   "what changed?" \
   "Running live TrustedRouter git-diff smoke with $MODEL" \
@@ -626,6 +635,21 @@ run_scenario \
   "hello-world.txt"
 
 run_scenario \
+  "workspace-list-natural" \
+  "Can you list the files here?" \
+  "Running live TrustedRouter natural workspace-list smoke with $MODEL" \
+  validate_two_expected_outputs \
+  "live-smoke.txt" \
+  "hello-world.txt"
+
+run_scenario \
+  "workspace-pwd-natural" \
+  "Can you show me the current directory?" \
+  "Running live TrustedRouter natural current-directory smoke with $MODEL" \
+  validate_expected_output \
+  "$SMOKE_WORKSPACE_PHYSICAL"
+
+run_scenario \
   "workspace-read-followup" \
   "Read \`hello-world.txt\` and tell me its exact content." \
   "Running live TrustedRouter workspace-read follow-up smoke with $MODEL" \
@@ -650,7 +674,7 @@ run_scenario \
   "downloads/example.html"
 
 begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "Checking persisted live smoke transcripts"
-assert_saved_transcripts_are_actionable 13
+assert_saved_transcripts_are_actionable 16
 finish_scenario "" ""
 
 write_artifact_manifest 0 "completed"

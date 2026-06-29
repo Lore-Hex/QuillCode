@@ -10713,10 +10713,62 @@
       return cleanNaturalCommandFragment(trimmed.replace(/^run\s+/i, '')) || 'whoami';
     }
 
+    function promptWordSet(text) {
+      return new Set(String(text || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+    }
+
+    function isNaturalCurrentDirectoryRequest(text) {
+      const lower = String(text || '').toLowerCase();
+      const words = promptWordSet(text);
+      return lower.includes('current directory')
+        || lower.includes('working directory')
+        || lower.includes('current folder')
+        || lower.includes('workspace path')
+        || words.has('pwd')
+        || (words.has('where') && words.has('am') && words.has('i'));
+    }
+
+    function isNaturalWorkspaceListRequest(text) {
+      const lower = String(text || '').toLowerCase();
+      const words = promptWordSet(text);
+      if (lower.includes('list files')
+        || lower.includes('list the files')
+        || lower.includes('show files')
+        || lower.includes('show the files')) {
+        return true;
+      }
+
+      const asksForFiles = words.has('files') || words.has('folder') || words.has('directory');
+      const asksForListing = words.has('list') || words.has('show') || words.has('what');
+      const scopesWorkspace = words.has('here')
+        || words.has('workspace')
+        || words.has('project')
+        || words.has('repo')
+        || words.has('directory')
+        || words.has('folder');
+      return asksForFiles && asksForListing && scopesWorkspace;
+    }
+
     function mockShellOutputForPrompt(command, selectedProject, isRemoteProject) {
       const cmd = command.trim();
       if (isRemoteProject) return remoteTerminalOutput(cmd, selectedProject.path, {});
       return terminalOutput(cmd, state.terminal.cwdLabel || '/mock/QuillCode', {});
+    }
+
+    function runMockShellAction(command, selectedProject, isRemoteProject) {
+      const output = mockShellOutputForPrompt(command, selectedProject, isRemoteProject);
+      state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
+      addToolCard({
+        title: 'host.shell.run',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ cmd: command }, null, 2),
+        outputJSON: JSON.stringify({ ok: output.exitCode === 0, stdout: output.stdout, stderr: output.stderr || '', exitCode: output.exitCode }, null, 2)
+      });
+      const answer = command.trim() === 'whoami'
+        ? `You are \`${isRemoteProject ? 'quill' : 'mock-user'}\` in this workspace.`
+        : `Output:\n${output.stdout.trim() || '(no output)'}`;
+      addMessage('assistant', answer);
     }
 
     function fileWriteRequestFromPrompt(text) {
@@ -12371,6 +12423,10 @@
       } else if (text.toLowerCase().includes('git status')) {
         runGitStatusAction();
         return;
+      } else if (isNaturalCurrentDirectoryRequest(text)) {
+        runMockShellAction('pwd', selectedProject, isRemoteProject);
+      } else if (isNaturalWorkspaceListRequest(text)) {
+        runMockShellAction('ls -la', selectedProject, isRemoteProject);
       } else if (text.toLowerCase().includes('commit')) {
         const message = text.match(/message[: ]+(.+)$/i)?.[1]?.trim() || 'QuillCode changes';
         state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
@@ -12410,19 +12466,7 @@
         addMessage('assistant', stdout.includes('not found') ? 'OpenClaw is not installed.' : `OpenClaw is installed at \`${stdout.trim()}\`.`);
       } else if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
         const cmd = shellCommandFromPrompt(text);
-        const output = mockShellOutputForPrompt(cmd, selectedProject, isRemoteProject);
-        state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
-        addToolCard({
-          title: 'host.shell.run',
-          subtitle: 'Completed',
-          status: 'done',
-          inputJSON: JSON.stringify({ cmd }, null, 2),
-          outputJSON: JSON.stringify({ ok: output.exitCode === 0, stdout: output.stdout, stderr: output.stderr || '', exitCode: output.exitCode }, null, 2)
-        });
-        const answer = cmd.trim() === 'whoami'
-          ? `You are \`${isRemoteProject ? 'quill' : 'mock-user'}\` in this workspace.`
-          : `Output:\n${output.stdout.trim() || '(no output)'}`;
-        addMessage('assistant', answer);
+        runMockShellAction(cmd, selectedProject, isRemoteProject);
       } else {
         state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         addMessage('assistant', 'I can inspect and edit this project.');

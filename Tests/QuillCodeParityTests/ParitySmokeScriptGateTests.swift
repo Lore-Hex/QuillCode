@@ -20,6 +20,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("quillcode_live_now_smoke"))
         XCTAssertTrue(script.contains("shell-action-polite-bare"))
         XCTAssertTrue(script.contains("quillcode_live_polite_smoke"))
+        XCTAssertTrue(script.contains("git-status-polite"))
+        XCTAssertTrue(script.contains("workspace-list-natural"))
+        XCTAssertTrue(script.contains("workspace-pwd-natural"))
         XCTAssertFalse(
             script.contains("--arg apiKey \"$API_KEY\""),
             "Live smoke manifests must not pass the raw API key into jq."

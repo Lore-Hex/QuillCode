@@ -152,6 +152,7 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$SMOKE_HOME" "$SMOKE_WORKSPACE"
+SMOKE_WORKSPACE_PHYSICAL="$(cd "$SMOKE_WORKSPACE" && pwd -P)"
 cd "$ROOT_DIR"
 
 is_truthy() {
@@ -218,6 +219,12 @@ assert_cli_output_contains "$whoami_question_output" "$(id -un)" "whoami?"
 
 disk_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "How much hd?")"
 assert_cli_output_contains "$disk_output" "Disk usage" "How much hd?"
+
+list_files_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Can you list the files here?")"
+assert_cli_output_contains "$list_files_output" "Output:" "list files"
+
+current_directory_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Can you show me the current directory?")"
+assert_cli_output_contains "$current_directory_output" "$SMOKE_WORKSPACE_PHYSICAL" "current directory"
 
 openclaw_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do you have openclaw?")"
 assert_cli_output_contains "$openclaw_output" "openclaw" "Do you have openclaw?"
