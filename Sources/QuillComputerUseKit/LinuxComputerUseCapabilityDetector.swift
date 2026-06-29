@@ -68,13 +68,15 @@ public struct LinuxComputerUseCapabilityDetector: Sendable {
     }
 
     private func x11Report() -> LinuxComputerUseCapabilityReport {
-        let hasScreenshot = hasExecutable("import") || hasExecutable("scrot")
+        let hasImport = hasExecutable("import")
+        let hasScrot = hasExecutable("scrot")
+        let screenshotHelper = hasImport ? "import" : (hasScrot ? "scrot" : nil)
         let hasInput = hasExecutable("xdotool")
         var available: [String] = []
         var missing: [String] = []
 
-        if hasScreenshot {
-            available.append("import/scrot")
+        if let screenshotHelper {
+            available.append(screenshotHelper)
         } else {
             missing.append("import or scrot")
         }
@@ -99,8 +101,11 @@ public struct LinuxComputerUseCapabilityDetector: Sendable {
     ) -> LinuxComputerUseCapabilityReport {
         let status: ComputerUseStatus
         if missingHelpers.isEmpty {
-            status = .unavailable(
-                "Linux Computer Use detected \(session.displayName) helpers, but the Linux input adapter is not enabled yet."
+            status = ComputerUseStatus(
+                available: true,
+                screenRecordingGranted: true,
+                accessibilityGranted: true,
+                message: "Linux Computer Use ready (\(session.displayName) helpers detected)."
             )
         } else {
             status = .unavailable(

@@ -18,9 +18,11 @@ public struct ComputerUseBackendFactory: Sendable {
         }
         #elseif os(Linux)
         return ComputerUseBackendFactory {
-            UnavailableComputerUseBackend(
-                status: LinuxComputerUseCapabilityDetector().report().status
-            )
+            let report = LinuxComputerUseCapabilityDetector().report()
+            guard report.status.available else {
+                return UnavailableComputerUseBackend(status: report.status)
+            }
+            return LinuxComputerUseBackend(report: report)
         }
         #else
         return ComputerUseBackendFactory {

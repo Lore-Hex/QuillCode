@@ -386,7 +386,7 @@ final class ComputerUseBackendTests: XCTestCase {
         )
     }
 
-    func testLinuxComputerUseDetectorReportsCompleteWaylandHelpersAsAdapterPending() {
+    func testLinuxComputerUseDetectorReportsCompleteWaylandHelpersAsReady() {
         let report = LinuxComputerUseCapabilityDetector(
             environment: [
                 "XDG_SESSION_TYPE": "wayland",
@@ -398,9 +398,12 @@ final class ComputerUseBackendTests: XCTestCase {
         XCTAssertEqual(report.session, .wayland)
         XCTAssertEqual(report.availableHelpers, ["grim", "ydotool"])
         XCTAssertEqual(report.missingHelpers, [])
+        XCTAssertTrue(report.status.available)
+        XCTAssertTrue(report.status.screenRecordingGranted)
+        XCTAssertTrue(report.status.accessibilityGranted)
         XCTAssertEqual(
             report.status.message,
-            "Linux Computer Use detected Wayland helpers, but the Linux input adapter is not enabled yet."
+            "Linux Computer Use ready (Wayland helpers detected)."
         )
     }
 
@@ -420,6 +423,132 @@ final class ComputerUseBackendTests: XCTestCase {
             report.status.message,
             "Linux Computer Use detected X11 but needs helper tools: import or scrot."
         )
+    }
+
+    func testLinuxComputerUseDetectorReportsCompleteX11HelpersAsReady() {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "x11",
+                "DISPLAY": ":0"
+            ],
+            executableLookup: { ["scrot", "xdotool"].contains($0) }
+        ).report()
+
+        XCTAssertEqual(report.session, .x11)
+        XCTAssertEqual(report.availableHelpers, ["scrot", "xdotool"])
+        XCTAssertEqual(report.missingHelpers, [])
+        XCTAssertTrue(report.status.available)
+        XCTAssertTrue(report.status.screenRecordingGranted)
+        XCTAssertTrue(report.status.accessibilityGranted)
+        XCTAssertEqual(
+            report.status.message,
+            "Linux Computer Use ready (X11 helpers detected)."
+        )
+    }
+
+    func testLinuxWaylandBackendRoutesHelperCommands() async throws {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "wayland",
+                "WAYLAND_DISPLAY": "wayland-0"
+            ],
+            executableLookup: { ["grim", "ydotool"].contains($0) }
+        ).report()
+        let runner = RecordingLinuxCommandRunner()
+        let backend = LinuxComputerUseBackend(
+            report: report,
+            commandRunner: runner.run
+        )
+
+        let screenshot = try await backend.screenshot()
+        try await backend.leftClick(x: 10, y: 20)
+        try await backend.type("hello")
+        try await backend.scroll(dx: 120, dy: -240)
+        try await backend.moveCursor(x: 30, y: 40)
+        try await backend.pressKey("Return")
+
+        XCTAssertEqual(screenshot.width, 1)
+        XCTAssertEqual(screenshot.height, 1)
+        let commands = await runner.recordedCommands()
+        XCTAssertEqual(commands.count, 9)
+        XCTAssertEqual(commands[0].first, "grim")
+        XCTAssertTrue(commands[0].last?.hasSuffix(".png") == true)
+        XCTAssertEqual(commands[1], ["ydotool", "mousemove", "--absolute", "10", "20"])
+        XCTAssertEqual(commands[2], ["ydotool", "click", "0xC0"])
+        XCTAssertEqual(commands[3], ["ydotool", "type", "hello"])
+        XCTAssertEqual(commands[4], ["ydotool", "click", "0xC7"])
+        XCTAssertEqual(commands[5], ["ydotool", "click", "0xC4"])
+        XCTAssertEqual(commands[6], ["ydotool", "click", "0xC4"])
+        XCTAssertEqual(commands[7], ["ydotool", "mousemove", "--absolute", "30", "40"])
+        XCTAssertEqual(commands[8], ["ydotool", "key", "Return"])
+    }
+
+    func testLinuxX11BackendRoutesHelperCommands() async throws {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "x11",
+                "DISPLAY": ":0"
+            ],
+            executableLookup: { ["scrot", "xdotool"].contains($0) }
+        ).report()
+        let runner = RecordingLinuxCommandRunner()
+        let backend = LinuxComputerUseBackend(
+            report: report,
+            commandRunner: runner.run
+        )
+
+        let screenshot = try await backend.screenshot()
+        try await backend.leftClick(x: 10, y: 20)
+        try await backend.type("hello")
+        try await backend.scroll(dx: -120, dy: 240)
+        try await backend.moveCursor(x: 30, y: 40)
+        try await backend.pressKey("Return")
+
+        XCTAssertEqual(screenshot.width, 1)
+        XCTAssertEqual(screenshot.height, 1)
+        let commands = await runner.recordedCommands()
+        XCTAssertEqual(commands.count, 9)
+        XCTAssertEqual(commands[0].first, "scrot")
+        XCTAssertTrue(commands[0].last?.hasSuffix(".png") == true)
+        XCTAssertEqual(commands[1], ["xdotool", "mousemove", "10", "20"])
+        XCTAssertEqual(commands[2], ["xdotool", "click", "1"])
+        XCTAssertEqual(commands[3], ["xdotool", "type", "--clearmodifiers", "--delay", "0", "--", "hello"])
+        XCTAssertEqual(commands[4], ["xdotool", "click", "6"])
+        XCTAssertEqual(commands[5], ["xdotool", "click", "5"])
+        XCTAssertEqual(commands[6], ["xdotool", "click", "5"])
+        XCTAssertEqual(commands[7], ["xdotool", "mousemove", "30", "40"])
+        XCTAssertEqual(commands[8], ["xdotool", "key", "--clearmodifiers", "Return"])
+    }
+
+    func testLinuxBackendReportsHelperFailure() async throws {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "x11",
+                "DISPLAY": ":0"
+            ],
+            executableLookup: { ["scrot", "xdotool"].contains($0) }
+        ).report()
+        let runner = RecordingLinuxCommandRunner(
+            failureExecutable: "xdotool",
+            failureResult: LinuxComputerUseCommandResult(
+                stderr: "no display\n",
+                exitCode: 2
+            )
+        )
+        let backend = LinuxComputerUseBackend(
+            report: report,
+            commandRunner: runner.run
+        )
+
+        do {
+            try await backend.moveCursor(x: 10, y: 20)
+            XCTFail("Expected helper failure")
+        } catch {
+            XCTAssertTrue(
+                String(describing: error).contains("Linux helper failed: no display"),
+                "Unexpected error: \(error)"
+            )
+        }
     }
 }
 
@@ -458,5 +587,49 @@ private actor PermissionRecordingComputerUseBackend: ComputerUseBackend {
 
     func pressKey(_ key: String) async throws {
         actions.append("key:\(key)")
+    }
+}
+
+private actor RecordingLinuxCommandRunner {
+    private var commands: [[String]] = []
+    private let pngData: Data
+    private let failureExecutable: String?
+    private let failureResult: LinuxComputerUseCommandResult
+
+    init(
+        pngData: Data? = nil,
+        failureExecutable: String? = nil,
+        failureResult: LinuxComputerUseCommandResult = LinuxComputerUseCommandResult()
+    ) {
+        self.pngData = pngData ?? Self.oneByOnePNGData()
+        self.failureExecutable = failureExecutable
+        self.failureResult = failureResult
+    }
+
+    func run(_ arguments: [String]) async throws -> LinuxComputerUseCommandResult {
+        commands.append(arguments)
+        if arguments.first == failureExecutable {
+            return failureResult
+        }
+        if shouldWriteScreenshot(for: arguments),
+           let outputPath = arguments.last {
+            try pngData.write(to: URL(fileURLWithPath: outputPath))
+        }
+        return LinuxComputerUseCommandResult()
+    }
+
+    func recordedCommands() -> [[String]] {
+        commands
+    }
+
+    private nonisolated func shouldWriteScreenshot(for arguments: [String]) -> Bool {
+        guard let executable = arguments.first else { return false }
+        return ["grim", "scrot", "import"].contains(executable)
+    }
+
+    private nonisolated static func oneByOnePNGData() -> Data {
+        Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+        )!
     }
 }

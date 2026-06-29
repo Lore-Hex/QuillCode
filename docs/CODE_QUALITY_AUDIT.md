@@ -420,6 +420,21 @@ Residual risk:
 
 - The subtitle still includes model identity for now because that matches the existing surface contract. If the top bar gets visually crowded again, remove the model from the subtitle rather than reintroducing raw IDs.
 
+## 2026-06-28 Linux Computer Use Helper Backend Pass
+
+Overall grade after this slice: **A- Computer Use backend parity, A helper-command contract, B+ visual verification depth**.
+
+Linux Computer Use moved from capability reporting to a real helper-backed backend behind the same `ComputerUseBackend` protocol as macOS. The factory now enables Linux only when the detected graphical session has enough helper coverage, keeping under-provisioned machines on the explicit unavailable path instead of exposing buttons that cannot work.
+
+- Added `LinuxComputerUseBackend` for screenshots, cursor movement, clicks, typing, scrolling, and key presses through Wayland (`grim`, `ydotool`, optional `wtype`) or X11 (`import`/`scrot`, `xdotool`) helpers.
+- Changed complete Linux helper detection from "adapter pending" to a ready `ComputerUseStatus` with explicit screen/input readiness.
+- Added focused tests for ready Wayland/X11 detection, exact helper command routing, PNG screenshot metadata extraction, scroll wheel-step expansion, and helper failure messages.
+- Updated parity docs so Linux Computer Use is treated as implemented when helper prerequisites exist.
+
+Residual risk:
+
+- This is command-contract verified, not visually verified on real Linux desktops yet. The next quality step is a Linux smoke harness with fake and real helper binaries plus screenshots checked through the same artifact preview path.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.
@@ -432,7 +447,7 @@ Computer Use now has a clearer runtime boundary between permission-missing state
 
 Residual risk:
 
-- Product parity is still limited by the missing Linux backend, app-specific approval UX, and native visual verification loops. The protocol/executor contract is stronger, but the feature remains B+ until those adapter and UX milestones land.
+- Product parity is still limited by app-specific approval UX and native visual verification loops. The protocol/executor contract is stronger, and Linux now has a helper-backed route, but the feature still needs real-hardware visual verification before it is fully A-grade.
 
 ## 2026-06-27 Desktop Model State Coordinator Pass
 
@@ -5218,7 +5233,7 @@ The codebase is substantially healthier than a normal prototype at this feature 
 | `QuillCodeTools` | A- | Good workspace bounding and focused shell/file/git/MCP executors. Remaining risk is breadth: GitHub PR/worktree/MCP behavior is powerful but still needs more real-world edge coverage and interactive-terminal parity. |
 | `QuillCodeSafety` | B+ | Small and testable, with hard denies plus model-backed Auto review. The static intent matcher is still heuristic-heavy, which is acceptable as a guardrail fallback but not A+ production policy. |
 | `QuillCodePersistence` | B+ | Simple stores and compatibility tests are good. `FileSecretStore` is useful for fallback/dev but should set restrictive file permissions or move behind a stronger encrypted adapter before production-grade secret handling. |
-| `QuillComputerUseKit` | B+ | Protocol and macOS adapter are correctly isolated. Linux backend, app approval UX, and visual verification loops are still parity gaps. |
+| `QuillComputerUseKit` | A- | Protocol, macOS adapter, Linux helper-backed adapter, and permission/status contracts are correctly isolated. App approval UX and visual verification loops are still parity gaps. |
 | `QuillCodeApp` model/surfaces | A- | Many responsibilities have been extracted into planners/builders with parity gates. `WorkspaceModel.swift` is still 1858 lines and remains the dependency magnet for workflows. |
 | Native SwiftUI views | A- | Recent splits made the sidebar, review pane, workspace shell, and tool cards much easier to maintain. Continue moving workflow rules out of views and into reducers/planners. |
 | Static HTML/Playwright harness | B+ | Very valuable for deterministic UI parity, but `E2E/harness/index.html` is 8504 lines and `core.spec.ts` is 2037 lines. It needs modularization before it can be called A-grade long term. |
@@ -5537,7 +5552,7 @@ Current strict grades:
 - `QuillCodeSafety`: **A-**. Policy boundaries are cleaner than earlier; live Auto-review telemetry and UX coverage still need depth.
 - `QuillCodeAgent`: **A-**. Good parser/streaming/final-answer splits; mock intent planning should continue shrinking by feature family.
 - `QuillCodePersistence`: **A**. Persistence boundaries remain clean.
-- `QuillComputerUseKit`: **B+**. macOS backend is isolated; Linux backend and app-approval parity remain open.
+- `QuillComputerUseKit`: **A-**. macOS and Linux helper-backed adapters are isolated; app-approval parity and richer visual verification remain open.
 - `QuillCodeApp`: **B+**. Surface test ownership improved, but `WorkspaceModel.swift` is still the largest production risk.
 - `quill-code-desktop`: **A-**. Native lifecycle surfaces are good; richer long-running process control still pending.
 - `E2E harness`: **A-**. Coverage is valuable, but the HTML harness and Playwright spec still need more modularization.
