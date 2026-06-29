@@ -60,6 +60,7 @@ cleanup() {
 trap cleanup EXIT
 
 require_tool jq
+require_tool git
 
 trim() {
   awk '{$1=$1; print}'
@@ -88,6 +89,18 @@ fi
 
 mkdir -p "$SMOKE_HOME" "$SMOKE_WORKSPACE"
 cd "$ROOT_DIR"
+
+prepare_git_workspace() {
+  git -C "$SMOKE_WORKSPACE" init >/dev/null
+  git -C "$SMOKE_WORKSPACE" config user.email quillcode-smoke@example.com
+  git -C "$SMOKE_WORKSPACE" config user.name "QuillCode Smoke"
+  printf 'before\n' > "$SMOKE_WORKSPACE/tracked.txt"
+  git -C "$SMOKE_WORKSPACE" add tracked.txt
+  git -C "$SMOKE_WORKSPACE" commit -m "Add tracked smoke file" >/dev/null
+  printf 'after\n' > "$SMOKE_WORKSPACE/tracked.txt"
+}
+
+prepare_git_workspace
 
 run_live_prompt() {
   local prompt="$1"
@@ -215,7 +228,9 @@ write_artifact_manifest() {
   fi
 
   if [[ -d "$SMOKE_WORKSPACE" ]]; then
-    find "$SMOKE_WORKSPACE" -maxdepth 5 -type f -print | sort | while IFS= read -r file_path; do
+    find "$SMOKE_WORKSPACE" \
+      -path "$SMOKE_WORKSPACE/.git" -prune -o \
+      -maxdepth 5 -type f -print | sort | while IFS= read -r file_path; do
       local relative_path
       local byte_count
       relative_path="${file_path#$SMOKE_WORKSPACE/}"
@@ -449,6 +464,10 @@ assert_saved_transcripts_are_actionable() {
       [.events[]? | select(.kind == "toolQueued") | .payloadJSON | fromjson];
     def queued_arguments:
       [queued_calls[] | .argumentsJSON | fromjson];
+    def bad_empty_argument_calls:
+      [queued_calls[]
+        | select(.name != "host.git.status" and .name != "host.git.diff")
+        | select((.argumentsJSON | fromjson | length) == 0)];
     def completed_results:
       [.events[]? | select(.kind == "toolCompleted") | .payloadJSON | fromjson];
     def bad_assistant_promises:
@@ -463,8 +482,9 @@ assert_saved_transcripts_are_actionable() {
       and (queued_calls | length) >= 1
       and (queued_arguments | length) == (queued_calls | length)
       and all(queued_calls[]; (.name | type == "string") and (.name | length) > 0)
-      and all(queued_calls[]; (.argumentsJSON | type == "string") and (.argumentsJSON | length) > 2)
-      and all(queued_arguments[]; (type == "object") and (length > 0))
+      and all(queued_calls[]; (.argumentsJSON | type == "string") and (.argumentsJSON | length) >= 2)
+      and all(queued_arguments[]; type == "object")
+      and (bad_empty_argument_calls | length) == 0
       and ([.events[]? | select(.kind == "toolFailed")] | length) == 0
       and (completed_results | length) >= 1
       and all(completed_results[]; .ok == true)
@@ -508,6 +528,12 @@ validate_two_expected_outputs() {
   assert_useful_output "$1" "$2" "$4"
 }
 
+validate_three_expected_outputs() {
+  assert_useful_output "$1" "$2" "$3"
+  assert_useful_output "$1" "$2" "$4"
+  assert_useful_output "$1" "$2" "$5"
+}
+
 validate_exact_workspace_file() {
   assert_no_action_regression "$1" "$2"
   assert_workspace_file_contains_exactly "$3" "$4"
@@ -539,6 +565,23 @@ run_scenario \
   validate_output_pattern \
   "Disk usage|available|used|[0-9]+%" \
   "disk usage result"
+
+run_scenario \
+  "git-status" \
+  "git status" \
+  "Running live TrustedRouter git-status smoke with $MODEL" \
+  validate_two_expected_outputs \
+  "Git status:" \
+  "tracked.txt"
+
+run_scenario \
+  "git-diff" \
+  "what changed?" \
+  "Running live TrustedRouter git-diff smoke with $MODEL" \
+  validate_three_expected_outputs \
+  "Git diff:" \
+  "tracked.txt" \
+  "+after"
 
 run_scenario \
   "file-write-explicit" \
@@ -589,7 +632,7 @@ run_scenario \
   "downloads/example.html"
 
 begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "Checking persisted live smoke transcripts"
-assert_saved_transcripts_are_actionable 9
+assert_saved_transcripts_are_actionable 11
 finish_scenario "" ""
 
 write_artifact_manifest 0 "completed"

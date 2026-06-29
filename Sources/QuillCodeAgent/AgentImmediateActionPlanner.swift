@@ -34,6 +34,10 @@ enum AgentImmediateActionPlanner {
             return shell("df -h / /Quill 2>/dev/null || df -h /")
         }
 
+        if let gitReadCall = AgentGitReadRequestParser.toolCall(for: request, tools: tools) {
+            return .tool(gitReadCall)
+        }
+
         if let fileWrite = AgentFileWriteRequestParser.request(from: request),
            hasTool(ToolDefinition.fileWrite.name, in: tools) {
             return .tool(.init(

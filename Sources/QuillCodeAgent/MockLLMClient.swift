@@ -164,12 +164,8 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
-        if lower.contains("git status") {
-            return .tool(.init(name: ToolDefinition.gitStatus.name, argumentsJSON: "{}"))
-        }
-
-        if lower.contains("git diff") {
-            return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
+        if let gitReadCall = AgentGitReadRequestParser.toolCall(for: request, tools: tools) {
+            return .tool(gitReadCall)
         }
 
         if let pullRequestToolCall = MockPullRequestIntentPlanner.toolCall(for: request, lowercasedRequest: lower) {

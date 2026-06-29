@@ -8,6 +8,8 @@ enum AgentToolAnswerFormatters {
             AgentUtilityToolAnswerFormatters.fileReadAnswer,
             AgentUtilityToolAnswerFormatters.fileWriteAnswer,
             AgentUtilityToolAnswerFormatters.applyPatchAnswer,
+            AgentGitToolAnswerFormatters.statusAnswer,
+            AgentGitToolAnswerFormatters.diffAnswer,
             AgentGitToolAnswerFormatters.worktreePruneAnswer,
             AgentGitToolAnswerFormatters.pullRequestReviewThreadsAnswer,
             AgentUtilityToolAnswerFormatters.planUpdateAnswer,

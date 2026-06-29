@@ -42,6 +42,82 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertEqual(answer, "No stale worktree records found.")
     }
 
+    func testGitStatusFinalAnswerReportsCleanState() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitStatus.name,
+                argumentsJSON: ToolArguments.json([:])
+            ),
+            result: ToolResult(ok: true)
+        )
+
+        XCTAssertEqual(answer, "Git status is clean.")
+    }
+
+    func testGitStatusFinalAnswerIncludesOutput() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitStatus.name,
+                argumentsJSON: ToolArguments.json([:])
+            ),
+            result: ToolResult(
+                ok: true,
+                stdout: "On branch main\nChanges not staged for commit:\n\tmodified: tracked.txt\n"
+            )
+        )
+
+        XCTAssertTrue(answer.hasPrefix("Git status:\n"))
+        XCTAssertTrue(answer.contains("modified: tracked.txt"))
+    }
+
+    func testGitDiffFinalAnswerReportsEmptyUnstagedDiff() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitDiff.name,
+                argumentsJSON: ToolArguments.json([:])
+            ),
+            result: ToolResult(ok: true)
+        )
+
+        XCTAssertEqual(answer, "No unstaged git diff.")
+    }
+
+    func testGitDiffFinalAnswerIncludesOutput() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitDiff.name,
+                argumentsJSON: ToolArguments.json(["staged": false])
+            ),
+            result: ToolResult(
+                ok: true,
+                stdout: """
+                diff --git a/tracked.txt b/tracked.txt
+                --- a/tracked.txt
+                +++ b/tracked.txt
+                @@ -1 +1 @@
+                -before
+                +after
+                """
+            )
+        )
+
+        XCTAssertTrue(answer.hasPrefix("Git diff:\n"))
+        XCTAssertTrue(answer.contains("tracked.txt"))
+        XCTAssertTrue(answer.contains("+after"))
+    }
+
+    func testGitDiffFinalAnswerReportsEmptyStagedDiff() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitDiff.name,
+                argumentsJSON: ToolArguments.json(["staged": true])
+            ),
+            result: ToolResult(ok: true)
+        )
+
+        XCTAssertEqual(answer, "No staged git diff.")
+    }
+
     func testWorktreePruneDryRunReportsStaleRecordsAndCleanupCommand() {
         let answer = AgentFinalAnswerBuilder.finalAnswer(
             for: ToolCall(
