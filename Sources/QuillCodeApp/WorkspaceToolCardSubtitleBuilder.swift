@@ -22,7 +22,8 @@ enum WorkspaceToolCardSubtitleBuilder {
         case "host.file.read", "host.file.write",
              "host.git.stage", "host.git.restore",
              "host.git.stage_hunk", "host.git.restore_hunk",
-             "host.git.pr.diff", "host.git.worktree.remove":
+             "host.git.pr.diff", "host.git.pr.review_comment",
+             "host.git.worktree.remove":
             return sanitized(arguments.string("path"))
         case "host.apply_patch":
             return "patch"
@@ -51,7 +52,7 @@ enum WorkspaceToolCardSubtitleBuilder {
             return "handoff"
         case "host.subagents.update":
             return "subagents"
-        case "host.browser.inspect":
+        case "host.browser.open":
             return sanitized(arguments.string("url"))
         case "host.memory.remember":
             return sanitized(arguments.string("content"))

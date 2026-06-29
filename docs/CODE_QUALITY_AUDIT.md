@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Tool-Card Subtitle Detail Correctness Pass
+
+Overall grade after this slice: **A tool-card scannability, A native/HTML subtitle parity, A- regression-guard coverage**.
+
+`WorkspaceToolCardSubtitleBuilder` (the shared logic feeding both the native SwiftUI and static-HTML tool cards) keyed the URL detail to the wrong browser tool. Two focused bug-hunt subagent reviews of the safety policy, tool input validators, and slash/command parsers found no high-confidence correctness bugs in those mature areas; this defect was in the tool-card subtitle builder.
+
+| Before | After |
+| --- | --- |
+| The Swift builder matched `host.browser.inspect` (no arguments) to read `url`, so it always produced an empty detail, while `host.browser.open` (which carries `url`) fell through to the default and showed no URL. `host.git.pr.review_comment` also produced no detail. | `host.browser.open` reads its `url`, and `host.git.pr.review_comment` joins the path tools to show its changed-file path. `host.browser.inspect` correctly resolves to no detail. |
+| The static-harness `toolCardDetail` mirror handled `host.browser.open` but kept a dead `host.browser.inspect` branch, sent `host.git.pr.review_comment` through the generic `host.git.pr.*` selector fallback, and lacked the `host.git.pr.review_thread` action branch — diverging from the Swift builder. | The mirror drops the dead branch, adds `host.git.pr.review_comment` to its path set, and adds the explicit `host.git.pr.review_thread` action branch before the selector fallback, so both surfaces emit identical subtitles. |
+| No test covered the opened-URL or reviewed-file-path subtitles. | A Swift test asserts the `host.browser.open` URL and `host.git.pr.review_comment` path subtitles (and that `host.browser.inspect` has no detail); a Playwright test asserts the same on the rendered static surface. |
+
+Residual risk:
+
+- The two subtitle code paths are still maintained by hand in parallel. A future pass could generate the static-harness detail map from a shared declaration, but the paired tests now fail if either surface drifts on these tools.
+
 ## 2026-06-29 Secondary-Pane Action Label Clipping Pass
 
 Overall grade after this slice: **A constrained-width action legibility, A- regression-guard breadth**.
