@@ -39,6 +39,7 @@ public final class PTYProcessSession: @unchecked Sendable {
     private let windowSize: PTYWindowSize?
     private let lock = NSLock()
     private var process: Process?
+    private var masterFD: Int32 = -1
     private var output = ""
     private var didFinish = false
     private var didCancel = false
@@ -68,6 +69,30 @@ public final class PTYProcessSession: @unchecked Sendable {
         let activeProcess = process
         lock.unlock()
         activeProcess?.terminate()
+    }
+
+    /// Writes `text` to the terminal as if the user typed it, so interactive
+    /// programs reading from the pty (shells, REPLs, prompts) can be driven.
+    /// Returns `false` if the session has finished or has no live master fd.
+    @discardableResult
+    public func sendInput(_ text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        lock.lock()
+        let fd = masterFD
+        let finished = didFinish
+        lock.unlock()
+        guard !finished, fd >= 0 else { return false }
+
+        let bytes = Array(text.utf8)
+        var written = 0
+        while written < bytes.count {
+            let count = bytes[written...].withUnsafeBytes { rawBuffer in
+                write(fd, rawBuffer.baseAddress, rawBuffer.count)
+            }
+            guard count > 0 else { return false }
+            written += count
+        }
+        return true
     }
 
     private func run() {
@@ -131,6 +156,7 @@ public final class PTYProcessSession: @unchecked Sendable {
 
         lock.lock()
         self.process = process
+        self.masterFD = master
         let shouldTerminate = didCancel
         lock.unlock()
         if shouldTerminate {
@@ -235,6 +261,7 @@ public final class PTYProcessSession: @unchecked Sendable {
         out = output
         activeProcess = process
         process = nil
+        masterFD = -1
         lock.unlock()
 
         if let activeProcess, activeProcess.isRunning {
