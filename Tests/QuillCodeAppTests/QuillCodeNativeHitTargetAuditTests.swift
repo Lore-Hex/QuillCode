@@ -539,9 +539,9 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         let source = try String(contentsOf: fileURL, encoding: .utf8)
         let lines = source.components(separatedBy: .newlines)
         let interactivePattern = try NSRegularExpression(
-            pattern: #"(?<![A-Za-z0-9_])(Button|Link|NavigationLink)\s*(?:\(|\{)"#
+            pattern: #"(?<![A-Za-z0-9_])(Button|Link|NavigationLink|Menu|DisclosureGroup|TextField|SecureField|TextEditor|Picker|Toggle|Slider|Stepper)\s*(?:\(|\{)"#
         )
-        let markers = [
+        let geometryMarkers = [
             ".quillCodeTextButtonTarget",
             ".quillCodeFormActionTarget",
             ".quillCodeTextEntryTarget",
@@ -552,18 +552,23 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             ".quillCodeOwnedGestureTarget",
             ".quillCodeIconButtonTarget",
             ".quillCodeFullRowButtonTarget",
-            ".quillCodeCapsuleButtonTarget",
-            ".quillCodePlatformMenuItemTarget"
+            ".quillCodeCapsuleButtonTarget"
         ]
+        let platformMenuItemMarker = ".quillCodePlatformMenuItemTarget"
 
         return lines.enumerated().compactMap { index, line in
             let range = NSRange(line.startIndex..<line.endIndex, in: line)
-            guard interactivePattern.firstMatch(in: line, range: range) != nil else { return nil }
+            guard let match = interactivePattern.firstMatch(in: line, range: range),
+                  let kindRange = Range(match.range(at: 1), in: line) else { return nil }
+            let kind = String(line[kindRange])
             let snippet = interactiveControlSnippet(
                 from: index,
                 in: lines,
                 interactivePattern: interactivePattern
             )
+            let markers = kind == "Menu"
+                ? geometryMarkers
+                : geometryMarkers + [platformMenuItemMarker]
             guard !markers.contains(where: snippet.contains) else { return nil }
             let relativePath = fileURL.path.replacingOccurrences(of: sourceRoot.path + "/", with: "")
             return "\(relativePath):\(index + 1) missing QuillCode hit-target marker near `\(line.trimmingCharacters(in: .whitespaces))`"
