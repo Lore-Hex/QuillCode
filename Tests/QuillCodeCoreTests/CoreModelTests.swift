@@ -20,11 +20,16 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(
             TrustedRouterDefaults.recommendedModelIDs,
             [
+                TrustedRouterDefaults.socratesModel,
                 TrustedRouterDefaults.fastModel,
                 TrustedRouterDefaults.synthModel,
                 TrustedRouterDefaults.synthCodeModel
             ]
         )
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.socratesModel), "Socrates 1.1")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.socratesModel), "/socrates")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("socrates-1.1"), TrustedRouterDefaults.socratesModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/socrates"), TrustedRouterDefaults.socratesModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider("tr"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider(" TR "), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Nike 1.0"), TrustedRouterDefaults.fastModel)
@@ -230,7 +235,8 @@ final class CoreModelTests: XCTestCase {
             .init(id: "tr/fast", provider: "tr", displayName: "Fast Alias", category: "Recommended")
         ])
 
-        XCTAssertEqual(catalog.prefix(3).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(catalog.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.socratesModel }.count, 1)
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthModel }.count, 1)
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthCodeModel }.count, 1)

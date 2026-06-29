@@ -251,37 +251,37 @@ test('mock harness searches and selects models from the composer', async ({ page
 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
-  await expect(page.getByTestId('model-result-count')).toHaveText('5 models available');
-  await expect(page.getByTestId('model-option-summary').first()).toContainText('Fast everyday agent');
-  await expect(page.getByTestId('model-badge').nth(0)).toHaveText('Current');
-  await expect(page.getByTestId('model-badge').nth(1)).toHaveText('Default');
-  await expect(page.getByTestId('model-badge').nth(2)).toHaveText('Recommended');
-  await expect(page.getByTestId('model-detail-button').first()).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('model-result-count')).toHaveText('6 models available');
+  // Socrates 1.1 leads the Recommended list as the currently strongest model.
+  await expect(page.getByTestId('model-option').first()).toContainText('Socrates 1.1');
+  await expect(page.getByTestId('model-option-summary').first()).toContainText('Leading frontier model');
+  // The selected default (Nike) stays expanded by default.
+  await expect(page.getByTestId('model-detail-button').nth(1)).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByTestId('model-capability')).toContainText('Nike 1.0 is the fast default');
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'trustedrouter/fast' })).toBeVisible();
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'Current, Default, Recommended' })).toBeVisible();
-  await expect(page.getByTestId('model-option')).toHaveCount(5);
+  await expect(page.getByTestId('model-option')).toHaveCount(6);
 
-  await page.getByTestId('model-detail-button').nth(1).click();
-  await expect(page.getByTestId('model-detail-button').nth(1)).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByTestId('model-capability')).toContainText('Synth is the balanced model');
-  await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/synth' })).toBeVisible();
+  await page.getByTestId('model-detail-button').nth(0).click();
+  await expect(page.getByTestId('model-detail-button').nth(0)).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('model-capability')).toContainText('Socrates 1.1 is the leading model');
+  await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/socrates' })).toBeVisible();
 
   await page.getByTestId('model-detail-button').nth(2).click();
   await expect(page.getByTestId('model-detail-button').nth(2)).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByTestId('model-capability')).toContainText('Synth Code is the code-focused model');
-  await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/synth-code' })).toBeVisible();
+  await expect(page.getByTestId('model-capability')).toContainText('Synth is the balanced model');
+  await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/synth' })).toBeVisible();
 
-  await page.getByTestId('model-search').fill('default model');
-  await expect(page.getByTestId('model-result-count')).toHaveText('1 model for "default model"');
+  await page.getByTestId('model-search').fill('socrates');
+  await expect(page.getByTestId('model-result-count')).toHaveText('1 model for "socrates"');
   await expect(page.getByTestId('model-option')).toHaveCount(1);
-  await expect(page.getByTestId('model-option')).toContainText('Nike 1.0');
+  await expect(page.getByTestId('model-option')).toContainText('Socrates 1.1');
   await page.getByTestId('model-search').fill('');
 
   await page.getByTestId('model-favorite-button').nth(1).click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-category').first()).toContainText('Favorites');
-  await expect(page.getByTestId('model-option')).toHaveCount(6);
+  await expect(page.getByTestId('model-option')).toHaveCount(7);
   await expect(page.getByTestId('model-favorite-button').first()).toHaveAttribute('aria-label', 'Remove favorite model');
 
   await page.getByTestId('model-search').fill('favorite');
@@ -304,8 +304,7 @@ test('mock harness searches and selects models from the composer', async ({ page
   await expect(page.getByTestId('model-empty')).toBeVisible();
   await page.getByTestId('model-clear-search').first().click();
   await expect(page.getByTestId('model-search')).toBeFocused();
-  await expect(page.getByTestId('model-result-count')).toHaveText('6 models available');
-  await expect(page.getByTestId('model-option')).toHaveCount(6);
+  await expect(page.getByTestId('model-result-count')).toHaveText('7 models available');
 });
 
 test('mock harness supports keyboard navigation in the model picker', async ({ page }) => {

@@ -4,6 +4,7 @@ public enum TrustedRouterDefaults {
     public static let fastModel = "trustedrouter/fast"
     public static let synthModel = "tr/synth"
     public static let synthCodeModel = "tr/synth-code"
+    public static let socratesModel = "tr/socrates"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.trustedrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
@@ -17,10 +18,12 @@ public enum TrustedRouterDefaults {
     public static let fastModelDisplayName = "Nike 1.0"
     public static let synthModelDisplayName = "Synth"
     public static let synthCodeModelDisplayName = "Synth Code"
+    public static let socratesModelDisplayName = "Socrates 1.1"
     public static let synthSlashAlias = "/synth"
     public static let synthCodeSlashAlias = "/synth-code"
+    public static let socratesSlashAlias = "/socrates"
     public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
-    public static let recommendedModelIDs = [fastModel, synthModel, synthCodeModel]
+    public static let recommendedModelIDs = [socratesModel, fastModel, synthModel, synthCodeModel]
     public static let modelIDAliases: [String: String] = [
         "fast": fastModel,
         "/fast": fastModel,
@@ -45,13 +48,20 @@ public enum TrustedRouterDefaults {
         "fusion-code": synthCodeModel,
         "/fusion-code": synthCodeModel,
         "tr/fusion-code": synthCodeModel,
-        "trustedrouter/fusion-code": synthCodeModel
+        "trustedrouter/fusion-code": synthCodeModel,
+        "tr/socrates": socratesModel,
+        "socrates": socratesModel,
+        "socrates 1.1": socratesModel,
+        "socrates-1.1": socratesModel,
+        socratesSlashAlias: socratesModel,
+        "trustedrouter/socrates": socratesModel
     ]
     public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
     public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
     public static let safetyReviewerModelIDs = [safetyPrimaryCatalogModel, safetyFallbackCatalogModel]
 
     public static let bundledModelCatalog: [ModelInfo] = [
+        .init(id: socratesModel, provider: trustedRouterProvider, displayName: socratesModelDisplayName, category: recommendedCategory),
         .init(id: fastModel, provider: trustedRouterProvider, displayName: fastModelDisplayName, category: recommendedCategory),
         .init(id: synthModel, provider: trustedRouterProvider, displayName: synthModelDisplayName, category: recommendedCategory),
         .init(id: synthCodeModel, provider: trustedRouterProvider, displayName: synthCodeModelDisplayName, category: recommendedCategory),
@@ -60,6 +70,7 @@ public enum TrustedRouterDefaults {
     ]
 
     public static let recommendedDisplayNames: [String: String] = [
+        socratesModel: socratesModelDisplayName,
         fastModel: fastModelDisplayName,
         synthModel: synthModelDisplayName,
         synthCodeModel: synthCodeModelDisplayName
@@ -106,6 +117,8 @@ public enum TrustedRouterDefaults {
             return synthSlashAlias
         case synthCodeModel:
             return synthCodeSlashAlias
+        case socratesModel:
+            return socratesSlashAlias
         default:
             return canonicalModelID(modelID)
         }

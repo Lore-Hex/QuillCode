@@ -21,7 +21,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.topBar.modelLabel, "acme/Code Pro")
         XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding"])
         let recommended = surface.topBar.modelCategories.first { $0.category == "Recommended" }
-        XCTAssertEqual(recommended?.models.prefix(3).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(recommended?.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         let coding = surface.topBar.modelCategories.first { $0.category == "Coding" }
         XCTAssertEqual(coding?.models.map(\.id), ["acme/code-pro", "acme/fast"])
         XCTAssertTrue(coding?.models.first?.isSelected == true)
