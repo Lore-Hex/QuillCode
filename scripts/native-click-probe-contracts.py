@@ -26,6 +26,19 @@ REQUIRED_WINDOW_STARTER_ACTION_IDS = [
     "run-tests",
     "explain-project",
 ]
+REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS = [
+    "command.new-chat",
+    "command.search",
+    "command.settings",
+    "command.toggle-automations",
+    "command.toggle-extensions",
+    "composer.input",
+    "composer.mode-picker",
+    "composer.model-picker",
+    "composer.send",
+    "sidebar.tools-menu",
+    "top-bar.overflow",
+]
 EXPECTED_SAMPLE_POINTS = {
     "center": (0.5, 0.5),
     "leading-interior": (0.18, 0.5),
@@ -364,6 +377,233 @@ def write_accessibility_readiness_manifest(artifact_root: Path, manifest_path: P
         manifest_file.write("\n")
 
 
+def relative_manifest_path(path: Path, base_directory: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(base_directory.resolve()))
+    except ValueError:
+        return str(path)
+
+
+def numeric_value(value: Any, label: str) -> float:
+    if not isinstance(value, (int, float)):
+        raise SystemExit(f"{label} is not numeric: {value!r}")
+    return float(value)
+
+
+def string_list(value: Any, label: str) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+        raise SystemExit(f"{label} is not a list of strings")
+    return value
+
+
+def required_string(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise SystemExit(f"{label} is not a nonempty string: {value!r}")
+    return value
+
+
+def validated_accessibility_sample_points(
+    report_path: Path,
+    contract_id: str,
+    frame: dict[str, float],
+    sample_points: Any,
+) -> list[str]:
+    if not isinstance(sample_points, list):
+        raise SystemExit(f"{report_path} has malformed samplePoints for {contract_id}")
+
+    points_by_name: dict[str, dict[str, Any]] = {}
+    for point in sample_points:
+        if not isinstance(point, dict):
+            raise SystemExit(f"{report_path} has malformed sample point for {contract_id}: {point!r}")
+        name = point.get("name")
+        if not isinstance(name, str) or name in points_by_name:
+            raise SystemExit(f"{report_path} has malformed or duplicate sample point for {contract_id}: {point!r}")
+        points_by_name[name] = point
+
+    missing_points = sorted(set(EXPECTED_SAMPLE_POINTS) - set(points_by_name))
+    if missing_points:
+        raise SystemExit(f"{report_path} Accessibility sample for {contract_id} is missing: {', '.join(missing_points)}")
+
+    for name, normalized_point in EXPECTED_SAMPLE_POINTS.items():
+        point = points_by_name[name]
+        x = numeric_value(point.get("x"), f"{contract_id}.{name}.x")
+        y = numeric_value(point.get("y"), f"{contract_id}.{name}.y")
+        expected_x = frame["x"] + frame["width"] * normalized_point[0]
+        expected_y = frame["y"] + frame["height"] * normalized_point[1]
+        if not math.isclose(x, expected_x, rel_tol=0.0, abs_tol=1e-6) or not math.isclose(y, expected_y, rel_tol=0.0, abs_tol=1e-6):
+            raise SystemExit(f"{report_path} Accessibility sample point drifted for {contract_id}.{name}")
+
+    return sorted(points_by_name)
+
+
+def validated_accessibility_frame_sample(
+    report_path: Path,
+    sample: Any,
+) -> tuple[str, dict[str, Any]]:
+    if not isinstance(sample, dict):
+        raise SystemExit(f"{report_path} has a malformed Accessibility frame sample: {sample!r}")
+
+    contract_id = required_string(sample.get("contractID"), "accessibility sample contractID")
+    selector_kind = required_string(sample.get("selectorKind"), f"{contract_id}.selectorKind")
+    selector = required_string(sample.get("selector"), f"{contract_id}.selector")
+    resolved_identifier = required_string(sample.get("resolvedIdentifier"), f"{contract_id}.resolvedIdentifier")
+    role = required_string(sample.get("role"), f"{contract_id}.role")
+    label = required_string(sample.get("label"), f"{contract_id}.label")
+
+    raw_frame = sample.get("frame")
+    if not isinstance(raw_frame, dict):
+        raise SystemExit(f"{report_path} has malformed frame for {contract_id}: {sample!r}")
+    frame = {
+        "x": numeric_value(raw_frame.get("x"), f"{contract_id}.frame.x"),
+        "y": numeric_value(raw_frame.get("y"), f"{contract_id}.frame.y"),
+        "width": numeric_value(raw_frame.get("width"), f"{contract_id}.frame.width"),
+        "height": numeric_value(raw_frame.get("height"), f"{contract_id}.frame.height"),
+    }
+    required_min_width = numeric_value(sample.get("requiredMinWidth"), f"{contract_id}.requiredMinWidth")
+    required_min_height = numeric_value(sample.get("requiredMinHeight"), f"{contract_id}.requiredMinHeight")
+    if frame["width"] < required_min_width or frame["height"] < required_min_height:
+        raise SystemExit(f"{report_path} has undersized Accessibility frame sample for {contract_id}")
+
+    sample_point_names = validated_accessibility_sample_points(
+        report_path,
+        contract_id,
+        frame,
+        sample.get("samplePoints"),
+    )
+
+    return contract_id, {
+        "contractID": contract_id,
+        "selectorKind": selector_kind,
+        "selector": selector,
+        "resolvedIdentifier": resolved_identifier,
+        "role": role,
+        "label": label,
+        "frame": frame,
+        "samplePointNames": sample_point_names,
+    }
+
+
+def validated_accessibility_frame_samples(
+    report_path: Path,
+    screenshot_path: Path,
+    click_probe_manifest_path: Path | None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
+    validate_packaged_window_report(report_path, screenshot_path)
+    report = load_report(report_path)
+    samples_report = report.get("accessibilityFrameSamples")
+    if not isinstance(samples_report, dict):
+        raise SystemExit(f"{report_path} does not contain accessibilityFrameSamples")
+    if samples_report.get("ok") is not True:
+        raise SystemExit(
+            f"{report_path} Accessibility frame sampling failed: {samples_report.get('validationIssues')}"
+        )
+    if samples_report.get("liveAccessibilitySampling") != "frame-sampled":
+        raise SystemExit(f"{report_path} did not run live Accessibility frame sampling")
+    if samples_report.get("minimumHitTarget") != MINIMUM_HIT_TARGET:
+        raise SystemExit(f"{report_path} Accessibility frame floor drifted from {MINIMUM_HIT_TARGET} pt")
+    if samples_report.get("unresolvedRequiredContractIDs") != []:
+        raise SystemExit(
+            f"{report_path} missed required live Accessibility targets: "
+            f"{samples_report.get('unresolvedRequiredContractIDs')}"
+        )
+    if samples_report.get("validationIssues") != []:
+        raise SystemExit(f"{report_path} reported Accessibility frame validation issues")
+
+    required_contract_ids = string_list(
+        samples_report.get("requiredContractIDs"),
+        f"{report_path} accessibilityFrameSamples.requiredContractIDs",
+    )
+    sampled_contract_ids = string_list(
+        samples_report.get("sampledContractIDs"),
+        f"{report_path} accessibilityFrameSamples.sampledContractIDs",
+    )
+    missing_required_contracts = sorted(set(REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS) - set(required_contract_ids))
+    if missing_required_contracts:
+        raise SystemExit(
+            f"{report_path} live Accessibility gate no longer requires: {', '.join(missing_required_contracts)}"
+        )
+    missing_sampled_required_contracts = sorted(set(required_contract_ids) - set(sampled_contract_ids))
+    if missing_sampled_required_contracts:
+        raise SystemExit(
+            f"{report_path} did not sample required Accessibility targets: "
+            f"{', '.join(missing_sampled_required_contracts)}"
+        )
+
+    samples = samples_report.get("samples")
+    if not isinstance(samples, list) or not samples:
+        raise SystemExit(f"{report_path} has no Accessibility frame samples")
+    sample_count = samples_report.get("sampleCount")
+    if sample_count != len(samples) or sample_count < len(required_contract_ids):
+        raise SystemExit(f"{report_path} Accessibility sampleCount is inconsistent")
+
+    sample_ids: set[str] = set()
+    sample_summaries: list[dict[str, Any]] = []
+    for sample in samples:
+        contract_id, sample_summary = validated_accessibility_frame_sample(report_path, sample)
+        sample_ids.add(contract_id)
+        sample_summaries.append(sample_summary)
+
+    if sample_ids != set(sampled_contract_ids):
+        raise SystemExit(f"{report_path} sampledContractIDs do not match sample entries")
+
+    click_probe_manifest = None
+    if click_probe_manifest_path is not None:
+        click_probe_manifest = validated_comparison_manifest(click_probe_manifest_path)
+        known_contract_ids = set(click_probe_manifest["contractIDs"])
+        unknown_contract_ids = sorted(set(required_contract_ids).union(sample_ids) - known_contract_ids)
+        if unknown_contract_ids:
+            raise SystemExit(
+                f"{report_path} Accessibility samples are not present in packaged click-probe manifest: "
+                f"{', '.join(unknown_contract_ids)}"
+            )
+
+    normalized_samples_report = dict(samples_report)
+    normalized_samples_report["sampleSummaries"] = sorted(sample_summaries, key=lambda sample: sample["contractID"])
+    return report, normalized_samples_report, click_probe_manifest
+
+
+def write_accessibility_frames_manifest(
+    report_path: Path,
+    screenshot_path: Path,
+    click_probe_manifest_path: Path | None,
+    manifest_path: Path,
+) -> None:
+    manifest_directory = manifest_path.parent
+    report, samples_report, click_probe_manifest = validated_accessibility_frame_samples(
+        report_path,
+        screenshot_path,
+        click_probe_manifest_path,
+    )
+
+    manifest = {
+        "ok": True,
+        "stage": "live-accessibility-frame-sampled",
+        "liveAccessibilitySampling": samples_report["liveAccessibilitySampling"],
+        "windowReport": relative_manifest_path(report_path, manifest_directory),
+        "windowScreenshot": relative_manifest_path(screenshot_path, manifest_directory),
+        "minimumHitTarget": samples_report["minimumHitTarget"],
+        "requiredSamplePointNames": sorted(EXPECTED_SAMPLE_POINTS),
+        "requiredContractIDs": samples_report["requiredContractIDs"],
+        "sampledContractIDs": samples_report["sampledContractIDs"],
+        "unresolvedRequiredContractIDs": samples_report["unresolvedRequiredContractIDs"],
+        "skippedContractIDs": samples_report["skippedContractIDs"],
+        "sampleCount": samples_report["sampleCount"],
+        "sampleSummaries": samples_report["sampleSummaries"],
+        "windowSurface": report.get("surface"),
+        "image": report.get("image"),
+        "validationIssues": samples_report["validationIssues"],
+    }
+    if click_probe_manifest_path is not None:
+        manifest["clickProbeManifest"] = relative_manifest_path(click_probe_manifest_path, manifest_directory)
+    if click_probe_manifest is not None:
+        manifest["clickProbeCount"] = click_probe_manifest["clickProbeCount"]
+        manifest["launchServicesMatchesDirect"] = click_probe_manifest["launchServicesMatchesDirect"]
+
+    with manifest_path.open("w", encoding="utf-8") as manifest_file:
+        json.dump(manifest, manifest_file, indent=2, sort_keys=True)
+        manifest_file.write("\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -385,6 +625,12 @@ def main() -> None:
     window_parser.add_argument("report", type=Path)
     window_parser.add_argument("screenshot", type=Path)
 
+    frames_parser = subparsers.add_parser("frames", help="write live packaged Accessibility frame evidence")
+    frames_parser.add_argument("report", type=Path)
+    frames_parser.add_argument("screenshot", type=Path)
+    frames_parser.add_argument("--click-probe-manifest", type=Path)
+    frames_parser.add_argument("--manifest", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -394,6 +640,13 @@ def main() -> None:
         write_accessibility_readiness_manifest(args.artifact_root, args.manifest)
     elif args.command == "window":
         validate_packaged_window_report(args.report, args.screenshot)
+    elif args.command == "frames":
+        write_accessibility_frames_manifest(
+            args.report,
+            args.screenshot,
+            args.click_probe_manifest,
+            args.manifest,
+        )
 
 
 if __name__ == "__main__":

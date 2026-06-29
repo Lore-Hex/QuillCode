@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Packaged Accessibility Frame Artifact Pass
+
+Overall grade after this slice: **A native evidence contract, A smoke-script DRYness, A- packaged click automation depth**.
+
+Packaged smoke already sampled live macOS Accessibility frames, but the proof lived inside `window-report.json` and the shell wrapper duplicated validation logic with inline Python. That made release artifacts harder to read and split the frame contract across two files.
+
+| Before | After |
+| --- | --- |
+| `packaged-macos-smoke.sh` validated live Accessibility samples with an inline Python block after the window smoke. | `scripts/native-click-probe-contracts.py frames` owns live-frame validation and manifest writing. |
+| Reviewers had to inspect `window-report.json` to find sampled frames while `packaged-accessibility-readiness.json` still honestly said readiness-only `not-run`. | Packaged smoke now writes `packaged-accessibility-frames.json` with live sample summaries, required contract IDs, sample counts, image metadata, and surface metadata. |
+| Live frame validation checked only broad sample presence and 44 pt frame size. | The shared validator now also checks required core/sidebar contract IDs, sampled-required coverage, click-probe manifest membership, labels, and exact center/interior sample coordinates. |
+
+Residual risk:
+
+- This proves live frame sampling and geometry. It still does not synthesize OS-level clicks against every sampled point; that remains the next native automation layer.
+
 ## 2026-06-29 Live Negative-Intent Smoke Pass
 
 Overall grade after this slice: **A live release-smoke safety coverage, A transcript-lane separation, A- provider wording independence**.
