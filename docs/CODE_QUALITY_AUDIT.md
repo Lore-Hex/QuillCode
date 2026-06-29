@@ -16,6 +16,22 @@ Residual risk:
 
 - This is still report-level validation. The final A+ native click layer remains a packaged macOS Accessibility runner that resolves selectors to live frames and clicks center plus interior edge samples.
 
+## 2026-06-29 Packaged Window Smoke Pass
+
+Overall grade after this slice: **A packaged app launch evidence, A deterministic window screenshot, B+ live Accessibility clicks**.
+
+The packaged macOS smoke previously proved bundle metadata and render-smoke behavior through the bundled executable and Launch Services arguments. This pass adds a real live-window proof: the packaged executable opens a native `QuillCode` SwiftUI root window, captures the live content view, validates nonblank pixel statistics, and stores a report plus screenshot in the smoke artifacts.
+
+| Before | After |
+| --- | --- |
+| Packaged smoke could pass even if the app chrome regressed, because render smoke exits through a command-line mode. | `--native-window-smoke` exercises a real packaged SwiftUI root window and fails if no visible `QuillCode` window reaches the expected usable size. |
+| Release artifacts had rendered SwiftUI images, but not a screenshot from a live packaged window. | `scripts/packaged-macos-smoke.sh` now writes `window-report.json` and `window.png` alongside the existing direct executable and Launch Services smoke artifacts. |
+| Native click-probe work still lacked a packaged-window bridge. | The window smoke gives the next Accessibility runner a deterministic app-launch and screenshot harness to extend with selector-to-frame probing. |
+
+Residual risk:
+
+- This still captures the live window from inside the app process; it does not yet resolve `accessibilityIdentifier` selectors to real frames or click the native probe points.
+
 ## 2026-06-29 Native Click-Probe Validator Pass
 
 Overall grade after this slice: **A typed probe validation, A smoke diagnostics, A- packaged Accessibility execution**.

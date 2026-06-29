@@ -23,6 +23,38 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(menuText.contains(".disabled(true)"), "Menu-bar actions should be disabled from real command state, not permanently.")
     }
 
+    func testPackagedMacOSSmokeIncludesLiveWindowProof() throws {
+        let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let supportText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
+        let windowSmokeText = try Self.desktopSourceText(named: "QuillCodeDesktopWindowSmokeRunner.swift")
+        let packagedSmoke = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("scripts/packaged-macos-smoke.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments)"))
+        XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeLaunch.schedule(windowRequest)"))
+        XCTAssertTrue(appText.contains("NSApplication.didFinishLaunchingNotification"))
+        XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeRunner.runAndExit(request)"))
+        XCTAssertTrue(appText.contains(".defaultSize(width: 1280, height: 900)"))
+        XCTAssertTrue(supportText.contains("struct QuillCodeDesktopWindowSmokeRequest"))
+        XCTAssertTrue(supportText.contains("struct QuillCodeDesktopWindowSmokeReport"))
+        XCTAssertTrue(windowSmokeText.contains("waitForWindow()"))
+        XCTAssertTrue(windowSmokeText.contains("openSmokeWindow()"))
+        XCTAssertTrue(windowSmokeText.contains("NSHostingView(rootView: rootView)"))
+        XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopRootView(controller: controller)"))
+        XCTAssertTrue(windowSmokeText.contains("bitmapImageRepForCachingDisplay"))
+        XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopSmokePixelStats"))
+        XCTAssertTrue(windowSmokeText.contains("window.title == \"QuillCode\""))
+        XCTAssertTrue(packagedSmoke.contains("wait_for_smoke_process"))
+        XCTAssertTrue(packagedSmoke.contains("--native-window-smoke"))
+        XCTAssertTrue(packagedSmoke.contains("--window-smoke-report \"$WINDOW_REPORT_PATH\""))
+        XCTAssertTrue(packagedSmoke.contains("--window-smoke-screenshot \"$WINDOW_SCREENSHOT_PATH\""))
+        XCTAssertTrue(packagedSmoke.contains("window-report.json"))
+        XCTAssertTrue(packagedSmoke.contains("window.png"))
+        XCTAssertTrue(packagedSmoke.contains(#""windowTitle" : "QuillCode""#))
+    }
+
     func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")

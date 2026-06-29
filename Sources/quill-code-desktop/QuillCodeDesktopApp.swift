@@ -9,6 +9,9 @@ struct QuillCodeDesktopApp: App {
 
     init() {
         guard let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) else {
+            if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
+                QuillCodeDesktopWindowSmokeLaunch.schedule(windowRequest)
+            }
             return
         }
         Task { @MainActor in
@@ -20,6 +23,7 @@ struct QuillCodeDesktopApp: App {
         WindowGroup("QuillCode") {
             QuillCodeDesktopRootView(controller: controller)
         }
+        .defaultSize(width: 1280, height: 900)
         .commands {
             QuillCodeDesktopCommands()
         }
@@ -152,6 +156,28 @@ struct QuillCodeDesktopRootView: View {
         }
         .task {
             await controller.refreshModelCatalog()
+        }
+    }
+}
+
+@MainActor
+private enum QuillCodeDesktopWindowSmokeLaunch {
+    private static var observer: NSObjectProtocol?
+
+    static func schedule(_ request: QuillCodeDesktopWindowSmokeRequest) {
+        observer = NotificationCenter.default.addObserver(
+            forName: NSApplication.didFinishLaunchingNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                if let observer {
+                    NotificationCenter.default.removeObserver(observer)
+                    Self.observer = nil
+                }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                await QuillCodeDesktopWindowSmokeRunner.runAndExit(request)
+            }
         }
     }
 }

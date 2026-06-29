@@ -7,6 +7,21 @@ import QuillCodePersistence
 
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
+    func testDesktopWindowSmokeRequestParsesReportAndScreenshotPaths() {
+        let request = QuillCodeDesktopWindowSmokeRequest(arguments: [
+            "QuillCode",
+            "--native-window-smoke",
+            "--window-smoke-report",
+            "/tmp/quillcode-window-report.json",
+            "--window-smoke-screenshot",
+            "/tmp/quillcode-window.png"
+        ])
+
+        XCTAssertEqual(request?.reportPath, "/tmp/quillcode-window-report.json")
+        XCTAssertEqual(request?.screenshotPath, "/tmp/quillcode-window.png")
+        XCTAssertNil(QuillCodeDesktopWindowSmokeRequest(arguments: ["QuillCode"]))
+    }
+
     func testDesktopComposerSendPublishesOptimisticTranscriptBeforeAgentReturns() async throws {
         let workspaceRoot = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: DesktopSlowLLMClient()))
