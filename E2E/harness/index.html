@@ -6237,7 +6237,7 @@
               <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
                 <div class="sidebar-section-title">
                   <h2>${escapeHTML(state.projects.title)}</h2>
-                  <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+                  <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-project-button" aria-label="Open project" data-command-id="add-project">+</button>
                 </div>
                 ${projectsContent}
               </div>
@@ -6261,7 +6261,7 @@
                     </section>
                   </div>
                 </details>
-                <button class="sidebar-settings-button hit-target-row" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
+                <button class="sidebar-settings-button hit-target-row" type="button" data-testid="settings-button" aria-label="Settings" title="Settings" data-command-id="settings">Settings</button>
               </div>
             </aside>
 	            <main class="transcript" data-testid="transcript">
@@ -6479,8 +6479,8 @@
           );
         });
       });
-      document.querySelector('[data-testid="add-project-button"]').addEventListener('click', () => {
-        addProject();
+      document.querySelector('[data-testid="add-project-button"]').addEventListener('click', event => {
+        runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
       document.querySelectorAll('.topbar-action-cluster [data-command-id]').forEach(button => {
         button.addEventListener('click', event => {

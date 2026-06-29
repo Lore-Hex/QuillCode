@@ -21,9 +21,10 @@ enum WorkspaceHTMLSidebarRenderer {
           <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
             <div class="sidebar-section-title">
               <h2>\(escape(projects.title))</h2>
-              \(WorkspaceHTMLPrimitives.button(
+              \(WorkspaceHTMLPrimitives.commandButton(
                   "+",
                   testID: "add-project-button",
+                  commandID: "add-project",
                   hitTargetKind: .icon,
                   ariaLabel: "Open project"
               ))

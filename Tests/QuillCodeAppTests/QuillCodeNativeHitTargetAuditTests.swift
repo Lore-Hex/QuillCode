@@ -100,6 +100,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "composer.mode-picker",
             "top-bar.overflow",
             "sidebar.tools-menu",
+            "project.clear",
             "workspace.chrome",
             "sidebar.thread-row",
             "sidebar.thread-action",
@@ -124,6 +125,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "review.action",
             "secondary-pane.tab",
             "menu-bar.action",
+            "command.add-project",
             "command.new-chat",
             "command.search",
             "command.toggle-extensions",
@@ -172,6 +174,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["browser.comment"]?.kind, .textEntry)
         XCTAssertEqual(contractsByID["browser.family-icon"]?.kind, .icon)
         XCTAssertEqual(contractsByID["transcript.thinking-trace"]?.kind, .capsule)
+        XCTAssertEqual(contractsByID["command.add-project"]?.kind, .icon)
+        XCTAssertEqual(contractsByID["project.clear"]?.kind, .icon)
         XCTAssertEqual(contractsByID["browser.comment"]?.action, .textInput)
         XCTAssertEqual(contractsByID["transcript.artifact-link"]?.action, .link)
         XCTAssertEqual(contractsByID["browser.new-tab"]?.action, .press)
@@ -189,12 +193,16 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["command-palette.input"]?.testID, "quillcode-command-palette-input")
         XCTAssertEqual(contractsByID["browser.add-comment"]?.testID, "quillcode-browser-add-comment")
         XCTAssertEqual(contractsByID["automations.delete"]?.testID, "quillcode-automation-delete")
+        XCTAssertEqual(contractsByID["project.clear"]?.testID, "quillcode-project-clear-button")
+        XCTAssertEqual(contractsByID["command.add-project"]?.commandID, "add-project")
         XCTAssertEqual(contractsByID["command.new-chat"]?.commandID, "new-chat")
         XCTAssertEqual(contractsByID["command.settings"]?.commandID, "settings")
         XCTAssertEqual(probesByContractID["composer.send"]?.selectorKind, .testID)
         XCTAssertEqual(probesByContractID["composer.send"]?.selector, "quillcode-send-button")
         XCTAssertEqual(probesByContractID["command.new-chat"]?.selectorKind, .commandID)
         XCTAssertEqual(probesByContractID["command.new-chat"]?.selector, "new-chat")
+        XCTAssertEqual(probesByContractID["project.clear"]?.selectorKind, .testID)
+        XCTAssertEqual(probesByContractID["project.clear"]?.selector, "quillcode-project-clear-button")
         XCTAssertEqual(probesByContractID["terminal.command"]?.selectorKind, .testID)
         XCTAssertEqual(probesByContractID["terminal.command"]?.selector, "quillcode-terminal-command")
         XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinWidth ?? 0, 44)

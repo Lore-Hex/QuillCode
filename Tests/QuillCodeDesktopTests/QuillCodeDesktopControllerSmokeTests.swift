@@ -85,11 +85,13 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(
             QuillCodeDesktopAccessibilityFrameSampler.requiredPrimarySidebarContractIDs,
             [
+                "command.add-project",
                 "command.new-chat",
                 "command.search",
                 "command.toggle-automations",
                 "command.toggle-extensions",
-                "command.settings"
+                "command.settings",
+                "project.clear"
             ]
         )
         XCTAssertTrue(QuillCodeDesktopAccessibilityFrameSampler.requiredLiveContractIDs.isSuperset(

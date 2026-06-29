@@ -31,6 +31,8 @@ struct QuillCodeProjectListView: View {
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .foregroundStyle(QuillCodePalette.muted)
+            .accessibilityLabel("Open project")
+            .accessibilityIdentifier("quillcode-sidebar-command-add-project")
             .help("Open project")
             Button {
                 onSelectProject(nil)
@@ -41,6 +43,8 @@ struct QuillCodeProjectListView: View {
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .foregroundStyle(QuillCodePalette.muted)
+            .accessibilityLabel("Clear project")
+            .accessibilityIdentifier("quillcode-project-clear-button")
             .help("Clear project")
         }
     }

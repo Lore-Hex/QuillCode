@@ -322,6 +322,7 @@ enum QuillCodeDesktopNativeHitTargetSmoke {
 
 struct QuillCodeDesktopWindowSmokeSurfaceReport {
     static let requiredCommandIDs = [
+        "add-project",
         "new-chat",
         "command-palette",
         "keyboard-shortcuts",
