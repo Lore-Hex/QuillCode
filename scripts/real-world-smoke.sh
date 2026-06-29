@@ -61,6 +61,65 @@ playwright_dependencies_ready() {
   [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]
 }
 
+assert_deterministic_real_world_evidence() {
+  if [[ -z "$ARTIFACT_DIR" ]] || ! is_truthy "$REQUIRE_PLAYWRIGHT"; then
+    return 0
+  fi
+
+  local deterministic_dir="$ARTIFACT_DIR/deterministic"
+  local real_world_manifest="$deterministic_dir/playwright-real-world/playwright-real-world-actions-manifest.json"
+  "$ROOT_DIR/scripts/validate-playwright-real-world-manifest.py" "$real_world_manifest"
+
+  python3 - "$deterministic_dir/deterministic-smoke-manifest.json" <<'PY'
+import json
+import sys
+
+manifest_path = sys.argv[1]
+with open(manifest_path, "r", encoding="utf-8") as handle:
+    manifest = json.load(handle)
+
+errors = []
+steps = manifest.get("steps")
+if not isinstance(steps, dict):
+    errors.append(f"steps should be an object, got {type(steps).__name__}")
+    steps = {}
+
+playwright_step = steps.get("playwright")
+if not isinstance(playwright_step, dict):
+    errors.append(f"steps.playwright should be an object, got {type(playwright_step).__name__}")
+    playwright_step = {}
+
+real_world = playwright_step.get("realWorldActions")
+if not isinstance(real_world, dict):
+    errors.append(f"steps.playwright.realWorldActions should be an object, got {type(real_world).__name__}")
+    real_world = {}
+
+if playwright_step.get("status") != "passed":
+    errors.append(f"playwright status should be passed, got {playwright_step.get('status')!r}")
+if real_world.get("status") != "present":
+    errors.append(f"realWorldActions status should be present, got {real_world.get('status')!r}")
+if real_world.get("manifestPath") != "playwright-real-world/playwright-real-world-actions-manifest.json":
+    errors.append(f"unexpected realWorldActions manifestPath: {real_world.get('manifestPath')!r}")
+scenario_count = real_world.get("scenarioCount")
+prompt_count = real_world.get("promptCount")
+regression_guard_count = real_world.get("regressionGuardCount")
+if not isinstance(scenario_count, int) or scenario_count < 5:
+    errors.append(f"scenarioCount should be at least 5, got {scenario_count!r}")
+if not isinstance(prompt_count, int) or prompt_count < 13:
+    errors.append(f"promptCount should be at least 13, got {prompt_count!r}")
+if not isinstance(regression_guard_count, int) or regression_guard_count < 15:
+    errors.append(
+        f"regressionGuardCount should be at least 15, got {regression_guard_count!r}"
+    )
+
+if errors:
+    print("Deterministic smoke manifest is missing Playwright real-world evidence:", file=sys.stderr)
+    for error in errors:
+        print(f"- {error}", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
 write_manifest() {
   local exit_code="$1"
   local detail="$2"
@@ -135,6 +194,14 @@ live_dir = os.path.join(artifact_root, "live-trustedrouter")
 deterministic_manifest = load_json(os.path.join(deterministic_dir, "deterministic-smoke-manifest.json"))
 live_manifest = load_json(os.path.join(live_dir, "live-smoke-manifest.json"))
 requires_playwright = require_playwright.lower() in {"1", "true", "yes"}
+deterministic_real_world_actions = None
+if isinstance(deterministic_manifest, dict):
+    steps = deterministic_manifest.get("steps")
+    playwright_step = steps.get("playwright") if isinstance(steps, dict) else None
+    if isinstance(playwright_step, dict):
+        real_world_actions = playwright_step.get("realWorldActions")
+        if isinstance(real_world_actions, dict):
+            deterministic_real_world_actions = real_world_actions
 
 manifest = {
     "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -147,6 +214,7 @@ manifest = {
         "detail": deterministic_detail,
         "requiresPlaywright": requires_playwright,
         "artifactDir": deterministic_dir if os.path.isdir(deterministic_dir) else None,
+        "realWorldActions": deterministic_real_world_actions,
         "manifest": deterministic_manifest,
         "artifactFiles": collect_files(deterministic_dir),
     },
@@ -196,8 +264,18 @@ echo "==> Running deterministic QuillCode smoke suite"
 if QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE="$REQUIRE_PLAYWRIGHT" \
   QUILLCODE_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/deterministic}" \
   "$ROOT_DIR/scripts/smoke.sh"; then
-  DETERMINISTIC_STATUS="passed"
-  DETERMINISTIC_DETAIL="completed"
+  DETERMINISTIC_STATUS="validating-real-world-evidence"
+  DETERMINISTIC_DETAIL="validating deterministic real-world evidence"
+  if assert_deterministic_real_world_evidence; then
+    DETERMINISTIC_STATUS="passed"
+    DETERMINISTIC_DETAIL="completed"
+  else
+    status=$?
+    DETERMINISTIC_STATUS="failed"
+    DETERMINISTIC_DETAIL="deterministic real-world evidence validation failed"
+    FINAL_DETAIL="$DETERMINISTIC_DETAIL"
+    exit "$status"
+  fi
 else
   status=$?
   DETERMINISTIC_STATUS="failed"

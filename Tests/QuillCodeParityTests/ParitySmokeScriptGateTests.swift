@@ -61,6 +61,24 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testRealWorldSmokeRequiresDeterministicPlaywrightEvidenceWhenPlaywrightIsRequired() throws {
+        let script = try Self.scriptText(named: "real-world-smoke.sh")
+
+        XCTAssertTrue(script.contains("assert_deterministic_real_world_evidence"))
+        XCTAssertTrue(script.contains("validate-playwright-real-world-manifest.py"))
+        XCTAssertTrue(script.contains("playwright-real-world-actions-manifest.json"))
+        XCTAssertTrue(script.contains("deterministic-smoke-manifest.json"))
+        XCTAssertTrue(script.contains("\"realWorldActions\""))
+        XCTAssertTrue(script.contains("DETERMINISTIC_STATUS=\"validating-real-world-evidence\""))
+        XCTAssertTrue(script.contains("deterministic real-world evidence validation failed"))
+        XCTAssertTrue(script.contains("steps should be an object"))
+        XCTAssertTrue(script.contains("steps.playwright should be an object"))
+        XCTAssertTrue(script.contains("steps.playwright.realWorldActions should be an object"))
+        XCTAssertTrue(script.contains("scenarioCount should be at least 5"))
+        XCTAssertTrue(script.contains("promptCount should be at least 13"))
+        XCTAssertTrue(script.contains("regressionGuardCount should be at least 15"))
+    }
+
     func testDeterministicSmokeCoversExplicitNegativeActionIntent() throws {
         let script = try Self.scriptText(named: "smoke.sh")
 
