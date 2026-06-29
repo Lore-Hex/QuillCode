@@ -75,10 +75,10 @@ extension QuillCodeWorkspaceModel {
         )
 
         var finalResult: ToolResult?
-        let session = ShellToolExecutor().startStreamingSession(executionContext.request)
+        let session = terminalSession(for: executionContext)
         activeTerminalSession = session
         defer {
-            if activeTerminalSession === session {
+            if isSameShellProcessSession(activeTerminalSession, session) {
                 activeTerminalSession = nil
             }
         }
@@ -119,4 +119,24 @@ extension QuillCodeWorkspaceModel {
         setLastError(plan.lastError)
         refreshTopBar(agentStatus: plan.agentStatus)
     }
+
+    private func terminalSession(
+        for executionContext: WorkspaceTerminalExecutionContext
+    ) -> any ShellProcessSession {
+        let executor = ShellToolExecutor()
+        switch executionContext.sessionKind {
+        case .pipe:
+            return executor.startStreamingSession(executionContext.request)
+        case .pseudoTerminal:
+            return executor.startPTYSession(executionContext.request)
+        }
+    }
+}
+
+private func isSameShellProcessSession(
+    _ lhs: (any ShellProcessSession)?,
+    _ rhs: any ShellProcessSession
+) -> Bool {
+    guard let lhs else { return false }
+    return (lhs as AnyObject) === (rhs as AnyObject)
 }

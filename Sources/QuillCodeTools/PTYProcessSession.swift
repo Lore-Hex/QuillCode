@@ -31,7 +31,7 @@ public struct PTYWindowSize: Sendable, Hashable {
 /// A PTY merges the child's stdout and stderr onto one terminal device, so
 /// output is delivered on a single `.stdout` stream and the finished
 /// `ToolResult` carries an empty `stderr`.
-public final class PTYProcessSession: @unchecked Sendable {
+public final class PTYProcessSession: ShellProcessSession, @unchecked Sendable {
     public let events: AsyncStream<ShellProcessEvent>
 
     private let continuation: AsyncStream<ShellProcessEvent>.Continuation
@@ -39,6 +39,7 @@ public final class PTYProcessSession: @unchecked Sendable {
     private let windowSize: PTYWindowSize?
     private let lock = NSLock()
     private var process: Process?
+    private var masterFD: Int32 = -1
     private var output = ""
     private var didFinish = false
     private var didCancel = false
@@ -68,6 +69,21 @@ public final class PTYProcessSession: @unchecked Sendable {
         let activeProcess = process
         lock.unlock()
         activeProcess?.terminate()
+    }
+
+    @discardableResult
+    public func sendInput(_ text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        let fd: Int32
+        lock.lock()
+        guard !didFinish, !didCancel, !didTimeOut, masterFD >= 0 else {
+            lock.unlock()
+            return false
+        }
+        fd = masterFD
+        lock.unlock()
+
+        return write(text, to: fd)
     }
 
     private func run() {
@@ -115,11 +131,13 @@ public final class PTYProcessSession: @unchecked Sendable {
             finishCancelled()
             return
         }
+        masterFD = master
         lock.unlock()
 
         do {
             try process.run()
         } catch {
+            clearMasterFD(matching: master)
             close(master)
             close(slave)
             finish(exitCode: nil, ok: false, error: "Failed to start shell: \(error)")
@@ -143,6 +161,7 @@ public final class PTYProcessSession: @unchecked Sendable {
 
         readMasterUntilEnd(master)
         process.waitUntilExit()
+        clearMasterFD(matching: master)
         close(master)
         finish(process: process)
     }
@@ -169,6 +188,40 @@ public final class PTYProcessSession: @unchecked Sendable {
         output += text
         lock.unlock()
         continuation.yield(.stdout(text))
+    }
+
+    private func write(_ text: String, to fd: Int32) -> Bool {
+        let bytes = Array(text.utf8)
+        var offset = 0
+        return bytes.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else { return false }
+            while offset < bytes.count {
+#if canImport(Darwin)
+                let result = Darwin.write(fd, baseAddress.advanced(by: offset), bytes.count - offset)
+                let wasInterrupted = errno == EINTR
+#elseif canImport(Glibc)
+                let result = Glibc.write(fd, baseAddress.advanced(by: offset), bytes.count - offset)
+                let wasInterrupted = errno == EINTR
+#endif
+                if result > 0 {
+                    offset += result
+                    continue
+                }
+                if result < 0 && wasInterrupted {
+                    continue
+                }
+                return false
+            }
+            return true
+        }
+    }
+
+    private func clearMasterFD(matching fd: Int32) {
+        lock.lock()
+        if masterFD == fd {
+            masterFD = -1
+        }
+        lock.unlock()
     }
 
     private func timeout() {
@@ -235,6 +288,7 @@ public final class PTYProcessSession: @unchecked Sendable {
         out = output
         activeProcess = process
         process = nil
+        masterFD = -1
         lock.unlock()
 
         if let activeProcess, activeProcess.isRunning {

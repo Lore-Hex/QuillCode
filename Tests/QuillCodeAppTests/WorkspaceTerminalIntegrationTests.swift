@@ -30,6 +30,18 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.entries.first?.exitCodeLabel, "exit 0")
     }
 
+    func testLocalTerminalCommandRunsInsidePseudoTerminal() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        await model.runTerminalCommand("test -t 1 && printf TTY || printf NOTTY", workspaceRoot: root)
+
+        let stdout = terminalText(model.terminal.entries.first?.stdout)
+        XCTAssertTrue(stdout.contains("TTY"), "Expected local workspace terminal to expose a TTY, got: \(stdout)")
+        XCTAssertFalse(stdout.contains("NOTTY"), "Local workspace terminal should not use pipe-only stdout.")
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+    }
+
     func testTerminalCommandRunsThroughSSHRemoteProject() async throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-args.txt")
@@ -175,7 +187,10 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
 
         XCTAssertFalse(model.terminal.isRunning)
         XCTAssertEqual(model.terminal.entries.first?.status, .done)
-        XCTAssertEqual(model.terminal.entries.first?.stdout, "input? hello:quill\n")
+        let stdout = terminalText(model.terminal.entries.first?.stdout)
+        XCTAssertTrue(stdout.contains("input? "), "Expected prompt output, got: \(stdout)")
+        XCTAssertTrue(stdout.contains("quill\n"), "Expected terminal echo for sent input, got: \(stdout)")
+        XCTAssertTrue(stdout.contains("hello:quill\n"), "Expected process to consume sent input, got: \(stdout)")
     }
 
     func testTerminalCommandPersistsCurrentDirectoryAcrossCommands() async throws {
@@ -356,5 +371,9 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
             }
             try await Task.sleep(nanoseconds: 1_000_000)
         }
+    }
+
+    private func terminalText(_ text: String?) -> String {
+        (text ?? "").replacingOccurrences(of: "\r\n", with: "\n")
     }
 }

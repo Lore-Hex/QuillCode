@@ -317,6 +317,7 @@ enum WorkspaceTerminalEngine {
             }
             return WorkspaceTerminalExecutionContext(
                 request: request,
+                sessionKind: .pipe,
                 cwdMarkerURL: nil,
                 environmentMarkerURL: nil,
                 remoteMarker: marker,

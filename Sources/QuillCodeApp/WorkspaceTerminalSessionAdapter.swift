@@ -28,6 +28,7 @@ enum WorkspaceTerminalSessionAdapter {
                 cwd: workingDirectory,
                 environment: environment
             ),
+            sessionKind: .pseudoTerminal,
             cwdMarkerURL: cwdMarkerURL,
             environmentMarkerURL: environmentMarkerURL,
             remoteMarker: nil,

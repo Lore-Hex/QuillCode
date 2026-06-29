@@ -26,7 +26,16 @@ public enum ShellProcessEvent: Sendable, Equatable {
     case finished(ToolResult)
 }
 
-public final class ShellStreamingSession: @unchecked Sendable {
+public protocol ShellProcessSession: AnyObject, Sendable {
+    var events: AsyncStream<ShellProcessEvent> { get }
+
+    @discardableResult
+    func sendInput(_ text: String) -> Bool
+
+    func cancel()
+}
+
+public final class ShellStreamingSession: ShellProcessSession, @unchecked Sendable {
     public let events: AsyncStream<ShellProcessEvent>
     private let runner: ShellStreamingProcessRunner
 
@@ -86,6 +95,15 @@ public struct ShellToolExecutor: Sendable {
 
     public func startStreamingSession(_ request: ShellExecutionRequest) -> ShellStreamingSession {
         ShellStreamingSession(request: request)
+    }
+
+    public func startPTYSession(
+        _ request: ShellExecutionRequest,
+        windowSize: PTYWindowSize? = nil
+    ) -> PTYProcessSession {
+        let session = PTYProcessSession(request: request, windowSize: windowSize)
+        session.start()
+        return session
     }
 
     private static func runProcess(

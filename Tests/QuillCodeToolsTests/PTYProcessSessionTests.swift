@@ -52,6 +52,42 @@ final class PTYProcessSessionTests: XCTestCase {
         XCTAssertEqual(result?.ok, true)
     }
 
+    func testAcceptsInputThroughTheMasterPTY() async throws {
+        let request = ShellExecutionRequest(
+            command: "printf 'input? '; IFS= read name; printf 'hello:%s\\n' \"$name\"",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 5
+        )
+        let session = PTYProcessSession(request: request)
+        let capture = EventCapture()
+
+        session.start()
+        let drainTask = Task {
+            for await event in session.events {
+                await capture.record(event)
+            }
+        }
+
+        var didSendInput = false
+        let deadline = Date().addingTimeInterval(2)
+        while !didSendInput, Date() < deadline {
+            didSendInput = session.sendInput("quill\n")
+            if !didSendInput {
+                try await Task.sleep(nanoseconds: 10_000_000)
+            }
+        }
+
+        XCTAssertTrue(didSendInput, "Expected PTY input to become writable while the command was active.")
+        await drainTask.value
+
+        let output = await capture.normalizedOutput()
+        XCTAssertTrue(output.contains("input? "), "Expected prompt output, got: \(output)")
+        XCTAssertTrue(output.contains("quill\n"), "Expected canonical terminal echo, got: \(output)")
+        XCTAssertTrue(output.contains("hello:quill\n"), "Expected command to consume stdin, got: \(output)")
+        let result = await capture.capturedResult()
+        XCTAssertEqual(result?.ok, true)
+    }
+
     func testReportsNonZeroExitCode() async throws {
         let (_, result) = await drain("exit 3")
 
@@ -65,5 +101,27 @@ final class PTYProcessSessionTests: XCTestCase {
 
         XCTAssertEqual(result?.ok, false)
         XCTAssertEqual(result?.error, ShellToolMessages.missingCommand)
+    }
+}
+
+private actor EventCapture {
+    private var output = ""
+    private(set) var result: ToolResult?
+
+    func record(_ event: ShellProcessEvent) {
+        switch event {
+        case .stdout(let text), .stderr(let text):
+            output += text
+        case .finished(let toolResult):
+            result = toolResult
+        }
+    }
+
+    func normalizedOutput() -> String {
+        output.replacingOccurrences(of: "\r\n", with: "\n")
+    }
+
+    func capturedResult() -> ToolResult? {
+        result
     }
 }

@@ -81,7 +81,13 @@ public struct TerminalState: Sendable, Hashable {
 }
 
 struct WorkspaceTerminalExecutionContext {
+    enum SessionKind {
+        case pipe
+        case pseudoTerminal
+    }
+
     var request: ShellExecutionRequest
+    var sessionKind: SessionKind
     var cwdMarkerURL: URL?
     var environmentMarkerURL: URL?
     var remoteMarker: String?
