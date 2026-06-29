@@ -9089,3 +9089,20 @@ Code quality changes:
 Remaining risk:
 
 - This covers common chat-completion reasoning fields. Full parity still needs live verification against every TrustedRouter provider family and richer controls for hiding, expanding, or copying longer reasoning traces.
+
+## 2026-06-28 Surface-Level Click Target Policy Pass
+
+Overall grade after this slice: **A native click-target architecture, A CI smoke evidence, A- packaged accessibility-frame sampling**.
+
+The native hit-target report proved that every major surface family had at least one target, but that still left a loophole: a surface could keep a token target while losing the actual mix of controls users need. For example, a browser pane with only an address field, or a review pane without segmented/action controls, should not pass “click targets everywhere.”
+
+Code quality changes:
+
+- Added `QuillCodeNativeSurfaceTargetPolicy`, a typed required-kind table for every surface family.
+- Made native smoke fail on `missingRequiredSurfaceKinds`, covering the target mix for composer, top bar, settings, model picker, review, terminal, browser, extensions, memories, and the rest of the persistent chrome.
+- Added canonical target contracts for previously implicit family requirements such as review mode, terminal actions, browser actions/icons, extension reference actions, and memory row actions.
+- Extended app and parity tests so CI proves the policy exists, reports into smoke JSON, and stays aligned with the major interaction surfaces.
+
+Remaining risk:
+
+- This still proves source/smoke contracts rather than sampling the packaged `.app` accessibility tree. The final A+ click-target layer remains native Accessibility automation that clicks/validates real frames and labels using the same stable contract IDs.
