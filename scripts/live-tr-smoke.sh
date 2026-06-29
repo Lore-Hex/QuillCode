@@ -433,6 +433,15 @@ assert_workspace_file_nonempty() {
   fi
 }
 
+assert_workspace_file_absent() {
+  local relative_path="$1"
+  local file_path="$SMOKE_WORKSPACE/$relative_path"
+
+  if [[ -e "$file_path" ]]; then
+    fail_workspace_assertion "live smoke created forbidden workspace file despite explicit negative intent: $relative_path" 3
+  fi
+}
+
 assert_output_matches() {
   local output_file="$1"
   local stderr_file="$2"
@@ -445,26 +454,65 @@ assert_output_matches() {
   fi
 }
 
-assert_saved_transcripts_are_actionable() {
-  local minimum_thread_count="${1:-3}"
+assert_saved_transcripts_match_live_smoke_expectations() {
+  local minimum_actionable_thread_count="${1:-3}"
+  local minimum_negative_thread_count="${2:-0}"
   local threads_dir="$SMOKE_HOME/threads"
 
   if [[ ! -d "$threads_dir" ]]; then
     fail_smoke "live smoke did not persist any thread directory" "" ""
   fi
 
-  local thread_count
-  thread_count="$(find "$threads_dir" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')"
-  if [[ "$thread_count" -lt "$minimum_thread_count" ]]; then
-    record_scenario "fail" "live smoke expected at least $minimum_thread_count persisted thread transcripts, found $thread_count" "" ""
+  local actionable_thread_count
+  local negative_thread_count
+  actionable_thread_count="$(
+    jq -s '
+      def has_negative_action_prompt:
+        [.messages[]?
+          | select(.role == "user")
+          | .content
+          | select(test("(do not|don'\''t|dont|never).*(run|write|download)"; "i"))]
+        | length > 0;
+      [.[] | select(has_negative_action_prompt | not)] | length
+    ' "$threads_dir"/*.json
+  )"
+  negative_thread_count="$(
+    jq -s '
+      def has_negative_action_prompt:
+        [.messages[]?
+          | select(.role == "user")
+          | .content
+          | select(test("(do not|don'\''t|dont|never).*(run|write|download)"; "i"))]
+        | length > 0;
+      [.[] | select(has_negative_action_prompt)] | length
+    ' "$threads_dir"/*.json
+  )"
+
+  if [[ "$actionable_thread_count" -lt "$minimum_actionable_thread_count" ]]; then
+    record_scenario "fail" "live smoke expected at least $minimum_actionable_thread_count actionable transcripts, found $actionable_thread_count" "" ""
     echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
-    echo "live smoke expected at least $minimum_thread_count persisted thread transcripts, found $thread_count" >&2
+    echo "live smoke expected at least $minimum_actionable_thread_count actionable transcripts, found $actionable_thread_count" >&2
+    find "$threads_dir" -maxdepth 1 -type f -name '*.json' -print >&2
+    print_report_summary >&2
+    exit 1
+  fi
+
+  if [[ "$negative_thread_count" -lt "$minimum_negative_thread_count" ]]; then
+    record_scenario "fail" "live smoke expected at least $minimum_negative_thread_count negative-intent transcripts, found $negative_thread_count" "" ""
+    echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
+    echo "live smoke expected at least $minimum_negative_thread_count negative-intent transcripts, found $negative_thread_count" >&2
     find "$threads_dir" -maxdepth 1 -type f -name '*.json' -print >&2
     print_report_summary >&2
     exit 1
   fi
 
   jq -s -e '
+    def has_negative_action_prompt:
+      [.messages[]?
+        | select(.role == "user")
+        | .content
+        | select(test("(do not|don'\''t|dont|never).*(run|write|download)"; "i"))]
+      | length > 0;
     def queued_calls:
       [.events[]? | select(.kind == "toolQueued") | .payloadJSON | fromjson];
     def queued_arguments:
@@ -480,20 +528,29 @@ assert_saved_transcripts_are_actionable() {
         | select(.role == "assistant")
         | .content
         | select(test("No shell command was specified|I'\''?ll (run|check|do|download|create|write)"; "i"))];
+    def actionable_transcript_ok:
+      (
+        (.messages | length) >= 2
+        and (bad_assistant_promises | length) == 0
+        and (queued_calls | length) >= 1
+        and (queued_arguments | length) == (queued_calls | length)
+        and all(queued_calls[]; (.name | type == "string") and (.name | length) > 0)
+        and all(queued_calls[]; (.argumentsJSON | type == "string") and (.argumentsJSON | length) >= 2)
+        and all(queued_arguments[]; type == "object")
+        and (bad_empty_argument_calls | length) == 0
+        and ([.events[]? | select(.kind == "toolFailed")] | length) == 0
+        and (completed_results | length) >= 1
+        and all(completed_results[]; .ok == true)
+      );
+    def negative_transcript_ok:
+      (
+        (.messages | length) >= 2
+        and (queued_calls | length) == 0
+        and ([.events[]? | select(.kind == "toolFailed")] | length) == 0
+        and (completed_results | length) == 0
+      );
 
-    all(.[]; (
-      (.messages | length) >= 2
-      and (bad_assistant_promises | length) == 0
-      and (queued_calls | length) >= 1
-      and (queued_arguments | length) == (queued_calls | length)
-      and all(queued_calls[]; (.name | type == "string") and (.name | length) > 0)
-      and all(queued_calls[]; (.argumentsJSON | type == "string") and (.argumentsJSON | length) >= 2)
-      and all(queued_arguments[]; type == "object")
-      and (bad_empty_argument_calls | length) == 0
-      and ([.events[]? | select(.kind == "toolFailed")] | length) == 0
-      and (completed_results | length) >= 1
-      and all(completed_results[]; .ok == true)
-    ))
+    all(.[]; if has_negative_action_prompt then negative_transcript_ok else actionable_transcript_ok end)
   ' "$threads_dir"/*.json >/dev/null || {
     record_scenario "fail" "live smoke persisted transcript integrity check failed" "" ""
     echo "Live smoke failed in scenario: ${CURRENT_SCENARIO:-unknown}" >&2
@@ -547,6 +604,33 @@ validate_exact_workspace_file() {
 validate_nonempty_workspace_file() {
   assert_output_matches "$1" "$2" "$3" "$4"
   assert_workspace_file_nonempty "$5"
+}
+
+validate_absent_output() {
+  local output_file="$1"
+  local stderr_file="$2"
+  local forbidden="$3"
+
+  if [[ ! -s "$output_file" ]]; then
+    fail_smoke "live smoke returned no stdout" "$output_file" "$stderr_file"
+  fi
+  if grep -Fq "$forbidden" "$output_file"; then
+    fail_smoke "live smoke output contained forbidden text despite explicit negative intent: $forbidden" "$output_file" "$stderr_file"
+  fi
+}
+
+validate_nonempty_noop_output() {
+  local output_file="$1"
+  local stderr_file="$2"
+
+  if [[ ! -s "$output_file" ]]; then
+    fail_smoke "live smoke returned no stdout" "$output_file" "$stderr_file"
+  fi
+}
+
+validate_no_workspace_file() {
+  validate_absent_output "$1" "$2" "$4"
+  assert_workspace_file_absent "$3"
 }
 
 run_scenario \
@@ -673,8 +757,30 @@ run_scenario \
   "download result" \
   "downloads/example.html"
 
+run_scenario \
+  "negative-shell-action" \
+  "Do not run \`printf quillcode_live_forbidden_shell\`." \
+  "Running live TrustedRouter negative shell-action smoke with $MODEL" \
+  validate_nonempty_noop_output
+
+run_scenario \
+  "negative-file-write" \
+  "Do not write \`forbidden-live.txt\` with content \`nope\`." \
+  "Running live TrustedRouter negative file-write smoke with $MODEL" \
+  validate_no_workspace_file \
+  "forbidden-live.txt" \
+  "Wrote \`forbidden-live.txt\`"
+
+run_scenario \
+  "negative-download" \
+  "Don't download https://example.com into \`downloads/forbidden-live.html\`." \
+  "Running live TrustedRouter negative download smoke with $MODEL" \
+  validate_no_workspace_file \
+  "downloads/forbidden-live.html" \
+  "Downloaded to \`downloads/forbidden-live.html\`"
+
 begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "Checking persisted live smoke transcripts"
-assert_saved_transcripts_are_actionable 16
+assert_saved_transcripts_match_live_smoke_expectations 16 3
 finish_scenario "" ""
 
 write_artifact_manifest 0 "completed"

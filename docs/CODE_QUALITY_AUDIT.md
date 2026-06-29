@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Live Negative-Intent Smoke Pass
+
+Overall grade after this slice: **A live release-smoke safety coverage, A transcript-lane separation, A- provider wording independence**.
+
+The deterministic and UI smoke layers already proved explicit negative action prompts stay no-op. The remaining gap was the live provider path: a real model could still turn `Do not run/write/download` into a tool call without the live release gate noticing, because transcript integrity previously assumed every persisted thread should contain an actionable tool.
+
+| Before | After |
+| --- | --- |
+| Live smoke tested positive action execution only. | Live smoke now adds `negative-shell-action`, `negative-file-write`, and `negative-download` scenarios. |
+| Transcript integrity required every live thread to contain queued and completed tools. | Positive transcripts keep that requirement, while explicit negative-action transcripts are required to contain zero queued tools. |
+| A live negative prompt could only be tested with brittle exact refusal wording. | The validator now checks nonempty output, absence of forbidden command/file side effects, and no persisted tool events instead of matching one provider phrase. |
+
+Residual risk:
+
+- The live smoke still exercises the configured cheap model, not every TrustedRouter provider. Broader provider rotation belongs in scheduled release smoke once model cost and runtime are acceptable.
+
 ## 2026-06-29 Negative-Intent Real-World Smoke Pass
 
 Overall grade after this slice: **A release-smoke intent coverage, A desktop/UI no-side-effect evidence, A- live-provider negation breadth**.

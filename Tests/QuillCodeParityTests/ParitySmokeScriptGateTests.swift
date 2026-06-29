@@ -23,6 +23,15 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("git-status-polite"))
         XCTAssertTrue(script.contains("workspace-list-natural"))
         XCTAssertTrue(script.contains("workspace-pwd-natural"))
+        XCTAssertTrue(script.contains("negative-shell-action"))
+        XCTAssertTrue(script.contains("negative-file-write"))
+        XCTAssertTrue(script.contains("negative-download"))
+        XCTAssertTrue(script.contains("quillcode_live_forbidden_shell"))
+        XCTAssertTrue(script.contains("forbidden-live.txt"))
+        XCTAssertTrue(script.contains("downloads/forbidden-live.html"))
+        XCTAssertTrue(script.contains("assert_saved_transcripts_match_live_smoke_expectations 16 3"))
+        XCTAssertTrue(script.contains("negative_transcript_ok"))
+        XCTAssertTrue(script.contains("(queued_calls | length) == 0"))
         XCTAssertFalse(
             script.contains("--arg apiKey \"$API_KEY\""),
             "Live smoke manifests must not pass the raw API key into jq."
