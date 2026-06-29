@@ -23,6 +23,7 @@ enum WorkspaceCommandPlan: Equatable {
     case setSidebarFilter(SidebarSavedFilterKind)
     case setSidebarSavedSearch(UUID)
     case deleteSidebarSavedSearch(UUID)
+    case moveSidebarSavedSearch(UUID, SidebarSavedSearchMoveDirection)
     case newBrowserTab
     case selectBrowserTab(id: UUID)
     case closeBrowserTab(id: UUID)
@@ -150,6 +151,12 @@ enum WorkspaceCommandPlan: Equatable {
         }
         if let id = commandID.uuidValue(after: "sidebar-saved-search-delete:") {
             return .deleteSidebarSavedSearch(id)
+        }
+        if let id = commandID.uuidValue(after: "sidebar-saved-search-move-up:") {
+            return .moveSidebarSavedSearch(id, .up)
+        }
+        if let id = commandID.uuidValue(after: "sidebar-saved-search-move-down:") {
+            return .moveSidebarSavedSearch(id, .down)
         }
         if commandID == "browser-tab-new" {
             return .newBrowserTab

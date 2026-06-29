@@ -857,10 +857,15 @@
       grid-template-columns: 1fr;
       gap: 6px;
     }
-    .sidebar-saved-search-header,
-    .sidebar-saved-search-row {
+    .sidebar-saved-search-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) var(--hit-target);
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-saved-search-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--hit-target) var(--hit-target) var(--hit-target);
       align-items: center;
       gap: 6px;
     }
@@ -872,6 +877,7 @@
       text-transform: uppercase;
     }
     .sidebar-saved-search-create,
+    .sidebar-saved-search-move,
     .sidebar-saved-search-delete {
       min-width: var(--hit-target);
       min-height: var(--hit-target);
@@ -886,6 +892,16 @@
       color: #ff7d77;
       background: rgba(255,91,84,.10);
       border-color: rgba(255,91,84,.18);
+    }
+    .sidebar-saved-search-move {
+      color: var(--blue);
+      background: rgba(65,184,232,.10);
+      border-color: rgba(65,184,232,.18);
+    }
+    .sidebar-saved-search-move:disabled {
+      color: var(--muted);
+      background: rgba(255,255,255,.04);
+      border-color: rgba(255,255,255,.08);
     }
     .sidebar-saved-search-row .sidebar-saved-search {
       width: 100%;
@@ -4912,6 +4928,22 @@
           isEnabled: true
         },
         {
+          id: `sidebar-saved-search-move-up:${savedSearch.id}`,
+          title: `Move saved search ${savedSearch.title} up`,
+          shortcut: '',
+          category: 'Thread',
+          keywords: ['thread', 'chat', 'sidebar', 'saved search', 'move', 'up', savedSearch.title, savedSearch.query],
+          isEnabled: savedSearch.canMoveUp
+        },
+        {
+          id: `sidebar-saved-search-move-down:${savedSearch.id}`,
+          title: `Move saved search ${savedSearch.title} down`,
+          shortcut: '',
+          category: 'Thread',
+          keywords: ['thread', 'chat', 'sidebar', 'saved search', 'move', 'down', savedSearch.title, savedSearch.query],
+          isEnabled: savedSearch.canMoveDown
+        },
+        {
           id: `sidebar-saved-search-delete:${savedSearch.id}`,
           title: `Delete saved search ${savedSearch.title}`,
           shortcut: '',
@@ -4924,7 +4956,9 @@
         .filter(command => {
           const id = String(command.id || '');
           return !id.startsWith('sidebar-saved-search:')
-            && !id.startsWith('sidebar-saved-search-delete:');
+            && !id.startsWith('sidebar-saved-search-delete:')
+            && !id.startsWith('sidebar-saved-search-move-up:')
+            && !id.startsWith('sidebar-saved-search-move-down:');
         })
         .map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
@@ -5959,6 +5993,22 @@
                 <span class="sidebar-filter-count" data-testid="sidebar-saved-search-count">${escapeHTML(String(savedSearch.count))}</span>
               </button>
               <button
+                class="sidebar-saved-search-move hit-target-icon"
+                type="button"
+                data-testid="sidebar-saved-search-move-up"
+                data-saved-search-id="${escapeHTML(savedSearch.id)}"
+                data-command-id="${escapeHTML(`sidebar-saved-search-move-up:${savedSearch.id}`)}"
+                aria-label="${escapeHTML(`Move saved search ${savedSearch.title} up`)}"
+                ${savedSearch.canMoveUp ? '' : 'disabled'}>↑</button>
+              <button
+                class="sidebar-saved-search-move hit-target-icon"
+                type="button"
+                data-testid="sidebar-saved-search-move-down"
+                data-saved-search-id="${escapeHTML(savedSearch.id)}"
+                data-command-id="${escapeHTML(`sidebar-saved-search-move-down:${savedSearch.id}`)}"
+                aria-label="${escapeHTML(`Move saved search ${savedSearch.title} down`)}"
+                ${savedSearch.canMoveDown ? '' : 'disabled'}>↓</button>
+              <button
                 class="sidebar-saved-search-delete hit-target-icon"
                 type="button"
                 data-testid="sidebar-saved-search-delete"
@@ -6466,7 +6516,7 @@
           render();
         });
       });
-      document.querySelectorAll('[data-testid="sidebar-bulk-action"], [data-testid="sidebar-filter"], [data-testid="sidebar-saved-search"], [data-testid="sidebar-saved-search-create"], [data-testid="sidebar-saved-search-delete"]').forEach(button => {
+      document.querySelectorAll('[data-testid="sidebar-bulk-action"], [data-testid="sidebar-filter"], [data-testid="sidebar-saved-search"], [data-testid="sidebar-saved-search-create"], [data-testid="sidebar-saved-search-move-up"], [data-testid="sidebar-saved-search-move-down"], [data-testid="sidebar-saved-search-delete"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -8459,11 +8509,14 @@
 
     function sidebarSavedSearches() {
       const activeID = String(state.sidebar.activeSavedSearchID || '').trim();
-      return validSidebarSavedSearches().map(savedSearch => ({
+      const validSearches = validSidebarSavedSearches();
+      return validSearches.map((savedSearch, index) => ({
         ...savedSearch,
         commandID: `sidebar-saved-search:${savedSearch.id}`,
         count: state.sidebar.items.filter(item => sidebarItemMatchesQuery(item, savedSearch.query)).length,
-        isActive: savedSearch.id === activeID
+        isActive: savedSearch.id === activeID,
+        canMoveUp: index > 0,
+        canMoveDown: index < validSearches.length - 1
       }));
     }
 
@@ -8540,6 +8593,19 @@
         clearSidebarSelection();
       }
       return state.sidebar.savedSearches.length !== beforeCount;
+    }
+
+    function moveSidebarSavedSearch(savedSearchID, direction) {
+      const normalizedID = String(savedSearchID || '').trim();
+      const searches = validSidebarSavedSearches();
+      const index = searches.findIndex(savedSearch => savedSearch.id === normalizedID);
+      if (index < 0) return false;
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= searches.length) return false;
+      const nextSearches = searches.slice();
+      [nextSearches[index], nextSearches[targetIndex]] = [nextSearches[targetIndex], nextSearches[index]];
+      state.sidebar.savedSearches = nextSearches;
+      return true;
     }
 
     function sidebarBulkActions() {
@@ -9605,6 +9671,8 @@
       'sidebar-filter:',
       'sidebar-saved-search:',
       'sidebar-saved-search-delete:',
+      'sidebar-saved-search-move-up:',
+      'sidebar-saved-search-move-down:',
       'thread-selection-toggle:'
     ];
 
@@ -9759,6 +9827,20 @@
       if (commandID?.startsWith('sidebar-saved-search-delete:')) {
         state.commandPalette.isOpen = false;
         deleteSidebarSavedSearch(commandID.slice('sidebar-saved-search-delete:'.length));
+        updateDynamicCommands();
+        render();
+        return;
+      }
+      if (commandID?.startsWith('sidebar-saved-search-move-up:')) {
+        state.commandPalette.isOpen = false;
+        moveSidebarSavedSearch(commandID.slice('sidebar-saved-search-move-up:'.length), 'up');
+        updateDynamicCommands();
+        render();
+        return;
+      }
+      if (commandID?.startsWith('sidebar-saved-search-move-down:')) {
+        state.commandPalette.isOpen = false;
+        moveSidebarSavedSearch(commandID.slice('sidebar-saved-search-move-down:'.length), 'down');
         updateDynamicCommands();
         render();
         return;

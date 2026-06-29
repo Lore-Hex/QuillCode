@@ -34,6 +34,18 @@ enum QuillCodeSidebarCommandAdapter {
         )
     }
 
+    static func moveWorkspaceCommand(
+        for savedSearch: SidebarSavedSearchSurface,
+        direction: SidebarSavedSearchMoveDirection
+    ) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: SidebarSavedSearchSurface.moveCommandID(for: savedSearch.id, direction: direction),
+            title: "Move \(savedSearch.title) \(direction.rawValue)",
+            category: WorkspaceCommandPalette.threadCategory,
+            isEnabled: direction == .up ? savedSearch.canMoveUp : savedSearch.canMoveDown
+        )
+    }
+
     static func toggleSelectionCommand(for item: SidebarItemSurface) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
             id: "thread-selection-toggle:\(item.id.uuidString)",

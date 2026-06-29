@@ -135,6 +135,30 @@ enum WorkspaceHTMLSidebarRenderer {
                   ]
               ))
               \(WorkspaceHTMLPrimitives.commandButton(
+                  "Up",
+                  testID: "sidebar-saved-search-move-up",
+                  commandID: SidebarSavedSearchSurface.moveCommandID(for: savedSearch.id, direction: .up),
+                  hitTargetKind: .icon,
+                  classes: ["sidebar-saved-search-move"],
+                  ariaLabel: "Move saved search \(savedSearch.title) up",
+                  disabled: !savedSearch.canMoveUp,
+                  attributes: [
+                      ("data-saved-search-id", savedSearch.id.uuidString)
+                  ]
+              ))
+              \(WorkspaceHTMLPrimitives.commandButton(
+                  "Down",
+                  testID: "sidebar-saved-search-move-down",
+                  commandID: SidebarSavedSearchSurface.moveCommandID(for: savedSearch.id, direction: .down),
+                  hitTargetKind: .icon,
+                  classes: ["sidebar-saved-search-move"],
+                  ariaLabel: "Move saved search \(savedSearch.title) down",
+                  disabled: !savedSearch.canMoveDown,
+                  attributes: [
+                      ("data-saved-search-id", savedSearch.id.uuidString)
+                  ]
+              ))
+              \(WorkspaceHTMLPrimitives.commandButton(
                   "Delete",
                   testID: "sidebar-saved-search-delete",
                   commandID: SidebarSavedSearchSurface.deleteCommandID(for: savedSearch.id),

@@ -265,6 +265,11 @@ public struct SidebarSavedSearch: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+public enum SidebarSavedSearchMoveDirection: String, Codable, Sendable, Hashable {
+    case up
+    case down
+}
+
 public struct SidebarSavedSearchSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var commandID: String
@@ -272,13 +277,17 @@ public struct SidebarSavedSearchSurface: Codable, Sendable, Hashable, Identifiab
     public var query: String
     public var count: Int
     public var isActive: Bool
+    public var canMoveUp: Bool
+    public var canMoveDown: Bool
     public var accessibilityLabel: String
     public var emptyTitle: String
 
     public init(
         savedSearch: SidebarSavedSearch,
         count: Int,
-        isActive: Bool
+        isActive: Bool,
+        canMoveUp: Bool = false,
+        canMoveDown: Bool = false
     ) {
         self.id = savedSearch.id
         self.commandID = Self.commandID(for: savedSearch.id)
@@ -286,6 +295,8 @@ public struct SidebarSavedSearchSurface: Codable, Sendable, Hashable, Identifiab
         self.query = savedSearch.query
         self.count = count
         self.isActive = isActive
+        self.canMoveUp = canMoveUp
+        self.canMoveDown = canMoveDown
         self.accessibilityLabel = "\(savedSearch.title) saved search, \(count)"
         self.emptyTitle = "No chats matching \(savedSearch.title)"
     }
@@ -298,20 +309,27 @@ public struct SidebarSavedSearchSurface: Codable, Sendable, Hashable, Identifiab
         "sidebar-saved-search-delete:\(id.uuidString)"
     }
 
+    public static func moveCommandID(for id: UUID, direction: SidebarSavedSearchMoveDirection) -> String {
+        "sidebar-saved-search-move-\(direction.rawValue):\(id.uuidString)"
+    }
+
     public static func savedSearches(
         _ savedSearches: [SidebarSavedSearch],
         items: [SidebarItemSurface],
         activeSavedSearchID: UUID?
     ) -> [SidebarSavedSearchSurface] {
-        savedSearches
-            .filter(\.isValid)
-            .map { savedSearch in
+        let validSavedSearches = savedSearches.filter(\.isValid)
+        return validSavedSearches
+            .enumerated()
+            .map { index, savedSearch in
                 SidebarSavedSearchSurface(
                     savedSearch: savedSearch,
                     count: SidebarThreadListBuilder(items: items)
                         .filteredItems(matching: savedSearch.query)
                         .count,
-                    isActive: savedSearch.id == activeSavedSearchID
+                    isActive: savedSearch.id == activeSavedSearchID,
+                    canMoveUp: index > 0,
+                    canMoveDown: index < validSavedSearches.count - 1
                 )
             }
     }

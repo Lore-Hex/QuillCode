@@ -260,6 +260,26 @@ extension QuillCodeWorkspaceModel {
         return true
     }
 
+    @discardableResult
+    public func moveSidebarSavedSearch(_ id: UUID, direction: SidebarSavedSearchMoveDirection) -> Bool {
+        guard let index = sidebarSavedSearches.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        let targetIndex: Int
+        switch direction {
+        case .up:
+            targetIndex = index - 1
+        case .down:
+            targetIndex = index + 1
+        }
+        guard sidebarSavedSearches.indices.contains(targetIndex) else {
+            return false
+        }
+        sidebarSavedSearches.swapAt(index, targetIndex)
+        saveSidebarSavedSearches()
+        return true
+    }
+
     public func selectAllSidebarThreads() {
         sidebarSelection = WorkspaceSidebarSelectionEngine.selectAll(
             orderedThreadIDs: filteredSidebarItems().map(\.id)

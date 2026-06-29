@@ -148,9 +148,36 @@ final class WorkspaceSidebarIntegrationTests: XCTestCase {
         XCTAssertEqual(try store.load(), [savedSearch])
         XCTAssertEqual(model.surface().sidebar.visibleItems.map { $0.title }, ["Fix command flakes"])
 
+        let designSearch: SidebarSavedSearch = try XCTUnwrap(model.saveSidebarSavedSearch(title: "Design", query: "sidebar"))
+        var surface = model.surface()
+        XCTAssertEqual(surface.sidebar.customSavedSearches.map(\.id), [savedSearch.id, designSearch.id])
+        XCTAssertEqual(surface.sidebar.customSavedSearches.first?.canMoveUp, false)
+        XCTAssertEqual(surface.sidebar.customSavedSearches.first?.canMoveDown, true)
+        XCTAssertEqual(surface.sidebar.customSavedSearches.last?.canMoveUp, true)
+        XCTAssertEqual(surface.sidebar.customSavedSearches.last?.canMoveDown, false)
+
+        XCTAssertFalse(model.runWorkspaceCommand(
+            "sidebar-saved-search-move-up:\(savedSearch.id.uuidString)",
+            workspaceRoot: URL(fileURLWithPath: "/tmp")
+        ))
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "sidebar-saved-search-move-up:\(designSearch.id.uuidString)",
+            workspaceRoot: URL(fileURLWithPath: "/tmp")
+        ))
+        surface = model.surface()
+        XCTAssertEqual(surface.sidebar.customSavedSearches.map(\.id), [designSearch.id, savedSearch.id])
+        XCTAssertEqual(try store.load(), [designSearch, savedSearch])
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "sidebar-saved-search-move-down:\(designSearch.id.uuidString)",
+            workspaceRoot: URL(fileURLWithPath: "/tmp")
+        ))
+        XCTAssertEqual(model.surface().sidebar.customSavedSearches.map(\.id), [savedSearch.id, designSearch.id])
+        XCTAssertEqual(try store.load(), [savedSearch, designSearch])
+
         let duplicate: SidebarSavedSearch = try XCTUnwrap(model.saveSidebarSavedSearch(title: "FLAKES", query: "FLAKES"))
         XCTAssertEqual(duplicate.id, savedSearch.id)
-        XCTAssertEqual(try store.load(), [savedSearch])
+        XCTAssertEqual(try store.load(), [savedSearch, designSearch])
 
         XCTAssertTrue(model.runWorkspaceCommand(
             "sidebar-saved-search-delete:\(savedSearch.id.uuidString)",
@@ -159,6 +186,6 @@ final class WorkspaceSidebarIntegrationTests: XCTestCase {
         XCTAssertNil(model.activeSidebarSavedSearchID)
         XCTAssertEqual(Set(model.surface().sidebar.visibleItems.map { $0.title }), ["Fix command flakes", "Design sidebar"])
         let reloaded: [SidebarSavedSearch] = try store.load()
-        XCTAssertEqual(reloaded, [])
+        XCTAssertEqual(reloaded, [designSearch])
     }
 }
