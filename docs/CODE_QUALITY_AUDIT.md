@@ -9401,3 +9401,20 @@ Code quality changes:
 Remaining risk:
 
 - Local terminal output now preserves real PTY output semantics, including CRLF and echoed input. Dynamic resize, job control, curses-style redraw handling, and a richer terminal-emulator surface remain pending before this reaches full Codex terminal parity.
+
+## 2026-06-29 Click Target Action And Focus Policy Pass
+
+Overall grade after this slice: **A click-target semantics, A release-gate evidence, A- real packaged Accessibility sampling**.
+
+The click-target system already enforced shared target helpers, 44 pt geometry, surface-family coverage, and rendered Playwright edge probes. The remaining architectural risk was that a surface could keep the right shape classes while losing the behavior users expect: a text field that no longer owns focus, a link target that reports like a button, or a surface that preserves one row target while losing its primary input.
+
+Code quality changes:
+
+- Extended `QuillCodeNativeSurfaceTargetPolicy` from a kind-only table to a kind/action/focus contract.
+- Added `missingRequiredSurfaceActions` and `missingRequiredSurfaceFocusTargets` to the native audit report and validity calculation.
+- Tightened native smoke parsing so packaged app evidence validates required actions and focus targets for composer, settings, model picker, review, terminal, and browser surfaces.
+- Updated unit/parity coverage so the CI gates check that surface policies include semantic actions and named focus owners, not only 44 pt target kinds.
+
+Remaining risk:
+
+- This is still contract and smoke evidence. The A+ layer remains real packaged `.app` Accessibility automation that samples actual frames, focus transfer, and action ownership for each contract ID.

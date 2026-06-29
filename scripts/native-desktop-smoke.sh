@@ -209,11 +209,21 @@ for policy in surface_policies:
         raise SystemExit(f"quill-code-desktop native smoke reported malformed surface target policy: {policy}")
     family = policy.get("family")
     required_kinds = policy.get("requiredKinds")
+    required_actions = policy.get("requiredActions")
+    required_focus_targets = policy.get("requiredFocusTargets")
     if not isinstance(family, str) or not family:
         raise SystemExit(f"quill-code-desktop native smoke reported surface policy with missing family: {policy}")
     if not isinstance(required_kinds, list) or not all(isinstance(kind, str) for kind in required_kinds):
         raise SystemExit(f"quill-code-desktop native smoke reported surface policy with malformed requiredKinds: {policy}")
-    policy_by_family[family] = set(required_kinds)
+    if not isinstance(required_actions, list) or not all(isinstance(action, str) for action in required_actions):
+        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with malformed requiredActions: {policy}")
+    if not isinstance(required_focus_targets, list) or not all(isinstance(target, str) for target in required_focus_targets):
+        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with malformed requiredFocusTargets: {policy}")
+    policy_by_family[family] = {
+        "kinds": set(required_kinds),
+        "actions": set(required_actions),
+        "focusTargets": set(required_focus_targets),
+    }
 expected_policy_kinds = {
     "composer": {"textEntry", "icon", "capsule"},
     "top-bar": {"icon", "fullRow"},
@@ -226,9 +236,42 @@ expected_policy_kinds = {
     "memories": {"formAction", "icon"},
 }
 for family, required_policy_kinds in expected_policy_kinds.items():
-    if not required_policy_kinds.issubset(policy_by_family.get(family, set())):
-        missing_policy_kinds = sorted(required_policy_kinds - policy_by_family.get(family, set()))
+    covered_kinds = policy_by_family.get(family, {}).get("kinds", set())
+    if not required_policy_kinds.issubset(covered_kinds):
+        missing_policy_kinds = sorted(required_policy_kinds - covered_kinds)
         raise SystemExit(f"quill-code-desktop native smoke surface policy for {family} is missing: {', '.join(missing_policy_kinds)}")
+
+expected_policy_actions = {
+    "composer": {"text-input", "press"},
+    "settings": {"text-input", "press"},
+    "model-picker": {"text-input", "press"},
+    "review": {"text-input", "press"},
+    "terminal": {"text-input", "press"},
+    "browser": {"text-input", "press"},
+}
+for family, required_policy_actions in expected_policy_actions.items():
+    covered_actions = policy_by_family.get(family, {}).get("actions", set())
+    if not required_policy_actions.issubset(covered_actions):
+        missing_policy_actions = sorted(required_policy_actions - covered_actions)
+        raise SystemExit(f"quill-code-desktop native smoke surface policy for {family} is missing actions: {', '.join(missing_policy_actions)}")
+
+expected_policy_focus_targets = {
+    "composer": {"composer.message"},
+    "settings": {"settings.trustedrouter-base-url"},
+    "model-picker": {"model-picker.search"},
+    "review": {"review.body", "review.thread-reply"},
+    "terminal": {"terminal.command"},
+    "browser": {"browser.address", "browser.comment"},
+}
+for family, required_policy_focus_targets in expected_policy_focus_targets.items():
+    covered_focus_targets = policy_by_family.get(family, {}).get("focusTargets", set())
+    if not required_policy_focus_targets.issubset(covered_focus_targets):
+        missing_policy_focus_targets = sorted(required_policy_focus_targets - covered_focus_targets)
+        raise SystemExit(f"quill-code-desktop native smoke surface policy for {family} is missing focus targets: {', '.join(missing_policy_focus_targets)}")
+
+for field in ("missingRequiredSurfaceKinds", "missingRequiredSurfaceActions", "missingRequiredSurfaceFocusTargets"):
+    if native_targets.get(field) != []:
+        raise SystemExit(f"quill-code-desktop native smoke reported incomplete surface target policy field {field}: {native_targets.get(field)}")
 
 covered_focus_targets = set(native_targets.get("coveredFocusTargets", []))
 required_focus_targets = {
