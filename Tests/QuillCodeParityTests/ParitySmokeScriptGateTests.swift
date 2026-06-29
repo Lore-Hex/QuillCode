@@ -195,6 +195,10 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("write_accessibility_frames_manifest"))
         XCTAssertTrue(validator.contains("live-accessibility-frame-sampled"))
         XCTAssertTrue(validator.contains("REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS"))
+        XCTAssertTrue(validator.contains("window_command_contract_ids"))
+        XCTAssertTrue(validator.contains("\"windowCommandContractIDs\""))
+        XCTAssertTrue(validator.contains("\"windowCommandContractCount\""))
+        XCTAssertTrue(validator.contains("packaged click-probe manifest is missing window command contracts"))
         XCTAssertTrue(validator.contains("\"accessibilityFrameSamples\""))
         XCTAssertTrue(validator.contains("liveAccessibilitySampling"))
         XCTAssertTrue(validator.contains("\"frame-sampled\""))
@@ -379,7 +383,15 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
     }
 
     private static var minimalPackagedWindowReport: String {
-        """
+        let commandIDs = minimalPackagedWindowCommandIDs
+            .map { #"              "\#($0)""# }
+            .joined(separator: ",\n")
+        let surfaceContracts = ([minimalComposerSurfaceContractJSON] + minimalPackagedWindowCommandIDs.map(commandSurfaceContractJSON))
+            .joined(separator: ",\n")
+        let clickProbes = ([minimalComposerClickProbeJSON] + minimalPackagedWindowCommandIDs.map(commandClickProbeJSON))
+            .joined(separator: ",\n")
+
+        return """
         {
           "ok": true,
           "appName": "QuillCode",
@@ -401,14 +413,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
             "composerCanSend": false,
             "sidebarTitle": "Chats",
             "commandIDs": [
-              "new-chat",
-              "command-palette",
-              "keyboard-shortcuts",
-              "settings",
-              "toggle-terminal",
-              "toggle-browser",
-              "stop-all",
-              "disconnect-all"
+        \(commandIDs)
             ],
             "starterActionIDs": [
               "review-changes",
@@ -418,6 +423,31 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
           },
           "nativeHitTargets": {
             "surfaceContracts": [
+        \(surfaceContracts)
+            ],
+            "clickProbes": [
+        \(clickProbes)
+            ],
+            "missingClickProbeContractIDs": [],
+            "clickProbeValidationIssues": []
+          }
+        }
+        """
+    }
+
+    private static let minimalPackagedWindowCommandIDs = [
+        "new-chat",
+        "command-palette",
+        "keyboard-shortcuts",
+        "settings",
+        "toggle-terminal",
+        "toggle-browser",
+        "stop-all",
+        "disconnect-all"
+    ]
+
+    private static var minimalComposerSurfaceContractJSON: String {
+        """
               {
                 "id": "composer.send",
                 "testID": "quillcode-send-button",
@@ -426,8 +456,11 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "allowsNestedInteractiveChildren": false,
                 "requiresUnblockedInterior": true
               }
-            ],
-            "clickProbes": [
+        """
+    }
+
+    private static var minimalComposerClickProbeJSON: String {
+        """
               {
                 "contractID": "composer.send",
                 "selectorKind": "test-id",
@@ -446,11 +479,42 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                   {"name": "bottom-interior", "x": 0.5, "y": 0.82}
                 ]
               }
-            ],
-            "missingClickProbeContractIDs": [],
-            "clickProbeValidationIssues": []
-          }
-        }
+        """
+    }
+
+    private static func commandSurfaceContractJSON(_ commandID: String) -> String {
+        """
+              {
+                "id": "command.\(commandID)",
+                "commandID": "\(commandID)",
+                "kind": "fullRow",
+                "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true
+              }
+        """
+    }
+
+    private static func commandClickProbeJSON(_ commandID: String) -> String {
+        """
+              {
+                "contractID": "command.\(commandID)",
+                "selectorKind": "command-id",
+                "selector": "\(commandID)",
+                "kind": "fullRow",
+                "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true,
+                "requiredMinWidth": 44,
+                "requiredMinHeight": 44,
+                "samplePoints": [
+                  {"name": "center", "x": 0.5, "y": 0.5},
+                  {"name": "leading-interior", "x": 0.18, "y": 0.5},
+                  {"name": "trailing-interior", "x": 0.82, "y": 0.5},
+                  {"name": "top-interior", "x": 0.5, "y": 0.18},
+                  {"name": "bottom-interior", "x": 0.5, "y": 0.82}
+                ]
+              }
         """
     }
 }

@@ -213,7 +213,7 @@ def validate_packaged_window_report(report_path: Path, screenshot_path: Path) ->
     require(report.get("appName") == "QuillCode", f"{report_path} does not report the QuillCode app identity")
     require(report.get("windowTitle") == "QuillCode", f"{report_path} does not report the QuillCode window title")
 
-    normalized_probe_contracts(report, "packaged live-window")
+    probe_contracts = normalized_probe_contracts(report, "packaged live-window")
 
     surface = report.get("surface")
     require(isinstance(surface, dict), f"{report_path} is missing workspace surface semantics")
@@ -228,8 +228,17 @@ def validate_packaged_window_report(report_path: Path, screenshot_path: Path) ->
 
     command_ids = surface.get("commandIDs")
     require(isinstance(command_ids, list), f"{report_path} surface commandIDs is not a list")
-    missing_commands = sorted(set(REQUIRED_WINDOW_COMMAND_IDS) - {value for value in command_ids if isinstance(value, str)})
+    command_ids = [value for value in command_ids if isinstance(value, str) and value.strip()]
+    missing_commands = sorted(set(REQUIRED_WINDOW_COMMAND_IDS) - set(command_ids))
     require(not missing_commands, f"{report_path} surface is missing commands: {', '.join(missing_commands)}")
+    command_contract_ids = window_command_contract_ids(command_ids)
+    probed_contract_ids = {probe["contractID"] for probe in probe_contracts}
+    missing_command_contracts = sorted(set(command_contract_ids) - probed_contract_ids)
+    require(
+        not missing_command_contracts,
+        f"{report_path} native hit-target report is missing command contracts: "
+        f"{', '.join(missing_command_contracts)}",
+    )
 
     starter_action_ids = surface.get("starterActionIDs")
     require(isinstance(starter_action_ids, list), f"{report_path} surface starterActionIDs is not a list")
@@ -256,6 +265,10 @@ def validate_packaged_window_report(report_path: Path, screenshot_path: Path) ->
         screenshot_bytes >= MINIMUM_WINDOW_SCREENSHOT_BYTES,
         f"packaged live-window screenshot is suspiciously small: {screenshot_bytes} bytes",
     )
+
+
+def window_command_contract_ids(command_ids: list[str]) -> list[str]:
+    return sorted(f"command.{command_id}" for command_id in command_ids)
 
 
 def write_comparison_manifest(
@@ -556,6 +569,17 @@ def validated_accessibility_frame_samples(
                 f"{report_path} Accessibility samples are not present in packaged click-probe manifest: "
                 f"{', '.join(unknown_contract_ids)}"
             )
+        surface = report.get("surface", {})
+        command_ids = string_list(
+            surface.get("commandIDs") if isinstance(surface, dict) else None,
+            f"{report_path} surface.commandIDs",
+        )
+        missing_command_contracts = sorted(set(window_command_contract_ids(command_ids)) - known_contract_ids)
+        if missing_command_contracts:
+            raise SystemExit(
+                f"{report_path} packaged click-probe manifest is missing window command contracts: "
+                f"{', '.join(missing_command_contracts)}"
+            )
 
     normalized_samples_report = dict(samples_report)
     normalized_samples_report["sampleSummaries"] = sorted(sample_summaries, key=lambda sample: sample["contractID"])
@@ -593,6 +617,12 @@ def write_accessibility_frames_manifest(
         "image": report.get("image"),
         "validationIssues": samples_report["validationIssues"],
     }
+    surface = report.get("surface")
+    if isinstance(surface, dict):
+        command_ids = string_list(surface.get("commandIDs"), f"{report_path} surface.commandIDs")
+        command_contract_ids = window_command_contract_ids(command_ids)
+        manifest["windowCommandContractCount"] = len(command_contract_ids)
+        manifest["windowCommandContractIDs"] = command_contract_ids
     if click_probe_manifest_path is not None:
         manifest["clickProbeManifest"] = relative_manifest_path(click_probe_manifest_path, manifest_directory)
     if click_probe_manifest is not None:
