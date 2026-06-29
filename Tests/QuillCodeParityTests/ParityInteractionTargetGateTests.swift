@@ -443,9 +443,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native hit-target specs should reuse the audited native semantic vocabulary so controls cannot pass with only generic geometry or a parallel enum."
         )
         XCTAssertTrue(
-            designText.contains(".frame(\n            minWidth: spec.minWidth")
-                && designText.contains("minHeight: spec.minHeight"),
-            "Shared native targets should enforce minimum width and height inside the modifier, not rely on per-call padding."
+            designText.contains("minWidth: requiredMinWidth")
+                && designText.contains("minHeight: requiredMinHeight")
+                && designText.contains("max(spec.requiredMinWidth, QuillCodeMetrics.minimumHitTarget)")
+                && designText.contains("max(spec.requiredMinHeight, QuillCodeMetrics.minimumHitTarget)")
+                && designText.contains("spec.width.map { max($0, QuillCodeMetrics.minimumHitTarget) }")
+                && designText.contains("spec.height.map { max($0, QuillCodeMetrics.minimumHitTarget) }"),
+            "Shared native targets should clamp minimum and fixed dimensions inside the modifier, not rely on per-call padding."
         )
         XCTAssertTrue(
             designText.contains(".contentShape(Rectangle())")
