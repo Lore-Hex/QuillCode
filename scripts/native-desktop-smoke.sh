@@ -76,6 +76,10 @@ if not isinstance(native_targets, dict):
 if native_targets.get("isValid") is not True:
     raise SystemExit("quill-code-desktop native smoke did not validate native hit target contracts")
 
+duplicate_ids = native_targets.get("duplicateContractIDs")
+if duplicate_ids != []:
+    raise SystemExit(f"quill-code-desktop native smoke reported duplicate native hit target IDs: {duplicate_ids}")
+
 if native_targets.get("minimumHitTarget") != 44:
     raise SystemExit("quill-code-desktop native smoke reported unexpected native minimum hit target")
 
@@ -84,6 +88,13 @@ if not isinstance(press_scale, (int, float)) or not math.isclose(press_scale, 0.
     raise SystemExit("quill-code-desktop native smoke reported unexpected native press scale")
 
 contracts = native_targets.get("designSystemContracts", []) + native_targets.get("surfaceContracts", [])
+for contract in contracts:
+    if not isinstance(contract, dict):
+        raise SystemExit("quill-code-desktop native smoke reported malformed native hit target contract")
+    for field in ("id", "label", "source", "surface"):
+        value = contract.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise SystemExit(f"quill-code-desktop native smoke reported native hit target with empty {field}: {contract}")
 contract_kinds = {contract.get("kind") for contract in contracts if isinstance(contract, dict)}
 required_kinds = {"icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule"}
 missing_kinds = sorted(required_kinds - contract_kinds)

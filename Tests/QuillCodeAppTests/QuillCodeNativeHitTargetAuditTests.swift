@@ -51,6 +51,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             Set(QuillCodeNativeFocusTarget.allCases.map(\.rawValue))
         )
         XCTAssertEqual(report.missingRequiredCommandIDs, [])
+        XCTAssertEqual(report.duplicateContractIDs, [])
         XCTAssertEqual(report.validationIssues, [])
 
         let contractsByID = Dictionary(uniqueKeysWithValues: report.surfaceContracts.map { ($0.id, $0) })
@@ -142,6 +143,10 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["search.result"]?.family, .search)
         XCTAssertEqual(contractsByID["menu-bar.action"]?.family, .menuBar)
         XCTAssertEqual(contractsByID["transcript.context-banner-action"]?.family, .contextBanner)
+        XCTAssertEqual(contractsByID["command.new-chat"]?.label, "New chat")
+        XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.id.isEmpty })
+        XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.label.isEmpty })
+        XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.source.isEmpty })
 
         surface.commands.removeAll { $0.id == "toggle-extensions" }
         let missingReport = QuillCodeNativeHitTargetAudit.report(for: surface)
@@ -163,6 +168,45 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             Set(report.coveredFocusTargets),
             Set(QuillCodeNativeFocusTarget.allCases.map(\.rawValue))
         )
+    }
+
+    func testAuditReportRejectsBlankMetadataDuplicateIDsAndNarrowIcons() {
+        let invalidContract = QuillCodeNativeHitTargetContract(
+            id: "",
+            family: .topBar,
+            surface: "",
+            label: "",
+            kind: .icon,
+            minWidth: nil,
+            minHeight: 20,
+            source: ""
+        )
+
+        XCTAssertTrue(invalidContract.validationIssues.contains("hit target contract has an empty id"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty surface label"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty accessible label"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty source"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" icon target should declare an explicit minimum width"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" minHeight 20.0 is below 44.0"))
+
+        let report = QuillCodeNativeHitTargetAuditReport(
+            minimumHitTarget: 44,
+            pressScale: 0.96,
+            designSystemContracts: [],
+            surfaceContracts: [invalidContract],
+            missingDesignKinds: [],
+            coveredSurfaceFamilies: [],
+            missingSurfaceFamilies: [],
+            coveredFocusTargets: [],
+            missingRequiredFocusTargets: [],
+            missingRequiredCommandIDs: [],
+            duplicateContractIDs: ["top-bar.overflow"],
+            validationIssues: invalidContract.validationIssues
+        )
+
+        XCTAssertFalse(report.isValid)
+        XCTAssertEqual(report.duplicateContractIDs, ["top-bar.overflow"])
+        XCTAssertEqual(report.dictionary["duplicateContractIDs"] as? [String], ["top-bar.overflow"])
     }
 
     private func makeWorkspaceSurfaceWithRepresentativePanes() -> WorkspaceSurface {
