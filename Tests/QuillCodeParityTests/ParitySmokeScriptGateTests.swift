@@ -299,10 +299,14 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(probePolicy["requiresUnblockedInterior"] as? Bool, true)
         XCTAssertEqual(manifestObject["collisionScopes"] as? [String], ["composer:composer"])
         XCTAssertEqual(manifestObject["samplePointNames"] as? [String], [
+            "bottom-edge",
             "bottom-interior",
             "center",
+            "leading-edge",
             "leading-interior",
+            "top-edge",
             "top-interior",
+            "trailing-edge",
             "trailing-interior"
         ])
 
@@ -332,10 +336,14 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(readinessPolicy["allowsNestedInteractiveChildren"] as? Bool, false)
         XCTAssertEqual(readinessPolicy["requiresUnblockedInterior"] as? Bool, true)
         XCTAssertEqual(readinessObject["requiredSamplePointNames"] as? [String], [
+            "bottom-edge",
             "bottom-interior",
             "center",
+            "leading-edge",
             "leading-interior",
+            "top-edge",
             "top-interior",
+            "trailing-edge",
             "trailing-interior"
         ])
         XCTAssertEqual(readinessObject["contractIDs"] as? [String], ["composer.send"])
@@ -411,9 +419,13 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "requiredMinHeight": 44,
                 "samplePoints": [
                   {"name": "center", "x": 0.5, "y": 0.5},
+                  {"name": "leading-edge", "x": 0.08, "y": 0.5},
                   {"name": "leading-interior", "x": 0.18, "y": 0.5},
+                  {"name": "trailing-edge", "x": 0.92, "y": 0.5},
                   {"name": "trailing-interior", "x": 0.82, "y": 0.5},
+                  {"name": "top-edge", "x": 0.5, "y": 0.08},
                   {"name": "top-interior", "x": 0.5, "y": 0.18},
+                  {"name": "bottom-edge", "x": 0.5, "y": 0.92},
                   {"name": "bottom-interior", "x": 0.5, "y": 0.82}
                 ]
               }
@@ -518,9 +530,13 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "requiredMinHeight": 44,
                 "samplePoints": [
                   {"name": "center", "x": 0.5, "y": 0.5},
+                  {"name": "leading-edge", "x": 0.08, "y": 0.5},
                   {"name": "leading-interior", "x": 0.18, "y": 0.5},
+                  {"name": "trailing-edge", "x": 0.92, "y": 0.5},
                   {"name": "trailing-interior", "x": 0.82, "y": 0.5},
+                  {"name": "top-edge", "x": 0.5, "y": 0.08},
                   {"name": "top-interior", "x": 0.5, "y": 0.18},
+                  {"name": "bottom-edge", "x": 0.5, "y": 0.92},
                   {"name": "bottom-interior", "x": 0.5, "y": 0.82}
                 ]
               }
@@ -556,9 +572,13 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "requiredMinHeight": 44,
                 "samplePoints": [
                   {"name": "center", "x": 0.5, "y": 0.5},
+                  {"name": "leading-edge", "x": 0.08, "y": 0.5},
                   {"name": "leading-interior", "x": 0.18, "y": 0.5},
+                  {"name": "trailing-edge", "x": 0.92, "y": 0.5},
                   {"name": "trailing-interior", "x": 0.82, "y": 0.5},
+                  {"name": "top-edge", "x": 0.5, "y": 0.08},
                   {"name": "top-interior", "x": 0.5, "y": 0.18},
+                  {"name": "bottom-edge", "x": 0.5, "y": 0.92},
                   {"name": "bottom-interior", "x": 0.5, "y": 0.82}
                 ]
               }

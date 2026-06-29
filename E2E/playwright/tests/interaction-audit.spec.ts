@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import {
   clickCommandPaletteCommand,
   clickSidebarTool,
+  commandPaletteResult,
   fillCommandPalette,
   harnessURL,
   openSettings,
@@ -617,6 +618,59 @@ test('critical controls respond from the full interior click target, not only th
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
   await clickTargetInteriorPoint(page.getByTestId('tool-card-details').last().locator('summary'), 'tool details disclosure leading interior', 0.2, 0.5);
   await expect(page.getByTestId('tool-card-details').last()).toHaveAttribute('open', '');
+});
+
+test('primary utility controls activate from near-edge target points', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('run whoami');
+  await clickTargetInteriorPoint(page.getByRole('button', { name: 'Send' }), 'send button trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+
+  await openTopBarOverflow(page);
+  await clickTargetInteriorPoint(page.getByTestId('top-bar-overflow-search'), 'top-bar search row trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await page.getByTestId('search-input').fill('whoami');
+  await expect(page.getByTestId('search-result')).toHaveCount(1);
+  await clickTargetInteriorPoint(page.getByTestId('search-result').first(), 'search result trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('search-panel')).not.toBeVisible();
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await fillCommandPalette(page, '>browser');
+  await clickTargetInteriorPoint(commandPaletteResult(page, 'toggle-browser'), 'command palette browser result leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  const firstModelRow = page.getByTestId('model-row').first();
+  const detailButton = firstModelRow.getByTestId('model-detail-button');
+  const expandedBefore = await detailButton.getAttribute('aria-expanded');
+  await clickTargetInteriorPoint(detailButton, 'model detail icon leading edge', 0.08, 0.5);
+  await expect(detailButton).toHaveAttribute('aria-expanded', expandedBefore === 'true' ? 'false' : 'true');
+  const favoriteLabelBefore = await firstModelRow.getByTestId('model-favorite-button').getAttribute('aria-label');
+  await clickTargetInteriorPoint(firstModelRow.getByTestId('model-favorite-button'), 'model favorite icon trailing edge', 0.92, 0.5);
+  await expect(firstModelRow.getByTestId('model-favorite-button')).not.toHaveAttribute('aria-label', favoriteLabelBefore || '');
+  await clickTargetInteriorPoint(firstModelRow.getByTestId('model-option'), 'model option row trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('model-browser')).not.toBeVisible();
+
+  await openSettings(page);
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('settings-sign-in'), 'settings sign-in leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('settings-login-status')).toContainText('Opening TrustedRouter sign in');
+  await clickTargetInteriorPoint(page.getByTestId('settings-save'), 'settings save trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('settings-panel')).not.toBeVisible();
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await clickCommandPaletteCommand(page, '>open worktree', 'git-worktree-open');
+  await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
+  const worktreeChoice = page.getByTestId('worktree-choice').first();
+  await expect(worktreeChoice).toBeVisible();
+  const worktreeChoicePath = await worktreeChoice.getAttribute('data-path');
+  await clickTargetInteriorPoint(worktreeChoice, 'worktree choice trailing edge', 0.92, 0.5);
+  await expect(page.getByLabel('Worktree folder')).toHaveValue(worktreeChoicePath || '');
+  await clickTargetInteriorPoint(page.getByTestId('worktree-dialog-cancel'), 'worktree cancel leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('worktree-open-panel')).not.toBeVisible();
 });
 
 test('secondary pane controls respond from the full interior click target', async ({ page }) => {

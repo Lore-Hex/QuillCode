@@ -256,13 +256,27 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinHeight ?? 0, 44)
         XCTAssertEqual(
             Set(probesByContractID["composer.send"]?.samplePoints.map(\.name) ?? []),
-            Set(["center", "leading-interior", "trailing-interior", "top-interior", "bottom-interior"])
+            Set([
+                "center",
+                "leading-edge",
+                "leading-interior",
+                "trailing-edge",
+                "trailing-interior",
+                "top-edge",
+                "top-interior",
+                "bottom-edge",
+                "bottom-interior"
+            ])
         )
         let expectedSamplePoints = [
             QuillCodeNativeHitTargetProbePoint(name: "center", x: 0.5, y: 0.5),
+            QuillCodeNativeHitTargetProbePoint(name: "leading-edge", x: 0.08, y: 0.5),
             QuillCodeNativeHitTargetProbePoint(name: "leading-interior", x: 0.18, y: 0.5),
+            QuillCodeNativeHitTargetProbePoint(name: "trailing-edge", x: 0.92, y: 0.5),
             QuillCodeNativeHitTargetProbePoint(name: "trailing-interior", x: 0.82, y: 0.5),
+            QuillCodeNativeHitTargetProbePoint(name: "top-edge", x: 0.5, y: 0.08),
             QuillCodeNativeHitTargetProbePoint(name: "top-interior", x: 0.5, y: 0.18),
+            QuillCodeNativeHitTargetProbePoint(name: "bottom-edge", x: 0.5, y: 0.92),
             QuillCodeNativeHitTargetProbePoint(name: "bottom-interior", x: 0.5, y: 0.82)
         ]
         XCTAssertEqual(probesByContractID["composer.send"]?.samplePoints, expectedSamplePoints)
@@ -522,7 +536,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue(issues.contains("composer.send click probe has unknown sample point outside"))
         XCTAssertTrue(issues.contains("composer.send click probe sample point leading-interior has unexpected coordinates"))
         XCTAssertTrue(issues.contains("composer.send click probe sample point outside is outside the target interior"))
-        XCTAssertTrue(issues.contains("composer.send click probe is missing sample points: bottom-interior, top-interior, trailing-interior"))
+        XCTAssertTrue(issues.contains("composer.send click probe is missing sample points: bottom-edge, bottom-interior, leading-edge, top-edge, top-interior, trailing-edge, trailing-interior"))
     }
 
     private func makeWorkspaceSurfaceWithRepresentativePanes() -> WorkspaceSurface {

@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Near-Edge Click-Target Activation Pass
+
+Overall grade after this slice: **A target activation coverage, A native/rendered probe parity, A- packaged click synthesis**.
+
+The click-target system already enforced semantic ownership, 44 pt minimums, overlap/clearance checks, and rendered interior sampling. The remaining weakness was practical aim: high-frequency controls could still be covered by center/interior checks without proving that near-edge clicks activate the intended action.
+
+| Before | After |
+| --- | --- |
+| Native click probes sampled center plus 18/82% interior midlines. | Native probes now also include 8/92% near-edge midlines, matching the rendered Playwright edge-sample contract. |
+| Packaged smoke fixtures and the shared Python validator accepted the older center-band sample set. | The validator and fixture manifests now require the expanded near-edge sample names and exact coordinates. |
+| Critical-control tests checked many controls for size/semantics, with actual activation coverage concentrated in a few chrome paths. | Playwright now clicks primary utility controls near their edges: composer send, search rows, command palette rows, model detail/favorite/option controls, settings actions, and worktree choices. |
+
+Residual risk:
+
+- This proves rendered activation and native probe intent. The final A+ layer remains packaged native click synthesis against live macOS/Linux Accessibility frames for every required probe point.
+
 ## 2026-06-29 Rendered Click-Target Clearance Pass
 
 Overall grade after this slice: **A rendered click-target ambiguity, A shared audit coverage, A- packaged click synthesis**.
