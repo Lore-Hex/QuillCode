@@ -294,6 +294,10 @@ final class QuillCodeDesktopController: ObservableObject {
         )
     }
 
+    func resizeTerminal(_ windowSize: TerminalWindowSize) {
+        terminalCoordinator.resizeTerminal(windowSize, model: model)
+    }
+
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {
         workspaceActionCoordinator.runReviewAction(action, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()

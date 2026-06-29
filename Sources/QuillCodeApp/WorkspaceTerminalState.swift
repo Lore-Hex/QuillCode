@@ -43,11 +43,26 @@ public enum TerminalCommandStatus: String, Sendable, Hashable {
     case stopped
 }
 
+public struct TerminalWindowSize: Sendable, Hashable {
+    public var rows: UInt16
+    public var columns: UInt16
+
+    public init(rows: UInt16, columns: UInt16) {
+        self.rows = rows
+        self.columns = columns
+    }
+
+    var ptyWindowSize: PTYWindowSize {
+        PTYWindowSize(rows: rows, columns: columns)
+    }
+}
+
 public struct TerminalState: Sendable, Hashable {
     public var projectID: UUID?
     public var currentDirectoryPath: String?
     public var environmentOverrides: [String: String]
     public var removedEnvironmentKeys: Set<String>
+    public var windowSize: TerminalWindowSize?
     public var isVisible: Bool
     public var draft: String
     public var historyCursor: Int?
@@ -60,6 +75,7 @@ public struct TerminalState: Sendable, Hashable {
         currentDirectoryPath: String? = nil,
         environmentOverrides: [String: String] = [:],
         removedEnvironmentKeys: Set<String> = [],
+        windowSize: TerminalWindowSize? = nil,
         isVisible: Bool = false,
         draft: String = "",
         historyCursor: Int? = nil,
@@ -71,6 +87,7 @@ public struct TerminalState: Sendable, Hashable {
         self.currentDirectoryPath = currentDirectoryPath
         self.environmentOverrides = environmentOverrides
         self.removedEnvironmentKeys = removedEnvironmentKeys
+        self.windowSize = windowSize
         self.isVisible = isVisible
         self.draft = draft
         self.historyCursor = historyCursor

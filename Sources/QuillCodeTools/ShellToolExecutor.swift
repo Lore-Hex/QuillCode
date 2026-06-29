@@ -32,6 +32,9 @@ public protocol ShellInteractiveSession: AnyObject, Sendable {
     @discardableResult
     func sendInput(_ text: String) -> Bool
 
+    @discardableResult
+    func resize(to windowSize: PTYWindowSize) -> Bool
+
     func cancel()
 }
 
@@ -53,6 +56,11 @@ public final class ShellStreamingSession: ShellInteractiveSession, @unchecked Se
     @discardableResult
     public func sendInput(_ text: String) -> Bool {
         runner.sendInput(text)
+    }
+
+    @discardableResult
+    public func resize(to windowSize: PTYWindowSize) -> Bool {
+        false
     }
 
     public func cancel() {

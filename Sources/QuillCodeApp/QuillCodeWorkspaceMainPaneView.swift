@@ -19,6 +19,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onRunTerminalCommand: () -> Void
     var onTerminalHistoryPrevious: () -> Void
     var onTerminalHistoryNext: () -> Void
+    var onTerminalResize: (TerminalWindowSize) -> Void = { _ in }
     var onOpenBrowserPreview: () -> Void
     var onOpenBrowserSession: (() -> Void)?
     var onAddBrowserComment: (String) -> Void
@@ -115,7 +116,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onStop: stopActiveRun,
                         onClear: { runCommand(id: "terminal-clear") },
                         onHistoryPrevious: onTerminalHistoryPrevious,
-                        onHistoryNext: onTerminalHistoryNext
+                        onHistoryNext: onTerminalHistoryNext,
+                        onResize: onTerminalResize
                     )
                 }
                 Divider()

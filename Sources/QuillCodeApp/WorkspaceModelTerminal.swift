@@ -39,6 +39,18 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func setTerminalWindowSize(rows: Int, columns: Int) -> Bool {
+        guard let windowSize = WorkspaceTerminalEngine.normalizedWindowSize(
+            rows: rows,
+            columns: columns
+        ) else {
+            return false
+        }
+        terminal.windowSize = windowSize
+        return activeTerminalSession?.resize(to: windowSize.ptyWindowSize) ?? false
+    }
+
+    @discardableResult
     public func sendTerminalInput(_ input: String) -> Bool {
         let processInput = WorkspaceTerminalEngine.normalizedProcessInput(input)
         guard WorkspaceTerminalEngine.canSendProcessInput(processInput, terminal: terminal),
@@ -75,7 +87,10 @@ extension QuillCodeWorkspaceModel {
         )
 
         var finalResult: ToolResult?
-        let session = WorkspaceTerminalProcessLauncher.startSession(for: executionContext)
+        let session = WorkspaceTerminalProcessLauncher.startSession(
+            for: executionContext,
+            windowSize: terminal.windowSize
+        )
         activeTerminalSession = session
         defer {
             clearActiveTerminalSessionIfCurrent(session)

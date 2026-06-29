@@ -42,6 +42,53 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         XCTAssertEqual(model.terminal.entries.first?.stdout, "TTY")
     }
 
+    func testLocalTerminalAppliesStoredWindowSizeToNewPTYSession() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertFalse(model.setTerminalWindowSize(rows: 31, columns: 101))
+        XCTAssertEqual(model.terminal.windowSize, TerminalWindowSize(rows: 31, columns: 101))
+
+        await model.runTerminalCommand("stty size", workspaceRoot: root)
+
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertTrue(
+            model.terminal.entries.first?.stdout.contains("31 101") == true,
+            "Expected `stty size` to see the stored PTY size, got: \(model.terminal.entries.first?.stdout ?? "<nil>")"
+        )
+    }
+
+    func testLocalTerminalResizeUpdatesRunningPTYSession() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.setTerminalWindowSize(rows: 24, columns: 80)
+
+        let task = Task {
+            await model.runTerminalCommand("read x; stty size", workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 2) {
+            model.terminal.entries.first?.status == .running
+        }
+
+        var accepted = false
+        for _ in 0..<300 {
+            if model.setTerminalWindowSize(rows: 30, columns: 100) {
+                accepted = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(accepted, "Expected active local PTY session to accept a window resize.")
+        XCTAssertTrue(model.sendTerminalInput("\n"))
+        await task.value
+
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertTrue(
+            model.terminal.entries.first?.stdout.contains("30 100") == true,
+            "Expected `stty size` to see the live resized PTY size, got: \(model.terminal.entries.first?.stdout ?? "<nil>")"
+        )
+    }
+
     func testTerminalCommandRunsThroughSSHRemoteProject() async throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-args.txt")

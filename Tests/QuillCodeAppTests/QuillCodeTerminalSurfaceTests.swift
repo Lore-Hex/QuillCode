@@ -116,4 +116,16 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.canClear)
         XCTAssertTrue(surface.entries.isEmpty)
     }
+
+    func testTerminalWindowSizeEstimatorMapsRenderedPointsToCells() {
+        let size = TerminalWindowSizeEstimator.terminalWindowSize(for: CGSize(width: 840, height: 180))
+        XCTAssertEqual(size?.rows, 10)
+        XCTAssertEqual(size?.columns, 100)
+
+        let tiny = TerminalWindowSizeEstimator.terminalWindowSize(for: CGSize(width: 10, height: 10))
+        XCTAssertEqual(tiny?.rows, 4)
+        XCTAssertEqual(tiny?.columns, 20)
+
+        XCTAssertNil(TerminalWindowSizeEstimator.terminalWindowSize(for: .zero))
+    }
 }
