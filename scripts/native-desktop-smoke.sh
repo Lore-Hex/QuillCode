@@ -10,6 +10,7 @@ HTML_PATH="$SMOKE_ROOT/workspace.html"
 STDOUT_PATH="$SMOKE_ROOT/stdout.log"
 TARGET_LABEL="${QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL:-native desktop executable}"
 DESKTOP_EXECUTABLE="${QUILLCODE_DESKTOP_EXECUTABLE:-}"
+DESKTOP_APP_BUNDLE="${QUILLCODE_DESKTOP_APP_BUNDLE:-}"
 
 cleanup() {
   rm -rf "$SMOKE_ROOT"
@@ -18,7 +19,22 @@ trap cleanup EXIT
 
 cd "$ROOT_DIR"
 
-if [[ -n "$DESKTOP_EXECUTABLE" ]]; then
+if [[ -n "$DESKTOP_EXECUTABLE" && -n "$DESKTOP_APP_BUNDLE" ]]; then
+  echo "Set only one of QUILLCODE_DESKTOP_EXECUTABLE or QUILLCODE_DESKTOP_APP_BUNDLE." >&2
+  exit 2
+fi
+
+if [[ -n "$DESKTOP_APP_BUNDLE" ]]; then
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "QUILLCODE_DESKTOP_APP_BUNDLE launch smoke requires macOS." >&2
+    exit 2
+  fi
+  if [[ ! -d "$DESKTOP_APP_BUNDLE" ]]; then
+    echo "Configured desktop app bundle is missing: $DESKTOP_APP_BUNDLE" >&2
+    exit 1
+  fi
+  COMMAND=(open -W -n "$DESKTOP_APP_BUNDLE" --args)
+elif [[ -n "$DESKTOP_EXECUTABLE" ]]; then
   if [[ ! -x "$DESKTOP_EXECUTABLE" ]]; then
     echo "Configured desktop executable is missing or not executable: $DESKTOP_EXECUTABLE" >&2
     exit 1

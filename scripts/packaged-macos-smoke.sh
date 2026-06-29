@@ -55,4 +55,8 @@ QUILLCODE_DESKTOP_EXECUTABLE="$APP_EXECUTABLE" \
 QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL="packaged macOS app" \
   "$ROOT_DIR/scripts/native-desktop-smoke.sh"
 
+QUILLCODE_DESKTOP_APP_BUNDLE="$APP_BUNDLE" \
+QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL="packaged macOS app Launch Services" \
+  "$ROOT_DIR/scripts/native-desktop-smoke.sh"
+
 echo "QuillCode packaged macOS app smoke passed."
