@@ -13,6 +13,7 @@ SWIFT_TESTS_STATUS="not-run"
 CLI_SHELL_STATUS="not-run"
 CLI_DIAGNOSTICS_STATUS="not-run"
 CLI_GIT_READ_STATUS="not-run"
+CLI_FILE_READ_STATUS="not-run"
 CLI_NEGATIVE_ACTION_STATUS="not-run"
 CLI_FILE_CREATION_STATUS="not-run"
 CLI_WORKSPACE_FOLLOWUP_STATUS="not-run"
@@ -48,6 +49,7 @@ write_manifest() {
     "$CLI_SHELL_STATUS" \
     "$CLI_DIAGNOSTICS_STATUS" \
     "$CLI_GIT_READ_STATUS" \
+    "$CLI_FILE_READ_STATUS" \
     "$CLI_NEGATIVE_ACTION_STATUS" \
     "$CLI_FILE_CREATION_STATUS" \
     "$CLI_WORKSPACE_FOLLOWUP_STATUS" \
@@ -75,6 +77,7 @@ from datetime import datetime, timezone
     cli_shell_status,
     cli_diagnostics_status,
     cli_git_read_status,
+    cli_file_read_status,
     cli_negative_action_status,
     cli_file_creation_status,
     cli_workspace_followup_status,
@@ -162,6 +165,7 @@ manifest = {
         "cliShell": {"status": cli_shell_status},
         "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
         "cliGitRead": {"status": cli_git_read_status},
+        "cliFileRead": {"status": cli_file_read_status},
         "cliNegativeActions": {"status": cli_negative_action_status},
         "cliFileCreation": {"status": cli_file_creation_status},
         "cliWorkspaceFollowUp": {"status": cli_workspace_followup_status},
@@ -258,6 +262,7 @@ prepare_git_workspace() {
   printf 'before\n' > "$SMOKE_WORKSPACE/tracked.txt"
   git -C "$SMOKE_WORKSPACE" add tracked.txt
   git -C "$SMOKE_WORKSPACE" commit -m "Add tracked smoke file" >/dev/null
+  printf '# QuillCode smoke README\n\nNatural file reads should use host.file.read.\n' > "$SMOKE_WORKSPACE/README.md"
   printf 'after\n' > "$SMOKE_WORKSPACE/tracked.txt"
 }
 
@@ -312,6 +317,14 @@ assert_cli_output_contains "$git_diff_output" "Git diff:" "what changed?"
 assert_cli_output_contains "$git_diff_output" "tracked.txt" "what changed?"
 assert_cli_output_contains "$git_diff_output" "+after" "what changed?"
 CLI_GIT_READ_STATUS="passed"
+
+echo "==> Running mock CLI natural file read prompt"
+CLI_FILE_READ_STATUS="running"
+FINAL_DETAIL="mock CLI natural file read prompt failed"
+file_read_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "What is in README.md?")"
+assert_cli_output_contains "$file_read_output" 'Contents of `README.md`' "What is in README.md"
+assert_cli_output_contains "$file_read_output" "QuillCode smoke README" "What is in README.md"
+CLI_FILE_READ_STATUS="passed"
 
 echo "==> Running mock CLI negative action prompts"
 CLI_NEGATIVE_ACTION_STATUS="running"

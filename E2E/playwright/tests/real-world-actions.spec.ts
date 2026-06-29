@@ -39,6 +39,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
     ]
   },
   {
+    name: 'reads requested file contents immediately with the structured file tool',
+    prompts: ['What is in README.md?'],
+    expectedToolNames: ['host.file.read'],
+    regressionGuards: [
+      'file read arguments include a workspace-relative path',
+      'file read uses host.file.read instead of shell cat fallback',
+      'assistant does not answer with passive promises'
+    ]
+  },
+  {
     name: 'answers device diagnostic prompts with concrete shell actions',
     prompts: ['How much hd?', 'Do you have openclaw?'],
     expectedToolNames: ['host.shell.run'],
@@ -199,6 +209,22 @@ test('writes requested file content immediately without a confirmation loop', as
   await expect(page.getByTestId('tool-card-output')).toContainText('/mock/QuillCode/hello.txt');
   await expect(page.getByText('Wrote `hello.txt`.')).toBeVisible();
   await expect(page.getByText(/I'?ll write|should I|do you want me to|ok\?/i)).toHaveCount(0);
+});
+
+test('reads requested file contents immediately with the structured file tool', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('What is in README.md?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.read');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"path": "README.md"');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('# QuillCode');
+  await expect(page.getByText(/Contents of `README\.md`:\s*# QuillCode/)).toBeVisible();
+  await expect(page.getByText(/No shell command was specified|I'?ll read|I will read|cat README/i)).toHaveCount(0);
 });
 
 test('answers device diagnostic prompts with concrete shell actions', async ({ page }) => {

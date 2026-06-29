@@ -477,6 +477,26 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
 
+    func testNaturalFileReadExecutesImmediatelyWithStructuredFileTool() async throws {
+        let root = try makeTempDirectory()
+        try "# QuillCode\n".write(to: root.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "What is in README.md?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedFileRead(in: result), "README.md")
+        XCTAssertEqual(result.thread.messages.last?.content, "Contents of `README.md`:\n# QuillCode")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll read") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I will read") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
     func testFileWriteWithQuotedContentDefaultsToNotePath() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)

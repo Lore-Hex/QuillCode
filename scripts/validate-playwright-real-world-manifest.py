@@ -12,6 +12,7 @@ from typing import Any
 REQUIRED_SCENARIOS = {
     "runs natural shell requests immediately with nonempty arguments",
     "writes requested file content immediately without a confirmation loop",
+    "reads requested file contents immediately with the structured file tool",
     "answers device diagnostic prompts with concrete shell actions",
     "downloads requested domains with a bounded concrete shell action",
     "answers natural git read requests with structured git tools",
@@ -24,6 +25,7 @@ REQUIRED_PROMPT_FRAGMENTS = [
     "quillcode_now_smoke",
     "quillcode_polite_smoke",
     "Can you write a file that says",
+    "What is in README.md?",
     "How much hd?",
     "Do you have openclaw?",
     "Can you download LinkedIn.com?",
@@ -38,13 +40,14 @@ REQUIRED_REGRESSION_GUARDS = [
     "shell arguments are never {}",
     "assistant does not answer with passive promises",
     "assistant does not ask for a second confirmation",
+    "file read uses host.file.read instead of shell cat fallback",
     "safety review does not block clear user intent",
     "git status uses host.git.status instead of shell fallback",
     "negative shell intent creates no tool card",
 ]
 
-MIN_PROMPT_COUNT = 15
-MIN_REGRESSION_GUARD_COUNT = 18
+MIN_PROMPT_COUNT = 16
+MIN_REGRESSION_GUARD_COUNT = 21
 
 
 def string_items(value: Any) -> list[str]:
