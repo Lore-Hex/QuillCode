@@ -4,6 +4,7 @@ import Darwin
 #elseif canImport(Glibc)
 import Glibc
 #endif
+import CQuillPTY
 import QuillCodeCore
 
 /// Runs a command attached to a pseudo-terminal (PTY) so programs that probe
@@ -61,20 +62,15 @@ public final class PTYProcessSession: @unchecked Sendable {
             return
         }
 
-        // Allocate a pseudo-terminal master/slave pair using portable POSIX calls
-        // (avoiding `openpty`, whose module exposure differs across platforms).
-        let master = posix_openpt(O_RDWR | O_NOCTTY)
-        guard master >= 0, grantpt(master) == 0, unlockpt(master) == 0,
-              let slaveNamePointer = ptsname(master) else {
-            if master >= 0 { close(master) }
+        // Allocate a pseudo-terminal master/slave pair. The POSIX pty helpers
+        // live in a small C shim (`CQuillPTY`) because Swift's imported Glibc
+        // module does not surface `posix_openpt`/`grantpt`/`unlockpt`/`ptsname`.
+        var master: Int32 = -1
+        var slave: Int32 = -1
+        var slaveNameBuffer = [CChar](repeating: 0, count: 1024)
+        let openResult = cquill_pty_open(&master, &slave, &slaveNameBuffer, slaveNameBuffer.count)
+        guard openResult == 0 else {
             finish(exitCode: nil, ok: false, error: "Failed to allocate a pseudo-terminal.")
-            return
-        }
-        let slavePath = String(cString: slaveNamePointer)
-        let slave = open(slavePath, O_RDWR | O_NOCTTY)
-        guard slave >= 0 else {
-            close(master)
-            finish(exitCode: nil, ok: false, error: "Failed to open the pseudo-terminal slave.")
             return
         }
 
