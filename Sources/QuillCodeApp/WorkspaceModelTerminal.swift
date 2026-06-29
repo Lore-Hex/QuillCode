@@ -75,12 +75,10 @@ extension QuillCodeWorkspaceModel {
         )
 
         var finalResult: ToolResult?
-        let session = ShellToolExecutor().startStreamingSession(executionContext.request)
+        let session = WorkspaceTerminalProcessLauncher.startSession(for: executionContext)
         activeTerminalSession = session
         defer {
-            if activeTerminalSession === session {
-                activeTerminalSession = nil
-            }
+            clearActiveTerminalSessionIfCurrent(session)
         }
         for await event in session.events {
             if Task.isCancelled || WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
@@ -118,5 +116,13 @@ extension QuillCodeWorkspaceModel {
     private func applyTerminalLifecyclePlan(_ plan: WorkspaceTerminalLifecyclePlan) {
         setLastError(plan.lastError)
         refreshTopBar(agentStatus: plan.agentStatus)
+    }
+
+    private func clearActiveTerminalSessionIfCurrent(_ session: any ShellInteractiveSession) {
+        guard let activeTerminalSession,
+              ObjectIdentifier(activeTerminalSession as AnyObject) == ObjectIdentifier(session as AnyObject) else {
+            return
+        }
+        self.activeTerminalSession = nil
     }
 }

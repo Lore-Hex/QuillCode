@@ -9350,3 +9350,20 @@ Code quality changes:
 Remaining risk:
 
 - The rendered HTML harness has screenshot and Playwright coverage. The next A+ layer is packaged native screenshot/accessibility automation that verifies the SwiftUI top bar alignment against a built `.app` window.
+
+## 2026-06-29 Local Terminal PTY Wiring Pass
+
+Overall grade after this slice: **A- terminal realism, A session-boundary clarity, A- full terminal-emulator parity**.
+
+The PTY process foundation could run commands with real terminal semantics, but the live integrated workspace terminal still launched local commands through the pipe-backed `ShellStreamingSession`. That meant normal terminal probes like `test -t 1`, interactive prompt echo, and future REPL/TUI behavior were still not proven in the product path.
+
+Code quality changes:
+
+- Added `ShellInteractiveSession` as the shared interactive-process contract for pipe-backed and PTY-backed sessions.
+- Made `ShellStreamingSession` and `PTYProcessSession` conform to the same protocol so workspace lifecycle, Stop All, and stdin dispatch can stay backend-agnostic.
+- Added `WorkspaceTerminalProcessLauncher` as the focused policy boundary: local workspace terminal commands launch through `PTYProcessSession`, while SSH Remote terminal commands keep the noninteractive pipe/SSH path.
+- Added workspace integration coverage proving local terminal commands observe a TTY and that running-command input now behaves like a real terminal with typed input echo.
+
+Remaining risk:
+
+- Local terminal output now preserves real PTY output semantics, including CRLF and echoed input. Dynamic resize, job control, curses-style redraw handling, and a richer terminal-emulator surface remain pending before this reaches full Codex terminal parity.

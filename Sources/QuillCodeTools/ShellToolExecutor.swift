@@ -26,7 +26,16 @@ public enum ShellProcessEvent: Sendable, Equatable {
     case finished(ToolResult)
 }
 
-public final class ShellStreamingSession: @unchecked Sendable {
+public protocol ShellInteractiveSession: AnyObject, Sendable {
+    var events: AsyncStream<ShellProcessEvent> { get }
+
+    @discardableResult
+    func sendInput(_ text: String) -> Bool
+
+    func cancel()
+}
+
+public final class ShellStreamingSession: ShellInteractiveSession, @unchecked Sendable {
     public let events: AsyncStream<ShellProcessEvent>
     private let runner: ShellStreamingProcessRunner
 

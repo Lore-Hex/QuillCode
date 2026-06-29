@@ -30,6 +30,18 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.entries.first?.exitCodeLabel, "exit 0")
     }
 
+    func testLocalTerminalRunsThroughPseudoTerminal() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Terminal Project")
+        model.selectProject(projectID)
+
+        await model.runTerminalCommand("test -t 1 && printf TTY || printf NOTTY", workspaceRoot: root)
+
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertEqual(model.terminal.entries.first?.stdout, "TTY")
+    }
+
     func testTerminalCommandRunsThroughSSHRemoteProject() async throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-args.txt")
@@ -175,7 +187,7 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
 
         XCTAssertFalse(model.terminal.isRunning)
         XCTAssertEqual(model.terminal.entries.first?.status, .done)
-        XCTAssertEqual(model.terminal.entries.first?.stdout, "input? hello:quill\n")
+        XCTAssertEqual(model.terminal.entries.first?.stdout, "input? quill\r\nhello:quill\r\n")
     }
 
     func testTerminalCommandPersistsCurrentDirectoryAcrossCommands() async throws {
