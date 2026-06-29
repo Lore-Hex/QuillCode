@@ -19,6 +19,7 @@ CURRENT_SCENARIO_START=0
 CURRENT_STDOUT=""
 CURRENT_STDERR=""
 ARTIFACTS_COPIED=0
+PASSIVE_ACTION_PATTERN="No shell command was specified|(I'?ll|I will) (run|check|do|download|create|write|execute|inspect|list|show|review|read|fetch|save)"
 
 case "$RAW_MODEL" in
   deepseekv4flash|deepseek-v4-flash)
@@ -397,7 +398,7 @@ assert_no_action_regression() {
   if grep -qi "No shell command was specified" "$output_file"; then
     fail_smoke "live smoke regressed into an empty shell command" "$output_file" "$stderr_file"
   fi
-  if grep -Eq "I'?ll (run|check|do|download|create|write)" "$output_file"; then
+  if grep -Eiq "$PASSIVE_ACTION_PATTERN" "$output_file"; then
     fail_smoke "live smoke returned a passive promise instead of executing" "$output_file" "$stderr_file"
   fi
 }
@@ -506,7 +507,7 @@ assert_saved_transcripts_match_live_smoke_expectations() {
     exit 1
   fi
 
-  jq -s -e '
+  jq -s -e --arg passiveActionPattern "$PASSIVE_ACTION_PATTERN" '
     def has_negative_action_prompt:
       [.messages[]?
         | select(.role == "user")
@@ -527,7 +528,7 @@ assert_saved_transcripts_match_live_smoke_expectations() {
       [.messages[]?
         | select(.role == "assistant")
         | .content
-        | select(test("No shell command was specified|I'\''?ll (run|check|do|download|create|write)"; "i"))];
+        | select(test($passiveActionPattern; "i"))];
     def actionable_transcript_ok:
       (
         (.messages | length) >= 2

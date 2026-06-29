@@ -43,6 +43,9 @@ final class AgentPromisedWorkGuardTests: XCTestCase {
         XCTAssertTrue(AgentPromisedWorkGuard.shouldSuppressStreamingPreview(
             for: "I'll check your Quill's disk usage now."
         ))
+        XCTAssertTrue(AgentPromisedWorkGuard.shouldSuppressStreamingPreview(
+            for: "I will check your Quill's disk usage now."
+        ))
         XCTAssertFalse(AgentPromisedWorkGuard.shouldSuppressStreamingPreview(
             for: "I can run commands, edit files, and review diffs when you ask."
         ))

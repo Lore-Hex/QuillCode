@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Passive Promise Smoke Hardening Pass
+
+Overall grade after this slice: **A release-regression coverage, A prompt/smoke alignment, A- provider behavior proof**.
+
+The runtime promised-work guard already understood both `I'll ...` and `I will ...`, but the release smoke scripts only rejected the contraction form in their stdout/transcript checks. That left a narrow but real hole for the same user-visible failure: a model can promise to run, check, create, download, list, or read something without actually dispatching a tool.
+
+| Before | After |
+| --- | --- |
+| Deterministic smoke rejected empty shell output and `I'll run/check/do/download/create/write...` answers. | Deterministic smoke uses one named passive-action pattern that also rejects `I will ...` and broader common action verbs. |
+| Live TrustedRouter stdout and persisted transcript checks each had their own contraction-only regex. | Live smoke shares the same passive-action pattern between stdout checks and jq transcript integrity validation. |
+| The system prompt discouraged `I'll ...` promises but did not explicitly name the equivalent `I will ...` wording. | The prompt now forbids both forms for immediate shell and file actions, keeping provider instructions aligned with release evidence. |
+
+Residual risk:
+
+- This catches future-tense promise text in release artifacts; it does not make every provider choose the best tool. The live TrustedRouter smoke remains the proof lane for actual model/tool behavior across representative prompts.
+
 ## 2026-06-29 Packaged Command Contract Evidence Pass
 
 Overall grade after this slice: **A command contract evidence, A smoke validator DRYness, A- end-to-end native clicking**.

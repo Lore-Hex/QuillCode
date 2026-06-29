@@ -201,6 +201,8 @@ mkdir -p "$SMOKE_HOME" "$SMOKE_WORKSPACE"
 SMOKE_WORKSPACE_PHYSICAL="$(cd "$SMOKE_WORKSPACE" && pwd -P)"
 cd "$ROOT_DIR"
 
+PASSIVE_ACTION_PATTERN="No shell command was specified|(I'?ll|I will) (run|check|do|download|create|write|execute|inspect|list|show|review|read|fetch|save)"
+
 is_truthy() {
   case "$1" in
     1|true|TRUE|yes|YES)
@@ -220,7 +222,7 @@ assert_cli_no_action_regression() {
     echo "quill-code returned no output for $label" >&2
     exit 1
   fi
-  if grep -Eqi "No shell command was specified|I'?ll (run|check|do|download|create|write)" <<<"$output"; then
+  if grep -Eqi "$PASSIVE_ACTION_PATTERN" <<<"$output"; then
     echo "quill-code regressed into passive or empty-tool output for $label" >&2
     printf '%s\n' "$output" >&2
     exit 1
