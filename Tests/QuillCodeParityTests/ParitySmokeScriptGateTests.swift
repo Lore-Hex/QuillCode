@@ -23,6 +23,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("git-status-polite"))
         XCTAssertTrue(script.contains("workspace-list-natural"))
         XCTAssertTrue(script.contains("workspace-pwd-natural"))
+        XCTAssertTrue(script.contains("workspace-read-natural"))
+        XCTAssertTrue(script.contains("What is in live-smoke.txt?"))
         XCTAssertTrue(script.contains("negative-shell-action"))
         XCTAssertTrue(script.contains("negative-file-write"))
         XCTAssertTrue(script.contains("negative-download"))
@@ -34,7 +36,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("execute|inspect|list|show|review|read|fetch|save"))
         XCTAssertTrue(script.contains("--arg passiveActionPattern \"$PASSIVE_ACTION_PATTERN\""))
         XCTAssertTrue(script.contains("test($passiveActionPattern; \"i\")"))
-        XCTAssertTrue(script.contains("assert_saved_transcripts_match_live_smoke_expectations 16 3"))
+        XCTAssertTrue(script.contains("assert_saved_transcripts_match_live_smoke_expectations 17 3"))
         XCTAssertTrue(script.contains("negative_transcript_ok"))
         XCTAssertTrue(script.contains("(queued_calls | length) == 0"))
         XCTAssertFalse(
@@ -79,9 +81,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("steps should be an object"))
         XCTAssertTrue(script.contains("steps.playwright should be an object"))
         XCTAssertTrue(script.contains("steps.playwright.realWorldActions should be an object"))
-        XCTAssertTrue(script.contains("scenarioCount should be at least 6"))
-        XCTAssertTrue(script.contains("promptCount should be at least 15"))
-        XCTAssertTrue(script.contains("regressionGuardCount should be at least 18"))
+        XCTAssertTrue(script.contains("scenarioCount should be at least 7"))
+        XCTAssertTrue(script.contains("promptCount should be at least 16"))
+        XCTAssertTrue(script.contains("regressionGuardCount should be at least 21"))
     }
 
     func testDeterministicSmokeCoversExplicitNegativeActionIntent() throws {
@@ -116,24 +118,37 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("+after"))
     }
 
+    func testDeterministicSmokeCoversNaturalFileReadPrompts() throws {
+        let script = try Self.scriptText(named: "smoke.sh")
+
+        XCTAssertTrue(script.contains("CLI_FILE_READ_STATUS=\"not-run\""))
+        XCTAssertTrue(script.contains("\"cliFileRead\""))
+        XCTAssertTrue(script.contains("QuillCode smoke README"))
+        XCTAssertTrue(script.contains("What is in README.md?"))
+        XCTAssertTrue(script.contains("Contents of `README.md`"))
+    }
+
     func testPlaywrightRealWorldManifestValidatorGuardsReleaseEvidence() throws {
         let script = try Self.scriptText(named: "smoke.sh")
         let validator = try Self.scriptText(named: "validate-playwright-real-world-manifest.py")
 
         XCTAssertTrue(script.contains("validate-playwright-real-world-manifest.py"))
         XCTAssertTrue(validator.contains("REQUIRED_SCENARIOS"))
-        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 15"))
-        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 18"))
+        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 16"))
+        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 21"))
         XCTAssertTrue(validator.contains("runs natural shell requests immediately with nonempty arguments"))
         XCTAssertTrue(validator.contains("writes requested file content immediately without a confirmation loop"))
+        XCTAssertTrue(validator.contains("reads requested file contents immediately with the structured file tool"))
         XCTAssertTrue(validator.contains("answers device diagnostic prompts with concrete shell actions"))
         XCTAssertTrue(validator.contains("downloads requested domains with a bounded concrete shell action"))
         XCTAssertTrue(validator.contains("answers natural git read requests with structured git tools"))
         XCTAssertTrue(validator.contains("respects explicit negative action prompts without tool cards or side effects"))
         XCTAssertTrue(validator.contains("Please check git status."))
         XCTAssertTrue(validator.contains("what changed?"))
+        XCTAssertTrue(validator.contains("What is in README.md?"))
         XCTAssertTrue(validator.contains("shell arguments are never {}"))
         XCTAssertTrue(validator.contains("assistant does not answer with passive promises"))
+        XCTAssertTrue(validator.contains("file read uses host.file.read instead of shell cat fallback"))
         XCTAssertTrue(validator.contains("safety review does not block clear user intent"))
         XCTAssertTrue(validator.contains("git status uses host.git.status instead of shell fallback"))
     }

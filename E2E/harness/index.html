@@ -3371,7 +3371,9 @@
           }
         ]
       },
-      mockFiles: {},
+      mockFiles: {
+        '/mock/QuillCode/README.md': '# QuillCode\n\nMock workspace README for natural file-read smoke.\n'
+      },
       review: {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -10905,6 +10907,64 @@
       };
     }
 
+    function fileReadPathFromPrompt(text) {
+      if (!/\b(read|cat|show)\b|\bwhat(?:'s| is) in\b|\bcontents? of\b/i.test(text)) return null;
+      const quoted = text.match(/`([^`]+)`/)?.[1]?.trim();
+      if (isSafeRelativeFilePath(quoted)) return quoted;
+      return String(text || '')
+        .split(/[\s"'“”‘’(),<>\[\]{}]+/)
+        .map(token => token.trim().replace(/^[`]+|[`.:;!?]+$/g, ''))
+        .find(isSafeRelativeFilePath) || null;
+    }
+
+    function isSafeRelativeFilePath(value) {
+      const path = String(value || '').trim();
+      const lower = path.toLowerCase();
+      if (!path
+        || path.startsWith('/')
+        || path.startsWith('~')
+        || lower.startsWith('http://')
+        || lower.startsWith('https://')
+        || lower.startsWith('file://')
+        || path.split('/').includes('..')) {
+        return false;
+      }
+      return path.includes('/') || path.split('/').at(-1)?.includes('.');
+    }
+
+    function mockFileContentsForPath(path, isRemoteProject) {
+      if (isRemoteProject) {
+        return path.toLowerCase() === 'readme.md'
+          ? '# Quill Feather\n\nRemote Quill workspace README.\n'
+          : null;
+      }
+      return state.mockFiles[`/mock/QuillCode/${path}`] || null;
+    }
+
+    function runMockFileReadAction(path, selectedProject, isRemoteProject) {
+      const contents = mockFileContentsForPath(path, isRemoteProject);
+      const ok = typeof contents === 'string';
+      addToolCard({
+        title: 'host.file.read',
+        subtitle: ok ? 'Completed' : 'Failed',
+        status: ok ? 'done' : 'failed',
+        inputJSON: JSON.stringify({ path }, null, 2),
+        outputJSON: JSON.stringify(
+          ok
+            ? { ok: true, stdout: contents }
+            : { ok: false, error: `File not found: ${path}` },
+          null,
+          2
+        )
+      });
+      addMessage(
+        'assistant',
+        ok
+          ? `Contents of \`${path}\`:\n${contents.trim()}`
+          : `Could not read \`${path}\`:\nFile not found.`
+      );
+    }
+
     function normalizeMockTerminalPath(cwd, target) {
       const segments = target.startsWith('/') ? [] : cwd.split('/').filter(Boolean);
       for (const part of target.split('/')) {
@@ -12107,6 +12167,7 @@
       const isRemoteProject = Boolean(selectedProject?.isRemote);
       const browserTarget = browserOpenTargetFromPrompt(text);
       const fileWriteRequest = fileWriteRequestFromPrompt(text);
+      const fileReadPath = fileReadPathFromPrompt(text);
       if (isOnlyNegatedActionRequest(text)) {
         addMessage('assistant', "Okay, I won't take that action.");
       } else if (text.toLowerCase().includes('slow task')) {
@@ -12411,6 +12472,8 @@
           outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
         });
         addMessage('assistant', 'Updated the handoff summary.');
+      } else if (fileReadPath) {
+        runMockFileReadAction(fileReadPath, selectedProject, isRemoteProject);
       } else if (browserTarget) {
         const url = normalizeBrowserURL(browserTarget);
         if (url) {

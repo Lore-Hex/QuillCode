@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Natural File-Read Smoke Hardening Pass
+
+Overall grade after this slice: **A- release-regression coverage, A structured tool parity, B+ breadth**.
+
+Natural file reads were implemented, but the release smoke evidence did not prove the common first-session prompt "What is in README.md?" That left a Codex-parity hole where a provider could answer passively or use a shell `cat` fallback without the real-world browser evidence catching it.
+
+| Before | After |
+| --- | --- |
+| File reads had unit and artifact coverage, but not a dedicated real-world action scenario. | Playwright now has a named natural file-read scenario that requires `host.file.read`, a nonempty `path`, visible output, and no passive read promise. |
+| Deterministic smoke proved file write and follow-up backtick reads only. | Deterministic CLI smoke now seeds a README fixture and reads it with "What is in README.md?". |
+| Live smoke covered a backtick read follow-up after writing a file. | Live TrustedRouter smoke now also asks "What is in live-smoke.txt?" and raises persisted actionable transcript expectations. |
+
+Residual risk:
+
+- This hardens one very common natural file-read shape. Broader source navigation, symbol lookup, and multi-file summarization still need product-level real-world flows before file exploration reaches A/A+ parity.
+
 ## 2026-06-29 Passive Promise Smoke Hardening Pass
 
 Overall grade after this slice: **A release-regression coverage, A prompt/smoke alignment, A- provider behavior proof**.

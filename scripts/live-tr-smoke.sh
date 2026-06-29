@@ -742,6 +742,13 @@ run_scenario \
   "hello world"
 
 run_scenario \
+  "workspace-read-natural" \
+  "What is in live-smoke.txt?" \
+  "Running live TrustedRouter natural file-read smoke with $MODEL" \
+  validate_expected_output \
+  "quillcode_live_file_smoke"
+
+run_scenario \
   "openclaw-discovery" \
   "Do you have openclaw?" \
   "Running live TrustedRouter OpenClaw discovery smoke with $MODEL" \
@@ -781,7 +788,7 @@ run_scenario \
   "Downloaded to \`downloads/forbidden-live.html\`"
 
 begin_scenario "transcript-integrity" "Validate persisted thread transcripts" "Checking persisted live smoke transcripts"
-assert_saved_transcripts_match_live_smoke_expectations 16 3
+assert_saved_transcripts_match_live_smoke_expectations 17 3
 finish_scenario "" ""
 
 write_artifact_manifest 0 "completed"
