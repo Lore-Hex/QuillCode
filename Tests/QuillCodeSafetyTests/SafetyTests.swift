@@ -196,6 +196,58 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoApprovesReadOnlyListFilesShellRunWithoutRunVerb() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"ls -la"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you list the files here?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you list the files here?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesReadOnlyCurrentDirectoryShellRunWithoutRunVerb() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"pwd"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you show me the current directory?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you show me the current directory?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesReadOnlyGitStatusShellRunWithoutRunVerb() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"git status --short"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Please check git status.",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Please check git status.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoDoesNotTreatReadOnlyShellIntentAsBlanketShellApproval() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"ls -la && cat ~/.ssh/id_rsa"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you list the files here?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you list the files here?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny)
+    }
+
     func testAutoApprovesExplicitFileDownloadShellRun() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(
