@@ -783,10 +783,14 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             auditText.contains("public struct QuillCodeNativeSurfaceTargetPolicy")
                 && auditText.contains("requiredSurfacePolicies")
                 && auditText.contains("missingRequiredSurfaceKinds")
-                && auditText.contains("policy(.composer, kinds: [.textEntry, .icon, .capsule])")
-                && auditText.contains("policy(.browser, kinds: [.textEntry, .textButton, .icon])")
-                && auditText.contains("policy(.review, kinds: [.textEntry, .segmentedControl, .fullRow, .formAction])"),
-            "Native hit-target audit should define the expected target mix per surface family, not just prove that each family has one example control."
+                && auditText.contains("requiredActions: [QuillCodeNativeHitTargetAction]")
+                && auditText.contains("requiredFocusTargets: [QuillCodeNativeFocusTarget]")
+                && auditText.contains("missingRequiredSurfaceActions")
+                && auditText.contains("missingRequiredSurfaceFocusTargets")
+                && auditText.contains("policy(.composer, kinds: [.textEntry, .icon, .capsule], actions: [.textInput, .press], focusTargets: [.composerMessage])")
+                && auditText.contains("policy(.browser, kinds: [.textEntry, .textButton, .icon], actions: [.textInput, .press], focusTargets: [.browserAddress, .browserComment])")
+                && auditText.contains("policy(.review, kinds: [.textEntry, .segmentedControl, .fullRow, .formAction], actions: [.textInput, .press], focusTargets: [.reviewBody, .reviewThreadReply])"),
+            "Native hit-target audit should define the expected kind, action, and focus mix per surface family, not just prove that each family has one example control."
         )
         XCTAssertTrue(
             auditText.contains("duplicateContractIDs")
@@ -832,11 +836,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
                 && smokeScriptText.contains("duplicateContractIDs")
                 && smokeScriptText.contains("missingRequiredSurfaceKinds")
+                && smokeScriptText.contains("missingRequiredSurfaceActions")
+                && smokeScriptText.contains("missingRequiredSurfaceFocusTargets")
                 && smokeScriptText.contains("surfacePolicies")
+                && smokeScriptText.contains("expected_policy_actions")
+                && smokeScriptText.contains("expected_policy_focus_targets")
                 && smokeScriptText.contains(#""browser": {"textEntry", "textButton", "icon"}"#)
                 && smokeScriptText.contains(#"for field in ("id", "label", "source", "surface")"#)
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
-            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind, unique ID, and non-empty metadata field."
+            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, and non-empty metadata field."
         )
         XCTAssertTrue(
             smokeScriptText.contains("required_focus_targets")

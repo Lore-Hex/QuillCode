@@ -177,19 +177,27 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
 public struct QuillCodeNativeSurfaceTargetPolicy: Codable, Sendable, Hashable {
     public var family: QuillCodeInteractionSurfaceFamily
     public var requiredKinds: [QuillCodeNativeHitTargetKind]
+    public var requiredActions: [QuillCodeNativeHitTargetAction]
+    public var requiredFocusTargets: [QuillCodeNativeFocusTarget]
 
     public init(
         family: QuillCodeInteractionSurfaceFamily,
-        requiredKinds: [QuillCodeNativeHitTargetKind]
+        requiredKinds: [QuillCodeNativeHitTargetKind],
+        requiredActions: [QuillCodeNativeHitTargetAction] = [],
+        requiredFocusTargets: [QuillCodeNativeFocusTarget] = []
     ) {
         self.family = family
         self.requiredKinds = requiredKinds
+        self.requiredActions = requiredActions
+        self.requiredFocusTargets = requiredFocusTargets
     }
 
     public var dictionary: [String: Any] {
         [
             "family": family.rawValue,
-            "requiredKinds": requiredKinds.map(\.rawValue)
+            "requiredKinds": requiredKinds.map(\.rawValue),
+            "requiredActions": requiredActions.map(\.rawValue),
+            "requiredFocusTargets": requiredFocusTargets.map(\.rawValue)
         ]
     }
 }
@@ -206,6 +214,8 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var missingRequiredSurfaceKinds: [String]
     public var coveredFocusTargets: [String]
     public var missingRequiredFocusTargets: [String]
+    public var missingRequiredSurfaceActions: [String]
+    public var missingRequiredSurfaceFocusTargets: [String]
     public var missingRequiredCommandIDs: [String]
     public var duplicateContractIDs: [String]
     public var validationIssues: [String]
@@ -215,6 +225,8 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             && missingSurfaceFamilies.isEmpty
             && missingRequiredSurfaceKinds.isEmpty
             && missingRequiredFocusTargets.isEmpty
+            && missingRequiredSurfaceActions.isEmpty
+            && missingRequiredSurfaceFocusTargets.isEmpty
             && missingRequiredCommandIDs.isEmpty
             && duplicateContractIDs.isEmpty
             && validationIssues.isEmpty
@@ -234,6 +246,8 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "missingRequiredSurfaceKinds": missingRequiredSurfaceKinds,
             "coveredFocusTargets": coveredFocusTargets,
             "missingRequiredFocusTargets": missingRequiredFocusTargets,
+            "missingRequiredSurfaceActions": missingRequiredSurfaceActions,
+            "missingRequiredSurfaceFocusTargets": missingRequiredSurfaceFocusTargets,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
             "duplicateContractIDs": duplicateContractIDs,
             "validationIssues": validationIssues
@@ -259,27 +273,27 @@ public enum QuillCodeNativeHitTargetAudit {
     public static let requiredSurfaceFamilies = QuillCodeInteractionSurfaceFamily.allCases
     public static let requiredFocusTargets = QuillCodeNativeFocusTarget.allCases
     public static let requiredSurfacePolicies: [QuillCodeNativeSurfaceTargetPolicy] = [
-        policy(.designSystem, kinds: QuillCodeNativeHitTargetKind.allCases),
-        policy(.workspaceChrome, kinds: [.fullRow]),
-        policy(.sidebar, kinds: [.fullRow]),
-        policy(.sidebarThreadList, kinds: [.fullRow, .icon]),
-        policy(.topBar, kinds: [.icon, .fullRow]),
-        policy(.composer, kinds: [.textEntry, .icon, .capsule]),
-        policy(.transcript, kinds: [.icon, .link]),
-        policy(.toolCard, kinds: [.fullRow, .textButton]),
-        policy(.contextBanner, kinds: [.textButton]),
-        policy(.commandPalette, kinds: [.textEntry, .fullRow]),
-        policy(.search, kinds: [.textEntry, .fullRow]),
-        policy(.settings, kinds: [.textEntry, .formAction]),
-        policy(.modelPicker, kinds: [.textEntry, .fullRow, .icon]),
-        policy(.review, kinds: [.textEntry, .segmentedControl, .fullRow, .formAction]),
-        policy(.secondaryPane, kinds: [.capsule]),
-        policy(.terminal, kinds: [.textEntry, .textButton]),
-        policy(.browser, kinds: [.textEntry, .textButton, .icon]),
-        policy(.extensions, kinds: [.formAction, .capsule]),
-        policy(.memories, kinds: [.formAction, .icon]),
-        policy(.automations, kinds: [.formAction]),
-        policy(.menuBar, kinds: [.fullRow])
+        policy(.designSystem, kinds: QuillCodeNativeHitTargetKind.allCases, actions: QuillCodeNativeHitTargetAction.allCases),
+        policy(.workspaceChrome, kinds: [.fullRow], actions: [.press]),
+        policy(.sidebar, kinds: [.fullRow], actions: [.press]),
+        policy(.sidebarThreadList, kinds: [.fullRow, .icon], actions: [.press]),
+        policy(.topBar, kinds: [.icon, .fullRow], actions: [.press]),
+        policy(.composer, kinds: [.textEntry, .icon, .capsule], actions: [.textInput, .press], focusTargets: [.composerMessage]),
+        policy(.transcript, kinds: [.icon, .link], actions: [.press, .link]),
+        policy(.toolCard, kinds: [.fullRow, .textButton], actions: [.press]),
+        policy(.contextBanner, kinds: [.textButton], actions: [.press]),
+        policy(.commandPalette, kinds: [.textEntry, .fullRow], actions: [.textInput, .press], focusTargets: [.commandPaletteSearch]),
+        policy(.search, kinds: [.textEntry, .fullRow], actions: [.textInput, .press], focusTargets: [.searchChats]),
+        policy(.settings, kinds: [.textEntry, .formAction], actions: [.textInput, .press], focusTargets: [.settingsTrustedRouterBaseURL]),
+        policy(.modelPicker, kinds: [.textEntry, .fullRow, .icon], actions: [.textInput, .press], focusTargets: [.modelPickerSearch]),
+        policy(.review, kinds: [.textEntry, .segmentedControl, .fullRow, .formAction], actions: [.textInput, .press], focusTargets: [.reviewBody, .reviewThreadReply]),
+        policy(.secondaryPane, kinds: [.capsule], actions: [.press]),
+        policy(.terminal, kinds: [.textEntry, .textButton], actions: [.textInput, .press], focusTargets: [.terminalCommand]),
+        policy(.browser, kinds: [.textEntry, .textButton, .icon], actions: [.textInput, .press], focusTargets: [.browserAddress, .browserComment]),
+        policy(.extensions, kinds: [.formAction, .capsule], actions: [.press]),
+        policy(.memories, kinds: [.formAction, .icon], actions: [.press]),
+        policy(.automations, kinds: [.formAction], actions: [.press]),
+        policy(.menuBar, kinds: [.fullRow], actions: [.press])
     ]
 
     public static var designSystemContracts: [QuillCodeNativeHitTargetContract] {
@@ -317,11 +331,19 @@ public enum QuillCodeNativeHitTargetAudit {
             policies: requiredSurfacePolicies,
             contracts: allContracts
         )
+        let missingSurfaceActions = missingRequiredSurfaceActions(
+            policies: requiredSurfacePolicies,
+            contracts: allContracts
+        )
         let coveredFocusTargets = Set(surfaceContracts.compactMap(\.focusTarget))
         let missingFocusTargets = requiredFocusTargets
             .filter { !coveredFocusTargets.contains($0) }
             .map(\.rawValue)
             .sorted()
+        let missingSurfaceFocusTargets = missingRequiredSurfaceFocusTargets(
+            policies: requiredSurfacePolicies,
+            contracts: allContracts
+        )
         let duplicateContractIDs = duplicateIDs(in: allContracts.map(\.id))
         let validationIssues = allContracts.flatMap(\.validationIssues)
 
@@ -337,6 +359,8 @@ public enum QuillCodeNativeHitTargetAudit {
             missingRequiredSurfaceKinds: missingSurfaceKinds,
             coveredFocusTargets: coveredFocusTargets.map(\.rawValue).sorted(),
             missingRequiredFocusTargets: missingFocusTargets,
+            missingRequiredSurfaceActions: missingSurfaceActions,
+            missingRequiredSurfaceFocusTargets: missingSurfaceFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
             duplicateContractIDs: duplicateContractIDs,
             validationIssues: validationIssues
@@ -345,9 +369,16 @@ public enum QuillCodeNativeHitTargetAudit {
 
     private static func policy(
         _ family: QuillCodeInteractionSurfaceFamily,
-        kinds: [QuillCodeNativeHitTargetKind]
+        kinds: [QuillCodeNativeHitTargetKind],
+        actions: [QuillCodeNativeHitTargetAction] = [],
+        focusTargets: [QuillCodeNativeFocusTarget] = []
     ) -> QuillCodeNativeSurfaceTargetPolicy {
-        QuillCodeNativeSurfaceTargetPolicy(family: family, requiredKinds: kinds)
+        QuillCodeNativeSurfaceTargetPolicy(
+            family: family,
+            requiredKinds: kinds,
+            requiredActions: actions,
+            requiredFocusTargets: focusTargets
+        )
     }
 
     private static func missingRequiredSurfaceKinds(
@@ -359,6 +390,34 @@ public enum QuillCodeNativeHitTargetAudit {
             let coveredKinds = Set(contractsByFamily[policy.family, default: []].map(\.kind))
             return policy.requiredKinds.compactMap { kind in
                 coveredKinds.contains(kind) ? nil : "\(policy.family.rawValue):\(kind.rawValue)"
+            }
+        }
+        .sorted()
+    }
+
+    private static func missingRequiredSurfaceActions(
+        policies: [QuillCodeNativeSurfaceTargetPolicy],
+        contracts: [QuillCodeNativeHitTargetContract]
+    ) -> [String] {
+        let contractsByFamily = Dictionary(grouping: contracts, by: \.family)
+        return policies.flatMap { policy in
+            let coveredActions = Set(contractsByFamily[policy.family, default: []].map(\.action))
+            return policy.requiredActions.compactMap { action in
+                coveredActions.contains(action) ? nil : "\(policy.family.rawValue):\(action.rawValue)"
+            }
+        }
+        .sorted()
+    }
+
+    private static func missingRequiredSurfaceFocusTargets(
+        policies: [QuillCodeNativeSurfaceTargetPolicy],
+        contracts: [QuillCodeNativeHitTargetContract]
+    ) -> [String] {
+        let contractsByFamily = Dictionary(grouping: contracts, by: \.family)
+        return policies.flatMap { policy in
+            let coveredFocusTargets = Set(contractsByFamily[policy.family, default: []].compactMap(\.focusTarget))
+            return policy.requiredFocusTargets.compactMap { focusTarget in
+                coveredFocusTargets.contains(focusTarget) ? nil : "\(policy.family.rawValue):\(focusTarget.rawValue)"
             }
         }
         .sorted()
