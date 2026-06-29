@@ -45,7 +45,7 @@ struct QuillCodeCommandPaletteView: View {
                 onClose: onClose
             )
 
-            HStack(spacing: 10) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 TextField("Search commands, > actions, / slash", text: $localQuery)
                     .textFieldStyle(.roundedBorder)
                     .focused($isSearchFocused)
@@ -196,7 +196,7 @@ private struct QuillCodeCommandRow: View {
         Button {
             onSelect(command)
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Image(systemName: QuillCodeCommandIconCatalog.systemImage(for: command.id))
                     .foregroundStyle(command.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
                     .frame(width: 22)

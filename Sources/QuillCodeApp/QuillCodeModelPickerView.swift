@@ -35,7 +35,7 @@ struct QuillCodeModelPickerView: View {
         Button {
             isPresented.toggle()
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 Image(systemName: "diamond")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
@@ -146,7 +146,7 @@ struct QuillCodeModelPickerView: View {
     }
 
     private var resultSummary: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Text(resultSummaryText)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(QuillCodePalette.muted)

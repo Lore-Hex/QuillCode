@@ -37,7 +37,7 @@ struct QuillCodeToolCardView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.muted)
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                             ForEach(Array(card.artifacts.enumerated()), id: \.offset) { _, artifact in
                                 QuillCodeArtifactChip(artifact: artifact)
                             }
@@ -62,7 +62,7 @@ struct QuillCodeToolCardView: View {
                     Text("Document previews")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.muted)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: QuillCodeMetrics.controlClusterSpacing)], spacing: QuillCodeMetrics.controlClusterSpacing) {
                         ForEach(card.documentPreviewArtifacts) { artifact in
                             QuillCodeArtifactDocumentPreview(artifact: artifact)
                         }
@@ -74,7 +74,7 @@ struct QuillCodeToolCardView: View {
                     Text("Previews")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.muted)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: QuillCodeMetrics.controlClusterSpacing)], spacing: QuillCodeMetrics.controlClusterSpacing) {
                         ForEach(card.imagePreviewArtifacts) { artifact in
                             QuillCodeArtifactImagePreview(artifact: artifact)
                         }
@@ -97,7 +97,7 @@ struct QuillCodeToolCardView: View {
                     }
                     .padding(.top, 4)
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                         Text(detailsToggleLabel)
                         if !isDetailsOpen, card.status == .done {
                             Text("Raw tool data")
@@ -137,7 +137,7 @@ struct QuillCodeToolCardView: View {
     }
 
     private var toolHeader: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: iconName)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(statusColor)
@@ -146,7 +146,7 @@ struct QuillCodeToolCardView: View {
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
+                HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                     Text(card.title)
                         .font(.headline)
                         .lineLimit(1)

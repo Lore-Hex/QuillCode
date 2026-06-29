@@ -19,7 +19,7 @@ struct QuillCodeReviewHunkView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Text(hunk.header)
                 .font(.caption.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)
@@ -49,7 +49,7 @@ struct QuillCodeReviewHunkView: View {
     @ViewBuilder
     private var rangeComposer: some View {
         if isAddingRangeComment {
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 TextField("From", text: $rangeStartDraft)
                     .textFieldStyle(.plain)
                     .font(.caption.monospacedDigit())

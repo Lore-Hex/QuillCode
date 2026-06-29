@@ -207,7 +207,7 @@ struct QuillCodeTranscriptView: View {
     }
 
     private var starterActions: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 156), spacing: 10)], spacing: 10) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 156), spacing: QuillCodeMetrics.controlClusterSpacing)], spacing: QuillCodeMetrics.controlClusterSpacing) {
             ForEach(transcript.emptyStarterActions) { action in
                 Button {
                     onUseMessageAsDraft(action.prompt)
@@ -303,7 +303,7 @@ private struct QuillCodeThinkingView: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
+                HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                     Text(thinking.title)
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.text)
@@ -318,7 +318,7 @@ private struct QuillCodeThinkingView: View {
                             isTraceExpanded.toggle()
                         }
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                             Image(systemName: isTraceExpanded ? "chevron.down" : "chevron.right")
                                 .font(.caption2.weight(.bold))
                             Text(thinking.traceTitle)

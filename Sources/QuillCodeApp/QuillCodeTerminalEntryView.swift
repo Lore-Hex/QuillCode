@@ -7,7 +7,7 @@ struct QuillCodeTerminalEntryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                HStack(spacing: 8) {
+                HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                     Text("$ \(entry.command)")
                         .font(.caption.monospaced().weight(.semibold))
                         .foregroundStyle(QuillCodePalette.text)

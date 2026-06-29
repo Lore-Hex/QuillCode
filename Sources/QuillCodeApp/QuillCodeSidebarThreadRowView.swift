@@ -8,7 +8,7 @@ struct QuillCodeSidebarThreadRowView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             selectionToggle
             threadButton
             actionsMenu

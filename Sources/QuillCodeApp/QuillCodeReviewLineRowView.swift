@@ -16,7 +16,7 @@ struct QuillCodeReviewLineRowView: View {
     }
 
     private var lineContent: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: QuillCodeMetrics.controlClusterSpacing) {
             Text(line.lineLabel)
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(QuillCodePalette.muted)
@@ -76,7 +76,7 @@ struct QuillCodeReviewLineRowView: View {
     @ViewBuilder
     private var lineComposer: some View {
         if isAddingComment {
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 TextField("Line note", text: $commentDraft)
                     .textFieldStyle(.plain)
                     .font(.caption)

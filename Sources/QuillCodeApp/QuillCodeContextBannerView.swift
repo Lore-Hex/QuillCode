@@ -5,7 +5,7 @@ struct QuillCodeContextBannerView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "text.bubble.badge.exclamationmark")
                 .font(.title3)
                 .foregroundStyle(QuillCodePalette.yellow)
@@ -14,7 +14,7 @@ struct QuillCodeContextBannerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: QuillCodeMetrics.controlClusterSpacing) {
                     Text(banner.title)
                         .font(.headline)
                     Text("\(banner.usedPercent)%")
@@ -55,7 +55,7 @@ struct QuillCodeContextBannerView: View {
     }
 
     private var actionButtonRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             contextButton(for: banner.compactCommand, isPrimary: true, minWidth: 120)
             contextButton(for: banner.newThreadCommand, minWidth: 112)
             ForEach(banner.forkCommands, id: \.id) { command in

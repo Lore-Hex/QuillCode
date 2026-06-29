@@ -25,7 +25,7 @@ struct QuillCodeMessageBubble: View {
                     .background(background)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .accessibilityLabel(message.accessibilityLabel)
-                HStack(spacing: 6) {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                     QuillCodeTranscriptCopyButton(
                         label: "Copy",
                         copiedLabel: "Copied",

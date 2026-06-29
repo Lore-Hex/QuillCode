@@ -67,7 +67,7 @@ struct QuillCodeWorktreePruneRecordRow: View {
     var record: String
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "exclamationmark.triangle")
                 .foregroundStyle(QuillCodePalette.yellow)
                 .accessibilityHidden(true)
@@ -99,7 +99,7 @@ struct QuillCodeWorktreeChoiceStatusRow: View {
     var action: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             if showsSpinner {
                 ProgressView()
                     .controlSize(.small)
@@ -145,7 +145,7 @@ struct QuillCodeWorktreeChoiceRow: View {
         Button {
             onSelect(choice)
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Image(systemName: iconName)
                     .foregroundStyle(iconColor)
                     .accessibilityHidden(true)

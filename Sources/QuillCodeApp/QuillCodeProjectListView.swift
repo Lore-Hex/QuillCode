@@ -79,12 +79,12 @@ private struct QuillCodeProjectRowView: View {
     var onProjectAction: (ProjectItemActionSurface) -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Button {
                 onSelectProject(project.id)
             } label: {
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                         Text(project.name)
                             .font(.callout.weight(.semibold))
                             .lineLimit(1)

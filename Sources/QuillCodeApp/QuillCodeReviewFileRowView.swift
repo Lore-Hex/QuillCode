@@ -18,7 +18,7 @@ struct QuillCodeReviewFileRowView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: file.isBinary ? "photo" : "doc.plaintext")
                 .foregroundStyle(QuillCodePalette.muted)
                 .frame(width: 20)
@@ -64,7 +64,7 @@ struct QuillCodeReviewFileRowView: View {
     }
 
     private var noteComposer: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             TextField("Add review note", text: $commentDraft)
                 .textFieldStyle(.plain)
                 .font(.caption)

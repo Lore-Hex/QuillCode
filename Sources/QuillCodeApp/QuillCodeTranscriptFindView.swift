@@ -80,7 +80,7 @@ struct QuillCodeTranscriptFindBar: View {
     }
 
     private var horizontalLayout: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             searchIcon
             queryField
             statusLabel
@@ -91,7 +91,7 @@ struct QuillCodeTranscriptFindBar: View {
 
     private var compactLayout: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 searchIcon
                 queryField
             }

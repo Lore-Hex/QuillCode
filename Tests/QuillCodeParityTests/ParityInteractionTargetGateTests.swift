@@ -1240,13 +1240,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
-    func testNativeSourceAuditRejectsTightNumericControlClusters() throws {
+    func testNativeSourceAuditRejectsRawNumericControlClusterSpacing() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
 
-        struct TightClusterChrome: View {
+        struct RawNumericClusterChrome: View {
             var body: some View {
-                HStack(spacing: 4) {
+                HStack(spacing: 12) {
                     Button("Run") {}
                         .quillCodeFormActionTarget()
                         .buttonStyle(QuillCodeActionButtonStyle(.primary))
@@ -1255,7 +1255,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                         .buttonStyle(QuillCodeActionButtonStyle())
                 }
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 5)], spacing: 5) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
                     Button("Read") {}
                         .quillCodeCapsuleButtonTarget(minWidth: 96)
                         .buttonStyle(QuillCodeActionButtonStyle())
@@ -1268,9 +1268,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             .violations(in: [file])
 
         XCTAssertEqual(
-            violations.filter { $0.contains("interactive control cluster spacing should use QuillCodeMetrics.controlClusterSpacing or denseControlClusterSpacing") }.count,
+            violations.filter { $0.contains("interactive control cluster spacing should use a named QuillCodeMetrics spacing token") }.count,
             2,
-            "Dense button groups should use named spacing metrics so future visual changes cannot silently shrink the collision budget."
+            "Button groups should use named spacing metrics so future visual changes cannot silently change the collision budget."
         )
     }
 
@@ -1594,10 +1594,10 @@ private struct SwiftSourceInteractionTargetAudit {
                 violations.append("\(relativePath):\(index + 1) compact platform button style should use QuillCodePressableButtonStyle or QuillCodeActionButtonStyle")
             }
 
-            if isTightNumericControlCluster(line),
+            if isRawNumericControlClusterSpacing(line),
                containsInteractiveControl(declarationScope),
                !isSharedDesignSystem(relativePath) {
-                violations.append("\(relativePath):\(index + 1) interactive control cluster spacing should use QuillCodeMetrics.controlClusterSpacing or denseControlClusterSpacing")
+                violations.append("\(relativePath):\(index + 1) interactive control cluster spacing should use a named QuillCodeMetrics spacing token")
             }
 
             if line.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
@@ -1994,13 +1994,13 @@ private struct SwiftSourceInteractionTargetAudit {
             || line.contains(".buttonStyle(.plain")
     }
 
-    private func isTightNumericControlCluster(_ line: String) -> Bool {
+    private func isRawNumericControlClusterSpacing(_ line: String) -> Bool {
         line.range(
-            of: #"(HStack|LazyHGrid|LazyVGrid)\([^\n]*spacing:\s*[0-5](?=[,\)\]])"#,
+            of: #"(HStack|LazyHGrid|LazyVGrid)\([^\n]*spacing:\s*[0-9]+(?:\.[0-9]+)?(?=[,\)\]])"#,
             options: .regularExpression
         ) != nil
             || line.range(
-                of: #"GridItem\([^\n]*spacing:\s*[0-5](?=[,\)\]])"#,
+                of: #"GridItem\([^\n]*spacing:\s*[0-9]+(?:\.[0-9]+)?(?=[,\)\]])"#,
                 options: .regularExpression
             ) != nil
     }

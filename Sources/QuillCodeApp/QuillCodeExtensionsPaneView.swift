@@ -24,7 +24,7 @@ struct QuillCodeExtensionsPaneView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "puzzlepiece.extension")
                 .foregroundStyle(QuillCodePalette.blue)
             VStack(alignment: .leading, spacing: 2) {
@@ -35,7 +35,7 @@ struct QuillCodeExtensionsPaneView: View {
                     .foregroundStyle(QuillCodePalette.muted)
             }
             Spacer()
-            HStack(spacing: 6) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 QuillCodePaneCountPill(label: "Plugins", count: extensions.pluginCount)
                 QuillCodePaneCountPill(label: "Skills", count: extensions.skillCount)
                 QuillCodePaneCountPill(label: "MCP", count: extensions.mcpServerCount)
@@ -48,7 +48,7 @@ struct QuillCodeExtensionsPaneView: View {
 
     private var extensionCards: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 10) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 ForEach(extensions.items) { item in
                     extensionCard(item)
                 }
@@ -58,7 +58,7 @@ struct QuillCodeExtensionsPaneView: View {
 
     private func extensionCard(_ item: ProjectExtensionManifestSurface) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 6) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 Text(item.kindLabel)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(QuillCodePalette.muted)
@@ -126,7 +126,7 @@ struct QuillCodeExtensionsPaneView: View {
                     probeReferenceActions(for: item)
                 }
             }
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 if let transportLabel = item.transportLabel {
                     Text(transportLabel)
                         .font(.caption2.monospaced().weight(.semibold))

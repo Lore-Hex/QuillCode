@@ -46,11 +46,11 @@ struct QuillCodeModelRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 10) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Button {
                     onSelect(option)
                 } label: {
-                    HStack(spacing: 10) {
+                    HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                         modelSummary
                         Spacer(minLength: 10)
                         if option.isSelected {

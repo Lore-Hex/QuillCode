@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Interactive Cluster Click-Target Pass
+
+Overall grade after this slice: **A click-target source contracts, A rendered overlap coverage, A- native visual ergonomics**.
+
+The click-target architecture already enforced 44 pt controls, semantic target helpers, rendered overlap checks, and packaged Accessibility evidence. The remaining weakness was that adjacent native controls could still use arbitrary numeric cluster spacing, making the collision budget a local visual decision instead of a design-system contract.
+
+| Before | After |
+| --- | --- |
+| Source audit rejected only very tight numeric clusters such as `spacing: 4` or `spacing: 5`. | Source audit now rejects any raw numeric spacing on SwiftUI clusters that contain interactive controls. |
+| Many native action rows used one-off numeric spacing even when the value matched the intended design token. | Browser, terminal, review, sidebar, context, memory, automation, model picker, and dialog action clusters now use `QuillCodeMetrics.controlClusterSpacing` or `denseControlClusterSpacing`. |
+| Passive spacing and interactive spacing were not clearly separated in the policy. | Docs now distinguish passive typography/layout spacing from click-target cluster spacing. |
+
+Residual risk:
+
+- This source gate prevents ambiguous native control clusters before render. Fully automated packaged click synthesis still remains the deeper A+ layer on top of current Accessibility frame and hit-test evidence.
+
 ## 2026-06-29 Structured Workspace Search Pass
 
 Overall grade after this slice: **A- source-navigation utility, A bounded execution, B+ semantic search breadth**.
