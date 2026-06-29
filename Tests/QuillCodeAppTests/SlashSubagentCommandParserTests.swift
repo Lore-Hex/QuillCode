@@ -75,6 +75,41 @@ final class SlashSubagentCommandParserTests: XCTestCase {
         )
     }
 
+    func testSubagentCommandParsesLeadingConcurrencyToken() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/subagents x2 ship release | Builder: compile | Linter: lint"),
+            .subagents(.init(
+                objective: "ship release",
+                workers: [
+                    .init(name: "Builder", role: "compile"),
+                    .init(name: "Linter", role: "lint")
+                ],
+                maxConcurrentWorkers: 2
+            ))
+        )
+    }
+
+    func testSubagentCommandClampsConcurrencyTokenToWorkerLimit() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/subagents X9 audit | Sec: inspect"),
+            .subagents(.init(
+                objective: "audit",
+                workers: [.init(name: "Sec", role: "inspect")],
+                maxConcurrentWorkers: 6
+            ))
+        )
+    }
+
+    func testSubagentCommandIgnoresConcurrencyTokenForOrdinaryObjectives() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/subagents xerox audit | Sec: inspect"),
+            .subagents(.init(
+                objective: "xerox audit",
+                workers: [.init(name: "Sec", role: "inspect")]
+            ))
+        )
+    }
+
     func testSubagentCommandRejectsMissingWorkers() {
         XCTAssertEqual(
             SlashCommandParser.parse("/subagents validate release"),
