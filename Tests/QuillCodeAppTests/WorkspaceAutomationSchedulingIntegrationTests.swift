@@ -60,6 +60,39 @@ final class WorkspaceAutomationSchedulingIntegrationTests: XCTestCase {
         XCTAssertEqual(saved.map(\.threadID), [thread.id, thread.id])
     }
 
+    func testNaturalLanguageScheduledThreadFollowUpsAcceptCalendarPhrases() throws {
+        let thread = ChatThread(title: "Launch plan")
+        let workspace = try makeAutomationWorkspace(rootState: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        let now = try XCTUnwrap(makeUTCDate(day: 5, hour: 10, minute: 0))
+        let calendar = makeUTCCalendar()
+
+        let today = try XCTUnwrap(workspace.model.createThreadFollowUpAutomation(
+            matching: "today at 4:15 PM",
+            now: now,
+            calendar: calendar
+        ))
+        let tonight = try XCTUnwrap(workspace.model.createThreadFollowUpAutomation(
+            matching: "tonight at 8",
+            now: now,
+            calendar: calendar
+        ))
+        let nextMonday = try XCTUnwrap(workspace.model.createThreadFollowUpAutomation(
+            matching: "next monday at 9",
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(today.scheduleDescription, "Today at 4:15 PM")
+        XCTAssertEqual(today.nextRunAt, makeUTCDate(day: 5, hour: 16, minute: 15))
+        XCTAssertEqual(tonight.scheduleDescription, "Tonight at 8:00 PM")
+        XCTAssertEqual(tonight.nextRunAt, makeUTCDate(day: 5, hour: 20, minute: 0))
+        XCTAssertEqual(nextMonday.scheduleDescription, "Next Monday at 9:00 AM")
+        XCTAssertEqual(nextMonday.nextRunAt, makeUTCDate(day: 12, hour: 9, minute: 0))
+    }
+
     func testScheduledWorkspaceChecksPersistConcreteRunTimes() throws {
         let workspace = try makeProjectAutomationWorkspace()
         let project = try XCTUnwrap(workspace.model.selectedProject)
@@ -111,6 +144,40 @@ final class WorkspaceAutomationSchedulingIntegrationTests: XCTestCase {
         XCTAssertEqual(saved.map(\.kind), [.workspaceSchedule, .workspaceSchedule])
         XCTAssertEqual(saved.map(\.scheduleDescription), ["In 2 hours", "Tomorrow at 8:15 AM"])
         XCTAssertEqual(saved.map(\.projectID), [project.id, project.id])
+    }
+
+    func testNaturalLanguageScheduledWorkspaceChecksAcceptWeekdayAndClockPhrases() throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        let project = try XCTUnwrap(workspace.model.selectedProject)
+        let now = try XCTUnwrap(makeUTCDate(day: 1, hour: 10, minute: 0))
+        let calendar = makeUTCCalendar()
+
+        let friday = try XCTUnwrap(workspace.model.createWorkspaceScheduleAutomation(
+            matching: "friday afternoon",
+            now: now,
+            calendar: calendar
+        ))
+        let bareClock = try XCTUnwrap(workspace.model.createWorkspaceScheduleAutomation(
+            matching: "at 8:30 AM",
+            now: now,
+            calendar: calendar
+        ))
+        let noon = try XCTUnwrap(workspace.model.createWorkspaceScheduleAutomation(
+            matching: "next monday at noon",
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(friday.scheduleDescription, "Friday at 1:00 PM")
+        XCTAssertEqual(friday.nextRunAt, makeUTCDate(day: 2, hour: 13, minute: 0))
+        XCTAssertEqual(bareClock.scheduleDescription, "Tomorrow at 8:30 AM")
+        XCTAssertEqual(bareClock.nextRunAt, makeUTCDate(day: 2, hour: 8, minute: 30))
+        XCTAssertEqual(noon.scheduleDescription, "Next Monday at 12:00 PM")
+        XCTAssertEqual(noon.nextRunAt, makeUTCDate(day: 5, hour: 12, minute: 0))
+
+        let saved = try workspace.automationStore.load()
+        XCTAssertEqual(saved.map(\.kind), [.workspaceSchedule, .workspaceSchedule, .workspaceSchedule])
+        XCTAssertEqual(saved.map(\.projectID), [project.id, project.id, project.id])
     }
 
     func testNaturalLanguageRecurringWorkspaceChecksPersistRecurrence() throws {
@@ -185,5 +252,22 @@ final class WorkspaceAutomationSchedulingIntegrationTests: XCTestCase {
         XCTAssertNotNil(saved.nextRunAt)
         XCTAssertEqual(workspace.model.selectedThread?.messages.last?.content, "Scheduled a workspace check for Every day.")
         XCTAssertEqual(workspace.model.surface().automations.statusLabel, "1 active")
+    }
+
+    func testSlashFollowUpAcceptsWeekdayCalendarPhrase() async throws {
+        let thread = ChatThread(title: "Launch plan")
+        let workspace = try makeAutomationWorkspace(rootState: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        workspace.model.setDraft("/follow-up friday afternoon")
+        await workspace.model.submitComposer(workspaceRoot: workspace.root)
+
+        let saved = try XCTUnwrap(try workspace.automationStore.load().first)
+        XCTAssertEqual(saved.title, "Follow up: Launch plan")
+        XCTAssertEqual(saved.scheduleDescription, "Friday at 1:00 PM")
+        XCTAssertNotNil(saved.nextRunAt)
+        XCTAssertEqual(workspace.model.selectedThread?.messages.last?.content, "Scheduled a thread follow-up for Friday at 1:00 PM.")
     }
 }

@@ -27,11 +27,11 @@ final class SlashSchedulingCommandParserTests: XCTestCase {
     func testEmptySchedulingArgumentsReturnUsageMessages() {
         XCTAssertEqual(
             SlashSchedulingCommandParser.parseThreadFollowUp(" "),
-            .invalid("Usage: /follow-up in 30 minutes, /follow-up tomorrow at 9 AM, or /follow-up daily")
+            .invalid("Usage: /follow-up in 30 minutes, /follow-up Friday at 4 PM, or /follow-up daily")
         )
         XCTAssertEqual(
             SlashSchedulingCommandParser.parseWorkspaceSchedule("\n\t"),
-            .invalid("Usage: /workspace-check in 1 hour, /workspace-check tomorrow at 9 AM, or /workspace-check every 2 hours")
+            .invalid("Usage: /workspace-check in 1 hour, /workspace-check Friday morning, or /workspace-check every 2 hours")
         )
     }
 

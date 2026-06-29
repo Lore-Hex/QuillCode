@@ -766,6 +766,93 @@ test('secondary pane controls respond from the full interior click target', asyn
   await expect(page.getByTestId('message').first()).toContainText('Run the scheduled workspace check for QuillCode.');
 });
 
+test('sidebar and project controls activate from near-edge target points', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await clickTargetInteriorPoint(page.getByTestId('new-chat-button'), 'new chat trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-search-button'), 'sidebar search leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await page.getByTestId('search-close').click();
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+
+  await page.evaluate(() => {
+    const harness = window as unknown as {
+      addSidebarSavedSearch: (title: string, query: string, id: string) => string | null;
+    };
+    harness.addSidebarSavedSearch('Shell work', 'whoami', 'saved-shell-work');
+    harness.addSidebarSavedSearch('Run work', 'run', 'saved-run-work');
+  });
+  await expect(page.getByTestId('sidebar-saved-search')).toHaveCount(2);
+
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-filter').filter({ hasText: 'Pinned' }), 'sidebar pinned filter trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('sidebar-filter').filter({ hasText: 'Pinned' })).toHaveAttribute('aria-pressed', 'true');
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-filter').filter({ hasText: 'All' }), 'sidebar all filter leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('sidebar-filter').filter({ hasText: 'All' })).toHaveAttribute('aria-pressed', 'true');
+
+  const firstSavedSearchTitle = await page.getByTestId('sidebar-saved-search').first().textContent();
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-saved-search').first(), 'saved search trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('sidebar-saved-search').first()).toHaveAttribute('aria-pressed', 'true');
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-saved-search-move-down').first(), 'saved search move down leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('sidebar-saved-search').nth(1)).toContainText(firstSavedSearchTitle?.replace(/\d+/g, '').trim() || 'Shell work');
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-saved-search-delete').first(), 'saved search delete trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('sidebar-saved-search')).toHaveCount(1);
+
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-item').first(), 'sidebar item trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('sidebar-item').first()).toHaveAttribute('aria-current', 'true');
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-item-actions').first().locator('summary'), 'sidebar thread menu leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('sidebar-item-actions').first()).toHaveAttribute('open', '');
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-thread-action').filter({ hasText: 'Duplicate' }), 'sidebar duplicate action trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('top-bar-title')).toContainText('Copy:');
+
+  await clickTargetInteriorPoint(page.getByTestId('project-item').first(), 'project row trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('project-item').first()).toHaveAttribute('aria-current', 'true');
+  await clickTargetInteriorPoint(page.getByTestId('project-item-actions').first().locator('summary'), 'project menu leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('project-item-actions').first()).toHaveAttribute('open', '');
+  await clickTargetInteriorPoint(page.getByTestId('project-action').filter({ hasText: 'Refresh context' }), 'project refresh action trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('message').last()).toContainText('Refreshed project context');
+});
+
+test('transcript, recovery, and suggestion controls activate from near-edge target points', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await clickTargetInteriorPoint(page.getByTestId('empty-starter-action').first(), 'empty starter trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('message').first()).toContainText('Review the current git diff');
+
+  await page.getByLabel('Message').fill('/git');
+  await expect(page.getByTestId('slash-suggestions')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('slash-suggestion').first(), 'slash suggestion leading edge', 0.08, 0.5);
+  await expect(page.getByLabel('Message')).toHaveValue(/^\/[a-z-]+/);
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+
+  const whoamiAnswer = page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' });
+  await expect(whoamiAnswer).toBeVisible();
+  await clickTargetInteriorPoint(whoamiAnswer.getByTestId('message-feedback-up'), 'assistant feedback leading edge', 0.08, 0.5);
+  await expect(whoamiAnswer.getByTestId('message-feedback-up')).toHaveAttribute('data-selected', 'true');
+  await clickTargetInteriorPoint(page.getByTestId('message-use-as-draft').last(), 'user use-as-draft trailing edge', 0.92, 0.5);
+  await expect(page.getByLabel('Message')).toHaveValue('run whoami');
+  await clickTargetInteriorPoint(page.getByTestId('message-retry').last(), 'assistant retry trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+
+  await page.getByLabel('Message').fill('long context ' + 'word '.repeat(22000));
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('context-banner')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('context-new-thread'), 'context new-thread trailing edge', 0.92, 0.5);
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+
+  await page.getByLabel('Message').fill('trigger network failure');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('runtime-issue-action')).toHaveText('Retry');
+  await clickTargetInteriorPoint(page.getByTestId('runtime-issue-action'), 'runtime retry leading edge', 0.08, 0.5);
+  await expect(page.getByTestId('runtime-issue')).not.toBeVisible();
+});
+
 test('critical text entry targets focus and type from interior edges', async ({ page }) => {
   await page.goto(harnessURL());
 

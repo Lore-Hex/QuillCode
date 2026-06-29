@@ -104,7 +104,9 @@ final class ParityAutomationGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(automationSpecText.contains("harnessURL()"), "Focused automation flows should reuse the shared harness URL helper.")
         XCTAssertTrue(automationSpecText.contains("automations-button"), "Focused automation flows should cover the sidebar Automations entry point.")
         XCTAssertTrue(automationSpecText.contains("/follow-up tomorrow at 9:30 PM"), "Focused automation flows should cover slash-created thread follow-ups.")
+        XCTAssertTrue(automationSpecText.contains("/follow-up friday afternoon"), "Focused automation flows should cover weekday thread follow-up phrases.")
         XCTAssertTrue(automationSpecText.contains("/workspace-check every 2 hours"), "Focused automation flows should cover recurring workspace schedule slash input.")
+        XCTAssertTrue(automationSpecText.contains("/workspace-check next monday at noon"), "Focused automation flows should cover weekday workspace-check phrases.")
         XCTAssertTrue(automationSpecText.contains("__quillCodeTestCreateMonitorAutomation"), "Focused automation flows should cover configured monitor execution without adding fake monitor setup UI.")
         for flowName in automationFlowNames {
             XCTAssertTrue(automationSpecText.contains(flowName), "\(flowName) should live in automations.spec.ts.")

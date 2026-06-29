@@ -166,6 +166,23 @@ test('mock harness schedules a thread follow-up from slash text', async ({ page 
   await expect(page.getByText('Scheduled a thread follow-up for Tomorrow at 9:30 PM.')).toBeVisible();
 });
 
+test('mock harness schedules a thread follow-up from weekday slash text', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('review the launch notes');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await page.getByLabel('Message').fill('/follow-up friday afternoon');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toContainText('Follow up: review the launch notes');
+  await expect(page.getByTestId('automation-card')).toContainText('Friday at 1:00 PM');
+  await expect(page.getByText('Scheduled a thread follow-up for Friday at 1:00 PM.')).toBeVisible();
+});
+
 test('mock harness schedules a workspace check from slash text', async ({ page }) => {
   await page.goto(harnessURL());
 
@@ -178,6 +195,19 @@ test('mock harness schedules a workspace check from slash text', async ({ page }
   await expect(page.getByTestId('automation-card')).toContainText('Workspace check: QuillCode');
   await expect(page.getByTestId('automation-card')).toContainText('Tomorrow at 8:15 AM');
   await expect(page.getByText('Scheduled a workspace check for Tomorrow at 8:15 AM.')).toBeVisible();
+});
+
+test('mock harness schedules a workspace check from next-weekday slash text', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/workspace-check next monday at noon');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toContainText('Workspace check: QuillCode');
+  await expect(page.getByTestId('automation-card')).toContainText('Next Monday at 12:00 PM');
+  await expect(page.getByText('Scheduled a workspace check for Next Monday at 12:00 PM.')).toBeVisible();
 });
 
 test('mock harness schedules a recurring workspace check from slash text', async ({ page }) => {
