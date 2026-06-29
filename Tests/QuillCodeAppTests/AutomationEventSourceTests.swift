@@ -37,6 +37,17 @@ final class AutomationEventSourceTests: XCTestCase {
         XCTAssertNotNil(source.pendingEvent(since: nil))
     }
 
+    func testFileChangeEventSourceCanUseDeterministicModificationProvider() {
+        let modifiedAt = Date(timeIntervalSince1970: 100)
+        let source = FileChangeEventSource(
+            path: URL(fileURLWithPath: "/watched/example.txt"),
+            modificationDate: { _ in modifiedAt }
+        )
+
+        XCTAssertEqual(source.pendingEvent(since: Date(timeIntervalSince1970: 99)), "example.txt changed")
+        XCTAssertNil(source.pendingEvent(since: modifiedAt))
+    }
+
     func testFileChangeEventSourceIsNilForMissingFile() {
         let source = FileChangeEventSource(
             path: URL(fileURLWithPath: "/nonexistent/automation-\(UUID().uuidString)")

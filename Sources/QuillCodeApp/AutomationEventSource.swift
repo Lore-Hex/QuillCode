@@ -12,28 +12,36 @@ public protocol AutomationEventSource: Sendable {
     func pendingEvent(since: Date?) -> String?
 }
 
+public typealias FileModificationDateProvider = @Sendable (URL) -> Date?
+
 /// Fires when a watched file appears or is modified after the last check. This
 /// is the first concrete `AutomationEventSource`; wiring it into the automation
 /// engine's monitor tick is a follow-up tracked in ROADMAP.md.
 public struct FileChangeEventSource: AutomationEventSource {
     public var path: URL
-    private let fileManager: FileManager
+    private let modificationDate: FileModificationDateProvider
 
-    public init(path: URL, fileManager: FileManager = .default) {
+    public init(
+        path: URL,
+        modificationDate: @escaping FileModificationDateProvider = Self.defaultModificationDate
+    ) {
         self.path = path
-        self.fileManager = fileManager
+        self.modificationDate = modificationDate
     }
 
     public func pendingEvent(since: Date?) -> String? {
-        guard
-            let attributes = try? fileManager.attributesOfItem(atPath: path.path),
-            let modified = attributes[.modificationDate] as? Date
-        else {
+        guard let modified = modificationDate(path) else {
             return nil
         }
         if let since, modified <= since {
             return nil
         }
         return "\(path.lastPathComponent) changed"
+    }
+
+    @usableFromInline
+    static func defaultModificationDate(for path: URL) -> Date? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: path.path)
+        return attributes?[.modificationDate] as? Date
     }
 }
