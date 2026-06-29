@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Click-Probe Validator DRY Pass
+
+Overall grade after this slice: **A click-probe architecture, A smoke maintainability, A- live Accessibility frame sampling**.
+
+The click-probe rules had become strong, but the implementation was split between inline shell-script Python blocks. That made future packaged Accessibility work more likely to drift.
+
+| Before | After |
+| --- | --- |
+| `scripts/native-desktop-smoke.sh` owned exact click-probe validation inline while `scripts/packaged-macos-smoke.sh` carried a second normalizer/comparator. | `scripts/native-click-probe-contracts.py` now owns probe loading, selector precedence, typed issue checks, exact normalized sample points, one-probe-per-contract coverage, and packaged direct-vs-Launch Services comparison. |
+| Updating the sample-point contract meant touching more than one smoke script and hoping the checks stayed identical. | Native smoke delegates `validate`, packaged smoke delegates `compare`, and parity gates assert the shared validator carries the coordinate map and launch-path drift diagnostics. |
+| The smoke wrappers mixed broad hit-target policy checks with low-level probe normalization. | The native wrapper still owns the broader surface/family/focus policy checks, while click-probe integrity has a single focused implementation that a future Accessibility frame sampler can reuse. |
+
+Residual risk:
+
+- This is still report-level validation. The final A+ native click layer remains a packaged macOS Accessibility runner that resolves selectors to live frames and clicks center plus interior edge samples.
+
 ## 2026-06-29 Native Click-Probe Validator Pass
 
 Overall grade after this slice: **A typed probe validation, A smoke diagnostics, A- packaged Accessibility execution**.

@@ -187,90 +187,6 @@ for contract in contracts:
         raise SystemExit(f"quill-code-desktop native smoke reported unaddressable native hit target: {contract}")
 
 surface_contracts = native_targets.get("surfaceContracts", [])
-click_probes = native_targets.get("clickProbes")
-if not isinstance(click_probes, list) or not click_probes:
-    raise SystemExit("quill-code-desktop native smoke did not include native click probes")
-
-contracts_by_id = {}
-for contract in surface_contracts:
-    if isinstance(contract, dict):
-        contract_id = contract.get("id")
-        if isinstance(contract_id, str) and contract_id:
-            contracts_by_id[contract_id] = contract
-
-probes_by_contract = {}
-expected_sample_points = {
-    "center": (0.5, 0.5),
-    "leading-interior": (0.18, 0.5),
-    "trailing-interior": (0.82, 0.5),
-    "top-interior": (0.5, 0.18),
-    "bottom-interior": (0.5, 0.82),
-}
-for probe in click_probes:
-    if not isinstance(probe, dict):
-        raise SystemExit(f"quill-code-desktop native smoke reported malformed native click probe: {probe}")
-    contract_id = probe.get("contractID")
-    if not isinstance(contract_id, str) or not contract_id.strip():
-        raise SystemExit(f"quill-code-desktop native smoke reported click probe without a contractID: {probe}")
-    if contract_id in probes_by_contract:
-        raise SystemExit(f"quill-code-desktop native smoke reported duplicate click probe for {contract_id}")
-    probes_by_contract[contract_id] = probe
-    contract = contracts_by_id.get(contract_id)
-    if not contract:
-        raise SystemExit(f"quill-code-desktop native smoke reported click probe for unknown contract {contract_id}")
-
-    selector_kind = probe.get("selectorKind")
-    selector = probe.get("selector")
-    if selector_kind == "test-id":
-        expected_selector = contract.get("testID")
-    elif selector_kind == "command-id":
-        expected_selector = contract.get("commandID")
-    elif selector_kind == "focus-target":
-        expected_selector = contract.get("focusTarget")
-    else:
-        raise SystemExit(f"quill-code-desktop native smoke reported unknown click probe selectorKind: {probe}")
-    if not isinstance(selector, str) or not selector.strip() or selector != expected_selector:
-        raise SystemExit(f"quill-code-desktop native smoke reported click probe selector drift for {contract_id}: {probe}")
-
-    if probe.get("kind") != contract.get("kind") or probe.get("action") != contract.get("action"):
-        raise SystemExit(f"quill-code-desktop native smoke reported click probe semantic drift for {contract_id}: {probe}")
-    for field in ("requiredMinWidth", "requiredMinHeight"):
-        value = probe.get(field)
-        if not isinstance(value, (int, float)) or value < 44:
-            raise SystemExit(f"quill-code-desktop native smoke reported undersized click probe {field} for {contract_id}: {probe}")
-    sample_points = probe.get("samplePoints")
-    if not isinstance(sample_points, list) or len(sample_points) < 5:
-        raise SystemExit(f"quill-code-desktop native smoke reported insufficient click probe sample points for {contract_id}: {probe}")
-    sample_names = set()
-    for point in sample_points:
-        if not isinstance(point, dict):
-            raise SystemExit(f"quill-code-desktop native smoke reported malformed click probe point for {contract_id}: {point}")
-        name = point.get("name")
-        x = point.get("x")
-        y = point.get("y")
-        if not isinstance(name, str) or not name:
-            raise SystemExit(f"quill-code-desktop native smoke reported unnamed click probe point for {contract_id}: {point}")
-        if not isinstance(x, (int, float)) or not isinstance(y, (int, float)) or not (0 < x < 1) or not (0 < y < 1):
-            raise SystemExit(f"quill-code-desktop native smoke reported out-of-bounds click probe point for {contract_id}: {point}")
-        sample_names.add(name)
-        expected_point = expected_sample_points.get(name)
-        if expected_point is None:
-            raise SystemExit(f"quill-code-desktop native smoke reported unknown click probe point for {contract_id}: {point}")
-        if not math.isclose(x, expected_point[0], rel_tol=0.0, abs_tol=1e-9) or not math.isclose(y, expected_point[1], rel_tol=0.0, abs_tol=1e-9):
-            raise SystemExit(f"quill-code-desktop native smoke reported unexpected click probe point coordinates for {contract_id}: {point}")
-    required_sample_names = set(expected_sample_points)
-    if not required_sample_names.issubset(sample_names):
-        missing_samples = sorted(required_sample_names - sample_names)
-        raise SystemExit(f"quill-code-desktop native smoke click probe for {contract_id} is missing samples: {', '.join(missing_samples)}")
-
-missing_probe_contracts = sorted(set(contracts_by_id) - set(probes_by_contract))
-if missing_probe_contracts:
-    raise SystemExit(f"quill-code-desktop native smoke surface contracts are missing click probes: {', '.join(missing_probe_contracts)}")
-if native_targets.get("missingClickProbeContractIDs") != []:
-    raise SystemExit(f"quill-code-desktop native smoke reported missing click probes: {native_targets.get('missingClickProbeContractIDs')}")
-if native_targets.get("clickProbeValidationIssues") != []:
-    raise SystemExit(f"quill-code-desktop native smoke reported invalid click probes: {native_targets.get('clickProbeValidationIssues')}")
-
 surface_test_ids = {contract.get("testID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("testID")}
 surface_command_ids = {contract.get("commandID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("commandID")}
 required_test_ids = {
@@ -392,6 +308,8 @@ missing_focus_targets = sorted(required_focus_targets - covered_focus_targets)
 if missing_focus_targets:
     raise SystemExit(f"quill-code-desktop native smoke did not include native focus targets: {', '.join(missing_focus_targets)}")
 PY
+"$ROOT_DIR/scripts/native-click-probe-contracts.py" validate "$REPORT_PATH"
+
 for command_id in command-palette keyboard-shortcuts settings toggle-terminal toggle-browser; do
   if ! grep -q "$command_id" "$REPORT_PATH"; then
     echo "quill-code-desktop native smoke did not exercise chrome command: $command_id" >&2

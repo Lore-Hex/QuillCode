@@ -78,20 +78,83 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
 
     func testPackagedMacOSSmokeComparesDirectAndLaunchServicesClickProbes() throws {
         let script = try Self.scriptText(named: "packaged-macos-smoke.sh")
+        let validator = try Self.scriptText(named: "native-click-probe-contracts.py")
 
         XCTAssertTrue(script.contains("DIRECT_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/direct-executable\""))
         XCTAssertTrue(script.contains("LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/launch-services\""))
         XCTAssertTrue(script.contains("CLICK_PROBE_MANIFEST=\"$SMOKE_ROOT/packaged-click-probes.json\""))
         XCTAssertTrue(script.contains("QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR=\"$DIRECT_SMOKE_ARTIFACT_DIR\""))
         XCTAssertTrue(script.contains("QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR=\"$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR\""))
-        XCTAssertTrue(script.contains("normalized_probe_contracts"))
-        XCTAssertTrue(script.contains("click_probes = native_targets.get(\"clickProbes\")"))
-        XCTAssertTrue(script.contains("samplePoints"))
-        XCTAssertTrue(script.contains("launchServicesMatchesDirect"))
+        XCTAssertTrue(script.contains("scripts/native-click-probe-contracts.py"))
+        XCTAssertTrue(script.contains(" compare \\"))
+        XCTAssertTrue(script.contains("--manifest \"$CLICK_PROBE_MANIFEST\""))
         XCTAssertTrue(script.contains("packaged-click-probes.json"))
-        XCTAssertTrue(script.contains("direct_probe_contracts != launch_services_probe_contracts"))
-        XCTAssertTrue(script.contains("missingFromLaunch"))
-        XCTAssertTrue(script.contains("driftingContracts"))
+        XCTAssertTrue(validator.contains("normalized_probe_contracts"))
+        XCTAssertTrue(validator.contains("click_probes = targets.get(\"clickProbes\")"))
+        XCTAssertTrue(validator.contains("samplePoints"))
+        XCTAssertTrue(validator.contains("launchServicesMatchesDirect"))
+        XCTAssertTrue(validator.contains("direct_probe_contracts != launch_services_probe_contracts"))
+        XCTAssertTrue(validator.contains("missingFromLaunch"))
+        XCTAssertTrue(validator.contains("driftingContracts"))
+    }
+
+    func testNativeClickProbeValidatorCLIValidatesAndWritesComparisonManifest() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-click-probe-validator-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let report = temporaryDirectory.appendingPathComponent("report.json")
+        let manifest = temporaryDirectory.appendingPathComponent("manifest.json")
+        try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
+
+        let validator = Self.packageRoot()
+            .appendingPathComponent("scripts")
+            .appendingPathComponent("native-click-probe-contracts.py")
+        XCTAssertEqual(try Self.runPython(validator, arguments: ["validate", report.path]).exitCode, 0)
+
+        let compare = try Self.runPython(validator, arguments: [
+            "compare",
+            report.path,
+            report.path,
+            "--manifest",
+            manifest.path
+        ])
+        XCTAssertEqual(compare.exitCode, 0, compare.output)
+
+        let manifestData = try Data(contentsOf: manifest)
+        let manifestObject = try XCTUnwrap(JSONSerialization.jsonObject(with: manifestData) as? [String: Any])
+        XCTAssertEqual(manifestObject["ok"] as? Bool, true)
+        XCTAssertEqual(manifestObject["launchServicesMatchesDirect"] as? Bool, true)
+        XCTAssertEqual(manifestObject["clickProbeCount"] as? Int, 1)
+        XCTAssertEqual(manifestObject["samplePointNames"] as? [String], [
+            "bottom-interior",
+            "center",
+            "leading-interior",
+            "top-interior",
+            "trailing-interior"
+        ])
+    }
+
+    private struct ScriptResult {
+        let exitCode: Int32
+        let output: String
+    }
+
+    private static func runPython(_ script: URL, arguments: [String]) throws -> ScriptResult {
+        let outputPipe = Pipe()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["python3", script.path] + arguments
+        process.standardOutput = outputPipe
+        process.standardError = outputPipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        return ScriptResult(exitCode: process.terminationStatus, output: output)
     }
 
     private static func scriptText(named fileName: String) throws -> String {
@@ -106,5 +169,42 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
             .appendingPathComponent(".github/workflows")
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
+    }
+
+    private static var minimalClickProbeReport: String {
+        """
+        {
+          "nativeHitTargets": {
+            "surfaceContracts": [
+              {
+                "id": "composer.send",
+                "testID": "quillcode-send-button",
+                "kind": "icon",
+                "action": "press"
+              }
+            ],
+            "clickProbes": [
+              {
+                "contractID": "composer.send",
+                "selectorKind": "test-id",
+                "selector": "quillcode-send-button",
+                "kind": "icon",
+                "action": "press",
+                "requiredMinWidth": 44,
+                "requiredMinHeight": 44,
+                "samplePoints": [
+                  {"name": "center", "x": 0.5, "y": 0.5},
+                  {"name": "leading-interior", "x": 0.18, "y": 0.5},
+                  {"name": "trailing-interior", "x": 0.82, "y": 0.5},
+                  {"name": "top-interior", "x": 0.5, "y": 0.18},
+                  {"name": "bottom-interior", "x": 0.5, "y": 0.82}
+                ]
+              }
+            ],
+            "missingClickProbeContractIDs": [],
+            "clickProbeValidationIssues": []
+          }
+        }
+        """
     }
 }

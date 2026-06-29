@@ -730,6 +730,10 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             contentsOf: Self.packageRoot().appendingPathComponent("scripts/native-desktop-smoke.sh"),
             encoding: .utf8
         )
+        let clickProbeValidatorText = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            encoding: .utf8
+        )
 
         XCTAssertTrue(
             auditText.contains("public enum QuillCodeNativeHitTargetKind")
@@ -868,24 +872,30 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("surface_test_ids")
                 && smokeScriptText.contains("required_test_ids")
                 && smokeScriptText.contains("required_command_contract_ids")
-                && smokeScriptText.contains("click_probes = native_targets.get(\"clickProbes\")")
-                && smokeScriptText.contains("missing_probe_contracts")
-                && smokeScriptText.contains("missingClickProbeContractIDs")
-                && smokeScriptText.contains("clickProbeValidationIssues")
-                && smokeScriptText.contains("expected_sample_points")
-                && smokeScriptText.contains(#""leading-interior": (0.18, 0.5)"#)
-                && smokeScriptText.contains(#""trailing-interior": (0.82, 0.5)"#)
-                && smokeScriptText.contains("unexpected click probe point coordinates")
-                && smokeScriptText.contains("required_sample_names")
-                && smokeScriptText.contains("selector_kind == \"test-id\"")
-                && smokeScriptText.contains("selector_kind == \"command-id\"")
-                && smokeScriptText.contains("selector_kind == \"focus-target\"")
+                && smokeScriptText.contains("scripts/native-click-probe-contracts.py")
+                && smokeScriptText.contains("validate \"$REPORT_PATH\"")
                 && smokeScriptText.contains(#""browser": {"textEntry", "textButton", "icon"}"#)
                 && smokeScriptText.contains(#"for field in ("id", "label", "source", "surface")"#)
                 && smokeScriptText.contains(#"for optional_field in ("testID", "commandID")"#)
                 && smokeScriptText.contains("unaddressable native hit target")
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
-            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, addressable test/command/focus handle, exact click probe, and non-empty metadata field."
+            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, addressable test/command/focus handle, and non-empty metadata field while delegating click probes to the shared validator."
+        )
+        XCTAssertTrue(
+            clickProbeValidatorText.contains("EXPECTED_SAMPLE_POINTS")
+                && clickProbeValidatorText.contains(#""leading-interior": (0.18, 0.5)"#)
+                && clickProbeValidatorText.contains(#""trailing-interior": (0.82, 0.5)"#)
+                && clickProbeValidatorText.contains("unexpected click probe point coordinates")
+                && clickProbeValidatorText.contains("missingClickProbeContractIDs")
+                && clickProbeValidatorText.contains("clickProbeValidationIssues")
+                && clickProbeValidatorText.contains("expected_selector(contract, selector_kind)")
+                && clickProbeValidatorText.contains("selector_kind == \"test-id\"")
+                && clickProbeValidatorText.contains("selector_kind == \"command-id\"")
+                && clickProbeValidatorText.contains("selector_kind == \"focus-target\"")
+                && clickProbeValidatorText.contains("write_comparison_manifest")
+                && clickProbeValidatorText.contains("launchServicesMatchesDirect")
+                && clickProbeValidatorText.contains("driftingContracts"),
+            "The shared native click-probe validator should own exact probe coordinates, selector precedence, typed audit issue checks, and packaged launch-path comparison."
         )
         XCTAssertTrue(
             smokeScriptText.contains("required_focus_targets")
