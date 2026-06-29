@@ -81,6 +81,22 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
     }
 
+    func testWindowAccessibilityFrameSamplerRequiresPrimarySidebarActions() {
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityFrameSampler.requiredPrimarySidebarContractIDs,
+            [
+                "command.new-chat",
+                "command.search",
+                "command.toggle-automations",
+                "command.toggle-extensions",
+                "command.settings"
+            ]
+        )
+        XCTAssertTrue(QuillCodeDesktopAccessibilityFrameSampler.requiredLiveContractIDs.isSuperset(
+            of: QuillCodeDesktopAccessibilityFrameSampler.requiredPrimarySidebarContractIDs
+        ))
+    }
+
     func testDesktopWindowSmokeSurfaceReportSummarizesWorkspaceChrome() throws {
         let controller = try makeController(workspaceRoot: try makeTempDirectory())
         let report = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: controller.surface)

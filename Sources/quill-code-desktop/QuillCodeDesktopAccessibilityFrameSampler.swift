@@ -69,17 +69,25 @@ struct QuillCodeDesktopAccessibilityFrameSampleReport {
 @MainActor
 enum QuillCodeDesktopAccessibilityFrameSampler {
     private static let identifierPrefix = "quillcode-"
-    private static let requiredLiveContractIDs: Set<String> = [
+    static let requiredPrimarySidebarContractIDs: Set<String> = [
+        "command.new-chat",
+        "command.search",
+        "command.toggle-automations",
+        "command.toggle-extensions",
+        "command.settings"
+    ]
+
+    private static let requiredCoreLiveContractIDs: Set<String> = [
         "composer.input",
         "composer.send",
         "composer.model-picker",
         "composer.mode-picker",
         "top-bar.overflow",
-        "sidebar.tools-menu",
-        "command.new-chat",
-        "command.search",
-        "command.settings"
+        "sidebar.tools-menu"
     ]
+
+    static let requiredLiveContractIDs = requiredCoreLiveContractIDs
+        .union(requiredPrimarySidebarContractIDs)
 
     static func validatedReport(
         window _: NSWindow,
