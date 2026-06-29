@@ -5,10 +5,12 @@ struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
     var id: String { name }
     var name: String
     var role: String
+    var objective: String
 
-    init(name: String, role: String) {
+    init(name: String, role: String, objective: String = "") {
         self.name = name
         self.role = role
+        self.objective = objective
     }
 }
 
@@ -37,7 +39,9 @@ struct WorkspaceSubagentScheduler {
         request: WorkspaceSubagentRunRequest,
         progress: ProgressSink? = nil
     ) async -> WorkspaceSubagentRunResult {
-        let jobs = request.workers.map { WorkspaceSubagentJob(name: $0.name, role: $0.role) }
+        let jobs = request.workers.map {
+            WorkspaceSubagentJob(name: $0.name, role: $0.role, objective: request.objective)
+        }
         var items = jobs.map {
             SubagentProgressItem(name: $0.name, role: $0.role, status: .queued)
         }

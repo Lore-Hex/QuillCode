@@ -1,0 +1,68 @@
+import Foundation
+import QuillCodeAgent
+import QuillCodeCore
+
+/// Runs a single subagent job as a focused, tool-free model turn and returns
+/// the model's concise result text. This plugs into
+/// `WorkspaceSubagentScheduler`'s worker closure so explicit subagent
+/// workflows can be model-backed instead of producing deterministic
+/// placeholder summaries.
+///
+/// The worker only holds the `Sendable` `LLMClient`, so it can run inside the
+/// scheduler's task group without capturing the `@MainActor` workspace model.
+struct LLMWorkspaceSubagentWorker: Sendable {
+    var llm: any LLMClient
+
+    init(llm: any LLMClient) {
+        self.llm = llm
+    }
+
+    /// Builds a `WorkspaceSubagentScheduler` worker closure backed by `llm`.
+    /// The closure only captures the `Sendable` client, so it is safe to run
+    /// inside the scheduler's task group.
+    static func scheduledWorker(llm: any LLMClient) -> WorkspaceSubagentScheduler.Worker {
+        { job in try await LLMWorkspaceSubagentWorker(llm: llm).run(job) }
+    }
+
+    func run(_ job: WorkspaceSubagentJob) async throws -> String {
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(objective: job.objective, job: job)
+        let action = try await llm.nextAction(
+            thread: ChatThread(title: "Subagent: \(job.name)"),
+            userMessage: prompt,
+            tools: []
+        )
+        switch action {
+        case .say(let text):
+            let summary = Self.collapsedWhitespace(text)
+            return summary.isEmpty ? "Completed \(job.role)" : summary
+        case .tool(let call):
+            return "Proposed \(call.name)"
+        }
+    }
+
+    private static func collapsedWhitespace(_ text: String) -> String {
+        text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+}
+
+enum WorkspaceSubagentPromptBuilder {
+    static func prompt(objective: String, job: WorkspaceSubagentJob) -> String {
+        """
+        You are the "\(job.name)" subagent collaborating on this objective:
+        \(objective)
+
+        Your role: \(job.role)
+
+        Return exactly one QuillCode action JSON object and no markdown:
+        {"type":"say","text":"..."}
+
+        The text must be a concise result of your role's work toward the
+        objective: what you inspected or produced, key findings, and any next
+        steps. Keep it to a few sentences. Do not include credentials, tokens,
+        private keys, or other secrets.
+        """
+    }
+}

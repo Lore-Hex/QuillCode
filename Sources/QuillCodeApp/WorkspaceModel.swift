@@ -75,6 +75,9 @@ public final class QuillCodeWorkspaceModel {
             : nil
         self.sidebarSelection = sidebarSelection
         self.runner = runner
+        self.subagentScheduler = WorkspaceSubagentScheduler(
+            worker: LLMWorkspaceSubagentWorker.scheduledWorker(llm: runner.llm)
+        )
         self.contextSummaryGenerator = contextSummaryGenerator
         self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)
         self.projectStore = projectStore
