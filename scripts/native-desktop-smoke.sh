@@ -199,6 +199,13 @@ for contract in surface_contracts:
             contracts_by_id[contract_id] = contract
 
 probes_by_contract = {}
+expected_sample_points = {
+    "center": (0.5, 0.5),
+    "leading-interior": (0.18, 0.5),
+    "trailing-interior": (0.82, 0.5),
+    "top-interior": (0.5, 0.18),
+    "bottom-interior": (0.5, 0.82),
+}
 for probe in click_probes:
     if not isinstance(probe, dict):
         raise SystemExit(f"quill-code-desktop native smoke reported malformed native click probe: {probe}")
@@ -246,7 +253,12 @@ for probe in click_probes:
         if not isinstance(x, (int, float)) or not isinstance(y, (int, float)) or not (0 < x < 1) or not (0 < y < 1):
             raise SystemExit(f"quill-code-desktop native smoke reported out-of-bounds click probe point for {contract_id}: {point}")
         sample_names.add(name)
-    required_sample_names = {"center", "leading-interior", "trailing-interior", "top-interior", "bottom-interior"}
+        expected_point = expected_sample_points.get(name)
+        if expected_point is None:
+            raise SystemExit(f"quill-code-desktop native smoke reported unknown click probe point for {contract_id}: {point}")
+        if not math.isclose(x, expected_point[0], rel_tol=0.0, abs_tol=1e-9) or not math.isclose(y, expected_point[1], rel_tol=0.0, abs_tol=1e-9):
+            raise SystemExit(f"quill-code-desktop native smoke reported unexpected click probe point coordinates for {contract_id}: {point}")
+    required_sample_names = set(expected_sample_points)
     if not required_sample_names.issubset(sample_names):
         missing_samples = sorted(required_sample_names - sample_names)
         raise SystemExit(f"quill-code-desktop native smoke click probe for {contract_id} is missing samples: {', '.join(missing_samples)}")

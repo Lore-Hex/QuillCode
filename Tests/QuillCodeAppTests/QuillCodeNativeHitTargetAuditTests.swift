@@ -171,11 +171,19 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             Set(probesByContractID["composer.send"]?.samplePoints.map(\.name) ?? []),
             Set(["center", "leading-interior", "trailing-interior", "top-interior", "bottom-interior"])
         )
+        let expectedSamplePoints = [
+            QuillCodeNativeHitTargetProbePoint(name: "center", x: 0.5, y: 0.5),
+            QuillCodeNativeHitTargetProbePoint(name: "leading-interior", x: 0.18, y: 0.5),
+            QuillCodeNativeHitTargetProbePoint(name: "trailing-interior", x: 0.82, y: 0.5),
+            QuillCodeNativeHitTargetProbePoint(name: "top-interior", x: 0.5, y: 0.18),
+            QuillCodeNativeHitTargetProbePoint(name: "bottom-interior", x: 0.5, y: 0.82)
+        ]
+        XCTAssertEqual(probesByContractID["composer.send"]?.samplePoints, expectedSamplePoints)
         for probe in report.clickProbes {
             XCTAssertFalse(probe.selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             XCTAssertGreaterThanOrEqual(probe.requiredMinWidth, 44)
             XCTAssertGreaterThanOrEqual(probe.requiredMinHeight, 44)
-            XCTAssertEqual(probe.samplePoints.count, 5)
+            XCTAssertEqual(probe.samplePoints, expectedSamplePoints)
             XCTAssertTrue(probe.samplePoints.allSatisfy { point in
                 point.x > 0 && point.x < 1 && point.y > 0 && point.y < 1
             })
