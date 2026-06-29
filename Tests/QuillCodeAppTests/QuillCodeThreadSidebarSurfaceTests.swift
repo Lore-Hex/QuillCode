@@ -68,6 +68,54 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.emptyTitle, "No archived chats")
     }
 
+    func testCustomSavedSearchesCountActivateAndRestrictVisibleGroups() throws {
+        let savedSearchID = try XCTUnwrap(UUID(uuidString: "11111111-1111-1111-1111-111111111111"))
+        let disk = ChatThread(title: "Disk usage", messages: [
+            .init(role: .user, content: "Run df -h")
+        ])
+        var pinnedOpenClaw = ChatThread(title: "OpenClaw setup", messages: [
+            .init(role: .assistant, content: "OpenClaw is installed under /Quill/Apps.")
+        ])
+        pinnedOpenClaw.isPinned = true
+        var archivedOpenClaw = ChatThread(title: "Old OpenClaw plan")
+        archivedOpenClaw.isArchived = true
+
+        let surface = SidebarSurface(
+            items: [disk, pinnedOpenClaw, archivedOpenClaw].map {
+                SidebarItemSurface(item: SidebarItem(thread: $0), selectedThreadID: nil)
+            },
+            selectedThreadID: nil,
+            activeSavedSearchID: savedSearchID,
+            customSavedSearches: [
+                SidebarSavedSearch(id: savedSearchID, title: "OpenClaw", query: "openclaw")
+            ]
+        )
+
+        XCTAssertEqual(surface.savedFilters.map(\.isActive), [false, false, false, false])
+        XCTAssertEqual(surface.customSavedSearches.map(\.title), ["OpenClaw"])
+        XCTAssertEqual(surface.customSavedSearches.map(\.count), [2])
+        XCTAssertEqual(surface.customSavedSearches.first?.isActive, true)
+        XCTAssertEqual(surface.customSavedSearches.first?.commandID, "sidebar-saved-search:\(savedSearchID.uuidString)")
+        XCTAssertEqual(surface.visibleItems.map(\.title), ["OpenClaw setup", "Old OpenClaw plan"])
+        XCTAssertEqual(surface.pinnedItems.map(\.title), ["OpenClaw setup"])
+        XCTAssertEqual(surface.recentItems, [])
+        XCTAssertEqual(surface.archivedItems.map(\.title), ["Old OpenClaw plan"])
+        XCTAssertEqual(surface.emptyTitle, "No chats matching OpenClaw")
+    }
+
+    func testInvalidSavedSearchesAreHidden() {
+        let surface = SidebarSurface(
+            items: [SidebarItemSurface(item: SidebarItem(thread: ChatThread(title: "Thread")), selectedThreadID: nil)],
+            selectedThreadID: nil,
+            customSavedSearches: [
+                SidebarSavedSearch(title: "", query: "thread"),
+                SidebarSavedSearch(title: "Blank query", query: "   ")
+            ]
+        )
+
+        XCTAssertEqual(surface.customSavedSearches, [])
+    }
+
     func testSavedFilterEmptyTitleKeepsOriginalWhenNoChatsExist() {
         let surface = SidebarSurface(
             items: [],
@@ -79,6 +127,7 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.emptyTitle, "No workspace chats")
         XCTAssertEqual(surface.visibleItems, [])
         XCTAssertEqual(surface.savedFilters.map(\.count), [0, 0, 0, 0])
+        XCTAssertEqual(surface.customSavedSearches, [])
     }
 
     func testSidebarSearchExcludesHiddenToolFeedback() {
@@ -252,5 +301,17 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(filterCommand.id, "sidebar-filter:recent")
         XCTAssertEqual(filterCommand.title, "Show recent chats")
         XCTAssertEqual(filterCommand.category, WorkspaceCommandPalette.threadCategory)
+
+        let savedSearchID = UUID()
+        let searchCommand = QuillCodeSidebarCommandAdapter.workspaceCommand(
+            for: SidebarSavedSearchSurface(
+                savedSearch: SidebarSavedSearch(id: savedSearchID, title: "Errors", query: "error failed"),
+                count: 4,
+                isActive: false
+            )
+        )
+        XCTAssertEqual(searchCommand.id, "sidebar-saved-search:\(savedSearchID.uuidString)")
+        XCTAssertEqual(searchCommand.title, "Show Errors")
+        XCTAssertEqual(searchCommand.category, WorkspaceCommandPalette.threadCategory)
     }
 }

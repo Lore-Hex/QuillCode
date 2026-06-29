@@ -17,6 +17,8 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var automations: AutomationsState
     public internal(set) var pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface?
     public internal(set) var sidebarFilter: SidebarSavedFilterKind
+    public internal(set) var activeSidebarSavedSearchID: UUID?
+    public internal(set) var sidebarSavedSearches: [SidebarSavedSearch]
     public internal(set) var sidebarSelection: SidebarSelectionState
     public private(set) var lastError: String?
 
@@ -43,6 +45,8 @@ public final class QuillCodeWorkspaceModel {
         automations: AutomationsState = AutomationsState(),
         pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface? = nil,
         sidebarFilter: SidebarSavedFilterKind = .all,
+        activeSidebarSavedSearchID: UUID? = nil,
+        sidebarSavedSearches: [SidebarSavedSearch] = [],
         sidebarSelection: SidebarSelectionState = SidebarSelectionState(),
         runner: AgentRunner = AgentRunner(),
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
@@ -63,6 +67,10 @@ public final class QuillCodeWorkspaceModel {
         self.automations = automations
         self.pullRequestReviewDraft = pullRequestReviewDraft
         self.sidebarFilter = sidebarFilter
+        self.sidebarSavedSearches = sidebarSavedSearches.filter(\.isValid)
+        self.activeSidebarSavedSearchID = self.sidebarSavedSearches.contains { $0.id == activeSidebarSavedSearchID }
+            ? activeSidebarSavedSearchID
+            : nil
         self.sidebarSelection = sidebarSelection
         self.runner = runner
         self.contextSummaryGenerator = contextSummaryGenerator

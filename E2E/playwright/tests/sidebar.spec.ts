@@ -227,6 +227,45 @@ test('mock harness filters sidebar chats with saved filters', async ({ page }) =
   await expect(page.getByTestId('sidebar-thread-row')).toContainText('recent chat');
 });
 
+test('mock harness filters sidebar chats with custom saved searches', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  for (const prompt of ['openclaw setup notes', 'quill cloud relay', 'openclaw release follow up']) {
+    await page.getByLabel('Message').fill(prompt);
+    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByTestId('new-chat-button').click();
+  }
+
+  await page.evaluate(() => {
+    const harness = window as unknown as {
+      addSidebarSavedSearch: (title: string, query: string, id: string) => string | null;
+    };
+    harness.addSidebarSavedSearch('OpenClaw', 'openclaw', 'saved-openclaw');
+  });
+
+  const savedSearch = page.locator('[data-testid="sidebar-saved-search"][data-saved-search-id="saved-openclaw"]');
+  await expect(page.getByTestId('sidebar-saved-search-bar')).toBeVisible();
+  await expect(savedSearch).toContainText('OpenClaw');
+  await expect(savedSearch.getByTestId('sidebar-saved-search-count')).toHaveText('2');
+
+  await savedSearch.click({ position: { x: 8, y: 8 } });
+  await expect(savedSearch).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('sidebar-filter').first()).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
+  await expect(page.getByTestId('sidebar')).toContainText('openclaw setup notes');
+  await expect(page.getByTestId('sidebar')).toContainText('openclaw release follow up');
+  await expect(page.getByTestId('sidebar')).not.toContainText('quill cloud relay');
+
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select all$/ }).click();
+  await expect(page.getByTestId('sidebar-selection-label')).toHaveText('2 chats selected');
+
+  await page.locator('[data-testid="sidebar-filter"][data-filter-id="all"]').click({ position: { x: 8, y: 8 } });
+  await expect(page.getByTestId('sidebar-selection')).toHaveCount(0);
+  await expect(page.locator('[data-testid="sidebar-filter"][data-filter-id="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
+});
+
 test('mock harness manages projects from the sidebar', async ({ page }) => {
   await page.goto(harnessURL());
 

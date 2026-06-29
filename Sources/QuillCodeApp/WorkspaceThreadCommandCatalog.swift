@@ -18,7 +18,10 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
 }
 
 enum WorkspaceThreadCommandCatalog {
-    static func commands(availability: WorkspaceThreadCommandAvailability) -> [WorkspaceCommandSurface] {
+    static func commands(
+        availability: WorkspaceThreadCommandAvailability,
+        savedSearches: [SidebarSavedSearch] = []
+    ) -> [WorkspaceCommandSurface] {
         [
             WorkspaceCommandSurface(
                 id: "new-chat",
@@ -132,7 +135,7 @@ enum WorkspaceThreadCommandCatalog {
                 keywords: ["thread", "context", "summarize", "compact"],
                 isEnabled: availability.selectedThreadHasMessages
             )
-        ]
+        ] + savedSearches.filter(\.isValid).map(savedSearchCommand)
     }
 
     private static func savedFilterCommand(_ filter: SidebarSavedFilterKind) -> WorkspaceCommandSurface {
@@ -141,6 +144,15 @@ enum WorkspaceThreadCommandCatalog {
             title: "Show \(filter.title.lowercased()) chats",
             category: WorkspaceCommandPalette.threadCategory,
             keywords: ["thread", "chat", "sidebar", "filter", filter.title.lowercased()]
+        )
+    }
+
+    private static func savedSearchCommand(_ savedSearch: SidebarSavedSearch) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: SidebarSavedSearchSurface.commandID(for: savedSearch.id),
+            title: "Show \(savedSearch.title)",
+            category: WorkspaceCommandPalette.threadCategory,
+            keywords: ["thread", "chat", "sidebar", "saved search", "search", savedSearch.query]
         )
     }
 }

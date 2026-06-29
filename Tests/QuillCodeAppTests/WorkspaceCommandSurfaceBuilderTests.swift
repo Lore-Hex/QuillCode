@@ -97,6 +97,23 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("retry-last-turn", in: commands).isEnabled, true)
     }
 
+    func testSavedSearchesAppearAsThreadCommands() throws {
+        let searchID = try XCTUnwrap(UUID(uuidString: "44444444-4444-4444-4444-444444444444"))
+        let commands = makeBuilder(
+            sidebarSavedSearches: [
+                SidebarSavedSearch(id: searchID, title: "Failures", query: "failed error"),
+                SidebarSavedSearch(title: "", query: "hidden")
+            ]
+        ).commands
+
+        let savedSearch = try command("sidebar-saved-search:\(searchID.uuidString)", in: commands)
+        XCTAssertEqual(savedSearch.title, "Show Failures")
+        XCTAssertEqual(savedSearch.category, WorkspaceCommandPalette.threadCategory)
+        XCTAssertTrue(savedSearch.keywords.contains("saved search"))
+        XCTAssertTrue(savedSearch.keywords.contains("failed error"))
+        XCTAssertFalse(commands.contains { $0.title == "Show hidden" })
+    }
+
     func testProjectActionsMCPAndGitCommandsUseProjectContext() throws {
         let action = LocalEnvironmentAction(
             id: "local-env:.quillcode/actions/bootstrap.sh",
@@ -213,6 +230,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         selectedSidebarThreads: [ChatThread] = [],
         sidebarSelectionIsActive: Bool = false,
         sidebarItemCount: Int = 0,
+        sidebarSavedSearches: [SidebarSavedSearch] = [],
         hasActiveWorkspaceRoot: Bool = false,
         canRetryLastUserTurn: Bool = false,
         composerIsSending: Bool = false,
@@ -235,6 +253,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             selectedSidebarThreads: selectedSidebarThreads,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             sidebarItemCount: sidebarItemCount,
+            sidebarSavedSearches: sidebarSavedSearches,
             hasActiveWorkspaceRoot: hasActiveWorkspaceRoot,
             canRetryLastUserTurn: canRetryLastUserTurn,
             composerIsSending: composerIsSending,

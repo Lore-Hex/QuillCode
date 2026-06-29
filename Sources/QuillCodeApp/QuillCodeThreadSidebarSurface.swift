@@ -7,7 +7,9 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
     public var selectedThreadID: UUID?
     public var emptyTitle: String
     public var activeFilter: SidebarSavedFilterKind
+    public var activeSavedSearchID: UUID?
     public var savedFilters: [SidebarSavedFilterSurface]
+    public var customSavedSearches: [SidebarSavedSearchSurface]
     public var isSelectionMode: Bool
     public var selectedThreadIDs: Set<UUID>
     public var selectionLabel: String
@@ -19,6 +21,8 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         selectedThreadID: UUID?,
         emptyTitle: String = "No chats yet",
         activeFilter: SidebarSavedFilterKind = .all,
+        activeSavedSearchID: UUID? = nil,
+        customSavedSearches: [SidebarSavedSearch] = [],
         isSelectionMode: Bool = false,
         selectedThreadIDs: Set<UUID> = [],
         bulkActions: [SidebarBulkActionSurface] = []
@@ -27,11 +31,23 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.items = items
         self.selectedThreadID = selectedThreadID
         self.activeFilter = activeFilter
+        self.activeSavedSearchID = customSavedSearches.contains { $0.id == activeSavedSearchID } ? activeSavedSearchID : nil
         self.savedFilters = SidebarSavedFilterSurface.savedFilters(
             items: items,
-            activeFilter: activeFilter
+            activeFilter: activeFilter,
+            hasActiveCustomSavedSearch: self.activeSavedSearchID != nil
         )
-        self.emptyTitle = items.isEmpty ? emptyTitle : activeFilter.emptyTitle
+        self.customSavedSearches = SidebarSavedSearchSurface.savedSearches(
+            customSavedSearches,
+            items: items,
+            activeSavedSearchID: self.activeSavedSearchID
+        )
+        self.emptyTitle = Self.resolvedEmptyTitle(
+            items: items,
+            defaultEmptyTitle: emptyTitle,
+            activeFilter: activeFilter,
+            activeSavedSearch: self.customSavedSearches.first(where: \.isActive)
+        )
         self.isSelectionMode = isSelectionMode
         self.selectedThreadIDs = selectedThreadIDs
         self.selectionLabel = Self.selectionLabel(count: selectedThreadIDs.count)
@@ -44,7 +60,9 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         case selectedThreadID
         case emptyTitle
         case activeFilter
+        case activeSavedSearchID
         case savedFilters
+        case customSavedSearches
         case isSelectionMode
         case selectedThreadIDs
         case selectionLabel
@@ -58,8 +76,14 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.selectedThreadID = try container.decodeIfPresent(UUID.self, forKey: .selectedThreadID)
         self.emptyTitle = try container.decodeIfPresent(String.self, forKey: .emptyTitle) ?? "No chats yet"
         self.activeFilter = try container.decodeIfPresent(SidebarSavedFilterKind.self, forKey: .activeFilter) ?? .all
+        self.activeSavedSearchID = try container.decodeIfPresent(UUID.self, forKey: .activeSavedSearchID)
         self.savedFilters = try container.decodeIfPresent([SidebarSavedFilterSurface].self, forKey: .savedFilters)
-            ?? SidebarSavedFilterSurface.savedFilters(items: self.items, activeFilter: self.activeFilter)
+            ?? SidebarSavedFilterSurface.savedFilters(
+                items: self.items,
+                activeFilter: self.activeFilter,
+                hasActiveCustomSavedSearch: self.activeSavedSearchID != nil
+            )
+        self.customSavedSearches = try container.decodeIfPresent([SidebarSavedSearchSurface].self, forKey: .customSavedSearches) ?? []
         self.isSelectionMode = try container.decodeIfPresent(Bool.self, forKey: .isSelectionMode) ?? false
         self.selectedThreadIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .selectedThreadIDs) ?? []
         self.selectionLabel = try container.decodeIfPresent(String.self, forKey: .selectionLabel)
@@ -72,26 +96,36 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
     }
 
     public var visibleItems: [SidebarItemSurface] {
-        threadListBuilder.items(for: activeFilter)
+        activeSavedSearchQuery.map { threadListBuilder.filteredItems(matching: $0) }
+            ?? threadListBuilder.items(for: activeFilter)
     }
 
     public var pinnedItems: [SidebarItemSurface] {
-        threadListBuilder.pinnedItems(for: activeFilter)
+        activeSavedSearchQuery.map { threadListBuilder.pinnedItems(matching: $0) }
+            ?? threadListBuilder.pinnedItems(for: activeFilter)
     }
 
     public var recentItems: [SidebarItemSurface] {
-        threadListBuilder.recentItems(for: activeFilter)
+        activeSavedSearchQuery.map { threadListBuilder.recentItems(matching: $0) }
+            ?? threadListBuilder.recentItems(for: activeFilter)
     }
 
     public func recentSections(
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> [SidebarThreadSectionSurface] {
-        threadListBuilder.recentSections(for: activeFilter, now: now, calendar: calendar)
+        activeSavedSearchQuery.map {
+            threadListBuilder.recentSections(matching: $0, now: now, calendar: calendar)
+        } ?? threadListBuilder.recentSections(for: activeFilter, now: now, calendar: calendar)
     }
 
     public var archivedItems: [SidebarItemSurface] {
-        threadListBuilder.archivedItems(for: activeFilter)
+        activeSavedSearchQuery.map { threadListBuilder.archivedItems(matching: $0) }
+            ?? threadListBuilder.archivedItems(for: activeFilter)
+    }
+
+    private var activeSavedSearchQuery: String? {
+        customSavedSearches.first(where: \.isActive)?.query
     }
 
     private static func selectionLabel(count: Int) -> String {
@@ -103,6 +137,19 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         default:
             return "\(count) chats selected"
         }
+    }
+
+    private static func resolvedEmptyTitle(
+        items: [SidebarItemSurface],
+        defaultEmptyTitle: String,
+        activeFilter: SidebarSavedFilterKind,
+        activeSavedSearch: SidebarSavedSearchSurface?
+    ) -> String {
+        guard !items.isEmpty else { return defaultEmptyTitle }
+        if let activeSavedSearch {
+            return activeSavedSearch.emptyTitle
+        }
+        return activeFilter.emptyTitle
     }
 
     private var threadListBuilder: SidebarThreadListBuilder {
@@ -185,15 +232,84 @@ public struct SidebarSavedFilterSurface: Codable, Sendable, Hashable, Identifiab
 
     public static func savedFilters(
         items: [SidebarItemSurface],
-        activeFilter: SidebarSavedFilterKind
+        activeFilter: SidebarSavedFilterKind,
+        hasActiveCustomSavedSearch: Bool = false
     ) -> [SidebarSavedFilterSurface] {
         SidebarSavedFilterKind.allCases.map { kind in
             SidebarSavedFilterSurface(
                 kind: kind,
                 count: items.filter { kind.includes(isPinned: $0.isPinned, isArchived: $0.isArchived) }.count,
-                isActive: kind == activeFilter
+                isActive: !hasActiveCustomSavedSearch && kind == activeFilter
             )
         }
+    }
+}
+
+public struct SidebarSavedSearch: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var title: String
+    public var query: String
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        query: String
+    ) {
+        self.id = id
+        self.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var isValid: Bool {
+        !title.isEmpty && !query.isEmpty
+    }
+}
+
+public struct SidebarSavedSearchSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var commandID: String
+    public var title: String
+    public var query: String
+    public var count: Int
+    public var isActive: Bool
+    public var accessibilityLabel: String
+    public var emptyTitle: String
+
+    public init(
+        savedSearch: SidebarSavedSearch,
+        count: Int,
+        isActive: Bool
+    ) {
+        self.id = savedSearch.id
+        self.commandID = Self.commandID(for: savedSearch.id)
+        self.title = savedSearch.title
+        self.query = savedSearch.query
+        self.count = count
+        self.isActive = isActive
+        self.accessibilityLabel = "\(savedSearch.title) saved search, \(count)"
+        self.emptyTitle = "No chats matching \(savedSearch.title)"
+    }
+
+    public static func commandID(for id: UUID) -> String {
+        "sidebar-saved-search:\(id.uuidString)"
+    }
+
+    public static func savedSearches(
+        _ savedSearches: [SidebarSavedSearch],
+        items: [SidebarItemSurface],
+        activeSavedSearchID: UUID?
+    ) -> [SidebarSavedSearchSurface] {
+        savedSearches
+            .filter(\.isValid)
+            .map { savedSearch in
+                SidebarSavedSearchSurface(
+                    savedSearch: savedSearch,
+                    count: SidebarThreadListBuilder(items: items)
+                        .filteredItems(matching: savedSearch.query)
+                        .count,
+                    isActive: savedSearch.id == activeSavedSearchID
+                )
+            }
     }
 }
 

@@ -14,6 +14,7 @@ enum WorkspaceHTMLSidebarRenderer {
           <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
             \(renderThreadHeader(sidebar))
             \(renderSavedFilters(sidebar))
+            \(renderSavedSearches(sidebar))
             \(renderBulkToolbar(sidebar))
             \(renderThreadSections(sidebar))
           </div>
@@ -103,6 +104,35 @@ enum WorkspaceHTMLSidebarRenderer {
         return """
         <div class="sidebar-filter-bar" data-testid="sidebar-filter-bar">
           \(filters)
+        </div>
+        """
+    }
+
+    private static func renderSavedSearches(_ sidebar: SidebarSurface) -> String {
+        guard !sidebar.customSavedSearches.isEmpty else { return "" }
+        let savedSearches = sidebar.customSavedSearches.map { savedSearch in
+            WorkspaceHTMLPrimitives.commandButton(
+                "\(savedSearch.title) \(savedSearch.count)",
+                testID: "sidebar-saved-search",
+                commandID: savedSearch.commandID,
+                hitTargetKind: .capsule,
+                classes: [
+                    "sidebar-filter",
+                    "sidebar-saved-search",
+                    savedSearch.isActive ? "active" : ""
+                ],
+                ariaLabel: savedSearch.accessibilityLabel,
+                attributes: [
+                    ("aria-pressed", String(savedSearch.isActive)),
+                    ("data-saved-search-id", savedSearch.id.uuidString),
+                    ("data-query", savedSearch.query)
+                ]
+            )
+        }.joined(separator: "\n")
+        return """
+        <div class="sidebar-filter-bar sidebar-saved-search-bar" data-testid="sidebar-saved-search-bar">
+          <span class="sidebar-saved-search-label">Saved searches</span>
+          \(savedSearches)
         </div>
         """
     }

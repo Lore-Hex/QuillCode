@@ -21,6 +21,12 @@ struct QuillCodeSidebarView: View {
                     filters: sidebar.savedFilters,
                     onCommand: onCommand
                 )
+                if !sidebar.customSavedSearches.isEmpty {
+                    QuillCodeSidebarSavedSearchBar(
+                        savedSearches: sidebar.customSavedSearches,
+                        onCommand: onCommand
+                    )
+                }
                 if sidebar.isSelectionMode {
                     QuillCodeSidebarBulkActionsView(
                         selectionLabel: sidebar.selectionLabel,
@@ -70,6 +76,56 @@ struct QuillCodeSidebarView: View {
                 .quillCodeTextButtonTarget(minWidth: 56)
                 .foregroundStyle(action.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
                 .disabled(!action.isEnabled)
+            }
+        }
+    }
+}
+
+private struct QuillCodeSidebarSavedSearchBar: View {
+    var savedSearches: [SidebarSavedSearchSurface]
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+            Text("Saved searches")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 118), spacing: QuillCodeMetrics.denseControlClusterSpacing, alignment: .leading)],
+                alignment: .leading,
+                spacing: QuillCodeMetrics.denseControlClusterSpacing
+            ) {
+                ForEach(savedSearches) { savedSearch in
+                    Button {
+                        onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: savedSearch))
+                    } label: {
+                        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                                .imageScale(.small)
+                            Text(savedSearch.title)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Text("\(savedSearch.count)")
+                                .font(.caption2.weight(.bold))
+                                .monospacedDigit()
+                                .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background((savedSearch.isActive ? Color.white : QuillCodePalette.panel).opacity(0.28))
+                                .clipShape(Capsule())
+                        }
+                        .quillCodeCapsuleButtonTarget(minWidth: 88)
+                        .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
+                        .background(savedSearch.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.45))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .accessibilityLabel(savedSearch.accessibilityLabel)
+                    .accessibilityAddTraits(savedSearch.isActive ? .isSelected : [])
+                    .help(savedSearch.query)
+                }
             }
         }
     }

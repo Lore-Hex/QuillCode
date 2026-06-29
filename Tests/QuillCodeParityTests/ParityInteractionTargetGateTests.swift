@@ -174,7 +174,8 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(
             harnessText.contains("const harnessStaticCommandIDs = new Set")
-                && harnessText.contains("const harnessRoutableCommandPrefixes = ["),
+                && harnessText.contains("const harnessRoutableCommandPrefixes = [")
+                && harnessText.contains("'sidebar-saved-search:'"),
             "The harness should keep an explicit command routing registry for rendered command targets."
         )
         XCTAssertTrue(
@@ -236,6 +237,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && interactionSpecText.contains("automation-primary-action")
                 && interactionSpecText.contains("tool-card-details"),
             "The registry should include small/high-risk controls that commonly regress: model row actions, settings auth, browser inputs, and tool disclosures."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("sidebar saved-search controls")
+                && interactionSpecText.contains("sidebar saved-search chip"),
+            "The broad click-target audit should cover custom sidebar saved searches, since they are dynamically rendered command targets."
         )
         XCTAssertTrue(
             interactionSpecText.contains("secondary pane controls respond from the full interior click target")

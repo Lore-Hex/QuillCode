@@ -78,4 +78,49 @@ final class WorkspaceSidebarIntegrationTests: XCTestCase {
         XCTAssertFalse(surface.sidebar.isSelectionMode)
         XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Pinned"])
     }
+
+    func testSavedSearchCommandClearsSelectionAndSelectAllUsesMatchingRows() throws {
+        let searchID = try XCTUnwrap(UUID(uuidString: "33333333-3333-3333-3333-333333333333"))
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let active = ChatThread(title: "Active", projectID: project.id)
+        var matchingPinned = ChatThread(title: "Investigate flakes", projectID: project.id)
+        matchingPinned.isPinned = true
+        var matchingArchived = ChatThread(title: "Archived flaky CI", projectID: project.id)
+        matchingArchived.isArchived = true
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [active, matchingPinned, matchingArchived],
+                selectedThreadID: active.id
+            ),
+            sidebarSavedSearches: [
+                SidebarSavedSearch(id: searchID, title: "Flaky CI", query: "flak")
+            ]
+        )
+
+        model.startSidebarSelection(selecting: active.id)
+        XCTAssertEqual(model.selectedSidebarThreadIDs(), [active.id])
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "sidebar-saved-search:\(searchID.uuidString)",
+            workspaceRoot: URL(fileURLWithPath: "/tmp")
+        ))
+        var surface = model.surface()
+        XCTAssertFalse(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(surface.sidebar.customSavedSearches.first?.isActive, true)
+        XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Investigate flakes", "Archived flaky CI"])
+
+        model.selectAllSidebarThreads()
+        surface = model.surface()
+        XCTAssertTrue(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(surface.sidebar.selectedThreadIDs, Set([matchingPinned.id, matchingArchived.id]))
+        XCTAssertEqual(surface.sidebar.selectionLabel, "2 chats selected")
+
+        model.setSidebarFilter(.recent)
+        surface = model.surface()
+        XCTAssertEqual(surface.sidebar.activeFilter, .recent)
+        XCTAssertEqual(surface.sidebar.customSavedSearches.first?.isActive, false)
+        XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Active"])
+    }
 }

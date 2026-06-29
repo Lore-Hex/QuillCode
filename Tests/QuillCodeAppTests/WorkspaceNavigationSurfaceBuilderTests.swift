@@ -139,4 +139,38 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .unpin }?.isEnabled, true)
         XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .unarchive }?.isEnabled, false)
     }
+
+    func testSavedSearchRestrictsVisibleRowsAndBulkAvailability() throws {
+        let searchID = try XCTUnwrap(UUID(uuidString: "22222222-2222-2222-2222-222222222222"))
+        let active = ChatThread(title: "Active")
+        var matchingPinned = ChatThread(title: "Investigate flakes")
+        matchingPinned.isPinned = true
+        var matchingArchived = ChatThread(title: "Archived flaky CI")
+        matchingArchived.isArchived = true
+        let threads = [active, matchingPinned, matchingArchived]
+
+        let surface = WorkspaceNavigationSurfaceBuilder(
+            projects: [],
+            selectedProjectID: nil,
+            sidebarItems: threads.map { SidebarItem(thread: $0) },
+            selectedThreadID: active.id,
+            threads: threads,
+            activeSidebarFilter: .all,
+            activeSidebarSavedSearchID: searchID,
+            sidebarSavedSearches: [
+                SidebarSavedSearch(id: searchID, title: "Flaky CI", query: "flak")
+            ],
+            selectionIsActive: true,
+            selectedThreadIDs: [active.id, matchingPinned.id, matchingArchived.id]
+        ).surface()
+
+        XCTAssertEqual(surface.sidebar.customSavedSearches.first?.isActive, true)
+        XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Investigate flakes", "Archived flaky CI"])
+        XCTAssertEqual(surface.sidebar.selectedThreadIDs, Set([matchingPinned.id, matchingArchived.id]))
+        XCTAssertEqual(surface.sidebar.selectionLabel, "2 chats selected")
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .selectAll }?.isEnabled, false)
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .pin }?.isEnabled, false)
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .unpin }?.isEnabled, true)
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .unarchive }?.isEnabled, true)
+    }
 }
