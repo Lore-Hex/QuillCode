@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export const MINIMUM_HIT_TARGET = 44;
+export const MINIMUM_TARGET_CLEARANCE = 4;
 export const TARGET_INTERIOR_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8];
 export const TARGET_EDGE_SAMPLE_FRACTIONS = [0.08, 0.92];
 export const SHARED_HIT_TARGET_CLASSES = [
@@ -99,12 +100,20 @@ type TargetOverlapIssue = {
   overlapWidth: number;
 };
 
+type TargetClearanceIssue = {
+  a: string;
+  axis: 'x' | 'y';
+  b: string;
+  gap: number;
+};
+
 type TargetNestedIssue = {
   child: string;
   parent: string;
 };
 
 type InteractionAuditReport = {
+  clearanceIssues: TargetClearanceIssue[];
   nestedIssues: TargetNestedIssue[];
   overlapIssues: TargetOverlapIssue[];
   targetIssues: TargetAuditIssue[];
@@ -125,7 +134,7 @@ export type CriticalTargetSurface = {
 };
 
 export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
-  return page.evaluate(({ activeLayerSelector, edgeSampleFractions, expectedActionByKind, expectedKindByClass, interiorSampleFractions, minimumHitTarget, selector, sharedHitTargetClasses }) => {
+  return page.evaluate(({ activeLayerSelector, edgeSampleFractions, expectedActionByKind, expectedKindByClass, interiorSampleFractions, minimumHitTarget, minimumTargetClearance, selector, sharedHitTargetClasses }) => {
     type VisibleTarget = {
       clipped: VisibleRectResult;
       element: Element;
@@ -504,6 +513,43 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       return [element.tagName.toLowerCase(), id, aria, text].filter(Boolean).join(':');
     }
 
+    function targetKind(element: Element) {
+      const declared = declaredHitTargetKind(element);
+      if (declared) return declared.replace(/^auto-/, '');
+      return classDerivedHitTargetKind(element);
+    }
+
+    function isRowLikeTarget(element: Element) {
+      const kind = targetKind(element);
+      return kind === 'row' || kind === 'switch-row';
+    }
+
+    function isMenuOrListRow(element: Element) {
+      return isRowLikeTarget(element)
+        && Boolean(element.closest([
+          '.topbar-overflow-popover',
+          '.sidebar-tools-popover',
+          '.sidebar-thread-menu-popover',
+          '[data-testid="sidebar-compose-zone"]',
+          '[data-testid="sidebar-threads-zone"]',
+          '[data-testid="project-list"]',
+          '[data-testid="search-results"]',
+          '[data-testid="command-palette-results"]',
+          '[data-testid="model-list"]',
+          '[data-testid="worktree-choices"]'
+        ].join(',')));
+    }
+
+    function allowsTightClearance(first: Element, second: Element, axis: 'x' | 'y') {
+      if (axis === 'y' && isMenuOrListRow(first) && isMenuOrListRow(second)) {
+        return true;
+      }
+      if (targetKind(first) === 'segmented' || targetKind(second) === 'segmented') {
+        return true;
+      }
+      return false;
+    }
+
     function interactionLayer(element: Element) {
       const layer = element.closest(activeLayerSelector);
       if (!layer) return 'workspace';
@@ -585,6 +631,7 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
         isTopMostAtCenter(element, visibleRect)
       ));
     const overlapIssues: TargetOverlapIssue[] = [];
+    const clearanceIssues: TargetClearanceIssue[] = [];
 
     for (let i = 0; i < overlapTargets.length; i += 1) {
       for (let j = i + 1; j < overlapTargets.length; j += 1) {
@@ -602,11 +649,43 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
             overlapHeight: Math.round(overlapHeight),
             overlapWidth: Math.round(overlapWidth)
           });
+          continue;
+        }
+
+        const verticalOverlap = Math.min(first.visibleRect.bottom, second.visibleRect.bottom) - Math.max(first.visibleRect.top, second.visibleRect.top);
+        const horizontalOverlap = Math.min(first.visibleRect.right, second.visibleRect.right) - Math.max(first.visibleRect.left, second.visibleRect.left);
+        const horizontalGap = Math.max(first.visibleRect.left, second.visibleRect.left) - Math.min(first.visibleRect.right, second.visibleRect.right);
+        const verticalGap = Math.max(first.visibleRect.top, second.visibleRect.top) - Math.min(first.visibleRect.bottom, second.visibleRect.bottom);
+        if (
+          verticalOverlap > 1
+          && horizontalGap >= 0
+          && horizontalGap < minimumTargetClearance
+          && !allowsTightClearance(first.element, second.element, 'x')
+        ) {
+          clearanceIssues.push({
+            a: labelFor(first.element),
+            axis: 'x',
+            b: labelFor(second.element),
+            gap: Math.round(horizontalGap)
+          });
+        }
+        if (
+          horizontalOverlap > 1
+          && verticalGap >= 0
+          && verticalGap < minimumTargetClearance
+          && !allowsTightClearance(first.element, second.element, 'y')
+        ) {
+          clearanceIssues.push({
+            a: labelFor(first.element),
+            axis: 'y',
+            b: labelFor(second.element),
+            gap: Math.round(verticalGap)
+          });
         }
       }
     }
 
-    return { nestedIssues, overlapIssues, targetIssues };
+    return { clearanceIssues, nestedIssues, overlapIssues, targetIssues };
   }, {
     activeLayerSelector: ACTIVE_LAYER_SELECTOR,
     edgeSampleFractions: TARGET_EDGE_SAMPLE_FRACTIONS,
@@ -614,6 +693,7 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
     expectedKindByClass: EXPECTED_KIND_BY_CLASS,
     interiorSampleFractions: TARGET_INTERIOR_SAMPLE_FRACTIONS,
     minimumHitTarget: MINIMUM_HIT_TARGET,
+    minimumTargetClearance: MINIMUM_TARGET_CLEARANCE,
     selector: INTERACTIVE_SELECTOR,
     sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES
   });
@@ -627,6 +707,14 @@ export async function expectAllVisibleInteractiveTargets(page: Page, label: stri
 export async function expectNoOverlappingInteractiveTargets(page: Page, label: string) {
   const { overlapIssues } = await interactionAuditReport(page);
   expect(overlapIssues, `${label} should not have overlapping peer interactive targets`).toEqual([]);
+}
+
+export async function expectNoAmbiguousAdjacentInteractiveTargets(page: Page, label: string) {
+  const { clearanceIssues } = await interactionAuditReport(page);
+  expect(
+    clearanceIssues,
+    `${label} should keep adjacent peer interactive targets at least ${MINIMUM_TARGET_CLEARANCE}px apart unless they are intentional list/menu rows`
+  ).toEqual([]);
 }
 
 export async function expectNoNestedInteractiveTargets(page: Page, label: string) {

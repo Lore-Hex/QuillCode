@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Rendered Click-Target Clearance Pass
+
+Overall grade after this slice: **A rendered click-target ambiguity, A shared audit coverage, A- packaged click synthesis**.
+
+The rendered interaction audit already checked target size, semantic contracts, center/interior ownership, nesting, overlap, and command routing. The remaining UX gap was near-miss spacing: two controls could be technically non-overlapping but still sit close enough that taps or pointer intent felt ambiguous.
+
+| Before | After |
+| --- | --- |
+| Peer controls failed only when their visible hit regions overlapped. | The broad Playwright audit now also fails adjacent peer controls with less than 4 px clearance. |
+| Intentional vertical row stacks and segmented controls had no explicit exception model. | Clearance exceptions are named in the audit for menu/list rows and segmented controls instead of being hidden in individual tests. |
+| Regression fixtures covered dead, blocked, tiny, and semantically mismatched controls only. | The interaction fixture now includes a 2 px near-miss pair so the clearance rule is exercised directly. |
+
+Residual risk:
+
+- This rendered harness gate catches HTML/UI states under Playwright. The deeper A+ layer remains packaged native click synthesis that physically clicks every live macOS/Linux target point.
+
 ## 2026-06-29 Interactive Cluster Click-Target Pass
 
 Overall grade after this slice: **A click-target source contracts, A rendered overlap coverage, A- native visual ergonomics**.

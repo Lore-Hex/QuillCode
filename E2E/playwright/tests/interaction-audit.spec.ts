@@ -14,6 +14,7 @@ import {
   expectHitTarget,
   interactionAuditReport,
   clickTargetInteriorPoint,
+  expectNoAmbiguousAdjacentInteractiveTargets,
   expectNoNestedInteractiveTargets,
   expectNoOverlappingInteractiveTargets,
   expectTextEntryFocusFromInteriorPoint
@@ -23,6 +24,7 @@ async function expectInteractionTargetsClean(page: Page, label: string) {
   await expectAllVisibleInteractiveTargets(page, label);
   await expectNoNestedInteractiveTargets(page, label);
   await expectNoOverlappingInteractiveTargets(page, label);
+  await expectNoAmbiguousAdjacentInteractiveTargets(page, label);
   await expectCommandTargetsRoutable(page, label);
 }
 
@@ -473,6 +475,24 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
         data-hit-target-source="explicit"
         style="position: fixed; left: 164px; top: 204px; z-index: 1000; width: 156px; height: 48px; cursor: pointer;"
       >Mismatch</button>
+      <button
+        type="button"
+        class="hit-target-text"
+        data-testid="too-close-a"
+        data-hit-target-kind="text"
+        data-hit-target-action="press"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 164px; top: 264px; z-index: 1000; width: 80px; height: 48px; cursor: pointer;"
+      >Close A</button>
+      <button
+        type="button"
+        class="hit-target-text"
+        data-testid="too-close-b"
+        data-hit-target-kind="text"
+        data-hit-target-action="press"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 246px; top: 264px; z-index: 1000; width: 80px; height: 48px; cursor: pointer;"
+      >Close B</button>
       <span
         aria-hidden="true"
         style="position: fixed; left: 24px; top: 144px; z-index: 1001; width: 28px; height: 28px; background: rgba(255, 93, 82, 0.85);"
@@ -524,6 +544,15 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
   expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
   expect(issueFor('disabled-checkbox-label')).toBeUndefined();
+
+  expect(report.clearanceIssues).toContainEqual(
+    expect.objectContaining({
+      a: expect.stringContaining('too-close-a'),
+      axis: 'x',
+      b: expect.stringContaining('too-close-b'),
+      gap: 2
+    })
+  );
 });
 
 test('command routing audit catches visible dead command targets', async ({ page }) => {
