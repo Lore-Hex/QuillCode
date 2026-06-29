@@ -35,6 +35,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build CLI
         run: swift build --product quill-code
+      - name: Smoke Linux Computer Use helpers
+        run: swift run quillcode-linux-computer-use-smoke
 
   playwright:
     runs-on: ubuntu-latest

@@ -16,6 +16,22 @@ Residual risk:
 
 - `open -W` proves release entrypoint and argument plumbing, but it does not yet click a real packaged window or verify notarized distribution behavior.
 
+## 2026-06-28 Click-Target Semantic Consistency Pass
+
+Overall grade after this slice: **A semantic action contract, A rendered regression coverage, A- packaged native frame sampling**.
+
+The click-target audit now checks that target kind, target class, target action, and native element behavior agree. This catches the subtle broken states that feel worst in app use: a visually large button that declares itself as text input, a link rendered with press semantics, or a row/icon class mismatch that still happens to meet the 44 px geometry rule.
+
+| Before | After |
+| --- | --- |
+| Rendered targets could have valid dimensions and explicit metadata while still declaring the wrong action for their element. | Playwright now fails `hit_target_kind_class_mismatch`, `hit_target_action_mismatch`, and `element_action_mismatch` in both broad audits and focused target probes. |
+| Fixture coverage caught missing contracts, blocked interiors, and edge ownership, but not semantic contradictions. | The interaction audit fixture now includes wrong-kind, wrong-action, wrong-link, and class/kind-mismatch controls so the gate proves those regressions fail. |
+| Swift parity gates only required the helper names used for geometry and metadata checks. | `ParityInteractionTargetGateTests` now requires the semantic mismatch gates too, keeping the rendered audit helper from silently losing those checks. |
+
+Residual risk:
+
+- This is strong rendered harness coverage. The remaining A+ layer is still packaged native Accessibility frame sampling plus live edge-click automation for the macOS/Linux SwiftUI windows.
+
 ## 2026-06-28 Packaged macOS Smoke Pass
 
 Overall grade after this slice: **A packaged entrypoint coverage, A- release packaging maturity, B+ Launch Services coverage**.
@@ -449,7 +465,7 @@ Linux Computer Use moved from capability reporting to a real helper-backed backe
 
 Residual risk:
 
-- This is command-contract verified, not visually verified on real Linux desktops yet. The next quality step is a Linux smoke harness with fake and real helper binaries plus screenshots checked through the same artifact preview path.
+- This is command-contract verified and CI-smoked through fake Linux helpers in a subprocess boundary, but not visually verified on real Linux desktops yet. The next quality step is a real desktop smoke with actual helper binaries plus screenshots checked through the same artifact preview path.
 
 ## 2026-06-27 Computer Use Status Contract Pass
 

@@ -15,7 +15,7 @@ export const SHARED_HIT_TARGET_CLASSES = [
   'hit-target-adjustable'
 ];
 
-const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
+export const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
   'hit-target-owned': 'owned',
   'hit-target-link': 'link',
   'hit-target-icon': 'icon',
@@ -27,7 +27,7 @@ const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
   'hit-target-adjustable': 'adjustable'
 };
 
-const EXPECTED_ACTION_BY_KIND: Record<string, string> = {
+export const EXPECTED_ACTION_BY_KIND: Record<string, string> = {
   adjustable: 'adjust',
   capsule: 'press',
   'form-action': 'press',
@@ -113,7 +113,7 @@ export type CriticalTargetProbe = {
 };
 
 export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
-  return page.evaluate(({ activeLayerSelector, edgeSampleFractions, interiorSampleFractions, minimumHitTarget, selector, sharedHitTargetClasses }) => {
+  return page.evaluate(({ activeLayerSelector, edgeSampleFractions, expectedActionByKind, expectedKindByClass, interiorSampleFractions, minimumHitTarget, selector, sharedHitTargetClasses }) => {
     type VisibleTarget = {
       clipped: VisibleRectResult;
       element: Element;
@@ -166,6 +166,26 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       return Boolean(action) && !action.startsWith('auto-');
     }
 
+    function declaredHitTargetKind(element: Element) {
+      return element.getAttribute('data-hit-target-kind') || '';
+    }
+
+    function declaredHitTargetAction(element: Element) {
+      return element.getAttribute('data-hit-target-action') || '';
+    }
+
+    function classDerivedHitTargetKind(element: Element) {
+      for (const [className, kind] of Object.entries(expectedKindByClass)) {
+        if (element.classList.contains(className)) return kind;
+      }
+      return '';
+    }
+
+    function isRangeInput(element: Element) {
+      return element instanceof HTMLInputElement
+        && (element.type || '').toLowerCase() === 'range';
+    }
+
     function isAuditableInteractiveElement(element: Element) {
       if (!(element instanceof HTMLLabelElement)) return true;
       const control = associatedLabelControl(element);
@@ -196,6 +216,30 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
         'reset',
         'submit'
       ].includes((element.type || 'text').toLowerCase());
+    }
+
+    function expectedElementAction(element: Element) {
+      if (isTextEntryLikeElement(element)) return 'text-input';
+      if (isRangeInput(element)) return 'adjust';
+      if (element.matches('a[href]')) return 'link';
+      if (element instanceof HTMLLabelElement && isAuditableInteractiveElement(element)) return 'press';
+      if (
+        element.matches([
+          'button',
+          'summary',
+          '[role="button"]',
+          '[role="checkbox"]',
+          '[role="menuitem"]',
+          '[role="option"]',
+          '[role="switch"]',
+          '[role="tab"]',
+          'input[type="checkbox"]',
+          'input[type="radio"]'
+        ].join(','))
+      ) {
+        return 'press';
+      }
+      return null;
     }
 
     function requiresPointerAffordance(element: Element) {
@@ -373,6 +417,20 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       if (!isDisabled && !hasHitTargetAction(element)) {
         reasons.push('missing_hit_target_action');
       }
+      const declaredKind = declaredHitTargetKind(element);
+      const derivedKind = classDerivedHitTargetKind(element);
+      const declaredAction = declaredHitTargetAction(element);
+      const expectedKindAction = expectedActionByKind[declaredKind];
+      const nativeElementAction = expectedElementAction(element);
+      if (!isDisabled && declaredKind && derivedKind && declaredKind !== derivedKind) {
+        reasons.push('hit_target_kind_class_mismatch');
+      }
+      if (!isDisabled && expectedKindAction && declaredAction && declaredAction !== expectedKindAction) {
+        reasons.push('hit_target_action_mismatch');
+      }
+      if (!isDisabled && nativeElementAction && declaredAction && declaredAction !== nativeElementAction) {
+        reasons.push('element_action_mismatch');
+      }
       if (style.pointerEvents === 'none' && !isDisabled) {
         reasons.push('pointer_events_none');
       }
@@ -540,6 +598,8 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
   }, {
     activeLayerSelector: ACTIVE_LAYER_SELECTOR,
     edgeSampleFractions: TARGET_EDGE_SAMPLE_FRACTIONS,
+    expectedActionByKind: EXPECTED_ACTION_BY_KIND,
+    expectedKindByClass: EXPECTED_KIND_BY_CLASS,
     interiorSampleFractions: TARGET_INTERIOR_SAMPLE_FRACTIONS,
     minimumHitTarget: MINIMUM_HIT_TARGET,
     selector: INTERACTIVE_SELECTOR,
@@ -571,7 +631,7 @@ export async function expectHitTarget(locator: Locator, label: string) {
   if (!box) throw new Error(`${label} should have layout bounds`);
   expect(Math.round(box.width), `${label} width`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(Math.round(box.height), `${label} height`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
-  const clickableInteriorIssues = await target.evaluate((element, { edgeSampleFractions, interiorSampleFractions, minimumHitTarget, sharedHitTargetClasses }) => {
+  const clickableInteriorIssues = await target.evaluate((element, { edgeSampleFractions, expectedActionByKind, expectedKindByClass, interiorSampleFractions, minimumHitTarget, sharedHitTargetClasses }) => {
     const rect = element.getBoundingClientRect();
     const style = window.getComputedStyle(element);
     const issues: string[] = [];
@@ -604,7 +664,63 @@ export async function expectHitTarget(locator: Locator, label: string) {
       return topElement === element || Boolean(topElement && element.contains(topElement));
     }
 
+    function classDerivedHitTargetKind(targetElement: Element) {
+      for (const [className, kind] of Object.entries(expectedKindByClass)) {
+        if (targetElement.classList.contains(className)) return kind;
+      }
+      return '';
+    }
+
+    function isRangeInput(targetElement: Element) {
+      return targetElement instanceof HTMLInputElement
+        && (targetElement.type || '').toLowerCase() === 'range';
+    }
+
+    function isTextEntryLikeElement(targetElement: Element) {
+      if (targetElement instanceof HTMLTextAreaElement || targetElement instanceof HTMLSelectElement) return true;
+      if (!(targetElement instanceof HTMLInputElement)) return false;
+      return ![
+        'button',
+        'checkbox',
+        'color',
+        'file',
+        'image',
+        'radio',
+        'range',
+        'reset',
+        'submit'
+      ].includes((targetElement.type || 'text').toLowerCase());
+    }
+
+    function expectedElementAction(targetElement: Element) {
+      if (isTextEntryLikeElement(targetElement)) return 'text-input';
+      if (isRangeInput(targetElement)) return 'adjust';
+      if (targetElement.matches('a[href]')) return 'link';
+      if (
+        targetElement.matches([
+          'button',
+          'summary',
+          '[role="button"]',
+          '[role="checkbox"]',
+          '[role="menuitem"]',
+          '[role="option"]',
+          '[role="switch"]',
+          '[role="tab"]',
+          'input[type="checkbox"]',
+          'input[type="radio"]'
+        ].join(','))
+      ) {
+        return 'press';
+      }
+      return null;
+    }
+
     const isDisabled = element.matches(':disabled,[aria-disabled="true"]');
+    const declaredKind = element.getAttribute('data-hit-target-kind') || '';
+    const derivedKind = classDerivedHitTargetKind(element);
+    const declaredAction = element.getAttribute('data-hit-target-action') || '';
+    const expectedKindAction = expectedActionByKind[declaredKind];
+    const nativeElementAction = expectedElementAction(element);
     const interiorGrid = interiorSampleFractions.flatMap((yFraction) => (
       interiorSampleFractions.map((xFraction) => [
         rect.left + rect.width * xFraction,
@@ -640,6 +756,15 @@ export async function expectHitTarget(locator: Locator, label: string) {
     ) {
       issues.push('missing_hit_target_action');
     }
+    if (!isDisabled && declaredKind && derivedKind && declaredKind !== derivedKind) {
+      issues.push('hit_target_kind_class_mismatch');
+    }
+    if (!isDisabled && expectedKindAction && declaredAction && declaredAction !== expectedKindAction) {
+      issues.push('hit_target_action_mismatch');
+    }
+    if (!isDisabled && nativeElementAction && declaredAction && declaredAction !== nativeElementAction) {
+      issues.push('element_action_mismatch');
+    }
     if (style.pointerEvents === 'none' && !isDisabled) {
       issues.push('pointer_events_none');
     }
@@ -662,6 +787,8 @@ export async function expectHitTarget(locator: Locator, label: string) {
     return issues;
   }, {
     edgeSampleFractions: TARGET_EDGE_SAMPLE_FRACTIONS,
+    expectedActionByKind: EXPECTED_ACTION_BY_KIND,
+    expectedKindByClass: EXPECTED_KIND_BY_CLASS,
     interiorSampleFractions: TARGET_INTERIOR_SAMPLE_FRACTIONS,
     minimumHitTarget: MINIMUM_HIT_TARGET,
     sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES

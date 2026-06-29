@@ -550,6 +550,77 @@ final class ComputerUseBackendTests: XCTestCase {
             )
         }
     }
+
+    func testLinuxBackendRunsFakeHelpersThroughProcessRunner() async throws {
+        #if os(Linux)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QuillCodeLinuxComputerUseProcessSmoke-\(UUID().uuidString)")
+        let bin = root.appendingPathComponent("bin")
+        let png = root.appendingPathComponent("one-by-one.png")
+        let xdotoolLog = root.appendingPathComponent("xdotool.log")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+        }
+        try FileManager.default.createDirectory(
+            at: bin,
+            withIntermediateDirectories: true
+        )
+        try RecordingLinuxCommandRunner.oneByOnePNGData().write(to: png)
+        try writeExecutable(
+            at: bin.appendingPathComponent("scrot"),
+            content: """
+            #!/bin/sh
+            cp '\(png.path)' "$1"
+            """
+        )
+        try writeExecutable(
+            at: bin.appendingPathComponent("xdotool"),
+            content: """
+            #!/bin/sh
+            printf '%s\\n' "$*" >> '\(xdotoolLog.path)'
+            """
+        )
+
+        let path = "\(bin.path):\(ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin")"
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "x11",
+                "DISPLAY": ":99",
+                "PATH": path
+            ]
+        ).report()
+        XCTAssertEqual(report.session, .x11)
+        XCTAssertEqual(report.availableHelpers, ["scrot", "xdotool"])
+        XCTAssertTrue(report.status.available)
+
+        let processRunner = LinuxComputerUseProcessRunner(environment: ["PATH": path])
+        let backend = LinuxComputerUseBackend(
+            report: report,
+            commandRunner: processRunner.run
+        )
+
+        let screenshot = try await backend.screenshot()
+        try await backend.leftClick(x: 10, y: 20)
+        try await backend.type("hello")
+        try await backend.scroll(dx: 0, dy: 120)
+        try await backend.pressKey("Return")
+
+        XCTAssertEqual(screenshot.width, 1)
+        XCTAssertEqual(screenshot.height, 1)
+        let xdotoolCommands = try String(contentsOf: xdotoolLog, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(xdotoolCommands, [
+            "mousemove 10 20",
+            "click 1",
+            "type --clearmodifiers --delay 0 -- hello",
+            "click 5",
+            "key --clearmodifiers Return"
+        ])
+        #else
+        throw XCTSkip("Linux process-runner smoke only runs on Linux.")
+        #endif
+    }
 }
 
 private actor PermissionRecordingComputerUseBackend: ComputerUseBackend {
@@ -627,9 +698,20 @@ private actor RecordingLinuxCommandRunner {
         return ["grim", "scrot", "import"].contains(executable)
     }
 
-    private nonisolated static func oneByOnePNGData() -> Data {
+    nonisolated static func oneByOnePNGData() -> Data {
         Data(base64Encoded:
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
         )!
     }
+}
+
+private func writeExecutable(
+    at url: URL,
+    content: String
+) throws {
+    try content.write(to: url, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755],
+        ofItemAtPath: url.path
+    )
 }

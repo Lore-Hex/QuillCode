@@ -80,9 +80,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             auditHelperText.contains("EXPECTED_ACTION_BY_KIND")
                 && auditHelperText.contains("missing_hit_target_action")
+                && auditHelperText.contains("hit_target_kind_class_mismatch")
+                && auditHelperText.contains("hit_target_action_mismatch")
+                && auditHelperText.contains("element_action_mismatch")
+                && auditHelperText.contains("expectedElementAction(element)")
                 && auditHelperText.contains("data-hit-target-source")
                 && auditHelperText.contains("data-hit-target-action"),
-            "Visible interactive controls should declare semantic action and explicit/inferred source so auto-classified controls cannot pass as designed targets."
+            "Visible interactive controls should declare a coherent semantic kind/action/source and match their underlying element role; size alone must not pass a target."
         )
         XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
@@ -258,6 +262,16 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             interactionSpecText.contains("expectedKind: 'form-action'")
                 || interactionSpecText.contains("expectedKind: 'capsule'"),
             "Critical click-target probes should include compact form-action or capsule controls, not only generic row/text/icon controls."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("button-declared-as-text-entry-target")
+                && interactionSpecText.contains("button-declared-as-link-action")
+                && interactionSpecText.contains("link-declared-as-press-target")
+                && interactionSpecText.contains("kind-class-mismatch-target")
+                && interactionSpecText.contains("hit_target_kind_class_mismatch")
+                && interactionSpecText.contains("hit_target_action_mismatch")
+                && interactionSpecText.contains("element_action_mismatch"),
+            "The click-target audit should include fixtures for semantic mismatches so controls cannot pass by being large while lying about button/link/text-entry behavior."
         )
     }
 
