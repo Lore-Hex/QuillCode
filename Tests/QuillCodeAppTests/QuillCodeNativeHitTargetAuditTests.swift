@@ -181,9 +181,12 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         ]
         XCTAssertEqual(probesByContractID["composer.send"]?.samplePoints, expectedSamplePoints)
         for probe in report.clickProbes {
+            let contract = contractsByID[probe.contractID]
             XCTAssertFalse(probe.selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             XCTAssertGreaterThanOrEqual(probe.requiredMinWidth, 44)
             XCTAssertGreaterThanOrEqual(probe.requiredMinHeight, 44)
+            XCTAssertEqual(probe.allowsNestedInteractiveChildren, contract?.allowsNestedInteractiveChildren)
+            XCTAssertEqual(probe.requiresUnblockedInterior, contract?.requiresUnblockedInterior)
             XCTAssertEqual(probe.samplePoints, expectedSamplePoints)
             XCTAssertTrue(probe.samplePoints.allSatisfy { point in
                 point.x > 0 && point.x < 1 && point.y > 0 && point.y < 1
@@ -351,6 +354,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             label: "Send message",
             kind: .textButton,
             action: .link,
+            allowsNestedInteractiveChildren: true,
+            requiresUnblockedInterior: false,
             selectorKind: .testID,
             selector: "quillcode-wrong-button",
             requiredMinWidth: 20,
@@ -372,6 +377,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue(issues.contains("composer.send click probe kind textButton does not match icon"))
         XCTAssertTrue(issues.contains("composer.send click probe action link does not match press"))
         XCTAssertTrue(issues.contains("composer.send click probe family top-bar does not match composer"))
+        XCTAssertTrue(issues.contains("composer.send click probe nested-child policy does not match contract"))
+        XCTAssertTrue(issues.contains("composer.send click probe interior-blocking policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredMinWidth 20.0 is below 44.0"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredMinHeight 20.0 is below 44.0"))
         XCTAssertTrue(issues.contains("composer.send click probe has an unnamed sample point"))

@@ -97,6 +97,10 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("normalized_probe_contracts"))
         XCTAssertTrue(validator.contains("click_probes = targets.get(\"clickProbes\")"))
         XCTAssertTrue(validator.contains("samplePoints"))
+        XCTAssertTrue(validator.contains("allowsNestedInteractiveChildren"))
+        XCTAssertTrue(validator.contains("requiresUnblockedInterior"))
+        XCTAssertTrue(validator.contains("nested-child policy drift"))
+        XCTAssertTrue(validator.contains("interior-blocking policy drift"))
         XCTAssertTrue(validator.contains("launchServicesMatchesDirect"))
         XCTAssertTrue(validator.contains("direct_probe_contracts != launch_services_probe_contracts"))
         XCTAssertTrue(validator.contains("missingFromLaunch"))
@@ -145,6 +149,11 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(manifestObject["ok"] as? Bool, true)
         XCTAssertEqual(manifestObject["launchServicesMatchesDirect"] as? Bool, true)
         XCTAssertEqual(manifestObject["clickProbeCount"] as? Int, 1)
+        let probePolicies = try XCTUnwrap(manifestObject["clickProbePolicies"] as? [[String: Any]])
+        let probePolicy = try XCTUnwrap(probePolicies.first)
+        XCTAssertEqual(probePolicy["contractID"] as? String, "composer.send")
+        XCTAssertEqual(probePolicy["allowsNestedInteractiveChildren"] as? Bool, false)
+        XCTAssertEqual(probePolicy["requiresUnblockedInterior"] as? Bool, true)
         XCTAssertEqual(manifestObject["samplePointNames"] as? [String], [
             "bottom-interior",
             "center",
@@ -172,6 +181,11 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(readinessObject["launchServicesMatchesDirect"] as? Bool, true)
         XCTAssertEqual(readinessObject["clickProbeCount"] as? Int, 1)
         XCTAssertEqual(readinessObject["minimumHitTarget"] as? Int, 44)
+        let readinessPolicies = try XCTUnwrap(readinessObject["clickProbePolicies"] as? [[String: Any]])
+        let readinessPolicy = try XCTUnwrap(readinessPolicies.first)
+        XCTAssertEqual(readinessPolicy["contractID"] as? String, "composer.send")
+        XCTAssertEqual(readinessPolicy["allowsNestedInteractiveChildren"] as? Bool, false)
+        XCTAssertEqual(readinessPolicy["requiresUnblockedInterior"] as? Bool, true)
         XCTAssertEqual(readinessObject["requiredSamplePointNames"] as? [String], [
             "bottom-interior",
             "center",
@@ -225,7 +239,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "id": "composer.send",
                 "testID": "quillcode-send-button",
                 "kind": "icon",
-                "action": "press"
+                "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true
               }
             ],
             "clickProbes": [
@@ -235,6 +251,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "selector": "quillcode-send-button",
                 "kind": "icon",
                 "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true,
                 "requiredMinWidth": 44,
                 "requiredMinHeight": 44,
                 "samplePoints": [

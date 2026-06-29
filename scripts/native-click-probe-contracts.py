@@ -119,10 +119,16 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
         selector = probe.get("selector")
         kind = probe.get("kind")
         action = probe.get("action")
+        allows_nested_interactive_children = probe.get("allowsNestedInteractiveChildren")
+        requires_unblocked_interior = probe.get("requiresUnblockedInterior")
         required_min_width = probe.get("requiredMinWidth")
         required_min_height = probe.get("requiredMinHeight")
         if not all(isinstance(value, str) and value.strip() for value in (contract_id, selector_kind, selector, kind, action)):
             raise SystemExit(f"{label} report has an incomplete click probe identity: {probe!r}")
+        if not isinstance(allows_nested_interactive_children, bool):
+            raise SystemExit(f"{label} report has malformed click probe nested-child policy for {contract_id}: {probe!r}")
+        if not isinstance(requires_unblocked_interior, bool):
+            raise SystemExit(f"{label} report has malformed click probe interior-blocking policy for {contract_id}: {probe!r}")
         if contract_id in probes_by_contract:
             raise SystemExit(f"{label} report has a duplicate click probe for {contract_id}")
         probes_by_contract[contract_id] = probe
@@ -134,6 +140,10 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             raise SystemExit(f"{label} report has click probe selector drift for {contract_id}: {probe!r}")
         if probe.get("kind") != contract.get("kind") or probe.get("action") != contract.get("action"):
             raise SystemExit(f"{label} report has click probe semantic drift for {contract_id}: {probe!r}")
+        if allows_nested_interactive_children != contract.get("allowsNestedInteractiveChildren"):
+            raise SystemExit(f"{label} report has click probe nested-child policy drift for {contract_id}: {probe!r}")
+        if requires_unblocked_interior != contract.get("requiresUnblockedInterior"):
+            raise SystemExit(f"{label} report has click probe interior-blocking policy drift for {contract_id}: {probe!r}")
         if not isinstance(required_min_width, (int, float)) or required_min_width < MINIMUM_HIT_TARGET:
             raise SystemExit(f"{label} report has undersized click probe requiredMinWidth for {contract_id}: {probe!r}")
         if not isinstance(required_min_height, (int, float)) or required_min_height < MINIMUM_HIT_TARGET:
@@ -145,6 +155,8 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             "selector": selector,
             "kind": kind,
             "action": action,
+            "allowsNestedInteractiveChildren": allows_nested_interactive_children,
+            "requiresUnblockedInterior": requires_unblocked_interior,
             "requiredMinWidth": float(required_min_width),
             "requiredMinHeight": float(required_min_height),
             "samplePoints": normalize_sample_points(probe.get("samplePoints"), label=label, contract_id=contract_id),
@@ -194,6 +206,14 @@ def write_comparison_manifest(
         "launchServicesMatchesDirect": True,
         "clickProbeCount": len(direct_probe_contracts),
         "contractIDs": [probe["contractID"] for probe in direct_probe_contracts],
+        "clickProbePolicies": [
+            {
+                "contractID": probe["contractID"],
+                "allowsNestedInteractiveChildren": probe["allowsNestedInteractiveChildren"],
+                "requiresUnblockedInterior": probe["requiresUnblockedInterior"],
+            }
+            for probe in direct_probe_contracts
+        ],
         "samplePointNames": sorted({
             point["name"]
             for probe in direct_probe_contracts
@@ -217,6 +237,18 @@ def validated_comparison_manifest(path: Path) -> dict[str, Any]:
             raise SystemExit(f"{path} is missing {key}")
     if not isinstance(manifest.get("contractIDs"), list) or not all(isinstance(value, str) for value in manifest["contractIDs"]):
         raise SystemExit(f"{path} has malformed contractIDs")
+    policies = manifest.get("clickProbePolicies")
+    if not isinstance(policies, list) or len(policies) != len(manifest["contractIDs"]):
+        raise SystemExit(f"{path} has malformed clickProbePolicies")
+    for policy in policies:
+        if not isinstance(policy, dict):
+            raise SystemExit(f"{path} has a malformed click-probe policy entry: {policy!r}")
+        if policy.get("contractID") not in manifest["contractIDs"]:
+            raise SystemExit(f"{path} has a click-probe policy for an unknown contract: {policy!r}")
+        if not isinstance(policy.get("allowsNestedInteractiveChildren"), bool):
+            raise SystemExit(f"{path} has a malformed nested-child policy entry: {policy!r}")
+        if not isinstance(policy.get("requiresUnblockedInterior"), bool):
+            raise SystemExit(f"{path} has a malformed interior-blocking policy entry: {policy!r}")
     if not isinstance(manifest.get("samplePointNames"), list) or sorted(manifest["samplePointNames"]) != sorted(EXPECTED_SAMPLE_POINTS):
         raise SystemExit(f"{path} does not list the required click-probe sample points")
     if manifest.get("clickProbeCount") != len(manifest["contractIDs"]):
@@ -249,6 +281,7 @@ def write_accessibility_readiness_manifest(artifact_root: Path, manifest_path: P
         "launchServicesMatchesDirect": True,
         "clickProbeCount": len(direct_probe_contracts),
         "contractIDs": contract_ids,
+        "clickProbePolicies": packaged_manifest["clickProbePolicies"],
         "requiredSamplePointNames": sorted(EXPECTED_SAMPLE_POINTS),
         "minimumHitTarget": MINIMUM_HIT_TARGET,
         "liveAccessibilitySampling": "not-run",

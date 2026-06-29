@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Click-Probe Interior Semantics Pass
+
+Overall grade after this slice: **A native probe semantics, A packaged manifest readability, A- live Accessibility clicking**.
+
+The click-probe plan already covered selectors, dimensions, and center/interior sample points. This pass makes the plan carry the semantic policy that determines whether nested controls are allowed and whether interior samples must remain unblocked by child hit areas.
+
+| Before | After |
+| --- | --- |
+| Click probes inherited selector/kind/action from surface contracts, but did not serialize the nested-child or unblocked-interior policy that a real click runner needs. | `QuillCodeNativeHitTargetProbe` now serializes `allowsNestedInteractiveChildren` and `requiresUnblockedInterior` for every probe. |
+| The shared validator could catch selector, semantic, size, and coordinate drift, but not policy drift between the probe and its owning contract. | `scripts/native-click-probe-contracts.py` now rejects nested-child and interior-blocking policy drift, and packaged manifests preserve `clickProbePolicies` for reviewers. |
+| Native smoke validated required string metadata, but malformed boolean policy fields could slip through as report shape drift. | `scripts/native-desktop-smoke.sh` now requires every native hit-target contract to carry typed policy booleans. |
+
+Residual risk:
+
+- The next layer is still resolving the packaged app's live Accessibility frames and clicking the center plus interior probe points against the real window.
+
 ## 2026-06-29 Packaged Window Hit-Target Evidence Pass
 
 Overall grade after this slice: **A packaged hit-target evidence, A smoke validator reuse, A- live Accessibility frame sampling**.
