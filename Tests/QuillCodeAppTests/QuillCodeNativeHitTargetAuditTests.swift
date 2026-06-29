@@ -239,6 +239,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             XCTAssertFalse(probe.selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             XCTAssertGreaterThanOrEqual(probe.requiredMinWidth, 44)
             XCTAssertGreaterThanOrEqual(probe.requiredMinHeight, 44)
+            XCTAssertFalse(probe.collisionScope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            XCTAssertEqual(probe.collisionScope, contract?.collisionScope)
             XCTAssertEqual(probe.allowsNestedInteractiveChildren, contract?.allowsNestedInteractiveChildren)
             XCTAssertEqual(probe.requiresUnblockedInterior, contract?.requiresUnblockedInterior)
             XCTAssertEqual(probe.samplePoints, expectedSamplePoints)
@@ -259,6 +261,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.id.isEmpty })
         XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.label.isEmpty })
         XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.source.isEmpty })
+        XCTAssertTrue((report.designSystemContracts + report.surfaceContracts).allSatisfy { !$0.collisionScope.isEmpty })
         let policyByFamily = Dictionary(uniqueKeysWithValues: report.surfacePolicies.map { ($0.family, $0) })
         XCTAssertEqual(
             Set(policyByFamily[.composer]?.requiredKinds ?? []),
@@ -375,11 +378,25 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty surface label"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty accessible label"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty source"))
+        XCTAssertEqual(invalidContract.collisionScope, "top-bar")
         XCTAssertTrue(invalidContract.validationIssues.contains(" icon target should declare an explicit minimum width"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" minHeight 20.0 is below 44.0"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty test id"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty command id"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" does not declare a stable test id, command id, or focus target"))
+
+        let blankScopeContract = QuillCodeNativeHitTargetContract(
+            id: "blank.scope",
+            family: .topBar,
+            surface: "Top bar",
+            label: "More",
+            kind: .icon,
+            minWidth: 44,
+            collisionScope: "",
+            testID: "quillcode-more",
+            source: "SwiftUI"
+        )
+        XCTAssertTrue(blankScopeContract.validationIssues.contains("blank.scope has an empty collision scope"))
 
         let report = QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: 44,
@@ -421,6 +438,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.dictionary["duplicateContractIDs"] as? [String], ["top-bar.overflow"])
         XCTAssertEqual((invalidContract.dictionary["testID"] as? String), "")
         XCTAssertEqual((invalidContract.dictionary["commandID"] as? String), "")
+        XCTAssertEqual((invalidContract.dictionary["collisionScope"] as? String), "top-bar")
     }
 
     func testClickProbeValidationRejectsSelectorSemanticAndGeometryDrift() {
@@ -463,6 +481,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue(issues.contains("composer.send click probe kind textButton does not match icon"))
         XCTAssertTrue(issues.contains("composer.send click probe action link does not match press"))
         XCTAssertTrue(issues.contains("composer.send click probe family top-bar does not match composer"))
+        XCTAssertTrue(issues.contains("composer.send click probe collision scope does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe nested-child policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe interior-blocking policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredMinWidth 20.0 is below 44.0"))

@@ -7,6 +7,7 @@ struct QuillCodeDesktopAccessibilityFrameSample {
     var contractID: String
     var selectorKind: String
     var selector: String
+    var collisionScope: String
     var resolvedIdentifier: String
     var role: String
     var label: String
@@ -20,6 +21,7 @@ struct QuillCodeDesktopAccessibilityFrameSample {
             "contractID": contractID,
             "selectorKind": selectorKind,
             "selector": selector,
+            "collisionScope": collisionScope,
             "resolvedIdentifier": resolvedIdentifier,
             "role": role,
             "label": label,
@@ -119,6 +121,7 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
                 contractID: probe.contractID,
                 selectorKind: probe.selectorKind.rawValue,
                 selector: probe.selector,
+                collisionScope: probe.collisionScope,
                 resolvedIdentifier: element.identifier,
                 role: element.role,
                 label: element.bestLabel,
@@ -226,7 +229,35 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
             }
         }
 
+        issues.append(contentsOf: peerOverlapIssues(in: samples))
         return issues.sorted()
+    }
+
+    private static func peerOverlapIssues(
+        in samples: [QuillCodeDesktopAccessibilityFrameSample]
+    ) -> [String] {
+        let samplesByCollisionScope = Dictionary(grouping: samples, by: \.collisionScope)
+        return samplesByCollisionScope.flatMap { collisionScope, scopedSamples in
+            var issues: [String] = []
+            for lhsIndex in scopedSamples.indices {
+                for rhsIndex in scopedSamples.index(after: lhsIndex)..<scopedSamples.endIndex {
+                    let lhs = scopedSamples[lhsIndex]
+                    let rhs = scopedSamples[rhsIndex]
+                    guard lhs.resolvedIdentifier != rhs.resolvedIdentifier else { continue }
+                    let overlap = lhs.frame.intersection(rhs.frame)
+                    guard !overlap.isNull, overlap.width > 1, overlap.height > 1 else { continue }
+                    issues.append(
+                        "\(lhs.contractID) and \(rhs.contractID) overlap in \(collisionScope) "
+                            + "by \(rounded(overlap.width))x\(rounded(overlap.height))"
+                    )
+                }
+            }
+            return issues
+        }
+    }
+
+    private static func rounded(_ value: CGFloat) -> String {
+        String(format: "%.1f", Double(value))
     }
 }
 

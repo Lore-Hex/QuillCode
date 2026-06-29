@@ -84,6 +84,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     public var id: String
     public var family: QuillCodeInteractionSurfaceFamily
     public var surface: String
+    public var collisionScope: String
     public var label: String
     public var kind: QuillCodeNativeHitTargetKind
     public var minWidth: Double?
@@ -104,6 +105,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         kind: QuillCodeNativeHitTargetKind,
         minWidth: Double?,
         minHeight: Double = Double(QuillCodeMetrics.minimumHitTarget),
+        collisionScope: String? = nil,
         focusTarget: QuillCodeNativeFocusTarget? = nil,
         testID: String? = nil,
         commandID: String? = nil,
@@ -112,6 +114,8 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         self.id = id
         self.family = family
         self.surface = surface
+        self.collisionScope = collisionScope
+            ?? Self.defaultCollisionScope(family: family, surface: surface)
         self.label = label
         self.kind = kind
         self.minWidth = minWidth
@@ -130,6 +134,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
             "id": id,
             "family": family.rawValue,
             "surface": surface,
+            "collisionScope": collisionScope,
             "label": label,
             "kind": kind.rawValue,
             "action": action.rawValue,
@@ -167,6 +172,9 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         if source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             issues.append("\(id) has an empty source")
         }
+        if collisionScope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append("\(id) has an empty collision scope")
+        }
         if kind == .icon && minWidth == nil {
             issues.append("\(id) icon target should declare an explicit minimum width")
         }
@@ -195,6 +203,21 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
             issues.append("\(id) does not declare a stable test id, command id, or focus target")
         }
         return issues
+    }
+
+    private static func defaultCollisionScope(
+        family: QuillCodeInteractionSurfaceFamily,
+        surface: String
+    ) -> String {
+        let normalizedSurface = surface
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        guard !normalizedSurface.isEmpty else {
+            return family.rawValue
+        }
+        return "\(family.rawValue):\(normalizedSurface)"
     }
 }
 
@@ -267,6 +290,7 @@ public struct QuillCodeNativeHitTargetProbePoint: Codable, Sendable, Hashable {
 public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
     public var contractID: String
     public var family: QuillCodeInteractionSurfaceFamily
+    public var collisionScope: String
     public var label: String
     public var kind: QuillCodeNativeHitTargetKind
     public var action: QuillCodeNativeHitTargetAction
@@ -281,6 +305,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
     public init(
         contractID: String,
         family: QuillCodeInteractionSurfaceFamily,
+        collisionScope: String = "",
         label: String,
         kind: QuillCodeNativeHitTargetKind,
         action: QuillCodeNativeHitTargetAction,
@@ -294,6 +319,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
     ) {
         self.contractID = contractID
         self.family = family
+        self.collisionScope = collisionScope
         self.label = label
         self.kind = kind
         self.action = action
@@ -310,6 +336,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
         [
             "contractID": contractID,
             "family": family.rawValue,
+            "collisionScope": collisionScope,
             "label": label,
             "kind": kind.rawValue,
             "action": action.rawValue,
@@ -749,6 +776,9 @@ public enum QuillCodeNativeHitTargetAudit {
         if probe.family != contract.family {
             issues.append("\(probe.contractID) click probe family \(probe.family.rawValue) does not match \(contract.family.rawValue)")
         }
+        if probe.collisionScope != contract.collisionScope {
+            issues.append("\(probe.contractID) click probe collision scope does not match contract")
+        }
         if probe.allowsNestedInteractiveChildren != contract.allowsNestedInteractiveChildren {
             issues.append("\(probe.contractID) click probe nested-child policy does not match contract")
         }
@@ -809,6 +839,7 @@ public enum QuillCodeNativeHitTargetAudit {
             return QuillCodeNativeHitTargetProbe(
                 contractID: contract.id,
                 family: contract.family,
+                collisionScope: contract.collisionScope,
                 label: contract.label,
                 kind: contract.kind,
                 action: contract.action,

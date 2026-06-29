@@ -39,6 +39,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                     contractID: "composer.send",
                     selectorKind: "test-id",
                     selector: "quillcode-send-button",
+                    collisionScope: "composer:composer",
                     resolvedIdentifier: "quillcode-send-button",
                     role: "AXButton",
                     label: "Send message",
@@ -75,6 +76,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(json.contains(#""nativeHitTargets""#))
         XCTAssertTrue(json.contains(#""clickProbes""#))
         XCTAssertTrue(json.contains(#""quillcode-send-button""#))
+        XCTAssertTrue(json.contains(#""collisionScope" : "composer:composer""#))
         XCTAssertTrue(json.contains(#""accessibilityFrameSamples""#))
         XCTAssertTrue(json.contains(#""liveAccessibilitySampling" : "frame-sampled""#))
         XCTAssertTrue(json.contains(#""surface""#))

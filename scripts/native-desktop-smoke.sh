@@ -175,7 +175,7 @@ contracts = native_targets.get("designSystemContracts", []) + native_targets.get
 for contract in contracts:
     if not isinstance(contract, dict):
         raise SystemExit("quill-code-desktop native smoke reported malformed native hit target contract")
-    for field in ("id", "label", "source", "surface"):
+    for field in ("id", "label", "source", "surface", "collisionScope"):
         value = contract.get(field)
         if not isinstance(value, str) or not value.strip():
             raise SystemExit(f"quill-code-desktop native smoke reported native hit target with empty {field}: {contract}")

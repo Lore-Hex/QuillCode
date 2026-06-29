@@ -146,13 +146,14 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
         contract_id = probe.get("contractID")
         selector_kind = probe.get("selectorKind")
         selector = probe.get("selector")
+        collision_scope = probe.get("collisionScope")
         kind = probe.get("kind")
         action = probe.get("action")
         allows_nested_interactive_children = probe.get("allowsNestedInteractiveChildren")
         requires_unblocked_interior = probe.get("requiresUnblockedInterior")
         required_min_width = probe.get("requiredMinWidth")
         required_min_height = probe.get("requiredMinHeight")
-        if not all(isinstance(value, str) and value.strip() for value in (contract_id, selector_kind, selector, kind, action)):
+        if not all(isinstance(value, str) and value.strip() for value in (contract_id, selector_kind, selector, collision_scope, kind, action)):
             raise SystemExit(f"{label} report has an incomplete click probe identity: {probe!r}")
         if not isinstance(allows_nested_interactive_children, bool):
             raise SystemExit(f"{label} report has malformed click probe nested-child policy for {contract_id}: {probe!r}")
@@ -169,6 +170,8 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             raise SystemExit(f"{label} report has click probe selector drift for {contract_id}: {probe!r}")
         if probe.get("kind") != contract.get("kind") or probe.get("action") != contract.get("action"):
             raise SystemExit(f"{label} report has click probe semantic drift for {contract_id}: {probe!r}")
+        if collision_scope != contract.get("collisionScope"):
+            raise SystemExit(f"{label} report has click probe collision-scope drift for {contract_id}: {probe!r}")
         if allows_nested_interactive_children != contract.get("allowsNestedInteractiveChildren"):
             raise SystemExit(f"{label} report has click probe nested-child policy drift for {contract_id}: {probe!r}")
         if requires_unblocked_interior != contract.get("requiresUnblockedInterior"):
@@ -182,6 +185,7 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             "contractID": contract_id,
             "selectorKind": selector_kind,
             "selector": selector,
+            "collisionScope": collision_scope,
             "kind": kind,
             "action": action,
             "allowsNestedInteractiveChildren": allows_nested_interactive_children,
@@ -307,11 +311,13 @@ def write_comparison_manifest(
         "clickProbePolicies": [
             {
                 "contractID": probe["contractID"],
+                "collisionScope": probe["collisionScope"],
                 "allowsNestedInteractiveChildren": probe["allowsNestedInteractiveChildren"],
                 "requiresUnblockedInterior": probe["requiresUnblockedInterior"],
             }
             for probe in direct_probe_contracts
         ],
+        "collisionScopes": sorted({probe["collisionScope"] for probe in direct_probe_contracts}),
         "samplePointNames": sorted({
             point["name"]
             for probe in direct_probe_contracts
@@ -459,6 +465,7 @@ def validated_accessibility_frame_sample(
     contract_id = required_string(sample.get("contractID"), "accessibility sample contractID")
     selector_kind = required_string(sample.get("selectorKind"), f"{contract_id}.selectorKind")
     selector = required_string(sample.get("selector"), f"{contract_id}.selector")
+    collision_scope = required_string(sample.get("collisionScope"), f"{contract_id}.collisionScope")
     resolved_identifier = required_string(sample.get("resolvedIdentifier"), f"{contract_id}.resolvedIdentifier")
     role = required_string(sample.get("role"), f"{contract_id}.role")
     label = required_string(sample.get("label"), f"{contract_id}.label")
@@ -488,12 +495,36 @@ def validated_accessibility_frame_sample(
         "contractID": contract_id,
         "selectorKind": selector_kind,
         "selector": selector,
+        "collisionScope": collision_scope,
         "resolvedIdentifier": resolved_identifier,
         "role": role,
         "label": label,
         "frame": frame,
         "samplePointNames": sample_point_names,
     }
+
+
+def accessibility_frame_overlap_issues(samples: list[dict[str, Any]]) -> list[str]:
+    issues: list[str] = []
+    samples_by_collision_scope: dict[str, list[dict[str, Any]]] = {}
+    for sample in samples:
+        samples_by_collision_scope.setdefault(sample["collisionScope"], []).append(sample)
+
+    for collision_scope, scoped_samples in samples_by_collision_scope.items():
+        for index, lhs in enumerate(scoped_samples):
+            for rhs in scoped_samples[index + 1:]:
+                if lhs["resolvedIdentifier"] == rhs["resolvedIdentifier"]:
+                    continue
+                lhs_frame = lhs["frame"]
+                rhs_frame = rhs["frame"]
+                overlap_width = min(lhs_frame["x"] + lhs_frame["width"], rhs_frame["x"] + rhs_frame["width"]) - max(lhs_frame["x"], rhs_frame["x"])
+                overlap_height = min(lhs_frame["y"] + lhs_frame["height"], rhs_frame["y"] + rhs_frame["height"]) - max(lhs_frame["y"], rhs_frame["y"])
+                if overlap_width > 1 and overlap_height > 1:
+                    issues.append(
+                        f"{lhs['contractID']} overlaps {rhs['contractID']} in {collision_scope} "
+                        f"by {overlap_width:.1f}x{overlap_height:.1f}"
+                    )
+    return sorted(issues)
 
 
 def validated_accessibility_frame_samples(
@@ -555,6 +586,9 @@ def validated_accessibility_frame_samples(
         contract_id, sample_summary = validated_accessibility_frame_sample(report_path, sample)
         sample_ids.add(contract_id)
         sample_summaries.append(sample_summary)
+    overlap_issues = accessibility_frame_overlap_issues(sample_summaries)
+    if overlap_issues:
+        raise SystemExit(f"{report_path} Accessibility frame samples overlap: {overlap_issues}")
 
     if sample_ids != set(sampled_contract_ids):
         raise SystemExit(f"{report_path} sampledContractIDs do not match sample entries")

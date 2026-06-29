@@ -9758,3 +9758,20 @@ Code quality changes:
 Remaining risk:
 
 - This gives packaged smoke and future Accessibility automation a complete command probe plan. The next A+ layer is resolving those probes against a running packaged window and clicking representative generated command rows end to end.
+
+## 2026-06-29 Native Click-Target Collision Scope Pass
+
+Overall grade after this slice: **A native click-target ownership, A packaged smoke contract, A- exhaustive live clicking**.
+
+The click-target system could prove individual controls had semantic helpers, 44 pt geometry, normalized probe points, and named focus/action ownership. That still left one UX failure mode under-modeled on native: two peer controls can each be large and valid while their tappable regions overlap, causing taps near an edge to trigger the wrong action.
+
+Code quality changes:
+
+- Added `collisionScope` to native hit-target contracts so each target declares the interaction layer where its frame must not collide with sibling controls.
+- Propagated collision scopes into native click probes and packaged smoke manifests, with validator checks for scope drift between the contract and probe.
+- Extended live macOS Accessibility frame sampling to reject overlapping peer frames in the same collision scope, while allowing duplicate contract aliases that resolve to the same Accessibility element.
+- Updated desktop smoke, Python artifact validation, and parity gates so collision ownership is part of release evidence instead of an implementation detail.
+
+Remaining risk:
+
+- This samples the live packaged Accessibility frames that are resolved during smoke. The final A+ layer is automated physical click/appshot coverage that clicks every sampled interior point and proves the expected action fires.
