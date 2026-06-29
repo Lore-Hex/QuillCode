@@ -106,6 +106,7 @@ struct QuillCodeToolCardView: View {
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.blue)
+                    .quillCodeFullRowButtonTarget(minHeight: QuillCodeMetrics.compactToolCardMinimumHeight)
                 }
                 .tint(QuillCodePalette.blue)
                 .onChange(of: card.status) { _, status in
