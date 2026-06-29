@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Native Accessibility ID Click-Target Pass
+
+Overall grade after this slice: **A native identifier consistency, A- Accessibility frame sampling**.
+
+The native target report had stable `testID` metadata, but the UI needed matching SwiftUI accessibility identifiers so those IDs can become real click handles.
+
+| Before | After |
+| --- | --- |
+| Contract IDs used unprefixed names while existing SwiftUI identifiers used `quillcode-...`. | Native report IDs are normalized to the `quillcode-...` convention. |
+| Primary controls such as composer send, model picker, mode picker, top-bar overflow, sidebar tools, terminal action, browser action, and automation create were not all directly named for native UI automation. | Those controls now expose matching `accessibilityIdentifier` values, and parity gates assert the identifiers stay attached. |
+| Native smoke could validate addressable IDs in the report but not prove the app source had attached the same IDs to controls. | Added a parity source gate for the primary identifier set, while smoke still validates the product report. |
+
+Residual risk:
+
+- The next A+ layer is packaged app Accessibility sampling that resolves these identifiers into actual frames and clicks edge/interior points.
+
 ## 2026-06-29 Native Click-Target Testability Contract Pass
 
 Overall grade after this slice: **A native target addressability, A smoke evidence enforcement, A- packaged Accessibility sampling**.

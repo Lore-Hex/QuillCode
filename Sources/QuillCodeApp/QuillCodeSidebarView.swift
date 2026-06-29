@@ -77,6 +77,7 @@ struct QuillCodeSidebarView: View {
                 .quillCodeTextButtonTarget(minWidth: 56)
                 .foregroundStyle(action.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
                 .disabled(!action.isEnabled)
+                .accessibilityIdentifier("quillcode-sidebar-\(action.kind.rawValue)")
             }
         }
     }
@@ -110,6 +111,7 @@ private struct QuillCodeSidebarSavedSearchBar: View {
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget(minWidth: 64)
                 .foregroundStyle(QuillCodePalette.blue)
+                .accessibilityIdentifier("quillcode-sidebar-saved-search-create")
             }
 
             if !savedSearches.isEmpty {
@@ -153,6 +155,7 @@ private struct QuillCodeSidebarSavedSearchBar: View {
             .accessibilityLabel(savedSearch.accessibilityLabel)
             .accessibilityAddTraits(savedSearch.isActive ? .isSelected : [])
             .help(savedSearch.query)
+            .accessibilityIdentifier("quillcode-sidebar-saved-search")
 
             savedSearchMoveButton(savedSearch, direction: .up, systemImage: "chevron.up")
             savedSearchMoveButton(savedSearch, direction: .down, systemImage: "chevron.down")
@@ -166,6 +169,7 @@ private struct QuillCodeSidebarSavedSearchBar: View {
             .quillCodeIconButtonTarget()
             .foregroundStyle(QuillCodePalette.red)
             .accessibilityLabel("Delete saved search \(savedSearch.title)")
+            .accessibilityIdentifier("quillcode-sidebar-saved-search-delete")
         }
     }
 
@@ -186,6 +190,7 @@ private struct QuillCodeSidebarSavedSearchBar: View {
         .foregroundStyle(command.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
         .disabled(!command.isEnabled)
         .accessibilityLabel("Move saved search \(savedSearch.title) \(direction.rawValue)")
+        .accessibilityIdentifier("quillcode-sidebar-saved-search-move-\(direction.rawValue)")
     }
 }
 
@@ -224,6 +229,7 @@ private struct QuillCodeSidebarSavedFilterBar: View {
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .accessibilityLabel(filter.accessibilityLabel)
                 .accessibilityAddTraits(filter.isActive ? .isSelected : [])
+                .accessibilityIdentifier("quillcode-sidebar-filter-\(filter.kind.rawValue)")
             }
         }
     }
@@ -256,6 +262,7 @@ private struct QuillCodeSidebarActionsView: View {
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!command.isEnabled)
+                .accessibilityIdentifier("quillcode-sidebar-command-\(command.id)")
             }
         }
     }
@@ -301,6 +308,7 @@ private struct QuillCodeSidebarUtilityActionsView: View {
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .help("Tools")
+            .accessibilityIdentifier("quillcode-sidebar-tools-button")
 
             if let settingsCommand {
                 Button {
@@ -320,6 +328,7 @@ private struct QuillCodeSidebarUtilityActionsView: View {
                 .disabled(!settingsCommand.isEnabled)
                 .help(QuillCodeSidebarCommandPresentation.displayTitle(for: settingsCommand))
                 .accessibilityLabel(QuillCodeSidebarCommandPresentation.displayTitle(for: settingsCommand))
+                .accessibilityIdentifier("quillcode-sidebar-command-\(settingsCommand.id)")
             }
         }
         .padding(.top, 10)

@@ -134,6 +134,7 @@ struct QuillCodeBrowserPaneView: View {
                     .quillCodeTextButtonTarget(minWidth: 84)
                     .disabled(!browser.canOpen && browser.currentURL == nil)
                     .help("Open a visible browser session using QuillCode's persistent browser profile.")
+                    .accessibilityIdentifier("quillcode-browser-session")
             }
         }
     }
@@ -145,10 +146,12 @@ struct QuillCodeBrowserPaneView: View {
                 .onSubmit(onOpen)
                 .quillCodeTextEntryTarget()
                 .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("quillcode-browser-address")
             Button("Open", action: onOpen)
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget()
                 .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("quillcode-browser-action")
         }
     }
 
@@ -257,10 +260,12 @@ struct QuillCodeBrowserPaneView: View {
                 .disabled(browser.currentURL == nil)
                 .onSubmit(addComment)
                 .quillCodeTextEntryTarget()
+                .accessibilityIdentifier("quillcode-browser-comment-input")
             Button("Comment", action: addComment)
                 .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 92))
                 .quillCodeFormActionTarget(minWidth: 92)
                 .disabled(browser.currentURL == nil || commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("quillcode-browser-add-comment")
         }
     }
 

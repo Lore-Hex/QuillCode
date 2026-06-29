@@ -879,6 +879,47 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testNativePrimaryClickTargetsExposeStableAccessibilityIdentifiers() throws {
+        let composerText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
+        let modelPickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
+        let topBarText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let terminalText = try Self.appSourceText(named: "QuillCodeTerminalPaneView.swift")
+        let browserText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+        let automationsText = try Self.appSourceText(named: "QuillCodeAutomationsPaneView.swift")
+
+        XCTAssertTrue(
+            composerText.contains(#".accessibilityIdentifier("quillcode-composer-input")"#)
+                && composerText.contains(#".accessibilityIdentifier("quillcode-send-button")"#),
+            "Composer text entry and send action should expose stable native accessibility IDs."
+        )
+        XCTAssertTrue(
+            modelPickerText.contains(#".accessibilityIdentifier("quillcode-model-picker-button")"#)
+                && modelPickerText.contains(#".accessibilityIdentifier("quillcode-model-picker-search")"#)
+                && topBarText.contains(#".accessibilityIdentifier("quillcode-mode-picker-button")"#)
+                && topBarText.contains(#".accessibilityIdentifier("quillcode-top-bar-overflow")"#),
+            "Model, mode, and top-bar overflow controls should expose stable native accessibility IDs."
+        )
+        XCTAssertTrue(
+            sidebarText.contains(#".accessibilityIdentifier("quillcode-sidebar-tools-button")"#)
+                && sidebarText.contains(#".accessibilityIdentifier("quillcode-sidebar-command-\(command.id)")"#)
+                && sidebarText.contains(#".accessibilityIdentifier("quillcode-sidebar-command-\(settingsCommand.id)")"#),
+            "Sidebar commands and bottom tools/settings controls should expose stable native accessibility IDs."
+        )
+        XCTAssertTrue(
+            terminalText.contains(#".accessibilityIdentifier("quillcode-terminal-command")"#)
+                && terminalText.contains(#".accessibilityIdentifier("quillcode-terminal-action")"#)
+                && browserText.contains(#".accessibilityIdentifier("quillcode-browser-address")"#)
+                && browserText.contains(#".accessibilityIdentifier("quillcode-browser-action")"#)
+                && browserText.contains(#".accessibilityIdentifier("quillcode-browser-add-comment")"#),
+            "Terminal and browser input/action controls should expose stable native accessibility IDs."
+        )
+        XCTAssertTrue(
+            automationsText.contains(#".accessibilityIdentifier("quillcode-automation-create")"#),
+            "Automation create menu trigger should expose a stable native accessibility ID."
+        )
+    }
+
     func testNativeSourceAuditRejectsAmbiguousMinimumHitTargetFrames() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
