@@ -7,6 +7,19 @@ import Glibc
 import CQuillPTY
 import QuillCodeCore
 
+/// The terminal window size (in character cells) applied to a PTY session so
+/// programs that query the terminal — `stty size`, ncurses TUIs, pagers — lay
+/// out against the workspace terminal's real dimensions.
+public struct PTYWindowSize: Sendable, Hashable {
+    public var rows: UInt16
+    public var columns: UInt16
+
+    public init(rows: UInt16, columns: UInt16) {
+        self.rows = rows
+        self.columns = columns
+    }
+}
+
 /// Runs a command attached to a pseudo-terminal (PTY) so programs that probe
 /// `isatty()` behave as they would in a real terminal — emitting colors, line
 /// editing, and TUI control sequences instead of falling back to plain-pipe
@@ -23,6 +36,7 @@ public final class PTYProcessSession: @unchecked Sendable {
 
     private let continuation: AsyncStream<ShellProcessEvent>.Continuation
     private let request: ShellExecutionRequest
+    private let windowSize: PTYWindowSize?
     private let lock = NSLock()
     private var process: Process?
     private var output = ""
@@ -30,8 +44,9 @@ public final class PTYProcessSession: @unchecked Sendable {
     private var didCancel = false
     private var didTimeOut = false
 
-    public init(request: ShellExecutionRequest) {
+    public init(request: ShellExecutionRequest, windowSize: PTYWindowSize? = nil) {
         self.request = request
+        self.windowSize = windowSize
         var capturedContinuation: AsyncStream<ShellProcessEvent>.Continuation!
         self.events = AsyncStream { capturedContinuation = $0 }
         self.continuation = capturedContinuation
@@ -72,6 +87,12 @@ public final class PTYProcessSession: @unchecked Sendable {
         guard openResult == 0 else {
             finish(exitCode: nil, ok: false, error: "Failed to allocate a pseudo-terminal.")
             return
+        }
+
+        // Apply the requested terminal dimensions before launching so the child
+        // sees them from its first `stty size` / ncurses query.
+        if let windowSize {
+            _ = cquill_pty_set_winsize(master, windowSize.rows, windowSize.columns)
         }
 
         let process = Process()

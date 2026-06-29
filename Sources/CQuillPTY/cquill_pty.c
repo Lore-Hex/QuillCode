@@ -10,6 +10,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 
 int cquill_pty_open(int *outMasterFD, int *outSlaveFD, char *slavePath, size_t slavePathLen) {
     if (outMasterFD == NULL || outSlaveFD == NULL || slavePath == NULL) {
@@ -45,5 +47,17 @@ int cquill_pty_open(int *outMasterFD, int *outSlaveFD, char *slavePath, size_t s
     slavePath[slavePathLen - 1] = '\0';
     *outMasterFD = master;
     *outSlaveFD = slave;
+    return 0;
+}
+
+int cquill_pty_set_winsize(int masterFD, unsigned short rows, unsigned short columns) {
+    struct winsize ws;
+    ws.ws_row = rows;
+    ws.ws_col = columns;
+    ws.ws_xpixel = 0;
+    ws.ws_ypixel = 0;
+    if (ioctl(masterFD, TIOCSWINSZ, &ws) != 0) {
+        return -1;
+    }
     return 0;
 }

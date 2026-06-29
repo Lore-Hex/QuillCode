@@ -17,4 +17,10 @@
 /// module does not surface them.
 int cquill_pty_open(int *outMasterFD, int *outSlaveFD, char *slavePath, size_t slavePathLen);
 
+/// Sets the terminal window size (rows x columns) on an open pty master via
+/// `TIOCSWINSZ`. The change propagates to the slave so programs that query the
+/// terminal size (e.g. `stty size`, ncurses TUIs) observe it. Returns 0 on
+/// success, -1 on failure.
+int cquill_pty_set_winsize(int masterFD, unsigned short rows, unsigned short columns);
+
 #endif /* CQUILL_PTY_H */
