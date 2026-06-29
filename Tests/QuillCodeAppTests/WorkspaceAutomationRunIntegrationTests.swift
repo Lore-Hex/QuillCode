@@ -204,6 +204,60 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
         XCTAssertEqual(workspace.model.root.threads.filter { $0.title == "Scheduled check: QuillCode" }.count, 1)
     }
 
+    func testRunDueAutomationReportsRunsFileChangeMonitorEventSource() throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        let project = try XCTUnwrap(workspace.model.selectedProject)
+        let logDirectory = workspace.root.appendingPathComponent("logs")
+        try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        let watchedFile = logDirectory.appendingPathComponent("watch.txt")
+        try "changed".write(to: watchedFile, atomically: true, encoding: .utf8)
+        let modifiedAt = try XCTUnwrap(
+            FileManager.default.attributesOfItem(atPath: watchedFile.path)[.modificationDate] as? Date
+        )
+        let now = Date(timeIntervalSince1970: floor(modifiedAt.timeIntervalSince1970) + 2)
+        let monitor = QuillAutomation(
+            title: "Watch logs",
+            detail: "Summarize watched file changes.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "File changes",
+            projectID: project.id,
+            eventSource: QuillAutomationEventSource(kind: .fileChange, path: "logs/watch.txt"),
+            lastRunAt: modifiedAt.addingTimeInterval(-1)
+        )
+        workspace.model.setAutomations([monitor])
+
+        let reports = workspace.model.runDueAutomationReports(now: now)
+
+        XCTAssertEqual(reports.count, 1)
+        let thread = try XCTUnwrap(workspace.model.root.threads.first { $0.title == "Monitor: Watch logs" })
+        XCTAssertEqual(thread.projectID, project.id)
+        XCTAssertEqual(thread.messages.map(\.content), [
+            """
+            Run the monitor "Watch logs".
+            Watch condition: Summarize watched file changes.
+            Trigger: watch.txt changed
+            Use the QuillCode workspace context.
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        ])
+        XCTAssertTrue(thread.events.contains {
+            $0.summary == "Monitor trigger: watch.txt changed" && $0.payloadJSON == "logs/watch.txt"
+        })
+
+        let saved = try XCTUnwrap(try workspace.automationStore.load().first { $0.id == monitor.id })
+        XCTAssertEqual(
+            try XCTUnwrap(saved.lastRunAt).timeIntervalSince1970,
+            now.timeIntervalSince1970,
+            accuracy: 0.001
+        )
+        XCTAssertNil(saved.nextRunAt)
+
+        let secondReports = workspace.model.runDueAutomationReports(now: now.addingTimeInterval(1))
+        XCTAssertEqual(secondReports, [])
+        XCTAssertEqual(workspace.model.root.threads.filter { $0.title == "Monitor: Watch logs" }.count, 1)
+    }
+
     func testRunDueAutomationReportsDescribeCreatedFollowUps() throws {
         let now = Date(timeIntervalSince1970: 100)
         let source = ChatThread(title: "Due follow-up", messages: [

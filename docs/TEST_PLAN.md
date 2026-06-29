@@ -10,6 +10,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Workspace activity reduction from thread events, tool cards, instructions, memories, artifacts, latest assistant answers, deterministic task plans, deterministic handoff summaries, and collapsible shared section state.
 - Multi-step agent tool continuation, hidden tool-feedback serialization, duplicate tool-call loop guards, max-step fallback, and user-visible filtering for sidebar search/fork/compaction.
 - Immediate-action planning for high-confidence local requests such as explicit shell commands, `whoami`, disk usage, OpenClaw executable discovery, simple file writes, and URL downloads, including tests that prove live-provider knowledge is not required for these actions.
+- Automation recurrence, event-source metadata persistence, file-change event-source resolution, project-relative path containment, remote-relative rejection, trigger-aware due selection, and monitor draft trigger recording.
 - Patch parser, diff parser, file/line/range review comments, approval Run/Edit/Skip planning, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
 - Shortcut registry, command-derived shortcut discoverability, plugin/skill/MCP manifest discovery, MCP structured launch command/args, stdio `Content-Length` framing, bounded MCP `initialize`/`tools/list` probes, MCP `tools/call` request/response parsing, symlink/root bounds, duplicate ID handling, byte/count caps, malformed manifest skips.
@@ -26,6 +27,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Integration Tests
 
 - Real filesystem, git, shell, terminal PTY.
+- File-change monitor automations over a real temporary project file, proving the workspace model creates one monitor thread with trigger context and does not rerun after `lastRunAt` advances.
 - OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, non-secret account persistence, userinfo fetch, runtime refresh, loopback/dev override.
 - QuillUI secret-store adapter.
 - macOS Computer Use permission detection, permission-denied behavior, screenshot capture, and input primitives; Linux helper-backed screenshot/input routing and failure handling.

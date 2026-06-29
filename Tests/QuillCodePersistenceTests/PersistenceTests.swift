@@ -170,6 +170,28 @@ final class PersistenceTests: XCTestCase {
         )
     }
 
+    func testAutomationStoreRoundTripsEventSource() throws {
+        let root = try makeTempDirectory()
+        let store = JSONAutomationStore(fileURL: root.appendingPathComponent("automations.json"))
+        let automation = QuillAutomation(
+            title: "Watch logs",
+            detail: "Summarize watched file changes.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "File changes",
+            eventSource: QuillAutomationEventSource(kind: .fileChange, path: "logs/watch.txt"),
+            updatedAt: Date(timeIntervalSince1970: 1),
+            lastRunAt: Date(timeIntervalSince1970: 2)
+        )
+
+        try store.save([automation])
+
+        let loaded = try XCTUnwrap(store.load().first)
+        XCTAssertEqual(loaded.eventSource, automation.eventSource)
+        XCTAssertEqual(loaded.eventSource?.kind, .fileChange)
+        XCTAssertEqual(loaded.eventSource?.path, "logs/watch.txt")
+    }
+
     func testAutomationStoreReturnsEmptyListWhenMissing() throws {
         let root = try makeTempDirectory()
         let store = JSONAutomationStore(fileURL: root.appendingPathComponent("automations.json"))

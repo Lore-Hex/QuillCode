@@ -325,6 +325,43 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(ids, [monitor.id, firstDue.id])
     }
 
+    func testDueAutomationTriggersIncludeEventSourceMonitorsWithoutNextRun() {
+        let monitor = automation(
+            title: "Monitor",
+            kind: .monitor,
+            scheduleKind: .event,
+            nextRunAt: nil
+        )
+        let paused = automation(
+            title: "Paused monitor",
+            kind: .monitor,
+            status: .paused,
+            scheduleKind: .event,
+            nextRunAt: nil
+        )
+        let scheduled = automation(
+            title: "Scheduled monitor",
+            kind: .monitor,
+            scheduleKind: .event,
+            nextRunAt: now.addingTimeInterval(-10)
+        )
+
+        let triggers = WorkspaceAutomationRunner.dueAutomationTriggers(
+            in: [paused, scheduled, monitor],
+            now: now,
+            eventSources: [
+                paused.id: StaticAutomationEventSource(event: "paused.log changed"),
+                monitor.id: StaticAutomationEventSource(event: "watch.log changed")
+            ],
+            limit: 5
+        )
+
+        XCTAssertEqual(triggers, [
+            WorkspaceAutomationTrigger(automationID: scheduled.id, eventDescription: nil),
+            WorkspaceAutomationTrigger(automationID: monitor.id, eventDescription: "watch.log changed")
+        ])
+    }
+
     func testUpdatedAfterRunAdvancesRecurringAutomation() {
         let recurrence = QuillAutomationRecurrence(interval: 3, unit: .hours)
         let recurring = automation(
@@ -534,6 +571,46 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(draft.report.body, "Monitor: Watch CI was created for QuillCode.")
     }
 
+    func testMonitorDraftIncludesEventSourceTriggerContext() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let automation = QuillAutomation(
+            title: "Watch logs",
+            detail: "Summarize build log changes.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "File changes",
+            projectID: project.id,
+            eventSource: QuillAutomationEventSource(kind: .fileChange, path: "logs/watch.log")
+        )
+
+        let draft = WorkspaceAutomationRunner.monitorDraft(
+            automation: automation,
+            project: project,
+            mode: .auto,
+            model: "trustedrouter/fast",
+            instructions: [],
+            memories: [],
+            triggerDescription: "watch.log changed",
+            now: now
+        )
+
+        XCTAssertEqual(draft.thread.messages.map(\.content), [
+            """
+            Run the monitor "Watch logs".
+            Watch condition: Summarize build log changes.
+            Trigger: watch.log changed
+            Use the QuillCode workspace context.
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        ])
+        XCTAssertEqual(draft.thread.events.map(\.summary), [
+            "Automation ran: Watch logs",
+            "Monitor check started from File changes",
+            "Monitor trigger: watch.log changed"
+        ])
+        XCTAssertEqual(draft.thread.events.last?.payloadJSON, "logs/watch.log")
+    }
+
     private func automation(
         title: String,
         kind: QuillAutomationKind,
@@ -558,5 +635,13 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
             nextRunAt: nextRunAt,
             recurrence: recurrence
         )
+    }
+}
+
+private struct StaticAutomationEventSource: AutomationEventSource {
+    var event: String?
+
+    func pendingEvent(since: Date?) -> String? {
+        event
     }
 }

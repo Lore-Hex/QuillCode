@@ -38,6 +38,11 @@ struct WorkspaceAutomationRunDraft: Sendable, Hashable {
     let report: AutomationRunReport
 }
 
+struct WorkspaceAutomationTrigger: Sendable, Hashable {
+    let automationID: UUID
+    let eventDescription: String?
+}
+
 struct WorkspaceAutomationStateMutation<Value: Sendable & Hashable>: Sendable, Hashable {
     let state: AutomationsState
     let value: Value
@@ -223,13 +228,42 @@ enum WorkspaceAutomationRunner {
         now: Date,
         limit: Int
     ) -> [UUID] {
+        dueAutomationTriggers(
+            in: automations,
+            now: now,
+            limit: limit
+        ).map(\.automationID)
+    }
+
+    static func dueAutomationTriggers(
+        in automations: [QuillAutomation],
+        now: Date,
+        eventSources: [UUID: any AutomationEventSource] = [:],
+        limit: Int
+    ) -> [WorkspaceAutomationTrigger] {
         automations
-            .filter { automation in
-                automation.status == .active
-                    && automation.nextRunAt.map { $0 <= now } == true
+            .compactMap { automation -> WorkspaceAutomationTrigger? in
+                guard automation.status == .active else { return nil }
+                if automation.nextRunAt.map({ $0 <= now }) == true {
+                    return WorkspaceAutomationTrigger(
+                        automationID: automation.id,
+                        eventDescription: nil
+                    )
+                }
+                guard automation.kind == .monitor,
+                      automation.scheduleKind == .event,
+                      let eventSource = eventSources[automation.id],
+                      let event = eventSource.pendingEvent(since: automation.lastRunAt)
+                else {
+                    return nil
+                }
+                return WorkspaceAutomationTrigger(
+                    automationID: automation.id,
+                    eventDescription: event
+                )
             }
             .prefix(max(0, limit))
-            .map(\.id)
+            .map(\.self)
     }
 
     static func updatedAfterRun(_ automation: QuillAutomation, now: Date) -> QuillAutomation {
@@ -331,12 +365,15 @@ enum WorkspaceAutomationRunner {
         model: String,
         instructions: [ProjectInstruction],
         memories: [MemoryNote],
+        triggerDescription: String? = nil,
         now: Date
     ) -> WorkspaceAutomationRunDraft {
         let projectSentence = project.map { "Use the \($0.name) workspace context." }
+        let triggerSentence = triggerDescription.map { "Trigger: \($0)" }
         let messageLines = [
             "Run the monitor \"\(automation.title)\".",
             "Watch condition: \(automation.detail)",
+            triggerSentence,
             projectSentence,
             "Report what changed, whether action is needed, and the next concrete step."
         ].compactMap(\.self)
@@ -359,8 +396,17 @@ enum WorkspaceAutomationRunner {
                     kind: .notice,
                     summary: "Monitor check started from \(automation.scheduleDescription.isEmpty ? automation.scheduleKind.label : automation.scheduleDescription)",
                     payloadJSON: automation.kind.rawValue
-                )
-            ],
+                ),
+                triggerDescription.map {
+                    .init(
+                        kind: .notice,
+                        summary: "Monitor trigger: \($0)",
+                        payloadJSON: automation.eventSource?.path
+                    )
+                }
+            ].compactMap {
+                $0
+            },
             instructions: instructions,
             memories: memories
         )

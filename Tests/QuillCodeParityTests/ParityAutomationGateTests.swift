@@ -9,12 +9,14 @@ final class ParityAutomationGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(automationText.contains("public enum QuillAutomationStatus"), "Automation status should live beside automation records.")
         XCTAssertTrue(automationText.contains("public enum QuillAutomationScheduleKind"), "Automation schedule kind should live beside automation records.")
         XCTAssertTrue(automationText.contains("public struct QuillAutomationRecurrence"), "Automation recurrence should live beside automation records.")
+        XCTAssertTrue(automationText.contains("public struct QuillAutomationEventSource"), "Automation event-source metadata should live beside automation records.")
         XCTAssertTrue(automationText.contains("nextRun(after"), "Automation recurrence scheduling should stay with recurrence records.")
         XCTAssertTrue(automationText.contains("sortedForDisplay"), "Automation display sorting should stay with automation records.")
         XCTAssertFalse(modelsText.contains("public enum QuillAutomationKind"), "General domain models should not own automation records.")
         XCTAssertFalse(modelsText.contains("public enum QuillAutomationStatus"), "General domain models should not own automation status.")
         XCTAssertFalse(modelsText.contains("public enum QuillAutomationScheduleKind"), "General domain models should not own automation schedule records.")
         XCTAssertFalse(modelsText.contains("public struct QuillAutomationRecurrence"), "General domain models should not own automation recurrence.")
+        XCTAssertFalse(modelsText.contains("public struct QuillAutomationEventSource"), "General domain models should not own automation event-source records.")
         XCTAssertFalse(modelsText.contains("sortedForDisplay(_ automations"), "General domain models should not own automation sorting.")
     }
 
@@ -38,13 +40,32 @@ final class ParityAutomationGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.updateStatus"), "WorkspaceModel automation extension should delegate status changes.")
         XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.delete"), "WorkspaceModel automation extension should delegate deletion.")
         XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.replace"), "WorkspaceModel automation extension should delegate replacement.")
+        XCTAssertTrue(automationText.contains("struct WorkspaceAutomationTrigger"), "Due automation execution should preserve trigger metadata.")
+        XCTAssertTrue(automationText.contains("static func dueAutomationTriggers"), "Trigger-aware due selection should stay in the automation runner.")
+        XCTAssertTrue(modelAutomationText.contains("automationEventSources()"), "WorkspaceModel automation extension should resolve monitor event sources near run orchestration.")
+        XCTAssertTrue(modelAutomationText.contains("eventDescription:"), "WorkspaceModel automation runs should pass event-source trigger descriptions into monitor drafts.")
         XCTAssertFalse(modelText.contains("public func createThreadFollowUpAutomation"), "WorkspaceModel.swift should not own automation scheduling APIs.")
         XCTAssertFalse(modelText.contains("public func createWorkspaceScheduleAutomation"), "WorkspaceModel.swift should not own workspace-check scheduling APIs.")
         XCTAssertFalse(modelText.contains("public func runDueAutomations"), "WorkspaceModel.swift should not own automation-run orchestration.")
+        XCTAssertFalse(modelText.contains("AutomationEventSourceResolver"), "WorkspaceModel.swift should not own monitor event-source resolution.")
         XCTAssertFalse(modelText.contains("setAutomations(automations.items + [automation])"), "WorkspaceModel should not append automation records inline.")
         XCTAssertFalse(modelText.contains("QuillAutomation.sortedForDisplay(items)"), "WorkspaceModel should not own automation display sorting.")
         XCTAssertFalse(modelText.contains("automations.items[index].status"), "WorkspaceModel should not mutate automation status inline.")
         XCTAssertFalse(modelText.contains("automations.items.removeAll"), "WorkspaceModel should not delete automation records inline.")
+    }
+
+    func testMonitorEventSourceWiringStaysImplemented() throws {
+        let eventSourceText = try Self.appSourceText(named: "AutomationEventSource.swift")
+        let runIntegrationText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("Tests/QuillCodeAppTests/WorkspaceAutomationRunIntegrationTests.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(eventSourceText.contains("public protocol AutomationEventSource"), "Monitor event-source adapters need a shared protocol.")
+        XCTAssertTrue(eventSourceText.contains("public struct FileChangeEventSource"), "File-change monitors should keep their deterministic adapter.")
+        XCTAssertTrue(eventSourceText.contains("enum AutomationEventSourceResolver"), "Persisted event-source records should resolve through a focused adapter.")
+        XCTAssertTrue(runIntegrationText.contains("testRunDueAutomationReportsRunsFileChangeMonitorEventSource"), "File-change monitor wiring should stay covered by an app-level integration test.")
     }
 
     func testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding() throws {

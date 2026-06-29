@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 /// A source of external events a `monitor` automation can watch, so a monitor
 /// can fire when something actually changes instead of only on a schedule.
@@ -14,9 +15,7 @@ public protocol AutomationEventSource: Sendable {
 
 public typealias FileModificationDateProvider = @Sendable (URL) -> Date?
 
-/// Fires when a watched file appears or is modified after the last check. This
-/// is the first concrete `AutomationEventSource`; wiring it into the automation
-/// engine's monitor tick is a follow-up tracked in ROADMAP.md.
+/// Fires when a watched file appears or is modified after the last check.
 public struct FileChangeEventSource: AutomationEventSource {
     public var path: URL
     private let modificationDate: FileModificationDateProvider
@@ -43,5 +42,45 @@ public struct FileChangeEventSource: AutomationEventSource {
     static func defaultModificationDate(for path: URL) -> Date? {
         let attributes = try? FileManager.default.attributesOfItem(atPath: path.path)
         return attributes?[.modificationDate] as? Date
+    }
+}
+
+enum AutomationEventSourceResolver {
+    static func eventSource(
+        for definition: QuillAutomationEventSource,
+        project: ProjectRef?
+    ) -> (any AutomationEventSource)? {
+        switch definition.kind {
+        case .fileChange:
+            guard let url = fileChangeURL(for: definition.path, project: project) else {
+                return nil
+            }
+            return FileChangeEventSource(path: url)
+        }
+    }
+
+    static func fileChangeURL(for path: String, project: ProjectRef?) -> URL? {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains("\0") else { return nil }
+
+        if trimmed.hasPrefix("/") {
+            return URL(fileURLWithPath: trimmed).standardizedFileURL
+        }
+
+        guard let project, !project.isRemote else { return nil }
+        let root = URL(fileURLWithPath: project.path).standardizedFileURL
+        let candidate = root.appendingPathComponent(trimmed).standardizedFileURL
+        guard isContained(candidate, inside: root) else { return nil }
+        return candidate
+    }
+
+    private static func isContained(_ candidate: URL, inside root: URL) -> Bool {
+        let rootPath = root.path
+        let candidatePath = candidate.path
+        if candidatePath == rootPath {
+            return true
+        }
+        let prefix = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
+        return candidatePath.hasPrefix(prefix)
     }
 }
