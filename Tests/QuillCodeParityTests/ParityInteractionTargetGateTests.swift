@@ -282,6 +282,14 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Secondary pane controls should be edge-clicked in Playwright so non-central hit-area regressions fail before release."
         )
         XCTAssertTrue(
+            interactionSpecText.contains("primary utility controls activate from near-edge target points")
+                && interactionSpecText.contains("settings save trailing edge")
+                && interactionSpecText.contains("worktree choice trailing edge")
+                && interactionSpecText.contains("model favorite icon trailing edge")
+                && interactionSpecText.contains("command palette browser result leading edge"),
+            "Primary utility click-target coverage should verify near-edge activation, not only target geometry and semantic classes."
+        )
+        XCTAssertTrue(
             interactionSpecText.contains("audits narrow viewport click targets across squeezed states")
                 && interactionSpecText.contains("width: 320"),
             "Click-target coverage should include a narrow squeezed viewport, not only standard desktop and phone widths."
@@ -923,8 +931,12 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             clickProbeValidatorText.contains("EXPECTED_SAMPLE_POINTS")
+                && clickProbeValidatorText.contains(#""leading-edge": (0.08, 0.5)"#)
                 && clickProbeValidatorText.contains(#""leading-interior": (0.18, 0.5)"#)
+                && clickProbeValidatorText.contains(#""trailing-edge": (0.92, 0.5)"#)
                 && clickProbeValidatorText.contains(#""trailing-interior": (0.82, 0.5)"#)
+                && clickProbeValidatorText.contains(#""top-edge": (0.5, 0.08)"#)
+                && clickProbeValidatorText.contains(#""bottom-edge": (0.5, 0.92)"#)
                 && clickProbeValidatorText.contains("unexpected click probe point coordinates")
                 && clickProbeValidatorText.contains("missingClickProbeContractIDs")
                 && clickProbeValidatorText.contains("clickProbeValidationIssues")

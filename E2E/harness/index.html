@@ -5339,7 +5339,7 @@
         return '<p data-testid="search-empty">No matching chats</p>';
       }
       return results.map(item => `
-        <button class="search-result hit-target-row ${item.id === state.search.highlightedThreadID ? 'selected' : ''}" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}" data-highlighted="${item.id === state.search.highlightedThreadID ? 'true' : 'false'}">
+        <button class="search-result hit-target-row ${item.id === state.search.highlightedThreadID ? 'selected' : ''}" type="button" data-hit-target-kind="row" data-hit-target-action="press" data-hit-target-source="explicit" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}" data-highlighted="${item.id === state.search.highlightedThreadID ? 'true' : 'false'}">
           <span>${escapeHTML(item.title)}</span>
           <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}${item.isArchived ? ' · archived' : ''}</small>
         </button>`).join('');
@@ -11804,7 +11804,7 @@
           <p class="eyebrow">Known worktrees</p>
           ${status}
           ${dialog.choices.map(choice => `
-            <button type="button" class="dialog-choice hit-target-row" data-testid="worktree-choice" data-target="${target}" data-path="${escapeHTML(choice.path)}">
+            <button type="button" class="dialog-choice hit-target-row" data-hit-target-kind="row" data-hit-target-action="press" data-hit-target-source="explicit" data-testid="worktree-choice" data-target="${target}" data-path="${escapeHTML(choice.path)}">
               <strong>${escapeHTML(choice.title)}</strong>
               <span>${escapeHTML(choice.detail)}</span>
               <code>${escapeHTML(choice.path)}</code>
