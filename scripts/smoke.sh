@@ -204,6 +204,8 @@ CLI_SHELL_STATUS="running"
 FINAL_DETAIL="mock CLI shell command failed"
 whoami_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "run whoami")"
 assert_cli_no_action_regression "$whoami_output" "run whoami"
+do_it_now_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Please run \`printf quillcode_now_smoke\` now and report the output.")"
+assert_cli_output_contains "$do_it_now_output" "quillcode_now_smoke" "run command now"
 CLI_SHELL_STATUS="passed"
 
 echo "==> Running mock CLI natural diagnostic prompts"

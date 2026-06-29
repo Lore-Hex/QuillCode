@@ -100,7 +100,7 @@ struct QuillCodeCLI {
             )
             thread.model = model
         } else {
-            runner = AgentRunner()
+            runner = AgentRunner(enablesImmediateActionPreflight: true)
         }
         let result = try await runner.send(prompt, in: thread, workspaceRoot: cwd)
         thread = result.thread

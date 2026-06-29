@@ -173,6 +173,24 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
     }
 
+    func testPoliteDoItNowBacktickCommandExecutesImmediately() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Please run `printf quillcode_now_smoke` now and report the output.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "printf quillcode_now_smoke")
+        XCTAssertEqual(result.thread.messages.last?.content, "Output:\nquillcode_now_smoke")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll run") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
     func testMakeHelloWorldFileExecutesImmediately() async throws {
         let root = try makeTempDirectory()
         let result = try await AgentRunner().send(
