@@ -381,6 +381,23 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
                 && harnessText.contains("transform: scale(.96)"),
             "The Playwright harness should keep consistent 0.96 press feedback on clickable controls."
         )
+        XCTAssertFalse(
+            harnessText.contains("scale(.97)") || harnessText.contains("scale(0.97)"),
+            "Press feedback should use the shared 0.96 scale everywhere instead of local one-off values."
+        )
+        XCTAssertEqual(
+            harnessText.components(separatedBy: "@media (prefers-reduced-motion: reduce)").count - 1,
+            1,
+            "The Playwright harness should keep one shared reduced-motion override instead of screen-local partial rules."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".thinking-dot {\n        animation: none !important;")
+                && harnessText.contains("summary:active")
+                && harnessText.contains(".empty-starter:active")
+                && harnessText.contains("transition-duration: 1ms !important;")
+                && harnessText.contains("transform: none !important;"),
+            "The reduced-motion override should cover animated thinking indicators and shared press-feedback controls."
+        )
         XCTAssertTrue(
             harnessText.contains("summary:focus-visible")
                 && harnessText.contains("a.hit-target-link:focus-visible")
