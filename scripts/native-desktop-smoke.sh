@@ -8,6 +8,8 @@ RENDER_PATH="$SMOKE_ROOT/workspace.png"
 CHROME_RENDER_PATH="$SMOKE_ROOT/chrome.png"
 HTML_PATH="$SMOKE_ROOT/workspace.html"
 STDOUT_PATH="$SMOKE_ROOT/stdout.log"
+TARGET_LABEL="${QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL:-native desktop executable}"
+DESKTOP_EXECUTABLE="${QUILLCODE_DESKTOP_EXECUTABLE:-}"
 
 cleanup() {
   rm -rf "$SMOKE_ROOT"
@@ -16,8 +18,18 @@ trap cleanup EXIT
 
 cd "$ROOT_DIR"
 
-echo "==> Running native desktop executable render smoke"
-swift run quill-code-desktop \
+if [[ -n "$DESKTOP_EXECUTABLE" ]]; then
+  if [[ ! -x "$DESKTOP_EXECUTABLE" ]]; then
+    echo "Configured desktop executable is missing or not executable: $DESKTOP_EXECUTABLE" >&2
+    exit 1
+  fi
+  COMMAND=("$DESKTOP_EXECUTABLE")
+else
+  COMMAND=(swift run quill-code-desktop)
+fi
+
+echo "==> Running $TARGET_LABEL render smoke"
+"${COMMAND[@]}" \
   --native-render-smoke \
   --smoke-workspace "$SMOKE_ROOT" \
   --smoke-report "$REPORT_PATH" \
@@ -162,4 +174,4 @@ if [[ "$(wc -c < "$CHROME_RENDER_PATH" | tr -d ' ')" -lt 2048 ]]; then
   exit 1
 fi
 
-echo "QuillCode native desktop smoke passed."
+echo "QuillCode $TARGET_LABEL smoke passed."

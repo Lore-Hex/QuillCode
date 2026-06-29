@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-28 Packaged macOS Smoke Pass
+
+Overall grade after this slice: **A packaged entrypoint coverage, A- release packaging maturity, B+ Launch Services coverage**.
+
+The macOS desktop app now has a deterministic bundle smoke lane instead of only testing the SwiftPM executable.
+
+| Before | After |
+| --- | --- |
+| CI proved the native desktop product executable could render and dispatch a real action, but it did not prove the release `.app` bundle pointed at the right executable or carried valid metadata. | `scripts/build-macos-app.sh` builds `quill-code-desktop`, assembles `QuillCode.app`, writes a validated `Info.plist`, and optionally ad-hoc signs for local release experiments. |
+| Packaged launch remained a manual checklist item. | `scripts/packaged-macos-smoke.sh` validates bundle metadata and reuses the native render-smoke harness through `QUILLCODE_DESKTOP_EXECUTABLE`, so the packaged executable must pass the same side-effect, transcript, HTML, PNG, chrome, and hit-target checks. |
+| `scripts/smoke.sh` covered native desktop behavior on macOS but could miss bundle-entrypoint drift. | Darwin smoke now runs the packaged macOS app smoke after the native executable smoke. |
+
+Residual risk:
+
+- The smoke executes the packaged app's bundle executable directly. Full `open -W` Launch Services behavior, signing/notarization, Accessibility-driven packaged UI automation, and Linux packaging still need separate release gates.
+
 ## 2026-06-28 Click-Target Action Contract Pass
 
 Overall grade after this slice: **A explicit target semantics, A rendered coverage, A- native pixel measurement**.
