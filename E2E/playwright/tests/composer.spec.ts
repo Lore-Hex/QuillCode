@@ -198,6 +198,54 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await expect(message).toBeFocused();
 });
 
+test('mock harness suggests workspace files for @ mentions in the composer', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+
+  // A bare @ surfaces workspace files, shallowest path first.
+  await message.fill('@');
+  await expect(page.getByTestId('file-mention-suggestions')).toBeVisible();
+  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(2);
+  await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('README.md');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('README.md');
+
+  // ArrowDown moves the active mention.
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('Sources/Agent.swift');
+
+  // An email-style token is not treated as a mention.
+  await message.fill('ping name@example.com');
+  await expect(page.getByTestId('file-mention-suggestions')).toHaveCount(0);
+
+  // A name prefix ranks the matching file first.
+  await message.fill('look at @Agent');
+  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(1);
+  await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('Agent.swift');
+
+  // Enter accepts the active mention, replacing the @token and adding a trailing space.
+  await page.keyboard.press('Enter');
+  await expect(message).toHaveValue('look at @Sources/Agent.swift ');
+  await expect(message).toBeFocused();
+  await expect(page.getByTestId('file-mention-suggestions')).toHaveCount(0);
+
+  // Tab completes the selected file mention.
+  await message.fill('read @READ');
+  await page.keyboard.press('Tab');
+  await expect(message).toHaveValue('read @README.md ');
+
+  // Click-to-insert accepts a file mention.
+  await message.fill('open @Agent');
+  await page.getByTestId('file-mention-suggestion').first().click();
+  await expect(message).toHaveValue('open @Sources/Agent.swift ');
+  await expect(message).toBeFocused();
+
+  // Slash commands take precedence over file mentions.
+  await message.fill('/help');
+  await expect(page.getByTestId('file-mention-suggestions')).toHaveCount(0);
+  await expect(page.getByTestId('slash-suggestions')).toBeVisible();
+});
+
 test('mock harness searches and selects models from the composer', async ({ page }) => {
   await page.goto(harnessURL());
 
