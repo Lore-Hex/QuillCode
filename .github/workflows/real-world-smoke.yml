@@ -1,0 +1,55 @@
+name: Real World Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "TrustedRouter model to use for the live smoke"
+        required: false
+        default: "deepseekv4flash"
+      require_live:
+        description: "Fail if QUILLCODE_LIVE_API_KEY is unavailable"
+        required: false
+        type: boolean
+        default: true
+  schedule:
+    - cron: "43 11 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-world-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  real-world-smoke:
+    runs-on: macos-15
+    env:
+      QUILLCODE_API_KEY: ${{ secrets.QUILLCODE_LIVE_API_KEY }}
+      QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}
+      QUILLCODE_REQUIRE_LIVE_SMOKE: ${{ inputs.require_live && '1' || '0' }}
+      QUILLCODE_REAL_WORLD_REQUIRE_PLAYWRIGHT: "1"
+      QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/.quillcode-real-world-smoke
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: E2E/playwright/package-lock.json
+      - name: Install Playwright dependencies
+        working-directory: E2E/playwright
+        run: |
+          npm ci
+          npx playwright install chromium
+      - name: Run release-candidate real-world smoke
+        run: ./scripts/real-world-smoke.sh
+      - name: Upload real-world smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quillcode-real-world-smoke-${{ runner.os }}
+          path: .quillcode-real-world-smoke
+          if-no-files-found: ignore
+          retention-days: 30

@@ -52,9 +52,40 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testRealWorldSmokeWorkflowRunsReleaseCandidateWrapperWithArtifacts() throws {
+        let workflow = try Self.workflowText(named: "real-world-smoke.yml")
+
+        XCTAssertTrue(workflow.contains("name: Real World Smoke"))
+        XCTAssertTrue(workflow.contains("workflow_dispatch:"))
+        XCTAssertTrue(workflow.contains("require_live:"))
+        XCTAssertTrue(workflow.contains("default: true"))
+        XCTAssertTrue(workflow.contains("schedule:"))
+        XCTAssertTrue(workflow.contains("QUILLCODE_API_KEY: ${{ secrets.QUILLCODE_LIVE_API_KEY }}"))
+        XCTAssertTrue(workflow.contains("QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}"))
+        XCTAssertTrue(workflow.contains("QUILLCODE_REQUIRE_LIVE_SMOKE: ${{ inputs.require_live && '1' || '0' }}"))
+        XCTAssertTrue(workflow.contains("QUILLCODE_REAL_WORLD_REQUIRE_PLAYWRIGHT: \"1\""))
+        XCTAssertTrue(workflow.contains("QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR:"))
+        XCTAssertTrue(workflow.contains("npm ci"))
+        XCTAssertTrue(workflow.contains("npx playwright install chromium"))
+        XCTAssertTrue(workflow.contains("./scripts/real-world-smoke.sh"))
+        XCTAssertTrue(workflow.contains("actions/upload-artifact@v4"))
+        XCTAssertTrue(workflow.contains("retention-days: 30"))
+        XCTAssertFalse(
+            workflow.contains("live-tr-smoke.sh"),
+            "Release-candidate workflow should run the real-world wrapper, not bypass deterministic smoke."
+        )
+    }
+
     private static func scriptText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("scripts")
+            .appendingPathComponent(fileName)
+        return try String(contentsOf: file, encoding: .utf8)
+    }
+
+    private static func workflowText(named fileName: String) throws -> String {
+        let file = packageRoot()
+            .appendingPathComponent(".github/workflows")
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
     }
