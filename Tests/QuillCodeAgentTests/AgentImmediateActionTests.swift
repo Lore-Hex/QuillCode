@@ -85,11 +85,35 @@ final class AgentImmediateActionTests: XCTestCase {
 
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
-        XCTAssertEqual(try queuedShellCommand(in: result), "ls -la")
+        let list = try queuedFileList(in: result)
+        XCTAssertEqual(list.path, ".")
+        XCTAssertFalse(list.includeHidden)
         XCTAssertTrue(result.thread.messages.last?.content.contains("alpha.txt") == true)
         XCTAssertTrue(result.thread.messages.last?.content.contains("beta.txt") == true)
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll list") })
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
+    func testListFilesCanScopeToDirectoryAndIncludeHidden() async throws {
+        let root = try makeTempDirectory()
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("Sources"), withIntermediateDirectories: true)
+        try "visible\n".write(to: root.appendingPathComponent("Sources/App.swift"), atomically: true, encoding: .utf8)
+        try "hidden\n".write(to: root.appendingPathComponent("Sources/.secret"), atomically: true, encoding: .utf8)
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+
+        let result = try await runner.send(
+            "Can you list all files in Sources?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let list = try queuedFileList(in: result)
+        XCTAssertEqual(list.path, "Sources")
+        XCTAssertTrue(list.includeHidden)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("Sources/.secret") == true)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("Sources/App.swift") == true)
     }
 
     func testCurrentDirectoryQuestionExecutesImmediatelyWithoutProviderRoundTrip() async throws {
@@ -635,6 +659,18 @@ final class AgentImmediateActionTests: XCTestCase {
         let arguments = try ToolArguments(call.argumentsJSON)
         XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
         return try arguments.requiredString("path")
+    }
+
+    private func queuedFileList(in result: AgentRunResult) throws -> (path: String, includeHidden: Bool) {
+        let queued = try XCTUnwrap(result.thread.events.last { $0.kind == .toolQueued })
+        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
+        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.fileList.name)
+        return (
+            arguments.string("path") ?? ".",
+            arguments.bool("includeHidden") ?? false
+        )
     }
 
     private func queuedFileSearch(in result: AgentRunResult) throws -> (query: String, path: String?) {

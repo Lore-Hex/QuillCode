@@ -9,6 +9,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))
         XCTAssertTrue(prompt.contains("canonical argument keys"))
         XCTAssertTrue(prompt.contains("do not use \"command\""))
+        XCTAssertTrue(prompt.contains("use host.file.list"))
+        XCTAssertTrue(prompt.contains("do not use shell ls unless the user explicitly asks for a shell command"))
         XCTAssertTrue(prompt.contains("Do not say \"I'll do it\""))
         XCTAssertTrue(prompt.contains("\"I will do it\""))
         XCTAssertTrue(prompt.contains("\"I will run ...\""))

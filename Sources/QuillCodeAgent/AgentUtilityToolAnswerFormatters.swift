@@ -3,6 +3,35 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 enum AgentUtilityToolAnswerFormatters {
+    static func fileListAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.fileList.name else {
+            return nil
+        }
+        guard let output = try? JSONHelpers.decode(FileListToolOutput.self, from: result.stdout) else {
+            return nil
+        }
+
+        guard !output.entries.isEmpty else {
+            return "`\(output.path)` has no visible entries."
+        }
+
+        let lines = output.entries.prefix(24).map { entry in
+            let suffix = entry.kind == "directory" ? "/" : ""
+            let size = entry.bytes.map { " · \($0) bytes" } ?? ""
+            return "- `\(entry.path)\(suffix)` · \(entry.kind)\(size)"
+        }
+        var answer = "`\(output.path)` contains \(output.totalEntries) entr\(output.totalEntries == 1 ? "y" : "ies"):"
+        answer += "\n\(lines.joined(separator: "\n"))"
+        if output.truncated || output.entries.count > lines.count {
+            answer += "\n\n[more entries are available in the tool card]"
+        }
+        return answer
+    }
+
     static func fileSearchAnswer(
         call: ToolCall,
         result: ToolResult,

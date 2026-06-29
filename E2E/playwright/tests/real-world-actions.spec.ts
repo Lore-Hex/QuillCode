@@ -18,7 +18,6 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
       'Run `ls`',
       'Please run `printf quillcode_now_smoke` now and report the output.',
       'Can you run printf quillcode_polite_smoke?',
-      'Can you list the files here?',
       'Can you show me the current directory?'
     ],
     expectedToolNames: ['host.shell.run'],
@@ -26,6 +25,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
       'shell arguments are never {}',
       'assistant does not answer with passive promises',
       'output is visible in the chat transcript'
+    ]
+  },
+  {
+    name: 'lists workspace entries with the structured file list tool',
+    prompts: ['Can you list the files here?'],
+    expectedToolNames: ['host.file.list'],
+    regressionGuards: [
+      'file list arguments stay workspace-relative',
+      'file list uses host.file.list instead of shell ls fallback',
+      'listed entries render as final chat text'
     ]
   },
   {
@@ -178,27 +187,36 @@ test('runs natural shell requests immediately with nonempty arguments', async ({
   await expect(page.getByText('Output:\nquillcode_polite_smoke')).toBeVisible();
   await expect(page.getByText(/I'?ll run|I'?ll check|should I|do you want me to|ok\?/i)).toHaveCount(0);
 
-  await page.getByLabel('Message').fill('Can you list the files here?');
-  await page.getByRole('button', { name: 'Send' }).click();
-
-  await expect(page.getByTestId('tool-card')).toHaveCount(5);
-  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
-  await expect(page.getByTestId('tool-card-input').last()).toContainText('"cmd": "ls -la"');
-  await expect(page.getByTestId('tool-card-input').last()).not.toContainText('{}');
-  await expect(page.getByTestId('tool-card-output').last()).toContainText('ran: ls -la');
-  await expect(page.getByText('Output:\nran: ls -la')).toBeVisible();
-  await expect(page.getByText(/I'?ll list|should I|do you want me to|ok\?/i)).toHaveCount(0);
-
   await page.getByLabel('Message').fill('Can you show me the current directory?');
   await page.getByRole('button', { name: 'Send' }).click();
 
-  await expect(page.getByTestId('tool-card')).toHaveCount(6);
+  await expect(page.getByTestId('tool-card')).toHaveCount(5);
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
   await expect(page.getByTestId('tool-card-input').last()).toContainText('"cmd": "pwd"');
   await expect(page.getByTestId('tool-card-input').last()).not.toContainText('{}');
   await expect(page.getByTestId('tool-card-output').last()).toContainText('/mock/QuillCode');
   await expect(page.getByText('Output:\n/mock/QuillCode')).toBeVisible();
   await expect(page.getByText(/I'?ll show|should I|do you want me to|ok\?/i)).toHaveCount(0);
+});
+
+test('lists workspace entries with the structured file list tool', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('Can you list the files here?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.list');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"path": "."');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('README.md');
+  await expect(page.getByTestId('tool-card-output')).toContainText('Sources');
+  await expect(page.getByText('`.` contains 2 entries:')).toBeVisible();
+  await expect(page.getByText(/`Sources\/` · directory/)).toBeVisible();
+  await expect(page.getByText(/`README\.md` · file/)).toBeVisible();
+  await expect(page.getByText(/I'?ll list|should I|do you want me to|ok\?/i)).toHaveCount(0);
+  await expect(page.getByText(/ran: ls -la|No shell command was specified/i)).toHaveCount(0);
 });
 
 test('writes requested file content immediately without a confirmation loop', async ({ page }) => {

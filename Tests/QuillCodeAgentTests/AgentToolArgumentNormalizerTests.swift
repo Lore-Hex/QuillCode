@@ -68,6 +68,31 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(arguments["limit"])
     }
 
+    func testCanonicalArgumentsNormalizeFileListAliases() {
+        let arguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.fileList.name,
+            in: [
+                "arguments": [
+                    "directory": "Sources",
+                    "hidden": true,
+                    "limit": 10
+                ]
+            ],
+            sourceText: ""
+        )
+
+        XCTAssertEqual(arguments["path"] as? String, "Sources")
+        XCTAssertEqual(arguments["includeHidden"] as? Bool, true)
+        XCTAssertEqual(arguments["maxEntries"] as? Int, 10)
+        XCTAssertNil(arguments["directory"])
+        XCTAssertNil(arguments["hidden"])
+        XCTAssertNil(arguments["limit"])
+        XCTAssertTrue(AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+            for: ToolDefinition.fileList.name,
+            arguments: [:]
+        ))
+    }
+
     func testCanonicalArgumentsNormalizePullRequestCollectionAliases() {
         let arguments = AgentToolArgumentNormalizer.canonicalArguments(
             for: ToolDefinition.gitPullRequestReviewers.name,

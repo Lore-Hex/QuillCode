@@ -4561,6 +4561,7 @@
       return [
         'host.shell.run',
         'host.file.read',
+        'host.file.list',
         'host.file.search',
         'host.file.write',
         'host.apply_patch',
@@ -4658,6 +4659,7 @@
       }
       const pathTools = new Set([
         'host.file.read',
+        'host.file.list',
         'host.file.write',
         'host.git.stage',
         'host.git.restore',
@@ -4668,6 +4670,7 @@
         'host.git.worktree.remove'
       ]);
       if (toolName === 'host.shell.run') return toolCardSanitized(args.cmd);
+      if (toolName === 'host.file.list') return toolCardSanitized(args.path) || '.';
       if (toolName === 'host.file.search') return toolCardSanitized(args.query);
       if (pathTools.has(toolName)) return toolCardSanitized(args.path);
       if (toolName === 'host.apply_patch') return 'patch';
@@ -10850,6 +10853,7 @@
       const words = promptWordSet(text);
       if (lower.includes('list files')
         || lower.includes('list the files')
+        || lower.includes('list all files')
         || lower.includes('show files')
         || lower.includes('show the files')) {
         return true;
@@ -10862,7 +10866,12 @@
         || words.has('project')
         || words.has('repo')
         || words.has('directory')
-        || words.has('folder');
+        || words.has('folder')
+        || words.has('in')
+        || words.has('under')
+        || words.has('inside')
+        || words.has('within')
+        || words.has('from');
       return asksForFiles && asksForListing && scopesWorkspace;
     }
 
@@ -10936,6 +10945,28 @@
         .split(/[\s"'“”‘’(),<>\[\]{}]+/)
         .map(token => token.trim().replace(/^[`]+|[`.:;!?]+$/g, ''))
         .find(isSafeRelativeFilePath) || null;
+    }
+
+    function fileListRequestFromPrompt(text) {
+      if (!isNaturalWorkspaceListRequest(text)) return null;
+      const path = fileListPathFromPrompt(text) || '.';
+      const lower = String(text || '').toLowerCase();
+      const includeHidden = lower.includes('hidden')
+        || lower.includes('dotfiles')
+        || lower.includes('dot files')
+        || lower.includes('all files')
+        || lower.includes('including hidden');
+      return includeHidden ? { path, includeHidden: true } : { path };
+    }
+
+    function fileListPathFromPrompt(text) {
+      const quoted = text.match(/`([^`]+)`/)?.[1]?.trim();
+      if (isSafeRelativeWorkspacePath(quoted)) return quoted;
+      const scopeMatch = String(text || '').match(/\b(?:in|under|inside|within|from)\s+(`[^`]+`|"[^"]+"|'[^']+'|[^\s,.;!?]+)/i);
+      const candidate = scopeMatch?.[1]?.replace(/^['"`]+|['"`]+$/g, '');
+      const lowered = String(candidate || '').toLowerCase();
+      if (['here', 'workspace', 'project', 'repo', 'directory', 'folder', 'files'].includes(lowered)) return null;
+      return isSafeRelativeWorkspacePath(candidate) ? candidate : null;
     }
 
     function fileSearchRequestFromPrompt(text) {
@@ -11028,6 +11059,63 @@
         ok
           ? `Contents of \`${path}\`:\n${contents.trim()}`
           : `Could not read \`${path}\`:\nFile not found.`
+      );
+    }
+
+    function runMockFileListAction(request, selectedProject, isRemoteProject) {
+      const root = isRemoteProject ? selectedProject.path : '/mock/QuillCode';
+      const scopedPath = request.path || '.';
+      const prefix = scopedPath === '.' ? '' : `${scopedPath.replace(/\/$/, '')}/`;
+      const entryMap = new Map();
+      for (const [absolutePath, contents] of Object.entries(state.mockFiles)) {
+        const relativePath = absolutePath.startsWith('/mock/QuillCode/')
+          ? absolutePath.slice('/mock/QuillCode/'.length)
+          : absolutePath;
+        if (prefix && !relativePath.startsWith(prefix)) continue;
+        const remainder = prefix ? relativePath.slice(prefix.length) : relativePath;
+        if (!remainder || (!request.includeHidden && remainder.split('/')[0]?.startsWith('.'))) continue;
+        const [first] = remainder.split('/');
+        if (!first) continue;
+        const path = prefix ? `${prefix}${first}` : first;
+        const isDirectory = remainder.includes('/');
+        const previous = entryMap.get(path);
+        if (previous?.kind === 'directory') continue;
+        entryMap.set(path, {
+          name: first,
+          path,
+          kind: isDirectory ? 'directory' : 'file',
+          bytes: isDirectory ? undefined : String(contents).length,
+          isHidden: first.startsWith('.')
+        });
+      }
+      const entries = Array.from(entryMap.values()).sort((left, right) => {
+        if (left.kind !== right.kind) return left.kind === 'directory' ? -1 : 1;
+        return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
+      });
+      const output = {
+        path: scopedPath,
+        entries,
+        totalEntries: entries.length,
+        includedHidden: Boolean(request.includeHidden),
+        truncated: false
+      };
+      const artifacts = entries.map(entry => `${root}/${entry.path}`);
+      addToolCard({
+        title: 'host.file.list',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ path: scopedPath, ...(request.includeHidden ? { includeHidden: true } : {}) }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(output, null, 2), artifacts }, null, 2)
+      });
+      addMessage(
+        'assistant',
+        entries.length
+          ? `\`${scopedPath}\` contains ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}:\n${entries.map(entry => {
+              const suffix = entry.kind === 'directory' ? '/' : '';
+              const size = entry.bytes === undefined ? '' : ` · ${entry.bytes} bytes`;
+              return `- \`${entry.path}${suffix}\` · ${entry.kind}${size}`;
+            }).join('\n')}`
+          : `\`${scopedPath}\` has no visible entries.`
       );
     }
 
@@ -12730,7 +12818,7 @@
       } else if (isNaturalCurrentDirectoryRequest(text)) {
         runMockShellAction('pwd', selectedProject, isRemoteProject);
       } else if (isNaturalWorkspaceListRequest(text)) {
-        runMockShellAction('ls -la', selectedProject, isRemoteProject);
+        runMockFileListAction(fileListRequestFromPrompt(text), selectedProject, isRemoteProject);
       } else if (text.toLowerCase().includes('commit')) {
         const message = text.match(/message[: ]+(.+)$/i)?.[1]?.trim() || 'QuillCode changes';
         state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };

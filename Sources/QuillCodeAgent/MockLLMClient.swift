@@ -171,6 +171,14 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if let fileList = AgentFileListRequestParser.request(from: request),
+           tools.contains(where: { $0.name == ToolDefinition.fileList.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileList.name,
+                argumentsJSON: ToolArguments.json(fileList.arguments)
+            ))
+        }
+
         if let fileSearch = AgentFileSearchRequestParser.request(from: request),
            tools.contains(where: { $0.name == ToolDefinition.fileSearch.name }) {
             return .tool(.init(
