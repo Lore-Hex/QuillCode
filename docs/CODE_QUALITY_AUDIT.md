@@ -8927,3 +8927,20 @@ Code quality changes:
 Remaining risk:
 
 - The gate now proves trigger naming at source level. The final A+ layer remains packaged `.app` Accessibility automation that samples real menu opener labels and frames after SwiftUI/AppKit composition.
+
+## 2026-06-28 Native Hit Target Report Integrity Pass
+
+Overall grade after this slice: **A native report integrity, A CI smoke evidence, A- packaged accessibility-frame sampling**.
+
+Native hit-target smoke already covered semantic kind, surface family, focus targets, minimum size, and press scale. The remaining weakness was that the report could still become harder to debug if a future contract had an empty label/source or reused another contract ID.
+
+Code quality changes:
+
+- Added contract-level validation for empty ID, surface, accessible label, source, undersized icons, and minimum-height regressions.
+- Added report-level duplicate contract ID detection and surfaced it in the native smoke JSON.
+- Updated the shell smoke parser to fail on duplicate IDs or blank contract metadata, so packaged executable evidence remains trustworthy in CI.
+- Added focused unit and parity coverage for the stricter report shape.
+
+Remaining risk:
+
+- This improves the evidence substrate for native click targets. The final A+ layer remains packaged `.app` Accessibility automation that uses these stable IDs to sample real frames and labels from the running app.

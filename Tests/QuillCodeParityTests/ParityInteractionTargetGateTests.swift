@@ -666,6 +666,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native hit-target audit should inventory whole interaction surface families, not only individual button kinds."
         )
         XCTAssertTrue(
+            auditText.contains("duplicateContractIDs")
+                && auditText.contains("duplicateIDs(in:")
+                && auditText.contains("has an empty accessible label")
+                && auditText.contains("icon target should declare an explicit minimum width"),
+            "Native hit-target audit should fail blank labels/sources and duplicate target IDs so release evidence is debuggable."
+        )
+        XCTAssertTrue(
             auditText.contains("requiredCommandIDs")
                 && auditText.contains(#""toggle-extensions""#)
                 && auditText.contains(#""toggle-memories""#)
@@ -700,8 +707,10 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains(#"native_targets.get("isValid") is not True"#)
                 && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 44"#)
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
+                && smokeScriptText.contains("duplicateContractIDs")
+                && smokeScriptText.contains(#"for field in ("id", "label", "source", "surface")"#)
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
-            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric and semantic kind."
+            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind, unique ID, and non-empty metadata field."
         )
         XCTAssertTrue(
             smokeScriptText.contains("required_focus_targets")

@@ -143,6 +143,21 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
 
     public var validationIssues: [String] {
         var issues: [String] = []
+        if id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append("hit target contract has an empty id")
+        }
+        if surface.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append("\(id) has an empty surface label")
+        }
+        if label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append("\(id) has an empty accessible label")
+        }
+        if source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append("\(id) has an empty source")
+        }
+        if kind == .icon && minWidth == nil {
+            issues.append("\(id) icon target should declare an explicit minimum width")
+        }
         if minHeight < Double(QuillCodeMetrics.minimumHitTarget) {
             issues.append("\(id) minHeight \(minHeight) is below \(QuillCodeMetrics.minimumHitTarget)")
         }
@@ -170,6 +185,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var coveredFocusTargets: [String]
     public var missingRequiredFocusTargets: [String]
     public var missingRequiredCommandIDs: [String]
+    public var duplicateContractIDs: [String]
     public var validationIssues: [String]
 
     public var isValid: Bool {
@@ -177,6 +193,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             && missingSurfaceFamilies.isEmpty
             && missingRequiredFocusTargets.isEmpty
             && missingRequiredCommandIDs.isEmpty
+            && duplicateContractIDs.isEmpty
             && validationIssues.isEmpty
     }
 
@@ -193,6 +210,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "coveredFocusTargets": coveredFocusTargets,
             "missingRequiredFocusTargets": missingRequiredFocusTargets,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
+            "duplicateContractIDs": duplicateContractIDs,
             "validationIssues": validationIssues
         ]
     }
@@ -251,7 +269,9 @@ public enum QuillCodeNativeHitTargetAudit {
             .filter { !coveredFocusTargets.contains($0) }
             .map(\.rawValue)
             .sorted()
-        let validationIssues = (designContracts + surfaceContracts).flatMap(\.validationIssues)
+        let allContracts = designContracts + surfaceContracts
+        let duplicateContractIDs = duplicateIDs(in: allContracts.map(\.id))
+        let validationIssues = allContracts.flatMap(\.validationIssues)
 
         return QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: Double(QuillCodeMetrics.minimumHitTarget),
@@ -264,8 +284,19 @@ public enum QuillCodeNativeHitTargetAudit {
             coveredFocusTargets: coveredFocusTargets.map(\.rawValue).sorted(),
             missingRequiredFocusTargets: missingFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
+            duplicateContractIDs: duplicateContractIDs,
             validationIssues: validationIssues
         )
+    }
+
+    private static func duplicateIDs(in ids: [String]) -> [String] {
+        var seen: Set<String> = []
+        var duplicates: Set<String> = []
+        for id in ids {
+            guard !seen.insert(id).inserted else { continue }
+            duplicates.insert(id)
+        }
+        return duplicates.sorted()
     }
 
     private static func surfaceContracts(for surface: WorkspaceSurface) -> [QuillCodeNativeHitTargetContract] {
