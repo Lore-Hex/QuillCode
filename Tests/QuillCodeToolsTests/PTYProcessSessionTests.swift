@@ -88,6 +88,56 @@ final class PTYProcessSessionTests: XCTestCase {
         XCTAssertEqual(result?.ok, true)
     }
 
+    func testSendInputDrivesAnInteractiveRead() async throws {
+        let request = ShellExecutionRequest(
+            command: "read x; echo \"got:$x\"",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 15
+        )
+        let session = PTYProcessSession(request: request)
+        session.start()
+
+        // The master fd becomes writable once the child has launched; retry until ready.
+        var delivered = false
+        for _ in 0..<300 {
+            if session.sendInput("hello\n") {
+                delivered = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(delivered, "Expected to deliver typed input to the pty master.")
+
+        var output = ""
+        var result: ToolResult?
+        for await event in session.events {
+            switch event {
+            case .stdout(let text), .stderr(let text):
+                output += text
+            case .finished(let toolResult):
+                result = toolResult
+            }
+        }
+
+        XCTAssertTrue(output.contains("got:hello"), "Expected the interactive read to receive input, got: \(output)")
+        XCTAssertEqual(result?.ok, true)
+    }
+
+    func testSendInputIsRejectedAfterTheSessionFinishes() async throws {
+        let request = ShellExecutionRequest(
+            command: "printf done",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 15
+        )
+        let session = PTYProcessSession(request: request)
+        session.start()
+        for await event in session.events {
+            if case .finished = event { break }
+        }
+
+        XCTAssertFalse(session.sendInput("late\n"), "A finished session must not accept further input.")
+    }
+
     func testReportsNonZeroExitCode() async throws {
         let (_, result) = await drain("exit 3")
 

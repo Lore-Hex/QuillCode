@@ -71,6 +71,9 @@ public final class PTYProcessSession: ShellProcessSession, @unchecked Sendable {
         activeProcess?.terminate()
     }
 
+    /// Writes `text` to the terminal as if the user typed it, so interactive
+    /// programs reading from the pty (shells, REPLs, prompts) can be driven.
+    /// Returns `false` if the session has finished or has no live master fd.
     @discardableResult
     public func sendInput(_ text: String) -> Bool {
         guard !text.isEmpty else { return false }
@@ -149,6 +152,7 @@ public final class PTYProcessSession: ShellProcessSession, @unchecked Sendable {
 
         lock.lock()
         self.process = process
+        self.masterFD = master
         let shouldTerminate = didCancel
         lock.unlock()
         if shouldTerminate {
