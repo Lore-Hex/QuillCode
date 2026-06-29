@@ -28,7 +28,7 @@ swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
 
-`./scripts/smoke.sh` runs the Swift tests, exercises the mock CLI in a temporary workspace, verifies that file creation plus list/read follow-up works without dirtying the repo, and runs Playwright automatically when `E2E/playwright/node_modules` is present. Set `QUILLCODE_SMOKE_ARTIFACT_DIR` to preserve native smoke screenshots and a `deterministic-smoke-manifest.json` that records which deterministic sub-suites ran.
+`./scripts/smoke.sh` runs the Swift tests, exercises the mock CLI in a temporary workspace, verifies that file creation plus list/read follow-up works without dirtying the repo, runs native/packaged desktop smoke with the same create-then-read follow-through, and runs Playwright automatically when `E2E/playwright/node_modules` is present. Set `QUILLCODE_SMOKE_ARTIFACT_DIR` to preserve native smoke screenshots and a `deterministic-smoke-manifest.json` that records which deterministic sub-suites ran.
 
 Agent PRs should merge through the repo merge train instead of racing direct pushes to `main`. Open a PR, wait for CI, then add the `merge-train` label. See [Merge Train](docs/MERGE_TRAIN.md).
 

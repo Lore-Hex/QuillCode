@@ -26,10 +26,22 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         let writtenText = try String(contentsOf: writtenFile, encoding: .utf8)
         XCTAssertTrue(writtenText.contains("hello world"))
 
+        controller.draft = "Read `hello.txt` and tell me its exact content."
+        let followUpTimelineCount = controller.surface.transcript.timelineItems.count
+        controller.send()
+
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: followUpTimelineCount,
+            expectedAnswer: "hello world"
+        )
+
         let surface = controller.surface
         XCTAssertEqual(surface.transcript.toolCards.last?.status, .done)
-        XCTAssertGreaterThanOrEqual(surface.transcript.timelineItems.count, previousTimelineCount + 3)
-        XCTAssertTrue(surface.transcript.messages.last?.text.contains("Wrote `hello.txt`.") == true)
+        XCTAssertEqual(surface.transcript.toolCards.last?.title, ToolDefinition.fileRead.name)
+        XCTAssertGreaterThanOrEqual(surface.transcript.timelineItems.count, previousTimelineCount + 6)
+        XCTAssertTrue(surface.transcript.messages.last?.text.contains("Contents of `hello.txt`:") == true)
+        XCTAssertTrue(surface.transcript.messages.last?.text.contains("hello world") == true)
 
         let workspaceImage = try renderWorkspace(surface)
         let workspaceStats = try RenderedWorkspacePixelStats(image: workspaceImage)

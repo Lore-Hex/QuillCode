@@ -6,7 +6,8 @@ public struct MockLLMClient: LLMClient {
     public init() {}
 
     public func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
-        if let lastToolOutput = thread.messages.last(where: { $0.role == .tool })?.content,
+        if thread.messages.last?.role == .tool,
+           let lastToolOutput = thread.messages.last?.content,
            let feedback = try? JSONHelpers.decode(AgentToolFeedback.self, from: lastToolOutput) {
             return .say(AgentRunner.finalAnswer(
                 for: feedback.toolCall,

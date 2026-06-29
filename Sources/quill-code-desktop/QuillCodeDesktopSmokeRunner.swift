@@ -47,8 +47,8 @@ enum QuillCodeDesktopSmokeRunner {
 
         let chrome = try QuillCodeDesktopChromeSmoke.verify(controller: controller)
 
-        let prompt = #"Can you write a file that says "hello world""#
-        controller.draft = prompt
+        let writePrompt = #"Can you write a file that says "hello world""#
+        controller.draft = writePrompt
         let previousTimelineCount = controller.surface.transcript.timelineItems.count
         controller.send()
 
@@ -64,7 +64,30 @@ enum QuillCodeDesktopSmokeRunner {
             throw QuillCodeDesktopSmokeFailure.createdFileMismatch(createdFile.path)
         }
 
+        let writeSurface = controller.surface
+        let writeFinalAnswer = writeSurface.transcript.messages.last?.text ?? ""
+        let writeToolName = writeSurface.transcript.toolCards.last?.title ?? ""
+
+        let followUpPrompt = "Read `hello.txt` and tell me its exact content."
+        controller.draft = followUpPrompt
+        let followUpPreviousTimelineCount = controller.surface.transcript.timelineItems.count
+        controller.send()
+
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: followUpPreviousTimelineCount,
+            expectedAnswer: "hello world"
+        )
+
         let surface = controller.surface
+        let followUpFinalAnswer = surface.transcript.messages.last?.text ?? ""
+        let followUpToolName = surface.transcript.toolCards.last?.title ?? ""
+        guard followUpFinalAnswer.contains("Contents of `hello.txt`:"),
+              followUpFinalAnswer.contains("hello world")
+        else {
+            throw QuillCodeDesktopSmokeFailure.followUpReadMismatch(followUpFinalAnswer)
+        }
+
         let nativeHitTargets = QuillCodeNativeHitTargetAudit.report(for: surface)
         guard nativeHitTargets.isValid else {
             throw QuillCodeDesktopSmokeFailure.nativeHitTargetAuditFailed(
@@ -75,9 +98,9 @@ enum QuillCodeDesktopSmokeRunner {
                     + nativeHitTargets.missingRequiredCommandIDs.map { "missing command: \($0)" }
             )
         }
-        guard surface.transcript.messages.count >= 2,
-              surface.transcript.toolCards.count >= 1,
-              surface.transcript.timelineItems.count >= 3
+        guard surface.transcript.messages.count >= 4,
+              surface.transcript.toolCards.count >= 2,
+              surface.transcript.timelineItems.count >= 6
         else {
             throw QuillCodeDesktopSmokeFailure.incompleteTranscript
         }
@@ -125,6 +148,9 @@ enum QuillCodeDesktopSmokeRunner {
         let htmlURL = root.htmlURL(request: request)
         let html = WorkspaceHTMLRenderer.render(surface)
         guard html.contains("Wrote `hello.txt`."),
+              html.contains("Contents of `hello.txt`:"),
+              html.contains("hello world"),
+              html.contains("host.file.read"),
               html.contains("host.file.write")
         else {
             throw QuillCodeDesktopSmokeFailure.htmlMissingResult
@@ -133,9 +159,13 @@ enum QuillCodeDesktopSmokeRunner {
 
         return QuillCodeDesktopSmokeReport(
             ok: true,
-            prompt: prompt,
-            finalAnswer: surface.transcript.messages.last?.text ?? "",
-            toolName: surface.transcript.toolCards.last?.title ?? "",
+            prompt: writePrompt,
+            finalAnswer: writeFinalAnswer,
+            toolName: writeToolName,
+            followUpPrompt: followUpPrompt,
+            followUpFinalAnswer: followUpFinalAnswer,
+            followUpToolName: followUpToolName,
+            toolNames: surface.transcript.toolCards.map(\.title),
             messageCount: surface.transcript.messages.count,
             toolCardCount: surface.transcript.toolCards.count,
             timelineItemCount: surface.transcript.timelineItems.count,

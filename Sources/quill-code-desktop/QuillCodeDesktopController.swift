@@ -440,7 +440,8 @@ final class QuillCodeDesktopController: ObservableObject {
             surface: &surface,
             draft: &draft,
             terminalDraft: &terminalDraft,
-            browserAddressDraft: &browserAddressDraft
+            browserAddressDraft: &browserAddressDraft,
+            isComposerTaskRunning: tasks.isRunning(.send)
         )
     }
 
