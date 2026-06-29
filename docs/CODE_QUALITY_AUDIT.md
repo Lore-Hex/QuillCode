@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-29 Secondary-Pane Action Label Clipping Pass
+
+Overall grade after this slice: **A constrained-width action legibility, A- regression-guard breadth**.
+
+A broad sweep for labeled controls whose text overflows their box (`scrollWidth > clientWidth`) surfaced the memories pane's "Add memory" header button clipping once the Activity pane was open and narrowed the secondary-pane column. The shared `hit-target-text` primitive sets a 44px `min-width` floor, which let the flex header compress the labeled button below its content width.
+
+| Before | After |
+| --- | --- |
+| `.memories-add-button` (and the memory card Edit/Forget buttons) inherited only the 44px `min-width` floor, so a tight flex row shrank "Add memory" to ~55px and clipped it (`scrollWidth` 61 vs `clientWidth` 55 at 768px with Activity open). | The header/inline memory action buttons set `flex-shrink: 0`, keeping their natural label width while the wrappable title block absorbs the layout pressure. |
+| The clipping audits covered the composer and starter cards but not the secondary-pane headers under a narrowed column. | A Playwright invariant opens the Activity pane plus the memories/extensions/automations panes at 768px and fails if any visible labeled button reports `scrollWidth > clientWidth`, generalizing the per-control checks into a pane-level sweep. |
+
+Residual risk:
+
+- The sweep runs at one tablet width with one narrowing pane combination. A future pass could parameterize representative width/pane combinations, but the `flex-shrink: 0` rule addresses the structural cause for these header buttons regardless of the exact width.
+
 ## 2026-06-29 Starter Action Stack Layout Pass
 
 Overall grade after this slice: **A empty-state first read, A native/HTML layout parity, A- regression-guard coverage**.
