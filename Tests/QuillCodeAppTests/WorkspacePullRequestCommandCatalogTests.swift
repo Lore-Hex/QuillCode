@@ -9,6 +9,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
 
         XCTAssertEqual(commands.map(\.id), [
             "git-pr-create",
+            "git-pr-fill",
             "git-pr-view",
             "git-pr-checks",
             "git-pr-diff",
@@ -53,6 +54,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
 
         XCTAssertEqual(slashUsages, [
             "/pr create",
+            "/pr fill",
             "/pr view [selector]",
             "/pr checks [selector]",
             "/pr diff [selector]",

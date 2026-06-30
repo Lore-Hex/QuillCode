@@ -40,6 +40,13 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertEqual(pruneCall.name, ToolDefinition.gitWorktreePrune.name)
         XCTAssertEqual(pruneArguments.bool("dryRun"), true)
         XCTAssertEqual(pruneArguments.bool("verbose"), true)
+
+        guard case .runToolCall(let fillCall) = WorkspaceCommandPlan(commandID: "git-pr-fill") else {
+            return XCTFail("Expected git pr fill to dispatch an explicit tool call.")
+        }
+        let fillArguments = try ToolArguments(fillCall.argumentsJSON)
+        XCTAssertEqual(fillCall.name, ToolDefinition.gitPullRequestCreate.name)
+        XCTAssertEqual(fillArguments.bool("fill"), true)
     }
 
     func testDraftCommandsMapToComposerText() {

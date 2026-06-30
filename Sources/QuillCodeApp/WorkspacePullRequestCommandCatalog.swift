@@ -71,6 +71,19 @@ enum WorkspacePullRequestCommandCatalog {
             )
         ),
         .init(
+            id: "git-pr-fill",
+            title: "Create pull request from commits",
+            keywords: ["github", "pr", "pull request", "fill", "autofill", "branch", "commits"],
+            systemImage: "arrow.up.doc.on.clipboard",
+            slash: pullRequestSlash(
+                usage: "/pr fill",
+                title: "Create PR from commits",
+                detail: "Open a pull request for the current branch with title and body filled from its commits.",
+                insertText: "/pr fill",
+                aliases: ["pr autofill", "pull request fill", "pr from commits"]
+            )
+        ),
+        .init(
             id: "git-pr-view",
             title: "View pull request",
             keywords: ["github", "pr", "view", "comments", "review"],
