@@ -164,6 +164,73 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoModeHardDenyMatchesJSONUnicodeEscapedDangerousCommand() async {
+        let reviewer = StaticSafetyReviewer()
+        // The hard-deny must match the DECODED argument value, not the wire encoding. This drives the
+        // matcher directly with a hand-built blob carrying a unicode-escaped slash (JSON u002f -> "/",
+        // built from a runtime backslash so the source carries no literal escape). A raw-JSON match
+        // misses it (would auto-approve under the "run" intent); the decode denies it. The live model
+        // pipeline reserializes args before this check, so this guards the matcher's own correctness
+        // against any future/partial path that carries raw model bytes.
+        let backslash = String(UnicodeScalar(0x5C)!)
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: "{\"cmd\":\"rm -rf \(backslash)u002f\"}"
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run this for me",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "run this for me")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+    }
+
+    func testAutoModeHardDenyMatchesJSONSlashEscapedDangerousCommand() async {
+        let reviewer = StaticSafetyReviewer()
+        // `\/` is the JSON escape for `/` that the prior one-off patch handled; the decode must keep
+        // covering it (no regression).
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"rm -rf \/"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run this for me",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "run this for me")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+    }
+
+    func testAutoModeHardDenyStillMatchesPlainDangerousCommand() async {
+        let reviewer = StaticSafetyReviewer()
+        // Decoding must not weaken the common unescaped case.
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"rm -rf /"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run this for me",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "run this for me")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+    }
+
+    func testAutoModeHardDenyFallsBackToRawStringForMalformedJSON() async {
+        let reviewer = StaticSafetyReviewer()
+        // Not decodable JSON -> fall back to the raw blob so a dangerous pattern is still caught
+        // (and nothing crashes).
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd": rm -rf / (not json"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run this for me",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "run this for me")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+    }
+
     func testAutoApprovesDiagnosticShellRunWithoutRunVerb() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(
