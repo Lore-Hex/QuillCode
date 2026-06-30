@@ -92,8 +92,10 @@ private struct QuillCodeMessageDraftButton: View {
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
                 .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(QuillCodePalette.text)
-                .background(Color.white.opacity(0.1))
+                // Dark chip + bright glyph stays legible on the bright user-bubble gradient (matches
+                // the harness contrast fix), vs the old faint white-on-white.
+                .foregroundStyle(Color.white.opacity(0.85))
+                .background(Color.black.opacity(0.30))
                 .clipShape(Capsule())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
@@ -152,8 +154,8 @@ private struct QuillCodeMessageFeedbackButton: View {
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
                 .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(isSelected ? QuillCodePalette.green : QuillCodePalette.muted)
-                .background((isSelected ? QuillCodePalette.green : Color.white).opacity(isSelected ? 0.16 : 0.08))
+                .foregroundStyle(isSelected ? QuillCodePalette.green : Color.white.opacity(0.85))
+                .background(isSelected ? QuillCodePalette.green.opacity(0.16) : Color.black.opacity(0.30))
                 .clipShape(Capsule())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
@@ -175,8 +177,8 @@ struct QuillCodeTranscriptCopyButton: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .quillCodeTextButtonTarget(minWidth: 64, radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(isCopied ? QuillCodePalette.green : QuillCodePalette.muted)
-                .background((isCopied ? QuillCodePalette.green : Color.white).opacity(isCopied ? 0.16 : 0.08))
+                .foregroundStyle(isCopied ? QuillCodePalette.green : Color.white.opacity(0.85))
+                .background(isCopied ? QuillCodePalette.green.opacity(0.16) : Color.black.opacity(0.30))
                 .clipShape(Capsule())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
