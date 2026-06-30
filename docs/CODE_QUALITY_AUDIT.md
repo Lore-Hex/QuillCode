@@ -53,6 +53,26 @@ Remaining risk:
 
 - The whole repo is not yet "finished Codex parity"; several large files are known hotspots because the project is still absorbing features. For A+ over time, split large files only when a real ownership seam appears and keep adding small audit records like this PR.
 
+## 2026-06-30 Architecture Quality Grading Pass
+
+Overall grade after this slice: **A+ production modules, A/A+ core architecture, B+ residual parity-test architecture**.
+
+This pass added a deterministic file/module grading report at `docs/CODE_QUALITY_FILE_GRADES.md` backed by `scripts/grade-code-quality.py`. The grader is intentionally simple and reviewable: it flags oversized files, long lines, duplicate-line ratios, force-unwrap markers, unsafe markers, open follow-up markers, public declaration concentration, and top-level type concentration. It is not a replacement for code review, but it gives every agent a stable quality map before broad refactors.
+
+| Before | After |
+| --- | --- |
+| The native hit-target audit mixed models, catalog data, click-probe report structures, and audit execution in one very large source file. | The audit is split into `QuillCodeNativeHitTargetModels.swift`, `QuillCodeNativeHitTargetCatalog.swift`, and `QuillCodeNativeHitTargetAudit.swift`; duplicate missing-policy checks now share one generic helper. |
+| `QuillCodeDesignSystem.swift` owned both visual styling and hit-target semantics, so interaction contract changes inflated the visual design-system file. | Hit-target specs and view modifiers now live in focused files; the design-system file is back to metrics, palette, button styles, and surface treatments. |
+| `QuillCodeThreadSidebarSurface.swift` contained aggregate sidebar state, saved filters/searches, item rows, bulk actions, and row actions. | Sidebar aggregate state, saved filter/search contracts, and item/action contracts now live in separate files, with the parity gate updated to enforce the new ownership boundary. |
+| `WorkspaceModelAutomations.swift` mixed automation creation, execution, deletion, dependency-error handling, and event-source resolution. | Automation creation stays in `WorkspaceModelAutomations.swift`; run/delete/event-source behavior moved to `WorkspaceModelAutomationRuns.swift`, with shared dependency-error and project-context refresh helpers. |
+
+Verification targets: `QuillCodeNativeHitTargetAuditTests`, `QuillCodeThreadSidebarSurfaceTests`, `ParityWorkspaceSidebarGateTests`, `WorkspaceSidebar*`, `WorkspaceAutomation*`, `WorkspaceComposerDraftIntegrationTests`, `ParityGateTests`, and `SafetyTests`.
+
+Residual risk:
+
+- The generated report still calls out several large test and E2E files (`ParityInteractionTargetGateTests.swift`, `SafetyTests.swift`, and `interaction-audit.spec.ts`). Those are real maintainability hotspots, but splitting them is a separate test-architecture slice because they encode broad regression gates and need careful preservation of coverage semantics.
+- `QuillCodeNativeHitTargetCatalog.swift` still has dense contract literals. A future data-table or codegen pass could improve line width, but this pass kept the literal shape to avoid changing audit semantics while shipping production modularity improvements.
+
 ## 2026-06-30 Carry Click-Target Feel Policy Into Native Smoke
 
 The rendered harness already checked tactile CSS behavior, but the native smoke contract still only carried size, selector, semantic kind/action, collision scope, and interior ownership. That made packaged evidence weaker than the browser harness: a native target could be large and addressable while the release artifact said nothing about whether it should feel pressable or allow text selection.

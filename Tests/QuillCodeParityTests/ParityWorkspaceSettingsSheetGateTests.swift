@@ -84,7 +84,11 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
     }
 
     func testNativeCompactPlainControlsKeepExplicitHitTargets() throws {
-        let designSystemText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+        let designSystemText = [
+            try Self.appSourceText(named: "QuillCodeDesignSystem.swift"),
+            try Self.appSourceText(named: "QuillCodeHitTargetSpec.swift"),
+            try Self.appSourceText(named: "QuillCodeHitTargetViewModifiers.swift")
+        ].joined(separator: "\n")
         let computerUseText = try Self.appSourceText(named: "QuillCodeComputerUseSettingsCard.swift")
         let runtimeIssueText = try Self.appSourceText(named: "QuillCodeRuntimeIssueView.swift")
         let activityText = try Self.appSourceText(named: "WorkspaceActivityPaneView.swift")
@@ -213,7 +217,11 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
     }
 
     func testNativePrimaryChromeKeepsSemanticHitTargets() throws {
-        let designSystemText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+        let designSystemText = [
+            try Self.appSourceText(named: "QuillCodeDesignSystem.swift"),
+            try Self.appSourceText(named: "QuillCodeHitTargetSpec.swift"),
+            try Self.appSourceText(named: "QuillCodeHitTargetViewModifiers.swift")
+        ].joined(separator: "\n")
         let topBarText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
         let sidebarRowsText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
