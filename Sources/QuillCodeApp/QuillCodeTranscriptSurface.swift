@@ -274,13 +274,20 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public var canSend: Bool
     public var slashSuggestions: [SlashCommandSuggestionSurface]
     public var fileMentionSuggestions: [FileMentionSuggestionSurface]
+    /// Previously sent user messages (oldest first) for Up/Down history recall.
+    public var sentMessageHistory: [String]
 
-    public init(composer: ComposerState, fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex()) {
+    public init(
+        composer: ComposerState,
+        fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex(),
+        sentMessageHistory: [String] = []
+    ) {
         self.draft = composer.draft
         self.placeholder = composer.placeholder
         self.isSending = composer.isSending
         self.canSend = !composer.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !composer.isSending
         self.slashSuggestions = SlashCommandCatalog.suggestions(for: composer.draft)
         self.fileMentionSuggestions = FileMentionCatalog.suggestions(for: composer.draft, in: fileMentionIndex)
+        self.sentMessageHistory = sentMessageHistory
     }
 }

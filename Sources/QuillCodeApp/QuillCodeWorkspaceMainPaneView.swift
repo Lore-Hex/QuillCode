@@ -126,6 +126,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                     composer: surface.composer,
                     topBar: surface.topBar,
                     fileMentionIndex: surface.fileMentionIndex,
+                    sentMessageHistory: surface.composer.sentMessageHistory,
                     draft: $draft,
                     isModelPickerPresented: $isModelPickerPresented,
                     isFocused: isComposerFocused,

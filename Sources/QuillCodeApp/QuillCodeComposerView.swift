@@ -6,6 +6,7 @@ struct QuillCodeComposerView: View {
     var composer: ComposerSurface
     var topBar: TopBarSurface
     var fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex()
+    var sentMessageHistory: [String] = []
     @Binding var draft: String
     @Binding var isModelPickerPresented: Bool
     var isFocused: FocusState<Bool>.Binding
@@ -18,6 +19,8 @@ struct QuillCodeComposerView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var activeSlashSuggestionIndex = 0
     @State private var activeFileMentionIndex = 0
+    @State private var historyRecallIndex: Int?
+    @State private var historySavedDraft: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -41,9 +44,13 @@ struct QuillCodeComposerView: View {
         }
         .padding(12)
         .background(QuillCodePalette.panel)
-        .onChange(of: draft) { _, _ in
+        .onChange(of: draft) { _, newValue in
             activeSlashSuggestionIndex = 0
             activeFileMentionIndex = 0
+            if newValue.isEmpty {
+                historyRecallIndex = nil
+                historySavedDraft = nil
+            }
         }
         .onChange(of: slashSuggestions) { _, suggestions in
             if suggestions.isEmpty {
@@ -142,7 +149,7 @@ struct QuillCodeComposerView: View {
                     activeFileMentionIndex = min(activeFileMentionIndex + 1, fileMentionSuggestions.count - 1)
                     return .handled
                 }
-                return .ignored
+                return recallNewerHistory() ? .handled : .ignored
             }
             .onKeyPress(.upArrow) {
                 if !slashSuggestions.isEmpty {
@@ -153,7 +160,7 @@ struct QuillCodeComposerView: View {
                     activeFileMentionIndex = max(activeFileMentionIndex - 1, 0)
                     return .handled
                 }
-                return .ignored
+                return recallOlderHistory() ? .handled : .ignored
             }
             .onKeyPress(.tab) {
                 if acceptActiveSlashSuggestion(force: true) { return .handled }
@@ -241,6 +248,47 @@ struct QuillCodeComposerView: View {
         DispatchQueue.main.async {
             isFocused.wrappedValue = true
         }
+    }
+
+    private func showingUneditedRecall(at index: Int?) -> Bool {
+        guard let index, sentMessageHistory.indices.contains(index) else { return false }
+        return draft == sentMessageHistory[index]
+    }
+
+    private func recallOlderHistory() -> Bool {
+        guard !sentMessageHistory.isEmpty else { return false }
+        if historyRecallIndex == nil {
+            // Only begin recall from an empty composer so multiline editing keeps Up.
+            guard draft.isEmpty else { return false }
+            guard let step = ComposerHistoryRecall.older(history: sentMessageHistory, currentIndex: nil) else {
+                return false
+            }
+            historySavedDraft = draft
+            historyRecallIndex = step.index
+            draft = step.draft
+            return true
+        }
+        // Continue only while the recalled message is unedited.
+        guard showingUneditedRecall(at: historyRecallIndex) else { return false }
+        guard let step = ComposerHistoryRecall.older(history: sentMessageHistory, currentIndex: historyRecallIndex) else {
+            return false
+        }
+        historyRecallIndex = step.index
+        draft = step.draft
+        return true
+    }
+
+    private func recallNewerHistory() -> Bool {
+        guard let index = historyRecallIndex, showingUneditedRecall(at: index) else { return false }
+        if let step = ComposerHistoryRecall.newer(history: sentMessageHistory, currentIndex: index) {
+            historyRecallIndex = step.index
+            draft = step.draft
+        } else {
+            draft = historySavedDraft ?? ""
+            historyRecallIndex = nil
+            historySavedDraft = nil
+        }
+        return true
     }
 }
 

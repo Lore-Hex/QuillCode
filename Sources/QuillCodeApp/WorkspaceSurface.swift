@@ -161,7 +161,11 @@ public extension QuillCodeWorkspaceModel {
                 hasSelectedThread: thread != nil,
                 hasSelectedProject: selectedProject != nil
             ).surface(),
-            composer: ComposerSurface(composer: composer, fileMentionIndex: fileMentionIndex),
+            composer: ComposerSurface(
+                composer: composer,
+                fileMentionIndex: fileMentionIndex,
+                sentMessageHistory: ComposerHistoryRecall.history(from: thread?.messages ?? [])
+            ),
             fileMentionIndex: fileMentionIndex,
             commands: commandSurfaceBuilder().commands,
             settings: WorkspaceSettingsSurface(
