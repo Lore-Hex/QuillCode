@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 Per-Turn Revert Engine Pass (1 of 2)
+
+Overall grade after this slice: **A honest design, A atomic safety**.
+
+The engine for an honest per-turn "Revert this turn's edits" — a safety net QuillCode lacked (grep for checkpoint/undo/revert in Sources was 0 hits, no row in `CODEX_PARITY_MATRIX.md`). Designed by a grounded judge-panel specifically to resolve the **honesty trap** the scout flagged: `git restore` reverts to HEAD (discarding the user's *own* prior edits and ignoring files the turn created), so it would *lie* as an undo. This ships only the pure engine; the UI button/command across three surfaces is a deliberate follow-up PR.
+
+| Before | After |
+| --- | --- |
+| No way to undo an agent turn's file edits. The recorded per-turn diffs (each `host.apply_patch` call's `patch` string, persisted in `.toolQueued` events) were unused for revert. | `WorkspaceTurnRevertPlanner` (pure) derives a `TurnRevertPlan` per turn: it attributes each tool event to the turn of the latest user message at-or-before its timestamp (there is no turn id in the model), extracts that turn's `apply_patch` patches in order, and flags `hasNonApplyPatchEdits` when the turn *also* wrote files via shell/file-write (which a diff revert can't undo). A turn with no `apply_patch` yields **no** plan, so the UI can never offer an undo it can't honor. |
+| — (honesty) | `GitPatchToolExecutor.restoreTurnPatch` reverse-applies the turn's patches **newest-first** via separate atomic `git apply --reverse` invocations — **never** `git restore`/`checkout`/`stash`. It validates every referenced path stays in the workspace, and **snapshots** the touched files (contents or absence) so any mid-sequence failure **rolls back** to the pre-revert state. A turn whose lines changed since it ran fails cleanly with git's own error rather than corrupting the tree or clobbering the user's later edits. |
+| No coverage. | `WorkspaceTurnRevertPlannerTests` (turn grouping by timestamp, chronological patch order, zero-apply_patch → no plan, mixed-edit flag incl. destructive git/MCP tools, empty-patch ignored, redaction preserves the `patch` arg the planner reads); `GitPatchToolExecutorTurnTests` against real git repos (multi-file reverse, **dirtied-since fails cleanly with no HEAD restore and the user's later edit intact**, added-file deletion, delete-hunk recreation, newest-first create-then-edit unwind, empty-patch failure). |
+| — (review hardening) | The adversarial review (3 lenses, exercising real git) caught two data-loss/honesty defects, both fixed: (1) a mid-sequence rollback could **lose a file the turn created** because reverse-applying its add-hunk pruned the now-empty parent directory and `restore()` silently no-oped — now `restore()` recreates the directory and a rollback that can't fully restore is surfaced as a distinct error (never a clean failure over a half-reverted tree); (2) `hasNonApplyPatchEdits` under-reported (only file-write/shell) — now also flags `git.restore`/`git.restore_hunk`/`git.commit`/`mcp.call` (by `ToolDefinition` constant, so a missed mutator is a maintained list, not silent). Events are sorted by `createdAt` so the within-turn order can't drift from the attribution chronology. A test now proves the mid-sequence rollback restores the created-file-in-a-pruned-dir case. |
+
+Residual risk:
+
+- The engine is UI-less this PR (the button/command/3-surface wiring + truthful labeling is PR 2). Edits a turn made *outside* `apply_patch` (raw shell writes, `rm`, `git commit`, network) are invisible to a diff revert — surfaced via `hasNonApplyPatchEdits` so PR 2 can disclose the gap. Exotic patches (renames/copies/binary) are reverted by git but not yet explicitly tested.
+
 ## 2026-06-29 Top-Bar Token-Usage Chip Pass
 
 Overall grade after this slice: **A surfacing of existing data, A cross-surface parity**.
