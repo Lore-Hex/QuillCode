@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-29 Composer History Recall Engine Pass
+
+Overall grade after this slice: **A pure recall logic; UI wiring pending**.
+
+Lands the deterministic foundation for shell/Codex-style Up/Down recall of previously sent composer messages.
+
+| Before | After |
+| --- | --- |
+| The chat composer had no message-history recall; only the integrated terminal recalled previous commands. | `ComposerHistoryRecall` builds a bounded history (non-empty user messages, oldest first, adjacent duplicates collapsed) from a thread and steps older/newer with oldest-clamping and a past-newest exit signal for restoring the in-progress draft. |
+| No coverage for composer history logic. | 7 unit tests cover history extraction/dedup/bounds and older/newer stepping including empty-history and exit cases. |
+
+Residual risk:
+
+- Engine only. The composer Up/Down key wiring (with in-progress draft preservation, mutually exclusive with slash/mention suggestions) and harness/Playwright parity follow next.
+
 ## 2026-06-29 Socrates 1.1 Model Pass
 
 Overall grade after this slice: **A model-catalog coverage, A cross-surface parity**.
