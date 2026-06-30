@@ -35,6 +35,7 @@ enum WorkspaceHTMLBrowserRenderer {
                 "Comment",
                 testID: "browser-add-comment",
                 type: "submit",
+                hitTargetKind: .text,
                 disabled: browser.currentURL == nil
             ))
           </form>

@@ -130,7 +130,7 @@ enum WorkspaceHTMLTranscriptRenderer {
             <span data-testid="runtime-issue-severity">\(escape(issue.severity.rawValue))</span>
           </header>
           <p data-testid="runtime-issue-message">\(escape(issue.message))</p>
-          \(issue.actionLabel.map { WorkspaceHTMLPrimitives.button($0, testID: "runtime-issue-action") } ?? "")
+          \(issue.actionLabel.map { WorkspaceHTMLPrimitives.button($0, testID: "runtime-issue-action", hitTargetKind: .text) } ?? "")
           \(diagnostics)
         </section>
         """
@@ -140,7 +140,7 @@ enum WorkspaceHTMLTranscriptRenderer {
         guard let thinking else { return "" }
         let trace = thinking.traceLines.isEmpty ? "" : """
           <details data-testid="thinking-trace">
-            \(WorkspaceHTMLPrimitives.summary(thinking.traceTitle))
+            \(WorkspaceHTMLPrimitives.summary(thinking.traceTitle, hitTargetKind: .row))
             <ul>
               \(thinking.traceLines.map { #"<li>\#(escape($0))</li>"# }.joined(separator: "\n"))
             </ul>
@@ -173,6 +173,7 @@ enum WorkspaceHTMLTranscriptRenderer {
                 \(WorkspaceHTMLPrimitives.button(
                     "Copy",
                     testID: "message-copy",
+                    hitTargetKind: .text,
                     attributes: [("data-copy-id", item.id)]
                 ))
                 \(renderMessageDraftAction(message))
@@ -196,6 +197,7 @@ enum WorkspaceHTMLTranscriptRenderer {
         \(WorkspaceHTMLPrimitives.button(
             "Helpful",
             testID: "message-feedback-up",
+            hitTargetKind: .text,
             attributes: [
                 ("data-message-id", message.id.uuidString),
                 ("data-selected", helpfulSelected)
@@ -204,6 +206,7 @@ enum WorkspaceHTMLTranscriptRenderer {
         \(WorkspaceHTMLPrimitives.button(
             "Not helpful",
             testID: "message-feedback-down",
+            hitTargetKind: .text,
             attributes: [
                 ("data-message-id", message.id.uuidString),
                 ("data-selected", notHelpfulSelected)
@@ -217,6 +220,7 @@ enum WorkspaceHTMLTranscriptRenderer {
         return WorkspaceHTMLPrimitives.button(
             "Use as draft",
             testID: "message-use-as-draft",
+            hitTargetKind: .text,
             attributes: [("data-message-id", message.id.uuidString)]
         )
     }
@@ -226,6 +230,7 @@ enum WorkspaceHTMLTranscriptRenderer {
         return WorkspaceHTMLPrimitives.button(
             TurnRevertCopy.buttonTitle,
             testID: "message-revert-turn",
+            hitTargetKind: .text,
             ariaLabel: TurnRevertCopy.buttonTitle,
             attributes: [
                 ("data-turn-id", revert.turnMessageID.uuidString),
@@ -246,7 +251,8 @@ enum WorkspaceHTMLTranscriptRenderer {
         return WorkspaceHTMLPrimitives.commandButton(
             command.title,
             testID: "message-retry",
-            commandID: command.id
+            commandID: command.id,
+            hitTargetKind: .text
         )
     }
 
@@ -254,7 +260,7 @@ enum WorkspaceHTMLTranscriptRenderer {
         guard let banner else { return "" }
         let forkButtons = banner.forkCommands.map { command in
             let testID = WorkspaceThreadForkStrategy(commandID: command.id)?.contextBannerTestID ?? "context-fork"
-            return WorkspaceHTMLPrimitives.commandButton(command.title, testID: testID, commandID: command.id)
+            return WorkspaceHTMLPrimitives.commandButton(command.title, testID: testID, commandID: command.id, hitTargetKind: .text)
         }.joined(separator: "\n            ")
         return """
         <section class="context-banner" data-testid="context-banner" aria-label="Context limit warning">
@@ -264,8 +270,8 @@ enum WorkspaceHTMLTranscriptRenderer {
           </header>
           <p data-testid="context-banner-subtitle">\(escape(banner.subtitle))</p>
           <div>
-            \(WorkspaceHTMLPrimitives.commandButton(banner.compactCommand.title, testID: "context-compact", commandID: banner.compactCommand.id))
-            \(WorkspaceHTMLPrimitives.commandButton(banner.newThreadCommand.title, testID: "context-new-thread", commandID: banner.newThreadCommand.id))
+            \(WorkspaceHTMLPrimitives.commandButton(banner.compactCommand.title, testID: "context-compact", commandID: banner.compactCommand.id, hitTargetKind: .text))
+            \(WorkspaceHTMLPrimitives.commandButton(banner.newThreadCommand.title, testID: "context-new-thread", commandID: banner.newThreadCommand.id, hitTargetKind: .text))
             \(forkButtons)
           </div>
         </section>

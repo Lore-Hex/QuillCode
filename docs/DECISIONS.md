@@ -2,6 +2,7 @@
 
 ## 2026-06-30
 
+- Rendered click-target kind must be explicit at production primitive call sites. `WorkspaceHTMLPrimitives` still keeps safe default classes as a backstop, but renderers now pass `hitTargetKind:` for every button, command button, button-attribute block, and details summary so reviewers can see whether a control is an icon, row, text button, text entry, or form action without inferring from CSS. A parity source gate scans balanced multiline primitive calls to keep future renderer work from silently falling back to generic text-button semantics.
 - Terminal output rendering should be a pure single-page screen buffer before it becomes a full emulator. `TerminalOutputRenderer` now applies the common cursor-addressed CSI/DEC controls that status dashboards and simple TUIs use to repaint in place (`ESC[H`, row/column moves, relative moves, absolute column/row, save/restore cursor) while preserving raw PTY bytes in state and exposing only cleaned display text through `TerminalCommandSurface`. Full alternate-screen/scroll-region/curses semantics remain deferred until a dedicated emulator model exists.
 
 ## 2026-06-29
