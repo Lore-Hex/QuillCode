@@ -10556,3 +10556,20 @@ Code quality changes:
 Remaining risk:
 
 - This validates the report evidence path. The A+ layer remains full packaged `.app` automation that synthesizes actual clicks against each sampled Accessibility frame and verifies the intended command/focus/action fires.
+
+## 2026-06-30 Recursive Subagent Workspace Evidence Pass
+
+Overall grade after this slice: **A scheduler architecture, A parser contract, A workspace Activity evidence**.
+
+The recursive subagent engine already had bounded scheduler support and a parser for `[[DELEGATE: name | role]]` markers, but the parity matrix still treated recursive delegation as pending. The missing proof was the user-visible route: a `/subagents` slash run should record delegated children in the selected thread and Activity pane, not only in scheduler-only tests.
+
+Code quality changes:
+
+- Added a workspace slash-command integration regression where a root worker emits a delegation marker and the slash runner schedules the child through the real parser/spawner path.
+- Asserted that the replayable `host.subagents.update` payload includes the nested child name, group path, completed status, and child summary.
+- Asserted that Activity renders the child as the leaf title with a visible `Path: parent / child` detail, matching the nested-plan UX.
+- Updated the parity matrix and roadmap to stop listing recursive delegated subagent spawning as pending.
+
+Remaining risk:
+
+- Recursive delegation is covered for explicit slash-command subagent workflows. Richer controls for inspecting, constraining, retrying, and cancelling deeply delegated trees remain future UX work.

@@ -174,6 +174,35 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.subagentsUpdate.name)
     }
 
+    func testSlashSubagentsRunsDelegatedChildrenAndRecordsActivityPath() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.subagentScheduler = WorkspaceSubagentScheduler { job in
+            job.depth == 0
+                ? "Planned the split. [[DELEGATE: Compile | compile the app]]"
+                : "did \(job.role)"
+        }
+
+        model.setDraft("/subagents ship app | Planner: plan the work")
+        await model.submitComposer(workspaceRoot: root)
+
+        let thread = try XCTUnwrap(model.selectedThread)
+        XCTAssertTrue(thread.messages.last?.content.contains("Subagents completed 2 workers") == true)
+
+        let latestUpdate = try XCTUnwrap(SubagentProgressToolExecutor.latestUpdate(in: thread))
+        XCTAssertEqual(latestUpdate.objective, "ship app")
+        XCTAssertEqual(latestUpdate.subagents.map(\.name), ["Planner", "Planner/Compile"])
+        XCTAssertEqual(latestUpdate.subagents.map(\.groupPath), [[], ["Planner"]])
+        XCTAssertEqual(latestUpdate.subagents.map(\.status), [.completed, .completed])
+        XCTAssertEqual(latestUpdate.subagents.last?.summary, "did compile the app")
+
+        let activity = model.surface().activity.subagents
+        XCTAssertEqual(activity.map(\.title), ["Planner", "Compile"])
+        XCTAssertEqual(activity.map(\.statusLabel), ["Done", "Done"])
+        XCTAssertTrue(activity.last?.detail.contains("Path: Planner / Compile") == true)
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.subagentsUpdate.name)
+    }
+
     func testSlashNewCreatesFreshThreadWithoutAgentRun() async throws {
         let existing = ChatThread(title: "Existing")
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
