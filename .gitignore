@@ -6,6 +6,8 @@ DerivedData/
 E2E/playwright/node_modules/
 E2E/playwright/playwright-report/
 E2E/playwright/test-results/
+E2E/playwright/visual-artifacts/
+.quillcode-visual-artifacts/
 
 .DS_Store
 *.xcuserstate
