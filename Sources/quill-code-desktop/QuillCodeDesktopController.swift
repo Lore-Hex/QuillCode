@@ -250,6 +250,16 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
+    func toggleActivity() {
+        paneCoordinator.toggleActivity(on: model)
+        refresh()
+    }
+
+    func toggleAutomations() {
+        paneCoordinator.toggleAutomations(on: model)
+        refresh()
+    }
+
     func openBrowserPreview() {
         browserCoordinator.openPreview(
             model: model,

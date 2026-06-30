@@ -26,6 +26,16 @@ Residual risk:
 
 - The SSH connection is user-configured, so this is primarily a defense against a user pasting a crafted `/ssh …` string (social engineering) — but it is a real reachable local-RCE class and the fix is the standard mitigation. The single-quote escaping of the command/path/env was already correct.
 
+## 2026-06-30 Primary Pane Shortcut Parity
+
+The command surface had a keyboard-first core, but primary panes were uneven: Terminal and Browser had shortcuts, Extensions and Memories were in the native menu without shortcuts, and Activity/Automations were command-palette only. That made Codex-style navigation depend on remembering which surface happened to expose each pane.
+
+| Before | After |
+| --- | --- |
+| Pane commands were mixed across visible buttons, command palette entries, and a partial native menu. Shortcut labels existed only for Terminal/Browser, so the Keyboard Shortcuts sheet did not teach users how to reach Activity, Automations, Memories, or Extensions. | All six primary workspace panes now have `WorkspaceShortcutRegistry` bindings and surface labels. Desktop menus route Activity/Automations/Memories/Extensions through typed pane coordinator methods, so native shortcuts, menu actions, command palette entries, and visible buttons share command IDs. |
+
+Verification targets: registry tests assert every primary pane stays shortcut-backed, surface tests pin the visible labels, and desktop parity gates require typed native routing plus `.quillCodeShortcut(...)` wiring. Residual risk is shortcut taste, not architecture; the registry can change key choices without changing routing.
+
 ## 2026-06-30 Close the Download Host-Gate SSRF
 
 The final hole in the download carve-out (the documented follow-up from #728). After all the segment/flag/output hardening, the **host gate** was still a substring match: `requestedHosts.contains { lowerCommand.contains(host) }`. The authorized host could appear anywhere in the command — an `-e` referer or `-H` header — while the *actual* fetched URL pointed elsewhere.

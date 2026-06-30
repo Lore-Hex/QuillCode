@@ -13,12 +13,19 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         }
         for commandID in ["browser-back", "browser-forward", "browser-reload", "cycle-mode", "focus-composer"] {
             XCTAssertTrue(commandsText.contains(".quillCodeShortcut(\"\(commandID)\")"), "\(commandID) should be wired as a native keyboard shortcut.")
-            XCTAssertTrue(appText.contains("controller.runWorkspaceCommand(\"\(commandID)\")"), "\(commandID) should route through the workspace command executor.")
+            XCTAssertTrue(appText.contains("$0.runWorkspaceCommand(\"\(commandID)\")"), "\(commandID) should route through the workspace command executor.")
         }
+        for commandID in ["toggle-activity", "toggle-automations", "toggle-extensions", "toggle-memories"] {
+            XCTAssertTrue(commandsText.contains(".quillCodeShortcut(\"\(commandID)\")"), "\(commandID) should be wired as a native keyboard shortcut.")
+        }
+        XCTAssertTrue(appText.contains("$0.toggleActivity()"), "toggle-activity should route through the desktop pane coordinator.")
+        XCTAssertTrue(appText.contains("$0.toggleAutomations()"), "toggle-automations should route through the desktop pane coordinator.")
+        XCTAssertTrue(appText.contains("$0.toggleExtensions()"), "toggle-extensions should route through the desktop pane coordinator.")
+        XCTAssertTrue(appText.contains("$0.toggleMemories()"), "toggle-memories should route through the desktop pane coordinator.")
         // retry-last-turn has a dedicated controller action (prepares the retry draft + sends),
         // not the generic command executor — but its keyboard shortcut must still be bound.
         XCTAssertTrue(commandsText.contains(".quillCodeShortcut(\"retry-last-turn\")"), "retry-last-turn should be wired as a native keyboard shortcut.")
-        XCTAssertTrue(appText.contains("controller.retryLastTurn()"), "retry-last-turn should route to the dedicated controller action.")
+        XCTAssertTrue(appText.contains("$0.retryLastTurn()"), "retry-last-turn should route to the dedicated controller action.")
 
         let menuText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
         XCTAssertTrue(menuText.contains("onDisconnectAll"), "Disconnect All should be wired to a controller action.")
@@ -341,16 +348,22 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(controllerText.contains("paneCoordinator.toggleBrowser"), "Desktop controller should delegate browser pane toggles.")
         XCTAssertTrue(controllerText.contains("paneCoordinator.toggleExtensions"), "Desktop controller should delegate extensions pane toggles.")
         XCTAssertTrue(controllerText.contains("paneCoordinator.toggleMemories"), "Desktop controller should delegate memories pane toggles.")
+        XCTAssertTrue(controllerText.contains("paneCoordinator.toggleActivity"), "Desktop controller should delegate activity pane toggles.")
+        XCTAssertTrue(controllerText.contains("paneCoordinator.toggleAutomations"), "Desktop controller should delegate automations pane toggles.")
         XCTAssertTrue(controllerText.contains("paneCoordinator.addBrowserComment"), "Desktop controller should delegate browser comment mutation.")
         XCTAssertTrue(paneCoordinatorText.contains("model.toggleTerminal()"), "Pane coordinator should own terminal pane visibility mutation.")
         XCTAssertTrue(paneCoordinatorText.contains("model.toggleBrowser()"), "Pane coordinator should own browser pane visibility mutation.")
         XCTAssertTrue(paneCoordinatorText.contains("model.toggleExtensions()"), "Pane coordinator should own extensions pane visibility mutation.")
         XCTAssertTrue(paneCoordinatorText.contains("model.toggleMemories()"), "Pane coordinator should own memories pane visibility mutation.")
+        XCTAssertTrue(paneCoordinatorText.contains("model.toggleActivity()"), "Pane coordinator should own activity pane visibility mutation.")
+        XCTAssertTrue(paneCoordinatorText.contains("model.toggleAutomations()"), "Pane coordinator should own automations pane visibility mutation.")
         XCTAssertTrue(paneCoordinatorText.contains("model.addBrowserComment(comment)"), "Pane coordinator should own browser comment mutation.")
         XCTAssertFalse(controllerText.contains("model.toggleTerminal()"), "Desktop controller should not mutate terminal pane visibility directly.")
         XCTAssertFalse(controllerText.contains("model.toggleBrowser()"), "Desktop controller should not mutate browser pane visibility directly.")
         XCTAssertFalse(controllerText.contains("model.toggleExtensions()"), "Desktop controller should not mutate extensions pane visibility directly.")
         XCTAssertFalse(controllerText.contains("model.toggleMemories()"), "Desktop controller should not mutate memories pane visibility directly.")
+        XCTAssertFalse(controllerText.contains("model.toggleActivity()"), "Desktop controller should not mutate activity pane visibility directly.")
+        XCTAssertFalse(controllerText.contains("model.toggleAutomations()"), "Desktop controller should not mutate automations pane visibility directly.")
         XCTAssertFalse(controllerText.contains("model.addBrowserComment(comment)"), "Desktop controller should not add browser comments directly.")
     }
 
@@ -475,7 +488,11 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coordinatorText.contains("switch action"), "Desktop command action dispatch should live in the command coordinator.")
         XCTAssertTrue(plannerText.contains("case \"computer-use-open-screen-recording\""), "Computer Use settings command IDs should live in the desktop planner.")
         XCTAssertTrue(plannerText.contains("case \"open-browser-session\""), "Visible browser sessions should be a typed desktop command.")
+        XCTAssertTrue(plannerText.contains("case \"toggle-activity\""), "Activity pane routing should be a typed desktop command.")
+        XCTAssertTrue(plannerText.contains("case \"toggle-automations\""), "Automations pane routing should be a typed desktop command.")
         XCTAssertTrue(coordinatorText.contains("case .openBrowserSession:"), "Desktop command coordinator should execute visible browser session actions.")
+        XCTAssertTrue(coordinatorText.contains("case .toggleActivity:"), "Desktop command coordinator should execute Activity pane actions.")
+        XCTAssertTrue(coordinatorText.contains("case .toggleAutomations:"), "Desktop command coordinator should execute Automations pane actions.")
         XCTAssertTrue(plannerText.contains("WorkspaceCommandRoutingCatalog.canRunInWorkspaceModel"), "Desktop command fallback should only delegate command IDs the workspace model can execute.")
         XCTAssertTrue(controllerText.contains("guard let action = QuillCodeDesktopCommandPlanner.action(for: command) else { return }"), "Unknown desktop commands should return without becoming silent workspace no-ops.")
         XCTAssertTrue(controllerText.contains("commandCoordinator.run(action, performer: self)"), "Desktop controller should delegate typed action dispatch.")

@@ -8,6 +8,8 @@ enum QuillCodeDesktopCommandAction {
     case openBrowserSession
     case toggleExtensions
     case toggleMemories
+    case toggleActivity
+    case toggleAutomations
     case commandPalette
     case keyboardShortcuts
     case settings
@@ -36,6 +38,10 @@ enum QuillCodeDesktopCommandPlanner {
             return .toggleExtensions
         case "toggle-memories":
             return .toggleMemories
+        case "toggle-activity":
+            return .toggleActivity
+        case "toggle-automations":
+            return .toggleAutomations
         case "command-palette":
             return .commandPalette
         case "keyboard-shortcuts":

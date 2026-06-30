@@ -19,6 +19,14 @@ struct QuillCodeDesktopPaneCoordinator {
         model.toggleMemories()
     }
 
+    func toggleActivity(on model: QuillCodeWorkspaceModel) {
+        model.toggleActivity()
+    }
+
+    func toggleAutomations(on model: QuillCodeWorkspaceModel) {
+        model.toggleAutomations()
+    }
+
     func addBrowserComment(_ comment: String, to model: QuillCodeWorkspaceModel) {
         _ = model.addBrowserComment(comment)
     }
