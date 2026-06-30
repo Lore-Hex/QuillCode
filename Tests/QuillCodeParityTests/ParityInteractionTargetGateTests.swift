@@ -86,6 +86,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Visible clickable controls should expose a pointer affordance, not only a large invisible hit box."
         )
         XCTAssertTrue(
+            auditHelperText.contains("requiresTactileFeedbackContract")
+                && auditHelperText.contains("missing_touch_action_manipulation")
+                && auditHelperText.contains("click_target_allows_text_selection")
+                && auditHelperText.contains("missing_press_feedback_transition"),
+            "Visible clickable controls should inherit the shared tactile contract: no text selection, touch-action manipulation, and transform-based press feedback."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("missing_shared_hit_target_contract")
                 && auditHelperText.contains("SHARED_HIT_TARGET_CLASSES")
                 && auditHelperText.contains("EXPECTED_KIND_BY_CLASS")
@@ -355,10 +362,12 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && interactionSpecText.contains("button-declared-as-link-action")
                 && interactionSpecText.contains("link-declared-as-press-target")
                 && interactionSpecText.contains("kind-class-mismatch-target")
+                && interactionSpecText.contains("missing-tactile-contract-target")
                 && interactionSpecText.contains("hit_target_kind_class_mismatch")
                 && interactionSpecText.contains("hit_target_action_mismatch")
-                && interactionSpecText.contains("element_action_mismatch"),
-            "The click-target audit should include fixtures for semantic mismatches so controls cannot pass by being large while lying about button/link/text-entry behavior."
+                && interactionSpecText.contains("element_action_mismatch")
+                && interactionSpecText.contains("missing_press_feedback_transition"),
+            "The click-target audit should include fixtures for semantic and tactile mismatches so controls cannot pass by being large while lying about button/link/text-entry behavior or skipping press feedback."
         )
         XCTAssertTrue(
             interactionSpecText.contains("too-close-a")

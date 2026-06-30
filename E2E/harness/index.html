@@ -107,6 +107,20 @@
     .hit-target-form-action {
       min-width: 56px;
     }
+    [data-hit-target-action="press"],
+    [data-hit-target-action="link"],
+    [data-hit-target-action="owned-gesture"],
+    [data-hit-target-action="adjust"] {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition-property: transform, background-color, border-color, box-shadow, color, opacity;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    [data-hit-target-action="text-input"] {
+      cursor: text;
+      user-select: text;
+    }
     button,
     summary,
     input,
@@ -142,7 +156,11 @@
     }
     button:active:not(:disabled),
     summary:active,
-    a.hit-target-link:active {
+    a.hit-target-link:active,
+    [data-hit-target-action="press"]:active:not(:disabled):not([aria-disabled="true"]),
+    [data-hit-target-action="link"]:active:not(:disabled):not([aria-disabled="true"]),
+    [data-hit-target-action="owned-gesture"]:active:not(:disabled):not([aria-disabled="true"]),
+    [data-hit-target-action="adjust"]:active:not(:disabled):not([aria-disabled="true"]) {
       transform: scale(.96);
     }
     button:disabled {
@@ -281,7 +299,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      transition-property: background-color, color;
+      transition-property: transform, background-color, color;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
@@ -2343,7 +2361,7 @@
       font-size: 12px;
       font-weight: 700;
       user-select: none;
-      transition-property: background-color, color;
+      transition-property: transform, background-color, color;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
@@ -3245,6 +3263,10 @@
       .hit-target-capsule,
       .hit-target-form-action,
       .hit-target-adjustable,
+      [data-hit-target-action="press"],
+      [data-hit-target-action="link"],
+      [data-hit-target-action="owned-gesture"],
+      [data-hit-target-action="adjust"],
       .sidebar-action,
       .sidebar-tool-action,
       .sidebar-item,
@@ -3265,6 +3287,10 @@
       button:not(:disabled):active,
       summary:active,
       a.hit-target-link:active,
+      [data-hit-target-action="press"]:active:not(:disabled):not([aria-disabled="true"]),
+      [data-hit-target-action="link"]:active:not(:disabled):not([aria-disabled="true"]),
+      [data-hit-target-action="owned-gesture"]:active:not(:disabled):not([aria-disabled="true"]),
+      [data-hit-target-action="adjust"]:active:not(:disabled):not([aria-disabled="true"]),
       .sidebar-tools-menu summary:active,
       .sidebar-settings-button:active,
       .sidebar-tool-action:active,

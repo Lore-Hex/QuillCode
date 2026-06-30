@@ -479,6 +479,15 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
       <button
         type="button"
         class="hit-target-text"
+        data-testid="missing-tactile-contract-target"
+        data-hit-target-kind="text"
+        data-hit-target-action="press"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 340px; top: 24px; z-index: 1000; width: 184px; height: 48px; cursor: pointer; touch-action: auto; user-select: text; transition-property: background-color;"
+      >No tactile contract</button>
+      <button
+        type="button"
+        class="hit-target-text"
         data-testid="too-close-a"
         data-hit-target-kind="text"
         data-hit-target-action="press"
@@ -542,6 +551,9 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
   expect(issueFor('button-declared-as-link-action')?.reason).toContain('element_action_mismatch');
   expect(issueFor('link-declared-as-press-target')?.reason).toContain('element_action_mismatch');
   expect(issueFor('kind-class-mismatch-target')?.reason).toContain('hit_target_kind_class_mismatch');
+  expect(issueFor('missing-tactile-contract-target')?.reason).toContain('missing_touch_action_manipulation');
+  expect(issueFor('missing-tactile-contract-target')?.reason).toContain('click_target_allows_text_selection');
+  expect(issueFor('missing-tactile-contract-target')?.reason).toContain('missing_press_feedback_transition');
   expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
   expect(issueFor('disabled-checkbox-label')).toBeUndefined();
