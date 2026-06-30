@@ -813,22 +813,49 @@ enum StaticSafetyPullRequestPolicy {
         )
     ]
 
+    /// An explicit PR-creation intent. Checked only when no more-specific verb rule matches, so
+    /// "create a comment on the pr" stays a comment (the comment rule wins) and does not auto-approve
+    /// creating a brand-new PR. `git.push` is intentionally NOT here — a push is authorized by its own
+    /// explicit push verb below, so "open a pull request but don't push" cannot auto-approve a push via
+    /// the unnegated "open".
+    private static let createRule = StaticSafetyIntentRule(
+        requestTriggers: ["open", "create", "submit"],
+        allowedToolNames: ["git.pr.create", "git.status"]
+    )
+
+    /// An explicit push/publish intent — keyed on the push verb so a negated "don't push" suppresses it.
+    private static let pushRule = StaticSafetyIntentRule(
+        requestTriggers: ["push", "publish"],
+        allowedToolNames: ["git.push", "git.status"]
+    )
+
+    // The fallback when NO verb rule matches must be READ-ONLY. A bare PR mention
+    // ("summarize the pull request") never auto-approves an outward-facing `git.push`/`git.pr.create`.
     private static let defaultAllowedToolNames = [
-        "git.pr.create",
-        "git.pr.comment",
-        "git.push",
+        "git.pr.view",
+        "git.pr.checks",
         "git.status"
     ]
 
     static func requestMatches(_ request: StaticSafetyRequest) -> Bool {
         request.containsAffirmedAny(requestTriggers)
-            || (request.containsToken("pr") && specificRules.contains { $0.matches(request: request) })
+            || (request.containsToken("pr")
+                && (specificRules + [createRule, pushRule]).contains { $0.matches(request: request) })
     }
 
     static func intentMatches(request: StaticSafetyRequest, toolName: String) -> Bool {
+        // Specific verb rules (comment, view, checkout, …) take priority: if any matches, the create/
+        // push intents are NOT consulted, so a co-occurring "create"/"open" cannot escalate a
+        // comment/read request into an outward-facing write.
         let matchingRules = specificRules.filter { $0.matches(request: request) }
         if !matchingRules.isEmpty {
             return matchingRules.contains { $0.allows(toolName: toolName) }
+        }
+        if createRule.matches(request: request) && createRule.allows(toolName: toolName) {
+            return true
+        }
+        if pushRule.matches(request: request) && pushRule.allows(toolName: toolName) {
+            return true
         }
         return defaultAllowedToolNames.contains { toolName.contains($0) }
     }
