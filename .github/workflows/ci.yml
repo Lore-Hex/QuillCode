@@ -55,7 +55,16 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Test
+        env:
+          QUILLCODE_VISUAL_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/.quillcode-visual-artifacts
         run: npm test
+      - name: Upload visual UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quillcode-visual-ui
+          path: .quillcode-visual-artifacts
+          if-no-files-found: ignore
 
   smoke:
     runs-on: macos-15
