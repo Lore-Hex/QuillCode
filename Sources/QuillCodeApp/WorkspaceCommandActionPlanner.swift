@@ -3,6 +3,7 @@ import QuillCodeCore
 
 enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case newChat
+    case cycleMode
     case toggleTerminal
     case clearTerminal
     case toggleBrowser
@@ -44,6 +45,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
         switch action {
         case .newChat:
             return .newChat
+        case .cycleMode:
+            return .cycleMode
         case .toggleTerminal:
             return .toggleTerminal
         case .clearTerminal:

@@ -9,6 +9,10 @@ struct QuillCodeDesktopCommands: Commands {
                 NotificationCenter.default.post(name: .quillCodeNewChat, object: nil)
             }
             .quillCodeShortcut("new-chat")
+            Button("Cycle Approval Mode") {
+                NotificationCenter.default.post(name: .quillCodeCycleMode, object: nil)
+            }
+            .quillCodeShortcut("cycle-mode")
             Button("Open Project...") {
                 NotificationCenter.default.post(name: .quillCodeOpenProject, object: nil)
             }
@@ -64,6 +68,7 @@ struct QuillCodeDesktopCommands: Commands {
 
 extension Notification.Name {
     static let quillCodeNewChat = Notification.Name("QuillCodeNewChat")
+    static let quillCodeCycleMode = Notification.Name("QuillCodeCycleMode")
     static let quillCodeOpenProject = Notification.Name("QuillCodeOpenProject")
     static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
     static let quillCodeKeyboardShortcuts = Notification.Name("QuillCodeKeyboardShortcuts")
@@ -95,6 +100,8 @@ private extension WorkspaceShortcut {
         switch key {
         case "escape":
             return .escape
+        case "tab":
+            return .tab
         case "`":
             return "`"
         case ",":

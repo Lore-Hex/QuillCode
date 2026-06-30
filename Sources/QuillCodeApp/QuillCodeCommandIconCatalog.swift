@@ -13,6 +13,8 @@ enum QuillCodeCommandIconCatalog {
         switch commandID {
         case "new-chat":
             return "square.and.pencil"
+        case "cycle-mode":
+            return "arrow.triangle.2.circlepath"
         case "search":
             return "magnifyingglass"
         case "command-palette":

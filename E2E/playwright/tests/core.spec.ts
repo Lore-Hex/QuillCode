@@ -234,3 +234,49 @@ test('mock harness resumes the agent after approving a Plan-mode block', async (
   // The resumed next step surfaces as a new review card awaiting approval.
   await expect(page.getByTestId('tool-card').filter({ hasText: 'touch step-two.txt' })).toHaveAttribute('data-status', 'review');
 });
+
+test('Shift+Tab cycles approval mode, including while composing, without double-firing', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+  const pill = page.getByTestId('mode-pill');
+
+  // Shift+Tab cycles the full Codex ring: Auto → Plan → Review → Read-only → Auto.
+  await expect(pill).toHaveText('Auto');
+  await page.keyboard.press('Shift+Tab');
+  await expect(pill).toHaveText('Plan');
+  await page.keyboard.press('Shift+Tab');
+  await expect(pill).toHaveText('Review');
+  await page.keyboard.press('Shift+Tab');
+  await expect(pill).toHaveText('Read-only');
+  await page.keyboard.press('Shift+Tab');
+  await expect(pill).toHaveText('Auto');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'auto');
+
+  // The killer: with a slash draft present, plain Tab still ACCEPTS the suggestion…
+  await message.fill('/mod');
+  await message.focus();
+  await page.keyboard.press('Tab');
+  await expect(message).toHaveValue('/mode ');
+
+  // …while Shift+Tab cycles the mode WITHOUT accepting a suggestion or disturbing the draft
+  // (no double-fire — the composer leaves Shift+Tab to the global shortcut).
+  await message.fill('/mod');
+  await message.focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(pill).toHaveText('Plan');
+  await expect(message).toHaveValue('/mod');
+});
+
+test('Shift+Tab does not cycle mode while focus is in a non-composer input', async ({ page }) => {
+  await page.goto(harnessURL());
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
+
+  // Open the model picker and focus its search field — a non-composer editable input.
+  await page.getByTestId('model-picker-button').click();
+  await page.getByTestId('model-search').focus();
+  await page.keyboard.press('Shift+Tab');
+
+  // Shift+Tab in a search field is reverse focus traversal, NOT mode cycling — the agent's
+  // approval mode must not silently change out from under the user.
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
+});

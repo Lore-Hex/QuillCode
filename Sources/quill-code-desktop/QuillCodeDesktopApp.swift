@@ -109,6 +109,9 @@ struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
             controller.newChat()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeCycleMode)) { _ in
+            controller.runWorkspaceCommand("cycle-mode")
+        }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleTerminal)) { _ in
             controller.toggleTerminal()
         }

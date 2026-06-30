@@ -11,6 +11,17 @@ extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
+    /// Advances to the next approval mode, mirroring Codex's `Shift+Tab` shortcut. The ring order
+    /// matches the top-bar picker and the harness mode pill: Auto → Plan → Review → Read-only → Auto.
+    @discardableResult
+    public func cycleMode() -> Bool {
+        let current = selectedThread?.mode ?? root.config.mode
+        let order = AgentMode.cycleOrder
+        let index = order.firstIndex(of: current) ?? 0
+        setMode(order[(index + 1) % order.count])
+        return true
+    }
+
     @discardableResult
     public func setModel(_ model: String) -> String {
         let modelID = WorkspaceConfigurationEngine.setModel(model, config: &root.config)

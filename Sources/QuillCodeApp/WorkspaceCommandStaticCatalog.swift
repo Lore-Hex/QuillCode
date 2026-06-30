@@ -52,6 +52,13 @@ enum WorkspaceCommandStaticCatalog {
     ) -> [WorkspaceCommandSurface] {
         [
             WorkspaceCommandSurface(
+                id: "cycle-mode",
+                title: "Cycle approval mode",
+                shortcut: WorkspaceShortcutRegistry.label(for: "cycle-mode"),
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["mode", "approval", "auto", "plan", "review", "read-only", "safety", "cycle"]
+            ),
+            WorkspaceCommandSurface(
                 id: "add-project",
                 title: "Open project",
                 shortcut: WorkspaceShortcutRegistry.label(for: "add-project"),
