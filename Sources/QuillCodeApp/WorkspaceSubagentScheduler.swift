@@ -19,6 +19,9 @@ struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
     var dependsOn: [String]
     var groupPath: [String]
     var priorResults: [WorkspaceSubagentPriorResult]
+    /// Delegation depth: top-level workers are 0; a child spawned by a worker is its parent's
+    /// depth + 1. The scheduler refuses to spawn past `maxDepth`, which guarantees termination.
+    var depth: Int
 
     init(
         name: String,
@@ -26,7 +29,8 @@ struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
         objective: String = "",
         dependsOn: [String] = [],
         groupPath: [String] = [],
-        priorResults: [WorkspaceSubagentPriorResult] = []
+        priorResults: [WorkspaceSubagentPriorResult] = [],
+        depth: Int = 0
     ) {
         self.name = name
         self.role = role
@@ -34,6 +38,7 @@ struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
         self.dependsOn = dependsOn
         self.groupPath = groupPath
         self.priorResults = priorResults
+        self.depth = depth
     }
 }
 
@@ -50,19 +55,39 @@ private enum WorkspaceSubagentWorkerOutcome: Sendable, Hashable {
 
 struct WorkspaceSubagentScheduler {
     typealias Worker = @Sendable (WorkspaceSubagentJob) async throws -> String
+    /// Called after a worker completes with its job and result summary; returns child workers to
+    /// delegate to. Returning `[]` (or passing no spawner) keeps the flat, fixed-graph behavior.
+    typealias Spawner = @Sendable (WorkspaceSubagentJob, String) async -> [WorkspaceSubagentWorkerRequest]
     typealias ProgressSink = @Sendable (SubagentProgressUpdate) async -> Void
 
-    private let worker: Worker
+    /// Recursive delegation can spawn workers up to this depth value (top-level workers are depth 0),
+    /// i.e. the default of 3 allows up to four levels: 0 → 1 → 2 → 3. Combined with `maxTotalJobs` it
+    /// bounds an otherwise unbounded recursion so a run always terminates.
+    static let defaultMaxDepth = 3
+    /// Hard ceiling on how many workers a single run may ever schedule (top-level + spawned). A
+    /// backstop against a spawner that keeps delegating within the depth bound.
+    static let defaultMaxTotalJobs = 64
 
-    init(worker: @escaping Worker = Self.defaultWorker) {
+    private let worker: Worker
+    private let maxDepth: Int
+    private let maxTotalJobs: Int
+
+    init(
+        maxDepth: Int = Self.defaultMaxDepth,
+        maxTotalJobs: Int = Self.defaultMaxTotalJobs,
+        worker: @escaping Worker = Self.defaultWorker
+    ) {
         self.worker = worker
+        self.maxDepth = max(0, maxDepth)
+        self.maxTotalJobs = max(1, maxTotalJobs)
     }
 
     func run(
         request: WorkspaceSubagentRunRequest,
-        progress: ProgressSink? = nil
+        progress: ProgressSink? = nil,
+        spawn: Spawner? = nil
     ) async -> WorkspaceSubagentRunResult {
-        let jobs = request.workers.map {
+        var jobs = request.workers.map {
             WorkspaceSubagentJob(
                 name: $0.name,
                 role: $0.role,
@@ -76,7 +101,11 @@ struct WorkspaceSubagentScheduler {
         }
         await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
 
-        let dependencies = Self.resolvedDependencies(for: jobs)
+        // Indices into `jobs`/`items` align with `dependencies`. Recursive spawning appends to all
+        // three in lockstep (children resolve to no dependencies — their parent has already
+        // completed), so existing indices stay valid.
+        var dependencies = Self.resolvedDependencies(for: jobs)
+        var usedNames = Set(jobs.map { $0.name.lowercased() })
 
         // Run jobs in dependency waves: each pass starts every job whose dependencies have all
         // completed, fans them out concurrently, then re-evaluates readiness. Jobs still waiting
@@ -129,6 +158,9 @@ struct WorkspaceSubagentScheduler {
             // behavior of fanning every runnable worker out together; a bound seeds that many
             // tasks and starts one more each time a worker finishes.
             let waveLimit = max(1, request.maxConcurrentWorkers ?? runnable.count)
+            // Children requested by workers that completed this wave; applied after the wave so we
+            // never mutate `jobs`/`items` while the task group is still reading them.
+            var spawnedThisWave: [(parentIndex: Int, request: WorkspaceSubagentWorkerRequest)] = []
             await withTaskGroup(of: (Int, WorkspaceSubagentWorkerOutcome).self) { group in
                 var queued = runnable[...]
 
@@ -162,10 +194,19 @@ struct WorkspaceSubagentScheduler {
                 }
 
                 while let (index, outcome) = await group.next() {
+                    // A worker finished, freeing a slot — dispatch the next queued worker immediately,
+                    // before any (possibly slow, model-driven) spawn handling, so a bounded wave keeps
+                    // its concurrency saturated.
+                    startNextWorker()
                     switch outcome {
                     case .completed(let summary):
                         items[index].status = .completed
                         items[index].summary = Self.boundedSummary(summary)
+                        if let spawn {
+                            for child in await spawn(jobs[index], summary) {
+                                spawnedThisWave.append((parentIndex: index, request: child))
+                            }
+                        }
                     case .cancelled:
                         items[index].status = .cancelled
                         items[index].summary = "Cancelled"
@@ -174,7 +215,38 @@ struct WorkspaceSubagentScheduler {
                         items[index].summary = Self.boundedSummary(summary)
                     }
                     await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
-                    startNextWorker()
+                }
+            }
+
+            // Enqueue children requested this wave, bounded by depth and the total-job ceiling so the
+            // outer loop always drains to a terminal state. A child depends on its (already-completed)
+            // parent, so it runs in the next pass and inherits the parent's result summary through the
+            // same priorResults plumbing dependent workers use — delegated work keeps parent context.
+            if !spawnedThisWave.isEmpty {
+                var enqueuedAny = false
+                for (parentIndex, child) in spawnedThisWave {
+                    let parentDepth = jobs[parentIndex].depth
+                    guard parentDepth + 1 <= maxDepth else { continue }
+                    guard jobs.count < maxTotalJobs else { break }
+                    let parentName = jobs[parentIndex].name
+                    let childName = Self.uniqueChildName(parent: jobs[parentIndex], child: child, used: &usedNames)
+                    let childJob = WorkspaceSubagentJob(
+                        name: childName,
+                        role: child.role,
+                        objective: request.objective,
+                        dependsOn: [parentName],
+                        groupPath: jobs[parentIndex].groupPath + [parentName],
+                        depth: parentDepth + 1
+                    )
+                    jobs.append(childJob)
+                    var item = SubagentProgressItem(name: childName, role: child.role, status: .queued)
+                    item.groupPath = childJob.groupPath
+                    items.append(item)
+                    dependencies.append([parentIndex])
+                    enqueuedAny = true
+                }
+                if enqueuedAny {
+                    await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
                 }
             }
         }
@@ -212,6 +284,25 @@ struct WorkspaceSubagentScheduler {
             }
             return resolved
         }
+    }
+
+    /// Namespaces a spawned child under its parent (mirroring the nested `groupPath`) and guarantees
+    /// the name — which is the job `id` and the key for dependency/progress resolution — is unique
+    /// within the run, so two parents spawning a "Compile" child never collide.
+    private static func uniqueChildName(
+        parent: WorkspaceSubagentJob,
+        child: WorkspaceSubagentWorkerRequest,
+        used: inout Set<String>
+    ) -> String {
+        let base = "\(parent.name)/\(child.name)"
+        var candidate = base
+        var suffix = 2
+        while used.contains(candidate.lowercased()) {
+            candidate = "\(base)#\(suffix)"
+            suffix += 1
+        }
+        used.insert(candidate.lowercased())
+        return candidate
     }
 
     private static func defaultWorker(_ job: WorkspaceSubagentJob) async throws -> String {
