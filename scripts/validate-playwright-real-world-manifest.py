@@ -18,6 +18,7 @@ REQUIRED_SCENARIOS = {
     "answers device diagnostic prompts with concrete shell actions",
     "downloads requested domains with a bounded concrete shell action",
     "answers natural git read requests with structured git tools",
+    "dispatches slash git read shortcuts as real workspace actions",
     "starter cards launch real workspace actions immediately",
     "respects explicit negative action prompts without tool cards or side effects",
 }
@@ -36,6 +37,8 @@ REQUIRED_PROMPT_FRAGMENTS = [
     "Can you download LinkedIn.com?",
     "Please check git status.",
     "what changed?",
+    "/git-status",
+    "/diff",
     "Review changes starter card",
     "Do not run whoami.",
     "forbidden.txt",
@@ -51,12 +54,14 @@ REQUIRED_REGRESSION_GUARDS = [
     "file search uses host.file.search instead of shell grep fallback",
     "safety review does not block clear user intent",
     "git status uses host.git.status instead of shell fallback",
+    "slash git status dispatches host.git.status",
+    "slash diff dispatches host.git.diff",
     "starter card creates a user turn without draft-only limbo",
     "negative shell intent creates no tool card",
 ]
 
-MIN_PROMPT_COUNT = 18
-MIN_REGRESSION_GUARD_COUNT = 30
+MIN_PROMPT_COUNT = 20
+MIN_REGRESSION_GUARD_COUNT = 33
 
 
 def string_items(value: Any) -> list[str]:

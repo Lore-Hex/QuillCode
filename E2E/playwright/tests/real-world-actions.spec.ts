@@ -98,6 +98,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
     ]
   },
   {
+    name: 'dispatches slash git read shortcuts as real workspace actions',
+    prompts: ['/git-status', '/diff'],
+    expectedToolNames: ['host.git.status', 'host.git.diff'],
+    regressionGuards: [
+      'slash git status dispatches host.git.status',
+      'slash diff dispatches host.git.diff',
+      'slash quick actions render final chat text without draft-only limbo'
+    ]
+  },
+  {
     name: 'starter cards launch real workspace actions immediately',
     prompts: ['Review changes starter card'],
     expectedToolNames: ['host.git.diff'],
@@ -356,6 +366,36 @@ test('answers natural git read requests with structured git tools', async ({ pag
   await expect(page.getByTestId('tool-card-output').last()).toContainText('diff --git a/Sources/App.swift b/Sources/App.swift');
   await expect(page.getByText(/Git diff:\s*diff --git a\/Sources\/App.swift b\/Sources\/App.swift/)).toBeVisible();
   await expect(page.getByText(/No shell command was specified|I'?ll check|should I|do you want me to/i)).toHaveCount(0);
+});
+
+test('dispatches slash git read shortcuts as real workspace actions', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/git-status');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.status');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('Sources/App.swift');
+  await expect(page.getByText(/Git status:\s*## main\s*M Sources\/App.swift/)).toBeVisible();
+  await expect(page.getByLabel('Message')).toHaveValue('');
+  await expect(page.getByTestId('send-button')).toBeDisabled();
+  await expect(page.getByText(/No shell command was specified|I'?ll check|should I|do you want me to|ok\?/i)).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('/diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('{}');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('diff --git a/Sources/App.swift b/Sources/App.swift');
+  await expect(page.getByText(/Git diff:\s*diff --git a\/Sources\/App.swift b\/Sources\/App.swift/)).toBeVisible();
+  await expect(page.getByLabel('Message')).toHaveValue('');
+  await expect(page.getByTestId('send-button')).toBeDisabled();
+  await expect(page.getByText(/No shell command was specified|I'?ll review|I will review|should I|do you want me to|ok\?/i)).toHaveCount(0);
 });
 
 test('starter cards launch real workspace actions immediately', async ({ page }) => {

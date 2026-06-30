@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-30 Slash Git Real-World Evidence Pass
+
+Overall grade after this slice: **A release-evidence coverage, A shortcut regression guard**.
+
+The `/diff` and `/git-status` shortcuts had parser and browser interaction coverage, but the release-candidate real-world manifest still only proved natural-language git prompts. That left a narrow but practical release gap: a shortcut could regress from real workspace execution back to draft-only limbo or passive chat without the release evidence saying so.
+
+| Before | After |
+| --- | --- |
+| The real-world Playwright manifest covered `Please check git status.` and `what changed?`, but not the equivalent slash shortcuts. | The manifest now includes a dedicated slash git scenario for `/git-status` and `/diff`, with required prompts and regression guards in the Python validator. |
+| Slash quick-action regressions were visible in composer tests only. | Release-candidate real-world evidence now proves both shortcuts clear the composer, dispatch `host.git.status`/`host.git.diff`, render final chat text, and avoid passive "I'll check/review" copy. |
+
+Residual risk:
+
+- This is deterministic harness coverage. Live TrustedRouter is not involved because slash commands bypass provider planning by design; broader release runs still need the full `real-world-smoke.sh` wrapper for native, packaged, and optional live evidence.
+
 ## 2026-06-30 Auto-Mode Hard-Deny Matches Decoded Tool Arguments (defense-in-depth)
 
 A latent-bug audit of the auto-mode safety policy (`StaticSafetyPolicy`) found the same *class* as the file-tool symlink escape: **the check inspected a different representation than what executes.** In `.auto` mode `hardDenyReason` is a true block, and if it returns nil and the user's message matches the tool intent (e.g. "run …"), the call is auto-approved and executed with **no human review**. The hard-deny haystack was built from the *raw* `argumentsJSON` wire string — and the code already special-cased one JSON escape (`\/` → `/`), a tell that encoding mattered but only one case was handled.
@@ -365,7 +380,6 @@ The UI on top of the merged revert engine: a **"Revert this turn's edits"** butt
 Residual risk:
 
 - The button is placed on the turn's user message (the prompt anchor). The harness mocks only the success path; the dirtied-since failure UI is covered by the engine + model tests, not an end-to-end UI test. Clicking revert again on an already-reverted turn fails honestly (the engine's "files changed" message) rather than being suppressed — a UX wart, and a running-history view of reverts, are follow-ups.
-
 ## 2026-06-29 Per-Turn Revert Engine Pass (1 of 2)
 
 Overall grade after this slice: **A honest design, A atomic safety**.
@@ -481,7 +495,6 @@ Fixes a real data-loss bug: the composer draft was a single global string, so ty
 Residual risk:
 
 - Drafts are session-only (transient map), not persisted across relaunch — a deliberate follow-up (would need a ThreadStore migration + parity-core snapshot update). The history-recall cursor reset is keyed on `sentMessageHistory` change rather than thread-identity (benign today); a Playwright recall-across-switch test is a follow-up.
-
 ## 2026-06-29 Git Diff/Status Slash Quick-Action Pass
 
 Overall grade after this slice: **A quick-action coverage, A cross-surface parity**.
