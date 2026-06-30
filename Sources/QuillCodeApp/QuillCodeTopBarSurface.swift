@@ -21,6 +21,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     /// Pre-formatted branch + ahead/behind chip (e.g. `feature/x ↑2 ↓1`), or nil
     /// when no git branch status is known. Renderers display this string as-is.
     public var branchStatusLabel: String?
+    /// Pre-formatted token-usage chip (e.g. `847 ctx · ↑500 ↓347`), or nil when the model
+    /// has not reported usage for this thread. Renderers display this string as-is.
+    public var usageStatusLabel: String?
 
     public init(
         appName: String,
@@ -39,7 +42,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         runtimeIssueSeverity: RuntimeIssueSeverity? = nil,
         computerUseLabel: String,
         showsComputerUseSetup: Bool,
-        branchStatusLabel: String? = nil
+        branchStatusLabel: String? = nil,
+        usageStatusLabel: String? = nil
     ) {
         self.appName = appName
         self.primaryTitle = primaryTitle
@@ -58,6 +62,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.computerUseLabel = computerUseLabel
         self.showsComputerUseSetup = showsComputerUseSetup
         self.branchStatusLabel = branchStatusLabel
+        self.usageStatusLabel = usageStatusLabel
     }
 
     public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {

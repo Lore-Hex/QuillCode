@@ -201,7 +201,8 @@
       gap: 10px;
       text-align: left;
     }
-    .topbar-branch-chip {
+    .topbar-branch-chip,
+    .topbar-usage-chip {
       flex: 0 0 auto;
       font-size: 12px;
       font-weight: 600;
@@ -3326,6 +3327,7 @@
         primaryTitle: 'QuillCode',
         subtitle: 'QuillCode - Not started',
         branchStatusLabel: null,
+        usageStatusLabel: null,
         instructionLabel: '1 instruction file loaded',
         instructionSources: ['AGENTS.md'],
         modelLabel: 'Nike 1.0',
@@ -6498,6 +6500,7 @@
               <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
               <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
               ${state.topBar.branchStatusLabel ? `<span class="topbar-branch-chip" data-testid="top-bar-branch" title="${escapeHTML(state.topBar.branchStatusLabel)}">${escapeHTML(state.topBar.branchStatusLabel)}</span>` : ''}
+              ${state.topBar.usageStatusLabel ? `<span class="topbar-usage-chip" data-testid="top-bar-usage" title="${escapeHTML(state.topBar.usageStatusLabel)}">${escapeHTML(state.topBar.usageStatusLabel)}</span>` : ''}
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
@@ -9241,6 +9244,8 @@
       state.composer.canSend = false;
       state.composer.slashActiveIndex = 0;
       state.topBar.primaryTitle = 'QuillCode';
+      // The usage chip is per-thread; a fresh thread has no usage until its first turn.
+      state.topBar.usageStatusLabel = null;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - Not started`;
       render();
@@ -12979,9 +12984,46 @@
       state.composer.canSend = Boolean(state.composer.draft.trim());
       if (!['Failed', 'Stopped'].includes(state.topBar.agentStatus)) {
         state.topBar.agentStatus = 'Idle';
+        // Mirrors native: the model reports token usage at the end of a turn, surfaced as
+        // the quiet top-bar usage chip. The chip is derived per-thread, so a fresh thread
+        // shows nothing until its first turn completes.
+        state.topBar.usageStatusLabel = mockTokenUsageLabel();
       }
       syncSelectedThreadSearchText();
       render();
+    }
+
+    // Compact token count matching WorkspaceTokenUsageLabelBuilder.abbreviate (Swift):
+    // exact below 1k, one-decimal k below 1m, one-decimal m above; the unit is chosen on
+    // the ROUNDED value so 999999 reads "1m" (not "1000k").
+    function abbreviateTokens(count) {
+      const value = Math.max(0, count);
+      if (value < 1000) return String(value);
+      const trim = scaled => (scaled === Math.round(scaled) ? String(Math.round(scaled)) : scaled.toFixed(1));
+      if (value < 1000000) {
+        const thousands = Math.round((value / 1000) * 10) / 10;
+        if (thousands < 1000) return trim(thousands) + 'k';
+        // Rounding crossed into millions; fall through to the m unit.
+      }
+      return trim(Math.round((value / 1000000) * 10) / 10) + 'm';
+    }
+
+    // A mock per-thread token-usage label estimated from the transcript (chars/4), formatted
+    // exactly like WorkspaceTokenUsageLabelBuilder.label (Swift): "<ctx> ctx · ↑<in> ↓<out>".
+    function mockTokenUsageLabel() {
+      let prompt = 0;
+      let completion = 0;
+      for (const item of transcriptTimelineItems()) {
+        if (item.kind === 'message') {
+          const length = (item.message?.text || '').length;
+          if (item.message?.role === 'assistant') completion += Math.ceil(length / 4);
+          else prompt += Math.ceil(length / 4);
+        } else if (item.kind === 'toolCard') {
+          prompt += Math.ceil((transcriptCopyText(item) || '').length / 4);
+        }
+      }
+      if (prompt + completion === 0) return null;
+      return `${abbreviateTokens(prompt + completion)} ctx · ↑${abbreviateTokens(prompt)} ↓${abbreviateTokens(completion)}`;
     }
 
     function completeMockAgentTurn(text) {

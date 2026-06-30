@@ -38,6 +38,11 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             branchStatusLabel: topBarState.branchStatus.flatMap { status in
                 let label = status.compactLabel
                 return label.isEmpty ? nil : label
+            },
+            usageStatusLabel: thread.flatMap { thread in
+                WorkspaceTokenUsageLabelBuilder.label(
+                    for: WorkspaceContextBannerBuilder.latestProviderUsage(for: thread)
+                )
             }
         )
     }

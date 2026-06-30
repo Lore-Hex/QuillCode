@@ -10,6 +10,7 @@ enum WorkspaceHTMLTopBarRenderer {
             <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
             <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
             \(renderBranchStatus(topBar))
+            \(renderUsageStatus(topBar))
           </div>
           <div class="topbar-clusters" data-testid="top-bar-clusters">
             \(renderActionCluster(topBar, commands: commands))
@@ -35,6 +36,11 @@ enum WorkspaceHTMLTopBarRenderer {
     private static func renderBranchStatus(_ topBar: TopBarSurface) -> String {
         guard let branchStatusLabel = topBar.branchStatusLabel else { return "" }
         return #"<span class="topbar-branch-chip" data-testid="top-bar-branch" title="\#(escape(branchStatusLabel))">\#(escape(branchStatusLabel))</span>"#
+    }
+
+    private static func renderUsageStatus(_ topBar: TopBarSurface) -> String {
+        guard let usageStatusLabel = topBar.usageStatusLabel else { return "" }
+        return #"<span class="topbar-usage-chip" data-testid="top-bar-usage" title="\#(escape(usageStatusLabel))">\#(escape(usageStatusLabel))</span>"#
     }
 
     private static func renderRuntimeIssuePill(_ topBar: TopBarSurface) -> String {
