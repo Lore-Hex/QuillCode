@@ -89,6 +89,23 @@ public extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: result.finalStatus)
     }
 
+    /// Runs the approval (the held tool) and, after a Plan-mode approval, resumes the agent so it
+    /// drives the plan forward — proposing the next step, which is itself gated for approval (see
+    /// `resumeAgentAfterApproval`). This is the SINGLE path both the tests and the desktop drive
+    /// (the desktop wraps it in the cancellable `.send` slot), so the shipped wiring is exactly
+    /// what is tested. The resume is pinned to the thread the held tool acted on, so a thread
+    /// switch during the async continuation can never resume the wrong plan.
+    @discardableResult
+    func approveToolCardAndResume(_ action: ToolCardActionSurface, workspaceRoot: URL) async -> Bool {
+        let approvedThreadID = selectedThread?.id
+        let didRun = runToolCardAction(action, workspaceRoot: workspaceRoot)
+        guard didRun, action.kind == .approve, selectedThread?.id == approvedThreadID else { return didRun }
+        // `resumeAgentAfterApproval` is itself guarded to Plan mode + the pinned thread, so this
+        // no-ops for a review/auto approval and only continues the approved plan.
+        await resumeAgentAfterApproval(workspaceRoot: workspaceRoot, expectedThreadID: approvedThreadID)
+        return didRun
+    }
+
     @discardableResult
     func runToolCardAction(_ action: ToolCardActionSurface, workspaceRoot: URL) -> Bool {
         guard let plan = WorkspaceApprovalActionPlanner.plan(action: action, thread: selectedThread) else {
@@ -111,15 +128,10 @@ public extension QuillCodeWorkspaceModel {
         }
 
         if plan.shouldRunTool {
-            // Approving a blocked change while planning applies it AND switches the thread
-            // out of Plan mode so the agent can keep executing. This flips only the thread
-            // (not the global default mode), and runs the held tool directly (bypassing the
-            // gate) the same way every other approved tool does.
-            if selectedThread?.mode == .plan {
-                mutateSelectedThread { thread in
-                    WorkspaceConfigurationEngine.setMode(.auto, thread: &thread)
-                }
-            }
+            // Runs the approved tool directly (bypassing the gate) the same way every other
+            // approved tool does. The thread mode is intentionally LEFT as-is: a Plan-mode
+            // approval stays in Plan, so the resumed agent's next mutation is gated again
+            // (the user approves each change) rather than flipping to autonomous execution.
             _ = runToolCall(plan.request.toolCall, workspaceRoot: workspaceRoot)
         } else {
             if let assistantNotice = plan.assistantNotice {

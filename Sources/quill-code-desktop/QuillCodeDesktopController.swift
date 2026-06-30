@@ -275,7 +275,13 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runToolCardAction(_ action: ToolCardActionSurface) {
-        workspaceActionCoordinator.runToolCardAction(action, model: model, fallbackWorkspaceRoot: workspaceRoot)
+        workspaceActionCoordinator.runToolCardAction(
+            action,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
         refresh()
     }
 

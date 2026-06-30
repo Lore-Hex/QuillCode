@@ -5037,7 +5037,27 @@
           inputJSON: card.inputJSON,
           outputJSON: mockApprovedToolOutput(card.title, card.inputJSON)
         });
-        addMessage('assistant', 'Approved and ran the tool.');
+        if (state.topBar.modeLabel === 'Plan') {
+          // Approving a Plan-mode block runs the held tool and RESUMES the agent to drive the
+          // plan forward — but the thread STAYS in Plan, so the next step it proposes is itself
+          // gated for approval (mirrors WorkspaceModelReview.runToolCardActionResumingPlan +
+          // resumeAgentAfterApproval). No flip to autonomous execution.
+          addToolCard({
+            title: 'host.shell.run',
+            subtitle: 'Ready to run · touch step-two.txt',
+            status: 'review',
+            reviewState: 'ready',
+            density: 'peek',
+            inputJSON: JSON.stringify({ cmd: 'touch step-two.txt' }, null, 2),
+            isExpanded: false,
+            actions: [
+              { id: 'tca-approve-next', title: 'Run', kind: 'approve', requestID: 'plan-approval-next', style: 'primary' }
+            ]
+          });
+          addMessage('assistant', 'Approved — continuing the plan; the next step needs your approval.');
+        } else {
+          addMessage('assistant', 'Approved and ran the tool.');
+        }
       } else {
         addMessage('assistant', `Skipped ${card.title}.`);
       }
