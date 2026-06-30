@@ -103,13 +103,13 @@ if real_world.get("manifestPath") != "playwright-real-world/playwright-real-worl
 scenario_count = real_world.get("scenarioCount")
 prompt_count = real_world.get("promptCount")
 regression_guard_count = real_world.get("regressionGuardCount")
-if not isinstance(scenario_count, int) or scenario_count < 10:
-    errors.append(f"scenarioCount should be at least 10, got {scenario_count!r}")
-if not isinstance(prompt_count, int) or prompt_count < 18:
-    errors.append(f"promptCount should be at least 18, got {prompt_count!r}")
-if not isinstance(regression_guard_count, int) or regression_guard_count < 30:
+if not isinstance(scenario_count, int) or scenario_count < 12:
+    errors.append(f"scenarioCount should be at least 12, got {scenario_count!r}")
+if not isinstance(prompt_count, int) or prompt_count < 22:
+    errors.append(f"promptCount should be at least 22, got {prompt_count!r}")
+if not isinstance(regression_guard_count, int) or regression_guard_count < 36:
     errors.append(
-        f"regressionGuardCount should be at least 30, got {regression_guard_count!r}"
+        f"regressionGuardCount should be at least 36, got {regression_guard_count!r}"
     )
 
 if errors:

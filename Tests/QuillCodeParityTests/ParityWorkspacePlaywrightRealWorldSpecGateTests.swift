@@ -26,7 +26,8 @@ final class ParityWorkspacePlaywrightRealWorldSpecGateTests: QuillCodeParityTest
             "writes requested file content immediately without a confirmation loop",
             "reads requested file contents immediately with the structured file tool",
             "answers natural git read requests with structured git tools",
-            "respects explicit negative action prompts without tool cards or side effects"
+            "respects explicit negative action prompts without tool cards or side effects",
+            "recovers transient runtime failures with the same actionable turn"
         ]
         let actionSpecSnippets = [
             "harnessURL()",
@@ -50,6 +51,8 @@ final class ParityWorkspacePlaywrightRealWorldSpecGateTests: QuillCodeParityTest
             "Do not run whoami.",
             "forbidden.txt",
             "downloads/forbidden.html",
+            "trigger network failure",
+            "Retry runtime issue",
             "confirmation loop"
         ]
         let actionEvidenceSnippets = [
@@ -57,6 +60,8 @@ final class ParityWorkspacePlaywrightRealWorldSpecGateTests: QuillCodeParityTest
             "file list uses host.file.list instead of shell ls fallback",
             "file read uses host.file.read instead of shell cat fallback",
             "git status uses host.git.status instead of shell fallback",
+            "runtime issue retry clears the transient failure",
+            "retry dispatches a concrete nonempty shell action",
             "QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR",
             "playwright-real-world-actions-manifest.json",
             "regressionGuardCount"

@@ -129,6 +129,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
       'negative write intent creates no artifact',
       'negative download intent creates no artifact'
     ]
+  },
+  {
+    name: 'recovers transient runtime failures with the same actionable turn',
+    prompts: ['trigger network failure', 'Retry runtime issue'],
+    expectedToolNames: ['host.shell.run'],
+    regressionGuards: [
+      'runtime issue retry clears the transient failure',
+      'retry dispatches a concrete nonempty shell action',
+      'retry preserves the user turn instead of creating draft-only limbo'
+    ]
   }
 ];
 
