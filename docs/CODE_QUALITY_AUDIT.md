@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 Review-Pane Open File Pass
+
+Overall grade after this slice: **A non-mutating read action, A cross-surface parity**.
+
+Adds an **Open** action to each changed-file row in the review pane that reads the file (via the existing `host.file.read` tool) into a tool card **without** mutating or clearing the review — so you can inspect a changed file's full contents while staging hunks. Reuses the existing `review-action` hit-target contract and introduces **no new command ID**. Feature scoped by a grounded plan workflow and hardened by an adversarial review pass (which caught a vacuous E2E test and a latent planner split-brain).
+
+| Before | After |
+| --- | --- |
+| Changed-file rows offered only Stage/Restore, both of which run a `host.git.diff` refresh that clears the review pane. There was no way to open a changed file from the review. | A new `WorkspaceReviewActionKind.open` (prepended to `WorkspaceReviewFileSurface.actions` as `[.open, .stage, .restore]`) routes through `host.file.read`. Native SwiftUI auto-renders it via `ForEach(file.actions)` reusing `quillCodeIconButtonTarget()`; the static HTML renderer and the JS harness render it with the same `data-testid="review-action"`. |
+| — (review-driven correctness) | The non-mutating invariant is enforced **structurally**, not by a lone early return: `WorkspaceReviewActionKind.isMutating` classifies actions, `WorkspaceReviewActionToolCallPlanner.runPlan` pairs **no** diff refresh for non-mutating actions (`diffRefreshCall` is now optional, and the runner skips it when absent), and `runReviewAction` short-circuits non-mutating actions straight to `host.file.read`. So Open can never refresh the diff or clear the pane even if the short-circuit is bypassed. |
+| — (review-driven coverage) | The harness Open demo now resolves to real content (added `Sources/App.swift` to the mock workspace) and the Playwright test asserts the read **succeeded** (a `Completed` card naming the file) — the prior test would have passed even if Open never read anything. |
+| No coverage. | Planner test (`.open` ⇒ `host.file.read`, **no** diff refresh, `isMutating == false`); local + remote (SSH `cat`) run-path integration tests asserting exactly one `host.file.read` card, no diff refresh, and the review pane stays visible; HTML-renderer test asserts `data-action="open"`; Playwright open-without-clearing test. No new command IDs, so the command-routing parity audit is untouched. |
+
+Residual risk:
+
+- Open is offered unconditionally, including for **binary** and **deleted** changed files; `host.file.read` then returns a failure card (locally a UTF-8/no-such-file error, remotely a raw `cat`), which flips the top bar to `failed` for a file the user can see in the diff. Deliberately deferred (read-only, no data loss) — gating `.open` on `!isBinary`/non-deletion and a friendlier not-readable state are follow-ups. Native Open currently only emits a tool card rather than focusing an in-app file viewer (the eventual UX). Adding `Sources/App.swift` to the mock workspace shifted the bare-`@` mention order (path-length tiebreak ranks it ahead of `Sources/Agent.swift`); the composer parity test was updated to match.
+
 ## 2026-06-29 Worktree Branch Status Pass
 
 Overall grade after this slice: **A read-only branch surfacing, A cross-surface parity**.

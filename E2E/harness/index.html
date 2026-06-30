@@ -3397,7 +3397,8 @@
       },
       mockFiles: {
         '/mock/QuillCode/README.md': '# QuillCode\n\nMock workspace README for natural file-read smoke.\n',
-        '/mock/QuillCode/Sources/Agent.swift': 'struct AgentRunner {\n  func run() {}\n}\n'
+        '/mock/QuillCode/Sources/Agent.swift': 'struct AgentRunner {\n  func run() {}\n}\n',
+        '/mock/QuillCode/Sources/App.swift': 'struct App {\n  static let title = "QuillCode"\n}\n'
       },
       review: {
         title: 'Review changes',
@@ -5925,6 +5926,7 @@
                 <span data-testid="review-file-path">${escapeHTML(file.path)}</span>
                 <span class="review-actions">
                   <small>${escapeHTML(file.changeLabel)}</small>
+                  <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="open" data-path="${escapeHTML(file.path)}">Open</button>
                   <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
                   <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
                 </span>
@@ -11466,7 +11468,7 @@
       return state.mockFiles[`/mock/QuillCode/${path}`] || null;
     }
 
-    function runMockFileReadAction(path, selectedProject, isRemoteProject) {
+    function runMockFileReadAction(path, selectedProject, isRemoteProject, options = {}) {
       const contents = mockFileContentsForPath(path, isRemoteProject);
       const ok = typeof contents === 'string';
       addToolCard({
@@ -11482,6 +11484,9 @@
           2
         )
       });
+      // The review-pane Open action runs the tool directly, so — like native — it
+      // records only a tool card and posts no assistant chat bubble.
+      if (options.suppressAssistantMessage) return;
       addMessage(
         'assistant',
         ok
@@ -13402,6 +13407,14 @@
 
     function runReviewAction(action, path) {
       if (!path) return;
+      if (action === 'open') {
+        // Opening a changed file is a non-mutating read: emit a host.file.read tool
+        // card and leave the review pane intact (no diff refresh, no clear).
+        const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+        runMockFileReadAction(path, selectedProject, selectedProject?.isRemote === true, { suppressAssistantMessage: true });
+        render();
+        return;
+      }
       const toolMap = {
         restore: 'host.git.restore',
         stage_hunk: 'host.git.stage_hunk',

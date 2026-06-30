@@ -267,13 +267,15 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
 
         XCTAssertEqual(file.id, "Sources/App.swift")
         XCTAssertEqual(file.changeLabel, "+2 · -1 · 1 hunk · binary")
-        XCTAssertEqual(file.actions.map(\.kind), [.stage, .restore])
+        XCTAssertEqual(file.actions.map(\.kind), [.open, .stage, .restore])
         XCTAssertEqual(file.actions.map(\.id), [
+            "open:Sources/App.swift:file",
             "stage:Sources/App.swift:file",
             "restore:Sources/App.swift:file"
         ])
-        XCTAssertEqual(file.actions.map(\.kind.title), ["Stage", "Restore"])
+        XCTAssertEqual(file.actions.map(\.kind.title), ["Open", "Stage", "Restore"])
         XCTAssertEqual(file.actions.map(\.kind.systemImage), [
+            "doc.text",
             "plus.rectangle.on.folder",
             "arrow.uturn.backward"
         ])

@@ -635,7 +635,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(runnerText.contains("struct WorkspaceReviewActionRunResult"), "Review action execution should return a typed result.")
         XCTAssertTrue(runnerText.contains("recordedResults"), "Review action execution should expose ordered tool results for transcript recording.")
         XCTAssertTrue(runnerText.contains("executor.executePrimary(plan.actionCall)"), "Review action runner should execute the action call.")
-        XCTAssertTrue(runnerText.contains("executor.executePrimary(plan.diffRefreshCall)"), "Review action runner should execute the diff refresh call.")
+        XCTAssertTrue(runnerText.contains("plan.diffRefreshCall.map"), "Review action runner should execute the diff refresh call when the plan pairs one.")
         XCTAssertTrue(reviewExtensionText.contains("WorkspaceReviewActionToolCallPlanner.runPlan"), "Workspace review extension should delegate review action run planning.")
         XCTAssertTrue(runActionBody.contains("WorkspaceReviewActionRunner("), "Workspace review extension should delegate review action execution.")
         XCTAssertTrue(runActionBody.contains("result.recordedResults"), "Workspace review extension should record typed review action results.")

@@ -220,13 +220,14 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
   // A bare @ surfaces workspace files, shallowest path first.
   await message.fill('@');
   await expect(page.getByTestId('file-mention-suggestions')).toBeVisible();
-  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(2);
+  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(3);
   await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('README.md');
   await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('README.md');
 
-  // ArrowDown moves the active mention.
+  // ArrowDown moves the active mention. For a bare @, ties break by path length,
+  // so the shorter Sources/App.swift ranks ahead of Sources/Agent.swift.
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('Sources/Agent.swift');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('Sources/App.swift');
 
   // An email-style token is not treated as a mention.
   await message.fill('ping name@example.com');

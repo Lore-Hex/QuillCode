@@ -9,11 +9,36 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
             for: WorkspaceReviewActionSurface(kind: .stage, path: "Sources/App.swift")
         )
         let actionArguments = try ToolArguments(plan.actionCall.argumentsJSON)
+        let diffRefreshCall = try XCTUnwrap(plan.diffRefreshCall)
 
         XCTAssertEqual(plan.actionCall.name, ToolDefinition.gitStage.name)
         XCTAssertEqual(try actionArguments.requiredString("path"), "Sources/App.swift")
-        XCTAssertEqual(plan.diffRefreshCall.name, ToolDefinition.gitDiff.name)
-        XCTAssertEqual(plan.diffRefreshCall.argumentsJSON, "{}")
+        XCTAssertEqual(diffRefreshCall.name, ToolDefinition.gitDiff.name)
+        XCTAssertEqual(diffRefreshCall.argumentsJSON, "{}")
+    }
+
+    func testRunPlanForOpenReadsFileAndPairsNoDiffRefresh() throws {
+        let plan = WorkspaceReviewActionToolCallPlanner.runPlan(
+            for: WorkspaceReviewActionSurface(kind: .open, path: "Sources/App.swift")
+        )
+        let actionArguments = try ToolArguments(plan.actionCall.argumentsJSON)
+
+        // The non-mutating Open action reads the file ...
+        XCTAssertEqual(plan.actionCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try actionArguments.requiredString("path"), "Sources/App.swift")
+        // ... and the plan refuses to pair a diff refresh, so it can never clear the
+        // review pane even if the model's short-circuit is bypassed.
+        XCTAssertNil(plan.diffRefreshCall)
+        XCTAssertFalse(WorkspaceReviewActionKind.open.isMutating)
+        // A plan with no diff refresh succeeds on the action result alone.
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: true), diffRefreshResult: nil),
+            TopBarAgentStatusLabel.idle
+        )
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: false), diffRefreshResult: nil),
+            TopBarAgentStatusLabel.failed
+        )
     }
 
     func testRunPlanFinalStatusRequiresActionAndDiffRefreshSuccess() {
