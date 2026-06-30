@@ -226,6 +226,10 @@ public struct QuillCodeWorkspaceView: View {
         .frame(minWidth: 980, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
+        .onChange(of: surface.composer.focusToken) { _, _ in
+            // The `focus-composer` (Cmd+L) command bumps this token; grab focus when it changes.
+            isComposerFocused = true
+        }
         .quillCodeWorkspaceSheets(
             surface: surface,
             isSearchPresented: $isSearchPresented,

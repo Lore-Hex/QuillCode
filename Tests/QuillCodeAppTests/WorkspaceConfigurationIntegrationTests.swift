@@ -41,6 +41,20 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.mode, .auto)
     }
 
+    func testFocusComposerCommandBumpsTheSurfaceFocusToken() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [ChatThread()],
+            selectedThreadID: nil
+        ))
+        _ = model.newChat()
+        let before = model.surface().composer.focusToken
+
+        // Driving the real command id bumps the token the view observes to grab focus.
+        XCTAssertTrue(model.runWorkspaceCommand("focus-composer", workspaceRoot: root))
+        XCTAssertEqual(model.surface().composer.focusToken, before + 1)
+    }
+
     func testToggleModelFavoriteUpdatesConfigAndSurface() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(favoriteModels: ["provider/old"]),

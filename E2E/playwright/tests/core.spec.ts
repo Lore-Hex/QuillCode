@@ -299,3 +299,16 @@ test('Cmd+Shift+R retries the last turn, and is a no-op with nothing to retry', 
   await page.keyboard.press('Meta+Shift+R');
   await expect(page.getByTestId('message').filter({ hasText: 'retry me please' })).toHaveCount(2);
 });
+
+test('Cmd+L focuses the message input from elsewhere', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // Move focus off the composer.
+  await page.locator('body').click({ position: { x: 4, y: 4 } });
+  await expect(message).not.toBeFocused();
+
+  // Cmd+L jumps focus to the message input.
+  await page.keyboard.press('Meta+L');
+  await expect(message).toBeFocused();
+});

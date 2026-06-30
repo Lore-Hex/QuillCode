@@ -112,6 +112,9 @@ struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeCycleMode)) { _ in
             controller.runWorkspaceCommand("cycle-mode")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeFocusComposer)) { _ in
+            controller.runWorkspaceCommand("focus-composer")
+        }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleTerminal)) { _ in
             controller.toggleTerminal()
         }

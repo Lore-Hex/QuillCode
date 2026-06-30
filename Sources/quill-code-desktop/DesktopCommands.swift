@@ -13,6 +13,10 @@ struct QuillCodeDesktopCommands: Commands {
                 NotificationCenter.default.post(name: .quillCodeCycleMode, object: nil)
             }
             .quillCodeShortcut("cycle-mode")
+            Button("Focus Message") {
+                NotificationCenter.default.post(name: .quillCodeFocusComposer, object: nil)
+            }
+            .quillCodeShortcut("focus-composer")
             Button("Open Project...") {
                 NotificationCenter.default.post(name: .quillCodeOpenProject, object: nil)
             }
@@ -70,6 +74,7 @@ struct QuillCodeDesktopCommands: Commands {
 extension Notification.Name {
     static let quillCodeNewChat = Notification.Name("QuillCodeNewChat")
     static let quillCodeCycleMode = Notification.Name("QuillCodeCycleMode")
+    static let quillCodeFocusComposer = Notification.Name("QuillCodeFocusComposer")
     static let quillCodeOpenProject = Notification.Name("QuillCodeOpenProject")
     static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
     static let quillCodeKeyboardShortcuts = Notification.Name("QuillCodeKeyboardShortcuts")

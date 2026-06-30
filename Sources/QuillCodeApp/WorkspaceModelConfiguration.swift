@@ -11,6 +11,15 @@ extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
+    /// Requests that the message composer grab focus (the `focus-composer` / Cmd+L command).
+    /// Focus is view-layer `FocusState`, so the model can't set it directly — it bumps a token
+    /// the rendered surface carries, and the view focuses the input when the token changes.
+    @discardableResult
+    public func focusComposer() -> Bool {
+        composer.focusToken &+= 1
+        return true
+    }
+
     /// Advances to the next approval mode, mirroring Codex's `Shift+Tab` shortcut. The ring order
     /// matches the top-bar picker and the harness mode pill: Auto → Plan → Review → Read-only → Auto.
     @discardableResult

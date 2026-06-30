@@ -11,7 +11,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Open Browser Session", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
             XCTAssertTrue(text.contains(label), "Menu-bar widget is missing \(label).")
         }
-        for commandID in ["browser-back", "browser-forward", "browser-reload", "cycle-mode"] {
+        for commandID in ["browser-back", "browser-forward", "browser-reload", "cycle-mode", "focus-composer"] {
             XCTAssertTrue(commandsText.contains(".quillCodeShortcut(\"\(commandID)\")"), "\(commandID) should be wired as a native keyboard shortcut.")
             XCTAssertTrue(appText.contains("controller.runWorkspaceCommand(\"\(commandID)\")"), "\(commandID) should route through the workspace command executor.")
         }
