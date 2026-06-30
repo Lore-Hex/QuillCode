@@ -49,6 +49,7 @@ enum SlashCommandCatalog {
         .init(usage: "/subagents objective | Name: role", title: "Run subagents", detail: "Fan out a local parallel subagent workflow and show replayable progress in Activity.", insertText: "/subagents ", aliases: ["subagent", "parallel agents", "agents"]),
         .init(usage: "/project new", title: "Project new chat", detail: "Start a new thread in the selected project.", insertText: "/project new", aliases: ["project chat"]),
         .init(usage: "/project refresh", title: "Refresh project context", detail: "Reload instructions, local actions, extensions, and memories.", insertText: "/project refresh", aliases: ["project reload", "project context"]),
+        .init(usage: "/init", title: "Initialize AGENTS.md", detail: "Scaffold a starter AGENTS.md for the project from its build and test commands.", insertText: "/init", aliases: ["init-project", "scaffold", "agents"]),
         .init(usage: "/project rename name", title: "Rename project", detail: "Rename the selected project in QuillCode.", insertText: "/project rename ", aliases: ["project title"]),
         .init(usage: "/project remove", title: "Remove project", detail: "Forget the selected project from the sidebar without deleting files.", insertText: "/project remove", aliases: ["project forget"]),
         .init(usage: "/ssh user@host:/path", title: "Add SSH Remote", detail: "Register an SSH Remote workspace in the project sidebar.", insertText: "/ssh ", aliases: ["remote", "ssh project"]),

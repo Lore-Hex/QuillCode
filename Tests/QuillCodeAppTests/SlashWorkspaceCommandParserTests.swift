@@ -27,6 +27,14 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/gitstatus"), .workspaceCommand("git-status"))
     }
 
+    func testInitAliasesScaffoldProjectInstructions() {
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("init"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("init-project"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "init"), .workspaceCommand("project-init"))
+        XCTAssertEqual(SlashCommandParser.parse("/init"), .workspaceCommand("project-init"))
+        XCTAssertEqual(SlashCommandParser.parse("/init-project"), .workspaceCommand("project-init"))
+    }
+
     func testWorktreeAliasesListGitWorktrees() {
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "worktree"), .workspaceCommand("git-worktree-list"))
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "worktrees"), .workspaceCommand("git-worktree-list"))

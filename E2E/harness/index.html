@@ -3438,6 +3438,8 @@
       // Workspace-relative paths with uncommitted changes (mirrors model.changedFilePaths),
       // populated from a successful git status run; boosts/badges changed @ mentions.
       changedFilePaths: [],
+      // Whether the mock project already has an AGENTS.md, so /init refuses to overwrite it.
+      hasAgentsMd: false,
       review: {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -3679,6 +3681,7 @@
         { id: 'add-ssh-project', title: 'Project: Add SSH Remote...', shortcut: '', category: 'Workspace', keywords: ['remote', 'ssh', 'server', 'workspace', '/ssh user@host:/path'], isEnabled: true },
         { id: 'project-new-chat', title: 'New chat in project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'thread', 'chat'], isEnabled: true },
         { id: 'project-refresh-context', title: 'Refresh project context', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'instructions', 'memory', 'reload'], isEnabled: true },
+        { id: 'project-init', title: 'Initialize AGENTS.md', shortcut: '', category: 'Workspace', keywords: ['init', 'agents', 'scaffold', 'instructions', 'rules', 'generate'], isEnabled: true },
         { id: 'project-rename', title: 'Rename project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'title', 'name'], isEnabled: true },
         { id: 'project-remove', title: 'Remove project from list', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'forget', 'remove'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
@@ -5355,6 +5358,7 @@
         command.id === 'thread-bulk-delete' ? { ...command, isEnabled: hasBulkSelection } :
         command.id === 'project-new-chat' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
+        command.id === 'project-init' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-rename' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-remove' ? { ...command, isEnabled: hasProject } :
         command.id === 'terminal-clear' ? { ...command, isEnabled: state.terminal.entries.length > 0 && !state.terminal.isRunning } :
@@ -8107,6 +8111,24 @@
       return text;
     }
 
+    function runMockInitProject() {
+      if (state.hasAgentsMd) {
+        addMessage('assistant', 'AGENTS.md already exists — skipped. Edit it directly, or delete it and run /init again.');
+        render();
+        return;
+      }
+      addToolCard({
+        title: 'host.file.write',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ path: 'AGENTS.md' }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: 'Wrote AGENTS.md\n' }, null, 2)
+      });
+      state.hasAgentsMd = true;
+      addMessage('assistant', "Created AGENTS.md from the project's build and test commands. Edit it to add project specifics.");
+      render();
+    }
+
     function runMockTurnRevert(turnID) {
       addToolCard({
         title: 'host.git.revert_turn',
@@ -10382,6 +10404,7 @@
       'open-browser-session',
       'project-new-chat',
       'project-refresh-context',
+      'project-init',
       'project-remove',
       'project-rename',
       'retry-last-turn',
@@ -10722,6 +10745,10 @@
       }
       if (commandID === 'project-refresh-context') {
         if (state.projects.selectedProjectID) runProjectAction('refresh-context', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'project-init') {
+        if (state.projects.selectedProjectID) runMockInitProject();
         return;
       }
       if (commandID === 'project-rename') {
@@ -13524,6 +13551,9 @@
         return;
       } else if (/^\/git-?status\b/i.test(text)) {
         runGitStatusAction();
+        return;
+      } else if (/^\/init(-project)?\b/i.test(text)) {
+        runMockInitProject();
         return;
       } else if (isNaturalGitDiffRequest(text)) {
         runGitDiffAction();

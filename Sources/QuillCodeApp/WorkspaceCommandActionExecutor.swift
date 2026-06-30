@@ -62,6 +62,8 @@ extension QuillCodeWorkspaceModel {
             return true
         case .refreshProjectContext(let projectID):
             return refreshProjectContext(projectID)
+        case .initProject(let projectID):
+            return runInitProject(projectID)
         case .setDraft(let draft):
             setDraft(draft)
             return true

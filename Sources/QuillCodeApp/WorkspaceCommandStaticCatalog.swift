@@ -79,6 +79,13 @@ enum WorkspaceCommandStaticCatalog {
                 isEnabled: hasSelectedProject
             ),
             WorkspaceCommandSurface(
+                id: "project-init",
+                title: "Initialize AGENTS.md",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["init", "agents", "scaffold", "instructions", "rules", "generate"],
+                isEnabled: hasSelectedProject
+            ),
+            WorkspaceCommandSurface(
                 id: "project-rename",
                 title: "Rename project",
                 category: WorkspaceCommandPalette.workspaceCategory,

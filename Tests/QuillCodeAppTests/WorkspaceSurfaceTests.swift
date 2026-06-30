@@ -94,6 +94,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "add-ssh-project",
             "project-new-chat",
             "project-refresh-context",
+            "project-init",
             "project-rename",
             "project-remove",
             "toggle-terminal",
