@@ -1,5 +1,24 @@
 # Code Quality Audit
 
+## 2026-06-30 Workspace Symlink-Traversal Hardening (+ stray-file cleanup)
+
+Overall grade after this slice: **A closes a real workspace-escape hole in the file sandbox, tested**.
+
+`FileToolExecutor.resolve(_:)` is the single boundary gate for every file tool (`read`/`write`/`list`/`search`). It bounded paths with `standardizedFileURL` + a trailing-slash prefix check — correct for `..` and absolute paths, but `standardizedFileURL` **does not follow symlinks**. So an agent could `ln -s / workspace/escape` (via the shell) and then `host.file.write workspace/escape/tmp/evil` to write **outside the workspace boundary** — defeating the file sandbox.
+
+| Before | After |
+| --- | --- |
+| Only a lexical (`..`-resolved) boundary check; a symlink inside the workspace pointing outside slipped through. | After the lexical check, `resolve` re-checks the **symlink-resolved** path against the **symlink-resolved** root. Both sides are resolved because the workspace root is itself often a symlink on macOS (`/tmp`→`/private/tmp`, `/var`→`/private/var`) — so the existing temp-dir tests still pass (verified). |
+| — | A not-yet-created write target is handled correctly: `symlinkResolvedPath` resolves the deepest *existing* ancestor's symlinks and re-appends the missing tail (`resolvingSymlinksInPath` only follows symlinks for the portion that exists). |
+| — | Tests: a symlink escaping the workspace is rejected for both write and read (and asserts no file was created outside), a symlink pointing *inside* the workspace still works, and the existing in-workspace / `..` / macOS-temp-dir cases are unchanged. |
+| Stray `t` (a 53 KB compiled binary) and `t.swift` were accidentally committed to `main` in #703 (a review agent's symlink/atomic-write repro swept in by `git add -A`). | Both removed, and single-letter scratch names (`/t`, `/t.swift`) added to `.gitignore` to stop the recurrence. |
+
+Adversarial-review note (verdict SHIP — the implementation was verified sound: the reviewer compiled the boundary logic and confirmed every escape vector — top-level, mid-path, nested chain, absolute-arg, relative-target — is blocked with no false positives). Two follow-ups surfaced: (1) added the missing high-risk-vector tests (mid-path symlink, nested `a→b→outside` chain, and `list`/`search` escapes — all four file tools share the `resolve()` gate); (2) **the sibling patch tools are a documented follow-up** — `apply_patch` (`PatchToolExecutor.isUnsafeDiffPath`) and the git hunk tools (`GitInputValidator.safeRelativePath`) still use the *lexical-only* check this PR abandons in `FileToolExecutor`. There is **no live exploit** (their writes go through `git apply`, which itself rejects "affected file … is beyond a symbolic link"), but the trust boundary is inconsistent — a next PR should route those validators through the same symlink-resolved `isInside` so the sandbox does not silently depend on git's internal behavior.
+
+Residual risk:
+
+- The check is at resolve time (a small TOCTOU window exists between resolve and the actual write, as with any path check; not exploitable by the single-threaded tool executor). The symlink-resolved boundary closes the practical escape (a pre-created symlink). The agent's `host.shell.run` is governed separately by the safety reviewer, not this path bound.
+
 ## 2026-06-30 Disable the Interactive Pager in the Terminal PTY
 
 Overall grade after this slice: **A fixes a real hang on the most common terminal commands, tested**.
