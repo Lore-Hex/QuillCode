@@ -39,6 +39,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 Drive the QuillCode test harness with mock LLM:
 
+- **Visual smoke (`tests/visual.spec.ts`, `npm run test:visual`)** - captures faithful real-DOM screenshots of key flow states (empty workspace, populated conversation, command palette, settings, terminal) and asserts each state, so the rendered UI is actually *looked at* on every change. The native `ImageRenderer` PNG smoke can't snapshot a `TextField` (renders as a placeholder bar) or a `ScrollView`'s lazy content (renders the transcript pane empty), so it is unusable for judging visual quality; this captures the real browser DOM. Set `QUILLCODE_VISUAL_SMOKE_ARTIFACT_DIR` (CI sets it and uploads the gallery as the `quillcode-visual-ui` artifact) to collect the PNGs for PR inspection.
 - first run
 - login
 - interface polish primitives: root font smoothing, balanced headings, pretty short text, tabular dynamic numbers, 44px hit areas, accessible names, no nested or overlapping interactive targets, unblocked center/inset click points, visible command targets that route to known commands, explicit transitions without `all`, tactile `scale(0.96)` press feedback, concentric panel radii, and image outlines

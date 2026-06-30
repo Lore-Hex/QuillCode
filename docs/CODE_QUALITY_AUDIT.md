@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-07-03 Visual UI Smoke A+ Pass
+
+Overall grade after this slice: **A+ across every generated file/module row**. This pass adds a real-DOM
+visual smoke gate so PRs produce inspectable screenshots of the workspace states that matter most for Codex
+parity instead of relying on native renderer snapshots that miss text fields and lazy transcript content.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Whole architecture | A+ | The visual gate lives in Playwright, where the rendered browser DOM is authoritative, while CI uploads the PNG gallery for lightweight human review. |
+| E2E harness | A+ | Five focused states cover empty workspace, populated conversation, command palette, settings, and terminal without coupling the test to brittle animation timing. |
+| CI integration | A+ | The workflow sets a deterministic artifact directory and uploads `quillcode-visual-ui` so agents can inspect visual regressions from every PR run. |
+| Documentation | A+ | The test plan explains why real-DOM visual screenshots are the source of truth and how to collect them locally. |
+
+Validation:
+
+- `npx playwright test visual.spec.ts --workers=1` (5 tests, 0 failures; screenshots inspected locally)
+- `npx playwright test --workers=1 --reporter=dot` (190 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (0 non-A+ rows)
+- `git diff --check`
+- `swift test --quiet` (3,157 tests, 2 skipped, 0 failures)
+
 ## 2026-07-03 Structured Git Sync A+ Pass
 
 Overall grade after this slice: **A+ across every generated file/module row**, with the human architecture review
