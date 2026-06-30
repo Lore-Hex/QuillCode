@@ -43,7 +43,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "The rendered click-target audit should keep the same 44 px minimum for whole-screen audits and explicit critical-control probes."
         )
         XCTAssertTrue(
-            auditHelperText.contains("MINIMUM_TARGET_CLEARANCE = 6")
+            auditHelperText.contains("MINIMUM_TARGET_CLEARANCE = 8")
                 && auditHelperText.contains("clearanceIssues")
                 && auditHelperText.contains("expectNoAmbiguousAdjacentInteractiveTargets")
                 && auditHelperText.contains("allowsTightClearance")
@@ -119,6 +119,28 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             auditHelperText.contains("dialog[open]")
                 && auditHelperText.contains(#"[role="dialog"]"#),
             "The active-layer audit should cover generic dialogs in addition to QuillCode-specific popovers and panels."
+        )
+    }
+
+    func testRenderedHarnessUsesNamedClearanceTokensForDenseActionClusters() throws {
+        let harnessText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            harnessText.contains("--hit-target-clearance: 8px")
+                && harnessText.contains("--control-cluster-gap: 10px"),
+            "The rendered harness should expose named click-target clearance tokens that mirror the native design metrics."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".model-category { display: grid; gap: var(--hit-target-clearance); }")
+                && harnessText.contains(".model-actions {\n      display: flex;\n      gap: var(--hit-target-clearance);")
+                && harnessText.contains(".browser-nav-controls {\n      display: grid;\n      grid-template-columns: repeat(3, var(--hit-target)) minmax(72px, auto);\n      gap: var(--hit-target-clearance);")
+                && harnessText.contains(".sidebar-saved-search-row {\n      display: grid;\n      grid-template-columns: minmax(0, 1fr) var(--hit-target) var(--hit-target) var(--hit-target);\n      align-items: center;\n      gap: var(--hit-target-clearance);")
+                && harnessText.contains(".slash-suggestion-list {\n      display: grid;\n      gap: var(--hit-target-clearance);"),
+            "Dense rendered action groups should use the shared clearance token instead of local 6 px gaps that make adjacent targets ambiguous."
         )
     }
 
@@ -543,9 +565,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native action buttons should use one shared tone-aware style that owns the visible surface, 44 pt minimum, press feedback, and tappable shape."
         )
         XCTAssertTrue(
-            designText.contains("static let controlClusterSpacing: CGFloat = 8")
-                && designText.contains("static let denseControlClusterSpacing: CGFloat = 6"),
-            "Dense control groups should use named spacing metrics so adjacent 44 pt hit targets do not drift into overlap-prone magic numbers."
+            designText.contains("static let controlClusterSpacing: CGFloat = 10")
+                && designText.contains("static let denseControlClusterSpacing: CGFloat = 8"),
+            "Dense control groups should use named spacing metrics that still clear adjacent 44 pt hit targets instead of overlap-prone magic numbers."
         )
     }
 
@@ -962,7 +984,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && clickProbeValidatorText.contains("allowsNestedInteractiveChildren")
                 && clickProbeValidatorText.contains("requiresUnblockedInterior")
                 && clickProbeValidatorText.contains("requiredPeerClearance")
-                && clickProbeValidatorText.contains("MINIMUM_TARGET_CLEARANCE = 6")
+                && clickProbeValidatorText.contains("MINIMUM_TARGET_CLEARANCE = 8")
                 && clickProbeValidatorText.contains("collisionScope")
                 && clickProbeValidatorText.contains("nested-child policy drift")
                 && clickProbeValidatorText.contains("interior-blocking policy drift")

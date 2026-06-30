@@ -300,8 +300,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(probePolicy["collisionScope"] as? String, "composer:composer")
         XCTAssertEqual(probePolicy["allowsNestedInteractiveChildren"] as? Bool, false)
         XCTAssertEqual(probePolicy["requiresUnblockedInterior"] as? Bool, true)
-        XCTAssertEqual(probePolicy["requiredPeerClearance"] as? Double, 6)
-        XCTAssertEqual(manifestObject["minimumTargetClearance"] as? Int, 6)
+        XCTAssertEqual(probePolicy["requiredPeerClearance"] as? Double, 8)
+        XCTAssertEqual(manifestObject["minimumTargetClearance"] as? Int, 8)
         XCTAssertEqual(manifestObject["collisionScopes"] as? [String], ["composer:composer"])
         XCTAssertEqual(manifestObject["samplePointNames"] as? [String], [
             "bottom-edge",
@@ -334,14 +334,14 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(readinessObject["launchServicesMatchesDirect"] as? Bool, true)
         XCTAssertEqual(readinessObject["clickProbeCount"] as? Int, 1)
         XCTAssertEqual(readinessObject["minimumHitTarget"] as? Int, 44)
-        XCTAssertEqual(readinessObject["minimumTargetClearance"] as? Int, 6)
+        XCTAssertEqual(readinessObject["minimumTargetClearance"] as? Int, 8)
         let readinessPolicies = try XCTUnwrap(readinessObject["clickProbePolicies"] as? [[String: Any]])
         let readinessPolicy = try XCTUnwrap(readinessPolicies.first)
         XCTAssertEqual(readinessPolicy["contractID"] as? String, "composer.send")
         XCTAssertEqual(readinessPolicy["collisionScope"] as? String, "composer:composer")
         XCTAssertEqual(readinessPolicy["allowsNestedInteractiveChildren"] as? Bool, false)
         XCTAssertEqual(readinessPolicy["requiresUnblockedInterior"] as? Bool, true)
-        XCTAssertEqual(readinessPolicy["requiredPeerClearance"] as? Double, 6)
+        XCTAssertEqual(readinessPolicy["requiredPeerClearance"] as? Double, 8)
         XCTAssertEqual(readinessObject["requiredSamplePointNames"] as? [String], [
             "bottom-edge",
             "bottom-interior",
@@ -424,7 +424,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "requiresUnblockedInterior": true,
                 "requiredMinWidth": 44,
                 "requiredMinHeight": 44,
-                "requiredPeerClearance": 6,
+                "requiredPeerClearance": 8,
                 "samplePoints": [
                   {"name": "center", "x": 0.5, "y": 0.5},
                   {"name": "leading-edge", "x": 0.08, "y": 0.5},
@@ -536,7 +536,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "requiresUnblockedInterior": true,
                 "requiredMinWidth": 44,
                 "requiredMinHeight": 44,
-                "requiredPeerClearance": 6,
+                "requiredPeerClearance": 8,
                 "samplePoints": [
                   {"name": "center", "x": 0.5, "y": 0.5},
                   {"name": "leading-edge", "x": 0.08, "y": 0.5},
@@ -579,7 +579,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "requiresUnblockedInterior": true,
                 "requiredMinWidth": 44,
                 "requiredMinHeight": 44,
-                "requiredPeerClearance": 6,
+                "requiredPeerClearance": 8,
                 "samplePoints": [
                   {"name": "center", "x": 0.5, "y": 0.5},
                   {"name": "leading-edge", "x": 0.08, "y": 0.5},
