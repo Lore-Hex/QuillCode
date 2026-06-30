@@ -1,5 +1,41 @@
 # Code Quality Audit
 
+## 2026-06-30 Omnibus Test Architecture Split
+
+Overall grade after this slice: **A+/A production modules, A safety tests, A E2E Playwright module, A- parity tests with residual long-line gates**.
+
+This pass addressed the largest maintainability risks called out by the deterministic grader without changing product behavior: broad regression suites that had grown into omnibus files. The work kept assertions intact and moved them into feature-owned test files so future agents can modify a single concern without reading thousands of unrelated lines.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Parity interaction gates | `ParityInteractionTargetGateTests.swift` mixed rendered HTML audits, native interaction contracts, source scans, and temp fixtures in one 2,500+ line file. | Split into HTML support, Swift source support, native contract/source audit gates, temp-file support, and the focused rendered gate. No C-grade files remain. |
+| Safety policy tests | `SafetyTests.swift` mixed shell, download, general policy, and PR policy scenarios in one 1,300+ line class. | Split into shell, download, general, PR, and shared fixture files. Download cases now use structured command JSON helpers and review assertion helpers. Safety test module is now **A**. |
+| HTML parity gates | One HTML gate file mixed renderer coverage, renderer delegation, interactive primitive contracts, and the architecture guard. | Split into coverage, delegation, interaction primitive, and small architecture guard files. |
+| Workspace parity gates | Workspace execution, surface, Playwright-focused spec, and model gates each combined unrelated architecture concerns. | Split by ownership: composer/send/session, slash, tool lifecycle, model state/context, thread/config, activity/test-support, native surfaces, review surfaces, and Playwright feature families. |
+| Playwright interaction audit | `interaction-audit.spec.ts` mixed registry, fixture, edge-control, responsive, and broad workspace-state checks. | Split into focused specs plus a shared routability helper; the focused Playwright suite passes locally. |
+
+Current module grades from `docs/CODE_QUALITY_FILE_GRADES.md`:
+
+- `source:QuillCodeAgent`, `source:QuillCodeApp`, `source:QuillCodePersistence`, `source:QuillCodeTools`, `source:quill-code`, and desktop targets are **A+**.
+- `source:QuillCodeCore`, `source:QuillCodeSafety`, `source:QuillComputerUseKit`, `e2e:playwright`, and most test modules are **A** or better.
+- `test:QuillCodeParityTests` remains **A-** because many parity gates intentionally assert exact source strings and therefore have long assertion lines. The residual B files are review debt, not new product architecture debt.
+
+Verification targets:
+
+- `swift test --filter Safety`
+- `swift test --filter ParityHTML`
+- `swift test --filter ParityWorkspaceExecution`
+- `swift test --filter ParityWorkspaceSurface --filter ParityWorkspacePlaywrightFocusedSpec --filter ParityWorkspaceReviewSurface`
+- `swift test --filter ParityWorkspacePlaywright`
+- `swift test --filter ParityWorkspaceModel`
+- `swift test --filter ParityInteractionTargetGateTests --filter ParityNativeInteractionContractGateTests --filter ParityNativeSourceInteractionAuditGateTests`
+- `npx playwright test tests/interaction-audit.spec.ts tests/interaction-audit-registry.spec.ts tests/interaction-audit-fixtures.spec.ts tests/interaction-audit-edge-controls.spec.ts tests/interaction-audit-responsive.spec.ts`
+
+Residual risk:
+
+- `interaction-audit-helpers.ts`, `ParityNativeSourceInteractionAuditGateTests.swift`, and a handful of older parity/test files remain B/B+. They are dense audit harnesses or string-contract files; raising them further should be done by extracting domain helpers, not by weakening coverage.
+- Production module architecture is already high-scoring. Future A+ work should prioritize feature seams that reduce public declaration concentration and repeated test setup rather than broad formatting churn.
+
 ## 2026-06-30 Sidebar Toggle Architecture Grade Pass
 
 Overall grade after this slice: **A command routing, A native/static/harness parity, A- repo-wide file size profile**.
