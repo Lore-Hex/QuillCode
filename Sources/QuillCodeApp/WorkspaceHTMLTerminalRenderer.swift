@@ -14,6 +14,7 @@ enum WorkspaceHTMLTerminalRenderer {
             \(WorkspaceHTMLPrimitives.button(
                 "Clear",
                 testID: "terminal-clear",
+                hitTargetKind: .text,
                 disabled: !terminal.canClear
             ))
             \(jobControlButton(terminal))
@@ -27,6 +28,7 @@ enum WorkspaceHTMLTerminalRenderer {
                 terminal.commandActionTitle,
                 testID: "terminal-run",
                 type: "submit",
+                hitTargetKind: .text,
                 disabled: !terminal.canSubmitDraft
             ))
           </form>
@@ -38,10 +40,10 @@ enum WorkspaceHTMLTerminalRenderer {
     /// exclusive). Nothing renders when no command is running.
     private static func jobControlButton(_ terminal: TerminalSurface) -> String {
         if terminal.canResume {
-            return WorkspaceHTMLPrimitives.button("Resume", testID: "terminal-resume")
+            return WorkspaceHTMLPrimitives.button("Resume", testID: "terminal-resume", hitTargetKind: .text)
         }
         if terminal.canSuspend {
-            return WorkspaceHTMLPrimitives.button("Suspend", testID: "terminal-suspend")
+            return WorkspaceHTMLPrimitives.button("Suspend", testID: "terminal-suspend", hitTargetKind: .text)
         }
         return ""
     }

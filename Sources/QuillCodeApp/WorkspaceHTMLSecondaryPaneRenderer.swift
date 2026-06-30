@@ -125,16 +125,16 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
             }.joined(separator: "\n")
         }
         let createButton = automations.createThreadFollowUpCommand.map { command in
-            commandButton(command.title, testID: "automation-create-follow-up", commandID: command.id, disabled: !command.isEnabled)
+            commandButton(command.title, testID: "automation-create-follow-up", commandID: command.id, hitTargetKind: .formAction, disabled: !command.isEnabled)
         } ?? ""
         let createWorkspaceButton = automations.createWorkspaceScheduleCommand.map { command in
-            commandButton(command.title, testID: "automation-create-workspace-schedule", commandID: command.id, disabled: !command.isEnabled)
+            commandButton(command.title, testID: "automation-create-workspace-schedule", commandID: command.id, hitTargetKind: .formAction, disabled: !command.isEnabled)
         } ?? ""
         let scheduleButtons = automations.scheduleThreadFollowUpCommands.map { command in
-            commandButton(command.title, testID: "automation-schedule-follow-up", commandID: command.id, disabled: !command.isEnabled)
+            commandButton(command.title, testID: "automation-schedule-follow-up", commandID: command.id, hitTargetKind: .formAction, disabled: !command.isEnabled)
         }.joined(separator: "\n")
         let workspaceScheduleButtons = automations.scheduleWorkspaceScheduleCommands.map { command in
-            commandButton(command.title, testID: "automation-schedule-workspace", commandID: command.id, disabled: !command.isEnabled)
+            commandButton(command.title, testID: "automation-schedule-workspace", commandID: command.id, hitTargetKind: .formAction, disabled: !command.isEnabled)
         }.joined(separator: "\n")
         let createActions = [createButton, createWorkspaceButton, scheduleButtons, workspaceScheduleButtons]
             .filter { !$0.isEmpty }
@@ -276,14 +276,14 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         var buttons: [String] = []
         if let commandID = workflow.runCommandID,
            let title = workflow.runActionTitle {
-            buttons.append(commandButton(title, testID: "automation-run", commandID: commandID))
+            buttons.append(commandButton(title, testID: "automation-run", commandID: commandID, hitTargetKind: .formAction))
         }
         if let commandID = workflow.primaryCommandID,
            let title = workflow.primaryActionTitle {
-            buttons.append(commandButton(title, testID: "automation-primary-action", commandID: commandID))
+            buttons.append(commandButton(title, testID: "automation-primary-action", commandID: commandID, hitTargetKind: .formAction))
         }
         if let commandID = workflow.deleteCommandID {
-            buttons.append(commandButton("Delete", testID: "automation-delete", commandID: commandID))
+            buttons.append(commandButton("Delete", testID: "automation-delete", commandID: commandID, hitTargetKind: .formAction))
         }
         guard !buttons.isEmpty else { return "" }
         return #"<div class="automation-actions">\#(buttons.joined(separator: "\n"))</div>"#
@@ -377,7 +377,7 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         _ label: String,
         testID: String,
         commandID: String,
-        hitTargetKind: WorkspaceHTMLHitTargetKind = .text,
+        hitTargetKind: WorkspaceHTMLHitTargetKind,
         classes: [String] = [],
         disabled: Bool = false
     ) -> String {
