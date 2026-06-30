@@ -55,6 +55,8 @@ enum SlashCommandCatalog {
         .init(usage: "/terminal", title: "Toggle terminal", detail: "Show or hide the integrated workspace terminal.", insertText: "/terminal", aliases: ["term", "shell"]),
         .init(usage: "/terminal clear", title: "Clear terminal history", detail: "Clear completed integrated-terminal history without resetting cwd or environment.", insertText: "/terminal clear", aliases: ["term clear", "shell clear"]),
         .init(usage: "/browser", title: "Toggle browser", detail: "Show or hide the browser preview panel.", insertText: "/browser", aliases: ["preview"]),
+        .init(usage: "/diff", title: "Review diff", detail: "Show the working-tree git diff in the review pane.", insertText: "/diff", aliases: ["changes", "git diff"]),
+        .init(usage: "/git-status", title: "Git status", detail: "Show the git status of the selected project.", insertText: "/git-status", aliases: ["gitstatus", "git status"]),
         .init(usage: "/memories", title: "Show memories", detail: "Show loaded global and project memories.", insertText: "/memories", aliases: ["memory"]),
         .init(usage: "/remember text", title: "Add memory", detail: "Save an explicit global memory after redaction checks.", insertText: "/remember ", aliases: []),
         .init(usage: "/worktrees", title: "List worktrees", detail: "List git worktrees for the selected project.", insertText: "/worktrees", aliases: ["worktree", "wt"]),

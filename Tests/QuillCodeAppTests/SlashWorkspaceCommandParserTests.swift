@@ -5,6 +5,8 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
     func testSupportsWorkspaceAliases() {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("browser"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preview"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("git-status"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktree"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktrees"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("wt"))
@@ -16,6 +18,13 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "preview"), .workspaceCommand("toggle-browser"))
         XCTAssertEqual(SlashCommandParser.parse("/browser"), .workspaceCommand("toggle-browser"))
         XCTAssertEqual(SlashCommandParser.parse("/preview"), .workspaceCommand("toggle-browser"))
+    }
+
+    func testGitDiffAndStatusAliasesRunGitCommands() {
+        XCTAssertEqual(SlashCommandParser.parse("/diff"), .workspaceCommand("git-diff"))
+        XCTAssertEqual(SlashCommandParser.parse("/changes"), .workspaceCommand("git-diff"))
+        XCTAssertEqual(SlashCommandParser.parse("/git-status"), .workspaceCommand("git-status"))
+        XCTAssertEqual(SlashCommandParser.parse("/gitstatus"), .workspaceCommand("git-status"))
     }
 
     func testWorktreeAliasesListGitWorktrees() {

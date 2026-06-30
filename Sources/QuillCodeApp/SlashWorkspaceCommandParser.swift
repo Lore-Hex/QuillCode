@@ -4,6 +4,8 @@ enum SlashWorkspaceCommandParser {
     static func supports(_ name: String) -> Bool {
         switch normalizedName(name) {
         case "browser", "preview",
+             "diff", "changes",
+             "git-status", "gitstatus",
              "worktree", "worktrees", "wt":
             return true
         default:
@@ -15,6 +17,10 @@ enum SlashWorkspaceCommandParser {
         switch normalizedName(name) {
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
+        case "diff", "changes":
+            return .workspaceCommand("git-diff")
+        case "git-status", "gitstatus":
+            return .workspaceCommand("git-status")
         case "worktree", "worktrees", "wt":
             return SlashWorktreeCommandParser.parse(argument)
         default:
