@@ -32,7 +32,7 @@ struct QuillCodeWorktreeOpenView: View {
                 footer: "Opening is limited to worktrees registered by git."
             )
         } footer: {
-            HStack {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodeActionButtonStyle())
@@ -77,7 +77,7 @@ struct QuillCodeWorktreeCreateView: View {
                 footer: "Leave branch or base blank to use git defaults."
             )
         } footer: {
-            HStack {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodeActionButtonStyle())
@@ -126,7 +126,7 @@ struct QuillCodeWorktreeRemoveView: View {
             Toggle("Force removal", isOn: $draft.force)
                 .quillCodeSwitchRowTarget()
         } footer: {
-            HStack {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodeActionButtonStyle())
@@ -161,7 +161,7 @@ struct QuillCodeWorktreePruneView: View {
                 prunePreviewContent
             }
         } footer: {
-            HStack(alignment: .center) {
+            HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Text("Prune runs `git worktree prune --verbose` for the selected project.")
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)

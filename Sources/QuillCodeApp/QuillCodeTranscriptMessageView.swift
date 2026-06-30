@@ -13,7 +13,7 @@ struct QuillCodeMessageBubble: View {
     var onRevertTurn: (UUID) -> Void = { _ in }
 
     var body: some View {
-        HStack {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             if message.role == .user {
                 Spacer(minLength: 80)
             }
