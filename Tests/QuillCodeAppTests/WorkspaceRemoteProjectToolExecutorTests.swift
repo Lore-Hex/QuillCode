@@ -62,6 +62,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             "ConnectTimeout=4",
             "-p",
             "2222",
+            "--",
             "quill@feather.local",
             "cd '/srv/quill repo' && pwd"
         ])

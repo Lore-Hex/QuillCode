@@ -167,7 +167,7 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.terminal.entries.first?.executionContext?.label, "SSH Remote")
         XCTAssertEqual(surface.terminal.entries.first?.executionContext?.detail, "feather.local")
         let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
-        XCTAssertTrue(arguments.contains("-T\n-o\nBatchMode=yes\n-o\nConnectTimeout=4\n-p\n2222\nquill@feather.local\n"))
+        XCTAssertTrue(arguments.contains("-T\n-o\nBatchMode=yes\n-o\nConnectTimeout=4\n-p\n2222\n--\nquill@feather.local\n"))
         XCTAssertTrue(arguments.contains("cd '/srv/quill repo' &&"))
         XCTAssertTrue(arguments.contains("printf remote-terminal"))
         XCTAssertTrue(arguments.contains("__QUILLCODE_TERMINAL_"))
