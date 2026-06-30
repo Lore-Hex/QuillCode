@@ -1,5 +1,19 @@
 # Code Quality Audit
 
+## 2026-06-30 Harden SSH Remote Exec Against Option Injection
+
+Moving the audit beyond the auto-mode safety policy into another security-relevant subsystem — SSH remote execution. `SSHRemoteShellExecutor` correctly single-quotes every assembled argument (no *local* shell injection), but the **destination** (`user@host`) was passed to `ssh` with no `--` terminator, and `isValidDestinationComponent` rejected whitespace/NUL but **not a leading `-`**. A host parsed as an option is the classic ssh-injection RCE (the same class git and others have patched).
+
+| Before | After |
+| --- | --- |
+| `ssh -T -o … [-p port] user@host <remote-cmd>`. A connection whose host is `-oProxyCommand=…` (reachable: `parseSSH("-oProxyCommand=touch${IFS}/tmp/pwned:/path")` sets `host` to that string, which passed validation) is read by `ssh` as an **option**, running a **local** command via `ProxyCommand` — local RCE when the agent runs *any* remote `shell.run`. | `isValidDestinationComponent` also rejects a leading `-` (host **and** user), and the arguments now insert `--` before the destination (`ssh … -- user@host <remote-cmd>`) so it can never be parsed as an option. Belt-and-suspenders. |
+
+Verification — **non-vacuous**, proven by reverting only the source: `testSSHRemoteShellRejectsOptionInjectingDestination` (a `-oProxyCommand=…` host/user) and `testSSHRemoteShellTerminatesOptionsBeforeDestination` both **fail** without the fix (the request is built and the ssh command literally carries the injecting option). The existing SSH-argument assertions across four integration tests were updated to include the `--`, confirming the terminator is present on every remote path. `swift test` 1919 green · native smoke clean.
+
+Residual risk:
+
+- The SSH connection is user-configured, so this is primarily a defense against a user pasting a crafted `/ssh …` string (social engineering) — but it is a real reachable local-RCE class and the fix is the standard mitigation. The single-quote escaping of the command/path/env was already correct.
+
 ## 2026-06-30 Close the Download Host-Gate SSRF
 
 The final hole in the download carve-out (the documented follow-up from #728). After all the segment/flag/output hardening, the **host gate** was still a substring match: `requestedHosts.contains { lowerCommand.contains(host) }`. The authorized host could appear anywhere in the command — an `-e` referer or `-H` header — while the *actual* fetched URL pointed elsewhere.

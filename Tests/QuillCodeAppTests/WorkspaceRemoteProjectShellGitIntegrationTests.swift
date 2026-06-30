@@ -53,6 +53,7 @@ final class WorkspaceRemoteProjectShellGitIntegrationTests: XCTestCase {
             "ConnectTimeout=4",
             "-p",
             "2222",
+            "--",
             "quill@feather.local",
             "cd '/srv/quill' && pwd"
         ])
@@ -101,7 +102,7 @@ final class WorkspaceRemoteProjectShellGitIntegrationTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("README.md"), result.stdout)
 
         let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
-        XCTAssertTrue(arguments.contains("-p\n2222\nquill@feather.local\n"), arguments)
+        XCTAssertTrue(arguments.contains("-p\n2222\n--\nquill@feather.local\n"), arguments)
         XCTAssertTrue(
             arguments.contains("cd '\(remoteRoot.path.replacingOccurrences(of: "'", with: "'\\''"))' && git status --short --branch"),
             arguments

@@ -195,6 +195,7 @@ final class ShellToolExecutorTests: XCTestCase {
             "ConnectTimeout=7",
             "-p",
             "2222",
+            "--",
             "quill@feather.local",
             "cd '/srv/quill repo' && printf 'hi there'"
         ])
@@ -229,5 +230,27 @@ final class ShellToolExecutorTests: XCTestCase {
             command: "pwd",
             connection: .ssh(path: "/srv/quill", host: "feather.local", port: 70_000)
         ))
+    }
+
+    func testSSHRemoteShellRejectsOptionInjectingDestination() {
+        // A host/user beginning with `-` would be parsed by ssh as an option flag (e.g.
+        // `-oProxyCommand=…` runs a local command), so it must be rejected outright.
+        XCTAssertNil(SSHRemoteShellExecutor().request(
+            command: "pwd",
+            connection: .ssh(path: "/srv/quill", host: "-oProxyCommand=touch${IFS}/tmp/pwned")
+        ))
+        XCTAssertNil(SSHRemoteShellExecutor().request(
+            command: "pwd",
+            connection: .ssh(path: "/srv/quill", host: "feather.local", user: "-oProxyCommand=x")
+        ))
+    }
+
+    func testSSHRemoteShellTerminatesOptionsBeforeDestination() throws {
+        // Defense-in-depth: `--` precedes the destination so it can never be read as an option.
+        let request = try XCTUnwrap(SSHRemoteShellExecutor(sshExecutable: "ssh-test").request(
+            command: "pwd",
+            connection: .ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        ))
+        XCTAssertTrue(request.command.contains("'--' 'quill@feather.local'"), request.command)
     }
 }

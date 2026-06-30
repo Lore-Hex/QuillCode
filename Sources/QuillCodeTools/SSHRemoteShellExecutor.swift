@@ -40,6 +40,10 @@ public struct SSHRemoteShellExecutor: Sendable {
         if let port = connection.port {
             arguments.append(contentsOf: ["-p", "\(port)"])
         }
+        // `--` ends ssh option parsing so the destination can never be mistaken for an option (e.g. a
+        // host like `-oProxyCommand=…` injecting a local command). Belt-and-suspenders with the
+        // leading-`-` rejection in isValidDestinationComponent.
+        arguments.append("--")
         arguments.append(Self.destination(host: host, user: connection.user))
         arguments.append(remoteCommand)
 
@@ -57,7 +61,11 @@ public struct SSHRemoteShellExecutor: Sendable {
     }
 
     private static func isValidDestinationComponent(_ value: String) -> Bool {
-        !value.isEmpty && !value.contains { $0.isWhitespace || $0 == "\u{0}" }
+        // Reject a leading `-` so a host/user can never be parsed by ssh as an option flag
+        // (`-oProxyCommand=…` would run a local command). Whitespace/NUL are rejected too.
+        !value.isEmpty
+            && !value.hasPrefix("-")
+            && !value.contains { $0.isWhitespace || $0 == "\u{0}" }
     }
 
     private static func isValidPort(_ port: Int) -> Bool {
