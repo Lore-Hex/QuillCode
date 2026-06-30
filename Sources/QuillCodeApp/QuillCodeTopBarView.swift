@@ -71,6 +71,22 @@ struct QuillCodeTopBarView: View {
                     // The branch is already announced via the top bar's combined label.
                     .accessibilityHidden(true)
             }
+
+            if let usageStatusLabel = topBar.usageStatusLabel {
+                Text(usageStatusLabel)
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(QuillCodePalette.background.opacity(0.6))
+                    )
+                    // The usage is already announced via the top bar's combined label.
+                    .accessibilityHidden(true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -106,6 +122,9 @@ struct QuillCodeTopBarView: View {
         var label = "\(topBar.primaryTitle), \(topBar.subtitle), \(agentStatus.accessibilityLabel)"
         if let branchStatusLabel = topBar.branchStatusLabel {
             label += ", branch: \(branchStatusLabel)"
+        }
+        if let usageStatusLabel = topBar.usageStatusLabel {
+            label += ", token usage: \(usageStatusLabel)"
         }
         if let runtimeIssue {
             label += ", issue: \(runtimeIssue.label)"

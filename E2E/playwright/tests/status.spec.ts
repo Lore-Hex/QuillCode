@@ -56,3 +56,35 @@ test('mock harness surfaces the branch and ahead/behind chip after a git status'
   await page.getByTestId('add-project-button').click();
   await expect(page.getByTestId('top-bar-branch')).toHaveCount(0);
 });
+
+test('mock harness surfaces the token-usage chip after a turn completes', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // No usage chip until a turn reports usage.
+  await expect(page.getByTestId('top-bar-usage')).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('Run the tests');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('top-bar-usage')).toBeVisible();
+  await expect(page.getByTestId('top-bar-usage')).toContainText('ctx');
+  await expect(page.getByTestId('top-bar-usage')).toContainText('↑');
+  // Additive: the existing subtitle is unchanged.
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode');
+
+  // The chip is per-thread, so a fresh thread shows nothing until its own first turn.
+  await page.getByTestId('new-chat-button').click();
+  await expect(page.getByTestId('top-bar-usage')).toHaveCount(0);
+});
+
+test('mock harness token abbreviator matches the Swift boundary table byte-for-byte', async ({ page }) => {
+  await page.goto(harnessURL());
+  // Drives the JS twin of WorkspaceTokenUsageLabelBuilder.abbreviate (Swift) across the
+  // same boundaries asserted in WorkspaceTokenUsageLabelBuilderTests, so the two formatters
+  // can't drift (esp. the 999999 -> "1m" unit-roll case the normal flow never reaches).
+  const results = await page.evaluate(() => {
+    const abbreviate = (window as Window & { abbreviateTokens?: (n: number) => string }).abbreviateTokens;
+    return [0, 999, 1000, 1050, 1500, 12000, 999949, 999999, 1000000, 1500000].map(value => abbreviate?.(value));
+  });
+  expect(results).toEqual(['0', '999', '1k', '1.1k', '1.5k', '12k', '999.9k', '1m', '1m', '1.5m']);
+});

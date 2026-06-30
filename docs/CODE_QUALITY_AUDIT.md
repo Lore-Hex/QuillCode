@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 Top-Bar Token-Usage Chip Pass
+
+Overall grade after this slice: **A surfacing of existing data, A cross-surface parity**.
+
+Surfaces the model's reported token usage as a quiet, non-interactive top-bar chip (`847 ctx · ↑500 ↓347`, tabular digits) — satisfying `docs/CODEX_RESEARCH.md`'s explicit ask for "fixed-width numeric/status zones with tabular digits so token counts never cause layout jitter". Picked by a docs-grounded scout/judge-panel; the data was already parsed but invisible until the context-limit banner tripped.
+
+| Before | After |
+| --- | --- |
+| `ModelTokenUsage` (prompt/completion/total, computed `contextTokens`) was parsed from TrustedRouter and persisted as a `ThreadEvent`, but ONLY fed `WorkspaceContextBannerBuilder`'s show/hide threshold — the user could never see a turn's usage until already near the limit. | A pure `WorkspaceTokenUsageLabelBuilder.label(for:)` formats the chip string (`<ctx> ctx · ↑<in> ↓<out>` with a k/m abbreviator), formatted ONCE so all three surfaces display the same value. `WorkspaceTopBarSurfaceBuilder` populates `TopBarSurface.usageStatusLabel` from the EXISTING `WorkspaceContextBannerBuilder.latestProviderUsage(for: thread)` extractor — no new event parsing, no new git/network call. |
+| — (design choice) | The chip is **derived fresh per-thread** every `surface()` (no captured/tagged state), so unlike the branch chip it has no staleness to guard — switching threads recomputes from that thread's events. It is rendered by the native top bar (chip cloned from the branch chip, announced via the combined accessibility label), the static HTML renderer (`top-bar-usage`), and the JS harness (set on turn completion, cleared on new chat). The cost/dollar half of the original idea was dropped — no price metadata exists, so a figure would be invented. |
+| No coverage. | `WorkspaceTokenUsageLabelBuilderTests` (nil → nil, exact/k/m abbreviator boundaries, prompt-only/completion-only); `WorkspaceTokenUsageIntegrationTests` (chip reflects the selected thread's latest usage event, uses the most recent, nil without an event, derived-per-thread non-bleed across `selectThread`); `WorkspaceTokenUsageChipRenderTests` (Codable round-trip + **legacy-JSON decode without the key**, HTML renderer emits the chip only when set); Playwright surfaces the chip after a turn and clears it on a fresh thread. No new command ID, no interactive control → routing-parity and hit-target audits untouched. |
+| — (review hardening) | The adversarial review caught that the abbreviator chose its unit on the *raw* value, so `999_999` rendered `1000k` (wrong magnitude **and** 5 glyphs that defeat the narrow-chip goal). Fixed in both Swift and JS to roll the unit on the *rounded* value (`999_999` → `1m`, `999_949` → `999.9k`), an all-zero/malformed usage event now **suppresses** the chip (`guard contextTokens > 0`) instead of showing `0 ctx`, and a Playwright test drives the JS abbreviator across the *same* boundary table the Swift test asserts — so the two formatters can't silently drift even though the normal mock flow never reaches the k/m branches. |
+
+Residual risk:
+
+- The chip shows the most recent turn's provider usage, not a running thread total, and `ctx` (= `max(total, in+out)`) can exceed `in+out` when the provider counts cached/system tokens — a compact readout, not a billing breakdown. A running total, a hover tooltip with the split, and a thread-total mode are natural follow-ups. The harness mock estimates tokens (chars/4) for display; only the *format* mirrors native, not the values.
+
 ## 2026-06-29 Copy Conversation (Markdown Export) Pass
 
 Overall grade after this slice: **A reuse of the existing copy path, A single-source serialization**.
