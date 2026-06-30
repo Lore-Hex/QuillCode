@@ -241,7 +241,7 @@ struct QuillCodeModePickerButton: View {
     }
 
     private var orderedModes: [AgentMode] {
-        [.auto, .plan, .review, .readOnly]
+        AgentMode.cycleOrder
     }
 
     private var selectedModeColor: Color {

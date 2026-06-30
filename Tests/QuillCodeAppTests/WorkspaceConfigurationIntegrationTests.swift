@@ -22,6 +22,25 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.model, "provider/model")
     }
 
+    func testCycleModeAdvancesThroughTheFullRingAndWrapsBack() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let thread = ChatThread(mode: .auto)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        // Auto → Plan → Review → Read-only → Auto (the Codex Shift+Tab ring), driven through the
+        // real `cycle-mode` command id so the whole route (command → planner → executor) is covered.
+        var seen: [AgentMode] = []
+        for _ in 0..<AgentMode.cycleOrder.count {
+            XCTAssertTrue(model.runWorkspaceCommand("cycle-mode", workspaceRoot: root))
+            seen.append(try XCTUnwrap(model.selectedThread?.mode))
+        }
+        XCTAssertEqual(seen, [.plan, .review, .readOnly, .auto])
+        XCTAssertEqual(model.root.topBar.mode, .auto)
+    }
+
     func testToggleModelFavoriteUpdatesConfigAndSurface() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(favoriteModels: ["provider/old"]),

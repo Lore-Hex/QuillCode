@@ -20,6 +20,8 @@ extension QuillCodeWorkspaceModel {
         case .newChat:
             _ = newChat()
             return true
+        case .cycleMode:
+            return cycleMode()
         case .toggleTerminal:
             toggleTerminal()
             return true

@@ -90,6 +90,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "search",
             "find-in-chat",
             "copy-conversation",
+            "cycle-mode",
             "add-project",
             "add-ssh-project",
             "project-new-chat",

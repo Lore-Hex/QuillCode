@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-30 Shift+Tab Mode Cycling Pass
+
+Overall grade after this slice: **A reuse of the command + shortcut rails, A felt-usability win**.
+
+Adds Codex's single most-used shortcut: **Shift+Tab cycles the approval mode** (Auto → Plan → Review → Read-only → Auto). Mode could previously only change by clicking the pill or typing `/mode …`. Picked by a docs-grounded scout that read the parity matrix (every area is "Partial" — the harness is feature-complete) and chose the highest-value *felt* usability gap.
+
+| Before | After |
+| --- | --- |
+| No keyboard shortcut and no `cycle-mode` command id existed; the harness `cycleMode()` was click-only. | A routed `cycle-mode` command (id → `WorkspaceCommandAction` → planner → executor → `model.cycleMode()`) rides the existing command rails; `WorkspaceShortcutRegistry` binds it to **Shift+Tab**, wired on every surface: a native **"Cycle Approval Mode" menu command** (`keyEquivalent` `.tab` + notification → `runWorkspaceCommand("cycle-mode")` — the registry entry is not dead) and the harness global keydown. |
+| The picker order, the (future) cycle, and the harness pill each hard-coded their own mode list. | One canonical `AgentMode.cycleOrder` ring — kept separate from `allCases` (which is discriminant order, `.plan` appended last) — is shared by the picker, `cycleMode()`, and the harness, so the three can't drift. |
+| — (the killer: double-fire) | Shift+Tab while the composer has slash/mention suggestions could fire BOTH suggestion-accept AND cycle-mode. Resolved by having the composer consume only **plain Tab** (`Tab && !shiftKey`) for suggestions, so Shift+Tab cleanly bubbles to the global cycle — mode cycles **even while composing**, and plain Tab still accepts. The Playwright killer test asserts the full ring, plus that a `/mod` draft survives Shift+Tab (cycled, not accepted) while plain Tab accepts it. |
+
+Residual risk:
+
+- **Harness focus guard (fixed):** the adversarial review caught that the global keydown fired the `cycle-mode` shortcut regardless of focus, so Shift+Tab in a search box / terminal / dialog silently flipped the *safety mode* instead of moving focus backward. The handler now only lets a Tab-bound shortcut fire when focus is the composer (`aria-label="Message"`) or not an editable field — proven by `Shift+Tab does not cycle mode while focus is in a non-composer input`.
+- **Native macOS (documented tradeoff):** the menu `keyEquivalent(.tab, .shift)` is matched by the main menu before the responder chain, so on native it likewise takes Shift+Tab from AppKit's reverse focus-traversal app-wide (forward Tab and Cmd-nav unaffected). This is inherent to binding Codex's Tab-based shortcut on a platform where Tab is focus traversal. A follow-up should scope it via a `FocusedValue`/first-responder guard (disable the menu command when an editable non-composer field holds focus) — verify on-device first. `retry-last-turn` and `focus-composer` shortcuts were deliberately kept out to keep this PR razor-tight.
+
 ## 2026-06-30 Plan Mode Resume Pass (PR2)
 
 Overall grade after this slice: **A safe-by-construction continuation, A reuse of the send loop**.

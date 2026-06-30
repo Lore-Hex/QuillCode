@@ -18,6 +18,8 @@ public struct WorkspaceShortcut: Codable, Sendable, Hashable, Identifiable {
         switch key {
         case "escape":
             keyLabel = "Esc"
+        case "tab":
+            keyLabel = "Tab"
         case "`", ",":
             keyLabel = key
         default:
@@ -39,6 +41,7 @@ public struct WorkspaceShortcut: Codable, Sendable, Hashable, Identifiable {
 public enum WorkspaceShortcutRegistry {
     public static let shortcuts: [WorkspaceShortcut] = [
         WorkspaceShortcut(commandID: "new-chat", key: "n", modifiers: [.command]),
+        WorkspaceShortcut(commandID: "cycle-mode", key: "tab", modifiers: [.shift]),
         WorkspaceShortcut(commandID: "search", key: "k", modifiers: [.command]),
         WorkspaceShortcut(commandID: "find-in-chat", key: "f", modifiers: [.command]),
         WorkspaceShortcut(commandID: "add-project", key: "o", modifiers: [.command]),

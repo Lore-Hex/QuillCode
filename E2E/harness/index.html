@@ -3654,6 +3654,7 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
+        { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
         { id: 'sidebar-filter:all', title: 'Show all chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'all'], isEnabled: true },
         { id: 'sidebar-filter:pinned', title: 'Show pinned chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'pinned'], isEnabled: true },
         { id: 'sidebar-filter:recent', title: 'Show recent chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'recent'], isEnabled: true },
@@ -6686,7 +6687,9 @@
         } else if (suggestions.length && event.key === 'ArrowUp') {
           event.preventDefault();
           moveSlashSuggestion(-1);
-        } else if (suggestions.length && event.key === 'Tab') {
+        } else if (suggestions.length && event.key === 'Tab' && !event.shiftKey) {
+          // Plain Tab accepts the suggestion; Shift+Tab is left to bubble to the global
+          // cycle-mode shortcut, so mode cycling works even while composing.
           event.preventDefault();
           acceptSlashSuggestion({ force: true });
         } else if (mentions.length && event.key === 'ArrowDown') {
@@ -6695,7 +6698,7 @@
         } else if (mentions.length && event.key === 'ArrowUp') {
           event.preventDefault();
           moveFileMentionSuggestion(-1);
-        } else if (mentions.length && event.key === 'Tab') {
+        } else if (mentions.length && event.key === 'Tab' && !event.shiftKey) {
           event.preventDefault();
           acceptFileMentionSuggestion({ force: true });
         } else if (!suggestions.length && !mentions.length && event.key === 'ArrowUp') {
@@ -10389,6 +10392,7 @@
     const harnessStaticCommandIDs = new Set([
       'add-project',
       'add-ssh-project',
+      'cycle-mode',
       'automation-create-thread-follow-up',
       'automation-create-thread-follow-up-every:daily',
       'automation-create-thread-follow-up-tomorrow',
@@ -10678,6 +10682,10 @@
       state.commandPalette.isOpen = false;
       if (commandID === 'new-chat') {
         newChat();
+        return;
+      }
+      if (commandID === 'cycle-mode') {
+        cycleMode();
         return;
       }
       if (commandID === 'thread-rename') {
@@ -13850,9 +13858,26 @@
         candidate.isEnabled && shortcutMatches(event, candidate.shortcut)
       ));
       if (!command) return;
+      // Tab is the universal focus-traversal key. Only let a Tab-bound shortcut (cycle-mode)
+      // fire when focus is on the composer or not in an editable field — otherwise leave
+      // Shift+Tab to move focus backward through search boxes, the terminal, dialogs, etc.,
+      // instead of silently changing the agent's approval mode out from under the user.
+      if (event.key === 'Tab' && !focusAllowsTabShortcut()) return;
       event.preventDefault();
       runCommand(command.id);
     });
+
+    // The composer is the one editable field where Tab shortcuts are intended (Shift+Tab cycles
+    // mode, plain Tab accepts a suggestion). Everywhere else, Tab/Shift+Tab is focus traversal.
+    function focusAllowsTabShortcut() {
+      const active = document.activeElement;
+      if (!active) return true;
+      if (active.getAttribute && active.getAttribute('aria-label') === 'Message') return true;
+      const editable = active.isContentEditable
+        || active.tagName === 'INPUT'
+        || active.tagName === 'TEXTAREA';
+      return !editable;
+    }
 
     window.__quillCodeCommandRoutingAudit = commandRoutingAuditReport;
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;

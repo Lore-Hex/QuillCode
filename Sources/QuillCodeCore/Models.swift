@@ -7,6 +7,10 @@ public enum AgentMode: String, Codable, Sendable, CaseIterable {
     // Appended (not inserted mid-enum) so existing cases keep their discriminants — inserting
     // shifts them and corrupts incremental builds. Menu order is set explicitly elsewhere.
     case plan
+
+    /// The order the top-bar picker, the `Shift+Tab` cycle, and the harness mode pill all advance
+    /// through — kept separate from `allCases` (which is discriminant order) so the UX ring is stable.
+    public static let cycleOrder: [AgentMode] = [.auto, .plan, .review, .readOnly]
 }
 
 public enum ChatRole: String, Codable, Sendable {
