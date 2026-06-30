@@ -1,5 +1,24 @@
 # Code Quality Audit
 
+## 2026-06-30 Recursive Subagent Delegation Pass (scheduler engine)
+
+Overall grade after this slice: **A real infra step, bounded + deterministically tested**.
+
+First slice of the ROADMAP's pending "recursive delegated subagent spawning": the `WorkspaceSubagentScheduler` can now let a worker spawn child workers mid-run, instead of running only the fixed graph it started with — the engine behind a "Builder" subagent delegating "Compile"/"Link" sub-workers.
+
+| Before | After |
+| --- | --- |
+| `WorkspaceSubagentScheduler.run` ran a fixed set of jobs from `request.workers`; a worker returned a summary and could not delegate. | `run(request:progress:spawn:)` takes an optional `Spawner` (`(job, summary) -> [child requests]`). After a worker completes, its returned children are enqueued as new jobs at `depth + 1`, nested under the parent's `groupPath`, and run as roots in the next dependency wave. Passing no spawner (the default) preserves the exact prior flat behavior. |
+| — | **Termination is guaranteed by construction.** Children are refused past `maxDepth` (default 3) and once a run hits `maxTotalJobs` (default 64) — so even a spawner that always delegates halts. Spawned children's names are namespaced under the parent (`Parent/Child`) and de-duplicated, keeping job `id`s (and dependency/progress resolution) unique. |
+| — | Children are applied *after* each wave's task group closes, never mutating `jobs`/`items` while the group still reads them. |
+| — | Five deterministic tests: a child runs to completion nested under its parent at depth+1; recursion stops exactly at `maxDepth`; the total-job ceiling bounds an always-spawning run (proving termination); an empty spawn stays flat; two parents spawning the same child name get distinct jobs. The 9 existing scheduler tests are unchanged (flat-graph behavior identical). |
+
+Adversarial-review improvements (verdict SHIP, no blockers; the high-value concerns — termination, the post-group append vs. in-group reads, index alignment, depth bound — were traced and found sound): three reviewers independently flagged that spawned children ran with **empty `priorResults`**, losing the parent's output. Fixed by making a child depend on its (already-completed) parent, so it inherits the parent's result summary through the *same* `priorResults` plumbing dependent workers use — delegation now carries context. Also: the one `should` (the `#suffix` de-dup branch in `uniqueChildName` had no coverage) is now tested (one parent spawning two same-named children → `Root/Check` + `Root/Check#2`, all ids unique); `startNextWorker()` is dispatched before the spawn `await` so a slow model-driven spawner can't throttle a bounded wave; the `maxDepth` doc clarifies the default of 3 means four levels (0→1→2→3); and an unused test helper was dropped.
+
+Residual risk:
+
+- This is the **engine slice**: the capability is built and tested, but production still calls `run` without a spawner — wiring the model-backed worker (or slash syntax) to actually emit spawn requests is the deliberate follow-up, mirroring how the scheduler itself was landed before model-backing. No behavior change to existing runs.
+
 ## 2026-06-30 Mode-Aware Prompt Guidance Pass
 
 Overall grade after this slice: **A generalizes PR3 cleanly, A closes a real efficiency gap**.
