@@ -10488,3 +10488,20 @@ Code quality changes:
 Remaining risk:
 
 - This samples the live packaged Accessibility frames that are resolved during smoke. The final A+ layer is automated physical click/appshot coverage that clicks every sampled interior point and proves the expected action fires.
+
+## 2026-06-30 Gesture Click-Target Ownership Pass
+
+Overall grade after this slice: **A source-level click-target ownership, A native/desktop coverage, A- live gesture-click sampling**.
+
+The click-target gates already measured geometry, semantic target kinds, collision scopes, command routing, and rendered edge-click ownership. The remaining fast-audit gap was custom SwiftUI gestures: a `.onTapGesture` region can look like a control while bypassing the shared target helpers unless the source gate treats gestures as first-class click targets.
+
+Code quality changes:
+
+- Extended the native source audit to scan visible desktop SwiftUI chrome alongside `Sources/QuillCodeApp`.
+- Added source detection for tap, long-press, simultaneous, high-priority, and generic gesture modifiers, including Swift trailing-closure syntax.
+- Required gesture-owned regions to carry `quillCodeOwnedGestureTarget`, preserving the 44 pt content shape, semantic `ownedGesture` kind, and accessibility traits.
+- Added focused fixtures proving raw gestures fail and explicitly owned gestures pass.
+
+Remaining risk:
+
+- This is a source contract. The next A+ layer is packaged Accessibility automation that resolves owned-gesture contract IDs in a running app, clicks edge/interior points, and verifies the intended action fires.
