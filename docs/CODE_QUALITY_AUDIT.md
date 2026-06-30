@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Changed-File @-Mention Boost Pass
+
+Overall grade after this slice: **A reuse of existing data, A cross-surface scoring parity**.
+
+Composer `@`-mention suggestions now **boost and badge** files with uncommitted changes — the files you're most likely to mention. Reuses the *exact* stdout the branch chip already consumes (`git status --short --branch`), so it adds **no new git invocation and no new command ID**. Scoped by a grounded judge-panel plan and hardened by an adversarial review pass.
+
+| Before | After |
+| --- | --- |
+| The `@` panel ranked files on path text only (200..40), so a freshly edited deep file was buried under shallow text matches; nothing knew which files had changed. | `GitChangedFiles.parse(statusShortBranchOutput:)` (new, in Tools, sibling to `GitBranchStatus`) extracts changed paths from the SAME successful `host.git.status` stdout `WorkspaceToolRunCoordinator` already parses for the branch chip — zero extra git calls. `FileMentionCatalog` applies a flat additive boost (`changedFileBoost = 1000`, above the max text score) and sets `FileMentionSuggestionSurface.isChanged`; the native composer renders a "Changed" pill. |
+| — (review-caught staleness bug) | The file index is rebuilt on *every* tool run (`refreshFileMentionIndex`), so the adversarial review found a committed/cleaned file would keep a stale "Changed" badge for the rest of the session. Fixed: `refreshFileMentionIndex` now **clears** the changed set on every rebuild (the git-status run re-sets it in the same run), so the badge appears right after a git status and drops the moment any later tool runs — never badging a clean file. The set is additionally tagged with `changedFilePathsProjectID` (matched to `selectedProjectID`, the index's own project notion) and exposed via `activeChangedFilePaths`, which drops it on any project-switch path that doesn't rebuild the index — the branch chip's drop-on-mismatch (#695 lesson). Captured at git-status cadence (no extra git invocation). |
+| No coverage. | `GitChangedFilesTests` (modified/untracked/staged/rename-keeps-new/quoted/header-only); `FileMentionCatalogTests` (boost dominates a higher text tier, intra-group text order preserved, empty changed-set is byte-identical to today); integration tests (one git status sets BOTH branch chip and changed set; cross-project non-bleed via identical paths; remote clears the set); Playwright boost-flip with a `Changed` badge + `data-changed`. The JS harness mirrors the boost constant, parser, badge, and project-switch clears byte-for-byte. No new command ID → command-routing parity untouched; the pill reuses the existing row hit-target so the native audit stays green. |
+
+Residual risk:
+
+- The badge reflects the most recent `git status` and clears on the next tool run, so it's an immediate "after you check status, your changed files are highlighted" affordance rather than a persistent live indicator — a deliberate, conservative choice that never badges a clean file. Follow-ups (review-flagged, non-blocking): non-ASCII paths are octal-escaped by git's `core.quotePath` and currently miss the badge (silent false-negative — decode the escapes or pass `-c core.quotePath=false`); the flat 1000 boost can, with ≥6 weakly-matching changed files, push an exact unchanged match past the visible top-6 (an explicit product choice). The shared bounded file-index cap is unchanged.
+
 ## 2026-06-29 Review-Pane Open File Pass
 
 Overall grade after this slice: **A non-mutating read action, A cross-surface parity**.

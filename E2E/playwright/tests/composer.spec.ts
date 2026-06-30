@@ -261,6 +261,31 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
   await expect(page.getByTestId('slash-suggestions')).toBeVisible();
 });
 
+test('mock harness boosts and badges changed files in @ mentions after a git status', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // Before any git status: README.md leads the bare-@ list and nothing is flagged changed.
+  await message.fill('@');
+  await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('README.md');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-changed="true"]')).toHaveCount(0);
+
+  // Run a git status, which reports Sources/App.swift as changed.
+  await message.fill('/git-status');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
+
+  // Now @ floats the changed file to the top with a Changed badge ...
+  await message.fill('@');
+  const first = page.getByTestId('file-mention-suggestion').first();
+  await expect(first).toContainText('Sources/App.swift');
+  await expect(first).toHaveAttribute('data-changed', 'true');
+  await expect(first.getByTestId('file-mention-changed-badge')).toBeVisible();
+  // ... while an unchanged file that also matches is not flagged (cross-surface scoring parity).
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-path="Sources/Agent.swift"]'))
+    .toHaveAttribute('data-changed', 'false');
+});
+
 test('mock harness preserves a separate composer draft per thread', async ({ page }) => {
   await page.goto(harnessURL());
   const message = page.getByLabel('Message');
