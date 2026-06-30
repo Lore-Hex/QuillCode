@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-30 PTY Job Control — Suspend/Resume (terminal engine)
+
+Overall grade after this slice: **A real terminal job control, deterministically tested**.
+
+The ROADMAP's flagged next PTY step ("Job control … remain the next steps"): the workspace terminal can now suspend and resume a running command, like a shell's Ctrl+Z / `fg`.
+
+| Before | After |
+| --- | --- |
+| `PTYProcessSession` could start, send input, resize, and cancel a command, but had no way to pause a long-running one. | `suspend()` stops the child with `SIGSTOP`; `resume()` continues it with `SIGCONT`; `isSuspended` reports state. Lock-guarded and idempotent: no-ops before start, after finish/cancel, on double-suspend, or resume-without-suspend. |
+| — | **Correctness detail handled:** a `SIGSTOP`-ped process does not act on the `SIGTERM` from `terminate()` until it is continued — so `cancel()`, `timeout()`, and the finish safety-net now `SIGCONT`-before-terminate via a shared `terminate(_:wasSuspended:)` helper. Without this, a suspended command would survive cancellation and time-outs. |
+| — | Two deterministic tests (no timing races): a state-machine test (suspend/resume rejected before start and after finish) and a live integration test that suspends a running `read` (a successful `suspend()` both proves the child launched and — `SIGSTOP` being uncatchable — guarantees it is stopped), then resumes and drives the previously-blocked read to completion, asserting on output content (`got:hello`). Verified stable across repeated runs. |
+
+Adversarial-review fix (verdict SHIP; the standout was a TOCTOU race): `suspend()` omitted a `!didTimeOut` guard, so a timeout firing in the window between its unlock and its `terminate()` could race a concurrent `suspend()`, leaving the captured `wasSuspended=false` and the process `SIGSTOP`-ped — a stopped process ignores `SIGTERM`, so it would leak as an orphaned, never-killed process (and the read loop would park forever). Fixed with defense in depth: `suspend()`/`resume()` now also guard on `!didTimeOut` (refusing once any terminal intent is set, closing the race at the source), *and* `terminate(_:)` sends `SIGCONT` **unconditionally** before `terminate()` — a harmless no-op on a running/reaped process — which immunizes all three terminate paths against an already-suspended process *and* removes the `wasSuspended` plumbing entirely. Also closed the matching test gap (the second `should`): a new `testCancellingASuspendedProcessStillTerminatesIt` suspends a `sleep 90`, cancels, and asserts the stream finishes `ok=false` — without the `SIGCONT` it would hang to the 90s timeout, so this is the regression guard for the feature's core behavior (runs in ~0.1s).
+
+Residual risk:
+
+- This is the **engine slice**: the `PTYProcessSession` API is built and tested; wiring it to a terminal-pane control (a Ctrl+Z / Suspend button driving `suspend()`/`resume()`) is the deliberate follow-up. `suspend()`/`resume()`/`cancel()` all signal the session's direct child (`/bin/sh`); a pipeline or backgrounded grandchild in a separate process group is not covered — true process-group job control needs spawning the child as a group leader (`posix_spawn` with a new pgid), a larger change than this session's Foundation `Process` model, left for a follow-up.
+
 ## 2026-06-30 Recursive Subagent Delegation — Trigger Pass (end-to-end)
 
 Overall grade after this slice: **A makes the recursion engine user-reachable, deterministically tested**.

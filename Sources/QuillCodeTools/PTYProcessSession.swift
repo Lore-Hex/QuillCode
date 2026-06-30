@@ -44,6 +44,7 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
     private var didFinish = false
     private var didCancel = false
     private var didTimeOut = false
+    private var didSuspend = false
 
     public init(request: ShellExecutionRequest, windowSize: PTYWindowSize? = nil) {
         self.request = request
@@ -67,8 +68,27 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
         }
         didCancel = true
         let activeProcess = process
+        didSuspend = false
         lock.unlock()
-        activeProcess?.terminate()
+        if let activeProcess {
+            Self.terminate(activeProcess)
+        }
+    }
+
+    /// Terminates `process`, always continuing it with `SIGCONT` first: a stopped process does not act
+    /// on the `SIGTERM` from `terminate()` until it has been continued, so a suspended command would
+    /// otherwise survive cancellation and time-outs. The `SIGCONT` is sent unconditionally because it
+    /// is a harmless no-op on a running or already-reaped process — doing it every time immunizes all
+    /// three terminate paths against a `suspend()` that races in after `didSuspend` was cleared, with no
+    /// dependency on which guard flag happened to be set.
+    ///
+    /// Like `cancel()` before it, this signals only the session's direct child (`/bin/sh`); a pipeline
+    /// or backgrounded grandchild in a separate process group is not covered. True process-group job
+    /// control would require spawning the child as a group leader (`posix_spawn` with a new pgid), a
+    /// larger change than this session's Foundation `Process` model — left for a follow-up.
+    private static func terminate(_ process: Process) {
+        kill(process.processIdentifier, SIGCONT)
+        process.terminate()
     }
 
     /// Writes `text` to the terminal as if the user typed it, so interactive
@@ -107,6 +127,42 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
         lock.unlock()
         guard !finished, fd >= 0 else { return false }
         return cquill_pty_set_winsize(fd, windowSize.rows, windowSize.columns) == 0
+    }
+
+    /// Suspends the running command (terminal job control, like Ctrl+Z) by stopping its process with
+    /// `SIGSTOP`. Returns `false` if the session has not started, has finished/cancelled, or is already
+    /// suspended. `SIGSTOP` cannot be caught or ignored, so a successful send guarantees the process is
+    /// stopped until `resume()`.
+    @discardableResult
+    public func suspend() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        // Refuse once any terminal intent is set (finish/cancel/timeout): together with the
+        // unconditional SIGCONT in `terminate(_:)`, this closes the window where a suspend racing a
+        // cancel/timeout could re-stop the process after it was continued for termination.
+        guard !didFinish, !didCancel, !didTimeOut, !didSuspend, let process, process.isRunning else { return false }
+        guard kill(process.processIdentifier, SIGSTOP) == 0 else { return false }
+        didSuspend = true
+        return true
+    }
+
+    /// Resumes a previously `suspend()`ed command by continuing its process with `SIGCONT`. Returns
+    /// `false` if the session is not currently suspended (or has finished/cancelled).
+    @discardableResult
+    public func resume() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard didSuspend, !didFinish, !didCancel, !didTimeOut, let process, process.isRunning else { return false }
+        guard kill(process.processIdentifier, SIGCONT) == 0 else { return false }
+        didSuspend = false
+        return true
+    }
+
+    /// Whether the command is currently suspended.
+    public var isSuspended: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didSuspend
     }
 
     private func run() {
@@ -219,8 +275,11 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
         }
         didTimeOut = true
         let activeProcess = process
+        didSuspend = false
         lock.unlock()
-        activeProcess?.terminate()
+        if let activeProcess {
+            Self.terminate(activeProcess)
+        }
     }
 
     private func ptyEnvironment(_ environment: [String: String]?) -> [String: String] {
@@ -274,12 +333,13 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
         didFinish = true
         out = output
         activeProcess = process
+        didSuspend = false
         process = nil
         masterFD = -1
         lock.unlock()
 
         if let activeProcess, activeProcess.isRunning {
-            activeProcess.terminate()
+            Self.terminate(activeProcess)
         }
 
         continuation.yield(.finished(ToolResult(
