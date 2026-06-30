@@ -28,6 +28,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             XCTAssertTrue(hitTargetCase.spec.kind.renderedClassName.hasPrefix("hit-target-"))
             XCTAssertEqual(hitTargetCase.spec.allowsNestedInteractiveChildren, hitTargetCase.kind.allowsNestedInteractiveChildren)
             XCTAssertEqual(hitTargetCase.spec.requiresUnblockedInterior, hitTargetCase.kind.requiresUnblockedInterior)
+            XCTAssertEqual(hitTargetCase.spec.requiresTactileFeedback, hitTargetCase.kind.requiresTactileFeedback)
+            XCTAssertEqual(hitTargetCase.spec.allowsTextSelection, hitTargetCase.kind.allowsTextSelection)
             XCTAssertGreaterThanOrEqual(hitTargetCase.spec.requiredMinWidth, QuillCodeMetrics.minimumHitTarget)
             XCTAssertGreaterThanOrEqual(hitTargetCase.spec.requiredMinHeight, QuillCodeMetrics.minimumHitTarget)
             XCTAssertGreaterThanOrEqual(hitTargetCase.spec.minHeight, QuillCodeMetrics.minimumHitTarget)
@@ -291,6 +293,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             XCTAssertEqual(probe.collisionScope, contract?.collisionScope)
             XCTAssertEqual(probe.allowsNestedInteractiveChildren, contract?.allowsNestedInteractiveChildren)
             XCTAssertEqual(probe.requiresUnblockedInterior, contract?.requiresUnblockedInterior)
+            XCTAssertEqual(probe.requiresTactileFeedback, contract?.requiresTactileFeedback)
+            XCTAssertEqual(probe.allowsTextSelection, contract?.allowsTextSelection)
             XCTAssertEqual(probe.samplePoints, expectedSamplePoints)
             XCTAssertTrue(probe.samplePoints.allSatisfy { point in
                 point.x > 0 && point.x < 1 && point.y > 0 && point.y < 1
@@ -300,6 +304,10 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             contract.focusTarget != nil || contract.testID?.isEmpty == false || contract.commandID?.isEmpty == false
         })
         XCTAssertEqual(contractsByID["memories.edit"]?.requiresUnblockedInterior, true)
+        XCTAssertEqual(contractsByID["memories.edit"]?.requiresTactileFeedback, true)
+        XCTAssertEqual(contractsByID["composer.input"]?.requiresTactileFeedback, false)
+        XCTAssertEqual(contractsByID["composer.input"]?.allowsTextSelection, true)
+        XCTAssertEqual(contractsByID["composer.send"]?.allowsTextSelection, false)
         XCTAssertEqual(contractsByID["model-picker.option"]?.allowsNestedInteractiveChildren, false)
         XCTAssertEqual(contractsByID["command-palette.input"]?.family, .commandPalette)
         XCTAssertEqual(contractsByID["search.result"]?.family, .search)
@@ -563,6 +571,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             action: .link,
             allowsNestedInteractiveChildren: true,
             requiresUnblockedInterior: false,
+            requiresTactileFeedback: false,
+            allowsTextSelection: true,
             selectorKind: .testID,
             selector: "quillcode-wrong-button",
             requiredMinWidth: 20,
@@ -588,6 +598,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue(issues.contains("composer.send click probe collision scope does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe nested-child policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe interior-blocking policy does not match contract"))
+        XCTAssertTrue(issues.contains("composer.send click probe tactile-feedback policy does not match contract"))
+        XCTAssertTrue(issues.contains("composer.send click probe text-selection policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredMinWidth 20.0 is below 44.0"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredMinHeight 20.0 is below 44.0"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredPeerClearance 2.0 is below 8.0"))

@@ -52,6 +52,8 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                     requiredPeerClearance: 8,
                     allowsNestedInteractiveChildren: false,
                     requiresUnblockedInterior: true,
+                    requiresTactileFeedback: true,
+                    allowsTextSelection: false,
                     samplePoints: [[
                         "name": "center",
                         "x": 122,
@@ -98,6 +100,8 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(json.contains(#""liveAccessibilitySampling" : "frame-sampled""#))
         XCTAssertTrue(json.contains(#""hitTestAvailable" : true"#))
         XCTAssertTrue(json.contains(#""hitTestMatchesTarget" : true"#))
+        XCTAssertTrue(json.contains(#""requiresTactileFeedback" : true"#))
+        XCTAssertTrue(json.contains(#""allowsTextSelection" : false"#))
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
     }

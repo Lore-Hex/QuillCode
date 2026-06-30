@@ -85,6 +85,14 @@ extension QuillCodeNativeHitTargetKind {
     var allowsNestedInteractiveChildren: Bool { false }
 
     var requiresUnblockedInterior: Bool { true }
+
+    var requiresTactileFeedback: Bool {
+        self != .textEntry
+    }
+
+    var allowsTextSelection: Bool {
+        self == .textEntry
+    }
 }
 
 public enum QuillCodeInteractionSurfaceFamily: String, Codable, Sendable, Hashable, CaseIterable {
@@ -123,6 +131,8 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     public var action: QuillCodeNativeHitTargetAction
     public var allowsNestedInteractiveChildren: Bool
     public var requiresUnblockedInterior: Bool
+    public var requiresTactileFeedback: Bool
+    public var allowsTextSelection: Bool
     public var source: String
     public var focusTarget: QuillCodeNativeFocusTarget?
     public var testID: String?
@@ -154,6 +164,8 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         self.action = kind.action
         self.allowsNestedInteractiveChildren = kind.allowsNestedInteractiveChildren
         self.requiresUnblockedInterior = kind.requiresUnblockedInterior
+        self.requiresTactileFeedback = kind.requiresTactileFeedback
+        self.allowsTextSelection = kind.allowsTextSelection
         self.source = source
         self.focusTarget = focusTarget
         self.testID = testID
@@ -170,7 +182,9 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
             "kind": kind.rawValue,
             "action": action.rawValue,
             "allowsNestedInteractiveChildren": allowsNestedInteractiveChildren,
+            "allowsTextSelection": allowsTextSelection,
             "minHeight": minHeight,
+            "requiresTactileFeedback": requiresTactileFeedback,
             "requiresUnblockedInterior": requiresUnblockedInterior,
             "source": source
         ]
@@ -217,6 +231,12 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         }
         if allowsNestedInteractiveChildren {
             issues.append("\(id) allows nested interactive children; split the parent target or make the children decorative")
+        }
+        if requiresTactileFeedback != kind.requiresTactileFeedback {
+            issues.append("\(id) tactile-feedback policy does not match \(kind.rawValue)")
+        }
+        if allowsTextSelection != kind.allowsTextSelection {
+            issues.append("\(id) text-selection policy does not match \(kind.rawValue)")
         }
         if kind == .textEntry && family != .designSystem && focusTarget == nil {
             issues.append("\(id) text entry does not declare a focus target")
@@ -327,6 +347,8 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
     public var action: QuillCodeNativeHitTargetAction
     public var allowsNestedInteractiveChildren: Bool
     public var requiresUnblockedInterior: Bool
+    public var requiresTactileFeedback: Bool
+    public var allowsTextSelection: Bool
     public var selectorKind: QuillCodeNativeHitTargetProbeSelectorKind
     public var selector: String
     public var requiredMinWidth: Double
@@ -343,6 +365,8 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
         action: QuillCodeNativeHitTargetAction,
         allowsNestedInteractiveChildren: Bool,
         requiresUnblockedInterior: Bool,
+        requiresTactileFeedback: Bool,
+        allowsTextSelection: Bool,
         selectorKind: QuillCodeNativeHitTargetProbeSelectorKind,
         selector: String,
         requiredMinWidth: Double,
@@ -358,6 +382,8 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
         self.action = action
         self.allowsNestedInteractiveChildren = allowsNestedInteractiveChildren
         self.requiresUnblockedInterior = requiresUnblockedInterior
+        self.requiresTactileFeedback = requiresTactileFeedback
+        self.allowsTextSelection = allowsTextSelection
         self.selectorKind = selectorKind
         self.selector = selector
         self.requiredMinWidth = requiredMinWidth
@@ -375,7 +401,9 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
             "kind": kind.rawValue,
             "action": action.rawValue,
             "allowsNestedInteractiveChildren": allowsNestedInteractiveChildren,
+            "allowsTextSelection": allowsTextSelection,
             "requiresUnblockedInterior": requiresUnblockedInterior,
+            "requiresTactileFeedback": requiresTactileFeedback,
             "selectorKind": selectorKind.rawValue,
             "selector": selector,
             "requiredMinWidth": requiredMinWidth,
@@ -823,6 +851,12 @@ public enum QuillCodeNativeHitTargetAudit {
         if probe.requiresUnblockedInterior != contract.requiresUnblockedInterior {
             issues.append("\(probe.contractID) click probe interior-blocking policy does not match contract")
         }
+        if probe.requiresTactileFeedback != contract.requiresTactileFeedback {
+            issues.append("\(probe.contractID) click probe tactile-feedback policy does not match contract")
+        }
+        if probe.allowsTextSelection != contract.allowsTextSelection {
+            issues.append("\(probe.contractID) click probe text-selection policy does not match contract")
+        }
         return issues
     }
 
@@ -887,6 +921,8 @@ public enum QuillCodeNativeHitTargetAudit {
                 action: contract.action,
                 allowsNestedInteractiveChildren: contract.allowsNestedInteractiveChildren,
                 requiresUnblockedInterior: contract.requiresUnblockedInterior,
+                requiresTactileFeedback: contract.requiresTactileFeedback,
+                allowsTextSelection: contract.allowsTextSelection,
                 selectorKind: selector.kind,
                 selector: selector.value,
                 requiredMinWidth: max(

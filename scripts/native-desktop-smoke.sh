@@ -183,7 +183,7 @@ for contract in contracts:
         value = contract.get(optional_field)
         if value is not None and (not isinstance(value, str) or not value.strip()):
             raise SystemExit(f"quill-code-desktop native smoke reported native hit target with empty {optional_field}: {contract}")
-    for boolean_field in ("allowsNestedInteractiveChildren", "requiresUnblockedInterior"):
+    for boolean_field in ("allowsNestedInteractiveChildren", "requiresUnblockedInterior", "requiresTactileFeedback", "allowsTextSelection"):
         if not isinstance(contract.get(boolean_field), bool):
             raise SystemExit(f"quill-code-desktop native smoke reported native hit target with malformed {boolean_field}: {contract}")
     if contract.get("family") != "design-system" and not any(contract.get(field) for field in ("focusTarget", "testID", "commandID")):

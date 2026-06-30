@@ -527,7 +527,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             designText.contains("var kind: QuillCodeNativeHitTargetKind")
                 && designText.contains("var action: String")
                 && designText.contains("var allowsNestedInteractiveChildren: Bool")
-                && designText.contains("var requiresUnblockedInterior: Bool"),
+                && designText.contains("var requiresUnblockedInterior: Bool")
+                && designText.contains("var requiresTactileFeedback: Bool")
+                && designText.contains("var allowsTextSelection: Bool"),
             "Native hit-target specs should reuse the audited native semantic vocabulary so controls cannot pass with only generic geometry or a parallel enum."
         )
         XCTAssertTrue(
@@ -849,8 +851,10 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditText.contains("case ownedGesture = \"owned-gesture\"")
                 && auditText.contains("public var action: QuillCodeNativeHitTargetAction")
                 && auditText.contains("public var allowsNestedInteractiveChildren: Bool")
-                && auditText.contains("public var requiresUnblockedInterior: Bool"),
-            "Native hit-target audit should report activation semantics and interior ownership, not only size and kind."
+                && auditText.contains("public var requiresUnblockedInterior: Bool")
+                && auditText.contains("public var requiresTactileFeedback: Bool")
+                && auditText.contains("public var allowsTextSelection: Bool"),
+            "Native hit-target audit should report activation semantics, tactile policy, text-selection policy, and interior ownership, not only size and kind."
         )
         XCTAssertTrue(
             auditText.contains("public enum QuillCodeNativeFocusTarget")
@@ -933,15 +937,21 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditText.contains(#""clickProbes": clickProbes.map(\.dictionary)"#)
                 && auditText.contains("public var allowsNestedInteractiveChildren: Bool")
                 && auditText.contains("public var requiresUnblockedInterior: Bool")
+                && auditText.contains("public var requiresTactileFeedback: Bool")
+                && auditText.contains("public var allowsTextSelection: Bool")
                 && auditText.contains("public var collisionScope: String")
                 && auditText.contains(#""allowsNestedInteractiveChildren": allowsNestedInteractiveChildren"#)
                 && auditText.contains(#""requiresUnblockedInterior": requiresUnblockedInterior"#)
+                && auditText.contains(#""requiresTactileFeedback": requiresTactileFeedback"#)
+                && auditText.contains(#""allowsTextSelection": allowsTextSelection"#)
                 && auditText.contains(#""collisionScope": collisionScope"#)
                 && auditText.contains("missingClickProbeContractIDs")
                 && auditText.contains("clickProbeValidationIssues")
                 && auditText.contains("validateClickProbes")
                 && auditText.contains("click probe nested-child policy does not match contract")
                 && auditText.contains("click probe interior-blocking policy does not match contract")
+                && auditText.contains("click probe tactile-feedback policy does not match contract")
+                && auditText.contains("click probe text-selection policy does not match contract")
                 && auditText.contains("click probe collision scope does not match contract")
                 && auditText.contains("expectedClickSamplePointsByName")
                 && auditText.contains("has unexpected coordinates")
@@ -975,7 +985,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("surface_test_ids")
                 && smokeScriptText.contains("required_test_ids")
                 && smokeScriptText.contains("required_command_contract_ids")
-                && smokeScriptText.contains(#"for boolean_field in ("allowsNestedInteractiveChildren", "requiresUnblockedInterior")"#)
+                && smokeScriptText.contains(#"for boolean_field in ("allowsNestedInteractiveChildren", "requiresUnblockedInterior", "requiresTactileFeedback", "allowsTextSelection")"#)
                 && smokeScriptText.contains("malformed {boolean_field}")
                 && smokeScriptText.contains("scripts/native-click-probe-contracts.py")
                 && smokeScriptText.contains("validate \"$REPORT_PATH\"")
@@ -1004,11 +1014,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && clickProbeValidatorText.contains("selector_kind == \"focus-target\"")
                 && clickProbeValidatorText.contains("allowsNestedInteractiveChildren")
                 && clickProbeValidatorText.contains("requiresUnblockedInterior")
+                && clickProbeValidatorText.contains("requiresTactileFeedback")
+                && clickProbeValidatorText.contains("allowsTextSelection")
                 && clickProbeValidatorText.contains("requiredPeerClearance")
                 && clickProbeValidatorText.contains("MINIMUM_TARGET_CLEARANCE = 8")
                 && clickProbeValidatorText.contains("collisionScope")
                 && clickProbeValidatorText.contains("nested-child policy drift")
                 && clickProbeValidatorText.contains("interior-blocking policy drift")
+                && clickProbeValidatorText.contains("tactile-feedback policy drift")
+                && clickProbeValidatorText.contains("text-selection policy drift")
                 && clickProbeValidatorText.contains("collision-scope drift")
                 && clickProbeValidatorText.contains("clickProbePolicies")
                 && clickProbeValidatorText.contains("Accessibility frame samples have ambiguous spacing")

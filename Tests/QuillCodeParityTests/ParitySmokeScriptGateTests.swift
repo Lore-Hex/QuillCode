@@ -222,6 +222,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("samplePoints"))
         XCTAssertTrue(validator.contains("allowsNestedInteractiveChildren"))
         XCTAssertTrue(validator.contains("requiresUnblockedInterior"))
+        XCTAssertTrue(validator.contains("requiresTactileFeedback"))
+        XCTAssertTrue(validator.contains("allowsTextSelection"))
         XCTAssertTrue(validator.contains("hitTestAvailable"))
         XCTAssertTrue(validator.contains("hitTestError"))
         XCTAssertTrue(validator.contains("hitTestIdentifier"))
@@ -312,6 +314,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(probePolicy["collisionScope"] as? String, "composer:composer")
         XCTAssertEqual(probePolicy["allowsNestedInteractiveChildren"] as? Bool, false)
         XCTAssertEqual(probePolicy["requiresUnblockedInterior"] as? Bool, true)
+        XCTAssertEqual(probePolicy["requiresTactileFeedback"] as? Bool, true)
+        XCTAssertEqual(probePolicy["allowsTextSelection"] as? Bool, false)
         XCTAssertEqual(probePolicy["requiredPeerClearance"] as? Double, 8)
         XCTAssertEqual(manifestObject["minimumTargetClearance"] as? Int, 8)
         XCTAssertEqual(manifestObject["collisionScopes"] as? [String], ["composer:composer"])
@@ -353,6 +357,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(readinessPolicy["collisionScope"] as? String, "composer:composer")
         XCTAssertEqual(readinessPolicy["allowsNestedInteractiveChildren"] as? Bool, false)
         XCTAssertEqual(readinessPolicy["requiresUnblockedInterior"] as? Bool, true)
+        XCTAssertEqual(readinessPolicy["requiresTactileFeedback"] as? Bool, true)
+        XCTAssertEqual(readinessPolicy["allowsTextSelection"] as? Bool, false)
         XCTAssertEqual(readinessPolicy["requiredPeerClearance"] as? Double, 8)
         XCTAssertEqual(readinessObject["requiredSamplePointNames"] as? [String], [
             "bottom-edge",
@@ -452,7 +458,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "kind": "icon",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
-                "requiresUnblockedInterior": true
+                "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false
               }
             ],
             "clickProbes": [
@@ -465,6 +473,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
                 "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false,
                 "requiredMinWidth": 44,
                 "requiredMinHeight": 44,
                 "requiredPeerClearance": 8,
@@ -636,6 +646,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "requiredPeerClearance": 8,
                 "allowsNestedInteractiveChildren": false,
                 "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false,
                 "samplePoints": [
         \(samplePoints)
                 ]
@@ -718,7 +730,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "kind": "icon",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
-                "requiresUnblockedInterior": true
+                "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false
               }
         """
     }
@@ -734,6 +748,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
                 "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false,
                 "requiredMinWidth": 44,
                 "requiredMinHeight": 44,
                 "requiredPeerClearance": 8,
@@ -761,7 +777,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "kind": "fullRow",
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
-                "requiresUnblockedInterior": true
+                "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false
               }
         """
     }
@@ -777,6 +795,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
                 "action": "press",
                 "allowsNestedInteractiveChildren": false,
                 "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false,
                 "requiredMinWidth": 44,
                 "requiredMinHeight": 44,
                 "requiredPeerClearance": 8,

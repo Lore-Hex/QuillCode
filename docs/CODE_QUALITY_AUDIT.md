@@ -1,5 +1,16 @@
 # Code Quality Audit
 
+## 2026-06-30 Carry Click-Target Feel Policy Into Native Smoke
+
+The rendered harness already checked tactile CSS behavior, but the native smoke contract still only carried size, selector, semantic kind/action, collision scope, and interior ownership. That made packaged evidence weaker than the browser harness: a native target could be large and addressable while the release artifact said nothing about whether it should feel pressable or allow text selection.
+
+| Before | After |
+| --- | --- |
+| `QuillCodeNativeHitTargetKind` defined action and interior ownership, while tactile feedback and text-selection behavior were implicit in SwiftUI styles or rendered CSS. | Each native kind now derives `requiresTactileFeedback` and `allowsTextSelection`; text entries are selectable/non-tactile, all other target kinds require tactile feedback and suppress selection. |
+| Packaged click probes and Accessibility frame samples could prove a target was large, addressable, non-overlapping, and unblocked, but not whether it carried the expected feel policy. | Surface contracts, click probes, comparison manifests, readiness manifests, and live Accessibility samples all carry and validate tactile/text-selection policy drift. |
+
+Verification targets: `QuillCodeNativeHitTargetAuditTests`, `QuillCodeDesktopControllerSmokeTests`, `ParityInteractionTargetGateTests`, and `ParitySmokeScriptGateTests`.
+
 ## 2026-06-30 Make Rendered Click Targets Tactile By Contract
 
 The click-target audit was strong on geometry, semantics, routing, and edge ownership, but tactile behavior still lived partly in element selectors (`button`, `summary`, links) and partly in feature-local CSS. That left a class of controls that could be large and semantically valid but still feel unreliable because they selected text, lacked mobile touch handling, or had no transform-based press transition.
