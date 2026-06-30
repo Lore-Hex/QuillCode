@@ -55,6 +55,22 @@ struct QuillCodeTopBarView: View {
                 .foregroundStyle(QuillCodePalette.muted)
                 .lineLimit(1)
                 .truncationMode(.middle)
+
+            if let branchStatusLabel = topBar.branchStatusLabel {
+                Text(branchStatusLabel)
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(QuillCodePalette.background.opacity(0.6))
+                    )
+                    // The branch is already announced via the top bar's combined label.
+                    .accessibilityHidden(true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -88,6 +104,9 @@ struct QuillCodeTopBarView: View {
 
     private var topBarAccessibilityLabel: String {
         var label = "\(topBar.primaryTitle), \(topBar.subtitle), \(agentStatus.accessibilityLabel)"
+        if let branchStatusLabel = topBar.branchStatusLabel {
+            label += ", branch: \(branchStatusLabel)"
+        }
         if let runtimeIssue {
             label += ", issue: \(runtimeIssue.label)"
         }

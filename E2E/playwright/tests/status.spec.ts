@@ -35,3 +35,24 @@ test('mock harness reports Synth status with preferred slash alias after model s
   const statusMessage = page.getByTestId('message').filter({ hasText: 'Project: QuillCode' });
   await expect(statusMessage).toContainText('Model: Synth (/synth)');
 });
+
+test('mock harness surfaces the branch and ahead/behind chip after a git status', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // No branch chip until a git status runs.
+  await expect(page.getByTestId('top-bar-branch')).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('/git-status');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
+  await expect(page.getByTestId('top-bar-branch')).toBeVisible();
+  await expect(page.getByTestId('top-bar-branch')).toHaveText('main');
+
+  // The chip is additive: the existing subtitle is unchanged.
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode');
+
+  // Switching to another project drops the chip so a stale branch is never shown.
+  await page.getByTestId('add-project-button').click();
+  await expect(page.getByTestId('top-bar-branch')).toHaveCount(0);
+});

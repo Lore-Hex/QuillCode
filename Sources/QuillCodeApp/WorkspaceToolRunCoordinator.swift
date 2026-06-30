@@ -38,6 +38,14 @@ struct WorkspaceToolRunCoordinator {
         if let thread = model.selectedThread {
             model.threadPersistence.save(thread)
         }
+        // Capture branch + ahead/behind from a successful git status so the top-bar
+        // chip reflects the selected project's (or worktree's) branch.
+        if call.name == ToolDefinition.gitStatus.name, finishPlan.result.ok {
+            model.setBranchStatus(
+                GitBranchStatus.parse(statusShortBranchOutput: finishPlan.result.stdout),
+                forProjectID: model.selectedThread?.projectID ?? model.root.selectedProjectID
+            )
+        }
         model.refreshTopBar(agentStatus: finishPlan.agentStatus)
         return finishPlan.result
     }
