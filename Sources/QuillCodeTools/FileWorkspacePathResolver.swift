@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 public struct FileWorkspacePathResolver: Sendable {
     public var workspaceRoot: URL

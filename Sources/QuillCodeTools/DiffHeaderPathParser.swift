@@ -49,6 +49,11 @@ enum DiffHeaderPathParser {
     private static func diffGitPaths(in line: String) -> [String]? {
         guard line.hasPrefix("diff --git ") else { return nil }
         let rest = line.dropFirst("diff --git ".count)
+        if rest.first != "\"", let secondPathRange = rest.range(of: " b/", options: .backwards) {
+            let first = String(rest[..<secondPathRange.lowerBound])
+            let second = String(rest[rest.index(after: secondPathRange.lowerBound)...])
+            return [first, second]
+        }
         guard let first = pathTokenAndRemainder(in: rest),
               let second = pathTokenAndRemainder(in: first.remainder)
         else { return [] }

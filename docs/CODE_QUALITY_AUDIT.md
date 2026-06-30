@@ -2729,17 +2729,21 @@ Residual risk:
 
 ## 2026-06-30 Unify the Workspace Sandbox Across All Path Validators
 
-Overall grade after this slice: **A makes every agent path gate enforce the same symlink-resolved sandbox**.
+Overall grade after this slice: **A+ shared workspace sandbox, A+ parser consolidation, A+ regression coverage**.
 
 Direct follow-up to the file-tool symlink hardening: its `#722` review found the *sibling* validators still used the **lexical-only** check that PR abandoned as insufficient — so the sandbox's symlink guarantee for `apply_patch` and the git hunk/stage tools silently depended on `git apply`'s internal "beyond a symbolic link" rejection rather than the harness's own boundary. No live exploit, but an inconsistent, fragile trust boundary.
 
 | Before | After |
 | --- | --- |
-| Three independent path gates: `FileToolExecutor.resolve`, `GitInputValidator.safeRelativePath`, `PatchToolExecutor.isUnsafeDiffPath` — only the first (post-#722) was symlink-resolved; the other two were lexical-only. | New shared `WorkspaceBoundary` (`isWithin(_:root:)` doing lexical + symlink-resolved, plus `isInside`/`symlinkResolvedPath`). `FileToolExecutor.resolve` is refactored onto it (private copies removed); `GitInputValidator.safeRelativePath` (already had `cwd`) and `PatchToolExecutor` now route through it too. |
+| Three independent path gates: `FileToolExecutor.resolve`, `GitInputValidator.safeRelativePath`, `PatchToolExecutor.isUnsafeDiffPath` — only the first (post-#722) was symlink-resolved; the other two were lexical-only. | New shared `WorkspaceBoundary` helpers (`safeURL`, `safeRelativePath`, and `isWithin`) do lexical + symlink-resolved checks. `FileWorkspacePathResolver`, `GitInputValidator.safeRelativePath`, and `PatchToolExecutor` now route through the same helper. |
 | — | `apply_patch` gained a `workspaceRoot:`-aware `unsafePath` overload — the **local** patch path is symlink-checked; the **remote** path (`workspaceRoot == nil`) keeps the lexical-only check, since local symlink resolution is meaningless for a remote filesystem (the remote `git apply` enforces its own boundary). |
-| — | Tests for each gate that reject a *lexically-clean* symlink escape (`escape/…` where `escape → outside`) **at the validator** — not by relying on `git apply`: `testApplyPatchRejectsSymlinkEscapePaths` (asserts the "unsafe path" validator error, not a git error) and `testStageAndRestoreRejectSymlinkEscapePaths`, plus the file-tool suite unchanged. |
+| — | `PatchToolExecutor` and `GitPatchToolExecutor` now share the existing robust `DiffHeaderPathParser`, including C-quoted diff paths, rename/copy headers, binary-patch `diff --git` fallbacks, and legacy unquoted paths with spaces. |
+| — | Tests for each gate reject a *lexically-clean* symlink escape (`escape/...` where `escape -> outside`) **at the validator** — not by relying on `git apply`: `testInputValidatorRejectsSymlinkEscapePaths`, `testApplyPatchRejectsSymlinkEscapePaths`, `testHunkActionsRejectSymlinkEscapePaths`, and `testRestoreTurnPatchRejectsSymlinkEscapePathsBeforeApplying`, plus the existing file-tool suite. |
+| — | Additional quoted-path regression: a symlink escape through `"b/escape dir/evil file.txt"` is rejected before `git apply`, proving the shared parser and the symlink boundary work together. |
 
 Adversarial-review note (verdict SHIP; the security review empirically verified refactor-equivalence, non-vacuous escape tests that fail without the fix, the unchanged-remote path, and that rename-through-symlink is caught via both `diff --git` paths). One trust-model item documented (not a code change): a single patch that *creates* a symlink and writes through it within the same diff cannot be caught at validate time (the symlink does not exist yet), but `git apply` itself refuses it ("affected file … is beyond a symbolic link") — confirmed on the in-use git — so the validator catches *pre-existing*-symlink escapes and `git apply` backstops *patch-created* ones. The `apply_patch` doc now states this explicitly.
+
+Focused validation after the parser consolidation: `swift test --filter QuillCodeToolsTests` passes (**561 tests**, 0 failures), and the narrower patch/git regression suite passes (**32 tests**, 0 failures).
 
 Residual risk:
 

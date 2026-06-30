@@ -188,6 +188,21 @@ final class GitLocalToolExecutorTests: XCTestCase {
         XCTAssertThrowsError(try GitInputValidator.safeRelativePath("../outside", cwd: root))
     }
 
+    func testInputValidatorRejectsSymlinkEscapePaths() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let outside = parent.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+
+        XCTAssertThrowsError(try GitInputValidator.safeRelativePath("escape/new.txt", cwd: root))
+        XCTAssertThrowsError(try GitInputValidator.safeRelativePath(root.appendingPathComponent("escape/new.txt").path, cwd: root))
+    }
+
     private func initializeBareRemote(_ remote: URL, parent: URL) throws {
         let result = ShellToolExecutor().run(.init(command: "git init --bare '\(remote.path)'", cwd: parent))
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
