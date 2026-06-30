@@ -30,6 +30,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: WorkspaceCommandPalette.navigationCategory,
                 keywords: ["find", "current", "transcript", "message"],
                 isEnabled: hasSelectedThread
+            ),
+            WorkspaceCommandSurface(
+                id: "copy-conversation",
+                title: "Copy conversation",
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["export", "transcript", "markdown", "copy all", "share"],
+                isEnabled: hasSelectedThread
             )
         ]
     }

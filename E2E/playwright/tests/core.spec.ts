@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  clickSidebarTool,
   elementRect,
   harnessURL,
   openSidebarTools,
@@ -139,4 +140,33 @@ test('empty starter action submits immediately through the normal composer path'
   await expect(page.getByText('Git diff:')).toBeVisible();
   await expect(page.getByLabel('Message')).toHaveValue('');
   await expect(page.getByTestId('send-button')).toBeDisabled();
+});
+
+test('mock harness copies the whole conversation as Markdown from the command palette', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // Seed a conversation so there is something to export.
+  await page.getByLabel('Message').fill('Run the tests');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('message').first()).toContainText('Run the tests');
+
+  // Run "Copy conversation" from the command palette.
+  await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('copy conversation');
+  await page.locator('[data-testid="command-palette-result"][data-command-id="copy-conversation"]').click();
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+
+  // A confirmation toast appears — it only shows when the export produced non-empty Markdown.
+  await expect(page.getByTestId('conversation-copied-toast')).toBeVisible();
+
+  // The exported Markdown must match the Swift TranscriptMarkdownExporter byte-for-byte
+  // (the same fixture is asserted in TranscriptMarkdownExporterTests) — this enforces the
+  // Swift↔JS "never drift" contract rather than just trusting the shared-code comments.
+  const markdown = await page.evaluate(() => (window as Window & { __lastConversationMarkdown?: string }).__lastConversationMarkdown);
+  expect(markdown).toBe(
+    '## User\n\nRun the tests\n\n' +
+    '### host.shell.run\n\n```\n' +
+    '{\n  "ok": true,\n  "stdout": "ran: the tests\\n",\n  "stderr": "",\n  "exitCode": 0\n}\n' +
+    '```\n\n## Assistant\n\nOutput:\nran: the tests'
+  );
 });
