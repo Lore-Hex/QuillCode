@@ -557,6 +557,98 @@ final class SafetyTests: XCTestCase {
         XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "a glob output target must not auto-approve")
     }
 
+    func testAutoDoesNotAutoApproveDownloadSSRFToUnrequestedHostViaReferer() async {
+        let reviewer = StaticSafetyReviewer()
+        // The authorized host (linkedin.com) is carried only by the `-e` referer; the real fetch targets
+        // the cloud-metadata endpoint. The host gate must match the ACTUAL URL, not a substring, so this
+        // SSRF (which would land cloud credentials in the workspace) must not auto-approve.
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"curl -L --fail --silent -e 'https://www.linkedin.com' --output 'downloads/x.json' 'http://169.254.169.254/latest/meta-data/iam/security-credentials/'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download LinkedIn.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "an SSRF to an unrequested host (referer carries the authorized host) must not auto-approve")
+    }
+
+    func testAutoDoesNotAutoApproveDownloadWhenRequestedHostNormalizesEmpty() async {
+        let reviewer = StaticSafetyReviewer()
+        // A bare "www." in the message normalizes to an EMPTY requested host; combined with a trailing
+        // FQDN-root dot on the URL (which curl strips to reach the real target) this previously
+        // wildcarded every host via the suffix clause. The metadata SSRF must not auto-approve.
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"curl -fsSL --output 'downloads/x.json' 'https://169.254.169.254./latest/meta-data/iam/security-credentials/'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "please download from www. into downloads",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "please download from www. into downloads")]
+        ))
+        XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "an empty-normalizing requested host must not wildcard a trailing-dot SSRF target")
+    }
+
+    func testAutoDoesNotAutoApproveDownloadWithUserinfoHostConfusion() async {
+        let reviewer = StaticSafetyReviewer()
+        // `https://www.linkedin.com@169.254.169.254/` has the authorized host as USERINFO; the real
+        // host curl connects to is 169.254.169.254. The gate must use the authority host, not be fooled
+        // by the userinfo, so this must not auto-approve.
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"curl -fsSL --output 'downloads/x.json' 'https://www.linkedin.com@169.254.169.254/latest/meta-data/'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download LinkedIn.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "userinfo host confusion must not auto-approve")
+    }
+
+    func testAutoDoesNotAutoApproveDownloadToLookalikeHost() async {
+        let reviewer = StaticSafetyReviewer()
+        // "linkedin.com" as a substring of a look-alike host must not pass — the URL host must equal the
+        // requested host or be a subdomain of it.
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"curl -L --fail --output 'downloads/x.html' 'https://linkedin.com.evil.test/'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download LinkedIn.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "a look-alike host must not auto-approve")
+    }
+
+    func testAutoApprovesDownloadFromSubdomainOfRequestedHost() async {
+        let reviewer = StaticSafetyReviewer()
+        // A subdomain of the requested host is legitimate.
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"mkdir -p downloads && curl -fsSL --output 'downloads/x.html' 'https://docs.linkedin.com/page' && ls -lh 'downloads/x.html'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download from linkedin.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download from linkedin.com?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale ?? "")
+    }
+
     func testAutoDoesNotUseDownloadIntentForUnrelatedShellRun() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(

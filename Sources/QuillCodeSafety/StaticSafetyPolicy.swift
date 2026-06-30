@@ -382,7 +382,26 @@ struct StaticSafetyRequest: Sendable {
         else {
             return nil
         }
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        return normalizedHost(host)
+    }
+
+    /// Normalizes a host for comparison: strips a leading `www.` and a trailing FQDN-root `.`, then
+    /// requires the result still be a non-empty dotted domain. Guarding the POST-strip value is what
+    /// keeps a dangling `www.` from collapsing to the empty string (which would otherwise let the
+    /// gate's `hasSuffix(".\(requested)")` clause wildcard every trailing-dot host). Used on BOTH the
+    /// requested side and the command-URL side so `169.254.169.254.` and `169.254.169.254` compare equal.
+    static func normalizedHost(_ rawHost: String) -> String? {
+        var host = rawHost.lowercased()
+        if host.hasPrefix("www.") {
+            host = String(host.dropFirst(4))
+        }
+        if host.hasSuffix(".") {
+            host = String(host.dropLast())
+        }
+        guard host.contains("."), !host.hasPrefix(".") else {
+            return nil
+        }
+        return host
     }
 
     private static func normalizedFileURLCandidate(_ value: String) -> String? {
@@ -428,10 +447,46 @@ enum StaticSafetyDownloadPolicy {
                 lowerCommand.contains(fileURL)
             }
         }
+        // The host gate must match the ACTUAL fetched URL(s), not a substring anywhere in the command.
+        // A substring match is satisfiable by an `-e` referer / `-H` header carrying the authorized
+        // host while the real target is an internal/other host — an SSRF (e.g. the cloud-metadata
+        // endpoint `http://169.254.169.254/…`, which would land cloud credentials in the workspace).
+        // Require EVERY http(s) URL in the command to resolve to a user-requested host.
         let requestedHosts = request.requestedDownloadHosts
-        return requestedHosts.contains { host in
-            lowerCommand.contains(host)
+        guard let urlHosts = Self.httpURLHosts(in: command), !urlHosts.isEmpty else {
+            return false
         }
+        return urlHosts.allSatisfy { host in
+            requestedHosts.contains { requested in
+                !requested.isEmpty && (host == requested || host.hasSuffix(".\(requested)"))
+            }
+        }
+    }
+
+    /// Extracts the host of every `http(s)://` URL in the command (quoted or bare), normalized
+    /// (lowercased, `www.` stripped) for comparison with `requestedDownloadHosts`. Returns nil if ANY
+    /// matched URL fails host extraction — fail-closed, so a URL that curl would fetch but `URLComponents`
+    /// cannot parse (a parser differential) drops the whole command to human approval rather than
+    /// slipping through unchecked.
+    private static func httpURLHosts(in command: String) -> [String]? {
+        guard let regex = try? NSRegularExpression(pattern: #"https?://[^\s'"`]+"#, options: [.caseInsensitive]) else {
+            return nil
+        }
+        let range = NSRange(command.startIndex..., in: command)
+        var hosts: [String] = []
+        for match in regex.matches(in: command, range: range) {
+            // `URL(string:).host` matches the requested side's parser (same punycode/Unicode treatment),
+            // and `normalizedHost` strips the FQDN-root trailing dot + `www.` so `169.254.169.254.` and
+            // `169.254.169.254` compare equal — closing the trailing-dot parser differential curl exploits.
+            guard let matchRange = Range(match.range, in: command),
+                  let rawHost = URL(string: String(command[matchRange]))?.host,
+                  let host = StaticSafetyRequest.normalizedHost(rawHost)
+            else {
+                return nil
+            }
+            hosts.append(host)
+        }
+        return hosts
     }
 
     private static func shellCommand(from call: ToolCall) -> String? {
