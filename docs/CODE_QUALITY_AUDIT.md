@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-30 Native Refresh Parity Guard Pass
+
+Overall grade after this slice: **A regression guard for a whole bug class, A tests-the-shipped-path discipline**.
+
+A test-only hardening directly motivated by the focus-composer review, which found the desktop `refreshState` silently dropping composer fields (`focusToken`, `sentMessageHistory`, the file-mention index) — invisible because the suite asserts against `model.surface()`, never the *rendered* refresh path. An audit confirmed `refreshState` is the **only** desktop sub-surface override (the composer rebuild; `initialState` uses `model.surface()` verbatim, no other `surface.X =` overrides), so the bug class is contained — but nothing *guarded* against it recurring.
+
+| Before | After |
+| --- | --- |
+| The only desktop test of the composer rebuild checked two specific fields (`focusToken`, history) and was added reactively. | `testDesktopRefreshComposerEqualsModelSurfaceWhenDraftUnchanged` asserts the rebuilt composer **equals `model.surface().composer` in full** (rich model: a thread with history + a bumped focus token) — so any field a future rebuild forgets to carry trips immediately. It compares the *composer* (deterministic), not the whole surface, because the sidebar carries relative-time strings that aren't stable across two `surface()` calls. |
+| The mid-send "keep the local draft" path was untested. | `testDesktopRefreshKeepsLocalDraftAndNonDraftFieldsWhileSending` covers `isComposerTaskRunning: true` (the only path that preserves a differing local draft — idle refresh *syncs* the draft to the model, which writing the test surfaced) and asserts the non-draft fields still survive. |
+
+Residual risk:
+
+- The guard covers the composer (the one rebuilt sub-surface). Other sub-surfaces are copied verbatim in `refreshState`, so they can't drift there; if a future change adds another override, this file is the place to extend the guard.
+
 ## 2026-06-30 Focus-Composer Shortcut Pass
 
 Overall grade after this slice: **A model→view focus bridge, A routed-command consistency**.

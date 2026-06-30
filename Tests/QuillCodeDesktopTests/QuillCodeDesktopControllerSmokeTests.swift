@@ -532,6 +532,73 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(surface.composer.focusToken, expectedToken)
         XCTAssertEqual(surface.composer.sentMessageHistory, expectedHistory)
     }
+
+    /// Structural guard against the whole "native refresh drops a composer field" bug class the
+    /// focus-composer review surfaced: `refreshState` is the ONLY place that rebuilds a sub-surface
+    /// (the composer); everything else is copied verbatim. So with the local draft matching the
+    /// model's, the rebuilt composer must EQUAL `model.surface().composer` exactly — any field a
+    /// future rebuild forgets to carry (focusToken, sentMessageHistory, …) trips this immediately.
+    /// (Compares the composer, not the whole surface, because the sidebar carries relative-time
+    /// strings that aren't stable across two `surface()` calls.)
+    func testDesktopRefreshComposerEqualsModelSurfaceWhenDraftUnchanged() {
+        let model = richlyPopulatedModel()
+
+        var surface = model.surface()
+        var draft = model.composer.draft
+        var terminalDraft = model.terminal.draft
+        var browserAddressDraft = model.browser.addressDraft
+        QuillCodeDesktopModelStateCoordinator().refreshState(
+            from: model,
+            surface: &surface,
+            draft: &draft,
+            terminalDraft: &terminalDraft,
+            browserAddressDraft: &browserAddressDraft
+        )
+
+        XCTAssertEqual(surface.composer, model.surface().composer)
+    }
+
+    /// While a send is in flight the live local draft is kept (the model isn't the source of truth
+    /// mid-send), so the composer rebuilds from it — but the non-draft fields the bare rebuild used
+    /// to drop (focusToken, sentMessageHistory) must still survive.
+    func testDesktopRefreshKeepsLocalDraftAndNonDraftFieldsWhileSending() {
+        let model = richlyPopulatedModel()
+        let modelComposer = model.surface().composer
+
+        var surface = model.surface()
+        var draft = "a half-typed message"
+        var terminalDraft = model.terminal.draft
+        var browserAddressDraft = model.browser.addressDraft
+        // isComposerTaskRunning: true ⇒ the local draft is preserved rather than synced to the model.
+        QuillCodeDesktopModelStateCoordinator().refreshState(
+            from: model,
+            surface: &surface,
+            draft: &draft,
+            terminalDraft: &terminalDraft,
+            browserAddressDraft: &browserAddressDraft,
+            isComposerTaskRunning: true
+        )
+
+        XCTAssertEqual(surface.composer.draft, "a half-typed message")
+        XCTAssertTrue(surface.composer.isSending)
+        XCTAssertEqual(surface.composer.focusToken, modelComposer.focusToken)
+        XCTAssertEqual(surface.composer.sentMessageHistory, modelComposer.sentMessageHistory)
+        XCTAssertEqual(surface.composer.placeholder, modelComposer.placeholder)
+    }
+
+    private func richlyPopulatedModel() -> QuillCodeWorkspaceModel {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "first request"),
+            ChatMessage(role: .assistant, content: "did it"),
+            ChatMessage(role: .user, content: "second request")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        model.focusComposer()
+        return model
+    }
 }
 
 private struct DesktopRealWorldSmokeCase {
