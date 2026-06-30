@@ -125,6 +125,15 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: root.topBar.agentStatus)
     }
 
+    /// Records the latest git branch/ahead-behind status for a project, surfaced as
+    /// a top-bar chip. Tagged with the project it came from so `refreshTopBar` drops
+    /// it once a different project is selected (no stale branch after a switch). The
+    /// caller is expected to `refreshTopBar` afterward.
+    func setBranchStatus(_ status: GitBranchStatus?, forProjectID projectID: UUID?) {
+        root.topBar.branchStatus = status
+        root.topBar.branchStatusProjectID = status == nil ? nil : projectID
+    }
+
     public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
         computerUseBackend = backend
         setComputerUseStatus(backend.status)

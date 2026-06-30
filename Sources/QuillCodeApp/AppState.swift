@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 import QuillComputerUseKit
 
 public struct SidebarItem: Sendable, Hashable, Identifiable {
@@ -35,6 +36,13 @@ public struct TopBarState: Sendable, Hashable {
     public var mode: AgentMode
     public var agentStatus: String
     public var computerUseStatus: ComputerUseStatus
+    /// Branch + ahead/behind for the selected local/SSH project (or worktree),
+    /// parsed from the latest `host.git.status` run. Nil until a status runs.
+    public var branchStatus: GitBranchStatus?
+    /// The project the `branchStatus` was captured for, so a refresh can drop it
+    /// once a different project (or worktree) becomes selected — preventing a stale
+    /// branch chip after switching projects via any path.
+    public var branchStatusProjectID: UUID?
 
     public init(
         appName: String = "QuillCode",
@@ -48,7 +56,9 @@ public struct TopBarState: Sendable, Hashable {
             screenRecordingGranted: false,
             accessibilityGranted: false,
             message: "Needs Screen Recording + Accessibility"
-        )
+        ),
+        branchStatus: GitBranchStatus? = nil,
+        branchStatusProjectID: UUID? = nil
     ) {
         self.appName = appName
         self.projectName = projectName
@@ -57,6 +67,8 @@ public struct TopBarState: Sendable, Hashable {
         self.mode = mode
         self.agentStatus = agentStatus
         self.computerUseStatus = computerUseStatus
+        self.branchStatus = branchStatus
+        self.branchStatusProjectID = branchStatusProjectID
     }
 }
 

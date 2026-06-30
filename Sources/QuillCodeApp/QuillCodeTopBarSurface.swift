@@ -18,6 +18,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var runtimeIssueSeverity: RuntimeIssueSeverity?
     public var computerUseLabel: String
     public var showsComputerUseSetup: Bool
+    /// Pre-formatted branch + ahead/behind chip (e.g. `feature/x ↑2 ↓1`), or nil
+    /// when no git branch status is known. Renderers display this string as-is.
+    public var branchStatusLabel: String?
 
     public init(
         appName: String,
@@ -35,7 +38,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         runtimeIssueLabel: String? = nil,
         runtimeIssueSeverity: RuntimeIssueSeverity? = nil,
         computerUseLabel: String,
-        showsComputerUseSetup: Bool
+        showsComputerUseSetup: Bool,
+        branchStatusLabel: String? = nil
     ) {
         self.appName = appName
         self.primaryTitle = primaryTitle
@@ -53,6 +57,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.runtimeIssueSeverity = runtimeIssueSeverity
         self.computerUseLabel = computerUseLabel
         self.showsComputerUseSetup = showsComputerUseSetup
+        self.branchStatusLabel = branchStatusLabel
     }
 
     public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {

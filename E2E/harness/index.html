@@ -201,6 +201,17 @@
       gap: 10px;
       text-align: left;
     }
+    .topbar-branch-chip {
+      flex: 0 0 auto;
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted, #9aa4b2);
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 7px;
+      padding: 2px 7px;
+      white-space: nowrap;
+    }
     .topbar strong { font-size: 17px; }
     .topbar-title-group strong {
       flex: 0 1 auto;
@@ -3286,6 +3297,7 @@
       topBar: {
         primaryTitle: 'QuillCode',
         subtitle: 'QuillCode - Not started',
+        branchStatusLabel: null,
         instructionLabel: '1 instruction file loaded',
         instructionSources: ['AGENTS.md'],
         modelLabel: 'Nike 1.0',
@@ -6426,6 +6438,7 @@
             <div class="topbar-title-group" data-testid="top-bar-title-group">
               <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
               <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
+              ${state.topBar.branchStatusLabel ? `<span class="topbar-branch-chip" data-testid="top-bar-branch" title="${escapeHTML(state.topBar.branchStatusLabel)}">${escapeHTML(state.topBar.branchStatusLabel)}</span>` : ''}
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
@@ -9262,6 +9275,7 @@
         isSelected: true
       };
       state.projects.selectedProjectID = project.id;
+      state.topBar.branchStatusLabel = null;
       state.projects.items = [
         project,
         ...state.projects.items.map(item => ({ ...item, isSelected: false }))
@@ -9290,6 +9304,7 @@
         isSelected: true
       };
       state.projects.selectedProjectID = project.id;
+      state.topBar.branchStatusLabel = null;
       state.projects.items = [
         project,
         ...state.projects.items.map(item => ({ ...item, isSelected: false }))
@@ -9303,6 +9318,7 @@
 
     function selectProject(projectID) {
       state.projects.selectedProjectID = projectID;
+      state.topBar.branchStatusLabel = null;
       state.projects.items = state.projects.items.map(project => ({
         ...project,
         isSelected: project.id === projectID
@@ -9364,6 +9380,7 @@
         if (state.projects.selectedProjectID === projectID) {
           const next = state.projects.items[0] || null;
           state.projects.selectedProjectID = next?.id || null;
+          state.topBar.branchStatusLabel = null;
           state.projects.items = state.projects.items.map(item => ({
             ...item,
             isSelected: item.id === state.projects.selectedProjectID
@@ -9375,10 +9392,38 @@
       }
     }
 
+    function branchStatusLabelFromHeader(headerLine) {
+      let rest = String(headerLine || '').trim();
+      if (!rest.startsWith('## ')) return null;
+      rest = rest.slice(3).trim();
+      if (rest.startsWith('HEAD (no branch)')) return '(detached)';
+      let ahead = 0;
+      let behind = 0;
+      const bracket = rest.match(/\s*\[([^\]]*)\]$/);
+      if (bracket) {
+        rest = rest.slice(0, bracket.index).trim();
+        for (const segment of bracket[1].split(',')) {
+          const tokens = segment.trim().split(/\s+/);
+          if (tokens.length === 2 && /^\d+$/.test(tokens[1])) {
+            if (tokens[0] === 'ahead') ahead = parseInt(tokens[1], 10);
+            else if (tokens[0] === 'behind') behind = parseInt(tokens[1], 10);
+          }
+        }
+      }
+      const branch = rest.split('...')[0];
+      if (!branch) return null;
+      let label = branch;
+      if (ahead > 0) label += ` ↑${ahead}`;
+      if (behind > 0) label += ` ↓${behind}`;
+      return label;
+    }
+
     function runGitStatusAction() {
       const project = selectedProject();
       const prefix = project?.isRemote ? `ssh ${project.path}\n` : '';
-      const stdout = `${prefix}## main\n M Sources/App.swift\n`;
+      const header = '## main';
+      const stdout = `${prefix}${header}\n M Sources/App.swift\n`;
+      state.topBar.branchStatusLabel = branchStatusLabelFromHeader(header);
       addToolCard({
         title: 'host.git.status',
         subtitle: 'Completed',

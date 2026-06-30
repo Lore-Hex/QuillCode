@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Worktree Branch Status Pass
+
+Overall grade after this slice: **A read-only branch surfacing, A cross-surface parity**.
+
+Surfaces the selected project's (or git worktree's) branch and ahead/behind-vs-upstream as a quiet top-bar chip (`feature/x ↑2 ↓1`), so a worktree feels like a first-class branch workspace. Feature scoped by a grounded design workflow (read-only, zero new command IDs) and hardened by an adversarial review pass.
+
+| Before | After |
+| --- | --- |
+| The top bar showed project/mode/model but no branch or ahead/behind; nothing parsed the git status branch header. | A pure `GitBranchStatus` parser reads the `## <branch>...<upstream> [ahead N, behind M]` header from the EXISTING `host.git.status` output (handles tracking/ahead/behind/`[gone]`/detached/garbage); `WorkspaceToolRunCoordinator` captures it after a successful git status into a `TopBarSurface.branchStatusLabel` chip rendered in the native top bar, the static HTML renderer, and the JS harness. |
+| — (review-driven correctness) | The chip is tagged with the project it was captured for, so `WorkspaceTopBarStateBuilder` drops it the moment a different project/worktree becomes the viewed context (via thread selection or any path) — never showing a stale branch. The JS harness mirrors the clear on project add/select/remove. |
+| No coverage. | `GitBranchStatus` parser unit tests + a real-repo ahead/behind integration test (bare upstream); coordinator capture, non-git-status-untouched, and view-another-project-hides-chip integration tests; Playwright chip-appears-after-git-status and clears-on-project-switch. No new command IDs, so the command-routing parity audit is untouched. |
+
+Residual risk:
+
+- The chip is dropped (not stashed-per-project) when viewing a different project, so it reappears on the next git status rather than being restored on switch-back — a deliberate simplicity choice. A discoverable "open PR for this worktree" affordance, persisting the branch on `ProjectRef`, and per-worktree-list ahead/behind remain follow-up PRs.
+
 ## 2026-06-29 Per-Thread Composer Draft Pass
 
 Overall grade after this slice: **A correctness fix, A cross-surface coverage**.
