@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 Copy Conversation (Markdown Export) Pass
+
+Overall grade after this slice: **A reuse of the existing copy path, A single-source serialization**.
+
+Adds a "Copy conversation" palette command that exports the whole current thread as Markdown to the clipboard — the missing "share my session" action (paste into a PR description, a bug report, or a doc). Previously only one transcript item could be copied at a time.
+
+| Before | After |
+| --- | --- |
+| `QuillCodeTranscriptView.copyText(for:)` shaped a single tool card's text inline, and there was no whole-thread export anywhere. | The per-item text shaping is factored into a shared `TranscriptItemTextFormatter` (output ?? input ?? title/subtitle), and a new pure `TranscriptMarkdownExporter.markdown(for:)` walks `transcript.timelineItems` in order — `## Role` + body per message, `### title` + a fenced block per tool run — reusing that one formatter so the export and the per-item copy can never drift. |
+| — (wiring) | The command is registered in `WorkspaceCommandStaticCatalog` (navigation, enabled with a thread) and routed by `QuillCodeWorkspaceViewCommandPlanner` to a new `.copyConversation` action (not model-dispatched). `WorkspaceSwiftUIView.handleCommandAction` builds the Markdown and reuses the existing `onCopyTranscriptItem("conversation", …)` closure → controller → pasteboard, so there is no new clipboard code or hit-target. Like `find-in-chat` it is palette-only (view-handled commands can't route through the model's slash executor). |
+| — (review-caught drift) | The adversarial review found the Swift and JS serializers did **not** actually mirror each other despite the comments: Swift trimmed before its output/input/title-subtitle checks while the JS `||`/`filter(Boolean)` did not, so a whitespace-only output (or padded subtitle) produced different clipboard bytes. Fixed: the JS path trims to match Swift (correcting the per-item copy too), and a **byte-equality fixture** is asserted on both sides — `TranscriptMarkdownExporterTests` and `core.spec.ts` pin the *same* conversation to identical Markdown. Also from the review: a tool output containing ``` no longer breaks the fence (a fence one longer than the longest backtick run, computed identically in both), and `## System`/`## Tool` headings are dropped so system-prompt content can never leak. |
+| No coverage. | `TranscriptMarkdownExporterTests` (interleaved order, output/input/title-subtitle fallback, whitespace-trim boundary, triple-backtick fence, system/tool skip, empty → "", `clipboardMarkdown` nil-guard, per-item-formatter lock, cross-language byte-parity fixture); planner test maps `copy-conversation` → `.copyConversation`; `WorkspaceRenderedCommandRoutingParityTests` enforces the id in BOTH the catalog and `harnessStaticCommandIDs`; the command-list snapshot gains it. The JS harness mirrors the exporter, command, and a confirmation toast; a Playwright test copies from the palette, asserts the toast, and asserts the exact Markdown. |
+
+Residual risk:
+
+- The export sources `timelineItems` (user/assistant messages + tool cards), so content rendered outside the timeline (thinking blocks, the review/diff pane) is not included, and a tool card with both input and output exports only the output — a deliberate "matches what per-item copy shows" scope. A document title/thread name, timestamps, labelled Input/Output blocks, and pretty-printed JSON are natural follow-ups. The raw tool `outputJSON` is dumped verbatim (the user's own clipboard, so no new exposure).
+
 ## 2026-06-29 Changed-File @-Mention Boost Pass
 
 Overall grade after this slice: **A reuse of existing data, A cross-surface scoring parity**.

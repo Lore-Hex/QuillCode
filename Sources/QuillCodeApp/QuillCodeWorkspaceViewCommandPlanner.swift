@@ -15,6 +15,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case presentRemoveWorktree
     case presentPruneWorktrees
     case openBrowserSession
+    case copyConversation
     case dispatch(command: WorkspaceCommandSurface, focusesComposer: Bool)
 }
 
@@ -52,6 +53,8 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
             return .presentPruneWorktrees
         case "open-browser-session":
             return .openBrowserSession
+        case "copy-conversation":
+            return .copyConversation
         default:
             guard WorkspaceCommandRoutingCatalog.isDispatchable(command.id) else {
                 return nil

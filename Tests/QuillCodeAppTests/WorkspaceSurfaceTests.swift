@@ -89,6 +89,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "retry-last-turn",
             "search",
             "find-in-chat",
+            "copy-conversation",
             "add-project",
             "add-ssh-project",
             "project-new-chat",

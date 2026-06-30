@@ -1322,6 +1322,21 @@
       border-bottom: 1px solid rgba(255,255,255,.1);
       background: rgba(18,29,35,.96);
     }
+    .copy-toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text, #e6edf3);
+      background: rgba(18,29,35,.96);
+      border: 1px solid rgba(255,255,255,.14);
+      box-shadow: 0 6px 24px rgba(0,0,0,.4);
+      z-index: 60;
+    }
     .find-bar span { color: var(--blue); font-weight: 800; }
     .find-bar input { min-width: 0; }
     .find-status {
@@ -3652,6 +3667,7 @@
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
+        { id: 'copy-conversation', title: 'Copy conversation', shortcut: '', category: 'Navigation', keywords: ['export', 'transcript', 'markdown', 'copy all', 'share'], isEnabled: false },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
         { id: 'add-ssh-project', title: 'Project: Add SSH Remote...', shortcut: '', category: 'Workspace', keywords: ['remote', 'ssh', 'server', 'workspace', '/ssh user@host:/path'], isEnabled: true },
         { id: 'project-new-chat', title: 'New chat in project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'thread', 'chat'], isEnabled: true },
@@ -5350,6 +5366,7 @@
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
+        command.id === 'copy-conversation' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-workspace-schedule' ? { ...command, isEnabled: hasProject } :
         command.id?.startsWith('automation-create-thread-follow-up-after:') ? { ...command, isEnabled: hasThread } :
@@ -6574,6 +6591,7 @@
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
           ${state.search.isOpen ? renderSearchPanel() : ''}
           ${state.commandPalette.isOpen ? renderCommandPalette() : ''}
+          ${state.copiedTranscriptItemID === 'conversation' ? '<div class="copy-toast" data-testid="conversation-copied-toast" role="status">Conversation copied</div>' : ''}
           ${state.shortcuts.isOpen ? renderKeyboardShortcutsPanel() : ''}
           ${state.worktreeDialog.mode ? renderWorktreeDialog() : ''}
           ${renderSidebarSavedSearchDialog()}
@@ -7976,7 +7994,70 @@
         return item.message?.text || '';
       }
       const card = item.toolCard || {};
-      return card.outputJSON || card.inputJSON || [card.title, card.subtitle].filter(Boolean).join('\n');
+      // Mirrors TranscriptItemTextFormatter (Swift): trim before the truthiness check so a
+      // whitespace-only output/input is skipped, and trim each title/subtitle field.
+      const nonBlank = value => (value && value.trim()) ? value : null;
+      return nonBlank(card.outputJSON)
+        || nonBlank(card.inputJSON)
+        || [card.title, card.subtitle].map(value => (value || '').trim()).filter(Boolean).join('\n');
+    }
+
+    // Mirrors TranscriptMarkdownExporter (Swift): walk the timeline in order, `## Role`
+    // + body per user/assistant message, `### title` + fenced block per tool run; reuse
+    // transcriptCopyText for tool-card text so export matches the per-item copy.
+    function transcriptConversationRoleHeading(role) {
+      return { user: 'User', assistant: 'Assistant' }[role] || null;
+    }
+
+    // A backtick fence one longer than the longest backtick run in the body, so a tool
+    // output containing ``` can never close the block early (matches Swift codeFence).
+    function conversationCodeFence(body) {
+      let longestRun = 0;
+      let currentRun = 0;
+      for (const character of String(body)) {
+        if (character === '`') {
+          currentRun += 1;
+          if (currentRun > longestRun) longestRun = currentRun;
+        } else {
+          currentRun = 0;
+        }
+      }
+      return '`'.repeat(Math.max(3, longestRun + 1));
+    }
+
+    function transcriptMarkdown() {
+      const blocks = [];
+      for (const item of transcriptTimelineItems()) {
+        if (item.kind === 'message') {
+          const heading = transcriptConversationRoleHeading(item.message?.role);
+          if (!heading) continue;
+          const body = (item.message?.text || '').trim();
+          if (!body) continue;
+          blocks.push(`## ${heading}\n\n${body}`);
+        } else if (item.kind === 'toolCard') {
+          const title = item.toolCard?.title || '';
+          const text = transcriptCopyText(item);
+          const fence = conversationCodeFence(text);
+          blocks.push(`### ${title}\n\n${fence}\n${text}\n${fence}`);
+        }
+      }
+      return blocks.join('\n\n');
+    }
+
+    function copyConversation() {
+      const markdown = transcriptMarkdown();
+      if (!markdown.trim()) return;
+      navigator.clipboard?.writeText(markdown).catch(() => {});
+      // Exposed for the Playwright parity test to assert byte-identical Markdown.
+      window.__lastConversationMarkdown = markdown;
+      state.copiedTranscriptItemID = 'conversation';
+      render();
+      setTimeout(() => {
+        if (state.copiedTranscriptItemID === 'conversation') {
+          state.copiedTranscriptItemID = null;
+          render();
+        }
+      }, 1500);
     }
 
     function setMessageFeedback(messageID, value) {
@@ -10227,6 +10308,7 @@
       'computer-use-setup',
       'disconnect-all',
       'find-in-chat',
+      'copy-conversation',
       'fork-from-last',
       'fork-full-context',
       'fork-with-summary',
@@ -10576,6 +10658,10 @@
       }
       if (commandID === 'find-in-chat') {
         openFindInChat();
+        return;
+      }
+      if (commandID === 'copy-conversation') {
+        copyConversation();
         return;
       }
       if (commandID === 'add-project') {
