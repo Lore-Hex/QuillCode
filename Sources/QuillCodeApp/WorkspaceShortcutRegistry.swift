@@ -44,6 +44,7 @@ public enum WorkspaceShortcutRegistry {
         WorkspaceShortcut(commandID: "cycle-mode", key: "tab", modifiers: [.shift]),
         WorkspaceShortcut(commandID: "retry-last-turn", key: "r", modifiers: [.command, .shift]),
         WorkspaceShortcut(commandID: "focus-composer", key: "l", modifiers: [.command]),
+        WorkspaceShortcut(commandID: "toggle-sidebar", key: "b", modifiers: [.command]),
         WorkspaceShortcut(commandID: "search", key: "k", modifiers: [.command]),
         WorkspaceShortcut(commandID: "find-in-chat", key: "f", modifiers: [.command]),
         WorkspaceShortcut(commandID: "add-project", key: "o", modifiers: [.command]),

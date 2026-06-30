@@ -201,6 +201,12 @@
       min-width: 0;
       height: 1px;
     }
+    .quillcode-workspace[data-sidebar-visible="false"] .topbar {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .quillcode-workspace[data-sidebar-visible="false"] .topbar-sidebar-slot {
+      display: none;
+    }
     .topbar-status-metadata {
       display: none;
     }
@@ -796,6 +802,8 @@
     .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr); gap: 16px; padding: 14px 18px 18px 0; }
     .workspace-grid.with-activity { grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) 320px; }
+    .workspace-grid.sidebar-hidden { grid-template-columns: minmax(0, 1fr); padding-left: 18px; }
+    .workspace-grid.sidebar-hidden.with-activity { grid-template-columns: minmax(0, 1fr) 320px; }
     .sidebar, .transcript {
       min-height: 0;
     }
@@ -3408,6 +3416,9 @@
         memorySources: ['memories/preferences.md', '.quillcode/memories/project.md'],
         computerUseLabel: 'Needs Screen Recording + Accessibility'
       },
+      chrome: {
+        isSidebarVisible: true
+      },
       runtimeIssue: null,
       mockRuntimeFailureConsumed: false,
       projects: {
@@ -3696,6 +3707,7 @@
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
         { id: 'focus-composer', title: 'Focus message input', shortcut: 'Cmd+L', category: 'Workspace', keywords: ['focus', 'composer', 'message', 'input', 'prompt', 'type'], isEnabled: true },
+        { id: 'toggle-sidebar', title: 'Toggle sidebar', shortcut: 'Cmd+B', category: 'Navigation', keywords: ['sidebar', 'navigation', 'hide', 'show', 'chats', 'projects'], isEnabled: true },
         { id: 'sidebar-filter:all', title: 'Show all chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'all'], isEnabled: true },
         { id: 'sidebar-filter:pinned', title: 'Show pinned chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'pinned'], isEnabled: true },
         { id: 'sidebar-filter:recent', title: 'Show recent chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'recent'], isEnabled: true },
@@ -4098,6 +4110,59 @@
           title="${escapeHTML(title)}"
           ${command.isEnabled ? '' : 'disabled aria-disabled="true"'}
         >${escapeHTML(command.title)}</button>`;
+    }
+
+    function workspaceGridClassName() {
+      return [
+        'workspace-grid',
+        state.chrome.isSidebarVisible ? '' : 'sidebar-hidden',
+        state.activity.isVisible ? 'with-activity' : ''
+      ].filter(Boolean).join(' ');
+    }
+
+    function renderSidebarChrome(sidebarThreadHeader, sidebarContent, projectsContent) {
+      if (!state.chrome.isSidebarVisible) return '';
+      return `<aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
+        <div class="sidebar-actions" data-testid="sidebar-compose-zone" aria-label="Primary chat actions">
+          <button class="sidebar-action hit-target-row" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
+          <button class="sidebar-action hit-target-row" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search</button>
+          <button class="sidebar-action hit-target-row" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
+          <button class="sidebar-action hit-target-row" type="button" data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations</button>
+        </div>
+        <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
+          ${sidebarThreadHeader}
+          ${sidebarContent}
+        </div>
+        <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
+          <div class="sidebar-section-title">
+            <h2>${escapeHTML(state.projects.title)}</h2>
+            <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-project-button" aria-label="Open project" data-command-id="add-project">+</button>
+          </div>
+          ${projectsContent}
+        </div>
+        <div class="sidebar-footer" aria-label="Workspace tools">
+          <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
+            <summary class="hit-target-row" data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
+            <div class="sidebar-tools-popover" role="menu">
+              <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="navigate">
+                <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Navigate</h3>
+                <button class="sidebar-tool-action hit-target-row" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
+              </section>
+              <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="workspace">
+                <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Workspace</h3>
+                <button class="sidebar-tool-action hit-target-row" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
+                <button class="sidebar-tool-action hit-target-row" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
+              </section>
+              <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="context">
+                <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Context</h3>
+                <button class="sidebar-tool-action hit-target-row" type="button" data-testid="memories-button" role="menuitem" aria-label="Memories" title="Memories" data-icon="memories" data-command-id="toggle-memories">Memories</button>
+                <button class="sidebar-tool-action hit-target-row" type="button" data-testid="activity-button" role="menuitem" aria-label="Activity" title="Activity" data-icon="activity" data-command-id="toggle-activity">Activity</button>
+              </section>
+            </div>
+          </details>
+          <button class="sidebar-settings-button hit-target-row" type="button" data-testid="settings-button" aria-label="Settings" title="Settings" data-command-id="settings">Settings</button>
+        </div>
+      </aside>`;
     }
 
     const slashCommandDefinitions = [
@@ -6561,6 +6626,7 @@
         </section>` : '';
       const topBarOverflowCommandIDs = [
         'command-palette',
+        'toggle-sidebar',
         'search',
         ...(state.settings.computerUseStatus.available ? [] : ['computer-use-setup']),
         'settings',
@@ -6576,7 +6642,7 @@
         : '';
 
       document.getElementById('app').innerHTML = `
-        <section class="quillcode-workspace" data-testid="workspace">
+        <section class="quillcode-workspace" data-testid="workspace" data-sidebar-visible="${state.chrome.isSidebarVisible}">
           <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
             <div class="topbar-status-metadata" data-testid="top-bar-status-metadata" aria-hidden="true">
               <span data-testid="agent-status" data-tone="${escapeHTML(topBarStatusTone())}" data-indicator="${topBarStatusIndicator()}">${escapeHTML(state.topBar.agentStatus)}</span>
@@ -6605,49 +6671,9 @@
             </div>
             ${topBarShowsActivityHairline() ? `<div class="topbar-activity-hairline" data-testid="top-bar-activity-hairline" data-tone="${escapeHTML(topBarActivityTone())}" aria-hidden="true"></div>` : ''}
           </header>
-          <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
-            <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
-              <div class="sidebar-actions" data-testid="sidebar-compose-zone" aria-label="Primary chat actions">
-                <button class="sidebar-action hit-target-row" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
-                <button class="sidebar-action hit-target-row" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search</button>
-                <button class="sidebar-action hit-target-row" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
-                <button class="sidebar-action hit-target-row" type="button" data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations</button>
-              </div>
-              <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
-                ${sidebarThreadHeader}
-                ${sidebarContent}
-              </div>
-              <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
-                <div class="sidebar-section-title">
-                  <h2>${escapeHTML(state.projects.title)}</h2>
-                  <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-project-button" aria-label="Open project" data-command-id="add-project">+</button>
-                </div>
-                ${projectsContent}
-              </div>
-              <div class="sidebar-footer" aria-label="Workspace tools">
-                <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
-                  <summary class="hit-target-row" data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
-                  <div class="sidebar-tools-popover" role="menu">
-                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="navigate">
-                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Navigate</h3>
-                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
-                    </section>
-                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="workspace">
-                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Workspace</h3>
-                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
-                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
-                    </section>
-                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="context">
-                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Context</h3>
-                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="memories-button" role="menuitem" aria-label="Memories" title="Memories" data-icon="memories" data-command-id="toggle-memories">Memories</button>
-                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="activity-button" role="menuitem" aria-label="Activity" title="Activity" data-icon="activity" data-command-id="toggle-activity">Activity</button>
-                    </section>
-                  </div>
-                </details>
-                <button class="sidebar-settings-button hit-target-row" type="button" data-testid="settings-button" aria-label="Settings" title="Settings" data-command-id="settings">Settings</button>
-              </div>
-            </aside>
-	            <main class="transcript" data-testid="transcript">
+          <div class="${workspaceGridClassName()}">
+            ${renderSidebarChrome(sidebarThreadHeader, sidebarContent, projectsContent)}
+            <main class="transcript" data-testid="transcript">
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
 	              ${state.automations.isVisible ? renderAutomationsPane() : ''}
 	              <div class="timeline" data-testid="timeline">${timeline}</div>
@@ -10525,6 +10551,7 @@
       'toggle-browser',
       'toggle-extensions',
       'toggle-memories',
+      'toggle-sidebar',
       'toggle-terminal'
     ]);
 
@@ -10825,6 +10852,11 @@
       }
       if (commandID === 'find-in-chat') {
         openFindInChat();
+        return;
+      }
+      if (commandID === 'toggle-sidebar') {
+        state.chrome.isSidebarVisible = !state.chrome.isSidebarVisible;
+        render();
         return;
       }
       if (commandID === 'copy-conversation') {

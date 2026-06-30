@@ -8,6 +8,7 @@ import QuillComputerUseKit
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public internal(set) var root: QuillCodeRootState
+    public internal(set) var chrome: WorkspaceChromeState
     public internal(set) var composer: ComposerState
     public internal(set) var terminal: TerminalState
     public private(set) var browser: BrowserState
@@ -51,6 +52,7 @@ public final class QuillCodeWorkspaceModel {
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
+        chrome: WorkspaceChromeState = WorkspaceChromeState(),
         composer: ComposerState = ComposerState(),
         terminal: TerminalState = TerminalState(),
         browser: BrowserState = BrowserState(),
@@ -74,6 +76,7 @@ public final class QuillCodeWorkspaceModel {
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
     ) {
         self.root = root
+        self.chrome = chrome
         self.composer = composer
         self.terminal = terminal
         self.browser = browser

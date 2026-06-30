@@ -21,6 +21,14 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertTrue(model.terminal.isVisible)
     }
 
+    func testExecutorRunsSidebarToggleCommand() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.chrome.isSidebarVisible)
+        XCTAssertTrue(model.runWorkspaceCommand("toggle-sidebar", workspaceRoot: try makeTempDirectory()))
+        XCTAssertFalse(model.chrome.isSidebarVisible)
+    }
+
     func testExecutorRunsNewChatCommandPlan() throws {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: [ChatThread(title: "Existing")],

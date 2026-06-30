@@ -19,6 +19,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("new-chat", in: commands).isEnabled, true)
         XCTAssertEqual(try command("thread-rename", in: commands).isEnabled, false)
         XCTAssertEqual(try command("find-in-chat", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("toggle-sidebar", in: commands).isEnabled, true)
         XCTAssertEqual(try command("project-new-chat", in: commands).isEnabled, false)
         XCTAssertEqual(try command("git-status", in: commands).isEnabled, false)
         XCTAssertEqual(try command("terminal-clear", in: commands).isEnabled, false)

@@ -217,6 +217,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .action(.newChat)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "toggle-sidebar"),
+            .action(.toggleSidebar)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "toggle-terminal"),
             .action(.toggleTerminal)
         )

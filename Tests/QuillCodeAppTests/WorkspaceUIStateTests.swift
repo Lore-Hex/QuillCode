@@ -10,6 +10,19 @@ final class WorkspaceUIStateTests: XCTestCase {
         XCTAssertEqual(state.placeholder, "Message QuillCode")
     }
 
+    @MainActor
+    func testWorkspaceChromeDefaultsToVisibleSidebarAndTogglesThroughModel() {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.chrome.isSidebarVisible)
+        XCTAssertTrue(model.surface().chrome.isSidebarVisible)
+
+        model.toggleSidebar()
+
+        XCTAssertFalse(model.chrome.isSidebarVisible)
+        XCTAssertFalse(model.surface().chrome.isSidebarVisible)
+    }
+
     func testVisibilityStatesDefaultClosedAndPreserveCollapsedActivitySections() {
         XCTAssertFalse(MemoriesState().isVisible)
 

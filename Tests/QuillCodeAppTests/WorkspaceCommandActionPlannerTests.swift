@@ -7,6 +7,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         let planner = WorkspaceCommandActionPlanner()
 
         XCTAssertEqual(planner.effect(for: .newChat), .newChat)
+        XCTAssertEqual(planner.effect(for: .toggleSidebar), .toggleSidebar)
         XCTAssertEqual(planner.effect(for: .toggleTerminal), .toggleTerminal)
         XCTAssertEqual(planner.effect(for: .clearTerminal), .clearTerminal)
         XCTAssertEqual(planner.effect(for: .toggleBrowser), .toggleBrowser)

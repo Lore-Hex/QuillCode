@@ -20,6 +20,14 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Browser: Reload' })).toContainText('Cmd+R');
   await page.getByTestId('keyboard-shortcuts-close').click();
 
+  await expect(page.getByTestId('workspace')).toHaveAttribute('data-sidebar-visible', 'true');
+  await page.keyboard.press('Meta+B');
+  await expect(page.getByTestId('workspace')).toHaveAttribute('data-sidebar-visible', 'false');
+  await expect(page.getByTestId('sidebar')).toHaveCount(0);
+  await page.keyboard.press('Meta+B');
+  await expect(page.getByTestId('workspace')).toHaveAttribute('data-sidebar-visible', 'true');
+  await expect(page.getByTestId('sidebar')).toBeVisible();
+
   await page.keyboard.press('Control+Backquote');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
 

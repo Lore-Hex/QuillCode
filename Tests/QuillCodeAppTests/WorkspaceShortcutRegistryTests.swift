@@ -23,8 +23,9 @@ final class WorkspaceShortcutRegistryTests: XCTestCase {
         XCTAssertEqual(Set(bindings).count, bindings.count)
     }
 
-    func testPrimaryPaneCommandsHaveKeyboardShortcuts() {
-        let paneCommandIDs = [
+    func testPrimaryChromeAndPaneCommandsHaveKeyboardShortcuts() {
+        let chromeAndPaneCommandIDs = [
+            "toggle-sidebar",
             "toggle-terminal",
             "toggle-browser",
             "toggle-activity",
@@ -33,11 +34,17 @@ final class WorkspaceShortcutRegistryTests: XCTestCase {
             "toggle-extensions"
         ]
 
-        for commandID in paneCommandIDs {
+        for commandID in chromeAndPaneCommandIDs {
             XCTAssertNotNil(
                 WorkspaceShortcutRegistry.shortcut(for: commandID),
-                "\(commandID) should stay keyboard reachable because it opens a primary workspace pane."
+                "\(commandID) should stay keyboard reachable because it opens primary workspace chrome."
             )
         }
+    }
+
+    func testSidebarToggleUsesCodexStyleShortcut() {
+        let shortcut = WorkspaceShortcutRegistry.shortcut(for: "toggle-sidebar")
+
+        XCTAssertEqual(shortcut?.displayLabel, "Cmd+B")
     }
 }

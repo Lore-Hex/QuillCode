@@ -3,6 +3,7 @@ import QuillCodeCore
 import QuillCodeTools
 
 public struct WorkspaceSurface: Codable, Sendable, Hashable {
+    public var chrome: WorkspaceChromeSurface
     public var topBar: TopBarSurface
     public var projects: ProjectListSurface
     public var sidebar: SidebarSurface
@@ -28,6 +29,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var lastError: String?
 
     public init(
+        chrome: WorkspaceChromeSurface = WorkspaceChromeSurface(),
         topBar: TopBarSurface,
         projects: ProjectListSurface,
         sidebar: SidebarSurface,
@@ -48,6 +50,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         runtimeIssue: RuntimeIssueSurface? = nil,
         lastError: String? = nil
     ) {
+        self.chrome = chrome
         self.topBar = topBar
         self.projects = projects
         self.sidebar = sidebar
@@ -115,6 +118,7 @@ public extension QuillCodeWorkspaceModel {
             runtimeIssue: runtimeIssue
         ).surface()
         return WorkspaceSurface(
+            chrome: WorkspaceChromeSurface(state: chrome),
             topBar: topBar,
             projects: navigation.projects,
             sidebar: navigation.sidebar,
