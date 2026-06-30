@@ -375,12 +375,66 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
     }
 
     func testSwiftInteractiveControlsDeclareHitTargetContractAtSource() throws {
-        let sourceRoot = packageRoot()
+        let packageRoot = packageRoot()
+        let appSourceRoot = packageRoot
             .appendingPathComponent("Sources", isDirectory: true)
             .appendingPathComponent("QuillCodeApp", isDirectory: true)
-        let issues = try swiftSourceFiles(in: sourceRoot)
-            .flatMap { try sourceHitTargetContractIssues(in: $0, sourceRoot: sourceRoot) }
+        let desktopSourceRoot = packageRoot
+            .appendingPathComponent("Sources", isDirectory: true)
+            .appendingPathComponent("quill-code-desktop", isDirectory: true)
+        let visibleDesktopFiles = try swiftSourceFiles(in: desktopSourceRoot)
+            .filter { $0.lastPathComponent != "DesktopCommands.swift" }
+        let issues = try (swiftSourceFiles(in: appSourceRoot) + visibleDesktopFiles)
+            .flatMap { try sourceHitTargetContractIssues(in: $0, sourceRoot: packageRoot) }
             .sorted()
+
+        XCTAssertEqual(issues, [])
+    }
+
+    func testSwiftGestureTargetsDeclareOwnedGestureTargetAtSource() throws {
+        let source = """
+        import SwiftUI
+
+        struct RawGestureTargets: View {
+            var body: some View {
+                Text("Open")
+                    .onTapGesture {}
+                Text("Hold")
+                    .onLongPressGesture {}
+                Text("Priority")
+                    .highPriorityGesture(TapGesture())
+                Text("Custom")
+                    .gesture(TapGesture())
+            }
+        }
+        """
+
+        let issues = try sourceAuditIssues(for: source)
+
+        XCTAssertEqual(
+            issues.filter { $0.contains("gesture-based click target should use Button, Link, or quillCodeOwnedGestureTarget") }.count,
+            4
+        )
+    }
+
+    func testSwiftOwnedGestureTargetSatisfiesGestureSourceAudit() throws {
+        let source = """
+        import SwiftUI
+
+        struct OwnedGestureTarget: View {
+            var body: some View {
+                HStack {
+                    Text("Open")
+                    Image(systemName: "chevron.right")
+                }
+                .quillCodeOwnedGestureTarget()
+                .accessibilityLabel("Open detail")
+                .onTapGesture {}
+            }
+        }
+        """
+
+        let issues = try sourceAuditIssues(for: source)
 
         XCTAssertEqual(issues, [])
     }
@@ -680,11 +734,26 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         .sorted { $0.path < $1.path }
     }
 
+    private func sourceAuditIssues(
+        for source: String,
+        fileName: String = "SourceAuditProbe.swift"
+    ) throws -> [String] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QuillCodeNativeHitTargetAuditTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let fileURL = directory.appendingPathComponent(fileName)
+        try source.write(to: fileURL, atomically: true, encoding: .utf8)
+        return try sourceHitTargetContractIssues(in: fileURL, sourceRoot: directory)
+    }
+
     private func sourceHitTargetContractIssues(in fileURL: URL, sourceRoot: URL) throws -> [String] {
         let source = try String(contentsOf: fileURL, encoding: .utf8)
         let lines = source.components(separatedBy: .newlines)
         let interactivePattern = try NSRegularExpression(
             pattern: #"(?<![A-Za-z0-9_])(Button|Link|NavigationLink|Menu|DisclosureGroup|TextField|SecureField|TextEditor|Picker|Toggle|Slider|Stepper)\s*(?:\(|\{)"#
+        )
+        let gesturePattern = try NSRegularExpression(
+            pattern: #"\.(onTapGesture|onLongPressGesture|gesture|simultaneousGesture|highPriorityGesture)\s*(?:\(|\{)|\b(?:TapGesture|LongPressGesture)\s*\("#
         )
         let geometryMarkers = [
             ".quillCodeTextButtonTarget",
@@ -701,10 +770,12 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         ]
         let platformMenuItemMarker = ".quillCodePlatformMenuItemTarget"
 
-        return lines.enumerated().compactMap { index, line in
+        var issues: [String] = []
+
+        for (index, line) in lines.enumerated() {
             let range = NSRange(line.startIndex..<line.endIndex, in: line)
             guard let match = interactivePattern.firstMatch(in: line, range: range),
-                  let kindRange = Range(match.range(at: 1), in: line) else { return nil }
+                  let kindRange = Range(match.range(at: 1), in: line) else { continue }
             let kind = String(line[kindRange])
             let snippet = interactiveControlSnippet(
                 from: index,
@@ -717,17 +788,37 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             let relativePath = fileURL.path.replacingOccurrences(of: sourceRoot.path + "/", with: "")
             let sourceLocation = "\(relativePath):\(index + 1)"
             let controlSummary = "`\(line.trimmingCharacters(in: .whitespaces))`"
-            guard markers.contains(where: snippet.contains) else {
-                return "\(sourceLocation) missing QuillCode hit-target marker near \(controlSummary)"
+            if !markers.contains(where: snippet.contains) {
+                issues.append("\(sourceLocation) missing QuillCode hit-target marker near \(controlSummary)")
+                continue
             }
             if ["Button", "Menu"].contains(kind),
                !snippet.contains(platformMenuItemMarker),
                !snippet.contains(".buttonStyle(QuillCodePressableButtonStyle"),
                !snippet.contains(".buttonStyle(QuillCodeActionButtonStyle") {
-                return "\(sourceLocation) missing QuillCode press/action button style near \(controlSummary)"
+                issues.append("\(sourceLocation) missing QuillCode press/action button style near \(controlSummary)")
             }
-            return nil
         }
+
+        for (index, line) in lines.enumerated() {
+            let range = NSRange(line.startIndex..<line.endIndex, in: line)
+            guard gesturePattern.firstMatch(in: line, range: range) != nil else { continue }
+            let snippet = gestureControlSnippet(
+                from: index,
+                in: lines,
+                gesturePattern: gesturePattern,
+                interactivePattern: interactivePattern
+            )
+            if snippet.contains(".quillCodeOwnedGestureTarget") {
+                continue
+            }
+            let relativePath = fileURL.path.replacingOccurrences(of: sourceRoot.path + "/", with: "")
+            let sourceLocation = "\(relativePath):\(index + 1)"
+            let controlSummary = "`\(line.trimmingCharacters(in: .whitespaces))`"
+            issues.append("\(sourceLocation) gesture-based click target should use Button, Link, or quillCodeOwnedGestureTarget near \(controlSummary)")
+        }
+
+        return issues
     }
 
     private func interactiveControlSnippet(
@@ -750,6 +841,66 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             }
         }
         return lines[startIndex..<endIndex].joined(separator: "\n")
+    }
+
+    private func gestureControlSnippet(
+        from gestureIndex: Int,
+        in lines: [String],
+        gesturePattern: NSRegularExpression,
+        interactivePattern: NSRegularExpression
+    ) -> String {
+        let startIndex = gestureOwnerStartIndex(for: gestureIndex, in: lines)
+        let startIndent = leadingWhitespaceCount(lines[startIndex])
+        let upperBound = min(lines.endIndex, gestureIndex + 80)
+        var endIndex = upperBound
+
+        if gestureIndex + 1 < upperBound {
+            for peerIndex in (gestureIndex + 1)..<upperBound {
+                let peerLine = lines[peerIndex]
+                let range = NSRange(peerLine.startIndex..<peerLine.endIndex, in: peerLine)
+                let startsPeerControl = interactivePattern.firstMatch(in: peerLine, range: range) != nil
+                    && leadingWhitespaceCount(peerLine) <= startIndent
+                let startsPeerGesture = gesturePattern.firstMatch(in: peerLine, range: range) != nil
+                    && leadingWhitespaceCount(peerLine) <= startIndent
+                if startsPeerGesture || startsPeerControl || isPeerViewExpression(peerLine, ownerIndent: startIndent) {
+                    endIndex = peerIndex
+                    break
+                }
+            }
+        }
+
+        return lines[startIndex..<endIndex].joined(separator: "\n")
+    }
+
+    private func gestureOwnerStartIndex(for gestureIndex: Int, in lines: [String]) -> Int {
+        let gestureIndent = leadingWhitespaceCount(lines[gestureIndex])
+        let lowerBound = max(0, gestureIndex - 80)
+        for candidateIndex in stride(from: gestureIndex, through: lowerBound, by: -1) {
+            let line = lines[candidateIndex]
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !isModifierOrStructuralLine(trimmed),
+                  leadingWhitespaceCount(line) <= gestureIndent else { continue }
+            return candidateIndex
+        }
+        return max(0, gestureIndex - 8)
+    }
+
+    private func isPeerViewExpression(_ line: String, ownerIndent: Int) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard leadingWhitespaceCount(line) <= ownerIndent,
+              !isModifierOrStructuralLine(trimmed) else { return false }
+        return true
+    }
+
+    private func isModifierOrStructuralLine(_ trimmedLine: String) -> Bool {
+        trimmedLine.isEmpty
+            || trimmedLine.hasPrefix(".")
+            || trimmedLine.hasPrefix("//")
+            || trimmedLine == "}"
+            || trimmedLine == ")"
+            || trimmedLine == "},"
+            || trimmedLine == "),"
+            || trimmedLine.hasPrefix("var body:")
     }
 
     private func leadingWhitespaceCount(_ line: String) -> Int {
