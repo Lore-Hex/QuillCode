@@ -9,7 +9,7 @@ struct QuillCodeModelCategorySection: View {
     var onToggleModelFavorite: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Text(category.category.uppercased())
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)

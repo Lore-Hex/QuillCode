@@ -331,6 +331,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
     public var selector: String
     public var requiredMinWidth: Double
     public var requiredMinHeight: Double
+    public var requiredPeerClearance: Double
     public var samplePoints: [QuillCodeNativeHitTargetProbePoint]
 
     public init(
@@ -346,6 +347,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
         selector: String,
         requiredMinWidth: Double,
         requiredMinHeight: Double,
+        requiredPeerClearance: Double = Double(QuillCodeMetrics.minimumTargetClearance),
         samplePoints: [QuillCodeNativeHitTargetProbePoint]
     ) {
         self.contractID = contractID
@@ -360,6 +362,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
         self.selector = selector
         self.requiredMinWidth = requiredMinWidth
         self.requiredMinHeight = requiredMinHeight
+        self.requiredPeerClearance = requiredPeerClearance
         self.samplePoints = samplePoints
     }
 
@@ -377,6 +380,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
             "selector": selector,
             "requiredMinWidth": requiredMinWidth,
             "requiredMinHeight": requiredMinHeight,
+            "requiredPeerClearance": requiredPeerClearance,
             "samplePoints": samplePoints.map(\.dictionary)
         ]
     }
@@ -384,6 +388,7 @@ public struct QuillCodeNativeHitTargetProbe: Codable, Sendable, Hashable {
 
 public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var minimumHitTarget: Double
+    public var minimumTargetClearance: Double
     public var pressScale: Double
     public var surfacePolicies: [QuillCodeNativeSurfaceTargetPolicy]
     public var designSystemContracts: [QuillCodeNativeHitTargetContract]
@@ -426,6 +431,7 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var dictionary: [String: Any] {
         [
             "minimumHitTarget": minimumHitTarget,
+            "minimumTargetClearance": minimumTargetClearance,
             "pressScale": pressScale,
             "isValid": isValid,
             "surfacePolicies": surfacePolicies.map(\.dictionary),
@@ -568,6 +574,7 @@ public enum QuillCodeNativeHitTargetAudit {
 
         return QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: Double(QuillCodeMetrics.minimumHitTarget),
+            minimumTargetClearance: Double(QuillCodeMetrics.minimumTargetClearance),
             pressScale: Double(QuillCodeMetrics.pressScale),
             surfacePolicies: requiredSurfacePolicies,
             designSystemContracts: designContracts,
@@ -824,11 +831,15 @@ public enum QuillCodeNativeHitTargetAudit {
     ) -> [String] {
         var issues: [String] = []
         let minimum = Double(QuillCodeMetrics.minimumHitTarget)
+        let minimumClearance = Double(QuillCodeMetrics.minimumTargetClearance)
         if probe.requiredMinWidth < minimum {
             issues.append("\(probe.contractID) click probe requiredMinWidth \(probe.requiredMinWidth) is below \(minimum)")
         }
         if probe.requiredMinHeight < minimum {
             issues.append("\(probe.contractID) click probe requiredMinHeight \(probe.requiredMinHeight) is below \(minimum)")
+        }
+        if probe.requiredPeerClearance < minimumClearance {
+            issues.append("\(probe.contractID) click probe requiredPeerClearance \(probe.requiredPeerClearance) is below \(minimumClearance)")
         }
         return issues
     }
@@ -886,6 +897,7 @@ public enum QuillCodeNativeHitTargetAudit {
                     contract.minHeight,
                     Double(QuillCodeMetrics.minimumHitTarget)
                 ),
+                requiredPeerClearance: Double(QuillCodeMetrics.minimumTargetClearance),
                 samplePoints: normalizedClickSamplePoints
             )
         }
