@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Pull Request Auto-Fill Handoff Pass
+
+Overall grade after this slice: **A one-step PR handoff, A cross-surface parity**.
+
+Adds a one-step "open a PR for this branch" handoff so a worktree or feature branch can become a pull request with title and body auto-filled from its commits.
+
+| Before | After |
+| --- | --- |
+| Creating a PR always meant drafting a title in the composer; there was no quick auto-fill path for the current branch. | `/pr fill` (and `/pr create --fill`) plus a "Create pull request from commits" command-palette action dispatch `host.git.pr.create` with `fill: true`, which `gh pr create --fill` turns into a PR titled/bodied from the branch's commits. |
+| The native command surface, harness routing registry, and JS harness only knew `git-pr-create`. | `git-pr-fill` is registered across the slash parser, the pull-request command catalog/descriptors, the `WorkspaceCommandPlan` tool-call map, the harness static command registry, and the JS harness command routing + mock execution, keeping the rendered command-routing parity audit green. |
+| No coverage for the fill handoff. | Parser, command-plan, and catalog unit tests plus Playwright slash and command-palette tests assert the `fill: true` dispatch and the resulting PR tool card. |
+
+Residual risk:
+
+- The fill path relies on `gh pr create --fill`, which needs the branch pushed; surfacing a clear push prompt on failure is a future polish.
+
 ## 2026-06-29 Composer History Recall Native Pass
 
 Overall grade after this slice: **A native recall UX; harness/Playwright parity pending**.

@@ -9,6 +9,14 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/pr"), .workspaceCommand("git-pr-create"))
     }
 
+    func testFillPullRequestCommandRoutesToAutoFillCreate() {
+        XCTAssertEqual(SlashPullRequestCommandParser.parse("fill"), .workspaceCommand("git-pr-fill"))
+        XCTAssertEqual(SlashPullRequestCommandParser.parse("autofill"), .workspaceCommand("git-pr-fill"))
+        XCTAssertEqual(SlashPullRequestCommandParser.parse("create --fill"), .workspaceCommand("git-pr-fill"))
+        XCTAssertEqual(SlashPullRequestCommandParser.parse("create fill"), .workspaceCommand("git-pr-fill"))
+        XCTAssertEqual(SlashCommandParser.parse("/pr fill"), .workspaceCommand("git-pr-fill"))
+    }
+
     func testReadOnlyPullRequestCommandsBuildToolCallsWithSelectors() throws {
         try assertToolCall(
             SlashPullRequestCommandParser.parse("view #456"),
@@ -130,7 +138,7 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashPullRequestCommandParser.parse("unknown"),
-            .invalid("Unknown pull request command 'unknown'. Use create, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
+            .invalid("Unknown pull request command 'unknown'. Use create, fill, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
         )
     }
 

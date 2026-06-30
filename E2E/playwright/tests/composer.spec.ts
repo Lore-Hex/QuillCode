@@ -142,6 +142,12 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
 
+  await page.getByLabel('Message').fill('/pr fill');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.create');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"fill": true');
+  await expect(page.getByTestId('message').last()).toContainText('Opened a pull request for the current branch');
+
   await page.getByLabel('Message').fill('/compact');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('top-bar-title')).toContainText('Compact:');

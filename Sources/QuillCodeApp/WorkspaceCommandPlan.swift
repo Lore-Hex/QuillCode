@@ -72,7 +72,11 @@ enum WorkspaceCommandPlan: Equatable {
     ].merging(WorkspacePullRequestCommandCatalog.toolNameByCommandID) { local, _ in local }
 
     private static let toolCallByCommandID: [String: ToolCall] = [
-        "git-worktree-prune": WorkspaceWorktreeToolCallPlanner.prune(.init(dryRun: true, verbose: true))
+        "git-worktree-prune": WorkspaceWorktreeToolCallPlanner.prune(.init(dryRun: true, verbose: true)),
+        "git-pr-fill": ToolCall(
+            name: ToolDefinition.gitPullRequestCreate.name,
+            argumentsJSON: ToolArguments.json(["fill": true])
+        )
     ]
 
     private static let draftByCommandID: [String: String] = [

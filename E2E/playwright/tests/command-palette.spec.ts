@@ -143,11 +143,26 @@ test('mock harness prepares pull request creation from the command palette', asy
 
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>create pull request');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await expect(commandPaletteResult(page, 'git-pr-create')).toBeVisible();
+  await expect(commandPaletteResult(page, 'git-pr-fill')).toBeVisible();
   await commandPaletteResult(page, 'git-pr-create').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
+});
+
+test('mock harness opens a pull request from commits via the command palette', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await fillCommandPalette(page, '>pull request from commits');
+  await expect(commandPaletteResult(page, 'git-pr-fill')).toBeVisible();
+  await commandPaletteResult(page, 'git-pr-fill').click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.create');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"fill": true');
+  await expect(page.getByTestId('message').last()).toContainText('Opened a pull request for the current branch');
 });
 
 test('mock harness views pull request details, checks, and diff from the command palette', async ({ page }) => {

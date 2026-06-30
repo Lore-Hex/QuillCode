@@ -3663,6 +3663,7 @@
         { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
         { id: 'git-diff', title: 'Review diff', shortcut: '', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'review'], isEnabled: true },
+        { id: 'git-pr-fill', title: 'Create pull request from commits', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'fill', 'autofill', 'branch', 'commits'], isEnabled: true },
         { id: 'git-pr-view', title: 'View pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'view', 'comments', 'review'], isEnabled: true },
         { id: 'git-pr-checks', title: 'Pull request checks', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'checks', 'ci', 'status'], isEnabled: true },
         { id: 'git-pr-diff', title: 'Pull request diff', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pr diff', 'pull request diff', 'diff', 'review', 'changes'], isEnabled: true },
@@ -5282,6 +5283,7 @@
         command.id === 'git-status' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-diff' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-pr-create' ? { ...command, isEnabled: hasLocalProject } :
+        command.id === 'git-pr-fill' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-list' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-create' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-open' ? { ...command, isEnabled: hasLocalProject } :
@@ -9399,6 +9401,25 @@
       render();
     }
 
+    function runGitPullRequestFillAction() {
+      ensureThread('Create pull request from commits');
+      const url = 'https://github.com/Lore-Hex/QuillCode/pull/77';
+      addToolCard({
+        title: 'host.git.pr.create',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ fill: true }, null, 2),
+        outputJSON: JSON.stringify({
+          ok: true,
+          stdout: url + '\n',
+          artifacts: [url]
+        }, null, 2)
+      });
+      addMessage('assistant', 'Opened a pull request for the current branch:\n' + url + '\n');
+      syncSelectedThreadSearchText();
+      render();
+    }
+
     function runGitPullRequestViewAction() {
       ensureThread('View pull request');
       const stdout = [
@@ -10095,6 +10116,7 @@
       'git-pr-checkout',
       'git-pr-comment',
       'git-pr-create',
+      'git-pr-fill',
       'git-pr-diff',
       'git-pr-labels',
       'git-pr-merge',
@@ -10643,6 +10665,10 @@
       }
       if (commandID === 'git-pr-create') {
         usePromptAsDraft('Create a pull request titled ');
+        return;
+      }
+      if (commandID === 'git-pr-fill') {
+        runGitPullRequestFillAction();
         return;
       }
       if (commandID === 'git-pr-view') {
@@ -12931,6 +12957,9 @@
           outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(payload, null, 2), stderr: '', exitCode: 0 }, null, 2)
         });
         addMessage('assistant', 'Found 2 review threads: 1 unresolved, 1 resolved.');
+      } else if (/^\/(pr|pull-?request)\s+(fill|autofill|create\s+--?fill)\b/i.test(text)) {
+        runGitPullRequestFillAction();
+        return;
       } else if (/^\/(pr|pull-?request)\b/i.test(text)) {
         state.composer.draft = 'Create a pull request titled ';
         addMessage('assistant', 'Pull request prompt prepared.');
