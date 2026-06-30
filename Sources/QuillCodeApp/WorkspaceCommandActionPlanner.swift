@@ -5,6 +5,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case newChat
     case cycleMode
     case focusComposer
+    case toggleSidebar
     case toggleTerminal
     case clearTerminal
     case toggleBrowser
@@ -50,6 +51,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .cycleMode
         case .focusComposer:
             return .focusComposer
+        case .toggleSidebar:
+            return .toggleSidebar
         case .toggleTerminal:
             return .toggleTerminal
         case .clearTerminal:

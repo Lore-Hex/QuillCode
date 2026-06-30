@@ -49,7 +49,7 @@ final class WorkspaceComposerDraftIntegrationTests: XCTestCase {
         let model = QuillCodeWorkspaceModel()
         _ = model.addProject(path: root, name: "Demo")
 
-        let threadA = model.newChat()
+        _ = model.newChat()
         model.setDraft("draft for A")
         let threadB = model.newChat()
         model.setDraft("draft for B")

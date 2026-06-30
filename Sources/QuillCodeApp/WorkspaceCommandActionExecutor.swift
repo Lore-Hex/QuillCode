@@ -24,6 +24,9 @@ extension QuillCodeWorkspaceModel {
             return cycleMode()
         case .focusComposer:
             return focusComposer()
+        case .toggleSidebar:
+            toggleSidebar()
+            return true
         case .toggleTerminal:
             toggleTerminal()
             return true

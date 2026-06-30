@@ -92,6 +92,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "copy-conversation",
             "cycle-mode",
             "focus-composer",
+            "toggle-sidebar",
             "add-project",
             "add-ssh-project",
             "project-new-chat",

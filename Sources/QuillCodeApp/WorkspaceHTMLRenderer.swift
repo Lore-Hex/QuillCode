@@ -3,14 +3,10 @@ import Foundation
 public enum WorkspaceHTMLRenderer {
     public static func render(_ surface: WorkspaceSurface) -> String {
         """
-        <section class="quillcode-workspace" data-testid="workspace">
+        <section \(workspaceAttributes(for: surface.chrome))>
           \(WorkspaceHTMLTopBarRenderer.render(surface.topBar, commands: surface.commands))
-          <div class="workspace-grid">
-            \(WorkspaceHTMLSidebarRenderer.render(
-                projects: surface.projects,
-                sidebar: surface.sidebar,
-                commands: surface.commands
-            ))
+          <div class="\(workspaceGridClass(for: surface))">
+            \(sidebarHTML(for: surface))
             <main class="transcript" data-testid="transcript">
               \(WorkspaceHTMLSecondaryPaneRenderer.renderAutomations(surface.automations))
               \(WorkspaceHTMLTranscriptRenderer.render(
@@ -30,5 +26,28 @@ public enum WorkspaceHTMLRenderer {
           </div>
         </section>
         """
+    }
+
+    private static func workspaceAttributes(for chrome: WorkspaceChromeSurface) -> String {
+        #"class="quillcode-workspace" data-testid="workspace" data-sidebar-visible="\#(chrome.isSidebarVisible)""#
+    }
+
+    private static func workspaceGridClass(for surface: WorkspaceSurface) -> String {
+        [
+            "workspace-grid",
+            surface.chrome.isSidebarVisible ? nil : "sidebar-hidden",
+            surface.activity.isVisible ? "with-activity" : nil
+        ]
+        .compactMap(\.self)
+        .joined(separator: " ")
+    }
+
+    private static func sidebarHTML(for surface: WorkspaceSurface) -> String {
+        guard surface.chrome.isSidebarVisible else { return "" }
+        return WorkspaceHTMLSidebarRenderer.render(
+            projects: surface.projects,
+            sidebar: surface.sidebar,
+            commands: surface.commands
+        )
     }
 }

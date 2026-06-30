@@ -1,5 +1,58 @@
 # Code Quality Audit
 
+## 2026-06-30 Sidebar Toggle Architecture Grade Pass
+
+Overall grade after this slice: **A command routing, A native/static/harness parity, A- repo-wide file size profile**.
+
+This pass added the Codex-style sidebar visibility command while explicitly grading the changed files, the owning module seams, and the broader repository architecture signals.
+
+Repo-level scan:
+
+| Area | Grade | Evidence | Follow-up |
+| --- | --- | --- | --- |
+| Module boundaries | A | `Package.swift` keeps Core, Safety, Tools, Persistence, Computer Use, Agent, App, CLI, and Desktop separated; this slice only touched App UI/surface/harness code. | Keep platform-specific behavior in adapters; do not add app-level Linux conditionals. |
+| Platform portability | A+ | No `#if linux`, `#if os(Linux)`, or `#if canImport(Glibc)` matches in App/Agent/Core/Safety/Tools/Persistence/ComputerUse/Desktop/CLI sources during this audit. | CI should keep enforcing the no app-level Linux branch rule. |
+| Safety of Swift idioms | A | Existing parity gates reject production `try!`/`as!`; the only `!.` production-looking hit in the scan is shell glob text, not a Swift force unwrap. | Keep force unwrap exceptions out of production source. |
+| Source hygiene | A | Only one TODO marker remains, in `ProjectInitScaffolder`, where it intentionally emits a project TODO bullet instead of guessing a build setup. | Convert that scaffolding note to richer project-template metadata when local-env generation matures. |
+| File size / decomposition | A- | Most active code is well sliced, but hotspots remain: `QuillCodeNativeHitTargetAudit` (1204), `StaticSafetyPolicy` (917), `QuillCodeDesignSystem` (644), review/sidebar/controller files in the 500-630 line range. | Split those only on feature-driven seams; avoid broad churn in unrelated parity work. |
+
+Touched-file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceChromeState.swift` | A+ | New focused chrome state/surface contract keeps visibility state out of unrelated UI-state and broad surface files. |
+| `Sources/QuillCodeApp/WorkspaceUIState.swift` | A | Reduced generic-state coupling by moving chrome out; existing focused pane states remain clean. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A | Adds one stored state with defaulted initializer dependency; no behavior in root model body. |
+| `Sources/QuillCodeApp/WorkspaceModelPaneVisibility.swift` | A | Sidebar toggle lives beside other visibility mutations; tiny actor-bound API. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A | Surface projection adds chrome alongside existing read models; chrome DTO moved out to keep the file leaner. |
+| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A | Native layout reads a single surface flag and avoids hidden dead sidebar controls; no duplicate routing. |
+| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A+ | Inline visibility strings replaced with `workspaceGridClass` and `renderSidebarIfVisible`, preserving activity layout and reducing template branching. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlan.swift` | A | One typed action enum case; keeps command execution explicit. |
+| `Sources/QuillCodeApp/WorkspaceCommandActionPlanner.swift` | A | Direct effect mapping with no stringly fallback. |
+| `Sources/QuillCodeApp/WorkspaceCommandActionExecutor.swift` | A | Routes through the model's visibility API and returns a handled result. |
+| `Sources/QuillCodeApp/WorkspaceCommandStaticCatalog.swift` | A | User-facing command metadata and shortcut label are sourced from the registry. |
+| `Sources/QuillCodeApp/WorkspaceCommandPaletteSurface.swift` | A | Top-bar overflow uses command IDs, not duplicate button logic. |
+| `Sources/QuillCodeApp/WorkspaceShortcutRegistry.swift` | A | `Cmd+B` lives in the shared registry and is surfaced everywhere from one source. |
+| `Sources/QuillCodeApp/QuillCodeCommandIconCatalog.swift` | A | Native symbol mapping is local to the shared icon catalog. |
+| `E2E/harness/index.html` | A | Sidebar class/rendering is now centralized in helper functions; the command handler returns immediately after toggling. Remaining risk is the harness file's overall size, already a known parity-fixture tradeoff. |
+| `E2E/playwright/tests/shortcuts.spec.ts` | A | End-to-end shortcut test proves `Cmd+B` hides/restores the sidebar and preserves keyboard reachability. |
+| `Tests/QuillCodeAppTests/WorkspaceUIStateTests.swift` | A | Pins default-visible chrome and surface projection. |
+| `Tests/QuillCodeAppTests/WorkspaceCommandPlanTests.swift` | A | Ensures command ID stays typed. |
+| `Tests/QuillCodeAppTests/WorkspaceCommandActionPlannerTests.swift` | A | Pins planner mapping. |
+| `Tests/QuillCodeAppTests/WorkspaceCommandPlanExecutorTests.swift` | A | Covers real model mutation through command execution. |
+| `Tests/QuillCodeAppTests/WorkspaceCommandSurfaceBuilderTests.swift` | A | Verifies command availability in the surface catalog. |
+| `Tests/QuillCodeAppTests/WorkspaceShortcutRegistryTests.swift` | A | Renamed coverage to chrome-and-pane commands so the assertion matches the architecture. |
+| `Tests/QuillCodeAppTests/WorkspaceHTMLChromeRendererTests.swift` | A | Covers visible, hidden, and hidden-with-activity grid states without brittle exact-class-only coupling. |
+
+Architecture decision:
+
+- Sidebar visibility is **chrome state**, not a pane. It is therefore stored in `WorkspaceChromeState`, projected as `WorkspaceChromeSurface`, routed by command ID through the existing command planner/executor, and rendered by native SwiftUI, static HTML, and the Playwright harness from that one surface flag.
+- The app keeps command IDs as the existing command registry language for consistency, but all execution stays typed after `WorkspaceCommandPlan` parses the ID.
+
+Remaining risk:
+
+- The whole repo is not yet "finished Codex parity"; several large files are known hotspots because the project is still absorbing features. For A+ over time, split large files only when a real ownership seam appears and keep adding small audit records like this PR.
+
 ## 2026-06-30 Carry Click-Target Feel Policy Into Native Smoke
 
 The rendered harness already checked tactile CSS behavior, but the native smoke contract still only carried size, selector, semantic kind/action, collision scope, and interior ownership. That made packaged evidence weaker than the browser harness: a native target could be large and addressable while the release artifact said nothing about whether it should feel pressable or allow text selection.

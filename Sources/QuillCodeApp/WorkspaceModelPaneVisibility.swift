@@ -3,6 +3,10 @@ import QuillCodeCore
 
 @MainActor
 extension QuillCodeWorkspaceModel {
+    public func toggleSidebar() {
+        chrome.isSidebarVisible.toggle()
+    }
+
     public func toggleExtensions() {
         extensions.isVisible.toggle()
     }

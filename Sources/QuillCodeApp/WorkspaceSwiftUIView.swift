@@ -174,24 +174,26 @@ public struct QuillCodeWorkspaceView: View {
             QuillCodeTopBarView(
                 topBar: surface.topBar,
                 commands: surface.commands,
-                leadingInset: QuillCodeMetrics.sidebarWidth,
+                leadingInset: surface.chrome.isSidebarVisible ? QuillCodeMetrics.sidebarWidth : 0,
                 onCommand: handleCommand
             )
             Divider()
             HStack(spacing: 0) {
-                QuillCodeSidebarView(
-                    projects: surface.projects,
-                    sidebar: surface.sidebar,
-                    commands: surface.commands,
-                    onSelectProject: onSelectProject,
-                    onAddProjectRequested: onAddProjectRequested,
-                    onProjectAction: handleProjectAction,
-                    onSelectThread: onSelectThread,
-                    onThreadAction: handleThreadAction,
-                    onCommand: handleCommand
-                )
-                    .frame(width: QuillCodeMetrics.sidebarWidth)
-                Divider()
+                if surface.chrome.isSidebarVisible {
+                    QuillCodeSidebarView(
+                        projects: surface.projects,
+                        sidebar: surface.sidebar,
+                        commands: surface.commands,
+                        onSelectProject: onSelectProject,
+                        onAddProjectRequested: onAddProjectRequested,
+                        onProjectAction: handleProjectAction,
+                        onSelectThread: onSelectThread,
+                        onThreadAction: handleThreadAction,
+                        onCommand: handleCommand
+                    )
+                        .frame(width: QuillCodeMetrics.sidebarWidth)
+                    Divider()
+                }
                 QuillCodeWorkspaceMainPaneView(
                     surface: surface,
                     draft: $draft,

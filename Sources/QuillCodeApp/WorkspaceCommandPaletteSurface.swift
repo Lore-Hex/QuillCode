@@ -59,6 +59,7 @@ public enum TopBarOverflowCommandCatalog {
     public static func commandIDs(showsComputerUseSetup: Bool) -> [String] {
         var commandIDs = [
             "command-palette",
+            "toggle-sidebar",
             "search"
         ]
         if showsComputerUseSetup {

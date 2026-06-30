@@ -67,6 +67,13 @@ enum WorkspaceCommandStaticCatalog {
                 keywords: ["focus", "composer", "message", "input", "prompt", "type"]
             ),
             WorkspaceCommandSurface(
+                id: "toggle-sidebar",
+                title: "Toggle sidebar",
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-sidebar"),
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["sidebar", "navigation", "hide", "show", "chats", "projects"]
+            ),
+            WorkspaceCommandSurface(
                 id: "add-project",
                 title: "Open project",
                 shortcut: WorkspaceShortcutRegistry.label(for: "add-project"),

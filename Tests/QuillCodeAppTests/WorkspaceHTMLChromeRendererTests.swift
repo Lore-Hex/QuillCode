@@ -34,6 +34,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="top-bar""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-title-group""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-clusters""#))
+        XCTAssertTrue(html.contains(#"data-sidebar-visible="true""#))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-primary-cluster""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-subtitle""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-status-metadata""#))
@@ -89,6 +90,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
     func testHTMLRendererTopBarOverflowUsesCommandAvailability() {
         let idleHTML = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel().surface())
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-command-palette""#))
+        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-toggle-sidebar""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-search""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-settings""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-keyboard-shortcuts""#))
@@ -116,6 +118,31 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
             )).surface()
         )
         XCTAssertTrue(remoteHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
+    }
+
+    func testHTMLRendererHidesSidebarAndExpandsWorkspaceGrid() {
+        let model = QuillCodeWorkspaceModel(chrome: WorkspaceChromeState(isSidebarVisible: false))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-sidebar-visible="false""#))
+        XCTAssertTrue(html.contains(#"sidebar-hidden""#))
+        XCTAssertFalse(html.contains(#"data-testid="sidebar""#))
+        XCTAssertTrue(html.contains(#"data-testid="transcript""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-overflow-toggle-sidebar""#))
+    }
+
+    func testHTMLRendererKeepsActivityGridWhenSidebarIsHidden() {
+        let model = QuillCodeWorkspaceModel(
+            chrome: WorkspaceChromeState(isSidebarVisible: false),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"class="workspace-grid sidebar-hidden with-activity""#))
+        XCTAssertFalse(html.contains(#"data-testid="sidebar""#))
+        XCTAssertTrue(html.contains(#"data-testid="activity-pane""#))
     }
 
     func testHTMLRendererShowsStopButtonDuringActiveSend() {
