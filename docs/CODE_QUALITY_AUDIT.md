@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-06-30 Computer Use Test Split
+
+Overall grade after this slice: **A Computer Use test module, with no Computer Use files below A-**.
+
+This pass addressed the last below-A module from the previous module summary: `test:QuillComputerUseKitTests`. The old `ComputerUseBackendTests.swift` file mixed four concerns in one 717-line test body:
+
+- status/default backend labels
+- tool executor routing and permission preflights
+- Linux session/helper detection
+- Linux backend command routing and fake process-runner smoke coverage
+
+The tests now follow those ownership seams:
+
+| New file | Responsibility |
+| --- | --- |
+| `ComputerUseStatusTests.swift` | Status labels, older-payload decoding, default backend status invariants. |
+| `ComputerUseToolExecutorTests.swift` | Structured tool routing, artifact output, permission preflight errors, unknown-tool behavior. |
+| `LinuxComputerUseDetectionTests.swift` | Wayland/X11 session detection and helper availability reports. |
+| `LinuxComputerUseBackendTests.swift` | Wayland/X11 helper command routing, helper failures, and Linux-only fake-helper process smoke. |
+
+Verification:
+
+- `swift test --filter QuillComputerUseKitTests`
+- `python3 Scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual quality debt is no longer concentrated in Computer Use. The remaining B/B+ rows are older parity gates, app/tool integration tests, and a few production hotspots already listed in `docs/CODE_QUALITY_FILE_GRADES.md`; they should be handled in separate reviewable slices because they touch unrelated feature seams.
+
 ## 2026-06-30 Omnibus Test Architecture Split
 
 Overall grade after this slice: **A+/A production modules, A safety tests, A E2E Playwright module, A- parity tests with residual long-line gates**.
