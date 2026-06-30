@@ -45,6 +45,7 @@ enum WorkspaceHTMLToolCardRenderer {
           \(WorkspaceHTMLPrimitives.button(
               copyActionLabel(for: card),
               testID: "tool-card-copy",
+              hitTargetKind: .text,
               attributes: [("data-copy-id", copyID)]
           ))
         </footer>
@@ -71,6 +72,7 @@ enum WorkspaceHTMLToolCardRenderer {
             WorkspaceHTMLPrimitives.button(
                 action.title,
                 testID: "tool-card-action",
+                hitTargetKind: .text,
                 attributes: [
                     ("data-action-kind", action.kind.rawValue),
                     ("data-action-style", action.style.rawValue),
@@ -90,7 +92,7 @@ enum WorkspaceHTMLToolCardRenderer {
         let isOpen = card.opensDetailsByDefault
         return """
         <details class="tool-details" data-testid="tool-card-details"\(isOpen ? " open" : "")>
-          \(WorkspaceHTMLPrimitives.summary(detailsLabel(for: card, isOpen: isOpen)))
+          \(WorkspaceHTMLPrimitives.summary(detailsLabel(for: card, isOpen: isOpen), hitTargetKind: .row))
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
           \(renderDetailsCopyAction(for: card, copyID: copyID))

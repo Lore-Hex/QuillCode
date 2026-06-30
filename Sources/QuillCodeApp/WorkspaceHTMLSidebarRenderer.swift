@@ -255,6 +255,7 @@ enum WorkspaceHTMLSidebarRenderer {
                 action.title,
                 testID: "sidebar-bulk-action",
                 commandID: action.commandID,
+                hitTargetKind: .text,
                 disabled: !action.isEnabled,
                 attributes: [
                     ("data-action", action.kind.rawValue),
@@ -279,6 +280,7 @@ enum WorkspaceHTMLSidebarRenderer {
             action.title,
             testID: "sidebar-bulk-action",
             commandID: action.commandID,
+            hitTargetKind: .text,
             disabled: !action.isEnabled,
             attributes: [
                 ("data-action", action.kind.rawValue),
@@ -291,6 +293,8 @@ enum WorkspaceHTMLSidebarRenderer {
         WorkspaceHTMLPrimitives.button(
             action.kind.title,
             testID: "sidebar-thread-action",
+            hitTargetKind: .icon,
+            ariaLabel: action.kind.title,
             attributes: [
                 ("data-action", action.kind.rawValue),
                 ("data-thread-id", action.threadID.uuidString)
@@ -305,6 +309,7 @@ enum WorkspaceHTMLSidebarRenderer {
             \(WorkspaceHTMLPrimitives.summary(
                 "Tools",
                 testID: "sidebar-tools-button",
+                hitTargetKind: .row,
                 ariaLabel: "Tools",
                 title: "Tools"
             ))

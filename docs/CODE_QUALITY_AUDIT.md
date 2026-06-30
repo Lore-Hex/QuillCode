@@ -67,6 +67,22 @@ Residual risk / follow-up:
 - This narrows an auto-approval (strictly safer); any download with an unusual shape (redirect-style `curl … > out`, `wget`, an unlisted flag, a bundle with an arg-taking short flag) now falls through to **human approval** — the safe direction.
 - **Known pre-existing weakness (follow-up, out of scope for this PR):** the host gate is a substring match — `requestedHosts.contains { lowerCommand.contains(host) }` — so the authorized host can be satisfied by an `-e`/`-H`/`-A` value rather than the *actual* fetched URL. The `file://` local-read path is now closed, but an HTTP **SSRF**-to-workspace (`curl -e 'host' --output x 'https://internal/secret'`) remains auto-approvable. Properly fixing it means parsing the positional URL argument and checking *its* host/scheme — a larger change (and a product decision on `file://` downloads) flagged separately. `hardDeny` and the destructive-risk default remain the backstops.
 
+## 2026-06-30 Explicit Rendered Click-Target Kinds
+
+Overall grade after this slice: **A click-target semantics, A regression gate**.
+
+The rendered HTML layer had strong shared primitives and Playwright geometry audits, but many production primitive calls still relied on default `.text` semantics. That made review harder: an icon action, disclosure row, form action, or ordinary text button could all look the same in code unless the surrounding CSS or label was inspected.
+
+| Before | After |
+| --- | --- |
+| Production renderer calls to `WorkspaceHTMLPrimitives.button`, `commandButton`, `buttonAttributes`, and `summary` often omitted `hitTargetKind`, falling back to default text-button semantics. | Every production call site now declares `hitTargetKind:` explicitly, using `.icon`, `.row`, `.formAction`, or `.text` according to the actual interaction surface. |
+| Details summaries and sidebar icon actions were easy to misread as generic text buttons during review. | Disclosures use `.row`, compact thread actions use `.icon` with explicit labels, and automation actions use `.formAction`, so semantic intent is visible in the renderer source. |
+| Existing audits proved controls were shared, named, and large enough, but did not prevent future primitive calls from silently leaning on defaults. | `ParityInteractionTargetGateTests.testRenderedHTMLPrimitiveCallSitesDeclareExplicitHitTargetKinds` scans balanced multiline primitive calls across app sources and fails any renderer call that omits `hitTargetKind:`. |
+
+Residual risk:
+
+- This is a source-level semantic gate. It complements, but does not replace, rendered Playwright edge-click and clearance audits, which still prove the final DOM is physically clickable.
+
 ## 2026-06-30 Slash Git Real-World Evidence Pass
 
 Overall grade after this slice: **A release-evidence coverage, A shortcut regression guard**.
