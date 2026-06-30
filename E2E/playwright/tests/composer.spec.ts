@@ -217,17 +217,19 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
 
   const message = page.getByLabel('Message');
 
-  // A bare @ surfaces workspace files, shallowest path first.
+  // A bare @ surfaces workspace files AND directories, shortest path first.
   await message.fill('@');
   await expect(page.getByTestId('file-mention-suggestions')).toBeVisible();
-  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(3);
-  await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('README.md');
-  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('README.md');
+  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(4);
+  // The `Sources` directory (shortest path at the top score tier) leads, badged as a directory.
+  const firstMention = page.getByTestId('file-mention-suggestion').first();
+  await expect(firstMention).toContainText('Sources');
+  await expect(firstMention).toHaveAttribute('data-kind', 'directory');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toHaveAttribute('data-kind', 'directory');
 
-  // ArrowDown moves the active mention. For a bare @, ties break by path length,
-  // so the shorter Sources/App.swift ranks ahead of Sources/Agent.swift.
+  // ArrowDown moves the active mention to the next entry (README.md).
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('Sources/App.swift');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('README.md');
 
   // An email-style token is not treated as a mention.
   await message.fill('ping name@example.com');
@@ -255,6 +257,13 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
   await expect(message).toHaveValue('open @Sources/Agent.swift ');
   await expect(message).toBeFocused();
 
+  // A directory mention inserts a trailing slash so the agent reads the directory.
+  await message.fill('open @Sour');
+  const dirRow = page.locator('[data-testid="file-mention-suggestion"][data-kind="directory"]').first();
+  await expect(dirRow).toContainText('Sources');
+  await dirRow.click();
+  await expect(message).toHaveValue('open @Sources/ ');
+
   // Slash commands take precedence over file mentions.
   await message.fill('/help');
   await expect(page.getByTestId('file-mention-suggestions')).toHaveCount(0);
@@ -265,9 +274,9 @@ test('mock harness boosts and badges changed files in @ mentions after a git sta
   await page.goto(harnessURL());
   const message = page.getByLabel('Message');
 
-  // Before any git status: README.md leads the bare-@ list and nothing is flagged changed.
+  // Before any git status: nothing is flagged changed (the `Sources` directory leads the
+  // bare-@ list on the shortest-path tiebreak, but no entry carries a Changed badge).
   await message.fill('@');
-  await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('README.md');
   await expect(page.locator('[data-testid="file-mention-suggestion"][data-changed="true"]')).toHaveCount(0);
 
   // Run a git status, which reports Sources/App.swift as changed.

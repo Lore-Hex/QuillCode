@@ -436,7 +436,7 @@ private struct QuillCodeFileMentionSuggestionRow: View {
             onSelect(suggestion)
         } label: {
             HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
-                Image(systemName: "doc.text")
+                Image(systemName: suggestion.kind == .directory ? "folder" : "doc.text")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                     .frame(width: 22)
@@ -476,7 +476,7 @@ private struct QuillCodeFileMentionSuggestionRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
-        .accessibilityLabel("Mention \(suggestion.path)\(suggestion.isChanged ? ", changed" : "")")
+        .accessibilityLabel("Mention \(suggestion.path)\(suggestion.kind == .directory ? ", directory" : "")\(suggestion.isChanged ? ", changed" : "")")
         .accessibilityHint(suggestion.directory.isEmpty ? "Workspace root" : "In \(suggestion.directory)")
     }
 

@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-30 @-Mention Directories Pass
+
+Overall grade after this slice: **A decoupled-cap design, A cross-surface parity**.
+
+Lets the composer `@` panel suggest **directories**, not just files, so a user can scope context to a folder. Accepting a directory inserts `@path/` (trailing slash) so the agent reads the directory rather than treating it as a file — the same convention Codex uses. Picked + designed by a docs-grounded judge-panel that named the killer up front: the file index *deliberately dropped* directories, and the JS harness derives its mention entries a second time (from `mockFiles` keys) so it would have to synthesize directories independently and could drift from the Swift FS walk.
+
+| Before | After |
+| --- | --- |
+| `WorkspaceFileIndexer` ran `guard isDirectory != true else { continue }` — directories were visited but never emitted, so there was no data source for a folder mention. | The indexer emits `.directory` entries into a **separate accumulator** with its own `defaultMaxDirectories = 1_000` cap and a `directoriesTruncated` flag; it never `skipDescendants` on a capped directory, so file discovery is untouched. |
+| The shared 4 000-file cap would have been consumed by directories had they been added to the same list — silently reducing file coverage on a directory-heavy tree (and regressing the shipped @file truncation tests). | Directories ride their own 1 000 cap, so they **never reduce the file count** (`testDirectoriesDoNotConsumeTheFileBudget`). The converse — the depth-first file-cap `break` aborting the walk before deeper directories are visited — was caught by the adversarial review: it now honestly sets `directoriesTruncated` rather than reporting a partial directory set as complete (`testFileCapTruncationAlsoFlagsDirectoriesAsIncomplete`). |
+| `FileMentionSuggestionSurface` / `WorkspaceFileIndexEntry` had no kind; every mention inserted `@path ` (file semantics). | Both carry a Codable `EntryKind` (defensive `decodeIfPresent ?? .file` so older snapshots still decode); a directory inserts `@path/ ` (slash then space). Scoring is unchanged, so a prefix like `@Sour` surfaces the `Sources` folder **and** its files, and the existing shorter-path tiebreak floats the folder just above its children for free. |
+| The JS harness `workspaceMentionFiles()` derived file entries from `mockFiles` keys only. | It now synthesizes one directory entry per unique file-path ancestor (reusing the same ancestor-split shape as `runMockFileListAction`), mirrors the trailing-slash insert text, and renders `data-kind` + a `/` affordance. A new `ParityFileMentionDirectoryGateTests` source-substring gate trips if any surface drops the slash or stops emitting directories. |
+
+Residual risk:
+
+- This PR makes a directory **selectable + insertable** as `@path/`; the downstream prompt-assembly that turns a trailing-slash mention into a "list + read this directory" instruction is the natural second PR (the trailing-slash convention is the seam it keys on). Directories are not boosted by `git status` (a directory is never "changed"); boosting a directory because it *contains* changed files was deliberately skipped to avoid a third scoring nuance to mirror byte-exact across surfaces.
+
 ## 2026-06-29 /init AGENTS.md Scaffold Pass
 
 Overall grade after this slice: **A reuse of existing dispatch, A non-destructive design**.

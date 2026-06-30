@@ -4323,17 +4323,24 @@
       const selected = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       if (!selected || selected.isRemote) return [];
       const prefix = '/mock/QuillCode/';
-      return Object.keys(state.mockFiles)
+      const entryFor = (path, kind) => {
+        const slash = path.lastIndexOf('/');
+        return { path, name: slash >= 0 ? path.slice(slash + 1) : path, directory: slash >= 0 ? path.slice(0, slash) : '', kind };
+      };
+      const fileEntries = Object.keys(state.mockFiles)
         .filter(absolute => absolute.startsWith(prefix))
-        .map(absolute => {
-          const path = absolute.slice(prefix.length);
-          const slash = path.lastIndexOf('/');
-          return {
-            path,
-            name: slash >= 0 ? path.slice(slash + 1) : path,
-            directory: slash >= 0 ? path.slice(0, slash) : ''
-          };
-        })
+        .map(absolute => entryFor(absolute.slice(prefix.length), 'file'));
+      // Synthesize one directory entry per unique ancestor of every file, mirroring the
+      // Swift FS walk (which emits every enumerated directory) so the two never drift.
+      const directories = new Map();
+      for (const entry of fileEntries) {
+        const parts = entry.path.split('/');
+        for (let depth = 1; depth < parts.length; depth += 1) {
+          const dirPath = parts.slice(0, depth).join('/');
+          if (!directories.has(dirPath)) directories.set(dirPath, entryFor(dirPath, 'directory'));
+        }
+      }
+      return [...fileEntries, ...directories.values()]
         .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
     }
 
@@ -4412,8 +4419,10 @@
           path: item.entry.path,
           name: item.entry.name,
           directory: item.entry.directory,
-          insertText: `${mention.prefix}@${item.entry.path} `,
-          isChanged: item.isChanged
+          // A directory mention ends with `/` then a space (mirrors FileMentionCatalog Swift).
+          insertText: `${mention.prefix}@${item.entry.path}${item.entry.kind === 'directory' ? '/ ' : ' '}`,
+          isChanged: item.isChanged,
+          kind: item.entry.kind || 'file'
         }));
     }
 
@@ -8235,10 +8244,11 @@
           data-testid="file-mention-suggestion"
           data-insert-text="${escapeHTML(suggestion.insertText)}"
           data-path="${escapeHTML(suggestion.path)}"
+          data-kind="${suggestion.kind || 'file'}"
           data-changed="${suggestion.isChanged ? 'true' : 'false'}"
           data-selected="${index === state.composer.mentionActiveIndex ? 'true' : 'false'}"
         >
-          <span class="slash-usage">${escapeHTML(suggestion.name)}${suggestion.isChanged ? ' <span class="mention-changed-badge" data-testid="file-mention-changed-badge">Changed</span>' : ''}</span>
+          <span class="slash-usage">${escapeHTML(suggestion.name)}${suggestion.kind === 'directory' ? '/' : ''}${suggestion.isChanged ? ' <span class="mention-changed-badge" data-testid="file-mention-changed-badge">Changed</span>' : ''}</span>
           <span>
             <span class="slash-title">${escapeHTML(suggestion.path)}</span>
             <span class="slash-detail">${escapeHTML(suggestion.directory || 'Workspace root')}</span>

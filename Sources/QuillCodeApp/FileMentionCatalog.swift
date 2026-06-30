@@ -16,13 +16,34 @@ public struct FileMentionSuggestionSurface: Codable, Sendable, Hashable, Identif
     /// Whether this file has uncommitted changes (per the latest `git status`). Changed
     /// files are boosted to the top of the suggestions and badged in the panel.
     public var isChanged: Bool
+    /// Whether the entry is a file or a directory — directories insert a trailing `/` and
+    /// render a folder affordance.
+    public var kind: WorkspaceFileIndexEntry.EntryKind
 
-    public init(path: String, name: String, directory: String, insertText: String, isChanged: Bool = false) {
+    public init(
+        path: String,
+        name: String,
+        directory: String,
+        insertText: String,
+        isChanged: Bool = false,
+        kind: WorkspaceFileIndexEntry.EntryKind = .file
+    ) {
         self.path = path
         self.name = name
         self.directory = directory
         self.insertText = insertText
         self.isChanged = isChanged
+        self.kind = kind
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.directory = try container.decode(String.self, forKey: .directory)
+        self.insertText = try container.decode(String.self, forKey: .insertText)
+        self.isChanged = try container.decodeIfPresent(Bool.self, forKey: .isChanged) ?? false
+        self.kind = try container.decodeIfPresent(WorkspaceFileIndexEntry.EntryKind.self, forKey: .kind) ?? .file
     }
 }
 
@@ -102,12 +123,16 @@ public enum FileMentionCatalog {
             }
             .prefix(limit)
             .map { _, _, entry, isChanged in
-                FileMentionSuggestionSurface(
+                // A directory mention ends with `/` (then a space) so the agent scopes to /
+                // reads the directory rather than treating it as a file.
+                let suffix = entry.kind == .directory ? "/ " : " "
+                return FileMentionSuggestionSurface(
                     path: entry.path,
                     name: entry.name,
                     directory: entry.directory,
-                    insertText: "\(prefix)@\(entry.path) ",
-                    isChanged: isChanged
+                    insertText: "\(prefix)@\(entry.path)\(suffix)",
+                    isChanged: isChanged,
+                    kind: entry.kind
                 )
             }
     }
