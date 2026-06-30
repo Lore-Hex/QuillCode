@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-30 ANSI Terminal Output Rendering (PTY TUI handling, first step)
+
+Overall grade after this slice: **A makes raw PTY output readable, pure + thoroughly tested**.
+
+The ROADMAP's next PTY step after job control ("full TUI redraw/scrollback handling remain the next steps"). The terminal did **no** ANSI processing, so real command output showed literal escape codes (`^[[31m`) and `\r`-redrawn progress bars / spinners piled up line-by-line in the transcript.
+
+| Before | After |
+| --- | --- |
+| `TerminalCommandSurface` exposed `entry.stdout` verbatim; colored output and progress bars were unreadable. | New `TerminalOutputRenderer.render(_:)` — a **pure, stateless** line discipline applied in `TerminalCommandSurface.init` — turns raw PTY output into clean display text: strips SGR color/style, applies `\r` carriage-return overwrite, `\b` backspace, erase-line (`CSI K`) and erase-display (`CSI J`/`2J`), drops the bell, and strips OSC + unhandled CSI. The raw bytes stay in the entry for fidelity; only the surface is cleaned, so native and the static HTML renderer both display through it. |
+| — | Robustness baked in: a fast path returns the input untouched when it has no control characters (the common all-text case); an **incomplete escape at the end of the buffer is dropped** (it arrives complete on the next render of the growing `stdout`); `\r` resets the column of the current line only, never across newlines. Scalar-by-scalar processing + `String` grapheme coalescing preserves Unicode/combining/emoji content. |
+| — | 13 tests: per-sequence units (SGR, `\r` full + partial overwrite, `\b`, erase-line/display, bell, OSC title, incomplete trailing escapes, Unicode, idempotence, a realistic colored progress bar) plus a `TerminalCommandSurface` test proving raw→clean flows to the surface. |
+
+Adversarial-review fix (verdict SHIP; two real parameter-leak-as-text bugs in `handleEscape`'s default branch): **(1)** the charset-designation family (`ESC ( B`, `ESC ) 0`, …) is 3 bytes but was treated as 2, leaking its final byte — so `tput sgr0` (`ESC ( B` + `ESC [ m`, emitted by ncurses/line-drawing output) sprinkled stray `B`/`0` characters into the cleaned transcript. **(2)** `ESC ESC [31m` swallowed the second ESC and leaked `[31m` as text, and `ESC \n` ate the newline. Fixed: the default branch now consumes intermediate bytes (`0x20–0x2F`) through the final byte for charset/`ESC (` sequences, and on a following ESC or C0 control drops only the current ESC and re-dispatches (so a second ESC restarts a fresh sequence and a control is never eaten). Added 5 tests (charset designation incl. the real `sgr0` pattern, double-ESC restart, ESC-before-newline, private-mode `ESC[?25l`, and a growing-buffer split-sequence completion).
+
+Residual risk / scope:
+
+- This is the **line-discipline first step**, not a full screen buffer: two-dimensional cursor addressing (`ESC[<row>;<col>H`, `ESC[<n>A|B|C|D`) is stripped, so a full-screen TUI (vim, htop) that repaints via absolute cursor moves will not render faithfully yet — that needs a real 2D screen model and is the deliberate follow-up. Column counting is one-per-scalar, so wide/zero-width/combining characters can mis-measure overwrite width when `\r`/`\b` are also present (rare in command output; display text stays correct, only the column math is approximate). `render()` re-processes the full `stdout` per surface build, but the no-control fast path keeps the common all-text case O(n) and refreshes are event-driven. The harness mock emits no escape sequences, so there is no harness/Playwright surface to mirror here (noted, not faked).
+
 ## 2026-06-30 PTY Job Control — Terminal UI (end-to-end)
 
 Overall grade after this slice: **A completes PTY job control as a user feature, tri-surface + tested**.
