@@ -64,6 +64,13 @@ enum WorkspaceSubagentPromptBuilder {
         objective: what you inspected or produced, key findings, and any next
         steps. Keep it to a few sentences. Do not include credentials, tokens,
         private keys, or other secrets.
+
+        If — and only if — your work genuinely splits into independent sub-tasks
+        that a separate subagent should own, you may delegate by adding one or
+        more markers of the form [[DELEGATE: short name | what that subagent
+        should do]] anywhere in your text. Each marker becomes a child subagent
+        that runs after you and sees your result. Use this sparingly; most roles
+        need no delegation, so prefer to just do the work yourself.
         """
     }
 

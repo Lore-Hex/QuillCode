@@ -16,9 +16,17 @@ extension QuillCodeWorkspaceModel {
         threadPersistence.saveIfPossible(selectedThread)
 
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
-        let result = await subagentScheduler.run(request: request) { [weak self] update in
-            await self?.recordSubagentProgress(update)
-        }
+        // A worker may delegate sub-tasks by emitting `[[DELEGATE: name | role]]` markers; the parser
+        // turns them into bounded child workers and the scheduler enforces depth/total-job limits.
+        let result = await subagentScheduler.run(
+            request: request,
+            progress: { [weak self] update in
+                await self?.recordSubagentProgress(update)
+            },
+            spawn: { _, summary in
+                WorkspaceSubagentSpawnDirectiveParser.parse(summary)
+            }
+        )
         guard !Task.isCancelled else {
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
             return

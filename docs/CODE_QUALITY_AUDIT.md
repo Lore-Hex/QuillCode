@@ -1,5 +1,25 @@
 # Code Quality Audit
 
+## 2026-06-30 Recursive Subagent Delegation — Trigger Pass (end-to-end)
+
+Overall grade after this slice: **A makes the recursion engine user-reachable, deterministically tested**.
+
+Follow-up to the recursion engine slice: wires a real trigger so a model-backed subagent can actually delegate, completing recursive subagents end-to-end (the deliberate follow-up the engine PR flagged).
+
+| Before | After |
+| --- | --- |
+| `WorkspaceSubagentScheduler.run` accepted a `spawn` closure, but production (`WorkspaceSubagentSlashCommandRunner`) never passed one — the recursion capability was unreachable. | The slash runner now passes `spawn: { _, summary in WorkspaceSubagentSpawnDirectiveParser.parse(summary) }`, so a worker's result can spawn children. |
+| — | New `WorkspaceSubagentSpawnDirectiveParser` extracts `[[DELEGATE: <name> \| <role>]]` markers into bounded child requests. The marker is **bracket-delimited, not line-based, on purpose**: `LLMWorkspaceSubagentWorker.run` collapses whitespace in the model reply, which would destroy line structure — a bracketed marker survives intact (pinned by a test that drives the real worker and parses its collapsed output). Parsing caps children per worker (3), bounds name/role lengths, de-dupes by name, and strips `/`/`#` (the scheduler's path/dedup separators) from names. |
+| — | `WorkspaceSubagentPromptBuilder` gains **opt-in** guidance ("only if your work genuinely splits… use sparingly") advertising the exact marker the parser recognizes — a test asserts the advertised marker is the parser's marker and is itself parseable, so prompt and parser cannot drift. |
+| — | Folded in the recursion-engine re-verify nit: a comment now documents that the child's `dependencies.append([parentIndex])` intentionally bypasses by-name `resolvedDependencies` (exact index avoids a same-name mis-resolution). |
+| — | Eight new tests: parser (valid/malformed/cap/dedup/length+separator-strip/empty), collapse-safety through the real worker, scheduler integration (a directive-emitting worker spawns + runs the child), and the prompt/parser marker-parity test. |
+
+Adversarial-review fix (verdict SHIP; 3 reviewers converged on one real bug): the parser split the marker on **every** `|` and required exactly two parts, so any role containing a pipe — `[[DELEGATE: Build | compile | link]]`, common in technical prose (shell pipes, alternation) the prompt actively invites — was *silently dropped*, the worst failure mode for a delegation feature. Fixed to split on the **first** pipe only (`parts.count >= 2`, role = remainder rejoined), so roles keep their pipes; a new test pins `role == "compile | link the app"`. Also: the prompt/parser parity test now asserts the extracted name *and* role (not just a non-zero count) so wording and semantics can't drift; and the parser doc documents that echo-triggered markers are acceptable (a child's role is only ever another tool-free prompt, never executed, and the scheduler caps bound the fan-out).
+
+Residual risk:
+
+- Whether the model *chooses* to delegate is LLM-dependent (inherent to any prompt feature); the deterministic surface — parsing (incl. pipes-in-role), bounds, collapse-safety, prompt/parser parity, and the spawn round-trip through the scheduler — is fully tested. The scheduler's `maxDepth`/`maxTotalJobs` remain the hard backstop against runaway delegation regardless of model behavior.
+
 ## 2026-06-30 Recursive Subagent Delegation Pass (scheduler engine)
 
 Overall grade after this slice: **A real infra step, bounded + deterministically tested**.

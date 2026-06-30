@@ -48,6 +48,25 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains(#"{"type":"say","text":"..."}"#))
     }
 
+    func testPromptOffersOptionalDelegationViaTheParsedMarker() {
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(
+            objective: "ship release",
+            job: WorkspaceSubagentJob(name: "Builder", role: "build")
+        )
+
+        // The marker the prompt advertises must be exactly the one the parser recognizes, and the
+        // guidance must stay opt-in ("only if") so workers do not over-delegate.
+        XCTAssertTrue(prompt.contains(WorkspaceSubagentSpawnDirectiveParser.openMarker))
+        XCTAssertTrue(prompt.contains("only if"))
+        XCTAssertTrue(prompt.contains("sparingly"))
+        // The advertised marker is actually parseable into a child request with the expected name/role
+        // (not just a non-zero count), so prompt wording and parser semantics cannot drift apart.
+        let parsed = WorkspaceSubagentSpawnDirectiveParser.parse("[[DELEGATE: short name | what that subagent should do]]")
+        XCTAssertEqual(parsed.count, 1)
+        XCTAssertEqual(parsed.first?.name, "short name")
+        XCTAssertEqual(parsed.first?.role, "what that subagent should do")
+    }
+
     func testPromptIncludesPrerequisiteResultsWhenPresent() {
         let prompt = WorkspaceSubagentPromptBuilder.prompt(
             objective: "ship release",

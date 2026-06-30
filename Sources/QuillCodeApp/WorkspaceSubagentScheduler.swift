@@ -242,6 +242,10 @@ struct WorkspaceSubagentScheduler {
                     var item = SubagentProgressItem(name: childName, role: child.role, status: .queued)
                     item.groupPath = childJob.groupPath
                     items.append(item)
+                    // Resolve the child's single dependency directly to the parent index rather than
+                    // through resolvedDependencies(by name): the parent index is known and exact, which
+                    // sidesteps the case-insensitive, first-name-wins name resolution that could
+                    // otherwise mis-resolve dependsOn:[parentName] when two workers share a name.
                     dependencies.append([parentIndex])
                     enqueuedAny = true
                 }
