@@ -130,6 +130,16 @@ const evidenceScenarios: RealWorldEvidenceScenario[] = [
       'negative write intent creates no artifact',
       'negative download intent creates no artifact'
     ]
+  },
+  {
+    name: 'recovers transient runtime failures with the same actionable turn',
+    prompts: ['trigger network failure', 'Retry runtime issue'],
+    expectedToolNames: ['host.shell.run'],
+    regressionGuards: [
+      'runtime issue retry clears the transient failure',
+      'retry dispatches a concrete nonempty shell action',
+      'retry preserves the user turn instead of creating draft-only limbo'
+    ]
   }
 ];
 
@@ -447,4 +457,29 @@ test('respects explicit negative action prompts without tool cards or side effec
   await expect(page.getByText("Okay, I won't take that action.")).toHaveCount(3);
   await expect(page.getByText('Downloaded to `downloads/forbidden.html`.')).toHaveCount(0);
   await expect(page.getByText(/I'?ll run|I'?ll write|I'?ll download|should I|do you want me to/i)).toHaveCount(0);
+});
+
+test('recovers transient runtime failures with the same actionable turn', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('trigger network failure');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('runtime-issue')).toBeVisible();
+  await expect(page.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter network issue');
+  await expect(page.getByTestId('runtime-issue-action')).toHaveText('Retry');
+  await expect(page.getByTestId('tool-card')).toHaveCount(0);
+
+  await page.getByTestId('runtime-issue-action').click();
+
+  await expect(page.getByTestId('runtime-issue')).toHaveCount(0);
+  await expect(page.getByTestId('message').filter({ hasText: 'trigger network failure' })).toHaveCount(2);
+  await expect(page.getByText('Retry completed after reconnecting to TrustedRouter.')).toBeVisible();
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"cmd": "whoami"');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');
+  await expect(page.getByText(/No shell command was specified|should I|do you want me to|ok\?/i)).toHaveCount(0);
 });
