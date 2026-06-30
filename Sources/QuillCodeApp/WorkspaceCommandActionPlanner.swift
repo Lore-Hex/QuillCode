@@ -3,6 +3,8 @@ import QuillCodeCore
 
 enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case newChat
+    case workspaceBack
+    case workspaceForward
     case cycleMode
     case focusComposer
     case toggleSidebar
@@ -47,6 +49,10 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
         switch action {
         case .newChat:
             return .newChat
+        case .workspaceBack:
+            return .workspaceBack
+        case .workspaceForward:
+            return .workspaceForward
         case .cycleMode:
             return .cycleMode
         case .focusComposer:

@@ -198,14 +198,28 @@
       background: rgba(12, 18, 22, .94);
     }
     .topbar-sidebar-slot {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
       min-width: 0;
-      height: 1px;
+    }
+    .topbar-navigation {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--hit-target-clearance);
+      min-width: 0;
+    }
+    .topbar-navigation-button {
+      color: var(--muted);
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1;
+      border: 1px solid rgba(65, 184, 232, .24);
+      border-radius: 10px;
+      background: rgba(65, 184, 232, .12);
     }
     .quillcode-workspace[data-sidebar-visible="false"] .topbar {
-      grid-template-columns: minmax(0, 1fr) auto;
-    }
-    .quillcode-workspace[data-sidebar-visible="false"] .topbar-sidebar-slot {
-      display: none;
+      grid-template-columns: auto minmax(0, 1fr) auto;
     }
     .topbar-status-metadata {
       display: none;
@@ -3341,7 +3355,6 @@
         grid-template-columns: 1fr;
         align-items: flex-start;
       }
-      .topbar-sidebar-slot { display: none; }
       .topbar-clusters {
         width: 100%;
         grid-template-columns: 1fr;
@@ -3418,6 +3431,10 @@
       },
       chrome: {
         isSidebarVisible: true
+      },
+      navigationHistory: {
+        entries: [],
+        currentIndex: -1
       },
       runtimeIssue: null,
       mockRuntimeFailureConsumed: false,
@@ -3731,6 +3748,8 @@
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'sidebar-saved-search-create', title: 'Create sidebar search', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter'], isEnabled: true },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: 'Cmd+Shift+R', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
+        { id: 'workspace-back', title: 'Back', shortcut: '', category: 'Navigation', keywords: ['history', 'previous', 'navigation', 'thread', 'project'], isEnabled: false },
+        { id: 'workspace-forward', title: 'Forward', shortcut: '', category: 'Navigation', keywords: ['history', 'next', 'navigation', 'thread', 'project'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
         { id: 'copy-conversation', title: 'Copy conversation', shortcut: '', category: 'Navigation', keywords: ['export', 'transcript', 'markdown', 'copy all', 'share'], isEnabled: false },
@@ -5416,6 +5435,123 @@
       return `${count} ${singular}s`;
     }
 
+    const MAX_WORKSPACE_NAVIGATION_ENTRIES = 100;
+
+    function currentWorkspaceLocation() {
+      return {
+        threadID: state.sidebar.selectedThreadID || null,
+        projectID: state.projects.selectedProjectID || null
+      };
+    }
+
+    function isEmptyWorkspaceLocation(location) {
+      return !location?.threadID && !location?.projectID;
+    }
+
+    function sameWorkspaceLocation(lhs, rhs) {
+      return (lhs?.threadID || null) === (rhs?.threadID || null)
+        && (lhs?.projectID || null) === (rhs?.projectID || null);
+    }
+
+    function recordWorkspaceNavigation(previousLocation) {
+      const nextLocation = currentWorkspaceLocation();
+      if (sameWorkspaceLocation(previousLocation, nextLocation) || isEmptyWorkspaceLocation(nextLocation)) return;
+      const history = state.navigationHistory;
+      if (!Array.isArray(history.entries)) history.entries = [];
+      if (!Number.isInteger(history.currentIndex)) history.currentIndex = -1;
+
+      if (!history.entries.length) {
+        if (!isEmptyWorkspaceLocation(previousLocation)) history.entries.push(previousLocation);
+        history.entries.push(nextLocation);
+        history.currentIndex = history.entries.length - 1;
+        return;
+      }
+
+      if (!history.entries[history.currentIndex]
+          || !sameWorkspaceLocation(history.entries[history.currentIndex], previousLocation)) {
+        history.entries = isEmptyWorkspaceLocation(previousLocation) ? [] : [previousLocation];
+        history.currentIndex = history.entries.length ? 0 : -1;
+      } else if (history.currentIndex < history.entries.length - 1) {
+        history.entries = history.entries.slice(0, history.currentIndex + 1);
+      }
+
+      history.entries.push(nextLocation);
+      trimWorkspaceNavigationHistory();
+      history.currentIndex = history.entries.length - 1;
+    }
+
+    function trimWorkspaceNavigationHistory() {
+      const history = state.navigationHistory;
+      const droppedEntryCount = history.entries.length - MAX_WORKSPACE_NAVIGATION_ENTRIES;
+      if (droppedEntryCount <= 0) return;
+      history.entries = history.entries.slice(droppedEntryCount);
+      history.currentIndex = Math.max(-1, history.currentIndex - droppedEntryCount);
+    }
+
+    function pruneWorkspaceNavigation() {
+      const validThreadIDs = new Set(state.sidebar.items.map(item => item.id));
+      const validProjectIDs = new Set(state.projects.items.map(item => item.id));
+      const history = state.navigationHistory;
+      const current = history.entries?.[history.currentIndex] || null;
+      history.entries = (history.entries || []).filter(location => {
+        if (location.threadID) return validThreadIDs.has(location.threadID);
+        if (location.projectID) return validProjectIDs.has(location.projectID);
+        return false;
+      });
+      if (!history.entries.length) {
+        history.currentIndex = -1;
+        return;
+      }
+      const preservedIndex = current
+        ? history.entries.findIndex(location => sameWorkspaceLocation(location, current))
+        : -1;
+      history.currentIndex = preservedIndex >= 0
+        ? preservedIndex
+        : Math.min(Math.max(history.currentIndex, 0), history.entries.length - 1);
+    }
+
+    function canNavigateWorkspaceBack() {
+      return state.navigationHistory.currentIndex > 0
+        && Boolean(state.navigationHistory.entries[state.navigationHistory.currentIndex]);
+    }
+
+    function canNavigateWorkspaceForward() {
+      const history = state.navigationHistory;
+      return Boolean(history.entries[history.currentIndex])
+        && history.currentIndex < history.entries.length - 1;
+    }
+
+    function applyWorkspaceLocation(location) {
+      if (location?.threadID && state.sidebar.items.some(item => item.id === location.threadID)) {
+        selectThread(location.threadID, { recordsNavigation: false });
+        return true;
+      }
+      if (location?.projectID && state.projects.items.some(item => item.id === location.projectID)) {
+        selectProject(location.projectID, { recordsNavigation: false });
+        return true;
+      }
+      pruneWorkspaceNavigation();
+      return false;
+    }
+
+    function navigateWorkspaceBack() {
+      const history = state.navigationHistory;
+      while (canNavigateWorkspaceBack()) {
+        history.currentIndex -= 1;
+        if (applyWorkspaceLocation(history.entries[history.currentIndex])) return true;
+      }
+      return false;
+    }
+
+    function navigateWorkspaceForward() {
+      const history = state.navigationHistory;
+      while (canNavigateWorkspaceForward()) {
+        history.currentIndex += 1;
+        if (applyWorkspaceLocation(history.entries[history.currentIndex])) return true;
+      }
+      return false;
+    }
+
     const contextTokenBudget = 32000;
     const contextWarningThresholdPercent = 80;
 
@@ -5517,6 +5653,8 @@
         command.id === 'fork-full-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
+        command.id === 'workspace-back' ? { ...command, isEnabled: canNavigateWorkspaceBack() } :
+        command.id === 'workspace-forward' ? { ...command, isEnabled: canNavigateWorkspaceForward() } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
         command.id === 'copy-conversation' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
@@ -6640,6 +6778,23 @@
       const topBarStopButton = topBarStopCommand?.isEnabled
         ? `<button type="button" class="topbar-stop-button hit-target-text" data-testid="top-bar-stop-button" data-command-id="stop-all" title="Stop all (${escapeHTML(topBarStopCommand.shortcut || 'Esc')})" aria-label="Stop active work">Stop</button>`
         : '';
+      const topBarBackCommand = commandByID('workspace-back') || { id: 'workspace-back', title: 'Back', isEnabled: false };
+      const topBarForwardCommand = commandByID('workspace-forward') || { id: 'workspace-forward', title: 'Forward', isEnabled: false };
+      const renderTopBarNavigationButton = (command, label, testID, ariaLabel) => `
+        <button
+          type="button"
+          class="topbar-navigation-button hit-target-icon"
+          data-testid="${testID}"
+          data-command-id="${escapeHTML(command.id)}"
+          title="${escapeHTML(command.isEnabled ? command.title : `${ariaLabel} unavailable`)}"
+          aria-label="${escapeHTML(ariaLabel)}"
+          ${command.isEnabled ? '' : 'disabled'}
+        >${label}</button>`;
+      const topBarNavigation = `
+        <div class="topbar-navigation" data-testid="top-bar-navigation" aria-label="Workspace navigation">
+          ${renderTopBarNavigationButton(topBarBackCommand, '‹', 'top-bar-back', 'Back')}
+          ${renderTopBarNavigationButton(topBarForwardCommand, '›', 'top-bar-forward', 'Forward')}
+        </div>`;
 
       document.getElementById('app').innerHTML = `
         <section class="quillcode-workspace" data-testid="workspace" data-sidebar-visible="${state.chrome.isSidebarVisible}">
@@ -6651,7 +6806,7 @@
               <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
             </div>
-            <div class="topbar-sidebar-slot" aria-hidden="true"></div>
+            <div class="topbar-sidebar-slot">${topBarNavigation}</div>
             <div class="topbar-title-group" data-testid="top-bar-title-group">
               <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
               <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
@@ -6937,7 +7092,7 @@
       document.querySelector('[data-testid="add-project-button"]').addEventListener('click', event => {
         runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
-      document.querySelectorAll('.topbar-action-cluster [data-command-id]').forEach(button => {
+      document.querySelectorAll('[data-testid="top-bar"] [data-command-id]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -9472,6 +9627,7 @@
     }
 
     function insertDerivedThread({ title, messages, contextItems = [] }) {
+      const previousLocation = currentWorkspaceLocation();
       const threadID = `thread-${state.nextThreadIndex++}`;
 
       state.sidebar.selectedThreadID = threadID;
@@ -9505,6 +9661,7 @@
       state.topBar.primaryTitle = title;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      recordWorkspaceNavigation(previousLocation);
       render();
     }
 
@@ -9571,6 +9728,7 @@
     }
 
     function addProject() {
+      const previousLocation = currentWorkspaceLocation();
       const index = state.nextProjectIndex++;
       const project = {
         id: `project-${index}`,
@@ -9590,10 +9748,12 @@
       state.terminal.cwdLabel = project.path;
       state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      recordWorkspaceNavigation(previousLocation);
       render();
     }
 
     function addSSHProject(address) {
+      const previousLocation = currentWorkspaceLocation();
       const match = String(address).trim().match(/^(?:ssh:\/\/)?(?:(?<user>[^@/:]+)@)?(?<host>[^/:]+)(?::(?<port>\d+))?[:/](?<path>\/?[^\s]*)$/);
       if (!match?.groups?.host || !match.groups.path) {
         addMessage('assistant', 'Use SSH format user@host:/path or ssh://user@host/path.');
@@ -9621,10 +9781,12 @@
       state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
       addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Terminal commands, read-only git status/diff, and project context refresh run through SSH; file tools and mutating git actions remain local-only for now.`);
+      recordWorkspaceNavigation(previousLocation);
       render();
     }
 
-    function selectProject(projectID) {
+    function selectProject(projectID, options = {}) {
+      const previousLocation = currentWorkspaceLocation();
       state.projects.selectedProjectID = projectID;
       state.topBar.branchStatusLabel = null;
       state.changedFilePaths = [];
@@ -9636,6 +9798,7 @@
       state.terminal.cwdLabel = project?.path || 'No project';
       state.terminal.environment = {};
       state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      if (options.recordsNavigation !== false) recordWorkspaceNavigation(previousLocation);
       render();
     }
 
@@ -9643,7 +9806,8 @@
       const project = state.projects.items.find(item => item.id === projectID);
       if (!project) return;
       if (action === 'new-chat') {
-        selectProject(projectID);
+        const previousLocation = currentWorkspaceLocation();
+        selectProject(projectID, { recordsNavigation: false });
         const threadID = `thread-${state.nextThreadIndex++}`;
         state.sidebar.selectedThreadID = threadID;
         state.sidebar.items = [{
@@ -9662,6 +9826,7 @@
         state.review.files = [];
         state.topBar.primaryTitle = 'New chat';
         state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+        recordWorkspaceNavigation(previousLocation);
         render();
         return;
       }
@@ -9685,6 +9850,7 @@
         return;
       }
       if (action === 'remove') {
+        const previousLocation = currentWorkspaceLocation();
         state.projects.items = state.projects.items.filter(item => item.id !== projectID);
         if (state.projects.selectedProjectID === projectID) {
           const next = state.projects.items[0] || null;
@@ -9698,6 +9864,8 @@
           state.terminal.cwdLabel = next?.path || 'No project';
           state.topBar.subtitle = `${next?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
         }
+        recordWorkspaceNavigation(previousLocation);
+        pruneWorkspaceNavigation();
         render();
       }
     }
@@ -10551,6 +10719,8 @@
       'toggle-browser',
       'toggle-extensions',
       'toggle-memories',
+      'workspace-back',
+      'workspace-forward',
       'toggle-sidebar',
       'toggle-terminal'
     ]);
@@ -10844,6 +11014,18 @@
       }
       if (commandID === 'retry-last-turn') {
         retryLastUserTurn();
+        return;
+      }
+      if (commandID === 'workspace-back') {
+        navigateWorkspaceBack();
+        updateDynamicCommands();
+        render();
+        return;
+      }
+      if (commandID === 'workspace-forward') {
+        navigateWorkspaceForward();
+        updateDynamicCommands();
+        render();
         return;
       }
       if (commandID === 'search') {
@@ -12654,6 +12836,7 @@
     }
 
     function openCreatedWorktree(values) {
+      const previousLocation = currentWorkspaceLocation();
       const path = mockWorktreePath(values.path);
       const name = mockWorktreeName(path);
       const existing = state.projects.items.find(project => project.path === path);
@@ -12704,6 +12887,7 @@
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
       addMessage('assistant', `Opened worktree ${project.name} at ${path}.`);
       syncSelectedThreadSearchText();
+      recordWorkspaceNavigation(previousLocation);
     }
 
     function availableWorktreeChoices() {
@@ -12833,6 +13017,7 @@
       const selected = selectedSidebarThreads();
       const ids = new Set(selected.map(item => item.id));
       if (!ids.size) return;
+      const previousLocation = currentWorkspaceLocation();
       const selectedWasRemoved = ids.has(state.sidebar.selectedThreadID);
 
       if (action === 'pin' || action === 'unpin') {
@@ -12871,6 +13056,10 @@
         state.transcript.toolCards = [];
         state.transcript.timelineItems = [];
       }
+      if (['archive', 'unarchive', 'delete'].includes(action)) {
+        recordWorkspaceNavigation(previousLocation);
+      }
+      if (action === 'delete') pruneWorkspaceNavigation();
       clearSidebarSelection();
       render();
     }
@@ -12894,9 +13083,10 @@
       state.composer.historySavedDraft = null;
     }
 
-    function selectThread(threadID) {
+    function selectThread(threadID, options = {}) {
       const selected = state.sidebar.items.find(item => item.id === threadID);
       if (!selected) return;
+      const previousLocation = currentWorkspaceLocation();
       const outgoing = state.sidebar.selectedThreadID;
       if (outgoing !== threadID) {
         stashComposerDraft(outgoing);
@@ -12910,6 +13100,7 @@
       state.topBar.primaryTitle = selected.title;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      if (options.recordsNavigation !== false) recordWorkspaceNavigation(previousLocation);
       render();
     }
 
@@ -12917,6 +13108,7 @@
       if (!threadID) return;
       const thread = state.sidebar.items.find(item => item.id === threadID);
       if (!thread) return;
+      const previousLocation = currentWorkspaceLocation();
       if (action === 'rename') {
         const nextTitle = window.prompt('Rename chat', thread.title);
         if (nextTitle && nextTitle.trim()) {
@@ -12997,6 +13189,10 @@
         }
         if (state.threadDrafts) delete state.threadDrafts[threadID];
       }
+      if (['duplicate', 'archive', 'unarchive', 'delete'].includes(action)) {
+        recordWorkspaceNavigation(previousLocation);
+      }
+      if (action === 'delete') pruneWorkspaceNavigation();
       render();
     }
 

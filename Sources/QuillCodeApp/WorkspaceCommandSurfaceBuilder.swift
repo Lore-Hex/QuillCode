@@ -18,6 +18,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var browserCanGoForward: Bool
     var browserCanReload: Bool
     var browserCanOpenSession: Bool
+    var canNavigateBack: Bool = false
+    var canNavigateForward: Bool = false
     var mcpServerStatuses: [String: MCPServerLifecycleStatus]
     var mcpServerProbeSummaries: [String: MCPServerProbeSummary]
     var computerUseStatus: ComputerUseStatus
@@ -31,7 +33,9 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             canRetryLastUserTurn: canRetryLastUserTurn
         )
         + WorkspaceCommandStaticCatalog.navigationCommands(
-            hasSelectedThread: hasSelectedThread
+            hasSelectedThread: hasSelectedThread,
+            canNavigateBack: canNavigateBack,
+            canNavigateForward: canNavigateForward
         )
         + WorkspaceCommandStaticCatalog.workspaceCommands(
             hasSelectedProject: hasSelectedProject,

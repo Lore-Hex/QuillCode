@@ -6,6 +6,7 @@ enum WorkspaceHTMLTopBarRenderer {
         <header class="topbar" data-testid="top-bar" aria-label="\(escape(topBarAccessibilityLabel(topBar)))">
           \(renderStatusMetadata(topBar))
           <div class="topbar-sidebar-slot" aria-hidden="true"></div>
+          \(renderNavigationControls(commands: commands))
           <div class="topbar-title-group" data-testid="top-bar-title-group">
             <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
             <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
@@ -97,6 +98,47 @@ enum WorkspaceHTMLTopBarRenderer {
           </details>
         </div>
         """
+    }
+
+    private static func renderNavigationControls(commands: [WorkspaceCommandSurface]) -> String {
+        let back = commands.first { $0.id == "workspace-back" } ?? WorkspaceCommandSurface(
+            id: "workspace-back",
+            title: "Back",
+            category: WorkspaceCommandPalette.navigationCategory,
+            keywords: [],
+            isEnabled: false
+        )
+        let forward = commands.first { $0.id == "workspace-forward" } ?? WorkspaceCommandSurface(
+            id: "workspace-forward",
+            title: "Forward",
+            category: WorkspaceCommandPalette.navigationCategory,
+            keywords: [],
+            isEnabled: false
+        )
+        return """
+        <div class="topbar-navigation" data-testid="top-bar-navigation" aria-label="Workspace navigation">
+          \(renderNavigationButton(back, label: "‹", testID: "top-bar-back", ariaLabel: "Back"))
+          \(renderNavigationButton(forward, label: "›", testID: "top-bar-forward", ariaLabel: "Forward"))
+        </div>
+        """
+    }
+
+    private static func renderNavigationButton(
+        _ command: WorkspaceCommandSurface,
+        label: String,
+        testID: String,
+        ariaLabel: String
+    ) -> String {
+        WorkspaceHTMLPrimitives.commandButton(
+            label,
+            testID: testID,
+            commandID: command.id,
+            hitTargetKind: .icon,
+            classes: ["topbar-navigation-button"],
+            ariaLabel: ariaLabel,
+            title: command.isEnabled ? command.title : "\(ariaLabel) unavailable",
+            disabled: !command.isEnabled
+        )
     }
 
     private static func renderActiveStopButton(commands: [WorkspaceCommandSurface]) -> String {

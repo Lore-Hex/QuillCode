@@ -18,6 +18,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
 
         XCTAssertEqual(try command("new-chat", in: commands).isEnabled, true)
         XCTAssertEqual(try command("thread-rename", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("workspace-back", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("workspace-forward", in: commands).isEnabled, false)
         XCTAssertEqual(try command("find-in-chat", in: commands).isEnabled, false)
         XCTAssertEqual(try command("toggle-sidebar", in: commands).isEnabled, true)
         XCTAssertEqual(try command("project-new-chat", in: commands).isEnabled, false)
@@ -29,6 +31,15 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("computer-use-setup", in: commands).isEnabled, true)
         XCTAssertEqual(try command("computer-use-open-screen-recording", in: commands).isEnabled, true)
         XCTAssertEqual(try command("computer-use-open-accessibility", in: commands).isEnabled, true)
+    }
+
+    func testWorkspaceNavigationAvailabilityUsesHistoryFlags() throws {
+        let commands = makeBuilder(canNavigateBack: true, canNavigateForward: true).commands
+
+        XCTAssertEqual(try command("workspace-back", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("workspace-forward", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("workspace-back", in: commands).category, WorkspaceCommandPalette.navigationCategory)
+        XCTAssertEqual(try command("workspace-forward", in: commands).category, WorkspaceCommandPalette.navigationCategory)
     }
 
     func testCommandOrderingPreservesHighPriorityPaletteSequence() throws {
@@ -60,7 +71,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             canRetryLastUserTurn: true
         ).commands.map(\.id)
 
-        XCTAssertLessThan(index(of: "retry-last-turn", in: commandIDs), index(of: "search", in: commandIDs))
+        XCTAssertLessThan(index(of: "retry-last-turn", in: commandIDs), index(of: "workspace-back", in: commandIDs))
+        XCTAssertLessThan(index(of: "workspace-forward", in: commandIDs), index(of: "search", in: commandIDs))
         XCTAssertLessThan(index(of: "toggle-extensions", in: commandIDs), index(of: "git-status", in: commandIDs))
         XCTAssertLessThan(index(of: "git-worktree-remove", in: commandIDs), index(of: "git-worktree-prune", in: commandIDs))
         XCTAssertLessThan(index(of: "git-worktree-prune", in: commandIDs), index(of: "local-env:.quillcode/actions/bootstrap.sh", in: commandIDs))
@@ -263,6 +275,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         browserCanGoForward: Bool = false,
         browserCanReload: Bool = false,
         browserCanOpenSession: Bool = false,
+        canNavigateBack: Bool = false,
+        canNavigateForward: Bool = false,
         mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
         mcpServerProbeSummaries: [String: MCPServerProbeSummary] = [:],
         computerUseStatus: ComputerUseStatus = .permissionStatus(
@@ -286,6 +300,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             browserCanGoForward: browserCanGoForward,
             browserCanReload: browserCanReload,
             browserCanOpenSession: browserCanOpenSession,
+            canNavigateBack: canNavigateBack,
+            canNavigateForward: canNavigateForward,
             mcpServerStatuses: mcpServerStatuses,
             mcpServerProbeSummaries: mcpServerProbeSummaries,
             computerUseStatus: computerUseStatus

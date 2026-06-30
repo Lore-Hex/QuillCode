@@ -33,6 +33,13 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-title-group""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-navigation""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-back""#))
+        XCTAssertTrue(html.contains(#"data-command-id="workspace-back""#))
+        XCTAssertTrue(html.contains(#"title="Back unavailable""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-forward""#))
+        XCTAssertTrue(html.contains(#"data-command-id="workspace-forward""#))
+        XCTAssertTrue(html.contains(#"title="Forward unavailable""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-clusters""#))
         XCTAssertTrue(html.contains(#"data-sidebar-visible="true""#))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-primary-cluster""#))

@@ -20,6 +20,10 @@ extension QuillCodeWorkspaceModel {
         case .newChat:
             _ = newChat()
             return true
+        case .workspaceBack:
+            return navigateBackInWorkspace()
+        case .workspaceForward:
+            return navigateForwardInWorkspace()
         case .cycleMode:
             return cycleMode()
         case .focusComposer:

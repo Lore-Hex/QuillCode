@@ -19,6 +19,10 @@ enum QuillCodeCommandIconCatalog {
             return "text.cursor"
         case "toggle-sidebar":
             return "sidebar.leading"
+        case "workspace-back":
+            return "chevron.left"
+        case "workspace-forward":
+            return "chevron.right"
         case "search":
             return "magnifyingglass"
         case "command-palette":

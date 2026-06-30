@@ -9,6 +9,7 @@ import QuillComputerUseKit
 public final class QuillCodeWorkspaceModel {
     public internal(set) var root: QuillCodeRootState
     public internal(set) var chrome: WorkspaceChromeState
+    public internal(set) var navigationHistory: WorkspaceNavigationHistoryState
     public internal(set) var composer: ComposerState
     public internal(set) var terminal: TerminalState
     public private(set) var browser: BrowserState
@@ -53,6 +54,7 @@ public final class QuillCodeWorkspaceModel {
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
         chrome: WorkspaceChromeState = WorkspaceChromeState(),
+        navigationHistory: WorkspaceNavigationHistoryState = WorkspaceNavigationHistoryState(),
         composer: ComposerState = ComposerState(),
         terminal: TerminalState = TerminalState(),
         browser: BrowserState = BrowserState(),
@@ -77,6 +79,7 @@ public final class QuillCodeWorkspaceModel {
     ) {
         self.root = root
         self.chrome = chrome
+        self.navigationHistory = navigationHistory
         self.composer = composer
         self.terminal = terminal
         self.browser = browser

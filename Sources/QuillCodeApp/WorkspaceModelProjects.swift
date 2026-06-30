@@ -6,6 +6,7 @@ import QuillCodeTools
 extension QuillCodeWorkspaceModel {
     @discardableResult
     public func addProject(path: URL, name: String? = nil) -> UUID {
+        let previousLocation = currentNavigationLocation
         let standardized = path.standardizedFileURL
         let result = WorkspaceProjectEngine.upsertLocalProject(
             path: standardized,
@@ -18,11 +19,13 @@ extension QuillCodeWorkspaceModel {
         refreshFileMentionIndex()
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
         return result.projectID
     }
 
     @discardableResult
     public func addSSHProject(_ address: String, name: String? = nil) -> UUID? {
+        let previousLocation = currentNavigationLocation
         switch WorkspaceProjectEngine.upsertSSHProject(address: address, name: name, projects: &root.projects) {
         case .failure(let error):
             setLastError(error.message)
@@ -33,16 +36,18 @@ extension QuillCodeWorkspaceModel {
             refreshFileMentionIndex()
             saveProjects()
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            recordNavigationTransition(from: previousLocation)
             return result.projectID
         }
     }
 
-    public func selectProject(_ id: UUID?) {
+    public func selectProject(_ id: UUID?, recordsNavigation: Bool = true) {
         guard let selection = WorkspaceProjectEngine.selectionAfterSelectingProject(
             id,
             projects: root.projects,
             threads: root.threads
         ) else { return }
+        let previousLocation = currentNavigationLocation
         root.selectedProjectID = selection.projectID
         syncTerminalSessionToSelectedProject()
         refreshProjectMetadata(selection.projectID)
@@ -50,6 +55,9 @@ extension QuillCodeWorkspaceModel {
         root.selectedThreadID = selection.threadID
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        if recordsNavigation {
+            recordNavigationTransition(from: previousLocation)
+        }
     }
 
     public func refreshSelectedProjectInstructions() {
@@ -156,6 +164,7 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func removeProject(_ id: UUID) -> Bool {
+        let previousLocation = currentNavigationLocation
         var projects = root.projects
         var threads = root.threads
         guard let result = WorkspaceProjectEngine.removeProject(
@@ -176,6 +185,8 @@ extension QuillCodeWorkspaceModel {
         syncTerminalSessionToSelectedProject()
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
+        pruneNavigationHistory()
         return true
     }
 }
