@@ -14,6 +14,20 @@ Wires the history-recall engine into the native composer so Up/Down recalls prev
 Residual risk:
 
 - The JS harness and Playwright mirror of the Up/Down recall flow is the next slice; existing Playwright coverage is unaffected.
+## 2026-06-29 Composer History Recall Harness Pass
+
+Overall grade after this slice: **A cross-surface recall parity, A E2E flow coverage**.
+
+Mirrors the composer Up/Down message-history recall into the mock harness so the flow is exercised end-to-end like the native composer.
+
+| Before | After |
+| --- | --- |
+| The JS harness had no message-history recall; Up/Down only drove slash/mention suggestions. | The harness recalls older/newer sent user messages on Up/Down when no slash/mention suggestions are active, beginning only from an empty composer, continuing only while the recalled text is unedited, restoring the in-progress draft past the newest entry, and exiting recall on user edits or send. |
+| No E2E coverage for history recall. | A Playwright test sends two messages then drives Up/Up/Up (clamp), Down/Down (restore empty), and verifies Up does not hijack a non-empty composer. Full Playwright suite stays green (125 tests). |
+
+Residual risk:
+
+- None specific to this slice; recall is keyboard-only and reuses the existing composer surface.
 
 ## 2026-06-29 Composer History Recall Engine Pass
 
