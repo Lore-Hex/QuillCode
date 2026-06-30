@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-30 Plan Mode Resume Pass (PR2)
+
+Overall grade after this slice: **A safe-by-construction continuation, A reuse of the send loop**.
+
+Completes the Plan-mode promise. After PR1, approving a blocked change flipped the thread to `.auto`, ran that one tool, and **dead-stopped** — forcing the user to hand-type "continue." This resumes the agent so it drives the plan forward, reusing the existing send loop with no new agent machinery. The scout grounded that the plan *artifact* (`AgentPlanUpdate`/`PlanUpdateToolExecutor`) already renders tri-surface, so this PR is purely the missing **continuation** at the approval boundary.
+
+The adversarial review reshaped the design. The first cut flipped `.plan`→`.auto` on approve and resumed there; the review proved that was a **runaway vector** — in `.auto` the coarse keyword-intent gate (`"run"`/`"make"` → `shell.run`) auto-approves *relative* destructive commands (`rm -rf build`, `git reset --hard`) that the hard-deny list misses, so one approval could authorize an autonomous destructive chain (mitigated only by the production LLM reviewer). And the killer test was **vacuous** — its `rm -rf <abs-temp-path>` was denied only because the absolute path contained the `"rm -rf /"` substring, not the gate it claimed to exercise.
+
+| Before | After |
+| --- | --- |
+| Approve flipped `.plan`→`.auto`, ran the held tool, and returned — the agent never re-entered `AgentRunner.send`. | Approve runs the held tool and **stays in Plan mode**; `resumeAgentAfterApproval` re-enters the loop through the **same** `WorkspaceAgentSendTaskCoordinator` `submitComposer` uses (shared `runAgentSession` returns the typed outcome so `submitComposer` keeps `finishAgentSend(outcome)` inline). |
+| — (the runaway) | **Safe by construction:** resuming in `.plan` means the run only performs read-only investigation; the next *mutating* step is gated for approval again — one approval never authorizes an unconfirmed chain. `testResumedPlanStepIsGatedNotAutoRunEvenForARelativeDestructiveCommand` proves a resumed **relative** `rm -rf keep` is *reached* (a 2nd approval request is surfaced) yet *blocked* — the directory survives **on disk**. The resume still carries the real user message as intent and is bounded by `maxToolSteps`. |
+| The resume was an **orphan `Task`** in the desktop coordinator — Stop could not cancel it, it bypassed the `.send` slot (isSending clobber / concurrent runs), and it re-read `selectedThread` at fire time (a thread switch between approve and the slot firing would continue the **wrong** plan). | The held tool + resume are one method — `approveToolCardAndResume`, **exactly what the tests drive** — dispatched through the **same `.send` slot** a composer send uses (gated on `!isRunning(.send)` up front). Stop cancels it, it never interleaves with another send, and the resume is **pinned to the approved thread** (`expectedThreadID`), so a mid-flight thread switch can't continue the wrong plan (`testResumeIsSkippedWhenTheSelectedThreadIsNotTheApprovedOne`). The harness mirrors the stay-in-Plan + next-gated-step behavior. |
+
+Residual risk:
+
+- The held tool's result is recorded as a thread *event* but not yet as a `.tool` *message*, so a resumed model could re-propose the just-run step — benign here because that re-proposal is itself gated (Plan mode), but appending tool feedback to `messages` is a clean follow-up. A user who wants "approve once, run the rest" uses `/mode auto` explicitly. Marking individual `AgentPlanItem` statuses from approvals remains a separate slice.
+
 ## 2026-06-30 Interactive Plan Mode Pass (PR1)
 
 Overall grade after this slice: **A reuse of the existing safety chokepoint, A single-gate discipline**.

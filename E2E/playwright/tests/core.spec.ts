@@ -191,3 +191,46 @@ test('mock harness enters Plan mode via /plan and the mode pill reflects it', as
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
   await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'auto');
 });
+
+test('mock harness resumes the agent after approving a Plan-mode block', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // Enter Plan mode.
+  await message.fill('/plan');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Plan');
+
+  // A blocked mutating tool surfaces an approvable card while planning.
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      addToolCard: (card: Record<string, unknown>) => void;
+      render: () => void;
+    };
+    harness.addToolCard({
+      id: 'shell-plan',
+      title: 'host.shell.run',
+      subtitle: 'Ready to run · touch a.txt',
+      status: 'review',
+      reviewState: 'ready',
+      density: 'peek',
+      inputJSON: JSON.stringify({ cmd: 'touch a.txt' }, null, 2),
+      isExpanded: false,
+      actions: [
+        { id: 'tca-approve', title: 'Run', kind: 'approve', requestID: 'plan-approval', style: 'primary' }
+      ]
+    });
+    harness.render();
+  });
+  await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Run' })).toBeVisible();
+
+  // Approving runs the held tool AND resumes the agent to propose the next step — but the
+  // thread STAYS in Plan, and that next step is itself gated (a fresh approvable card), not
+  // auto-run. One approval never flips to autonomous execution.
+  await page.getByTestId('tool-card-action').filter({ hasText: 'Run' }).first().click();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Plan');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'plan');
+  await expect(page.getByTestId('message').last()).toContainText('continuing the plan');
+  // The resumed next step surfaces as a new review card awaiting approval.
+  await expect(page.getByTestId('tool-card').filter({ hasText: 'touch step-two.txt' })).toHaveAttribute('data-status', 'review');
+});

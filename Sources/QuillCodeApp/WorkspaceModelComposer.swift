@@ -59,19 +59,7 @@ extension QuillCodeWorkspaceModel {
         threadDrafts = ComposerDraftStore.cleared(draftThreadID, drafts: threadDrafts)
         onStarted?()
 
-        let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
-            .makeSession(
-                prompt: sendStart.prompt,
-                thread: sendStart.thread,
-                recordsUserMessage: false
-            )
-        let outcome = await WorkspaceAgentSendTaskCoordinator(
-            start: sendStart,
-            session: session
-        ).run { [weak self] progressThread in
-            await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
-            await onProgressUpdated?()
-        }
+        let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot, onProgressUpdated: onProgressUpdated)
         finishAgentSend(outcome)
     }
 
@@ -82,6 +70,58 @@ extension QuillCodeWorkspaceModel {
         guard var thread = selectedThread else { return nil }
         syncThreadContext(into: &thread)
         return thread
+    }
+
+    /// Runs one agent send through the shared coordinator and returns its typed outcome (the
+    /// caller passes it to `finishAgentSend`). Used by both `submitComposer` (a fresh user turn)
+    /// and `resumeAgentAfterApproval` (a continuation that adds no user message).
+    /// `recordsUserMessage: false` because the caller has already shaped the thread (a user turn
+    /// was appended for a submit; nothing is appended for a resume).
+    func runAgentSession(
+        _ sendStart: WorkspaceAgentSendStartPlan,
+        workspaceRoot: URL,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
+    ) async -> WorkspaceAgentSendTaskOutcome {
+        let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
+            .makeSession(
+                prompt: sendStart.prompt,
+                thread: sendStart.thread,
+                recordsUserMessage: false
+            )
+        return await WorkspaceAgentSendTaskCoordinator(
+            start: sendStart,
+            session: session
+        ).run { [weak self] progressThread in
+            await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
+            await onProgressUpdated?()
+        }
+    }
+
+    /// After a Plan-mode approval has run the held tool, resume the agent so it drives the plan
+    /// forward instead of dead-stopping and forcing the user to hand-type "continue". The thread
+    /// STAYS in Plan mode, so the resumed run only performs read-only investigation and the next
+    /// mutating step is gated for approval again — one approval never authorizes an autonomous
+    /// chain of unconfirmed mutations. The continuation adds no new user message; it carries the
+    /// thread's most recent user message as intent (never an empty/stale prompt) and is bounded
+    /// by the agent's `maxToolSteps`.
+    public func resumeAgentAfterApproval(workspaceRoot: URL, expectedThreadID: UUID?) async {
+        // Pinned to the approved thread: if the user switched threads since approving, the still
+        // -selected thread won't match, so we never continue a different plan.
+        guard !composer.isSending, let thread = selectedThread,
+              thread.id == expectedThreadID, thread.mode == .plan else { return }
+        // Only resume when the user actually has a request on record to continue.
+        guard let intent = thread.messages.last(where: { $0.role == .user })?.content,
+              !intent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        let sendStart = WorkspaceAgentSendStartPlan(
+            prompt: intent,
+            thread: thread,
+            threadID: thread.id,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: composer)
+        )
+        applyComposerSendLifecycle(sendStart.lifecycle)
+        let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot)
+        finishAgentSend(outcome)
     }
 
     private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
