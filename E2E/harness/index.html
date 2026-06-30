@@ -2053,13 +2053,25 @@
     }
     .message.user .transcript-actions { justify-content: flex-end; }
     .message.assistant .transcript-actions { justify-content: flex-start; }
+    /* Message action chips sit inside the bubble, including the bright user gradient — a dark chip
+       with bright text keeps them legible on any background, vs the old muted-grey-on-faint-white. */
+    .transcript-actions {
+      opacity: 0;
+      transition: opacity .12s ease;
+    }
+    .message:hover .transcript-actions,
+    .message:focus-within .transcript-actions,
+    .transcript-item:hover .transcript-actions,
+    .transcript-item:focus-within .transcript-actions {
+      opacity: 1;
+    }
     .transcript-copy-button {
       min-height: var(--hit-target);
       border: 0;
       border-radius: 999px;
       padding: 5px 9px;
-      color: var(--muted);
-      background: rgba(255,255,255,.08);
+      color: rgba(255,255,255,.82);
+      background: rgba(0,0,0,.30);
       font-size: 11px;
       font-weight: 700;
       cursor: pointer;
@@ -2073,8 +2085,8 @@
       border: 0;
       border-radius: 999px;
       padding: 5px 8px;
-      color: var(--muted);
-      background: rgba(255,255,255,.08);
+      color: rgba(255,255,255,.82);
+      background: rgba(0,0,0,.30);
       font-size: 11px;
       font-weight: 800;
       cursor: pointer;
