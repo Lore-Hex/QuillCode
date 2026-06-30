@@ -78,7 +78,7 @@ struct QuillCodeSidebarSavedSearchView: View {
             )
             .accessibilityIdentifier("quillcode-sidebar-saved-search-title")
 
-            HStack {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodePressableButtonStyle())
@@ -202,7 +202,7 @@ private struct QuillCodeRenameDialog: View {
                 }
             )
 
-            HStack {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodePressableButtonStyle())

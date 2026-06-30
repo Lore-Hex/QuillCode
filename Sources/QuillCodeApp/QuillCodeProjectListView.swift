@@ -19,7 +19,7 @@ struct QuillCodeProjectListView: View {
     }
 
     private var projectHeader: some View {
-        HStack {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Text(projects.title.uppercased())
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)

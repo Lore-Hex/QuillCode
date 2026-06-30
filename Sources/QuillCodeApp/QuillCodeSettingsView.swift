@@ -33,7 +33,7 @@ struct QuillCodeSettingsView: View {
     }
 
     private var settingsHeader: some View {
-        HStack {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Settings")
                     .font(.title2.weight(.semibold))
@@ -124,7 +124,7 @@ struct QuillCodeSettingsView: View {
     }
 
     private var settingsFooter: some View {
-        HStack {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Spacer()
             Button("Cancel", action: onCancel)
                 .buttonStyle(QuillCodeActionButtonStyle())

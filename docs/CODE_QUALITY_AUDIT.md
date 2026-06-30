@@ -10586,3 +10586,19 @@ Code quality changes:
 Remaining risk:
 
 - Recursive delegation is covered for explicit slash-command subagent workflows. Richer controls for inspecting, constraining, retrying, and cancelling deeply delegated trees remain future UX work.
+
+## 2026-06-30 Implicit Click-Target Spacing Gate Pass
+
+Overall grade after this slice: **A native source click-target contract, A dense-control consistency, A- packaged click synthesis**.
+
+The native click-target system already rejected tiny controls, raw target frames, raw hit-shape overrides, unnamed icons, semantic helper mismatches, and raw numeric control-cluster spacing. The remaining loophole was SwiftUI's implicit container spacing: a row with adjacent controls could omit `spacing:` entirely and still make peer clearance a local, unreviewed layout decision.
+
+Code quality changes:
+
+- Extended the native source audit so `HStack`, `LazyHGrid`, and `LazyVGrid` clusters containing multiple controls must use `QuillCodeMetrics.controlClusterSpacing` or `denseControlClusterSpacing`.
+- Added focused failing/passing fixtures for implicit interactive clusters and passive one-control rows.
+- Moved project header, settings footer, transcript message, saved-search dialog, and worktree dialog action rows onto explicit spacing tokens.
+
+Remaining risk:
+
+- This is a source-level rule that prevents ambiguous native spacing before render. The final A+ layer remains packaged Accessibility automation that clicks every probe point and proves the expected action fires in the running `.app`.

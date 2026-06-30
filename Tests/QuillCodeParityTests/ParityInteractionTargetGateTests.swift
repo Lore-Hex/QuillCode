@@ -1341,6 +1341,93 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testNativeSourceAuditRejectsImplicitControlClusterSpacing() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct ImplicitClusterChrome: View {
+            var body: some View {
+                HStack {
+                    Button("Run") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle(.primary))
+                    Button("Cancel") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96))]) {
+                    Button("Read") {}
+                        .quillCodeCapsuleButtonTarget(minWidth: 96)
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                    Button("Write") {}
+                        .quillCodeCapsuleButtonTarget(minWidth: 96)
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(
+            violations.filter { $0.contains("interactive control cluster spacing should use a named QuillCodeMetrics spacing token") }.count,
+            2,
+            "Interactive clusters should not inherit SwiftUI's default spacing; default spacing is still an unreviewed click-target clearance choice."
+        )
+    }
+
+    func testNativeSourceAuditAcceptsSingleControlWithImplicitPassiveSpacing() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct PassiveClusterChrome: View {
+            var body: some View {
+                HStack {
+                    Text("Status")
+                    Spacer()
+                    Button("Retry") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
+    func testNativeSourceAuditAcceptsMultilineNamedControlClusterSpacing() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct MultilineClusterChrome: View {
+            var body: some View {
+                HStack(
+                    alignment: .center,
+                    spacing: QuillCodeMetrics.controlClusterSpacing
+                ) {
+                    Button("Run") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle(.primary))
+                    Button("Cancel") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
     func testNativeSourceAuditAcceptsNamedControlClusterSpacing() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
@@ -1663,6 +1750,12 @@ private struct SwiftSourceInteractionTargetAudit {
 
             if isRawNumericControlClusterSpacing(line),
                containsInteractiveControl(declarationScope),
+               !isSharedDesignSystem(relativePath) {
+                violations.append("\(relativePath):\(index + 1) interactive control cluster spacing should use a named QuillCodeMetrics spacing token")
+            }
+
+            if isImplicitControlClusterSpacing(line, declarationScope: declarationScope),
+               containsInteractiveControlCluster(declarationScope),
                !isSharedDesignSystem(relativePath) {
                 violations.append("\(relativePath):\(index + 1) interactive control cluster spacing should use a named QuillCodeMetrics spacing token")
             }
@@ -2072,6 +2165,16 @@ private struct SwiftSourceInteractionTargetAudit {
             ) != nil
     }
 
+    private func isImplicitControlClusterSpacing(_ line: String, declarationScope: String) -> Bool {
+        guard line.range(
+            of: #"^\s*(HStack|LazyHGrid|LazyVGrid)(?:\s*\{|\()"#,
+            options: .regularExpression
+        ) != nil else {
+            return false
+        }
+        return !declarationScope.contains("spacing:")
+    }
+
     private func containsInteractiveControl(_ sourceWindow: String) -> Bool {
         [
             "Button(",
@@ -2088,6 +2191,30 @@ private struct SwiftSourceInteractionTargetAudit {
             "TextEditor(",
             "QuillCodeReviewActionButton("
         ].contains { sourceWindow.contains($0) }
+    }
+
+    private func containsInteractiveControlCluster(_ sourceWindow: String) -> Bool {
+        interactiveControlOccurrences(in: sourceWindow) >= 2
+    }
+
+    private func interactiveControlOccurrences(in sourceWindow: String) -> Int {
+        [
+            "Button(",
+            "Button {",
+            "Menu(",
+            "Menu {",
+            "Picker(",
+            "DisclosureGroup(",
+            "DisclosureGroup {",
+            "Toggle(",
+            "Link(",
+            "TextField(",
+            "SecureField(",
+            "TextEditor(",
+            "QuillCodeReviewActionButton("
+        ].reduce(0) { partialResult, marker in
+            partialResult + sourceWindow.components(separatedBy: marker).count - 1
+        }
     }
 
     private func isRawMinimumHitTargetFrame(_ line: String) -> Bool {
