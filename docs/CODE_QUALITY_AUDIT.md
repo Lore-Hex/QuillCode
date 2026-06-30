@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-30 Restrict the PR-Policy Default Fallback to Read-Only
+
+Third stop on the auto-mode over-approval audit (after `hardDeny` decoding and the download carve-out). `StaticSafetyPullRequestPolicy.intentMatches` falls back to `defaultAllowedToolNames` when no specific verb rule matches a PR-related request — and that fallback included **`git.push`** and **`git.pr.create`**. So any PR-*mentioning* request that didn't hit a specific verb auto-approved an outward-facing push/create with no human.
+
+| Before | After |
+| --- | --- |
+| `defaultAllowedToolNames = [git.pr.create, git.pr.comment, git.push, git.status]`. "summarize the pull request" → `requestMatches` (via the "pull request" trigger) → no specific rule for "summarize" → fallback → **`git.push` auto-approved**. A read-ish request published the branch. | Narrowed the fallback to **read-only** (`[git.pr.view, git.pr.checks, git.status]`). Added a **subordinate** create rule (`["open","create","submit"] → [git.pr.create]`) and a separate **push** rule (`["push","publish"] → [git.push]`), both consulted *only when no more-specific verb rule matches*. So an explicit "open a pull request" still auto-approves create, "…and push" approves push, but a bare mention drops both to human approval. |
+
+The two-part shape (subordinate create/push + a split push verb) is deliberate — the first cut used one combined `[open,create,submit,push,publish] → [create,push]` rule checked *alongside* the others, which the review caught as a **new** over-approval: because `intentMatches` is union-over-matching-rules, "create a comment on the pr" matched both the create rule and the comment rule and escalated to `git.pr.create`, and "open the pr to read it" escalated to `git.push`. Making create/push subordinate (a comment/view rule now wins) and keying `git.push` on an explicit push verb (so a negated "don't push" suppresses it) closes that.
+
+Verification — **non-vacuous** at each step, proven by reverting only the source: `testAutoDoesNotAutoApprovePushForBarePullRequestMention` fails on the original; `testAutoDoesNotAutoApproveCreateForCommentOnPullRequest` and `testAutoDoesNotAutoApprovePushForOpenPullRequestToRead` fail on the combined-rule version. `testAutoApprovesPushForExplicitOpenPullRequest` and the existing PR-policy approve tests still pass. `swift test` 1912 green · native smoke clean.
+
+Residual risk:
+
+- Strictly narrows an auto-approval (safe direction). Commenting/creating/checking-out etc. keep their own specific rules; only the *unmatched* fallback lost its write tools. `hardDeny` and the destructive-risk default remain the backstops.
+
 ## 2026-06-30 Tighten the Download Auto-Approval Carve-Out
 
 Continuing the auto-mode safety audit (the over-approval side of `userIntentMatches`): `StaticSafetyDownloadPolicy` is a **narrow carve-out** that auto-approves `shell.run` for a "download to a workspace file" intent *even when the general shell-intent rules would not*. But it only checked that **one** segment was a `curl`/`wget` — it never constrained the *other* segments, and it split only on `&&`. So an arbitrary command chained on rode the carve-out into auto-execution under a bare "download" intent.

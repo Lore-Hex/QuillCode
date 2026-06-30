@@ -991,6 +991,65 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoDoesNotAutoApprovePushForBarePullRequestMention() async {
+        let reviewer = StaticSafetyReviewer()
+        // "summarize the pull request" is a read-ish request — it must NOT auto-approve an
+        // outward-facing git.push via the PR policy's default fallback.
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "summarize the pull request for me",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "summarize the pull request for me")]
+        ))
+        XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "a bare PR mention must not auto-approve git.push")
+    }
+
+    func testAutoApprovesPushForExplicitOpenPullRequest() async {
+        let reviewer = StaticSafetyReviewer()
+        // An explicit open/push intent still auto-approves git.push (the create rule).
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "open a pull request and push the branch",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "open a pull request and push the branch")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale ?? "")
+    }
+
+    func testAutoDoesNotAutoApproveCreateForCommentOnPullRequest() async {
+        let reviewer = StaticSafetyReviewer()
+        // "create a comment on the pr" is a COMMENT intent — the co-occurring word "create" must not
+        // auto-approve opening a brand-new PR. The comment rule takes priority over the create intent.
+        let call = ToolCall(name: gitPullRequestCreate.name, argumentsJSON: #"{"title":"x"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "create a comment on the pull request",
+            toolCall: call,
+            toolDefinition: gitPullRequestCreate,
+            recentMessages: [.init(role: .user, content: "create a comment on the pull request")]
+        ))
+        XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "a comment request must not auto-approve git.pr.create")
+    }
+
+    func testAutoDoesNotAutoApprovePushForOpenPullRequestToRead() async {
+        let reviewer = StaticSafetyReviewer()
+        // "open the pull request to read it" is a READ intent — the co-occurring word "open" must not
+        // auto-approve git.push. The view rule takes priority.
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "open the pull request to read it",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "open the pull request to read it")]
+        ))
+        XCTAssertNotEqual(review.verdict, ApprovalVerdict.approve, "a read request must not auto-approve git.push")
+    }
+
     func testAutoApprovesUserRequestedPullRequestComment() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(
