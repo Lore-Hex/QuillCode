@@ -16,6 +16,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
             Self.chatMessage(role: "system", content: Self.systemPrompt(tools: tools))
         ]
 
+        appendPlanModeGuidance(from: thread, to: &messages)
         appendProjectInstructions(from: thread, to: &messages)
         appendMemories(from: thread, to: &messages)
         appendRecentHistory(from: thread, to: &messages)
@@ -121,6 +122,18 @@ public struct TrustedRouterPromptBuilder: Sendable {
             content: Self.memoryPrompt(thread.memories)
         ))
     }
+
+    private func appendPlanModeGuidance(from thread: ChatThread, to messages: inout [[String: Any]]) {
+        guard thread.mode == .plan else { return }
+        messages.append(Self.chatMessage(role: "system", content: Self.planModePrompt))
+    }
+
+    static let planModePrompt = """
+    You are in Plan mode. Before proposing any change to the workspace, call host.plan.update \
+    with a concise numbered plan of the steps you intend to take, then update it as you go. \
+    Investigate read-only first; every mutating step is gated for the user's explicit approval \
+    before it runs, so lay out the plan so they can review it.
+    """
 
     private func appendRecentHistory(from thread: ChatThread, to messages: inout [[String: Any]]) {
         for message in thread.messages.suffix(historyLimit) {
