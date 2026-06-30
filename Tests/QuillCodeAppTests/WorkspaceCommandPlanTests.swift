@@ -248,7 +248,7 @@ final class WorkspaceCommandPlanTests: XCTestCase {
 
     func testSlashCommandPaletteIDsMapToInsertText() throws {
         let modeCommand = try XCTUnwrap(
-            SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/mode auto|review|read-only" }
+            SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/mode auto|plan|review|read-only" }
         )
         let modelCommand = try XCTUnwrap(
             SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/model /synth" }

@@ -88,8 +88,12 @@ test('mock harness changes approval mode independently from model selection', as
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
 
   await page.getByTestId('mode-picker-button').click();
-  await expect(page.getByTestId('mode-pill')).toHaveText('Review');
+  await expect(page.getByTestId('mode-pill')).toHaveText('Plan');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'plan');
   await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0');
+
+  await page.getByTestId('mode-picker-button').click();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Review');
 
   await page.getByTestId('mode-picker-button').click();
   await expect(page.getByTestId('mode-pill')).toHaveText('Read-only');

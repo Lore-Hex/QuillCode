@@ -69,6 +69,9 @@ enum SlashCommandParser {
             return SlashEnvironmentCommandParser.parse(argument)
         case "mode":
             return SlashModeCommandParser.parse(argument)
+        case "plan":
+            // `/plan` is a shorthand for entering Plan mode.
+            return .mode(.plan)
         case "model":
             return SlashModelCommandParser.parse(argument)
         default:

@@ -38,7 +38,7 @@ test('mock harness command palette scopes actions and slash commands', async ({ 
   await fillCommandPalette(page, '/mode');
   await expect(page.getByTestId('command-palette-scope')).toHaveText('Slash');
   await expect(page.getByTestId('command-palette-group')).toContainText('Slash Commands');
-  await expect(page.getByTestId('command-palette-result').first()).toContainText('/mode auto|review|read-only');
+  await expect(page.getByTestId('command-palette-result').first()).toContainText('/mode auto|plan|review|read-only');
 
   await page.keyboard.press('Enter');
 

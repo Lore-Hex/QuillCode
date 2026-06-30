@@ -363,6 +363,8 @@ extension AgentMode {
             return "Read-only"
         case .review:
             return "Review"
+        case .plan:
+            return "Plan"
         case .auto:
             return "Auto"
         }

@@ -1,8 +1,51 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeSafety
 @testable import QuillCodeApp
 
 final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
+    func testPlanModeBlockSurfacesAnApprovableToolCard() async throws {
+        // Regression for the missing-approve-button bug: a plan-mode block must stay
+        // APPROVABLE. The verdict is taken from the REAL reviewer and fed into the request the
+        // exact way AgentToolStepRunner.appendBlockedReview builds it, so this fails if the
+        // .plan arm ever returns `.deny` (the hard, button-suppressing signal for `rm -rf /`).
+        let call = ToolCall(
+            id: "plan-block-1",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "touch a.txt"])
+        )
+        let review = await StaticSafetyReviewer().review(.init(
+            mode: .plan,
+            userMessage: "make the change",
+            toolCall: call,
+            toolDefinition: ToolDefinition.shellRun,
+            recentMessages: []
+        ))
+        let request = ApprovalRequest(
+            id: "plan-approval-1",
+            toolCall: call,
+            toolDefinition: ToolDefinition.shellRun,
+            reason: review.rationale,
+            recommendedVerdict: review.verdict
+        )
+        let thread = ChatThread(mode: .plan, events: [
+            ThreadEvent(kind: .toolQueued, summary: "queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+            ThreadEvent(
+                kind: .approvalRequested,
+                summary: "plan block",
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            )
+        ])
+
+        let card = try XCTUnwrap(
+            WorkspaceTranscriptSurfaceBuilder(thread: thread).timelineItems().compactMap(\.toolCard).first
+        )
+        XCTAssertTrue(
+            card.actions.contains { $0.kind == .approve },
+            "a plan-blocked tool must surface an approve button; got \(card.actions.map(\.title))"
+        )
+    }
+
     func testThinkingSurfaceShowsWhileSendingAndKeepsTraceCollapsedByDefaultData() {
         let thread = ChatThread(events: [
             ThreadEvent(kind: .message, summary: "run tests"),

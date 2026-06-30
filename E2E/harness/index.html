@@ -334,6 +334,9 @@
     .mode-pill-button[data-mode-tone="read-only"] .mode-dot {
       background: var(--muted);
     }
+    .mode-pill-button[data-mode-tone="plan"] .mode-dot {
+      background: var(--blue);
+    }
     .mode-pill-button[data-mode-tone="auto"] .mode-dot {
       background: var(--green);
     }
@@ -4084,7 +4087,8 @@
       { usage: '/worktree prune', title: 'Prune stale worktrees', detail: 'Clean stale git worktree administrative records.', insertText: '/worktree prune --dry-run', aliases: ['wt prune', 'worktree cleanup'] },
       { usage: '/pr', title: 'Prepare pull request', detail: 'Draft a pull request request in the composer.', insertText: '/pr', aliases: ['pull-request', 'pullrequest'] },
       { usage: '/env name', title: 'Run local environment action', detail: 'List or run project-local environment scripts.', insertText: '/env ', aliases: ['environment', 'local-env'] },
-      { usage: '/mode auto|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
+      { usage: '/mode auto|plan|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Plan, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
+      { usage: '/plan', title: 'Enter Plan mode', detail: 'Investigate read-only and propose a plan; mutating tools wait for your approval.', insertText: '/plan', aliases: [] },
       { usage: '/model provider/model', title: 'Set model', detail: 'Switch the active TrustedRouter model.', insertText: '/model ', aliases: [] }
     ];
     const slashCommandPalettePrefix = 'slash-command:';
@@ -7568,7 +7572,7 @@
     }
 
     function cycleMode() {
-      const modes = ['Auto', 'Review', 'Read-only'];
+      const modes = ['Auto', 'Plan', 'Review', 'Read-only'];
       const currentIndex = modes.indexOf(state.topBar.modeLabel);
       setModeLabel(modes[(currentIndex + 1) % modes.length]);
       render();
@@ -7584,6 +7588,7 @@
       const normalized = String(modeLabel || '').toLowerCase();
       if (normalized === 'review') return 'review';
       if (normalized === 'read-only') return 'read-only';
+      if (normalized === 'plan') return 'plan';
       return 'auto';
     }
 
@@ -13191,15 +13196,19 @@
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {
         newChat();
         return;
+      } else if (/^\/plan\b/i.test(text)) {
+        setModeLabel('Plan');
+        render();
+        addMessage('assistant', 'Mode set to Plan.');
       } else if (text.toLowerCase().startsWith('/mode ')) {
         const requestedMode = text.split(/\s+/)[1]?.toLowerCase();
-        const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };
+        const modeMap = { auto: 'Auto', review: 'Review', plan: 'Plan', 'read-only': 'Read-only', readonly: 'Read-only' };
         const nextMode = modeMap[requestedMode] || null;
         if (nextMode) {
           setModeLabel(nextMode);
           addMessage('assistant', `Mode set to ${nextMode}.`);
         } else {
-          addMessage('assistant', 'Usage: /mode auto, /mode review, or /mode read-only');
+          addMessage('assistant', 'Usage: /mode auto, /mode plan, /mode review, or /mode read-only');
         }
       } else if (/^\/(rename|rename-chat|title)\b/i.test(text)) {
         const nextTitle = text.replace(/^\/(rename|rename-chat|title)\b/i, '').trim();

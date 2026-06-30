@@ -78,6 +78,52 @@ final class WorkspaceToolCardIntegrationTests: XCTestCase {
         XCTAssertTrue(cards.contains { $0.title == ToolDefinition.shellRun.name && $0.outputJSON?.contains("exitCode") == true })
     }
 
+    func testApprovingWhilePlanningFlipsThreadToAutoAndRunsTheTool() throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            id: "plan-approval-tool-run",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "whoami"])
+        )
+        let request = ApprovalRequest(
+            id: "plan-approval-run",
+            toolCall: call,
+            toolDefinition: ToolDefinition.shellRun,
+            reason: "Planning — approve the proposed change to apply it and start executing."
+        )
+        let thread = ChatThread(mode: .plan, events: [
+            ThreadEvent(
+                kind: .approvalRequested,
+                summary: "planning",
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            )
+        ])
+        // A distinct global default proves the flip is thread-only, not a global mode change.
+        var config = AppConfig()
+        config.mode = .review
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: config,
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let didRun = model.runToolCardAction(ToolCardActionSurface(
+            title: "Approve",
+            kind: .approve,
+            requestID: "plan-approval-run",
+            style: .primary
+        ), workspaceRoot: root)
+
+        XCTAssertTrue(didRun)
+        // Approving the plan flips this thread out of Plan mode so the agent keeps executing,
+        XCTAssertEqual(model.selectedThread?.mode, .auto)
+        // without changing the global default mode,
+        XCTAssertEqual(model.root.config.mode, .review)
+        // and the held tool actually runs.
+        let events = try XCTUnwrap(model.selectedThread?.events)
+        XCTAssertTrue(events.contains { $0.kind == .toolCompleted })
+    }
+
     func testToolCardEditActionPreloadsComposerWithoutDecidingOrRunningTool() throws {
         let root = try makeTempDirectory()
         let call = ToolCall(

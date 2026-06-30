@@ -69,7 +69,8 @@ enum SlashCommandCatalog {
 
     private static let suffixDefinitions: [SlashCommandDefinition] = [
         .init(usage: "/env name", title: "Run local environment action", detail: "List or run project-local environment scripts.", insertText: "/env ", aliases: ["environment", "local-env"]),
-        .init(usage: "/mode auto|review|read-only", title: "Set approval mode", detail: "Switch between Auto, Review, and Read-only behavior.", insertText: "/mode ", aliases: []),
+        .init(usage: "/mode auto|plan|review|read-only", title: "Set approval mode", detail: "Switch between Auto, Plan, Review, and Read-only behavior.", insertText: "/mode ", aliases: []),
+        .init(usage: "/plan", title: "Enter Plan mode", detail: "Investigate read-only and propose a plan; mutating tools wait for your approval.", insertText: "/plan", aliases: []),
         .init(
             usage: "/model /synth",
             title: "Set model",

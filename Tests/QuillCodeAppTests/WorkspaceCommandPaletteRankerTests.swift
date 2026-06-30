@@ -34,7 +34,7 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
         let commands = QuillCodeWorkspaceModel().surface().commands
         let slashResults = WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "/mode")
 
-        XCTAssertEqual(slashResults.first?.title, "/mode auto|review|read-only")
+        XCTAssertEqual(slashResults.first?.title, "/mode auto|plan|review|read-only")
         XCTAssertTrue(slashResults.allSatisfy { $0.id.hasPrefix(SlashCommandCatalog.commandPaletteIDPrefix) })
         XCTAssertEqual(
             WorkspaceCommandPaletteRanker.groupedCommands(commands, matching: "/").map(\.title),

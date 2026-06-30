@@ -74,6 +74,20 @@ public struct StaticSafetyReviewer: SafetyReviewer {
                 rationale: "Review mode requires explicit approval before this tool runs.",
                 userIntentMatched: userIntentMatches(context)
             )
+        case .plan:
+            // Plan mode investigates read-only and proposes a plan; every mutating tool is
+            // blocked until the user approves it (which applies that step and starts executing).
+            // It returns `.clarify`, NOT `.deny`: the agent loop blocks on any non-`.approve`
+            // verdict either way, but `.deny` is the hard "no approval possible" signal (e.g.
+            // `rm -rf /`) that suppresses the approve button — a plan block must stay approvable.
+            if context.toolDefinition?.risk == .read {
+                return lowRiskReview(context)
+            }
+            return SafetyReview(
+                verdict: .clarify,
+                rationale: "Planning — approve the proposed change to apply it and start executing.",
+                userIntentMatched: userIntentMatches(context)
+            )
         case .auto:
             if let hardDeny = hardDenyReason(context) {
                 return SafetyReview(verdict: .deny, rationale: hardDeny)

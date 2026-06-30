@@ -111,6 +111,15 @@ public extension QuillCodeWorkspaceModel {
         }
 
         if plan.shouldRunTool {
+            // Approving a blocked change while planning applies it AND switches the thread
+            // out of Plan mode so the agent can keep executing. This flips only the thread
+            // (not the global default mode), and runs the held tool directly (bypassing the
+            // gate) the same way every other approved tool does.
+            if selectedThread?.mode == .plan {
+                mutateSelectedThread { thread in
+                    WorkspaceConfigurationEngine.setMode(.auto, thread: &thread)
+                }
+            }
             _ = runToolCall(plan.request.toolCall, workspaceRoot: workspaceRoot)
         } else {
             if let assistantNotice = plan.assistantNotice {

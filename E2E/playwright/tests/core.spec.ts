@@ -170,3 +170,24 @@ test('mock harness copies the whole conversation as Markdown from the command pa
     '```\n\n## Assistant\n\nOutput:\nran: the tests'
   );
 });
+
+test('mock harness enters Plan mode via /plan and the mode pill reflects it', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // The pill starts on Auto.
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'auto');
+
+  // /plan switches into Plan mode (its own pill tone).
+  await message.fill('/plan');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Plan');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'plan');
+
+  // /mode auto returns to Auto, proving the toggle is reversible.
+  await message.fill('/mode auto');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'auto');
+});

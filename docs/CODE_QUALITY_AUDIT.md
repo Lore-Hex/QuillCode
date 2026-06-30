@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-30 Interactive Plan Mode Pass (PR1)
+
+Overall grade after this slice: **A reuse of the existing safety chokepoint, A single-gate discipline**.
+
+Adds a `Plan` safety mode (Codex/Claude-CLI parity): the agent investigates read-only and proposes a plan, but **every mutating tool is blocked** until the user approves it — and approving applies that change and switches the thread to execute mode. Picked + designed by a docs-grounded judge-panel whose grounding surfaced that almost all machinery already existed: `AgentMode`, the `ToolRiskClass` (`.read` / `.append` / `.destructive`) carried on every `ToolDefinition`, and the `.readOnly` deny codepath.
+
+| Before | After |
+| --- | --- |
+| Safety modes were `.readOnly` / `.review` / `.auto`; there was no "investigate then approve the plan" stance. | A 4th `AgentMode.plan` reuses the **single** existing gate — `StaticSafetyReviewer.review` consumed at the one chokepoint `AgentToolStepRunner` — returning `.clarify` ("Planning — approve …") for any non-`.read` tool. No new gating path; nothing scattered. (The adversarial review caught that an earlier `.deny` blocked the tool *and* suppressed the approve button — `.deny` is the hard "no approval possible" signal reserved for `rm -rf /` — so the headline approve-flip was unreachable in the UI. `.clarify` blocks in the loop while keeping the buttons, like `.review`.) |
+| — (the killer) | A mutating tool must never *look* blocked while actually running. The exhaustive `switch AgentMode` (no `default`) forces the gate arm at compile time, and `AgentPlanModeTests` proves it against the filesystem: the same `touch` command leaves **no file** in Plan mode (blocked) but **creates it** in Auto — a leaked execution would fail the test, so it is not a flag-only check. |
+| — | Approving a blocked change flips **only the thread** to `.auto` (proven by `testApprovingWhilePlanningFlipsThreadToAutoAndRunsTheTool`, which asserts the global default mode is unchanged) and runs the held tool through the existing approve affordance — no new routed command id. |
+| Inserting an enum case mid-`AgentMode` shifted `.auto`'s discriminant and silently corrupted incremental builds (50 phantom `.auto`→deny failures + an index-out-of-range crash that *clean* builds did not show). | `.plan` is **appended** after `.auto` so existing discriminants are stable; menu order is set explicitly in `orderedModes`, not derived from `allCases`. |
+
+Residual risk:
+
+- Like `.readOnly`, Plan mode gates at the tool level, so **all** `shell.run` is blocked while planning (even read-only commands like `whoami`); the agent investigates via `.read` tools (`git.status`, `git.diff`, file reads, search). The agent-authored structured **plan artifact** and the **execute-the-whole-plan** handoff (re-sending the thread after one approval) are the deferred PR2 — this PR ships the safety gate + per-change approve handoff, which is the load-bearing slice. Approve currently flips to `.auto` (autonomous execution); a future option could flip to `.review` for step-by-step approval.
+
 ## 2026-06-30 @-Mention Directories Pass
 
 Overall grade after this slice: **A decoupled-cap design, A cross-surface parity**.
