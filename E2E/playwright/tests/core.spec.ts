@@ -280,3 +280,22 @@ test('Shift+Tab does not cycle mode while focus is in a non-composer input', asy
   // approval mode must not silently change out from under the user.
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
 });
+
+test('Cmd+Shift+R retries the last turn, and is a no-op with nothing to retry', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // With no user turn yet, the retry shortcut is disabled — pressing it does nothing.
+  await page.keyboard.press('Meta+Shift+R');
+  await expect(page.getByTestId('message')).toHaveCount(0);
+
+  // Send a turn and let it finish (retry is disabled while a send is in flight).
+  await message.fill('retry me please');
+  await message.press('Enter');
+  await expect(page.getByTestId('message').filter({ hasText: 'retry me please' })).toHaveCount(1);
+  await expect(message).toBeEnabled();
+
+  // Cmd+Shift+R re-runs the last user turn: a second identical user message appears.
+  await page.keyboard.press('Meta+Shift+R');
+  await expect(page.getByTestId('message').filter({ hasText: 'retry me please' })).toHaveCount(2);
+});

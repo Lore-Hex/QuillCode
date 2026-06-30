@@ -62,6 +62,7 @@ struct QuillCodeDesktopCommands: Commands {
             Button("Retry Last Turn") {
                 NotificationCenter.default.post(name: .quillCodeRetryLastTurn, object: nil)
             }
+            .quillCodeShortcut("retry-last-turn")
         }
     }
 }

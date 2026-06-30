@@ -15,6 +15,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
             XCTAssertTrue(commandsText.contains(".quillCodeShortcut(\"\(commandID)\")"), "\(commandID) should be wired as a native keyboard shortcut.")
             XCTAssertTrue(appText.contains("controller.runWorkspaceCommand(\"\(commandID)\")"), "\(commandID) should route through the workspace command executor.")
         }
+        // retry-last-turn has a dedicated controller action (prepares the retry draft + sends),
+        // not the generic command executor — but its keyboard shortcut must still be bound.
+        XCTAssertTrue(commandsText.contains(".quillCodeShortcut(\"retry-last-turn\")"), "retry-last-turn should be wired as a native keyboard shortcut.")
+        XCTAssertTrue(appText.contains("controller.retryLastTurn()"), "retry-last-turn should route to the dedicated controller action.")
 
         let menuText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
         XCTAssertTrue(menuText.contains("onDisconnectAll"), "Disconnect All should be wired to a controller action.")
