@@ -30,7 +30,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         let accessibilityFrameSamples = QuillCodeDesktopAccessibilityFrameSampleReport(
             liveAccessibilitySampling: "frame-sampled",
             minimumHitTarget: 44,
-            minimumTargetClearance: 6,
+            minimumTargetClearance: 8,
             requiredContractIDs: ["composer.send"],
             sampledContractIDs: ["composer.send"],
             unresolvedRequiredContractIDs: [],
@@ -49,7 +49,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                     frame: CGRect(x: 100, y: 100, width: 44, height: 44),
                     requiredMinWidth: 44,
                     requiredMinHeight: 44,
-                    requiredPeerClearance: 6,
+                    requiredPeerClearance: 8,
                     allowsNestedInteractiveChildren: false,
                     requiresUnblockedInterior: true,
                     samplePoints: [[

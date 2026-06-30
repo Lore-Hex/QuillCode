@@ -24,6 +24,8 @@
       --shadow-panel: 0 0 0 1px rgba(255,255,255,.09), 0 18px 54px rgba(0,0,0,.30);
       --shadow-surface-hover: 0 0 0 1px rgba(255,255,255,.14), 0 12px 30px rgba(0,0,0,.18);
       --hit-target: 44px;
+      --hit-target-clearance: 8px;
+      --control-cluster-gap: 10px;
       --workspace-sidebar-width: 272px;
     }
     * { box-sizing: border-box; }
@@ -247,13 +249,13 @@
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
     }
     .topbar-cluster {
       min-width: 0;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: var(--control-cluster-gap);
     }
     .topbar-action-cluster {
       flex-wrap: nowrap;
@@ -456,7 +458,7 @@
       background: rgba(0,0,0,.24);
     }
     .model-results { display: grid; gap: 8px; max-height: 360px; overflow: auto; padding-bottom: 8px; }
-    .model-category { display: grid; gap: 6px; }
+    .model-category { display: grid; gap: var(--hit-target-clearance); }
     .model-category h3 {
       margin: 0;
       color: var(--muted);
@@ -543,7 +545,7 @@
     }
     .model-actions {
       display: flex;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
       align-items: center;
     }
     .model-detail-toggle,
@@ -677,7 +679,7 @@
     .search-card .dialog-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
     }
     .dialog-choice-list { display: grid; gap: 8px; }
     .dialog-choice-list .eyebrow { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
@@ -839,7 +841,7 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
       overflow: visible;
       padding: 2px 0 8px;
     }
@@ -889,19 +891,19 @@
     .sidebar-saved-search-bar {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
     }
     .sidebar-saved-search-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) var(--hit-target);
       align-items: center;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
     }
     .sidebar-saved-search-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) var(--hit-target) var(--hit-target) var(--hit-target);
       align-items: center;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
     }
     .sidebar-saved-search-label {
       color: var(--muted);
@@ -1202,7 +1204,7 @@
     .sidebar-selection-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
     }
     .sidebar-bulk-action {
       min-height: var(--hit-target);
@@ -1249,7 +1251,7 @@
       position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr) var(--hit-target);
-      gap: 6px;
+      gap: var(--hit-target-clearance);
       align-items: start;
       margin-bottom: 8px;
     }
@@ -1260,7 +1262,7 @@
       position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr) var(--hit-target);
-      gap: 6px;
+      gap: var(--hit-target-clearance);
       align-items: start;
       margin-bottom: 8px;
     }
@@ -1614,7 +1616,7 @@
     .browser-nav-controls {
       display: grid;
       grid-template-columns: repeat(3, var(--hit-target)) minmax(72px, auto);
-      gap: 6px;
+      gap: var(--hit-target-clearance);
       align-items: center;
     }
     .browser-nav-button {
@@ -1750,7 +1752,7 @@
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
     }
     .extensions-counts span,
     .memories-counts span,
@@ -1918,7 +1920,7 @@
     .memories-empty,
     .automation-empty {
       display: grid;
-      gap: 7px;
+      gap: var(--hit-target-clearance);
       align-content: start;
       padding: 12px;
       border-radius: 12px;
@@ -2328,7 +2330,7 @@
       color: #75d7ff;
     }
     .tool-details {
-      margin-top: 6px;
+      margin-top: var(--hit-target-clearance);
     }
     .tool-details summary {
       display: inline-flex;
@@ -2988,7 +2990,7 @@
     }
     .slash-suggestion-list {
       display: grid;
-      gap: 6px;
+      gap: var(--hit-target-clearance);
       padding: 8px;
       border: 1px solid rgba(255,255,255,.08);
       border-radius: 13px;

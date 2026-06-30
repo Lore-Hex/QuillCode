@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export const MINIMUM_HIT_TARGET = 44;
-export const MINIMUM_TARGET_CLEARANCE = 6;
+export const MINIMUM_TARGET_CLEARANCE = 8;
 export const TARGET_INTERIOR_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8];
 export const TARGET_EDGE_SAMPLE_FRACTIONS = [0.08, 0.92];
 export const SHARED_HIT_TARGET_CLASSES = [
