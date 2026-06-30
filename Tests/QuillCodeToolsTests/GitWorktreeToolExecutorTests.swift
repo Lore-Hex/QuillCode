@@ -45,6 +45,26 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
     }
 
+    func testCreateRejectsWorktreeThroughParentSymlinkEscape() throws {
+        let parent = try makeTempDirectory()
+        let workspace = parent.appendingPathComponent("project")
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let outside = try makeTempDirectory()
+        // A symlink in the workspace's PARENT that points outside it. `escape/wt` is lexically under the
+        // parent but resolves into `outside` — the lexical-only check would miss it; the shared
+        // WorkspaceBoundary symlink-resolved check must reject it.
+        try FileManager.default.createSymbolicLink(
+            at: parent.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+
+        XCTAssertThrowsError(try GitWorktreeToolExecutor.safePath("escape/wt", cwd: workspace)) { error in
+            XCTAssertTrue("\(error)".contains("outside the workspace"), "\(error)")
+        }
+        // A legitimate sibling worktree (no symlink) is still allowed.
+        XCTAssertNoThrow(try GitWorktreeToolExecutor.safePath("project-wt", cwd: workspace))
+    }
+
     func testCreateRejectsUnsafeBranchAndBaseNames() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let git = GitToolExecutor()
