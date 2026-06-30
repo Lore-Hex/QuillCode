@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-30 Unify the Workspace Sandbox Across All Path Validators
+
+Overall grade after this slice: **A makes every agent path gate enforce the same symlink-resolved sandbox**.
+
+Direct follow-up to the file-tool symlink hardening: its `#722` review found the *sibling* validators still used the **lexical-only** check that PR abandoned as insufficient — so the sandbox's symlink guarantee for `apply_patch` and the git hunk/stage tools silently depended on `git apply`'s internal "beyond a symbolic link" rejection rather than the harness's own boundary. No live exploit, but an inconsistent, fragile trust boundary.
+
+| Before | After |
+| --- | --- |
+| Three independent path gates: `FileToolExecutor.resolve`, `GitInputValidator.safeRelativePath`, `PatchToolExecutor.isUnsafeDiffPath` — only the first (post-#722) was symlink-resolved; the other two were lexical-only. | New shared `WorkspaceBoundary` (`isWithin(_:root:)` doing lexical + symlink-resolved, plus `isInside`/`symlinkResolvedPath`). `FileToolExecutor.resolve` is refactored onto it (private copies removed); `GitInputValidator.safeRelativePath` (already had `cwd`) and `PatchToolExecutor` now route through it too. |
+| — | `apply_patch` gained a `workspaceRoot:`-aware `unsafePath` overload — the **local** patch path is symlink-checked; the **remote** path (`workspaceRoot == nil`) keeps the lexical-only check, since local symlink resolution is meaningless for a remote filesystem (the remote `git apply` enforces its own boundary). |
+| — | Tests for each gate that reject a *lexically-clean* symlink escape (`escape/…` where `escape → outside`) **at the validator** — not by relying on `git apply`: `testApplyPatchRejectsSymlinkEscapePaths` (asserts the "unsafe path" validator error, not a git error) and `testStageAndRestoreRejectSymlinkEscapePaths`, plus the file-tool suite unchanged. |
+
+Adversarial-review note (verdict SHIP; the security review empirically verified refactor-equivalence, non-vacuous escape tests that fail without the fix, the unchanged-remote path, and that rename-through-symlink is caught via both `diff --git` paths). One trust-model item documented (not a code change): a single patch that *creates* a symlink and writes through it within the same diff cannot be caught at validate time (the symlink does not exist yet), but `git apply` itself refuses it ("affected file … is beyond a symbolic link") — confirmed on the in-use git — so the validator catches *pre-existing*-symlink escapes and `git apply` backstops *patch-created* ones. The `apply_patch` doc now states this explicitly.
+
+Residual risk:
+
+- The boundary is enforced at validate time (small TOCTOU window as before; not exploitable single-threaded). Remote SSH patches are still lexical-only locally by necessity — documented and delegated to remote `git apply`. The single shared helper means a future change to the symlink rule updates all gates at once.
+
 ## 2026-06-30 Workspace Symlink-Traversal Hardening (+ stray-file cleanup)
 
 Overall grade after this slice: **A closes a real workspace-escape hole in the file sandbox, tested**.

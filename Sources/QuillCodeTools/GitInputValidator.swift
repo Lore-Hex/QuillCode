@@ -35,7 +35,9 @@ public enum GitInputValidator {
             : root.appendingPathComponent(trimmed)
         let standardized = candidate.standardizedFileURL
         let rootPath = root.path.hasSuffix("/") ? root.path : "\(root.path)/"
-        guard standardized.path == root.path || standardized.path.hasPrefix(rootPath) else {
+        // Shared workspace boundary: lexical AND symlink-resolved, so a symlink inside the workspace
+        // pointing outside cannot let a staged/restored path escape (matches FileToolExecutor).
+        guard WorkspaceBoundary.isWithin(candidate, root: cwd) else {
             throw GitToolError.outsideWorkspace(path)
         }
         guard standardized.path != root.path else {
