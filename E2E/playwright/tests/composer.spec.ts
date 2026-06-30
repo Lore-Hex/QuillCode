@@ -220,13 +220,14 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
   // A bare @ surfaces workspace files, shallowest path first.
   await message.fill('@');
   await expect(page.getByTestId('file-mention-suggestions')).toBeVisible();
-  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(2);
+  await expect(page.getByTestId('file-mention-suggestion')).toHaveCount(3);
   await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('README.md');
   await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('README.md');
 
-  // ArrowDown moves the active mention.
+  // ArrowDown moves the active mention. For a bare @, ties break by path length,
+  // so the shorter Sources/App.swift ranks ahead of Sources/Agent.swift.
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('Sources/Agent.swift');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-selected="true"]')).toContainText('Sources/App.swift');
 
   // An email-style token is not treated as a mention.
   await message.fill('ping name@example.com');
@@ -258,6 +259,60 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
   await message.fill('/help');
   await expect(page.getByTestId('file-mention-suggestions')).toHaveCount(0);
   await expect(page.getByTestId('slash-suggestions')).toBeVisible();
+});
+
+test('mock harness boosts and badges changed files in @ mentions after a git status', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // Before any git status: README.md leads the bare-@ list and nothing is flagged changed.
+  await message.fill('@');
+  await expect(page.getByTestId('file-mention-suggestion').first()).toContainText('README.md');
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-changed="true"]')).toHaveCount(0);
+
+  // Run a git status, which reports Sources/App.swift as changed.
+  await message.fill('/git-status');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
+
+  // Now @ floats the changed file to the top with a Changed badge ...
+  await message.fill('@');
+  const first = page.getByTestId('file-mention-suggestion').first();
+  await expect(first).toContainText('Sources/App.swift');
+  await expect(first).toHaveAttribute('data-changed', 'true');
+  await expect(first.getByTestId('file-mention-changed-badge')).toBeVisible();
+  // ... while an unchanged file that also matches is not flagged (cross-surface scoring parity).
+  await expect(page.locator('[data-testid="file-mention-suggestion"][data-path="Sources/Agent.swift"]'))
+    .toHaveAttribute('data-changed', 'false');
+});
+
+test('mock harness preserves a separate composer draft per thread', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // Create thread A by sending a prompt.
+  await message.fill('alpha topic');
+  await message.press('Enter');
+  await expect(message).toBeEnabled();
+  await expect(page.getByTestId('sidebar-item').filter({ hasText: 'alpha topic' })).toBeVisible();
+
+  // New chat, then create thread B by sending a prompt.
+  await page.getByTestId('new-chat-button').click();
+  await message.fill('beta topic');
+  await message.press('Enter');
+  await expect(message).toBeEnabled();
+  await expect(page.getByTestId('sidebar-item').filter({ hasText: 'beta topic' })).toBeVisible();
+
+  // Leave an unsent draft in thread B.
+  await message.fill('work in progress for beta');
+
+  // Switching to thread A stashes B's draft and shows A's own (empty) draft.
+  await page.getByTestId('sidebar-item').filter({ hasText: 'alpha topic' }).click();
+  await expect(message).toHaveValue('');
+
+  // Switching back to thread B restores its unsent draft verbatim.
+  await page.getByTestId('sidebar-item').filter({ hasText: 'beta topic' }).click();
+  await expect(message).toHaveValue('work in progress for beta');
 });
 
 test('mock harness recalls sent messages with Up and Down', async ({ page }) => {

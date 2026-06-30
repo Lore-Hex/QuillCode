@@ -6,6 +6,7 @@ struct QuillCodeComposerView: View {
     var composer: ComposerSurface
     var topBar: TopBarSurface
     var fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex()
+    var changedFilePaths: Set<String> = []
     var sentMessageHistory: [String] = []
     @Binding var draft: String
     @Binding var isModelPickerPresented: Bool
@@ -66,6 +67,12 @@ struct QuillCodeComposerView: View {
                 activeFileMentionIndex = min(activeFileMentionIndex, suggestions.count - 1)
             }
         }
+        .onChange(of: sentMessageHistory) { _, _ in
+            // Switching threads swaps the recall history (and may restore a non-empty
+            // draft), so reset the recall cursor to avoid replaying the prior thread.
+            historyRecallIndex = nil
+            historySavedDraft = nil
+        }
     }
 
     private var composerSurface: some View {
@@ -101,7 +108,7 @@ struct QuillCodeComposerView: View {
 
     private var fileMentionSuggestions: [FileMentionSuggestionSurface] {
         guard slashSuggestions.isEmpty else { return [] }
-        return FileMentionCatalog.suggestions(for: draft, in: fileMentionIndex)
+        return FileMentionCatalog.suggestions(for: draft, in: fileMentionIndex, changedPaths: changedFilePaths)
     }
 
     private var canSendDraft: Bool {
@@ -436,10 +443,15 @@ private struct QuillCodeFileMentionSuggestionRow: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(suggestion.name)
-                        .font(.callout.weight(.semibold))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    HStack(spacing: 6) {
+                        Text(suggestion.name)
+                            .font(.callout.weight(.semibold))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if suggestion.isChanged {
+                            changedBadge
+                        }
+                    }
                     Text(suggestion.path)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(QuillCodePalette.muted)
@@ -464,7 +476,20 @@ private struct QuillCodeFileMentionSuggestionRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
-        .accessibilityLabel("Mention \(suggestion.path)")
+        .accessibilityLabel("Mention \(suggestion.path)\(suggestion.isChanged ? ", changed" : "")")
         .accessibilityHint(suggestion.directory.isEmpty ? "Workspace root" : "In \(suggestion.directory)")
+    }
+
+    private var changedBadge: some View {
+        Text("Changed")
+            .font(.system(size: 9, weight: .bold))
+            .textCase(.uppercase)
+            .foregroundStyle(QuillCodePalette.yellow)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(
+                Capsule().fill(QuillCodePalette.yellow.opacity(0.16))
+            )
+            .accessibilityHidden(true)
     }
 }

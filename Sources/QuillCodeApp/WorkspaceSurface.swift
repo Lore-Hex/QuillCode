@@ -19,6 +19,9 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     /// Cached index of the selected local project's files, used by the native
     /// composer to rank `@` mention suggestions live as the user types.
     public var fileMentionIndex: WorkspaceFileIndex
+    /// Workspace-relative paths with uncommitted changes (from the latest `git status`),
+    /// used to boost and badge changed files in the live composer `@` suggestions.
+    public var changedFilePaths: Set<String>
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
     public var runtimeIssue: RuntimeIssueSurface?
@@ -39,6 +42,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         automations: WorkspaceAutomationsSurface = WorkspaceAutomationsSurface(),
         composer: ComposerSurface,
         fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex(),
+        changedFilePaths: Set<String> = [],
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
         runtimeIssue: RuntimeIssueSurface? = nil,
@@ -58,6 +62,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.automations = automations
         self.composer = composer
         self.fileMentionIndex = fileMentionIndex
+        self.changedFilePaths = changedFilePaths
         self.commands = commands
         self.settings = settings
         self.runtimeIssue = runtimeIssue
@@ -164,9 +169,11 @@ public extension QuillCodeWorkspaceModel {
             composer: ComposerSurface(
                 composer: composer,
                 fileMentionIndex: fileMentionIndex,
+                changedFilePaths: activeChangedFilePaths,
                 sentMessageHistory: ComposerHistoryRecall.history(from: thread?.messages ?? [])
             ),
             fileMentionIndex: fileMentionIndex,
+            changedFilePaths: activeChangedFilePaths,
             commands: commandSurfaceBuilder().commands,
             settings: WorkspaceSettingsSurface(
                 config: root.config,

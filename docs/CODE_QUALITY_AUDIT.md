@@ -1,5 +1,121 @@
 # Code Quality Audit
 
+## 2026-06-29 Per-Turn Revert Engine Pass (1 of 2)
+
+Overall grade after this slice: **A honest design, A atomic safety**.
+
+The engine for an honest per-turn "Revert this turn's edits" — a safety net QuillCode lacked (grep for checkpoint/undo/revert in Sources was 0 hits, no row in `CODEX_PARITY_MATRIX.md`). Designed by a grounded judge-panel specifically to resolve the **honesty trap** the scout flagged: `git restore` reverts to HEAD (discarding the user's *own* prior edits and ignoring files the turn created), so it would *lie* as an undo. This ships only the pure engine; the UI button/command across three surfaces is a deliberate follow-up PR.
+
+| Before | After |
+| --- | --- |
+| No way to undo an agent turn's file edits. The recorded per-turn diffs (each `host.apply_patch` call's `patch` string, persisted in `.toolQueued` events) were unused for revert. | `WorkspaceTurnRevertPlanner` (pure) derives a `TurnRevertPlan` per turn: it attributes each tool event to the turn of the latest user message at-or-before its timestamp (there is no turn id in the model), extracts that turn's `apply_patch` patches in order, and flags `hasNonApplyPatchEdits` when the turn *also* wrote files via shell/file-write (which a diff revert can't undo). A turn with no `apply_patch` yields **no** plan, so the UI can never offer an undo it can't honor. |
+| — (honesty) | `GitPatchToolExecutor.restoreTurnPatch` reverse-applies the turn's patches **newest-first** via separate atomic `git apply --reverse` invocations — **never** `git restore`/`checkout`/`stash`. It validates every referenced path stays in the workspace, and **snapshots** the touched files (contents or absence) so any mid-sequence failure **rolls back** to the pre-revert state. A turn whose lines changed since it ran fails cleanly with git's own error rather than corrupting the tree or clobbering the user's later edits. |
+| No coverage. | `WorkspaceTurnRevertPlannerTests` (turn grouping by timestamp, chronological patch order, zero-apply_patch → no plan, mixed-edit flag incl. destructive git/MCP tools, empty-patch ignored, redaction preserves the `patch` arg the planner reads); `GitPatchToolExecutorTurnTests` against real git repos (multi-file reverse, **dirtied-since fails cleanly with no HEAD restore and the user's later edit intact**, added-file deletion, delete-hunk recreation, newest-first create-then-edit unwind, empty-patch failure). |
+| — (review hardening) | The adversarial review (3 lenses, exercising real git) caught two data-loss/honesty defects, both fixed: (1) a mid-sequence rollback could **lose a file the turn created** because reverse-applying its add-hunk pruned the now-empty parent directory and `restore()` silently no-oped — now `restore()` recreates the directory and a rollback that can't fully restore is surfaced as a distinct error (never a clean failure over a half-reverted tree); (2) `hasNonApplyPatchEdits` under-reported (only file-write/shell) — now also flags `git.restore`/`git.restore_hunk`/`git.commit`/`mcp.call` (by `ToolDefinition` constant, so a missed mutator is a maintained list, not silent). Events are sorted by `createdAt` so the within-turn order can't drift from the attribution chronology. A test now proves the mid-sequence rollback restores the created-file-in-a-pruned-dir case. |
+
+Residual risk:
+
+- The engine is UI-less this PR (the button/command/3-surface wiring + truthful labeling is PR 2). Edits a turn made *outside* `apply_patch` (raw shell writes, `rm`, `git commit`, network) are invisible to a diff revert — surfaced via `hasNonApplyPatchEdits` so PR 2 can disclose the gap. Exotic patches (renames/copies/binary) are reverted by git but not yet explicitly tested.
+
+## 2026-06-29 Top-Bar Token-Usage Chip Pass
+
+Overall grade after this slice: **A surfacing of existing data, A cross-surface parity**.
+
+Surfaces the model's reported token usage as a quiet, non-interactive top-bar chip (`847 ctx · ↑500 ↓347`, tabular digits) — satisfying `docs/CODEX_RESEARCH.md`'s explicit ask for "fixed-width numeric/status zones with tabular digits so token counts never cause layout jitter". Picked by a docs-grounded scout/judge-panel; the data was already parsed but invisible until the context-limit banner tripped.
+
+| Before | After |
+| --- | --- |
+| `ModelTokenUsage` (prompt/completion/total, computed `contextTokens`) was parsed from TrustedRouter and persisted as a `ThreadEvent`, but ONLY fed `WorkspaceContextBannerBuilder`'s show/hide threshold — the user could never see a turn's usage until already near the limit. | A pure `WorkspaceTokenUsageLabelBuilder.label(for:)` formats the chip string (`<ctx> ctx · ↑<in> ↓<out>` with a k/m abbreviator), formatted ONCE so all three surfaces display the same value. `WorkspaceTopBarSurfaceBuilder` populates `TopBarSurface.usageStatusLabel` from the EXISTING `WorkspaceContextBannerBuilder.latestProviderUsage(for: thread)` extractor — no new event parsing, no new git/network call. |
+| — (design choice) | The chip is **derived fresh per-thread** every `surface()` (no captured/tagged state), so unlike the branch chip it has no staleness to guard — switching threads recomputes from that thread's events. It is rendered by the native top bar (chip cloned from the branch chip, announced via the combined accessibility label), the static HTML renderer (`top-bar-usage`), and the JS harness (set on turn completion, cleared on new chat). The cost/dollar half of the original idea was dropped — no price metadata exists, so a figure would be invented. |
+| No coverage. | `WorkspaceTokenUsageLabelBuilderTests` (nil → nil, exact/k/m abbreviator boundaries, prompt-only/completion-only); `WorkspaceTokenUsageIntegrationTests` (chip reflects the selected thread's latest usage event, uses the most recent, nil without an event, derived-per-thread non-bleed across `selectThread`); `WorkspaceTokenUsageChipRenderTests` (Codable round-trip + **legacy-JSON decode without the key**, HTML renderer emits the chip only when set); Playwright surfaces the chip after a turn and clears it on a fresh thread. No new command ID, no interactive control → routing-parity and hit-target audits untouched. |
+| — (review hardening) | The adversarial review caught that the abbreviator chose its unit on the *raw* value, so `999_999` rendered `1000k` (wrong magnitude **and** 5 glyphs that defeat the narrow-chip goal). Fixed in both Swift and JS to roll the unit on the *rounded* value (`999_999` → `1m`, `999_949` → `999.9k`), an all-zero/malformed usage event now **suppresses** the chip (`guard contextTokens > 0`) instead of showing `0 ctx`, and a Playwright test drives the JS abbreviator across the *same* boundary table the Swift test asserts — so the two formatters can't silently drift even though the normal mock flow never reaches the k/m branches. |
+
+Residual risk:
+
+- The chip shows the most recent turn's provider usage, not a running thread total, and `ctx` (= `max(total, in+out)`) can exceed `in+out` when the provider counts cached/system tokens — a compact readout, not a billing breakdown. A running total, a hover tooltip with the split, and a thread-total mode are natural follow-ups. The harness mock estimates tokens (chars/4) for display; only the *format* mirrors native, not the values.
+
+## 2026-06-29 Copy Conversation (Markdown Export) Pass
+
+Overall grade after this slice: **A reuse of the existing copy path, A single-source serialization**.
+
+Adds a "Copy conversation" palette command that exports the whole current thread as Markdown to the clipboard — the missing "share my session" action (paste into a PR description, a bug report, or a doc). Previously only one transcript item could be copied at a time.
+
+| Before | After |
+| --- | --- |
+| `QuillCodeTranscriptView.copyText(for:)` shaped a single tool card's text inline, and there was no whole-thread export anywhere. | The per-item text shaping is factored into a shared `TranscriptItemTextFormatter` (output ?? input ?? title/subtitle), and a new pure `TranscriptMarkdownExporter.markdown(for:)` walks `transcript.timelineItems` in order — `## Role` + body per message, `### title` + a fenced block per tool run — reusing that one formatter so the export and the per-item copy can never drift. |
+| — (wiring) | The command is registered in `WorkspaceCommandStaticCatalog` (navigation, enabled with a thread) and routed by `QuillCodeWorkspaceViewCommandPlanner` to a new `.copyConversation` action (not model-dispatched). `WorkspaceSwiftUIView.handleCommandAction` builds the Markdown and reuses the existing `onCopyTranscriptItem("conversation", …)` closure → controller → pasteboard, so there is no new clipboard code or hit-target. Like `find-in-chat` it is palette-only (view-handled commands can't route through the model's slash executor). |
+| — (review-caught drift) | The adversarial review found the Swift and JS serializers did **not** actually mirror each other despite the comments: Swift trimmed before its output/input/title-subtitle checks while the JS `||`/`filter(Boolean)` did not, so a whitespace-only output (or padded subtitle) produced different clipboard bytes. Fixed: the JS path trims to match Swift (correcting the per-item copy too), and a **byte-equality fixture** is asserted on both sides — `TranscriptMarkdownExporterTests` and `core.spec.ts` pin the *same* conversation to identical Markdown. Also from the review: a tool output containing ``` no longer breaks the fence (a fence one longer than the longest backtick run, computed identically in both), and `## System`/`## Tool` headings are dropped so system-prompt content can never leak. |
+| No coverage. | `TranscriptMarkdownExporterTests` (interleaved order, output/input/title-subtitle fallback, whitespace-trim boundary, triple-backtick fence, system/tool skip, empty → "", `clipboardMarkdown` nil-guard, per-item-formatter lock, cross-language byte-parity fixture); planner test maps `copy-conversation` → `.copyConversation`; `WorkspaceRenderedCommandRoutingParityTests` enforces the id in BOTH the catalog and `harnessStaticCommandIDs`; the command-list snapshot gains it. The JS harness mirrors the exporter, command, and a confirmation toast; a Playwright test copies from the palette, asserts the toast, and asserts the exact Markdown. |
+
+Residual risk:
+
+- The export sources `timelineItems` (user/assistant messages + tool cards), so content rendered outside the timeline (thinking blocks, the review/diff pane) is not included, and a tool card with both input and output exports only the output — a deliberate "matches what per-item copy shows" scope. A document title/thread name, timestamps, labelled Input/Output blocks, and pretty-printed JSON are natural follow-ups. The raw tool `outputJSON` is dumped verbatim (the user's own clipboard, so no new exposure).
+
+## 2026-06-29 Changed-File @-Mention Boost Pass
+
+Overall grade after this slice: **A reuse of existing data, A cross-surface scoring parity**.
+
+Composer `@`-mention suggestions now **boost and badge** files with uncommitted changes — the files you're most likely to mention. Reuses the *exact* stdout the branch chip already consumes (`git status --short --branch`), so it adds **no new git invocation and no new command ID**. Scoped by a grounded judge-panel plan and hardened by an adversarial review pass.
+
+| Before | After |
+| --- | --- |
+| The `@` panel ranked files on path text only (200..40), so a freshly edited deep file was buried under shallow text matches; nothing knew which files had changed. | `GitChangedFiles.parse(statusShortBranchOutput:)` (new, in Tools, sibling to `GitBranchStatus`) extracts changed paths from the SAME successful `host.git.status` stdout `WorkspaceToolRunCoordinator` already parses for the branch chip — zero extra git calls. `FileMentionCatalog` applies a flat additive boost (`changedFileBoost = 1000`, above the max text score) and sets `FileMentionSuggestionSurface.isChanged`; the native composer renders a "Changed" pill. |
+| — (review-caught staleness bug) | The file index is rebuilt on *every* tool run (`refreshFileMentionIndex`), so the adversarial review found a committed/cleaned file would keep a stale "Changed" badge for the rest of the session. Fixed: `refreshFileMentionIndex` now **clears** the changed set on every rebuild (the git-status run re-sets it in the same run), so the badge appears right after a git status and drops the moment any later tool runs — never badging a clean file. The set is additionally tagged with `changedFilePathsProjectID` (matched to `selectedProjectID`, the index's own project notion) and exposed via `activeChangedFilePaths`, which drops it on any project-switch path that doesn't rebuild the index — the branch chip's drop-on-mismatch (#695 lesson). Captured at git-status cadence (no extra git invocation). |
+| No coverage. | `GitChangedFilesTests` (modified/untracked/staged/rename-keeps-new/quoted/header-only); `FileMentionCatalogTests` (boost dominates a higher text tier, intra-group text order preserved, empty changed-set is byte-identical to today); integration tests (one git status sets BOTH branch chip and changed set; cross-project non-bleed via identical paths; remote clears the set); Playwright boost-flip with a `Changed` badge + `data-changed`. The JS harness mirrors the boost constant, parser, badge, and project-switch clears byte-for-byte. No new command ID → command-routing parity untouched; the pill reuses the existing row hit-target so the native audit stays green. |
+
+Residual risk:
+
+- The badge reflects the most recent `git status` and clears on the next tool run, so it's an immediate "after you check status, your changed files are highlighted" affordance rather than a persistent live indicator — a deliberate, conservative choice that never badges a clean file. Follow-ups (review-flagged, non-blocking): non-ASCII paths are octal-escaped by git's `core.quotePath` and currently miss the badge (silent false-negative — decode the escapes or pass `-c core.quotePath=false`); the flat 1000 boost can, with ≥6 weakly-matching changed files, push an exact unchanged match past the visible top-6 (an explicit product choice). The shared bounded file-index cap is unchanged.
+
+## 2026-06-29 Review-Pane Open File Pass
+
+Overall grade after this slice: **A non-mutating read action, A cross-surface parity**.
+
+Adds an **Open** action to each changed-file row in the review pane that reads the file (via the existing `host.file.read` tool) into a tool card **without** mutating or clearing the review — so you can inspect a changed file's full contents while staging hunks. Reuses the existing `review-action` hit-target contract and introduces **no new command ID**. Feature scoped by a grounded plan workflow and hardened by an adversarial review pass (which caught a vacuous E2E test and a latent planner split-brain).
+
+| Before | After |
+| --- | --- |
+| Changed-file rows offered only Stage/Restore, both of which run a `host.git.diff` refresh that clears the review pane. There was no way to open a changed file from the review. | A new `WorkspaceReviewActionKind.open` (prepended to `WorkspaceReviewFileSurface.actions` as `[.open, .stage, .restore]`) routes through `host.file.read`. Native SwiftUI auto-renders it via `ForEach(file.actions)` reusing `quillCodeIconButtonTarget()`; the static HTML renderer and the JS harness render it with the same `data-testid="review-action"`. |
+| — (review-driven correctness) | The non-mutating invariant is enforced **structurally**, not by a lone early return: `WorkspaceReviewActionKind.isMutating` classifies actions, `WorkspaceReviewActionToolCallPlanner.runPlan` pairs **no** diff refresh for non-mutating actions (`diffRefreshCall` is now optional, and the runner skips it when absent), and `runReviewAction` short-circuits non-mutating actions straight to `host.file.read`. So Open can never refresh the diff or clear the pane even if the short-circuit is bypassed. |
+| — (review-driven coverage) | The harness Open demo now resolves to real content (added `Sources/App.swift` to the mock workspace) and the Playwright test asserts the read **succeeded** (a `Completed` card naming the file) — the prior test would have passed even if Open never read anything. |
+| No coverage. | Planner test (`.open` ⇒ `host.file.read`, **no** diff refresh, `isMutating == false`); local + remote (SSH `cat`) run-path integration tests asserting exactly one `host.file.read` card, no diff refresh, and the review pane stays visible; HTML-renderer test asserts `data-action="open"`; Playwright open-without-clearing test. No new command IDs, so the command-routing parity audit is untouched. |
+
+Residual risk:
+
+- Open is offered unconditionally, including for **binary** and **deleted** changed files; `host.file.read` then returns a failure card (locally a UTF-8/no-such-file error, remotely a raw `cat`), which flips the top bar to `failed` for a file the user can see in the diff. Deliberately deferred (read-only, no data loss) — gating `.open` on `!isBinary`/non-deletion and a friendlier not-readable state are follow-ups. Native Open currently only emits a tool card rather than focusing an in-app file viewer (the eventual UX). Adding `Sources/App.swift` to the mock workspace shifted the bare-`@` mention order (path-length tiebreak ranks it ahead of `Sources/Agent.swift`); the composer parity test was updated to match.
+
+## 2026-06-29 Worktree Branch Status Pass
+
+Overall grade after this slice: **A read-only branch surfacing, A cross-surface parity**.
+
+Surfaces the selected project's (or git worktree's) branch and ahead/behind-vs-upstream as a quiet top-bar chip (`feature/x ↑2 ↓1`), so a worktree feels like a first-class branch workspace. Feature scoped by a grounded design workflow (read-only, zero new command IDs) and hardened by an adversarial review pass.
+
+| Before | After |
+| --- | --- |
+| The top bar showed project/mode/model but no branch or ahead/behind; nothing parsed the git status branch header. | A pure `GitBranchStatus` parser reads the `## <branch>...<upstream> [ahead N, behind M]` header from the EXISTING `host.git.status` output (handles tracking/ahead/behind/`[gone]`/detached/garbage); `WorkspaceToolRunCoordinator` captures it after a successful git status into a `TopBarSurface.branchStatusLabel` chip rendered in the native top bar, the static HTML renderer, and the JS harness. |
+| — (review-driven correctness) | The chip is tagged with the project it was captured for, so `WorkspaceTopBarStateBuilder` drops it the moment a different project/worktree becomes the viewed context (via thread selection or any path) — never showing a stale branch. The JS harness mirrors the clear on project add/select/remove. |
+| No coverage. | `GitBranchStatus` parser unit tests + a real-repo ahead/behind integration test (bare upstream); coordinator capture, non-git-status-untouched, and view-another-project-hides-chip integration tests; Playwright chip-appears-after-git-status and clears-on-project-switch. No new command IDs, so the command-routing parity audit is untouched. |
+
+Residual risk:
+
+- The chip is dropped (not stashed-per-project) when viewing a different project, so it reappears on the next git status rather than being restored on switch-back — a deliberate simplicity choice. A discoverable "open PR for this worktree" affordance, persisting the branch on `ProjectRef`, and per-worktree-list ahead/behind remain follow-up PRs.
+
+## 2026-06-29 Per-Thread Composer Draft Pass
+
+Overall grade after this slice: **A correctness fix, A cross-surface coverage**.
+
+Fixes a real data-loss bug: the composer draft was a single global string, so typing in thread A then switching threads showed A's text under another thread and could send it into the wrong conversation. Each thread now keeps its own unsent draft, stashed on switch and restored on selection. Feature picked and designed by a judge-panel and hardened by an adversarial review pass (which found four selection-change sites the happy-path tests missed).
+
+| Before | After |
+| --- | --- |
+| `ComposerState.draft` was global; `selectThread`/`newChat`/archive/delete/duplicate reassigned the selected thread without touching the draft, bleeding it across threads. | A transient `threadDrafts: [UUID:String]` on the model (no Codable/persistence change) plus a pure `ComposerDraftStore` (stash/restore/clear) wired through `selectThread`, `insertCreatedThread`, submit-prune, and — from the review — `archiveThread`/`unarchiveThread`/`deleteThread`/bulk-delete via a shared `applyThreadDraftSelection`. |
+| The desktop controller only pushed the live `@Published` draft to the model on send; thread switches and context-menu/command-palette new-chat/duplicate/fork/compact lost the in-progress text, and the `isComposerBusy` refresh gate dropped the restored draft when switching during a send. | `selectThread`/`newChat`/`runThreadAction`/`runWorkspaceCommand` now push the live draft first and force-sync the restored draft past the busy gate. |
+| No coverage. | `ComposerDraftStore` unit tests (round-trip, empty-not-stored, same-thread no-op, unknown-incoming, prune); model integration tests for switch/new-chat/submit-prune and delete/archive/unarchive non-bleed + prune; Playwright per-thread draft preservation across thread switches; the JS harness mirrors the swap in select/new-chat/send and the duplicate/archive/unarchive/delete row actions. |
+
+Residual risk:
+
+- Drafts are session-only (transient map), not persisted across relaunch — a deliberate follow-up (would need a ThreadStore migration + parity-core snapshot update). The history-recall cursor reset is keyed on `sentMessageHistory` change rather than thread-identity (benign today); a Playwright recall-across-switch test is a follow-up.
+
 ## 2026-06-29 Git Diff/Status Slash Quick-Action Pass
 
 Overall grade after this slice: **A quick-action coverage, A cross-surface parity**.

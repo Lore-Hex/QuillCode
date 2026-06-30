@@ -327,6 +327,12 @@ public struct QuillCodeWorkspaceView: View {
             worktreeDialogs.presentPrune(loadPreview: onPreviewWorktreePrune)
         case .openBrowserSession:
             onOpenBrowserSession?()
+        case .copyConversation:
+            // Reuses the existing per-item copy closure (-> controller -> pasteboard),
+            // so the whole-conversation export shares the same copy path and feedback.
+            if let markdown = TranscriptMarkdownExporter.clipboardMarkdown(for: surface.transcript) {
+                onCopyTranscriptItem("conversation", markdown)
+            }
         case let .dispatch(command, focusesComposer):
             onCommand(command)
             if focusesComposer {

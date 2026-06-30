@@ -3,16 +3,16 @@ import QuillCodeCore
 struct WorkspaceReviewActionRunResult: Sendable, Hashable {
     let plan: WorkspaceReviewActionRunPlan
     let action: WorkspaceRecordedToolResult
-    let diffRefresh: WorkspaceRecordedToolResult
+    let diffRefresh: WorkspaceRecordedToolResult?
 
     var recordedResults: [WorkspaceRecordedToolResult] {
-        [action, diffRefresh]
+        [action] + (diffRefresh.map { [$0] } ?? [])
     }
 
     var finalStatus: String {
         plan.finalStatus(
             actionResult: action.result,
-            diffRefreshResult: diffRefresh.result
+            diffRefreshResult: diffRefresh?.result
         )
     }
 }
@@ -26,10 +26,9 @@ struct WorkspaceReviewActionRunner: Sendable {
             call: plan.actionCall,
             result: executor.executePrimary(plan.actionCall)
         )
-        let diffRefresh = WorkspaceRecordedToolResult(
-            call: plan.diffRefreshCall,
-            result: executor.executePrimary(plan.diffRefreshCall)
-        )
+        let diffRefresh = plan.diffRefreshCall.map { call in
+            WorkspaceRecordedToolResult(call: call, result: executor.executePrimary(call))
+        }
         return WorkspaceReviewActionRunResult(
             plan: plan,
             action: action,

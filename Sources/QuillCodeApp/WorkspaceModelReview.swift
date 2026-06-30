@@ -6,6 +6,22 @@ import QuillCodeTools
 public extension QuillCodeWorkspaceModel {
     func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
         guard selectedThread != nil else { return }
+
+        // A non-mutating action (e.g. Open) is a plain read: route it straight through
+        // host.file.read so it does NOT pair a diff refresh or clear the review pane
+        // (unlike the stage/restore mutating actions below). The planner also refuses
+        // to pair a diff refresh for these, so the invariant holds even if this path moves.
+        if !action.kind.isMutating {
+            _ = runToolCall(
+                ToolCall(
+                    name: ToolDefinition.fileRead.name,
+                    argumentsJSON: ToolArguments.json(["path": action.path])
+                ),
+                workspaceRoot: workspaceRoot
+            )
+            return
+        }
+
         setLastError(nil)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 

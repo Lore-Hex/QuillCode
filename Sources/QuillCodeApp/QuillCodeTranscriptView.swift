@@ -246,18 +246,7 @@ struct QuillCodeTranscriptView: View {
     }
 
     private func copyText(for card: ToolCardState) -> String {
-        if let outputJSON = card.outputJSON,
-           !outputJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return outputJSON
-        }
-        if let inputJSON = card.inputJSON,
-           !inputJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return inputJSON
-        }
-        return [card.title, card.subtitle]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n")
+        TranscriptItemTextFormatter.text(for: card)
     }
 
     private func selectPreviousFindMatch() {

@@ -59,6 +59,31 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         XCTAssertEqual(try runGit(["status", "--short"], cwd: fixture.root), "M  hello.txt\n")
     }
 
+    func testRunReviewOpenActionReadsFileWithoutMutatingReview() throws {
+        let fixture = try makeLocalReviewFixture()
+        // Populate and show the review pane with the working-tree diff first.
+        _ = fixture.model.runToolCall(
+            ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
+            workspaceRoot: fixture.root
+        )
+        XCTAssertTrue(fixture.model.surface().review.isVisible)
+        let titlesBeforeOpen = fixture.model.currentToolCards.map(\.title)
+
+        fixture.model.runReviewAction(
+            WorkspaceReviewActionSurface(kind: .open, path: "hello.txt"),
+            workspaceRoot: fixture.root
+        )
+
+        // Open adds exactly one non-mutating host.file.read — no git diff refresh ...
+        XCTAssertEqual(
+            fixture.model.currentToolCards.map(\.title),
+            titlesBeforeOpen + [ToolDefinition.fileRead.name]
+        )
+        XCTAssertTrue(fixture.model.currentToolCards.allSatisfy { $0.status == .done })
+        // ... and the review pane is left intact (not cleared like stage/restore).
+        XCTAssertTrue(fixture.model.surface().review.isVisible)
+    }
+
     func testRemoteProjectReviewStageActionRunsThroughSSHAndRefreshesDiff() throws {
         let fixture = try makeRemoteReviewFixture(argumentsFileName: "ssh-review-stage-args.txt")
 
@@ -74,6 +99,32 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         XCTAssertEqual(try runGit(["status", "--short"], cwd: fixture.remoteRoot), "M  hello.txt\n")
         XCTAssertNoLocalReviewFileCopied(to: fixture.localRoot)
         XCTAssertTrue(try fixture.recordedSSHArguments().contains("git diff"))
+    }
+
+    func testRemoteProjectReviewOpenActionReadsRemoteFileOverSSHWithoutClearing() throws {
+        let fixture = try makeRemoteReviewFixture(argumentsFileName: "ssh-review-open-args.txt")
+
+        // Show the review pane with the remote working-tree diff.
+        _ = fixture.model.runToolCall(
+            ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
+            workspaceRoot: fixture.localRoot
+        )
+        XCTAssertTrue(fixture.model.surface().review.isVisible)
+
+        fixture.model.runReviewAction(
+            WorkspaceReviewActionSurface(kind: .open, path: "hello.txt"),
+            workspaceRoot: fixture.localRoot
+        )
+
+        // Open routed host.file.read over SSH, reading the REMOTE file (not a local copy) ...
+        let lastCard = try XCTUnwrap(fixture.model.currentToolCards.last)
+        XCTAssertEqual(lastCard.title, ToolDefinition.fileRead.name)
+        XCTAssertEqual(lastCard.executionContext?.kind, .sshRemote)
+        XCTAssertEqual(lastCard.status, .done)
+        XCTAssertTrue(try fixture.recordedSSHArguments().contains("hello.txt"))
+        XCTAssertNoLocalReviewFileCopied(to: fixture.localRoot)
+        // ... and the review pane is left intact (no diff refresh, no clear).
+        XCTAssertTrue(fixture.model.surface().review.isVisible)
     }
 
     func testAddReviewCommentAppendsThreadEventForVisibleDiffFile() throws {
@@ -176,7 +227,7 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         XCTAssertEqual(review.totalDeletions, 2)
         XCTAssertEqual(review.totalHunks, 2)
         XCTAssertEqual(review.subtitle, "2 files changed, +3 -2")
-        XCTAssertEqual(review.files.first?.actions.map(\.kind), [.stage, .restore])
+        XCTAssertEqual(review.files.first?.actions.map(\.kind), [.open, .stage, .restore])
         XCTAssertEqual(review.files.first?.hunkItems.count, 1)
         XCTAssertEqual(review.files.first?.hunkItems.first?.actions.map(\.kind), [.stageHunk, .restoreHunk])
         XCTAssertTrue(review.files.first?.hunkItems.first?.patch.contains("diff --git a/Sources/App.swift b/Sources/App.swift") == true)
