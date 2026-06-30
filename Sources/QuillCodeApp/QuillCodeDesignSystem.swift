@@ -32,6 +32,8 @@ struct QuillCodeHitTargetSpec {
     var action: String { kind.action.rawValue }
     var allowsNestedInteractiveChildren: Bool { kind.allowsNestedInteractiveChildren }
     var requiresUnblockedInterior: Bool { kind.requiresUnblockedInterior }
+    var requiresTactileFeedback: Bool { kind.requiresTactileFeedback }
+    var allowsTextSelection: Bool { kind.allowsTextSelection }
     var minWidth: CGFloat?
     var maxWidth: CGFloat?
     var width: CGFloat?

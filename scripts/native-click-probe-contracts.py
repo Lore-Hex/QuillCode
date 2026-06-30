@@ -156,6 +156,8 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
         action = probe.get("action")
         allows_nested_interactive_children = probe.get("allowsNestedInteractiveChildren")
         requires_unblocked_interior = probe.get("requiresUnblockedInterior")
+        requires_tactile_feedback = probe.get("requiresTactileFeedback")
+        allows_text_selection = probe.get("allowsTextSelection")
         required_min_width = probe.get("requiredMinWidth")
         required_min_height = probe.get("requiredMinHeight")
         required_peer_clearance = probe.get("requiredPeerClearance")
@@ -165,6 +167,10 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             raise SystemExit(f"{label} report has malformed click probe nested-child policy for {contract_id}: {probe!r}")
         if not isinstance(requires_unblocked_interior, bool):
             raise SystemExit(f"{label} report has malformed click probe interior-blocking policy for {contract_id}: {probe!r}")
+        if not isinstance(requires_tactile_feedback, bool):
+            raise SystemExit(f"{label} report has malformed click probe tactile-feedback policy for {contract_id}: {probe!r}")
+        if not isinstance(allows_text_selection, bool):
+            raise SystemExit(f"{label} report has malformed click probe text-selection policy for {contract_id}: {probe!r}")
         if contract_id in probes_by_contract:
             raise SystemExit(f"{label} report has a duplicate click probe for {contract_id}")
         probes_by_contract[contract_id] = probe
@@ -182,6 +188,10 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             raise SystemExit(f"{label} report has click probe nested-child policy drift for {contract_id}: {probe!r}")
         if requires_unblocked_interior != contract.get("requiresUnblockedInterior"):
             raise SystemExit(f"{label} report has click probe interior-blocking policy drift for {contract_id}: {probe!r}")
+        if requires_tactile_feedback != contract.get("requiresTactileFeedback"):
+            raise SystemExit(f"{label} report has click probe tactile-feedback policy drift for {contract_id}: {probe!r}")
+        if allows_text_selection != contract.get("allowsTextSelection"):
+            raise SystemExit(f"{label} report has click probe text-selection policy drift for {contract_id}: {probe!r}")
         if not isinstance(required_min_width, (int, float)) or required_min_width < MINIMUM_HIT_TARGET:
             raise SystemExit(f"{label} report has undersized click probe requiredMinWidth for {contract_id}: {probe!r}")
         if not isinstance(required_min_height, (int, float)) or required_min_height < MINIMUM_HIT_TARGET:
@@ -198,6 +208,8 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             "action": action,
             "allowsNestedInteractiveChildren": allows_nested_interactive_children,
             "requiresUnblockedInterior": requires_unblocked_interior,
+            "requiresTactileFeedback": requires_tactile_feedback,
+            "allowsTextSelection": allows_text_selection,
             "requiredMinWidth": float(required_min_width),
             "requiredMinHeight": float(required_min_height),
             "requiredPeerClearance": float(required_peer_clearance),
@@ -324,6 +336,8 @@ def write_comparison_manifest(
                 "collisionScope": probe["collisionScope"],
                 "allowsNestedInteractiveChildren": probe["allowsNestedInteractiveChildren"],
                 "requiresUnblockedInterior": probe["requiresUnblockedInterior"],
+                "requiresTactileFeedback": probe["requiresTactileFeedback"],
+                "allowsTextSelection": probe["allowsTextSelection"],
                 "requiredPeerClearance": probe["requiredPeerClearance"],
             }
             for probe in direct_probe_contracts
@@ -364,6 +378,10 @@ def validated_comparison_manifest(path: Path) -> dict[str, Any]:
             raise SystemExit(f"{path} has a malformed nested-child policy entry: {policy!r}")
         if not isinstance(policy.get("requiresUnblockedInterior"), bool):
             raise SystemExit(f"{path} has a malformed interior-blocking policy entry: {policy!r}")
+        if not isinstance(policy.get("requiresTactileFeedback"), bool):
+            raise SystemExit(f"{path} has a malformed tactile-feedback policy entry: {policy!r}")
+        if not isinstance(policy.get("allowsTextSelection"), bool):
+            raise SystemExit(f"{path} has a malformed text-selection policy entry: {policy!r}")
     if not isinstance(manifest.get("samplePointNames"), list) or sorted(manifest["samplePointNames"]) != sorted(EXPECTED_SAMPLE_POINTS):
         raise SystemExit(f"{path} does not list the required click-probe sample points")
     if manifest.get("clickProbeCount") != len(manifest["contractIDs"]):
@@ -533,10 +551,16 @@ def validated_accessibility_frame_sample(
     required_peer_clearance = numeric_value(sample.get("requiredPeerClearance"), f"{contract_id}.requiredPeerClearance")
     allows_nested_interactive_children = sample.get("allowsNestedInteractiveChildren")
     requires_unblocked_interior = sample.get("requiresUnblockedInterior")
+    requires_tactile_feedback = sample.get("requiresTactileFeedback")
+    allows_text_selection = sample.get("allowsTextSelection")
     if not isinstance(allows_nested_interactive_children, bool):
         raise SystemExit(f"{report_path} has malformed allowsNestedInteractiveChildren for {contract_id}")
     if not isinstance(requires_unblocked_interior, bool):
         raise SystemExit(f"{report_path} has malformed requiresUnblockedInterior for {contract_id}")
+    if not isinstance(requires_tactile_feedback, bool):
+        raise SystemExit(f"{report_path} has malformed requiresTactileFeedback for {contract_id}")
+    if not isinstance(allows_text_selection, bool):
+        raise SystemExit(f"{report_path} has malformed allowsTextSelection for {contract_id}")
     if frame["width"] < required_min_width or frame["height"] < required_min_height:
         raise SystemExit(f"{report_path} has undersized Accessibility frame sample for {contract_id}")
     if required_peer_clearance < MINIMUM_TARGET_CLEARANCE:
@@ -562,6 +586,8 @@ def validated_accessibility_frame_sample(
         "label": label,
         "allowsNestedInteractiveChildren": allows_nested_interactive_children,
         "requiresUnblockedInterior": requires_unblocked_interior,
+        "requiresTactileFeedback": requires_tactile_feedback,
+        "allowsTextSelection": allows_text_selection,
         "requiredPeerClearance": required_peer_clearance,
         "frame": frame,
         "samplePointNames": sample_point_names,

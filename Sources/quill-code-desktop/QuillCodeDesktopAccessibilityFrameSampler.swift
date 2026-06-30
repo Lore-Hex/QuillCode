@@ -19,6 +19,8 @@ struct QuillCodeDesktopAccessibilityFrameSample {
     var requiredPeerClearance: Double
     var allowsNestedInteractiveChildren: Bool
     var requiresUnblockedInterior: Bool
+    var requiresTactileFeedback: Bool
+    var allowsTextSelection: Bool
     var samplePoints: [[String: Any]]
 
     var dictionary: [String: Any] {
@@ -42,7 +44,9 @@ struct QuillCodeDesktopAccessibilityFrameSample {
             "requiredMinHeight": requiredMinHeight,
             "requiredPeerClearance": requiredPeerClearance,
             "allowsNestedInteractiveChildren": allowsNestedInteractiveChildren,
+            "allowsTextSelection": allowsTextSelection,
             "requiresUnblockedInterior": requiresUnblockedInterior,
+            "requiresTactileFeedback": requiresTactileFeedback,
             "samplePoints": samplePoints
         ]
     }
@@ -145,6 +149,8 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
                 requiredPeerClearance: probe.requiredPeerClearance,
                 allowsNestedInteractiveChildren: probe.allowsNestedInteractiveChildren,
                 requiresUnblockedInterior: probe.requiresUnblockedInterior,
+                requiresTactileFeedback: probe.requiresTactileFeedback,
+                allowsTextSelection: probe.allowsTextSelection,
                 samplePoints: samplePoints(for: probe, target: element, in: frame)
             )
         }
