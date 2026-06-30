@@ -39,9 +39,70 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("old output\u{1B}[2Jfresh"), "fresh")
     }
 
+    func testCursorHomeRedrawsExistingScreen() {
+        let raw = "cpu: 10%\nmem: 20%\u{1B}[Hcpu: 90%"
+
+        XCTAssertEqual(render(raw), "cpu: 90%\nmem: 20%")
+    }
+
+    func testCursorAddressedTUIRedrawUpdatesSpecificCells() {
+        let raw = [
+            "Name: old",
+            "Status: wait"
+        ].joined(separator: "\n")
+            + "\u{1B}[1;7Hnew"
+            + "\u{1B}[2;9Hdone"
+
+        XCTAssertEqual(render(raw), "Name: new\nStatus: done")
+    }
+
+    func testRelativeCursorMovementUpdatesPriorRows() {
+        let raw = "A1\nB1\nC1"
+            + "\u{1B}[1A\u{1B}[2G2"
+            + "\u{1B}[1B\u{1B}[2G2"
+
+        XCTAssertEqual(render(raw), "A1\nB2\nC2")
+    }
+
+    func testCursorForwardPadsWhenWritingPastEndOfLine() {
+        XCTAssertEqual(render("x\u{1B}[5Gz"), "x   z")
+    }
+
+    func testCursorAddressingIsBoundedForSparseHugeMoves() {
+        let output = render("x\u{1B}[2000;2000Hz")
+        let lines = output.components(separatedBy: "\n")
+
+        XCTAssertEqual(lines.count, 1_001)
+        XCTAssertEqual(lines.last?.count, 1_001)
+        XCTAssertEqual(lines.last?.last, "z")
+    }
+
+    func testCursorSaveAndRestoreSupportsAnsiAndDECForms() {
+        XCTAssertEqual(render("abc\u{1B}[sXYZ\u{1B}[u!"), "abc!YZ")
+        XCTAssertEqual(render("abc\u{1B}7XYZ\u{1B}8!"), "abc!YZ")
+    }
+
+    func testEraseDisplayToStartBlanksCurrentPrefix() {
+        XCTAssertEqual(render("alpha\nbravo\u{1B}[2;3H\u{1B}[1JX"), "\n  Xvo")
+    }
+
     func testRealisticColoredProgressBarCollapsesToFinalState() {
         let raw = "\u{1B}[32m[####    ] 50%\r[######  ] 75%\u{1B}[0m"
         XCTAssertEqual(render(raw), "[######  ] 75%")
+    }
+
+    func testSimpleFullScreenTUIRefreshCollapsesToLatestFrame() {
+        let firstFrame = [
+            "PID CPU MEM",
+            "101  1  2",
+            "102  3  4"
+        ].joined(separator: "\n")
+        let secondFrame = "\u{1B}[H"
+            + "PID CPU MEM"
+            + "\u{1B}[2;6H9"
+            + "\u{1B}[3;6H8"
+
+        XCTAssertEqual(render(firstFrame + secondFrame), "PID CPU MEM\n101  9  2\n102  8  4")
     }
 
     func testStripsBellAndOSCTitleSequences() {
@@ -130,7 +191,7 @@ final class TerminalOutputRendererTests: XCTestCase {
     }
 
     func testCursorMovesAreClampedToAvoidUnboundedAllocation() {
-        // A hostile/garbled huge move must not pad millions of rows — it clamps (maxRows = 5000).
+        // A hostile/garbled huge move must not pad millions of rows.
         let result = render("\u{1B}[9999999BX")
         let lineCount = result.components(separatedBy: "\n").count
         XCTAssertLessThanOrEqual(lineCount, 5001)
