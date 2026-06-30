@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeTools
 
 public struct TerminalSurface: Codable, Sendable, Hashable {
     public var isVisible: Bool
@@ -68,8 +69,10 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
     public init(entry: TerminalCommandState) {
         self.id = entry.id
         self.command = entry.command
-        self.stdout = entry.stdout
-        self.stderr = entry.stderr
+        // Render raw PTY output (ANSI color codes, `\r` progress-bar overwrites, erase sequences) into
+        // clean display text. The raw bytes stay in the entry for fidelity; only the surface is cleaned.
+        self.stdout = TerminalOutputRenderer.render(entry.stdout)
+        self.stderr = TerminalOutputRenderer.render(entry.stderr)
         self.exitCodeLabel = Self.exitCodeLabel(for: entry)
         self.statusLabel = Self.statusLabel(for: entry.status)
         self.executionContext = entry.executionContext

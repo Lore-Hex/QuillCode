@@ -106,6 +106,21 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
         XCTAssertEqual(stopped.executionContext?.kind, .sshRemote)
     }
 
+    func testTerminalCommandSurfaceRendersAnsiOutputToCleanDisplayText() {
+        // Raw PTY output: a colored, carriage-return-redrawn progress line plus a colored stderr.
+        let entry = TerminalCommandState(
+            command: "build",
+            stdout: "\u{1B}[36m[##    ] 33%\r[####  ] 66%\u{1B}[0m\ndone",
+            stderr: "\u{1B}[31mwarning\u{1B}[0m\n",
+            exitCode: 0,
+            ok: true
+        )
+        let surface = TerminalCommandSurface(entry: entry)
+
+        XCTAssertEqual(surface.stdout, "[####  ] 66%\ndone", "color codes stripped + \\r overwrite collapsed")
+        XCTAssertEqual(surface.stderr, "warning\n")
+    }
+
     func testTerminalSurfaceUsesNoProjectWhenCWDIsUnavailable() {
         let terminal = TerminalState(isVisible: true, draft: "   ")
         let surface = TerminalSurface(terminal: terminal, cwd: nil)
