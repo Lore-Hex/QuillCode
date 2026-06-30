@@ -134,8 +134,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(script.contains("validate-playwright-real-world-manifest.py"))
         XCTAssertTrue(validator.contains("REQUIRED_SCENARIOS"))
-        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 18"))
-        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 30"))
+        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 20"))
+        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 33"))
         XCTAssertTrue(validator.contains("runs natural shell requests immediately with nonempty arguments"))
         XCTAssertTrue(validator.contains("lists workspace entries with the structured file list tool"))
         XCTAssertTrue(validator.contains("writes requested file content immediately without a confirmation loop"))
@@ -144,10 +144,13 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("answers device diagnostic prompts with concrete shell actions"))
         XCTAssertTrue(validator.contains("downloads requested domains with a bounded concrete shell action"))
         XCTAssertTrue(validator.contains("answers natural git read requests with structured git tools"))
+        XCTAssertTrue(validator.contains("dispatches slash git read shortcuts as real workspace actions"))
         XCTAssertTrue(validator.contains("starter cards launch real workspace actions immediately"))
         XCTAssertTrue(validator.contains("respects explicit negative action prompts without tool cards or side effects"))
         XCTAssertTrue(validator.contains("Please check git status."))
         XCTAssertTrue(validator.contains("what changed?"))
+        XCTAssertTrue(validator.contains("/git-status"))
+        XCTAssertTrue(validator.contains("/diff"))
         XCTAssertTrue(validator.contains("What is in README.md?"))
         XCTAssertTrue(validator.contains("Can you list the files here?"))
         XCTAssertTrue(validator.contains("Where is AgentRunner defined?"))
@@ -159,6 +162,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("file search uses host.file.search instead of shell grep fallback"))
         XCTAssertTrue(validator.contains("safety review does not block clear user intent"))
         XCTAssertTrue(validator.contains("git status uses host.git.status instead of shell fallback"))
+        XCTAssertTrue(validator.contains("slash git status dispatches host.git.status"))
+        XCTAssertTrue(validator.contains("slash diff dispatches host.git.diff"))
         XCTAssertTrue(validator.contains("starter card creates a user turn without draft-only limbo"))
     }
 
