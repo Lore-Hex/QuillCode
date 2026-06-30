@@ -184,7 +184,7 @@ final class SafetyTests: XCTestCase {
             toolDefinition: shellRun,
             recentMessages: [.init(role: .user, content: "run this for me")]
         ))
-        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale)
     }
 
     func testAutoModeHardDenyMatchesJSONSlashEscapedDangerousCommand() async {
@@ -199,7 +199,7 @@ final class SafetyTests: XCTestCase {
             toolDefinition: shellRun,
             recentMessages: [.init(role: .user, content: "run this for me")]
         ))
-        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale)
     }
 
     func testAutoModeHardDenyStillMatchesPlainDangerousCommand() async {
@@ -213,7 +213,7 @@ final class SafetyTests: XCTestCase {
             toolDefinition: shellRun,
             recentMessages: [.init(role: .user, content: "run this for me")]
         ))
-        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale)
     }
 
     func testAutoModeHardDenyFallsBackToRawStringForMalformedJSON() async {
@@ -228,7 +228,7 @@ final class SafetyTests: XCTestCase {
             toolDefinition: shellRun,
             recentMessages: [.init(role: .user, content: "run this for me")]
         ))
-        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale ?? "")
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale)
     }
 
     func testAutoApprovesDiagnosticShellRunWithoutRunVerb() async {
@@ -490,7 +490,7 @@ final class SafetyTests: XCTestCase {
             toolDefinition: shellRun,
             recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
         ))
-        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale ?? "")
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
     }
 
     func testAutoDoesNotAutoApproveDownloadWithFileWritingCurlFlags() async {
@@ -646,7 +646,7 @@ final class SafetyTests: XCTestCase {
             toolDefinition: shellRun,
             recentMessages: [.init(role: .user, content: "Can you download from linkedin.com?")]
         ))
-        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale ?? "")
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
     }
 
     func testAutoDoesNotUseDownloadIntentForUnrelatedShellRun() async {
@@ -1109,7 +1109,7 @@ final class SafetyTests: XCTestCase {
             toolDefinition: gitPush,
             recentMessages: [.init(role: .user, content: "open a pull request and push the branch")]
         ))
-        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale ?? "")
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
     }
 
     func testAutoDoesNotAutoApproveCreateForCommentOnPullRequest() async {

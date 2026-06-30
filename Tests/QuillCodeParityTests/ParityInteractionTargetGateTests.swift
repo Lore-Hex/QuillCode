@@ -517,7 +517,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
     }
 
     func testNativeHitTargetPrimitivesFrameAndShapeEveryTarget() throws {
-        let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+        let designText = [
+            try Self.appSourceText(named: "QuillCodeDesignSystem.swift"),
+            try Self.appSourceText(named: "QuillCodeHitTargetSpec.swift"),
+            try Self.appSourceText(named: "QuillCodeHitTargetViewModifiers.swift")
+        ].joined(separator: "\n")
 
         XCTAssertTrue(
             designText.contains("static let minimumHitTarget: CGFloat = 44"),
@@ -817,7 +821,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
     }
 
     func testNativeHitTargetAuditIsPartOfDesktopSmokeContract() throws {
-        let auditText = try Self.appSourceText(named: "QuillCodeNativeHitTargetAudit.swift")
+        let auditText = [
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetAudit.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetModels.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetCatalog.swift")
+        ].joined(separator: "\n")
         let smokeSupportText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
         let smokeRunnerText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeRunner.swift")
         let smokeScriptText = try String(
@@ -1967,22 +1975,22 @@ private struct SwiftSourceInteractionTargetAudit {
             }
 
             if isRawMinimumHitTargetFrame(line),
-               !isSharedDesignSystem(relativePath) {
+               !isSharedHitTargetImplementation(relativePath) {
                 violations.append("\(relativePath):\(index + 1) raw minimum hit-target frame should use semantic target or decorative helper")
             }
 
             if line.contains(".contentShape("),
-               !isSharedDesignSystem(relativePath) {
+               !isSharedHitTargetImplementation(relativePath) {
                 violations.append("\(relativePath):\(index + 1) raw contentShape should live in the shared target helper")
             }
 
             if line.contains(".allowsHitTesting("),
-               !isSharedDesignSystem(relativePath) {
+               !isSharedHitTargetImplementation(relativePath) {
                 violations.append("\(relativePath):\(index + 1) hit-testing override should not be used on app chrome")
             }
 
             if usesGenericTargetHelper(line),
-               !isSharedDesignSystem(relativePath) {
+               !isSharedHitTargetImplementation(relativePath) {
                 violations.append("\(relativePath):\(index + 1) generic hit-target helper should use a semantic target helper")
             }
 
@@ -1993,13 +2001,13 @@ private struct SwiftSourceInteractionTargetAudit {
 
             if isRawNumericControlClusterSpacing(line),
                containsInteractiveControl(declarationScope),
-               !isSharedDesignSystem(relativePath) {
+               !isSharedHitTargetImplementation(relativePath) {
                 violations.append("\(relativePath):\(index + 1) interactive control cluster spacing should use a named QuillCodeMetrics spacing token")
             }
 
             if isImplicitControlClusterSpacing(line, declarationScope: declarationScope),
                containsInteractiveControlCluster(declarationScope),
-               !isSharedDesignSystem(relativePath) {
+               !isSharedHitTargetImplementation(relativePath) {
                 violations.append("\(relativePath):\(index + 1) interactive control cluster spacing should use a named QuillCodeMetrics spacing token")
             }
 
@@ -2014,7 +2022,7 @@ private struct SwiftSourceInteractionTargetAudit {
             }
 
             if line.contains("quillCodeIconButtonTarget"),
-               !isSharedDesignSystem(relativePath),
+               !isSharedHitTargetImplementation(relativePath),
                !hasIconTargetName(in: iconTargetNameScope(
                     in: lines,
                     modifierIndex: index,
@@ -2464,8 +2472,12 @@ private struct SwiftSourceInteractionTargetAudit {
         line.contains(".frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)")
     }
 
-    private func isSharedDesignSystem(_ relativePath: String) -> Bool {
-        relativePath == "Sources/QuillCodeApp/QuillCodeDesignSystem.swift"
+    private func isSharedHitTargetImplementation(_ relativePath: String) -> Bool {
+        [
+            "Sources/QuillCodeApp/QuillCodeDesignSystem.swift",
+            "Sources/QuillCodeApp/QuillCodeHitTargetSpec.swift",
+            "Sources/QuillCodeApp/QuillCodeHitTargetViewModifiers.swift"
+        ].contains(relativePath)
     }
 
     private func isSystemMenuItemButton(lines: [String], index: Int) -> Bool {
