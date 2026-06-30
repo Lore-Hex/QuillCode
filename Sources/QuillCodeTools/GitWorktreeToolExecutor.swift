@@ -106,8 +106,11 @@ public struct GitWorktreeToolExecutor: Sendable {
             ? URL(fileURLWithPath: trimmed)
             : parent.appendingPathComponent(trimmed)
         let standardized = candidate.standardizedFileURL
-        let parentPath = parent.path.hasSuffix("/") ? parent.path : "\(parent.path)/"
-        guard standardized.path.hasPrefix(parentPath) else {
+        // A worktree lives in the workspace's PARENT dir, but must stay within it — lexically AND
+        // through symlinks (a symlink under the parent must not let the worktree escape). Routed through
+        // the shared WorkspaceBoundary so this gate enforces the same symlink-resolved rule as the
+        // file / git-input / apply_patch validators (completes the #724 unification).
+        guard WorkspaceBoundary.isWithin(candidate, root: parent) else {
             throw GitToolError.outsideWorkspace(path)
         }
         guard standardized.path != workspace.path else {

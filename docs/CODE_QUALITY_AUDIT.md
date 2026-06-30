@@ -1,5 +1,17 @@
 # Code Quality Audit
 
+## 2026-06-30 Route the Worktree Path Validator Through WorkspaceBoundary
+
+A consistency gap in the #724 path-validator unification: `GitWorktreeToolExecutor.safePath` (the gate for `git.worktree.create`/`open`/`remove`) did its **own lexical-only** boundary check (`standardized.path.hasPrefix(parentPath)`) and was never routed through the shared `WorkspaceBoundary`. So the #724 claim that "the single shared helper updates all gates at once" was incomplete — this gate kept the pre-#722 lexical behavior, meaning a symlink under the workspace's parent could let a worktree escape (the same symlink class as #722).
+
+| Before | After |
+| --- | --- |
+| `standardized.path.hasPrefix(parentPath)` — lexical only. A symlink in the parent dir (`parent/escape → /outside`) makes `escape/wt` pass (it's lexically under the parent), and `git worktree add` follows it to `/outside/wt`. | `WorkspaceBoundary.isWithin(candidate, root: parent)` — lexical **and** symlink-resolved (both sides resolved, so the macOS temp-dir symlink root still works), matching the file / git-input / apply_patch validators. The `!= workspace` main-worktree check is kept. |
+
+Verification — **non-vacuous**, proven by reverting only the source: `testCreateRejectsWorktreeThroughParentSymlinkEscape` **fails** without the fix (the through-symlink worktree path is accepted). A legitimate sibling worktree still validates, and the four existing worktree lifecycle tests pass. `swift test` 1919 green · native smoke clean.
+
+This is low-severity (a worktree lives outside the workspace by design, and the escape needs a pre-existing parent symlink the agent's workspace-bounded file tools can't create) but completes the path-validator unification: **every** agent path gate — file, git-input, apply_patch, and now worktree — enforces the same symlink-resolved boundary. (Routes through the `WorkspaceBoundary` helper already adversarially reviewed in #722/#724.)
+
 ## 2026-06-30 Harden SSH Remote Exec Against Option Injection
 
 Moving the audit beyond the auto-mode safety policy into another security-relevant subsystem — SSH remote execution. `SSHRemoteShellExecutor` correctly single-quotes every assembled argument (no *local* shell injection), but the **destination** (`user@host`) was passed to `ssh` with no `--` terminator, and `isValidDestinationComponent` rejected whitespace/NUL but **not a leading `-`**. A host parsed as an option is the classic ssh-injection RCE (the same class git and others have patched).
