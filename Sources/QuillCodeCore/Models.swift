@@ -4,6 +4,9 @@ public enum AgentMode: String, Codable, Sendable, CaseIterable {
     case readOnly = "read-only"
     case review
     case auto
+    // Appended (not inserted mid-enum) so existing cases keep their discriminants — inserting
+    // shifts them and corrupts incremental builds. Menu order is set explicitly elsewhere.
+    case plan
 }
 
 public enum ChatRole: String, Codable, Sendable {

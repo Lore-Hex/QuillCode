@@ -9,12 +9,14 @@ enum SlashModeCommandParser {
             return .mode(.auto)
         case "review":
             return .mode(.review)
+        case "plan":
+            return .mode(.plan)
         case "read-only", "readonly", "read_only":
             return .mode(.readOnly)
         case "":
-            return .invalid("Usage: /mode auto, /mode review, or /mode read-only")
+            return .invalid("Usage: /mode auto, /mode plan, /mode review, or /mode read-only")
         default:
-            return .invalid("Unknown mode '\(mode)'. Use auto, review, or read-only.")
+            return .invalid("Unknown mode '\(mode)'. Use auto, plan, review, or read-only.")
         }
     }
 }

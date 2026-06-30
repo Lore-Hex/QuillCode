@@ -241,13 +241,15 @@ struct QuillCodeModePickerButton: View {
     }
 
     private var orderedModes: [AgentMode] {
-        [.auto, .review, .readOnly]
+        [.auto, .plan, .review, .readOnly]
     }
 
     private var selectedModeColor: Color {
         switch selectedMode {
         case .auto:
             return QuillCodePalette.green
+        case .plan:
+            return QuillCodePalette.blue
         case .review:
             return QuillCodePalette.yellow
         case .readOnly:

@@ -86,6 +86,8 @@ enum WorkspaceHTMLTranscriptRenderer {
             return "review"
         case "read-only":
             return "read-only"
+        case "plan":
+            return "plan"
         default:
             return "auto"
         }
