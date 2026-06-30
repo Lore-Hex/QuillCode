@@ -68,6 +68,7 @@ public struct TerminalState: Sendable, Hashable {
     public var historyCursor: Int?
     public var historyDraft: String?
     public var isRunning: Bool
+    public var isSuspended: Bool
     public var entries: [TerminalCommandState]
 
     public init(
@@ -81,6 +82,7 @@ public struct TerminalState: Sendable, Hashable {
         historyCursor: Int? = nil,
         historyDraft: String? = nil,
         isRunning: Bool = false,
+        isSuspended: Bool = false,
         entries: [TerminalCommandState] = []
     ) {
         self.projectID = projectID
@@ -93,6 +95,7 @@ public struct TerminalState: Sendable, Hashable {
         self.historyCursor = historyCursor
         self.historyDraft = historyDraft
         self.isRunning = isRunning
+        self.isSuspended = isSuspended
         self.entries = entries
     }
 }

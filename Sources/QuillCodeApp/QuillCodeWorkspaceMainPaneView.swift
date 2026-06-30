@@ -20,6 +20,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onTerminalHistoryPrevious: () -> Void
     var onTerminalHistoryNext: () -> Void
     var onTerminalResize: (TerminalWindowSize) -> Void = { _ in }
+    var onTerminalSuspend: () -> Void = {}
+    var onTerminalResume: () -> Void = {}
     var onOpenBrowserPreview: () -> Void
     var onOpenBrowserSession: (() -> Void)?
     var onAddBrowserComment: (String) -> Void
@@ -117,6 +119,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         draft: $terminalDraft,
                         onRun: onRunTerminalCommand,
                         onStop: stopActiveRun,
+                        onSuspend: onTerminalSuspend,
+                        onResume: onTerminalResume,
                         onClear: { runCommand(id: "terminal-clear") },
                         onHistoryPrevious: onTerminalHistoryPrevious,
                         onHistoryNext: onTerminalHistoryNext,

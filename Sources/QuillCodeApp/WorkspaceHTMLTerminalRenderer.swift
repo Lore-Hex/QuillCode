@@ -16,6 +16,7 @@ enum WorkspaceHTMLTerminalRenderer {
                 testID: "terminal-clear",
                 disabled: !terminal.canClear
             ))
+            \(jobControlButton(terminal))
           </header>
           <div data-testid="terminal-history">
             \(entries)
@@ -31,6 +32,18 @@ enum WorkspaceHTMLTerminalRenderer {
           </form>
         </section>
         """
+    }
+
+    /// A running command shows a Suspend control; a suspended one shows Resume (job control, mutually
+    /// exclusive). Nothing renders when no command is running.
+    private static func jobControlButton(_ terminal: TerminalSurface) -> String {
+        if terminal.canResume {
+            return WorkspaceHTMLPrimitives.button("Resume", testID: "terminal-resume")
+        }
+        if terminal.canSuspend {
+            return WorkspaceHTMLPrimitives.button("Suspend", testID: "terminal-suspend")
+        }
+        return ""
     }
 
     private static func renderEntry(_ entry: TerminalCommandSurface) -> String {

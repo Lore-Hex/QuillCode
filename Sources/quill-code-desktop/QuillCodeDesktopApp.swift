@@ -71,6 +71,8 @@ struct QuillCodeDesktopRootView: View {
             onTerminalHistoryPrevious: controller.recallPreviousTerminalCommand,
             onTerminalHistoryNext: controller.recallNextTerminalCommand,
             onTerminalResize: controller.resizeTerminal,
+            onTerminalSuspend: controller.suspendTerminal,
+            onTerminalResume: controller.resumeTerminal,
             onOpenBrowserPreview: controller.openBrowserPreview,
             onOpenBrowserSession: controller.openBrowserSession,
             onAddBrowserComment: controller.addBrowserComment,

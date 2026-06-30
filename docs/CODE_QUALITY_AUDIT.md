@@ -1,5 +1,24 @@
 # Code Quality Audit
 
+## 2026-06-30 PTY Job Control — Terminal UI (end-to-end)
+
+Overall grade after this slice: **A completes PTY job control as a user feature, tri-surface + tested**.
+
+Follow-up to the suspend/resume engine: wires it through the model and all three surfaces so a user can actually pause and resume a running terminal command.
+
+| Before | After |
+| --- | --- |
+| `PTYProcessSession.suspend()`/`resume()` existed but only the concrete type had them (review nit [7]); nothing called them. | `ShellInteractiveSession` now declares `suspend()`/`resume()`/`isSuspended` with **no-op default extensions** — the PTY overrides them; pipe-backed (`ShellStreamingSession`) and SSH-remote sessions inherit the no-ops, so the model can call uniformly through `any ShellInteractiveSession`. |
+| — | Model: `suspendTerminalCommand()`/`resumeTerminalCommand()` (mirroring `sendTerminalInput`) gate on `isRunning` + the session result and flip `terminal.isSuspended`, which is cleared when the run ends. `TerminalSurface` exposes `isSuspended`/`canSuspend`/`canResume` (mutually exclusive). |
+| — | Tri-surface control mirroring Stop: native `QuillCodeTerminalPaneView` (Suspend when running, Resume when suspended, threaded through `WorkspaceSwiftUIView` → desktop controller/coordinator), static `WorkspaceHTMLTerminalRenderer`, and the JS harness — all show Resume↔Suspend exclusively while running. |
+| — | Tests across the stack: a model integration test runs `read x` through the real PTY, suspends it (a successful `suspend()` proves the child is stopped), resumes, and drives the blocked read to `got:hello`; a rejected-when-idle test; and a Playwright flow asserting Suspend↔Resume toggling with Stop always present. |
+
+Adversarial-review fix (verdict BLOCKERS → a real mustFix): the native `controller.suspendTerminal()`/`resumeTerminal()` mutated `model.terminal.isSuspended` but never called `refresh()` — and the desktop view renders from the pull-based `@Published surface`, which only rebuilds inside `refresh()`. So on native, clicking Suspend fired `SIGSTOP` but the surface stayed stale: the spinner kept spinning, the button kept reading "Suspend", and Resume never appeared — **you could suspend but never resume**. Fixed by calling `refresh()` after the coordinator call (mirroring every other mutating controller action, e.g. `runReviewAction`). My tests missed it because the model test bypasses the controller→surface→view path and Playwright drives the inline-rendering harness — so I added `testControllerSuspendAndResumeRefreshTheRenderedSurface`, which drives a real PTY *through the controller* and asserts `controller.surface.terminal.isSuspended`/`canResume` flip (it fails without the `refresh()` call). Stable across repeated runs.
+
+Residual risk:
+
+- Whether `suspend()` works is local-PTY-only by design (remote/pipe sessions report `false` and show no control). The model gates on the session's own result, so a non-PTY session never flips `isSuspended`. The native controller→surface→pane path is now covered by the controller regression test; the SwiftUI button geometry itself is still build/parity-checked rather than unit-tested.
+
 ## 2026-06-30 PTY Job Control — Suspend/Resume (terminal engine)
 
 Overall grade after this slice: **A real terminal job control, deterministically tested**.

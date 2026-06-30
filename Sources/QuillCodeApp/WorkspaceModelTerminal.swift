@@ -60,6 +60,31 @@ extension QuillCodeWorkspaceModel {
         return activeTerminalSession.sendInput(processInput)
     }
 
+    /// Suspends the running terminal command (job control, like a shell's Ctrl+Z). Returns `false` if
+    /// nothing is running, it is already suspended, or the session does not support suspension (only
+    /// the local PTY does).
+    @discardableResult
+    public func suspendTerminalCommand() -> Bool {
+        guard terminal.isRunning, !terminal.isSuspended,
+              let activeTerminalSession, activeTerminalSession.suspend() else {
+            return false
+        }
+        terminal.isSuspended = true
+        return true
+    }
+
+    /// Resumes a suspended terminal command. Returns `false` if nothing is running or it is not
+    /// currently suspended.
+    @discardableResult
+    public func resumeTerminalCommand() -> Bool {
+        guard terminal.isRunning, terminal.isSuspended,
+              let activeTerminalSession, activeTerminalSession.resume() else {
+            return false
+        }
+        terminal.isSuspended = false
+        return true
+    }
+
     public func runTerminalCommand(_ input: String, workspaceRoot: URL) async {
         let command = WorkspaceTerminalEngine.normalizedCommand(input)
         guard WorkspaceTerminalEngine.canBeginRun(command: command, terminal: terminal) else { return }
@@ -103,6 +128,8 @@ extension QuillCodeWorkspaceModel {
                 finalResult = result
             }
         }
+        // The session has ended (completed, stopped, or cancelled); job control no longer applies.
+        terminal.isSuspended = false
 
         if WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
             WorkspaceTerminalEngine.finishStoppedRun(executionContext: executionContext, terminal: &terminal)
