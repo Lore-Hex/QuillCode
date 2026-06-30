@@ -3510,7 +3510,9 @@
         isSending: false,
         canSend: false,
         slashActiveIndex: 0,
-        mentionActiveIndex: 0
+        mentionActiveIndex: 0,
+        historyRecallIndex: null,
+        historySavedDraft: null
       },
       settings: {
         isOpen: false,
@@ -4382,6 +4384,64 @@
       input?.focus();
       input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
       resizeComposerInput(input);
+      return true;
+    }
+
+    function composerSentHistory() {
+      const entries = [];
+      for (const message of state.transcript.messages) {
+        if (message.role !== 'user') continue;
+        const text = String(message.text || '').trim();
+        if (!text) continue;
+        if (entries[entries.length - 1] === text) continue;
+        entries.push(text);
+      }
+      return entries.slice(-50);
+    }
+
+    function showingUneditedRecall(history) {
+      const index = state.composer.historyRecallIndex;
+      return index !== null && index >= 0 && index < history.length && state.composer.draft === history[index];
+    }
+
+    function applyComposerHistoryDraft(text) {
+      state.composer.draft = text;
+      state.composer.canSend = state.composer.draft.trim().length > 0;
+      render();
+      const input = document.getElementById('message');
+      input?.focus();
+      input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+      resizeComposerInput(input);
+    }
+
+    function recallOlderHistory() {
+      const history = composerSentHistory();
+      if (!history.length) return false;
+      if (state.composer.historyRecallIndex === null) {
+        if (state.composer.draft.length) return false;
+        state.composer.historySavedDraft = state.composer.draft;
+        state.composer.historyRecallIndex = history.length - 1;
+        applyComposerHistoryDraft(history[state.composer.historyRecallIndex]);
+        return true;
+      }
+      if (!showingUneditedRecall(history)) return false;
+      state.composer.historyRecallIndex = Math.max(0, state.composer.historyRecallIndex - 1);
+      applyComposerHistoryDraft(history[state.composer.historyRecallIndex]);
+      return true;
+    }
+
+    function recallNewerHistory() {
+      const history = composerSentHistory();
+      if (!showingUneditedRecall(history)) return false;
+      if (state.composer.historyRecallIndex + 1 < history.length) {
+        state.composer.historyRecallIndex += 1;
+        applyComposerHistoryDraft(history[state.composer.historyRecallIndex]);
+      } else {
+        const restored = state.composer.historySavedDraft || '';
+        state.composer.historyRecallIndex = null;
+        state.composer.historySavedDraft = null;
+        applyComposerHistoryDraft(restored);
+      }
       return true;
     }
 
@@ -6471,6 +6531,9 @@
         state.composer.canSend = state.composer.draft.trim().length > 0;
         state.composer.slashActiveIndex = 0;
         state.composer.mentionActiveIndex = 0;
+        // A user edit exits message-history recall (programmatic recall sets do not fire input).
+        state.composer.historyRecallIndex = null;
+        state.composer.historySavedDraft = null;
         resizeComposerInput(event.target);
         const shouldRenderSuggestions = state.composer.draft.trimStart().startsWith('/')
           || activeFileMention(state.composer.draft) !== null;
@@ -6508,6 +6571,10 @@
         } else if (mentions.length && event.key === 'Tab') {
           event.preventDefault();
           acceptFileMentionSuggestion({ force: true });
+        } else if (!suggestions.length && !mentions.length && event.key === 'ArrowUp') {
+          if (recallOlderHistory()) event.preventDefault();
+        } else if (!suggestions.length && !mentions.length && event.key === 'ArrowDown') {
+          if (recallNewerHistory()) event.preventDefault();
         } else if (event.key === 'Enter') {
           if (event.shiftKey) return;
           if (suggestions.length && acceptSlashSuggestion({ force: false })) {
@@ -12629,6 +12696,8 @@
       state.composer.draft = '';
       state.composer.canSend = false;
       state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
       state.runtimeIssue = null;
       addMessage('user', text);
       touchSelectedThread();

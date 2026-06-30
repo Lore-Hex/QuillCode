@@ -246,6 +246,40 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
   await expect(page.getByTestId('slash-suggestions')).toBeVisible();
 });
 
+test('mock harness recalls sent messages with Up and Down', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  await message.fill('first prompt');
+  await message.press('Enter');
+  await expect(message).toBeEnabled();
+  await expect(message).toHaveValue('');
+
+  await message.fill('second prompt');
+  await message.press('Enter');
+  await expect(message).toBeEnabled();
+  await expect(message).toHaveValue('');
+
+  // Up recalls the newest message first, then older, clamping at the oldest.
+  await message.press('ArrowUp');
+  await expect(message).toHaveValue('second prompt');
+  await message.press('ArrowUp');
+  await expect(message).toHaveValue('first prompt');
+  await message.press('ArrowUp');
+  await expect(message).toHaveValue('first prompt');
+
+  // Down walks back toward newer entries, then restores the empty in-progress draft.
+  await message.press('ArrowDown');
+  await expect(message).toHaveValue('second prompt');
+  await message.press('ArrowDown');
+  await expect(message).toHaveValue('');
+
+  // Up does not hijack editing once the composer already has text.
+  await message.fill('half typed');
+  await message.press('ArrowUp');
+  await expect(message).toHaveValue('half typed');
+});
+
 test('mock harness searches and selects models from the composer', async ({ page }) => {
   await page.goto(harnessURL());
 
