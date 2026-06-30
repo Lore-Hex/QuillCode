@@ -82,7 +82,7 @@ let package = Package(
         .testTarget(name: "QuillCodeToolsTests", dependencies: ["QuillCodeTools"]),
         .testTarget(name: "QuillCodePersistenceTests", dependencies: ["QuillCodePersistence"]),
         .testTarget(name: "QuillComputerUseKitTests", dependencies: ["QuillComputerUseKit"]),
-        .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools"]),
+        .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools", "QuillCodeSafety"]),
         .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),
         .testTarget(
             name: "QuillCodeDesktopTests",

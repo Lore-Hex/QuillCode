@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-30 Mode-Aware Prompt Guidance Pass
+
+Overall grade after this slice: **A generalizes PR3 cleanly, A closes a real efficiency gap**.
+
+Generalizes the Plan-mode prompt seeding (PR3) into mode-aware guidance for every gated approval mode, so the agent's behavior matches the active mode instead of wasting turns proposing tools the mode silently blocks.
+
+| Before | After |
+| --- | --- |
+| Only Plan mode varied the prompt (`appendPlanModeGuidance`). In **Read-only** mode every mutation is hard-`.deny`'d (`Safety.swift` `.readOnly` arm), but the agent was never told it was read-only — so it would propose file writes / mutating shell commands that get silently blocked, burning turns and risking a retry loop. Review mode was likewise unannounced. | `appendModeGuidance` (renamed) drives a single `modeGuidance(for:)` switch: **Plan** keeps the `host.plan.update` seeding; **Read-only** now tells the agent mutations are blocked and to use only read tools (investigate/answer, explain what it *would* change); **Review** tells it mutations need explicit approval so it proposes small, clearly-described steps. `.auto` returns `nil` — no constraint to announce, the Auto safety reviewer decides per call. |
+| — | The guidance text matches the real safety arms: Read-only `.deny`s mutations (so "blocked, will not run"), Review `.clarify`s them (so "requires the user's explicit approval"). No behavior change to the safety layer — this only aligns the agent's *intent* with the gate it will hit. |
+| — | Tests: each gated mode gets its own banner **exactly once** (no double-inject), no cross-contamination between modes, and `.auto` gets none (`modeGuidance(for: .auto) == nil`). `MockLLMClient` ignores the prompt, so the agent suite is unaffected. |
+
+Adversarial-review fix (caught before merge): the first draft of `readOnlyModePrompt` advertised "non-mutating shell reads" as usable — but `host.shell.run` is the *only* shell tool and is `risk: .destructive` unconditionally, so the `.readOnly` arm hard-`.deny`s it (even `cat`/`ls`). The prompt was inviting the agent to call a tool the mode guarantees to block — the exact waste this guidance exists to prevent, self-inflicted. Fixed: the read-only prompt now names only genuinely `.read`-risk tools (`host.file.read/list/search`, `host.git.status/diff`) and states plainly that **all** shell commands are blocked. The advertised read tools are now a single validated data source (`readOnlyUsableTools`) the prompt is *built* from, guarded by two tests (re-verify hardening): `testReadOnlyGuidanceOnlyAdvertisesToolsTheReadOnlySafetyArmApproves` runs each advertised tool through the real `StaticSafetyReviewer` in `.readOnly` and asserts `.approve` (+ `host.shell.run` → `.deny`); `testReadOnlyPromptNamesNoToolOutsideTheValidatedReadOnlyAllowlist` generically scans **every** `host.*` token in the prompt and requires each to be either an advertised `.read` tool or `host.shell.run` (named only as blocked) — so any future edit naming a *different* non-`.read` tool (e.g. `host.git.commit`) fails, not just the original "shell read" wording. (Required adding `QuillCodeSafety` to the `QuillCodeAgentTests` deps.)
+
+Residual risk:
+
+- Prompt guidance steers but does not enforce; the safety layer remains the actual gate (unchanged). A model could still attempt a blocked tool — it just now knows not to. Whether the real model honors the guidance is LLM-dependent; the deterministic part (correct, mode-specific text present only under that mode, and the advertised read-only tools genuinely being safety-approved) is unit-tested.
+
 ## 2026-06-30 Plan-Mode Prompt Seeding Pass (Plan mode PR3)
 
 Overall grade after this slice: **A completes the Plan-mode story, A reuses existing machinery**.

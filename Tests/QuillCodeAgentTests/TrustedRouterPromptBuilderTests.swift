@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeCore
 import QuillCodeTools
+import QuillCodeSafety
 @testable import QuillCodeAgent
 
 final class TrustedRouterPromptBuilderTests: XCTestCase {
@@ -83,6 +84,97 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
                 "mode \(mode.rawValue) must not receive Plan-mode plan-authoring guidance"
             )
         }
+    }
+
+    func testReadOnlyModeAnnouncesBlockedMutationsExactlyOnce() {
+        let guidance = systemContent(for: .readOnly).filter { $0.contains("You are in Read-only mode") }
+        XCTAssertEqual(guidance.count, 1, "Read-only guidance should appear exactly once, not be double-injected")
+        // Must tell the agent mutations are blocked so it does not waste turns proposing them.
+        XCTAssertTrue(guidance.first?.contains("blocked") == true)
+        XCTAssertTrue(guidance.first?.contains("read-only tools") == true)
+    }
+
+    func testReviewModeAnnouncesApprovalGatingExactlyOnce() {
+        let guidance = systemContent(for: .review).filter { $0.contains("You are in Review mode") }
+        XCTAssertEqual(guidance.count, 1, "Review guidance should appear exactly once, not be double-injected")
+        XCTAssertTrue(guidance.first?.contains("explicit approval") == true)
+    }
+
+    private func readOnlyVerdict(_ tool: ToolDefinition) async -> ApprovalVerdict {
+        await StaticSafetyReviewer().review(SafetyContext(
+            mode: .readOnly,
+            userMessage: "investigate the bug",
+            toolCall: ToolCall(name: tool.name, argumentsJSON: "{}"),
+            toolDefinition: tool,
+            recentMessages: []
+        )).verdict
+    }
+
+    /// The read-only guidance names specific tools as usable. Tie that claim to the actual safety
+    /// arm: every advertised tool must be `.read`-risk and `.approve`d in `.readOnly`, and it must
+    /// actually appear in the prompt text — so the prompt can never silently advertise a tool the
+    /// mode blocks (the original bug: it named "non-mutating shell reads").
+    func testReadOnlyGuidanceOnlyAdvertisesToolsTheReadOnlySafetyArmApproves() async {
+        for tool in TrustedRouterPromptBuilder.readOnlyUsableTools {
+            XCTAssertEqual(tool.risk, .read, "\(tool.name) is advertised in read-only but is not .read-risk")
+            let v = await readOnlyVerdict(tool)
+            XCTAssertEqual(v, .approve, "read-only prompt names \(tool.name) but the safety arm does not approve it")
+            XCTAssertTrue(
+                TrustedRouterPromptBuilder.readOnlyModePrompt.contains(tool.name),
+                "read-only prompt should explicitly name \(tool.name)"
+            )
+        }
+        // host.shell.run is .destructive and hard-denied in read-only.
+        XCTAssertEqual(ToolDefinition.shellRun.risk, .destructive)
+        let shell = await readOnlyVerdict(.shellRun)
+        XCTAssertEqual(shell, .deny, "host.shell.run must be denied in read-only mode")
+    }
+
+    /// Generic drift guard: scan EVERY `host.*` token in the read-only prompt and require each to be
+    /// either an advertised `.read` tool or `host.shell.run` (named only to say it is blocked). This
+    /// catches any future edit that names a different non-`.read` tool (e.g. host.git.commit,
+    /// host.file.write) as usable — not just the literal original "shell read" wording.
+    func testReadOnlyPromptNamesNoToolOutsideTheValidatedReadOnlyAllowlist() {
+        let advertised = Set(TrustedRouterPromptBuilder.readOnlyUsableTools.map(\.name))
+        let prompt = TrustedRouterPromptBuilder.readOnlyModePrompt
+        let tokens = prompt
+            .split(whereSeparator: { !($0.isLetter || $0.isNumber || $0 == "." || $0 == "_") })
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".")) }  // drop trailing sentence periods
+            .filter { $0.hasPrefix("host.") }
+
+        XCTAssertFalse(tokens.isEmpty, "read-only prompt should name the tools it allows")
+        for token in tokens {
+            XCTAssertTrue(
+                advertised.contains(token) || token == ToolDefinition.shellRun.name,
+                "read-only prompt names \(token); only advertised .read tools or host.shell.run (as blocked) are allowed"
+            )
+        }
+        // The only non-advertised tool it may name is host.shell.run, and only to declare it blocked.
+        XCTAssertTrue(tokens.contains(ToolDefinition.shellRun.name),
+                      "read-only prompt should state that host.shell.run is blocked")
+    }
+
+    func testEachGatedModeGetsOnlyItsOwnGuidanceAndAutoGetsNone() {
+        // No cross-contamination: each mode's banner appears only under that mode.
+        let banners = ["You are in Plan mode", "You are in Read-only mode", "You are in Review mode"]
+        let expected: [AgentMode: String] = [
+            .plan: "You are in Plan mode",
+            .readOnly: "You are in Read-only mode",
+            .review: "You are in Review mode"
+        ]
+        for (mode, ownBanner) in expected {
+            let content = systemContent(for: mode)
+            for banner in banners {
+                let present = content.contains { $0.contains(banner) }
+                XCTAssertEqual(present, banner == ownBanner, "mode \(mode.rawValue) banner=\(banner)")
+            }
+        }
+        // Auto announces no approval-mode constraint; the base prompt and Auto reviewer stand.
+        let autoContent = systemContent(for: .auto)
+        for banner in banners {
+            XCTAssertFalse(autoContent.contains { $0.contains(banner) }, "auto must not get \(banner)")
+        }
+        XCTAssertNil(TrustedRouterPromptBuilder.modeGuidance(for: .auto))
     }
 
     func testMessagesIncludeMemoriesAsAuditableSystemContext() {
