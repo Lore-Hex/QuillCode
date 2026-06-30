@@ -292,7 +292,7 @@ The rendered interaction audit already checked target size, semantic contracts, 
 
 | Before | After |
 | --- | --- |
-| Peer controls failed only when their visible hit regions overlapped. | The broad Playwright audit now also fails adjacent peer controls with less than 4 px clearance. |
+| Peer controls failed only when their visible hit regions overlapped. | The broad Playwright audit now also fails adjacent peer controls with less than 6 px clearance, matching the native dense-control spacing floor. |
 | Intentional vertical row stacks and segmented controls had no explicit exception model. | Clearance exceptions are named in the audit for menu/list rows and segmented controls instead of being hidden in individual tests. |
 | Regression fixtures covered dead, blocked, tiny, and semantically mismatched controls only. | The interaction fixture now includes a 2 px near-miss pair so the clearance rule is exercised directly. |
 

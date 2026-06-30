@@ -8,12 +8,15 @@ struct QuillCodeDesktopAccessibilityFrameSample {
     var selectorKind: String
     var selector: String
     var collisionScope: String
+    var kind: String
+    var action: String
     var resolvedIdentifier: String
     var role: String
     var label: String
     var frame: CGRect
     var requiredMinWidth: Double
     var requiredMinHeight: Double
+    var requiredPeerClearance: Double
     var allowsNestedInteractiveChildren: Bool
     var requiresUnblockedInterior: Bool
     var samplePoints: [[String: Any]]
@@ -24,6 +27,8 @@ struct QuillCodeDesktopAccessibilityFrameSample {
             "selectorKind": selectorKind,
             "selector": selector,
             "collisionScope": collisionScope,
+            "kind": kind,
+            "action": action,
             "resolvedIdentifier": resolvedIdentifier,
             "role": role,
             "label": label,
@@ -35,6 +40,7 @@ struct QuillCodeDesktopAccessibilityFrameSample {
             ],
             "requiredMinWidth": requiredMinWidth,
             "requiredMinHeight": requiredMinHeight,
+            "requiredPeerClearance": requiredPeerClearance,
             "allowsNestedInteractiveChildren": allowsNestedInteractiveChildren,
             "requiresUnblockedInterior": requiresUnblockedInterior,
             "samplePoints": samplePoints
@@ -45,6 +51,7 @@ struct QuillCodeDesktopAccessibilityFrameSample {
 struct QuillCodeDesktopAccessibilityFrameSampleReport {
     var liveAccessibilitySampling: String
     var minimumHitTarget: Double
+    var minimumTargetClearance: Double
     var requiredContractIDs: [String]
     var sampledContractIDs: [String]
     var unresolvedRequiredContractIDs: [String]
@@ -61,6 +68,7 @@ struct QuillCodeDesktopAccessibilityFrameSampleReport {
             "ok": ok,
             "liveAccessibilitySampling": liveAccessibilitySampling,
             "minimumHitTarget": minimumHitTarget,
+            "minimumTargetClearance": minimumTargetClearance,
             "requiredContractIDs": requiredContractIDs,
             "sampledContractIDs": sampledContractIDs,
             "unresolvedRequiredContractIDs": unresolvedRequiredContractIDs,
@@ -126,12 +134,15 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
                 selectorKind: probe.selectorKind.rawValue,
                 selector: probe.selector,
                 collisionScope: probe.collisionScope,
+                kind: probe.kind.rawValue,
+                action: probe.action.rawValue,
                 resolvedIdentifier: element.identifier,
                 role: element.role,
                 label: element.bestLabel,
                 frame: frame,
                 requiredMinWidth: probe.requiredMinWidth,
                 requiredMinHeight: probe.requiredMinHeight,
+                requiredPeerClearance: probe.requiredPeerClearance,
                 allowsNestedInteractiveChildren: probe.allowsNestedInteractiveChildren,
                 requiresUnblockedInterior: probe.requiresUnblockedInterior,
                 samplePoints: samplePoints(for: probe, target: element, in: frame)
@@ -152,6 +163,7 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         return QuillCodeDesktopAccessibilityFrameSampleReport(
             liveAccessibilitySampling: "frame-sampled",
             minimumHitTarget: Double(QuillCodeMetrics.minimumHitTarget),
+            minimumTargetClearance: Double(QuillCodeMetrics.minimumTargetClearance),
             requiredContractIDs: requiredIDs,
             sampledContractIDs: samples.map(\.contractID),
             unresolvedRequiredContractIDs: unresolvedRequiredIDs,
@@ -237,6 +249,9 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
             if sample.frame.height < sample.requiredMinHeight {
                 issues.append("\(sample.contractID) live frame height \(sample.frame.height) is below \(sample.requiredMinHeight)")
             }
+            if sample.requiredPeerClearance < Double(QuillCodeMetrics.minimumTargetClearance) {
+                issues.append("\(sample.contractID) live peer clearance \(sample.requiredPeerClearance) is below \(QuillCodeMetrics.minimumTargetClearance)")
+            }
             if sample.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 issues.append("\(sample.contractID) live Accessibility frame has no label")
             }
@@ -266,11 +281,11 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
             }
         }
 
-        issues.append(contentsOf: peerOverlapIssues(in: samples))
+        issues.append(contentsOf: peerSpacingIssues(in: samples))
         return issues.sorted()
     }
 
-    private static func peerOverlapIssues(
+    private static func peerSpacingIssues(
         in samples: [QuillCodeDesktopAccessibilityFrameSample]
     ) -> [String] {
         let samplesByCollisionScope = Dictionary(grouping: samples, by: \.collisionScope)
@@ -282,15 +297,65 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
                     let rhs = scopedSamples[rhsIndex]
                     guard lhs.resolvedIdentifier != rhs.resolvedIdentifier else { continue }
                     let overlap = lhs.frame.intersection(rhs.frame)
-                    guard !overlap.isNull, overlap.width > 1, overlap.height > 1 else { continue }
-                    issues.append(
-                        "\(lhs.contractID) and \(rhs.contractID) overlap in \(collisionScope) "
-                            + "by \(rounded(overlap.width))x\(rounded(overlap.height))"
-                    )
+                    if !overlap.isNull, overlap.width > 1, overlap.height > 1 {
+                        issues.append(
+                            "\(lhs.contractID) and \(rhs.contractID) overlap in \(collisionScope) "
+                                + "by \(rounded(overlap.width))x\(rounded(overlap.height))"
+                        )
+                        continue
+                    }
+
+                    let verticalOverlap = min(lhs.frame.maxY, rhs.frame.maxY) - max(lhs.frame.minY, rhs.frame.minY)
+                    let horizontalOverlap = min(lhs.frame.maxX, rhs.frame.maxX) - max(lhs.frame.minX, rhs.frame.minX)
+                    let horizontalGap = max(lhs.frame.minX, rhs.frame.minX) - min(lhs.frame.maxX, rhs.frame.maxX)
+                    let verticalGap = max(lhs.frame.minY, rhs.frame.minY) - min(lhs.frame.maxY, rhs.frame.maxY)
+                    let requiredClearance = CGFloat(max(lhs.requiredPeerClearance, rhs.requiredPeerClearance))
+                    if verticalOverlap > 1,
+                       horizontalGap >= 0,
+                       horizontalGap < requiredClearance,
+                       !allowsTightClearance(lhs, rhs, axis: .horizontal) {
+                        issues.append(
+                            "\(lhs.contractID) and \(rhs.contractID) have only \(rounded(horizontalGap)) horizontal clearance "
+                                + "in \(collisionScope); expected \(rounded(requiredClearance))"
+                        )
+                    }
+                    if horizontalOverlap > 1,
+                       verticalGap >= 0,
+                       verticalGap < requiredClearance,
+                       !allowsTightClearance(lhs, rhs, axis: .vertical) {
+                        issues.append(
+                            "\(lhs.contractID) and \(rhs.contractID) have only \(rounded(verticalGap)) vertical clearance "
+                                + "in \(collisionScope); expected \(rounded(requiredClearance))"
+                        )
+                    }
                 }
             }
             return issues
         }
+    }
+
+    private enum PeerClearanceAxis {
+        case horizontal
+        case vertical
+    }
+
+    private static func allowsTightClearance(
+        _ lhs: QuillCodeDesktopAccessibilityFrameSample,
+        _ rhs: QuillCodeDesktopAccessibilityFrameSample,
+        axis: PeerClearanceAxis
+    ) -> Bool {
+        if lhs.kind == QuillCodeNativeHitTargetKind.segmentedControl.rawValue
+            || rhs.kind == QuillCodeNativeHitTargetKind.segmentedControl.rawValue {
+            return true
+        }
+        if axis == .vertical {
+            let rowKinds: Set<String> = [
+                QuillCodeNativeHitTargetKind.fullRow.rawValue,
+                QuillCodeNativeHitTargetKind.switchRow.rawValue
+            ]
+            return rowKinds.contains(lhs.kind) && rowKinds.contains(rhs.kind)
+        }
+        return false
     }
 
     private static func rounded(_ value: CGFloat) -> String {

@@ -100,6 +100,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
 
         XCTAssertTrue(report.isValid)
         XCTAssertEqual(report.minimumHitTarget, 44)
+        XCTAssertEqual(report.minimumTargetClearance, 6)
         XCTAssertEqual(report.pressScale, 0.96)
         XCTAssertEqual(Set(report.designSystemContracts.map(\.kind)), Set(QuillCodeNativeHitTargetKind.allCases))
         XCTAssertEqual(report.missingDesignKinds, [])
@@ -285,6 +286,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             XCTAssertFalse(probe.selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             XCTAssertGreaterThanOrEqual(probe.requiredMinWidth, 44)
             XCTAssertGreaterThanOrEqual(probe.requiredMinHeight, 44)
+            XCTAssertGreaterThanOrEqual(probe.requiredPeerClearance, 6)
             XCTAssertFalse(probe.collisionScope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             XCTAssertEqual(probe.collisionScope, contract?.collisionScope)
             XCTAssertEqual(probe.allowsNestedInteractiveChildren, contract?.allowsNestedInteractiveChildren)
@@ -446,6 +448,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
 
         let report = QuillCodeNativeHitTargetAuditReport(
             minimumHitTarget: 44,
+            minimumTargetClearance: 6,
             pressScale: 0.96,
             surfacePolicies: [
                 QuillCodeNativeSurfaceTargetPolicy(family: .topBar, requiredKinds: [.icon])
@@ -510,6 +513,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             selector: "quillcode-wrong-button",
             requiredMinWidth: 20,
             requiredMinHeight: 20,
+            requiredPeerClearance: 2,
             samplePoints: [
                 QuillCodeNativeHitTargetProbePoint(name: "center", x: 0.5, y: 0.5),
                 QuillCodeNativeHitTargetProbePoint(name: "leading-interior", x: 0.2, y: 0.5),
@@ -532,6 +536,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertTrue(issues.contains("composer.send click probe interior-blocking policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredMinWidth 20.0 is below 44.0"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredMinHeight 20.0 is below 44.0"))
+        XCTAssertTrue(issues.contains("composer.send click probe requiredPeerClearance 2.0 is below 6.0"))
         XCTAssertTrue(issues.contains("composer.send click probe has an unnamed sample point"))
         XCTAssertTrue(issues.contains("composer.send click probe has unknown sample point outside"))
         XCTAssertTrue(issues.contains("composer.send click probe sample point leading-interior has unexpected coordinates"))

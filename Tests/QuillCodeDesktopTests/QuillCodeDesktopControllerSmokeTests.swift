@@ -30,6 +30,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         let accessibilityFrameSamples = QuillCodeDesktopAccessibilityFrameSampleReport(
             liveAccessibilitySampling: "frame-sampled",
             minimumHitTarget: 44,
+            minimumTargetClearance: 6,
             requiredContractIDs: ["composer.send"],
             sampledContractIDs: ["composer.send"],
             unresolvedRequiredContractIDs: [],
@@ -40,12 +41,15 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                     selectorKind: "test-id",
                     selector: "quillcode-send-button",
                     collisionScope: "composer:composer",
+                    kind: "icon",
+                    action: "press",
                     resolvedIdentifier: "quillcode-send-button",
                     role: "AXButton",
                     label: "Send message",
                     frame: CGRect(x: 100, y: 100, width: 44, height: 44),
                     requiredMinWidth: 44,
                     requiredMinHeight: 44,
+                    requiredPeerClearance: 6,
                     allowsNestedInteractiveChildren: false,
                     requiresUnblockedInterior: true,
                     samplePoints: [[

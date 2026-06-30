@@ -43,7 +43,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "The rendered click-target audit should keep the same 44 px minimum for whole-screen audits and explicit critical-control probes."
         )
         XCTAssertTrue(
-            auditHelperText.contains("MINIMUM_TARGET_CLEARANCE = 4")
+            auditHelperText.contains("MINIMUM_TARGET_CLEARANCE = 6")
                 && auditHelperText.contains("clearanceIssues")
                 && auditHelperText.contains("expectNoAmbiguousAdjacentInteractiveTargets")
                 && auditHelperText.contains("allowsTightClearance")
@@ -961,12 +961,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && clickProbeValidatorText.contains("selector_kind == \"focus-target\"")
                 && clickProbeValidatorText.contains("allowsNestedInteractiveChildren")
                 && clickProbeValidatorText.contains("requiresUnblockedInterior")
+                && clickProbeValidatorText.contains("requiredPeerClearance")
+                && clickProbeValidatorText.contains("MINIMUM_TARGET_CLEARANCE = 6")
                 && clickProbeValidatorText.contains("collisionScope")
                 && clickProbeValidatorText.contains("nested-child policy drift")
                 && clickProbeValidatorText.contains("interior-blocking policy drift")
                 && clickProbeValidatorText.contains("collision-scope drift")
                 && clickProbeValidatorText.contains("clickProbePolicies")
-                && clickProbeValidatorText.contains("Accessibility frame samples overlap")
+                && clickProbeValidatorText.contains("Accessibility frame samples have ambiguous spacing")
+                && clickProbeValidatorText.contains("allows_tight_accessibility_clearance")
                 && clickProbeValidatorText.contains("write_comparison_manifest")
                 && clickProbeValidatorText.contains("launchServicesMatchesDirect")
                 && clickProbeValidatorText.contains("driftingContracts"),

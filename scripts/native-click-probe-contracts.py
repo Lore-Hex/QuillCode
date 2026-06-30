@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 MINIMUM_HIT_TARGET = 44
+MINIMUM_TARGET_CLEARANCE = 6
 MINIMUM_WINDOW_SCREENSHOT_BYTES = 4096
 REQUIRED_WINDOW_COMMAND_IDS = [
     "new-chat",
@@ -157,6 +158,7 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
         requires_unblocked_interior = probe.get("requiresUnblockedInterior")
         required_min_width = probe.get("requiredMinWidth")
         required_min_height = probe.get("requiredMinHeight")
+        required_peer_clearance = probe.get("requiredPeerClearance")
         if not all(isinstance(value, str) and value.strip() for value in (contract_id, selector_kind, selector, collision_scope, kind, action)):
             raise SystemExit(f"{label} report has an incomplete click probe identity: {probe!r}")
         if not isinstance(allows_nested_interactive_children, bool):
@@ -184,6 +186,8 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             raise SystemExit(f"{label} report has undersized click probe requiredMinWidth for {contract_id}: {probe!r}")
         if not isinstance(required_min_height, (int, float)) or required_min_height < MINIMUM_HIT_TARGET:
             raise SystemExit(f"{label} report has undersized click probe requiredMinHeight for {contract_id}: {probe!r}")
+        if not isinstance(required_peer_clearance, (int, float)) or required_peer_clearance < MINIMUM_TARGET_CLEARANCE:
+            raise SystemExit(f"{label} report has too little click probe requiredPeerClearance for {contract_id}: {probe!r}")
 
         normalized.append({
             "contractID": contract_id,
@@ -196,6 +200,7 @@ def normalized_probe_contracts(report: dict[str, Any], label: str) -> list[dict[
             "requiresUnblockedInterior": requires_unblocked_interior,
             "requiredMinWidth": float(required_min_width),
             "requiredMinHeight": float(required_min_height),
+            "requiredPeerClearance": float(required_peer_clearance),
             "samplePoints": normalize_sample_points(probe.get("samplePoints"), label=label, contract_id=contract_id),
         })
 
@@ -311,6 +316,7 @@ def write_comparison_manifest(
         "launchServicesReport": "launch-services/report.json",
         "launchServicesMatchesDirect": True,
         "clickProbeCount": len(direct_probe_contracts),
+        "minimumTargetClearance": MINIMUM_TARGET_CLEARANCE,
         "contractIDs": [probe["contractID"] for probe in direct_probe_contracts],
         "clickProbePolicies": [
             {
@@ -318,6 +324,7 @@ def write_comparison_manifest(
                 "collisionScope": probe["collisionScope"],
                 "allowsNestedInteractiveChildren": probe["allowsNestedInteractiveChildren"],
                 "requiresUnblockedInterior": probe["requiresUnblockedInterior"],
+                "requiredPeerClearance": probe["requiredPeerClearance"],
             }
             for probe in direct_probe_contracts
         ],
@@ -361,6 +368,8 @@ def validated_comparison_manifest(path: Path) -> dict[str, Any]:
         raise SystemExit(f"{path} does not list the required click-probe sample points")
     if manifest.get("clickProbeCount") != len(manifest["contractIDs"]):
         raise SystemExit(f"{path} clickProbeCount does not match contractIDs")
+    if manifest.get("minimumTargetClearance") != MINIMUM_TARGET_CLEARANCE:
+        raise SystemExit(f"{path} minimumTargetClearance drifted from {MINIMUM_TARGET_CLEARANCE}")
     return manifest
 
 
@@ -392,6 +401,7 @@ def write_accessibility_readiness_manifest(artifact_root: Path, manifest_path: P
         "clickProbePolicies": packaged_manifest["clickProbePolicies"],
         "requiredSamplePointNames": sorted(EXPECTED_SAMPLE_POINTS),
         "minimumHitTarget": MINIMUM_HIT_TARGET,
+        "minimumTargetClearance": MINIMUM_TARGET_CLEARANCE,
         "liveAccessibilitySampling": "not-run",
         "nextLayer": "resolve selectors to live packaged-window accessibility frames and click center plus interior samples",
     }
@@ -503,6 +513,8 @@ def validated_accessibility_frame_sample(
     selector_kind = required_string(sample.get("selectorKind"), f"{contract_id}.selectorKind")
     selector = required_string(sample.get("selector"), f"{contract_id}.selector")
     collision_scope = required_string(sample.get("collisionScope"), f"{contract_id}.collisionScope")
+    kind = required_string(sample.get("kind"), f"{contract_id}.kind")
+    action = required_string(sample.get("action"), f"{contract_id}.action")
     resolved_identifier = required_string(sample.get("resolvedIdentifier"), f"{contract_id}.resolvedIdentifier")
     role = required_string(sample.get("role"), f"{contract_id}.role")
     label = required_string(sample.get("label"), f"{contract_id}.label")
@@ -518,6 +530,7 @@ def validated_accessibility_frame_sample(
     }
     required_min_width = numeric_value(sample.get("requiredMinWidth"), f"{contract_id}.requiredMinWidth")
     required_min_height = numeric_value(sample.get("requiredMinHeight"), f"{contract_id}.requiredMinHeight")
+    required_peer_clearance = numeric_value(sample.get("requiredPeerClearance"), f"{contract_id}.requiredPeerClearance")
     allows_nested_interactive_children = sample.get("allowsNestedInteractiveChildren")
     requires_unblocked_interior = sample.get("requiresUnblockedInterior")
     if not isinstance(allows_nested_interactive_children, bool):
@@ -526,6 +539,8 @@ def validated_accessibility_frame_sample(
         raise SystemExit(f"{report_path} has malformed requiresUnblockedInterior for {contract_id}")
     if frame["width"] < required_min_width or frame["height"] < required_min_height:
         raise SystemExit(f"{report_path} has undersized Accessibility frame sample for {contract_id}")
+    if required_peer_clearance < MINIMUM_TARGET_CLEARANCE:
+        raise SystemExit(f"{report_path} has too little Accessibility peer clearance for {contract_id}")
 
     sample_point_names = validated_accessibility_sample_points(
         report_path,
@@ -540,17 +555,20 @@ def validated_accessibility_frame_sample(
         "selectorKind": selector_kind,
         "selector": selector,
         "collisionScope": collision_scope,
+        "kind": kind,
+        "action": action,
         "resolvedIdentifier": resolved_identifier,
         "role": role,
         "label": label,
         "allowsNestedInteractiveChildren": allows_nested_interactive_children,
         "requiresUnblockedInterior": requires_unblocked_interior,
+        "requiredPeerClearance": required_peer_clearance,
         "frame": frame,
         "samplePointNames": sample_point_names,
     }
 
 
-def accessibility_frame_overlap_issues(samples: list[dict[str, Any]]) -> list[str]:
+def accessibility_frame_spacing_issues(samples: list[dict[str, Any]]) -> list[str]:
     issues: list[str] = []
     samples_by_collision_scope: dict[str, list[dict[str, Any]]] = {}
     for sample in samples:
@@ -570,7 +588,42 @@ def accessibility_frame_overlap_issues(samples: list[dict[str, Any]]) -> list[st
                         f"{lhs['contractID']} overlaps {rhs['contractID']} in {collision_scope} "
                         f"by {overlap_width:.1f}x{overlap_height:.1f}"
                     )
+                    continue
+
+                vertical_overlap = min(lhs_frame["y"] + lhs_frame["height"], rhs_frame["y"] + rhs_frame["height"]) - max(lhs_frame["y"], rhs_frame["y"])
+                horizontal_overlap = min(lhs_frame["x"] + lhs_frame["width"], rhs_frame["x"] + rhs_frame["width"]) - max(lhs_frame["x"], rhs_frame["x"])
+                horizontal_gap = max(lhs_frame["x"], rhs_frame["x"]) - min(lhs_frame["x"] + lhs_frame["width"], rhs_frame["x"] + rhs_frame["width"])
+                vertical_gap = max(lhs_frame["y"], rhs_frame["y"]) - min(lhs_frame["y"] + lhs_frame["height"], rhs_frame["y"] + rhs_frame["height"])
+                required_clearance = max(lhs["requiredPeerClearance"], rhs["requiredPeerClearance"])
+                if (
+                    vertical_overlap > 1
+                    and horizontal_gap >= 0
+                    and horizontal_gap < required_clearance
+                    and not allows_tight_accessibility_clearance(lhs, rhs, axis="x")
+                ):
+                    issues.append(
+                        f"{lhs['contractID']} and {rhs['contractID']} have only {horizontal_gap:.1f} "
+                        f"horizontal clearance in {collision_scope}; expected {required_clearance:.1f}"
+                    )
+                if (
+                    horizontal_overlap > 1
+                    and vertical_gap >= 0
+                    and vertical_gap < required_clearance
+                    and not allows_tight_accessibility_clearance(lhs, rhs, axis="y")
+                ):
+                    issues.append(
+                        f"{lhs['contractID']} and {rhs['contractID']} have only {vertical_gap:.1f} "
+                        f"vertical clearance in {collision_scope}; expected {required_clearance:.1f}"
+                    )
     return sorted(issues)
+
+
+def allows_tight_accessibility_clearance(lhs: dict[str, Any], rhs: dict[str, Any], *, axis: str) -> bool:
+    if lhs["kind"] == "segmentedControl" or rhs["kind"] == "segmentedControl":
+        return True
+    if axis == "y":
+        return lhs["kind"] in {"fullRow", "switchRow"} and rhs["kind"] in {"fullRow", "switchRow"}
+    return False
 
 
 def validated_accessibility_frame_samples(
@@ -591,6 +644,8 @@ def validated_accessibility_frame_samples(
         raise SystemExit(f"{report_path} did not run live Accessibility frame sampling")
     if samples_report.get("minimumHitTarget") != MINIMUM_HIT_TARGET:
         raise SystemExit(f"{report_path} Accessibility frame floor drifted from {MINIMUM_HIT_TARGET} pt")
+    if samples_report.get("minimumTargetClearance") != MINIMUM_TARGET_CLEARANCE:
+        raise SystemExit(f"{report_path} Accessibility clearance floor drifted from {MINIMUM_TARGET_CLEARANCE} pt")
     if samples_report.get("unresolvedRequiredContractIDs") != []:
         raise SystemExit(
             f"{report_path} missed required live Accessibility targets: "
@@ -632,9 +687,9 @@ def validated_accessibility_frame_samples(
         contract_id, sample_summary = validated_accessibility_frame_sample(report_path, sample)
         sample_ids.add(contract_id)
         sample_summaries.append(sample_summary)
-    overlap_issues = accessibility_frame_overlap_issues(sample_summaries)
-    if overlap_issues:
-        raise SystemExit(f"{report_path} Accessibility frame samples overlap: {overlap_issues}")
+    spacing_issues = accessibility_frame_spacing_issues(sample_summaries)
+    if spacing_issues:
+        raise SystemExit(f"{report_path} Accessibility frame samples have ambiguous spacing: {spacing_issues}")
 
     if sample_ids != set(sampled_contract_ids):
         raise SystemExit(f"{report_path} sampledContractIDs do not match sample entries")
@@ -686,6 +741,7 @@ def write_accessibility_frames_manifest(
         "windowReport": relative_manifest_path(report_path, manifest_directory),
         "windowScreenshot": relative_manifest_path(screenshot_path, manifest_directory),
         "minimumHitTarget": samples_report["minimumHitTarget"],
+        "minimumTargetClearance": samples_report["minimumTargetClearance"],
         "requiredSamplePointNames": sorted(EXPECTED_SAMPLE_POINTS),
         "requiredContractIDs": samples_report["requiredContractIDs"],
         "sampledContractIDs": samples_report["sampledContractIDs"],
