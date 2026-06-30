@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-29 Composer History Recall Native Pass
+
+Overall grade after this slice: **A native recall UX; harness/Playwright parity pending**.
+
+Wires the history-recall engine into the native composer so Up/Down recalls previously sent messages like a shell or Codex prompt.
+
+| Before | After |
+| --- | --- |
+| The recall engine existed but nothing used it; the composer ignored Up/Down except for slash/mention suggestions. | `QuillCodeComposerView` recalls older/newer sent messages on Up/Down when no slash/mention suggestions are active, beginning only from an empty composer (so multiline editing keeps Up/Down), continuing only while the recalled text is unedited, and restoring the in-progress draft when stepping past the newest entry. `ComposerSurface` now carries `sentMessageHistory`, built from the selected thread. |
+| No coverage for surface history exposure. | An integration test sends two messages and asserts the surface exposes them oldest-first. |
+
+Residual risk:
+
+- The JS harness and Playwright mirror of the Up/Down recall flow is the next slice; existing Playwright coverage is unaffected.
+
 ## 2026-06-29 Composer History Recall Engine Pass
 
 Overall grade after this slice: **A pure recall logic; UI wiring pending**.
