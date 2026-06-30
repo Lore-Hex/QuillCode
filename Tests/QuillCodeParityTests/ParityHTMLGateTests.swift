@@ -378,8 +378,18 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             harnessText.contains("button:active:not(:disabled)")
+                && harnessText.contains(#"[data-hit-target-action="press"]:active"#)
+                && harnessText.contains(#"[data-hit-target-action="owned-gesture"]:active"#)
                 && harnessText.contains("transform: scale(.96)"),
-            "The Playwright harness should keep consistent 0.96 press feedback on clickable controls."
+            "The Playwright harness should keep consistent 0.96 press feedback on semantic clickable controls, including non-button owned targets."
+        )
+        XCTAssertTrue(
+            harnessText.contains(#"[data-hit-target-action="press"],"#)
+                && harnessText.contains(#"[data-hit-target-action="adjust"]"#)
+                && harnessText.contains("-webkit-tap-highlight-color: transparent")
+                && harnessText.contains("user-select: none")
+                && harnessText.contains("transition-property: transform, background-color, border-color, box-shadow, color, opacity"),
+            "The Playwright harness should attach tactile behavior to semantic hit-target actions, not only to native button elements."
         )
         XCTAssertFalse(
             harnessText.contains("scale(.97)") || harnessText.contains("scale(0.97)"),

@@ -270,6 +270,18 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       return true;
     }
 
+    function requiresTactileFeedbackContract(element: Element) {
+      if (isSemanticallyDisabled(element) || isTextEntryLikeElement(element)) return false;
+      return ['adjust', 'link', 'owned-gesture', 'press'].includes(declaredHitTargetAction(element));
+    }
+
+    function hasTransformTransition(style: CSSStyleDeclaration) {
+      const properties = style.transitionProperty
+        .split(',')
+        .map(value => value.trim());
+      return properties.includes('all') || properties.includes('transform');
+    }
+
     function isVisible(element: Element, rect: DOMRect) {
       const style = window.getComputedStyle(element);
       const closedDetails = element.closest('details:not([open])');
@@ -457,6 +469,15 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       }
       if (requiresPointerAffordance(element) && style.cursor !== 'pointer') {
         reasons.push('missing_click_affordance');
+      }
+      if (requiresTactileFeedbackContract(element) && style.touchAction !== 'manipulation') {
+        reasons.push('missing_touch_action_manipulation');
+      }
+      if (requiresTactileFeedbackContract(element) && style.userSelect !== 'none') {
+        reasons.push('click_target_allows_text_selection');
+      }
+      if (requiresTactileFeedbackContract(element) && !hasTransformTransition(style)) {
+        reasons.push('missing_press_feedback_transition');
       }
       if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
         reasons.push('too_small');
@@ -815,6 +836,18 @@ export async function expectHitTarget(locator: Locator, label: string) {
       return null;
     }
 
+    function requiresTactileFeedbackContract(targetElement: Element) {
+      if (targetElement.matches(':disabled,[aria-disabled="true"]') || isTextEntryLikeElement(targetElement)) return false;
+      return ['adjust', 'link', 'owned-gesture', 'press'].includes(targetElement.getAttribute('data-hit-target-action') || '');
+    }
+
+    function hasTransformTransition(targetStyle: CSSStyleDeclaration) {
+      const properties = targetStyle.transitionProperty
+        .split(',')
+        .map(value => value.trim());
+      return properties.includes('all') || properties.includes('transform');
+    }
+
     const isDisabled = element.matches(':disabled,[aria-disabled="true"]');
     const declaredKind = element.getAttribute('data-hit-target-kind') || '';
     const derivedKind = classDerivedHitTargetKind(element);
@@ -874,6 +907,15 @@ export async function expectHitTarget(locator: Locator, label: string) {
       'textarea'
     ].includes(element.tagName.toLowerCase()) && style.cursor !== 'pointer') {
       issues.push('missing_click_affordance');
+    }
+    if (requiresTactileFeedbackContract(element) && style.touchAction !== 'manipulation') {
+      issues.push('missing_touch_action_manipulation');
+    }
+    if (requiresTactileFeedbackContract(element) && style.userSelect !== 'none') {
+      issues.push('click_target_allows_text_selection');
+    }
+    if (requiresTactileFeedbackContract(element) && !hasTransformTransition(style)) {
+      issues.push('missing_press_feedback_transition');
     }
     if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
       issues.push('too_small');

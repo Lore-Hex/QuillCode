@@ -1,5 +1,16 @@
 # Code Quality Audit
 
+## 2026-06-30 Make Rendered Click Targets Tactile By Contract
+
+The click-target audit was strong on geometry, semantics, routing, and edge ownership, but tactile behavior still lived partly in element selectors (`button`, `summary`, links) and partly in feature-local CSS. That left a class of controls that could be large and semantically valid but still feel unreliable because they selected text, lacked mobile touch handling, or had no transform-based press transition.
+
+| Before | After |
+| --- | --- |
+| Press feedback depended on native element type plus scattered local selectors, so a semantic `role="button"` or owned-gesture target could pass hit-area checks without inheriting the same tactile contract. | The rendered harness now binds touch-action manipulation, text-selection suppression, transform transitions, and 0.96 press feedback to explicit `data-hit-target-action` values (`press`, `link`, `owned-gesture`, `adjust`). |
+| The broad interaction audit could catch a dead pointer or blocked interior, but not a clickable-looking target that had no shared tactile behavior. | `interaction-audit-helpers.ts` now rejects missing `touch-action: manipulation`, accidental `user-select`, and missing transform transitions on tactile targets; a negative fixture proves the failures are non-vacuous. |
+
+Verification targets: `interaction-audit.spec.ts` now includes `missing-tactile-contract-target`, and parity gates require the helper/harness to keep these semantic-action checks.
+
 ## 2026-06-30 Route the Worktree Path Validator Through WorkspaceBoundary
 
 A consistency gap in the #724 path-validator unification: `GitWorktreeToolExecutor.safePath` (the gate for `git.worktree.create`/`open`/`remove`) did its **own lexical-only** boundary check (`standardized.path.hasPrefix(parentPath)`) and was never routed through the shared `WorkspaceBoundary`. So the #724 claim that "the single shared helper updates all gates at once" was incomplete — this gate kept the pre-#722 lexical behavior, meaning a symlink under the workspace's parent could let a worktree escape (the same symlink class as #722).
