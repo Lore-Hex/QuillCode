@@ -266,13 +266,20 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         let manifest = temporaryDirectory.appendingPathComponent("packaged-click-probes.json")
         let readiness = temporaryDirectory.appendingPathComponent("packaged-accessibility-readiness.json")
         let windowReport = temporaryDirectory.appendingPathComponent("window-report.json")
+        let accessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-report.json")
+        let blockedAccessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-blocked-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
+        let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
+        let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
         try Self.minimalClickProbeReport.write(to: directReport, atomically: true, encoding: .utf8)
         try Self.minimalClickProbeReport.write(to: launchServicesReport, atomically: true, encoding: .utf8)
         try Self.minimalPackagedWindowReport.write(to: windowReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport().write(to: accessibilityFrameReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport(firstSampleHitTestMatchesTarget: false)
+            .write(to: blockedAccessibilityFrameReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -361,6 +368,37 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
             windowScreenshot.path
         ])
         XCTAssertEqual(windowResult.exitCode, 0, windowResult.output)
+
+        let framesResult = try Self.runPython(validator, arguments: [
+            "frames",
+            accessibilityFrameReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            accessibilityFrames.path
+        ])
+        XCTAssertEqual(framesResult.exitCode, 0, framesResult.output)
+
+        let framesData = try Data(contentsOf: accessibilityFrames)
+        let framesObject = try XCTUnwrap(JSONSerialization.jsonObject(with: framesData) as? [String: Any])
+        XCTAssertEqual(framesObject["ok"] as? Bool, true)
+        XCTAssertEqual(framesObject["stage"] as? String, "live-accessibility-frame-sampled")
+        XCTAssertEqual(framesObject["liveAccessibilitySampling"] as? String, "frame-sampled")
+        XCTAssertEqual(framesObject["sampleCount"] as? Int, Self.requiredLiveAccessibilityContractIDs.count)
+        XCTAssertEqual(framesObject["requiredContractIDs"] as? [String], Self.requiredLiveAccessibilityContractIDs)
+        XCTAssertEqual(framesObject["sampledContractIDs"] as? [String], Self.requiredLiveAccessibilityContractIDs)
+
+        let blockedFramesResult = try Self.runPython(validator, arguments: [
+            "frames",
+            blockedAccessibilityFrameReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            blockedAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(blockedFramesResult.exitCode, 0)
+        XCTAssertTrue(
+            blockedFramesResult.output.contains("hit 'quillcode-blocker' instead of the target"),
+            blockedFramesResult.output
+        )
     }
 
     private struct ScriptResult {
@@ -446,6 +484,10 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
     }
 
     private static var minimalPackagedWindowReport: String {
+        minimalPackagedWindowReport()
+    }
+
+    private static func minimalPackagedWindowReport(accessibilityFrameSamples: String? = nil) -> String {
         let commandIDs = minimalPackagedWindowCommandIDs
             .map { #"              "\#($0)""# }
             .joined(separator: ",\n")
@@ -453,6 +495,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
             .joined(separator: ",\n")
         let clickProbes = ([minimalComposerClickProbeJSON] + minimalPackagedWindowCommandIDs.map(commandClickProbeJSON))
             .joined(separator: ",\n")
+        let accessibilityFrameSamplesFragment = accessibilityFrameSamples.map { ",\n\($0)" } ?? ""
 
         return """
         {
@@ -494,9 +537,161 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
             "missingClickProbeContractIDs": [],
             "clickProbeValidationIssues": []
           }
+        \(accessibilityFrameSamplesFragment)
         }
         """
     }
+
+    private static func minimalPackagedWindowAccessibilityFrameReport(
+        firstSampleHitTestMatchesTarget: Bool = true
+    ) -> String {
+        minimalPackagedWindowReport(
+            accessibilityFrameSamples: accessibilityFrameSamplesJSON(
+                firstSampleHitTestMatchesTarget: firstSampleHitTestMatchesTarget
+            )
+        )
+    }
+
+    private static func accessibilityFrameSamplesJSON(firstSampleHitTestMatchesTarget: Bool) -> String {
+        let contractIDs = requiredLiveAccessibilityContractIDs
+            .map { #"              "\#($0)""# }
+            .joined(separator: ",\n")
+        let samples = requiredLiveAccessibilityContractIDs.enumerated()
+            .map { index, contractID in
+                accessibilityFrameSampleJSON(
+                    contractID: contractID,
+                    index: index,
+                    hitTestMatchesTarget: index == 0 ? firstSampleHitTestMatchesTarget : true
+                )
+            }
+            .joined(separator: ",\n")
+
+        return """
+          "accessibilityFrameSamples": {
+            "ok": true,
+            "liveAccessibilitySampling": "frame-sampled",
+            "minimumHitTarget": 44,
+            "minimumTargetClearance": 8,
+            "requiredContractIDs": [
+        \(contractIDs)
+            ],
+            "sampledContractIDs": [
+        \(contractIDs)
+            ],
+            "unresolvedRequiredContractIDs": [],
+            "skippedContractIDs": [],
+            "sampleCount": \(requiredLiveAccessibilityContractIDs.count),
+            "samples": [
+        \(samples)
+            ],
+            "validationIssues": []
+          }
+        """
+    }
+
+    private static func accessibilityFrameSampleJSON(
+        contractID: String,
+        index: Int,
+        hitTestMatchesTarget: Bool
+    ) -> String {
+        let x = Double(100 + (index * 64))
+        let y = 120.0
+        let width = 44.0
+        let height = 44.0
+        let identifier = "quillcode-\(contractID.replacingOccurrences(of: ".", with: "-"))"
+        let hitTestIdentifier = hitTestMatchesTarget ? identifier : "quillcode-blocker"
+        let samplePoints = accessibilitySamplePointsJSON(
+            frameX: x,
+            frameY: y,
+            frameWidth: width,
+            frameHeight: height,
+            hitTestIdentifier: hitTestIdentifier,
+            hitTestMatchesTarget: hitTestMatchesTarget
+        )
+
+        return """
+              {
+                "contractID": "\(contractID)",
+                "selectorKind": "test-id",
+                "selector": "\(identifier)",
+                "collisionScope": "accessibility-fixture:\(contractID)",
+                "kind": "fullRow",
+                "action": "press",
+                "resolvedIdentifier": "\(identifier)",
+                "role": "AXButton",
+                "label": "\(contractID)",
+                "frame": {
+                  "x": \(x),
+                  "y": \(y),
+                  "width": \(width),
+                  "height": \(height)
+                },
+                "requiredMinWidth": 44,
+                "requiredMinHeight": 44,
+                "requiredPeerClearance": 8,
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true,
+                "samplePoints": [
+        \(samplePoints)
+                ]
+              }
+        """
+    }
+
+    private static func accessibilitySamplePointsJSON(
+        frameX: Double,
+        frameY: Double,
+        frameWidth: Double,
+        frameHeight: Double,
+        hitTestIdentifier: String,
+        hitTestMatchesTarget: Bool
+    ) -> String {
+        expectedSamplePoints.map { samplePoint in
+            let x = frameX + (frameWidth * samplePoint.x)
+            let y = frameY + (frameHeight * samplePoint.y)
+            return """
+                  {
+                    "name": "\(samplePoint.name)",
+                    "x": \(x),
+                    "y": \(y),
+                    "hitTestAvailable": true,
+                    "hitTestError": "",
+                    "hitTestIdentifier": "\(hitTestIdentifier)",
+                    "hitTestRole": "AXButton",
+                    "hitTestLabel": "\(hitTestIdentifier)",
+                    "hitTestAncestorIdentifiers": [],
+                    "hitTestMatchesTarget": \(hitTestMatchesTarget)
+                  }
+            """
+        }
+        .joined(separator: ",\n")
+    }
+
+    private static let requiredLiveAccessibilityContractIDs = [
+        "command.new-chat",
+        "command.search",
+        "command.settings",
+        "command.toggle-automations",
+        "command.toggle-extensions",
+        "composer.input",
+        "composer.mode-picker",
+        "composer.model-picker",
+        "composer.send",
+        "sidebar.tools-menu",
+        "top-bar.overflow"
+    ]
+
+    private static let expectedSamplePoints: [(name: String, x: Double, y: Double)] = [
+        ("bottom-edge", 0.5, 0.92),
+        ("bottom-interior", 0.5, 0.82),
+        ("center", 0.5, 0.5),
+        ("leading-edge", 0.08, 0.5),
+        ("leading-interior", 0.18, 0.5),
+        ("top-edge", 0.5, 0.08),
+        ("top-interior", 0.5, 0.18),
+        ("trailing-edge", 0.92, 0.5),
+        ("trailing-interior", 0.82, 0.5)
+    ]
 
     private static let minimalPackagedWindowCommandIDs = [
         "new-chat",
