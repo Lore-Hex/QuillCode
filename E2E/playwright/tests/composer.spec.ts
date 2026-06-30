@@ -260,6 +260,35 @@ test('mock harness suggests workspace files for @ mentions in the composer', asy
   await expect(page.getByTestId('slash-suggestions')).toBeVisible();
 });
 
+test('mock harness preserves a separate composer draft per thread', async ({ page }) => {
+  await page.goto(harnessURL());
+  const message = page.getByLabel('Message');
+
+  // Create thread A by sending a prompt.
+  await message.fill('alpha topic');
+  await message.press('Enter');
+  await expect(message).toBeEnabled();
+  await expect(page.getByTestId('sidebar-item').filter({ hasText: 'alpha topic' })).toBeVisible();
+
+  // New chat, then create thread B by sending a prompt.
+  await page.getByTestId('new-chat-button').click();
+  await message.fill('beta topic');
+  await message.press('Enter');
+  await expect(message).toBeEnabled();
+  await expect(page.getByTestId('sidebar-item').filter({ hasText: 'beta topic' })).toBeVisible();
+
+  // Leave an unsent draft in thread B.
+  await message.fill('work in progress for beta');
+
+  // Switching to thread A stashes B's draft and shows A's own (empty) draft.
+  await page.getByTestId('sidebar-item').filter({ hasText: 'alpha topic' }).click();
+  await expect(message).toHaveValue('');
+
+  // Switching back to thread B restores its unsent draft verbatim.
+  await page.getByTestId('sidebar-item').filter({ hasText: 'beta topic' }).click();
+  await expect(message).toHaveValue('work in progress for beta');
+});
+
 test('mock harness recalls sent messages with Up and Down', async ({ page }) => {
   await page.goto(harnessURL());
   const message = page.getByLabel('Message');

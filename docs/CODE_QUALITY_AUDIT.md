@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Per-Thread Composer Draft Pass
+
+Overall grade after this slice: **A correctness fix, A cross-surface coverage**.
+
+Fixes a real data-loss bug: the composer draft was a single global string, so typing in thread A then switching threads showed A's text under another thread and could send it into the wrong conversation. Each thread now keeps its own unsent draft, stashed on switch and restored on selection. Feature picked and designed by a judge-panel and hardened by an adversarial review pass (which found four selection-change sites the happy-path tests missed).
+
+| Before | After |
+| --- | --- |
+| `ComposerState.draft` was global; `selectThread`/`newChat`/archive/delete/duplicate reassigned the selected thread without touching the draft, bleeding it across threads. | A transient `threadDrafts: [UUID:String]` on the model (no Codable/persistence change) plus a pure `ComposerDraftStore` (stash/restore/clear) wired through `selectThread`, `insertCreatedThread`, submit-prune, and — from the review — `archiveThread`/`unarchiveThread`/`deleteThread`/bulk-delete via a shared `applyThreadDraftSelection`. |
+| The desktop controller only pushed the live `@Published` draft to the model on send; thread switches and context-menu/command-palette new-chat/duplicate/fork/compact lost the in-progress text, and the `isComposerBusy` refresh gate dropped the restored draft when switching during a send. | `selectThread`/`newChat`/`runThreadAction`/`runWorkspaceCommand` now push the live draft first and force-sync the restored draft past the busy gate. |
+| No coverage. | `ComposerDraftStore` unit tests (round-trip, empty-not-stored, same-thread no-op, unknown-incoming, prune); model integration tests for switch/new-chat/submit-prune and delete/archive/unarchive non-bleed + prune; Playwright per-thread draft preservation across thread switches; the JS harness mirrors the swap in select/new-chat/send and the duplicate/archive/unarchive/delete row actions. |
+
+Residual risk:
+
+- Drafts are session-only (transient map), not persisted across relaunch — a deliberate follow-up (would need a ThreadStore migration + parity-core snapshot update). The history-recall cursor reset is keyed on `sentMessageHistory` change rather than thread-identity (benign today); a Playwright recall-across-switch test is a follow-up.
+
 ## 2026-06-29 Git Diff/Status Slash Quick-Action Pass
 
 Overall grade after this slice: **A quick-action coverage, A cross-surface parity**.

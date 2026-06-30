@@ -37,6 +37,9 @@ public final class QuillCodeWorkspaceModel {
     /// Bounded, cached index of the selected local project's files, used to power
     /// composer `@` file mentions. Empty for remote or unselected projects.
     public internal(set) var fileMentionIndex = WorkspaceFileIndex()
+    /// Transient per-thread unsent composer drafts, stashed on thread switch and
+    /// restored on selection so drafts never bleed across threads. Session-only.
+    public internal(set) var threadDrafts: [UUID: String] = [:]
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),

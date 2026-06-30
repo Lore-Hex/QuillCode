@@ -182,8 +182,49 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    /// Stashes the outgoing thread's live draft and restores `newID`'s saved draft
+    /// when a lifecycle change (archive/unarchive/delete) reassigns the selected
+    /// thread without going through `selectThread`. Call BEFORE reassigning
+    /// `root.selectedThreadID`. Pass `removing` to drop a deleted thread's draft.
+    func applyThreadDraftSelection(to newID: UUID?, removing removed: UUID? = nil) {
+        let outgoing = root.selectedThreadID
+        if outgoing != newID {
+            if let newID {
+                let result = ComposerDraftStore.select(
+                    outgoing: outgoing,
+                    incoming: newID,
+                    liveDraft: composer.draft,
+                    drafts: threadDrafts
+                )
+                threadDrafts = result.drafts
+                composer.draft = result.restoredDraft
+            } else if let outgoing {
+                // Selection cleared: stash the outgoing draft and empty the composer.
+                if composer.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    threadDrafts[outgoing] = nil
+                } else {
+                    threadDrafts[outgoing] = composer.draft
+                }
+                composer.draft = ""
+            }
+        }
+        // Prune a removed thread AFTER the swap so a deleted outgoing thread's live
+        // draft is not re-stashed into an orphaned map entry.
+        if let removed {
+            threadDrafts = ComposerDraftStore.cleared(removed, drafts: threadDrafts)
+        }
+    }
+
     public func selectThread(_ id: UUID) {
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
+        let draftSwitch = ComposerDraftStore.select(
+            outgoing: root.selectedThreadID,
+            incoming: id,
+            liveDraft: composer.draft,
+            drafts: threadDrafts
+        )
+        threadDrafts = draftSwitch.drafts
+        composer.draft = draftSwitch.restoredDraft
         root.selectedThreadID = id
         root.selectedProjectID = knownProjectID(thread.projectID)
         syncTerminalSessionToSelectedProject()
@@ -318,6 +359,10 @@ extension QuillCodeWorkspaceModel {
 
         sidebarSelection = result.nextSelection
         root.threads = result.threads
+        applyThreadDraftSelection(to: result.selectedThreadID)
+        for thread in result.removedThreads {
+            threadDrafts = ComposerDraftStore.cleared(thread.id, drafts: threadDrafts)
+        }
         root.selectedThreadID = result.selectedThreadID
         root.selectedProjectID = result.selectedProjectID
         threadPersistence.save(result.changedThreads)
@@ -381,6 +426,14 @@ extension QuillCodeWorkspaceModel {
         saveThread: Bool
     ) -> UUID {
         clearSidebarSelection()
+        let draftSwitch = ComposerDraftStore.select(
+            outgoing: root.selectedThreadID,
+            incoming: thread.id,
+            liveDraft: composer.draft,
+            drafts: threadDrafts
+        )
+        threadDrafts = draftSwitch.drafts
+        composer.draft = draftSwitch.restoredDraft
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
         root.selectedProjectID = selectedProjectID
@@ -413,6 +466,7 @@ extension QuillCodeWorkspaceModel {
             selectedThreadID: root.selectedThreadID
         ) else { return }
         root.threads = threads
+        applyThreadDraftSelection(to: result.selectedThreadID)
         root.selectedThreadID = result.selectedThreadID
         threadPersistence.save(result.changedThread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -428,6 +482,7 @@ extension QuillCodeWorkspaceModel {
             return false
         }
         root.threads = threads
+        applyThreadDraftSelection(to: id)
         root.selectedThreadID = id
         root.selectedProjectID = knownProjectID(result.projectID)
         touchProject(root.selectedProjectID)
@@ -449,6 +504,7 @@ extension QuillCodeWorkspaceModel {
         }
         root.threads = threads
         threadPersistence.delete(id)
+        applyThreadDraftSelection(to: result.selectedThreadID, removing: id)
         root.selectedThreadID = result.selectedThreadID
         if let selectedThread {
             root.selectedProjectID = knownProjectID(selectedThread.projectID)

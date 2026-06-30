@@ -66,6 +66,12 @@ struct QuillCodeComposerView: View {
                 activeFileMentionIndex = min(activeFileMentionIndex, suggestions.count - 1)
             }
         }
+        .onChange(of: sentMessageHistory) { _, _ in
+            // Switching threads swaps the recall history (and may restore a non-empty
+            // draft), so reset the recall cursor to avoid replaying the prior thread.
+            historyRecallIndex = nil
+            historySavedDraft = nil
+        }
     }
 
     private var composerSurface: some View {

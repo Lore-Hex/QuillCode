@@ -9081,6 +9081,7 @@
 
     function newChat() {
       clearSidebarSelection();
+      stashComposerDraft(state.sidebar.selectedThreadID);
       state.sidebar.selectedThreadID = null;
       state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: false }));
       state.transcript.messages = [];
@@ -12465,9 +12466,33 @@
       render();
     }
 
+    function stashComposerDraft(outgoingID) {
+      if (!state.threadDrafts) state.threadDrafts = {};
+      if (!outgoingID) return;
+      if (String(state.composer.draft).trim().length) {
+        state.threadDrafts[outgoingID] = state.composer.draft;
+      } else {
+        delete state.threadDrafts[outgoingID];
+      }
+    }
+
+    function restoreComposerDraft(incomingID) {
+      if (!state.threadDrafts) state.threadDrafts = {};
+      state.composer.draft = (incomingID && state.threadDrafts[incomingID]) || '';
+      if (incomingID) delete state.threadDrafts[incomingID];
+      state.composer.canSend = state.composer.draft.trim().length > 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+    }
+
     function selectThread(threadID) {
       const selected = state.sidebar.items.find(item => item.id === threadID);
       if (!selected) return;
+      const outgoing = state.sidebar.selectedThreadID;
+      if (outgoing !== threadID) {
+        stashComposerDraft(outgoing);
+        restoreComposerDraft(threadID);
+      }
       state.sidebar.selectedThreadID = threadID;
       state.sidebar.items = state.sidebar.items.map(item => ({
         ...item,
@@ -12496,6 +12521,8 @@
       }
       if (action === 'duplicate') {
         const newThreadID = `thread-${state.nextThreadIndex++}`;
+        stashComposerDraft(state.sidebar.selectedThreadID);
+        restoreComposerDraft(newThreadID);
         state.sidebar.selectedThreadID = newThreadID;
         state.sidebar.items = sortSidebarItems([
           {
@@ -12521,8 +12548,10 @@
           item.id === threadID ? { ...item, isArchived: true, isPinned: false, isSelected: false } : item
         )));
         if (state.sidebar.selectedThreadID === threadID) {
+          stashComposerDraft(threadID);
           const next = state.sidebar.items.find(item => !item.isArchived);
           state.sidebar.selectedThreadID = next?.id || null;
+          restoreComposerDraft(state.sidebar.selectedThreadID);
           state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: item.id === state.sidebar.selectedThreadID }));
           state.topBar.primaryTitle = next?.title || 'QuillCode';
           if (!state.sidebar.selectedThreadID) {
@@ -12533,6 +12562,8 @@
         }
       }
       if (action === 'unarchive') {
+        stashComposerDraft(state.sidebar.selectedThreadID);
+        restoreComposerDraft(threadID);
         state.sidebar.selectedThreadID = threadID;
         state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
           item.id === threadID
@@ -12546,6 +12577,7 @@
         if (state.sidebar.selectedThreadID === threadID) {
           const next = state.sidebar.items.find(item => !item.isArchived);
           state.sidebar.selectedThreadID = next?.id || null;
+          restoreComposerDraft(state.sidebar.selectedThreadID);
           state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: item.id === state.sidebar.selectedThreadID }));
           state.topBar.primaryTitle = next?.title || 'QuillCode';
           if (!state.sidebar.selectedThreadID) {
@@ -12554,6 +12586,7 @@
             state.transcript.timelineItems = [];
           }
         }
+        if (state.threadDrafts) delete state.threadDrafts[threadID];
       }
       render();
     }
@@ -12721,6 +12754,7 @@
       const text = String(value).trim();
       if (!text) return;
       ensureThread(text.split(/\s+/).slice(0, 6).join(' '));
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
       state.composer.draft = '';
       state.composer.canSend = false;
       state.composer.slashActiveIndex = 0;
