@@ -45,6 +45,24 @@ final class GitLocalToolExecutorTests: XCTestCase {
         XCTAssertTrue(restore.error?.contains("outside the workspace") == true, restore.error ?? "")
     }
 
+    func testStageAndRestoreRejectSymlinkEscapePaths() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("escape"), withDestinationURL: outside)
+        let git = GitToolExecutor()
+
+        // `escape/secret.txt` is lexically in-workspace but resolves outside via the symlink — the
+        // shared symlink-resolved boundary must reject it (not just a lexical `..` check).
+        let stage = git.stage(cwd: root, path: "escape/secret.txt")
+        let restore = git.restore(cwd: root, path: "escape/secret.txt")
+
+        XCTAssertFalse(stage.ok)
+        XCTAssertTrue(stage.error?.contains("outside the workspace") == true, stage.error ?? "")
+        XCTAssertFalse(restore.ok)
+        XCTAssertTrue(restore.error?.contains("outside the workspace") == true, restore.error ?? "")
+    }
+
     func testCommitCommitsStagedChanges() throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)

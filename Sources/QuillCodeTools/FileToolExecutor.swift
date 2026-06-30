@@ -285,50 +285,13 @@ public struct FileToolExecutor: Sendable {
         }
         let standardized = candidate.standardizedFileURL
 
-        // Lexical boundary: with `..` resolved, the path must be inside the workspace. The trailing
-        // slash on `rootPath` prevents a sibling like `/repo-evil` matching `/repo`.
-        guard Self.isInside(standardized.path, root: workspaceRoot.path) else {
-            throw FileToolError.outsideWorkspace(path)
-        }
-
-        // Symlink boundary: `standardizedFileURL` does NOT follow symlinks, so a symlink inside the
-        // workspace that points outside (e.g. one the agent created with `ln -s`) would let a write
-        // escape. Re-check with symlinks resolved. Both sides are symlink-resolved because the
-        // workspace root itself is often a symlink on macOS (`/tmp` -> `/private/tmp`,
-        // `/var` -> `/private/var`), so an unresolved-vs-resolved mismatch is normal, not an escape.
-        let resolvedRoot = workspaceRoot.resolvingSymlinksInPath().path
-        guard Self.isInside(Self.symlinkResolvedPath(standardized), root: resolvedRoot) else {
+        // Enforce the shared workspace boundary: lexical (`..`-resolved) AND symlink-resolved, so a
+        // symlink inside the workspace pointing outside cannot let a write escape.
+        guard WorkspaceBoundary.isWithin(candidate, root: workspaceRoot) else {
             throw FileToolError.outsideWorkspace(path)
         }
 
         return standardized
-    }
-
-    private static func isInside(_ path: String, root: String) -> Bool {
-        let rootPath = root.hasSuffix("/") ? root : "\(root)/"
-        return path == root || path.hasPrefix(rootPath)
-    }
-
-    /// Resolves the symlinks in a URL's *existing* path components, then re-appends any trailing
-    /// components that do not exist yet (a new file or directory being written). `resolvingSymlinksInPath`
-    /// only follows symlinks for the portion of the path that exists, so for a not-yet-created target
-    /// we resolve the deepest existing ancestor explicitly and append the remainder.
-    private static func symlinkResolvedPath(_ url: URL) -> String {
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: url.path) {
-            return url.resolvingSymlinksInPath().path
-        }
-        var existing = url.deletingLastPathComponent()
-        var tail: [String] = [url.lastPathComponent]
-        while existing.path != "/" && !fileManager.fileExists(atPath: existing.path) {
-            tail.append(existing.lastPathComponent)
-            existing = existing.deletingLastPathComponent()
-        }
-        var resolved = existing.resolvingSymlinksInPath()
-        for component in tail.reversed() {
-            resolved.appendPathComponent(component)
-        }
-        return resolved.standardizedFileURL.path
     }
 
     private func scanSearchableFiles(
