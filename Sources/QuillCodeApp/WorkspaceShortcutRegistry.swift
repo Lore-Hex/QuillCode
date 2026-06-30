@@ -42,6 +42,7 @@ public enum WorkspaceShortcutRegistry {
     public static let shortcuts: [WorkspaceShortcut] = [
         WorkspaceShortcut(commandID: "new-chat", key: "n", modifiers: [.command]),
         WorkspaceShortcut(commandID: "cycle-mode", key: "tab", modifiers: [.shift]),
+        WorkspaceShortcut(commandID: "retry-last-turn", key: "r", modifiers: [.command, .shift]),
         WorkspaceShortcut(commandID: "search", key: "k", modifiers: [.command]),
         WorkspaceShortcut(commandID: "find-in-chat", key: "f", modifiers: [.command]),
         WorkspaceShortcut(commandID: "add-project", key: "o", modifiers: [.command]),

@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-30 Retry-Last-Turn Shortcut Pass
+
+Overall grade after this slice: **A reuse of an existing command, A keyboard-wiring discipline**.
+
+Binds Codex's quick-retry to a keyboard shortcut: **Cmd+Shift+R reruns the last turn**. The `retry-last-turn` command already existed and worked (palette entry, dedicated `controller.retryLastTurn()` / `model.prepareRetryLastUserTurn`), but had no key — this is purely the binding, applying the keyboard-wiring lesson from the cycle-mode pass.
+
+| Before | After |
+| --- | --- |
+| `retry-last-turn` was palette/menu-click only. | `WorkspaceShortcutRegistry` binds it to **Cmd+Shift+R** (Cmd+R is browser-reload; Cmd+Shift+R is free — guarded by the registry's no-duplicate-bindings test), the catalog surface now carries the shortcut label, and the native "Retry Last Turn" menu button applies `.quillCodeShortcut("retry-last-turn")` so the binding is **live on native**, not a dead registry entry. |
+| — | The shortcut respects the command's conditional enablement (`canRetryLastUserTurn` / harness `hasUserMessages && !isSending`): the harness global keydown only fires enabled commands, proven by `Cmd+Shift+R … is a no-op with nothing to retry` (count stays 0) and that it reruns once a turn exists. |
+| `ParityDesktopGateTests` covered no cycle-mode/retry native wiring beyond browser commands. | The gate now asserts retry's `.quillCodeShortcut("retry-last-turn")` **and** its dedicated `controller.retryLastTurn()` route (not the generic `runWorkspaceCommand`, which retry doesn't use). |
+
+Residual risk:
+
+- Cmd+Shift+R is a sensible free chord but not a universal "retry" convention; it's discoverable via the menu + the keyboard-shortcuts dialog (both now show it). Like every other non-`cycle-mode` shortcut it is Cmd-modified, so it does not collide with focus traversal.
+
 ## 2026-06-30 Shift+Tab Mode Cycling Pass
 
 Overall grade after this slice: **A reuse of the command + shortcut rails, A felt-usability win**.

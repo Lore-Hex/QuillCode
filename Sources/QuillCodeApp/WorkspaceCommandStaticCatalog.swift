@@ -7,6 +7,7 @@ enum WorkspaceCommandStaticCatalog {
             WorkspaceCommandSurface(
                 id: "retry-last-turn",
                 title: "Retry last turn",
+                shortcut: WorkspaceShortcutRegistry.label(for: "retry-last-turn"),
                 category: WorkspaceCommandPalette.controlCategory,
                 keywords: ["retry", "rerun", "again", "failed"],
                 isEnabled: canRetryLastUserTurn
