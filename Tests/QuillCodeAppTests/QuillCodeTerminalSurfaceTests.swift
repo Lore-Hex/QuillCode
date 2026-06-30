@@ -121,6 +121,29 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.stderr, "warning\n")
     }
 
+    func testTerminalCommandSurfaceRendersCursorAddressedTUIOutputToLatestFrame() {
+        let firstFrame = [
+            "PID CPU MEM",
+            "101  1  2",
+            "102  3  4"
+        ].joined(separator: "\n")
+        let entry = TerminalCommandState(
+            command: "top -b -n 2",
+            stdout: firstFrame
+                + "\u{1B}[H"
+                + "PID CPU MEM"
+                + "\u{1B}[2;6H9"
+                + "\u{1B}[3;6H8",
+            stderr: "",
+            exitCode: 0,
+            ok: true
+        )
+
+        let surface = TerminalCommandSurface(entry: entry)
+
+        XCTAssertEqual(surface.stdout, "PID CPU MEM\n101  9  2\n102  8  4")
+    }
+
     func testTerminalSurfaceUsesNoProjectWhenCWDIsUnavailable() {
         let terminal = TerminalState(isVisible: true, draft: "   ")
         let surface = TerminalSurface(terminal: terminal, cwd: nil)

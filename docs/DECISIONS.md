@@ -1,5 +1,9 @@
 # QuillCode Decisions
 
+## 2026-06-30
+
+- Terminal output rendering should be a pure single-page screen buffer before it becomes a full emulator. `TerminalOutputRenderer` now applies the common cursor-addressed CSI/DEC controls that status dashboards and simple TUIs use to repaint in place (`ESC[H`, row/column moves, relative moves, absolute column/row, save/restore cursor) while preserving raw PTY bytes in state and exposing only cleaned display text through `TerminalCommandSurface`. Full alternate-screen/scroll-region/curses semantics remain deferred until a dedicated emulator model exists.
+
 ## 2026-06-29
 
 - First-run starter actions belong in release real-world evidence, not only core UI tests. The "Review changes" card is the fastest path from a fresh QuillCode window into useful Codex-style behavior, so `real-world-actions.spec.ts` now clicks that card, requires a real user turn, `host.git.diff`, rendered diff output, cleared composer state, and no passive "I'll review" limbo. The Playwright manifest validator and release wrapper now require that scenario, prompt fragment, and guard so release-candidate evidence cannot drop first-run action dispatch silently.
