@@ -110,6 +110,14 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expect(page.getByText('Browser opened.')).toBeVisible();
 
+  await page.getByLabel('Message').fill('/diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
+
+  await page.getByLabel('Message').fill('/git-status');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
+
   await page.getByLabel('Message').fill('/worktrees');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');

@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-29 Git Diff/Status Slash Quick-Action Pass
+
+Overall grade after this slice: **A quick-action coverage, A cross-surface parity**.
+
+Adds composer slash shortcuts for the two most common "what changed?" git actions, which previously lived only in the command palette.
+
+| Before | After |
+| --- | --- |
+| Reviewing the working-tree diff or git status required the command palette or natural-language prompts; there was no slash shortcut. | `/diff` (aliases `/changes`) opens the working-tree diff in the review pane and `/git-status` (alias `/gitstatus`) shows git status, both dispatching the existing `git-diff`/`git-status` commands. |
+| The slash catalog and harness slash list did not surface these git actions. | Both are registered in the slash parser, the slash command catalog suggestions, and the JS harness slash definitions + message routing, reusing existing command IDs so the rendered command-routing parity audit stays green. |
+| No coverage for the new aliases. | A parser unit test covers `/diff`, `/changes`, `/git-status`, `/gitstatus`, and Playwright asserts both produce the `host.git.diff`/`host.git.status` tool cards. |
+
+Residual risk:
+
+- None specific; both reuse existing, already-audited git command execution paths.
+
 ## 2026-06-29 Pull Request Auto-Fill Handoff Pass
 
 Overall grade after this slice: **A one-step PR handoff, A cross-surface parity**.
