@@ -24,6 +24,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     /// Pre-formatted token-usage chip (e.g. `847 ctx · ↑500 ↓347`), or nil when the model
     /// has not reported usage for this thread. Renderers display this string as-is.
     public var usageStatusLabel: String?
+    public var canNavigateBack: Bool
+    public var canNavigateForward: Bool
 
     public init(
         appName: String,
@@ -43,7 +45,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         computerUseLabel: String,
         showsComputerUseSetup: Bool,
         branchStatusLabel: String? = nil,
-        usageStatusLabel: String? = nil
+        usageStatusLabel: String? = nil,
+        canNavigateBack: Bool = false,
+        canNavigateForward: Bool = false
     ) {
         self.appName = appName
         self.primaryTitle = primaryTitle
@@ -63,6 +67,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.showsComputerUseSetup = showsComputerUseSetup
         self.branchStatusLabel = branchStatusLabel
         self.usageStatusLabel = usageStatusLabel
+        self.canNavigateBack = canNavigateBack
+        self.canNavigateForward = canNavigateForward
     }
 
     public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {

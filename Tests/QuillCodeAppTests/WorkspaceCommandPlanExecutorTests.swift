@@ -29,6 +29,21 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertFalse(model.chrome.isSidebarVisible)
     }
 
+    func testExecutorRunsWorkspaceNavigationCommands() throws {
+        let firstThread = ChatThread(title: "First")
+        let secondThread = ChatThread(title: "Second")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [firstThread, secondThread],
+            selectedThreadID: firstThread.id
+        ))
+        model.selectThread(secondThread.id)
+
+        XCTAssertTrue(model.runWorkspaceCommand("workspace-back", workspaceRoot: try makeTempDirectory()))
+        XCTAssertEqual(model.root.selectedThreadID, firstThread.id)
+        XCTAssertTrue(model.runWorkspaceCommand("workspace-forward", workspaceRoot: try makeTempDirectory()))
+        XCTAssertEqual(model.root.selectedThreadID, secondThread.id)
+    }
+
     func testExecutorRunsNewChatCommandPlan() throws {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: [ChatThread(title: "Existing")],

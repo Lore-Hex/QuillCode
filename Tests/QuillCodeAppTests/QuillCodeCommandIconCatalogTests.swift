@@ -5,6 +5,8 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
     func testSharedCommandIconsCoverSidebarAndCommandPaletteCommands() {
         let expectedSymbols = [
             "new-chat": "square.and.pencil",
+            "workspace-back": "chevron.left",
+            "workspace-forward": "chevron.right",
             "search": "magnifyingglass",
             "command-palette": "command",
             "find-in-chat": "text.magnifyingglass",

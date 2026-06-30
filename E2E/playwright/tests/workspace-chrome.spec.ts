@@ -33,6 +33,31 @@ test('mock harness opens utilities from the top-bar overflow', async ({ page }) 
   await expect(page.getByTestId('top-bar-stop-button')).toHaveCount(0);
 });
 
+test('mock harness navigates workspace history from the top bar', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await expect(page.getByTestId('top-bar-back')).toBeDisabled();
+  await expect(page.getByTestId('top-bar-forward')).toBeDisabled();
+
+  await page.getByLabel('Message').fill('alpha topic');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('beta topic');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('top-bar-title')).toHaveText('beta topic');
+
+  await page.getByTestId('sidebar-item').filter({ hasText: 'alpha topic' }).click();
+  await expect(page.getByTestId('top-bar-title')).toHaveText('alpha topic');
+  await expect(page.getByTestId('top-bar-back')).toBeEnabled();
+
+  await page.getByTestId('top-bar-back').click();
+  await expect(page.getByTestId('top-bar-title')).toHaveText('beta topic');
+  await expect(page.getByTestId('top-bar-forward')).toBeEnabled();
+
+  await page.getByTestId('top-bar-forward').click();
+  await expect(page.getByTestId('top-bar-title')).toHaveText('alpha topic');
+});
+
 test('mock harness opens Computer Use setup from the top-bar overflow', async ({ page }) => {
   await page.goto(harnessURL());
 

@@ -115,7 +115,9 @@ public extension QuillCodeWorkspaceModel {
             defaultModelID: root.config.defaultModel,
             favoriteModelIDs: root.config.favoriteModels,
             recentThreads: root.threads,
-            runtimeIssue: runtimeIssue
+            runtimeIssue: runtimeIssue,
+            canNavigateBack: navigationHistory.canGoBack,
+            canNavigateForward: navigationHistory.canGoForward
         ).surface()
         return WorkspaceSurface(
             chrome: WorkspaceChromeSurface(state: chrome),
@@ -221,6 +223,8 @@ public extension QuillCodeWorkspaceModel {
             browserCanReload: browser.canReload,
             browserCanOpenSession: browser.currentURL != nil
                 || !browser.addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            canNavigateBack: navigationHistory.canGoBack,
+            canNavigateForward: navigationHistory.canGoForward,
             mcpServerStatuses: extensions.mcpServerStatuses,
             mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
             computerUseStatus: root.topBar.computerUseStatus

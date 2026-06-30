@@ -215,8 +215,9 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    public func selectThread(_ id: UUID) {
+    public func selectThread(_ id: UUID, recordsNavigation: Bool = true) {
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
+        let previousLocation = currentNavigationLocation
         let draftSwitch = ComposerDraftStore.select(
             outgoing: root.selectedThreadID,
             incoming: id,
@@ -231,6 +232,9 @@ extension QuillCodeWorkspaceModel {
         touchProject(root.selectedProjectID)
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        if recordsNavigation {
+            recordNavigationTransition(from: previousLocation)
+        }
     }
 
     public func startSidebarSelection(selecting id: UUID? = nil) {
@@ -369,6 +373,9 @@ extension QuillCodeWorkspaceModel {
         for thread in result.removedThreads {
             threadPersistence.delete(thread.id)
         }
+        if !result.removedThreads.isEmpty {
+            pruneNavigationHistory()
+        }
         if result.shouldSyncTerminalSession {
             syncTerminalSessionToSelectedProject()
         }
@@ -425,6 +432,7 @@ extension QuillCodeWorkspaceModel {
         selectedProjectID: UUID?,
         saveThread: Bool
     ) -> UUID {
+        let previousLocation = currentNavigationLocation
         clearSidebarSelection()
         let draftSwitch = ComposerDraftStore.select(
             outgoing: root.selectedThreadID,
@@ -444,6 +452,7 @@ extension QuillCodeWorkspaceModel {
             threadPersistence.save(thread)
         }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
         return thread.id
     }
 
@@ -459,6 +468,7 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func archiveThread(_ id: UUID) {
+        let previousLocation = currentNavigationLocation
         var threads = root.threads
         guard let result = WorkspaceThreadLifecycleEngine.archiveThread(
             id,
@@ -470,10 +480,12 @@ extension QuillCodeWorkspaceModel {
         root.selectedThreadID = result.selectedThreadID
         threadPersistence.save(result.changedThread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
     }
 
     @discardableResult
     public func unarchiveThread(_ id: UUID) -> Bool {
+        let previousLocation = currentNavigationLocation
         var threads = root.threads
         guard let result = WorkspaceThreadLifecycleEngine.unarchiveThread(
             id,
@@ -489,11 +501,13 @@ extension QuillCodeWorkspaceModel {
         saveProjects()
         threadPersistence.save(result.changedThread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
         return true
     }
 
     @discardableResult
     public func deleteThread(_ id: UUID) -> Bool {
+        let previousLocation = currentNavigationLocation
         var threads = root.threads
         guard let result = WorkspaceThreadLifecycleEngine.deleteThread(
             id,
@@ -513,6 +527,8 @@ extension QuillCodeWorkspaceModel {
         }
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
+        pruneNavigationHistory()
         return true
     }
 }

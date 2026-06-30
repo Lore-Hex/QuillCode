@@ -44,14 +44,11 @@ enum QuillCodeDesktopWindowSmokeRunner {
         }
 
         let screenshotURL = screenshotURL(request: request)
-        let image = try capture(contentView: contentView, bounds: bounds, to: screenshotURL)
-        let stats = try QuillCodeDesktopSmokePixelStats(image: image)
-        try stats.validate(
-            expectedWidth: stats.report.width,
-            expectedHeight: stats.report.height,
-            minDistinctColorBuckets: 24,
-            minBrightPixelRatio: 0.0005,
-            minBlueAccentPixelRatio: 0.0001
+        let stats = try await captureValidatedImageStats(
+            window: window,
+            contentView: contentView,
+            bounds: bounds,
+            to: screenshotURL
         )
         let workspaceSurface = try smokeSurface()
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: workspaceSurface)
@@ -137,6 +134,45 @@ enum QuillCodeDesktopWindowSmokeRunner {
         }
         return FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-window-smoke-\(UUID().uuidString).png")
+    }
+
+    private static func captureValidatedImageStats(
+        window: NSWindow,
+        contentView: NSView,
+        bounds: CGRect,
+        to url: URL
+    ) async throws -> QuillCodeDesktopSmokePixelStats {
+        var lastValidationFailure: Error?
+
+        for attempt in 0..<12 {
+            window.displayIfNeeded()
+            contentView.layoutSubtreeIfNeeded()
+
+            let image = try capture(contentView: contentView, bounds: bounds, to: url)
+            let stats = try QuillCodeDesktopSmokePixelStats(image: image)
+
+            do {
+                try validateImageStats(stats)
+                return stats
+            } catch {
+                lastValidationFailure = error
+                if attempt < 11 {
+                    try await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+        }
+
+        throw lastValidationFailure ?? QuillCodeDesktopSmokeFailure.windowCaptureFailed
+    }
+
+    private static func validateImageStats(_ stats: QuillCodeDesktopSmokePixelStats) throws {
+        try stats.validate(
+            expectedWidth: stats.report.width,
+            expectedHeight: stats.report.height,
+            minDistinctColorBuckets: 24,
+            minBrightPixelRatio: 0.0005,
+            minBlueAccentPixelRatio: 0.0001
+        )
     }
 
     private static func capture(contentView: NSView, bounds: CGRect, to url: URL) throws -> CGImage {

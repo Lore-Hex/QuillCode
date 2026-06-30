@@ -12,11 +12,7 @@ struct QuillCodeTopBarView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-                if leadingInset > 0 {
-                    Color.clear
-                        .frame(width: leadingInset)
-                        .accessibilityHidden(true)
-                }
+                leadingNavigationSlot
 
                 identityGroup
                     .layoutPriority(3)
@@ -40,6 +36,19 @@ struct QuillCodeTopBarView: View {
         .help(topBarHelp)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(topBarAccessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var leadingNavigationSlot: some View {
+        if leadingInset > 0 {
+            HStack {
+                Spacer(minLength: 0)
+                navigationControls
+            }
+            .frame(width: leadingInset, alignment: .trailing)
+        } else {
+            navigationControls
+        }
     }
 
     private var identityGroup: some View {
@@ -174,6 +183,62 @@ struct QuillCodeTopBarView: View {
             commandMenu
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: activeStopCommand?.id)
+    }
+
+    private var navigationControls: some View {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+            navigationButton(
+                commandID: "workspace-back",
+                systemImage: "chevron.left",
+                accessibilityLabel: "Back",
+                fallbackEnabled: topBar.canNavigateBack
+            )
+            navigationButton(
+                commandID: "workspace-forward",
+                systemImage: "chevron.right",
+                accessibilityLabel: "Forward",
+                fallbackEnabled: topBar.canNavigateForward
+            )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Workspace navigation")
+    }
+
+    @ViewBuilder
+    private func navigationButton(
+        commandID: String,
+        systemImage: String,
+        accessibilityLabel: String,
+        fallbackEnabled: Bool
+    ) -> some View {
+        let command = commands.first { $0.id == commandID } ?? WorkspaceCommandSurface(
+            id: commandID,
+            title: accessibilityLabel,
+            category: WorkspaceCommandPalette.navigationCategory,
+            keywords: [],
+            isEnabled: fallbackEnabled
+        )
+        Button {
+            guard command.isEnabled else { return }
+            onCommand(command)
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.42))
+                .accessibilityHidden(true)
+        }
+        .quillCodeIconButtonTarget()
+        .background(QuillCodePalette.selection.opacity(command.isEnabled ? 0.18 : 0.12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(QuillCodePalette.selection.opacity(command.isEnabled ? 0.34 : 0.24), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .disabled(!command.isEnabled)
+        .help(command.isEnabled ? command.title : "\(accessibilityLabel) unavailable")
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("quillcode-top-bar-\(commandID)")
     }
 
     private func stopButton(_ command: WorkspaceCommandSurface) -> some View {

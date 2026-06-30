@@ -10838,3 +10838,59 @@ Code quality changes:
 Remaining risk:
 
 - This is a source-level rule that prevents ambiguous native spacing before render. The final A+ layer remains packaged Accessibility automation that clicks every probe point and proves the expected action fires in the running `.app`.
+
+## 2026-06-30 Workspace Navigation Architecture Pass
+
+Overall grade after this slice: **A workspace-navigation architecture, A command routing consistency, A packaged smoke reliability, A- static harness maintainability**.
+
+The Codex-like workspace needed Back/Forward controls for thread/project selection history, but the implementation had to avoid three common quality traps: browser-history confusion, recursive history recording during restore, and native/HTML command drift.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Workspace model navigation | A | `WorkspaceNavigationHistoryState` is a pure, Codable/Sendable reducer. `WorkspaceModelNavigationHistory` applies valid locations and prunes deleted threads/projects without persistence coupling. |
+| Thread/project lifecycle integration | A- | Selection, creation, deletion, archive/unarchive, and project removal now update/prune navigation history. Remaining risk is future selection-changing features bypassing the shared model helpers. |
+| Command surface/routing | A | `workspace-back` and `workspace-forward` are normal `WorkspaceCommandSurface` entries, planned/executed through the same command action path as other workspace commands. |
+| Native top bar | A | The SwiftUI top bar renders quiet icon controls inside the leading sidebar gutter when present, preserving main-column title alignment while keeping shared hit-target styling. |
+| Packaged live-window smoke | A | The runner now keeps the strict pixel contract but waits briefly for the live SwiftUI window to paint before capturing, avoiding CI-only false negatives without weakening the visual gate. |
+| Static HTML and Playwright harness | A- | The harness mirrors command availability, event routing, bounded history, and user-visible top-bar behavior with focused E2E coverage. The harness remains monolithic, so this cannot honestly be graded A+ yet. |
+| Test coverage | A | Added pure reducer tests, model-level selection tests, executor/action/surface assertions, HTML renderer assertions, icon catalog coverage, and Playwright top-bar navigation coverage. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceNavigationHistoryState.swift` | A | Small reducer, explicit empty-location handling, bounded entries, forward-stack truncation, pruning, and index clamping. |
+| `Sources/QuillCodeApp/WorkspaceModelNavigationHistory.swift` | A | Focused model extension with non-recursive apply path and invalid-location pruning. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A | Adds navigation state without changing the main model's responsibility boundary. |
+| `Sources/QuillCodeApp/WorkspaceModelThreads.swift` | A- | Lifecycle hooks are direct and tested; still relies on future thread creation paths using `insertCreatedThread`. |
+| `Sources/QuillCodeApp/WorkspaceModelProjects.swift` | A- | Project selection/removal integration is clean; future multi-project batch operations should reuse the same transition hooks. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlan.swift` | A | Adds typed action identifiers with no stringly executor branch. |
+| `Sources/QuillCodeApp/WorkspaceCommandActionPlanner.swift` | A | Context-free navigation actions map directly to effects. |
+| `Sources/QuillCodeApp/WorkspaceCommandActionExecutor.swift` | A | Executor delegates to the model API and returns meaningful success/failure. |
+| `Sources/QuillCodeApp/WorkspaceCommandStaticCatalog.swift` | A | Navigation commands expose conservative availability and search keywords. |
+| `Sources/QuillCodeApp/WorkspaceCommandSurfaceBuilder.swift` | A | Central command surface remains the source of truth for top bar, palette, and HTML surfaces. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A | Surface projection passes history availability without duplicating history logic. |
+| `Sources/QuillCodeApp/WorkspaceTopBarSurfaceBuilder.swift` | A | Top-bar surface projection stays data-only. |
+| `Sources/QuillCodeApp/QuillCodeTopBarSurface.swift` | A | Codable surface remains backward-compatible with default navigation booleans. |
+| `Sources/QuillCodeApp/QuillCodeTopBarView.swift` | A | Native controls are quiet, hit-targeted, and placed in the leading slot so Back/Forward do not push the title off the main workspace column. |
+| `Sources/quill-code-desktop/QuillCodeDesktopWindowSmokeRunner.swift` | A | Live-window screenshot capture now retries readiness against the same visual thresholds, making release evidence deterministic across slower CI painting. |
+| `Sources/QuillCodeApp/WorkspaceHTMLTopBarRenderer.swift` | A | HTML renderer mirrors the native top-bar controls with disabled titles and command IDs. |
+| `Sources/QuillCodeApp/QuillCodeCommandIconCatalog.swift` | A | Shared icon catalog prevents command-palette/top-bar symbol drift. |
+| `E2E/harness/index.html` | B+ | Behavior is now correct and covered, but the monolithic harness remains the main architectural drag. |
+| `E2E/playwright/tests/workspace-chrome.spec.ts` | A | Focused chrome spec now owns top-bar history behavior alongside overflow utility flows. |
+| `Tests/QuillCodeAppTests/WorkspaceNavigationHistoryTests.swift` | A | Covers reducer, pruning, and model-level navigation behavior. |
+| Existing updated command/surface/HTML/icon tests | A | Contract tests now cover availability, command order, execution, rendering, and symbols. |
+
+Code quality changes:
+
+- Added bounded transient workspace navigation history for thread/project locations, intentionally separate from browser tab history.
+- Routed top-bar Back/Forward through the shared command catalog, action planner, executor, SwiftUI surface, HTML renderer, and Playwright harness.
+- Mirrored command availability and click handling in the harness so E2E coverage sees the same user-visible state as native surfaces.
+- Hardened the packaged live-window smoke against premature SwiftUI capture while preserving the same accent, brightness, opacity, and color-diversity thresholds.
+- Added focused native and browser tests for reducer behavior, pruning, command routing, rendering, and top-bar interaction.
+
+Remaining risk:
+
+- The static harness is still large and hand-maintained. The next A+ architecture pass should split harness state/render/event handlers by surface or generate more of the harness from shared `WorkspaceSurface` JSON.

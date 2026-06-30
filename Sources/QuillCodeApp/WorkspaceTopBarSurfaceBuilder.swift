@@ -12,6 +12,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var favoriteModelIDs: [String]
     var recentThreads: [ChatThread]
     var runtimeIssue: RuntimeIssueSurface?
+    var canNavigateBack: Bool = false
+    var canNavigateForward: Bool = false
 
     func surface() -> TopBarSurface {
         let modelCatalog = modelCatalogBuilder()
@@ -43,7 +45,9 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
                 WorkspaceTokenUsageLabelBuilder.label(
                     for: WorkspaceContextBannerBuilder.latestProviderUsage(for: thread)
                 )
-            }
+            },
+            canNavigateBack: canNavigateBack,
+            canNavigateForward: canNavigateForward
         )
     }
 

@@ -15,8 +15,26 @@ enum WorkspaceCommandStaticCatalog {
         ]
     }
 
-    static func navigationCommands(hasSelectedThread: Bool) -> [WorkspaceCommandSurface] {
+    static func navigationCommands(
+        hasSelectedThread: Bool,
+        canNavigateBack: Bool,
+        canNavigateForward: Bool
+    ) -> [WorkspaceCommandSurface] {
         [
+            WorkspaceCommandSurface(
+                id: "workspace-back",
+                title: "Back",
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["history", "previous", "navigation", "thread", "project"],
+                isEnabled: canNavigateBack
+            ),
+            WorkspaceCommandSurface(
+                id: "workspace-forward",
+                title: "Forward",
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["history", "next", "navigation", "thread", "project"],
+                isEnabled: canNavigateForward
+            ),
             WorkspaceCommandSurface(
                 id: "search",
                 title: "Search",

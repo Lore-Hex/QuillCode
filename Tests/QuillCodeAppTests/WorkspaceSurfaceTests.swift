@@ -87,6 +87,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "compact-context",
             "sidebar-saved-search-create",
             "retry-last-turn",
+            "workspace-back",
+            "workspace-forward",
             "search",
             "find-in-chat",
             "copy-conversation",
