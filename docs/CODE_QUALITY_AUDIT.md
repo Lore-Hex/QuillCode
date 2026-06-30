@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-30 Plan-Mode Prompt Seeding Pass (Plan mode PR3)
+
+Overall grade after this slice: **A completes the Plan-mode story, A reuses existing machinery**.
+
+Completes the Plan-mode arc (PR1 gate, PR2 resume, **PR3 seeding**): when a thread is in `.plan` mode, the agent's prompt now instructs it to author a `host.plan.update` plan *before* proposing changes — so entering Plan mode surfaces a real reviewable plan in the Activity pane instead of just silently blocking the first mutation.
+
+| Before | After |
+| --- | --- |
+| `TrustedRouterPromptBuilder.messages(thread:)` never varied the prompt by approval mode; a planning agent had no nudge to author the plan artifact. | `appendPlanModeGuidance(from:to:)` appends one system message (mirroring `appendProjectInstructions`/`appendMemories`) **only when `thread.mode == .plan`**, telling the agent to call `host.plan.update` with a numbered plan and that every mutating step is gated for approval. |
+| — | The plan tool is reachable while planning: `host.plan.update` is `risk: .read`, so the Plan-mode safety arm auto-approves it — the agent can author/refresh the plan without an approval prompt. The plan artifact already renders tri-surface (`AgentPlanUpdate` → Activity pane), so no new UI is needed. |
+| — | `testPlanModeSeedsExactlyOneHostPlanUpdateGuidanceMessage` (present once, not double-injected) and `testNonPlanModesOmitPlanModeGuidance` (absent for `.auto`/`.review`/`.read-only`) lock the mode-conditional behavior. `MockLLMClient` ignores the prompt, so the agent suite is unaffected. |
+
+Residual risk:
+
+- This is a prompt nudge; whether the real model authors the plan is LLM-dependent (the deterministic part — the instruction is present only in Plan mode — is unit-tested). A future PR could seed a deterministic skeleton plan on Plan-mode entry for an immediate visual cue, and link approving a step to marking the corresponding `AgentPlanItem` complete.
+
 ## 2026-06-30 Native Refresh Parity Guard Pass
 
 Overall grade after this slice: **A regression guard for a whole bug class, A tests-the-shipped-path discipline**.

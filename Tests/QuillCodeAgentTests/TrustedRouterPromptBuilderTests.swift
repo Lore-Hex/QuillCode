@@ -56,6 +56,35 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue((messages[1]["content"] as? String)?.contains("Always run swift test") == true)
     }
 
+    private func systemContent(for mode: AgentMode) -> [String] {
+        let thread = ChatThread(mode: mode, messages: [.init(role: .user, content: "build the feature")])
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "build the feature",
+            tools: [.shellRun, .planUpdate]
+        )
+        return messages
+            .filter { $0["role"] as? String == "system" }
+            .compactMap { $0["content"] as? String }
+    }
+
+    func testPlanModeSeedsExactlyOneHostPlanUpdateGuidanceMessage() {
+        let planGuidance = systemContent(for: .plan).filter {
+            $0.contains("You are in Plan mode") && $0.contains("host.plan.update")
+        }
+        XCTAssertEqual(planGuidance.count, 1, "Plan-mode guidance should appear exactly once, not be double-injected")
+        XCTAssertTrue(planGuidance.first?.contains("gated for the user") == true)
+    }
+
+    func testNonPlanModesOmitPlanModeGuidance() {
+        for mode in [AgentMode.auto, .review, .readOnly] {
+            XCTAssertFalse(
+                systemContent(for: mode).contains { $0.contains("You are in Plan mode") },
+                "mode \(mode.rawValue) must not receive Plan-mode plan-authoring guidance"
+            )
+        }
+    }
+
     func testMessagesIncludeMemoriesAsAuditableSystemContext() {
         let thread = ChatThread(
             messages: [.init(role: .user, content: "status")],
