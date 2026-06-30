@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-30 Auto-Mode Hard-Deny Matches Decoded Tool Arguments (defense-in-depth)
+
+A latent-bug audit of the auto-mode safety policy (`StaticSafetyPolicy`) found the same *class* as the file-tool symlink escape: **the check inspected a different representation than what executes.** In `.auto` mode `hardDenyReason` is a true block, and if it returns nil and the user's message matches the tool intent (e.g. "run …"), the call is auto-approved and executed with **no human review**. The hard-deny haystack was built from the *raw* `argumentsJSON` wire string — and the code already special-cased one JSON escape (`\/` → `/`), a tell that encoding mattered but only one case was handled.
+
+**Honesty note (from the adversarial review):** this is **defense-in-depth, not a presently-live exploit.** The model→tool pipeline reserializes tool arguments through `JSONSerialization` (`AgentActionJSONParser`, both the buffered and streaming paths) *before* the safety check, and every other `ToolCall` is built from a dict via `ToolArguments.json` — so escapes are already normalized and no current path delivers a raw-escaped blob to the reviewer. The value of the fix is that the denylist is now **correct on its own** rather than depending on that upstream reserialization side-effect (which a future streaming/partial path, or a different LLM client, could bypass).
+
+| Before | After |
+| --- | --- |
+| `normalizedHaystack` = `"name argumentsJSON".lowercased()` with a one-off `\/` → `/` replacement. A blob with any *other* JSON escape — `/` (→ `/`), ` ` (→ space) — would not match the denylist; e.g. `{"cmd":"rm -rf /"}` would slip past the hard-deny and then execute (the tool decodes before running) as `rm -rf /`. (Not reachable through today's reserializing pipeline.) | The haystack is built from the **decoded** argument values: `argumentsJSON` is JSON-parsed and its string content (keys + values, recursively) flattened, so every escape is normalized uniformly before matching. Falls back to the raw string (with the legacy `\/` patch) only when the blob is not decodable JSON, so malformed input is no worse than before. |
+
+Verification — the escape test is **non-vacuous**, proven by reverting only the source fix: with the old raw-JSON match, `testAutoModeHardDenyMatchesJSONUnicodeEscapedDangerousCommand` (which drives the matcher directly with a hand-built `/` blob) **fails**, while the `\/` and plain tests pass either way. With the decode it denies all three, and `swift test` is 1891 green · native smoke clean.
+
+Residual risk:
+
+- This closes the *encoding* gap. The denylist itself remains a backstop, not a complete sandbox — it is still a substring match, so semantically-equivalent rephrasings (`rm -fr /`, `wget … | sh`, whitespace runs) are out of scope and deliberately left to human approval / the destructive-risk default. Keys are flattened into the haystack, so deny patterns must stay specific to command text rather than bare argument names (no current key collides). Broadening the *pattern set* is a separate, debatable effort; matching what actually runs is the correctness fix.
+
 ## 2026-06-30 Unify the Workspace Sandbox Across All Path Validators
 
 Overall grade after this slice: **A makes every agent path gate enforce the same symlink-resolved sandbox**.

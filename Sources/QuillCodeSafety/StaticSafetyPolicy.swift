@@ -53,9 +53,53 @@ struct StaticSafetyPolicy: Sendable {
     }
 
     private func normalizedHaystack(for context: SafetyContext) -> String {
-        "\(context.toolCall.name) \(context.toolCall.argumentsJSON)"
-            .lowercased()
-            .replacingOccurrences(of: "\\/", with: "/")
+        // Match against the DECODED argument values, not the raw JSON wire form. The tool executor
+        // runs the decoded arguments, so the denylist should inspect the same decoded value — not a
+        // wire encoding. A raw-blob match misses any JSON escape (`/` -> `/`, ` ` -> space), so a
+        // blob like `{"cmd":"rm -rf /"}` would slip past the hard-deny and then execute as `rm -rf /`.
+        // Today the model pipeline reserializes tool arguments through JSONSerialization before this
+        // check (AgentActionJSONParser), so escapes are already normalized and no live path delivers
+        // such a blob; matching the decoded value here is defense-in-depth that keeps the denylist
+        // correct on its own rather than depending on that upstream reserialization (e.g. a future
+        // streaming/partial path that carries raw model bytes). It also subsumes the one-off `\/` patch.
+        let arguments = Self.decodedArgumentText(context.toolCall.argumentsJSON)
+            ?? context.toolCall.argumentsJSON.replacingOccurrences(of: "\\/", with: "/")
+        return "\(context.toolCall.name) \(arguments)".lowercased()
+    }
+
+    /// Flattens a JSON argument blob into its decoded string content (keys and values, recursively)
+    /// so the denylist sees what the tool will actually run. Returns nil when the blob is not
+    /// decodable JSON, so the caller falls back to the raw string (no regression for malformed input).
+    private static func decodedArgumentText(_ json: String) -> String? {
+        guard let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+        else {
+            return nil
+        }
+        var parts: [String] = []
+        collectStrings(from: object, into: &parts)
+        return parts.joined(separator: " ")
+    }
+
+    private static func collectStrings(from object: Any, into parts: inout [String]) {
+        // Keys are included so a deny pattern that names an argument can match; no current schema key
+        // collides with a deny substring, but a future key (e.g. one containing "mkfs"/"ddif") could
+        // false-deny a benign call — keep deny patterns specific to command text, not bare arg names.
+        switch object {
+        case let string as String:
+            parts.append(string)
+        case let dictionary as [String: Any]:
+            for (key, value) in dictionary {
+                parts.append(key)
+                collectStrings(from: value, into: &parts)
+            }
+        case let array as [Any]:
+            for value in array {
+                collectStrings(from: value, into: &parts)
+            }
+        default:
+            break
+        }
     }
 
     private static let defaultHardDenyRules: [StaticSafetyHardDenyRule] = [
