@@ -280,6 +280,7 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public init(
         composer: ComposerState,
         fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex(),
+        changedFilePaths: Set<String> = [],
         sentMessageHistory: [String] = []
     ) {
         self.draft = composer.draft
@@ -287,7 +288,11 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
         self.isSending = composer.isSending
         self.canSend = !composer.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !composer.isSending
         self.slashSuggestions = SlashCommandCatalog.suggestions(for: composer.draft)
-        self.fileMentionSuggestions = FileMentionCatalog.suggestions(for: composer.draft, in: fileMentionIndex)
+        self.fileMentionSuggestions = FileMentionCatalog.suggestions(
+            for: composer.draft,
+            in: fileMentionIndex,
+            changedPaths: changedFilePaths
+        )
         self.sentMessageHistory = sentMessageHistory
     }
 }

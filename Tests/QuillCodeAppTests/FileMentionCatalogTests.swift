@@ -97,9 +97,58 @@ final class FileMentionCatalogTests: XCTestCase {
         XCTAssertEqual(suggestions.map(\.path), ["Sources/WorkspaceState.swift"])
     }
 
+    func testSuggestionSurfaceRoundTripsIsChanged() throws {
+        let surface = FileMentionSuggestionSurface(
+            path: "Sources/B.swift", name: "B.swift", directory: "Sources",
+            insertText: "@Sources/B.swift ", isChanged: true
+        )
+        let decoded = try JSONDecoder().decode(
+            FileMentionSuggestionSurface.self,
+            from: JSONEncoder().encode(surface)
+        )
+        XCTAssertEqual(decoded, surface)
+        XCTAssertTrue(decoded.isChanged)
+    }
+
     func testSubsequenceHelper() {
         XCTAssertTrue(FileMentionCatalog.isSubsequence("abc", of: "aXbYcZ"))
         XCTAssertFalse(FileMentionCatalog.isSubsequence("acb", of: "abc"))
         XCTAssertTrue(FileMentionCatalog.isSubsequence("", of: "anything"))
+    }
+
+    func testChangedFileBoostOutranksHigherTextMatch() {
+        // "App.swift" is a name-prefix match (score 170); "Map.swift" only matches as a
+        // name-contains (score 120) — but the changed boost floats Map.swift to the top.
+        let suggestions = FileMentionCatalog.suggestions(
+            for: "open @ap",
+            in: index(["Sources/App.swift", "Sources/Map.swift"]),
+            changedPaths: ["Sources/Map.swift"],
+            limit: 6
+        )
+        XCTAssertEqual(suggestions.first?.path, "Sources/Map.swift")
+        XCTAssertTrue(suggestions.first?.isChanged ?? false)
+        XCTAssertEqual(suggestions.first { $0.path == "Sources/App.swift" }?.isChanged, false)
+    }
+
+    func testChangedFilesPreserveTextOrderingWithinTheGroup() {
+        // Two changed files: both get the boost, so the stronger text match still wins.
+        let suggestions = FileMentionCatalog.suggestions(
+            for: "open @app",
+            in: index(["Sources/App.swift", "Sources/AppHelper.swift"]),
+            changedPaths: ["Sources/App.swift", "Sources/AppHelper.swift"],
+            limit: 6
+        )
+        XCTAssertEqual(suggestions.map(\.path), ["Sources/App.swift", "Sources/AppHelper.swift"])
+        XCTAssertTrue(suggestions.allSatisfy(\.isChanged))
+    }
+
+    func testEmptyChangedPathsIsByteIdenticalToToday() {
+        let paths = ["Sources/App.swift", "Tests/AppSupport/Helper.swift", "docs/app-notes.md"]
+        let withDefault = FileMentionCatalog.suggestions(for: "open @app", in: index(paths), limit: 6)
+        let withEmpty = FileMentionCatalog.suggestions(for: "open @app", in: index(paths), changedPaths: [], limit: 6)
+        // Same ordering, same insertText, and never flagged when no git status has run.
+        XCTAssertEqual(withDefault.map(\.path), withEmpty.map(\.path))
+        XCTAssertEqual(withDefault.map(\.insertText), withEmpty.map(\.insertText))
+        XCTAssertTrue(withEmpty.allSatisfy { !$0.isChanged })
     }
 }

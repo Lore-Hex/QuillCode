@@ -37,6 +37,14 @@ public final class QuillCodeWorkspaceModel {
     /// Bounded, cached index of the selected local project's files, used to power
     /// composer `@` file mentions. Empty for remote or unselected projects.
     public internal(set) var fileMentionIndex = WorkspaceFileIndex()
+    /// Workspace-relative paths with uncommitted changes, captured from the most recent
+    /// successful `git status` run (the same stdout the branch chip parses — no extra git
+    /// invocation). Used to boost/badge changed files in `@` mentions.
+    public internal(set) var changedFilePaths: Set<String> = []
+    /// The project the `changedFilePaths` set was captured for. The surface drops the set
+    /// when a different project becomes the active context (mirrors the branch chip), so a
+    /// stale changed-set never boosts the wrong project's mentions across a switch.
+    public internal(set) var changedFilePathsProjectID: UUID?
     /// Transient per-thread unsent composer drafts, stashed on thread switch and
     /// restored on selection so drafts never bleed across threads. Session-only.
     public internal(set) var threadDrafts: [UUID: String] = [:]
@@ -134,6 +142,22 @@ public final class QuillCodeWorkspaceModel {
         root.topBar.branchStatusProjectID = status == nil ? nil : projectID
     }
 
+    /// Records the changed-file set captured from a `git status` run, tagged with the
+    /// project it ran for. The surface only applies the boost while that project is the
+    /// active mention context, so a status completing after a project switch is harmless.
+    func setChangedFilePaths(_ paths: Set<String>, forProjectID projectID: UUID?) {
+        changedFilePaths = paths
+        changedFilePathsProjectID = projectID
+    }
+
+    /// The changed-file set, but only when it was captured for the project the file index
+    /// is currently built from (`root.selectedProjectID` — the same notion as
+    /// `activeWorkspaceRoot`); empty otherwise so a stale set never boosts another
+    /// project's `@` suggestions on any switch path that doesn't rebuild the index.
+    var activeChangedFilePaths: Set<String> {
+        changedFilePathsProjectID == root.selectedProjectID ? changedFilePaths : []
+    }
+
     public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
         computerUseBackend = backend
         setComputerUseStatus(backend.status)
@@ -159,6 +183,12 @@ public final class QuillCodeWorkspaceModel {
     /// Recomputes the cached composer file-mention index from the selected local
     /// project. Remote or unselected projects clear the index so mentions stay empty.
     func refreshFileMentionIndex() {
+        // The changed-file set is captured from a git status; any index rebuild (which
+        // happens on every tool run via refreshProjectMetadata) invalidates it so a
+        // file that was committed/cleaned is never left badged. The git-status run
+        // re-sets it immediately after this rebuild, so the badge survives that run.
+        changedFilePaths = []
+        changedFilePathsProjectID = nil
         guard let activeWorkspaceRoot else {
             fileMentionIndex = WorkspaceFileIndex()
             return

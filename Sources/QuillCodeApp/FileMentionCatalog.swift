@@ -13,12 +13,16 @@ public struct FileMentionSuggestionSurface: Codable, Sendable, Hashable, Identif
     /// The full composer draft after this suggestion is accepted, with the active
     /// `@query` token replaced by `@path` and a trailing space.
     public var insertText: String
+    /// Whether this file has uncommitted changes (per the latest `git status`). Changed
+    /// files are boosted to the top of the suggestions and badged in the panel.
+    public var isChanged: Bool
 
-    public init(path: String, name: String, directory: String, insertText: String) {
+    public init(path: String, name: String, directory: String, insertText: String, isChanged: Bool = false) {
         self.path = path
         self.name = name
         self.directory = directory
         self.insertText = insertText
+        self.isChanged = isChanged
     }
 }
 
@@ -26,6 +30,13 @@ public struct FileMentionSuggestionSurface: Codable, Sendable, Hashable, Identif
 /// workspace files against it, mirroring ``SlashCommandCatalog`` so the composer can
 /// reuse the same suggestion panel for both surfaces.
 public enum FileMentionCatalog {
+    /// A flat additive boost applied to files with uncommitted changes. Larger than the
+    /// maximum text-match score (200), so any matching changed file ranks above every
+    /// unchanged match while text scoring still orders files *within* each group. The same
+    /// constant is mirrored in the JS harness (`CHANGED_FILE_MENTION_BOOST`) to keep the
+    /// two scoring paths in lockstep.
+    public static let changedFileBoost = 1000
+
     /// The active mention being typed at the end of the draft, if any.
     public struct ActiveMention: Equatable {
         /// Text before the mention's `@`, preserved verbatim on acceptance.
@@ -56,21 +67,32 @@ public enum FileMentionCatalog {
     public static func suggestions(
         for draft: String,
         in index: WorkspaceFileIndex,
+        changedPaths: Set<String> = [],
         limit: Int = 6
     ) -> [FileMentionSuggestionSurface] {
         guard let mention = activeMention(in: draft) else { return [] }
-        return suggestions(prefix: mention.prefix, query: mention.query, entries: index.entries, limit: limit)
+        return suggestions(
+            prefix: mention.prefix,
+            query: mention.query,
+            entries: index.entries,
+            changedPaths: changedPaths,
+            limit: limit
+        )
     }
 
     static func suggestions(
         prefix: String,
         query: String,
         entries: [WorkspaceFileIndexEntry],
+        changedPaths: Set<String> = [],
         limit: Int
     ) -> [FileMentionSuggestionSurface] {
         let normalizedQuery = query.lowercased()
-        let scored = entries.enumerated().compactMap { offset, entry -> (Int, Int, WorkspaceFileIndexEntry)? in
-            score(entry, query: normalizedQuery).map { ($0, offset, entry) }
+        let scored = entries.enumerated().compactMap { offset, entry -> (Int, Int, WorkspaceFileIndexEntry, Bool)? in
+            guard let textScore = score(entry, query: normalizedQuery) else { return nil }
+            let isChanged = changedPaths.contains(entry.path)
+            let rankedScore = textScore + (isChanged ? changedFileBoost : 0)
+            return (rankedScore, offset, entry, isChanged)
         }
         return scored
             .sorted { lhs, rhs in
@@ -79,12 +101,13 @@ public enum FileMentionCatalog {
                 return lhs.2.path < rhs.2.path
             }
             .prefix(limit)
-            .map { _, _, entry in
+            .map { _, _, entry, isChanged in
                 FileMentionSuggestionSurface(
                     path: entry.path,
                     name: entry.name,
                     directory: entry.directory,
-                    insertText: "\(prefix)@\(entry.path) "
+                    insertText: "\(prefix)@\(entry.path) ",
+                    isChanged: isChanged
                 )
             }
     }

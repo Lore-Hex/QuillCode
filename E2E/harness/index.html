@@ -3003,6 +3003,19 @@
       font-size: 13px;
       margin-top: 2px;
     }
+    .mention-changed-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--yellow, #f8b84e);
+      background: rgba(248, 184, 78, 0.16);
+      vertical-align: middle;
+    }
     .composer label,
     .composer-sr-only { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
     .composer textarea {
@@ -3400,6 +3413,9 @@
         '/mock/QuillCode/Sources/Agent.swift': 'struct AgentRunner {\n  func run() {}\n}\n',
         '/mock/QuillCode/Sources/App.swift': 'struct App {\n  static let title = "QuillCode"\n}\n'
       },
+      // Workspace-relative paths with uncommitted changes (mirrors model.changedFilePaths),
+      // populated from a successful git status run; boosts/badges changed @ mentions.
+      changedFilePaths: [],
       review: {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -4325,6 +4341,11 @@
       return false;
     }
 
+    // Mirrors FileMentionCatalog.changedFileBoost (Swift): a flat additive boost larger
+    // than the max text score (200), so changed files outrank unchanged matches while text
+    // scoring still orders files within each group.
+    const CHANGED_FILE_MENTION_BOOST = 1000;
+
     function fileMentionScore(entry, query) {
       if (!query) {
         const depth = (entry.path.match(/\//g) || []).length;
@@ -4347,9 +4368,15 @@
       const mention = activeFileMention(draft);
       if (!mention) return [];
       const query = mention.query.toLowerCase();
+      const changed = changedMentionPaths();
       return workspaceMentionFiles()
-        .map(entry => ({ entry, score: fileMentionScore(entry, query) }))
-        .filter(item => item.score !== null)
+        .map(entry => {
+          const textScore = fileMentionScore(entry, query);
+          if (textScore === null) return null;
+          const isChanged = changed.has(entry.path);
+          return { entry, score: textScore + (isChanged ? CHANGED_FILE_MENTION_BOOST : 0), isChanged };
+        })
+        .filter(item => item !== null)
         .sort((left, right) =>
           right.score - left.score
           || left.entry.path.length - right.entry.path.length
@@ -4359,8 +4386,15 @@
           path: item.entry.path,
           name: item.entry.name,
           directory: item.entry.directory,
-          insertText: `${mention.prefix}@${item.entry.path} `
+          insertText: `${mention.prefix}@${item.entry.path} `,
+          isChanged: item.isChanged
         }));
+    }
+
+    // Workspace-relative paths with uncommitted changes (mirrors model.changedFilePaths),
+    // populated from a successful git status run in the mock.
+    function changedMentionPaths() {
+      return new Set(state.changedFilePaths || []);
     }
 
     function clampFileMentionActiveIndex(suggestions = fileMentionSuggestions(state.composer.draft)) {
@@ -4700,6 +4734,12 @@
     }
 
     function addToolCard(card) {
+      // Mirror native: any tool run other than git status rebuilds the file context and
+      // invalidates the changed-file set, so a committed/clean file is never left badged.
+      // The git status card sets state.changedFilePaths just before this call.
+      if (card.title !== 'host.git.status') {
+        state.changedFilePaths = [];
+      }
       const toolCard = {
         id: `tool-${state.nextTimelineIndex++}`,
         artifacts: artifactsFromOutput(card.outputJSON),
@@ -8052,9 +8092,10 @@
           data-testid="file-mention-suggestion"
           data-insert-text="${escapeHTML(suggestion.insertText)}"
           data-path="${escapeHTML(suggestion.path)}"
+          data-changed="${suggestion.isChanged ? 'true' : 'false'}"
           data-selected="${index === state.composer.mentionActiveIndex ? 'true' : 'false'}"
         >
-          <span class="slash-usage">${escapeHTML(suggestion.name)}</span>
+          <span class="slash-usage">${escapeHTML(suggestion.name)}${suggestion.isChanged ? ' <span class="mention-changed-badge" data-testid="file-mention-changed-badge">Changed</span>' : ''}</span>
           <span>
             <span class="slash-title">${escapeHTML(suggestion.path)}</span>
             <span class="slash-detail">${escapeHTML(suggestion.directory || 'Workspace root')}</span>
@@ -9278,6 +9319,7 @@
       };
       state.projects.selectedProjectID = project.id;
       state.topBar.branchStatusLabel = null;
+      state.changedFilePaths = [];
       state.projects.items = [
         project,
         ...state.projects.items.map(item => ({ ...item, isSelected: false }))
@@ -9307,6 +9349,7 @@
       };
       state.projects.selectedProjectID = project.id;
       state.topBar.branchStatusLabel = null;
+      state.changedFilePaths = [];
       state.projects.items = [
         project,
         ...state.projects.items.map(item => ({ ...item, isSelected: false }))
@@ -9321,6 +9364,7 @@
     function selectProject(projectID) {
       state.projects.selectedProjectID = projectID;
       state.topBar.branchStatusLabel = null;
+      state.changedFilePaths = [];
       state.projects.items = state.projects.items.map(project => ({
         ...project,
         isSelected: project.id === projectID
@@ -9383,6 +9427,7 @@
           const next = state.projects.items[0] || null;
           state.projects.selectedProjectID = next?.id || null;
           state.topBar.branchStatusLabel = null;
+          state.changedFilePaths = [];
           state.projects.items = state.projects.items.map(item => ({
             ...item,
             isSelected: item.id === state.projects.selectedProjectID
@@ -9420,12 +9465,36 @@
       return label;
     }
 
+    // Mirrors GitChangedFiles.parse (Swift): changed paths from `git status --short`
+    // porcelain lines, skipping the `## ` header, keeping post-arrow rename paths, unquoting.
+    function parseChangedFilePaths(statusShortBranchOutput) {
+      const paths = [];
+      for (const line of String(statusShortBranchOutput || '').split('\n')) {
+        if (!line || line.startsWith('## ') || line.length <= 3) continue;
+        let payload = line.slice(3);
+        // Only split rename/copy (status R/C) lines, so a path containing " -> " is kept.
+        const status = line.slice(0, 2);
+        if (status.includes('R') || status.includes('C')) {
+          const arrow = payload.lastIndexOf(' -> ');
+          if (arrow >= 0) payload = payload.slice(arrow + 4);
+        }
+        let path = payload.trim();
+        if (path.startsWith('"')) path = path.slice(1);
+        if (path.endsWith('"')) path = path.slice(0, -1);
+        if (path) paths.push(path);
+      }
+      return paths;
+    }
+
     function runGitStatusAction() {
       const project = selectedProject();
       const prefix = project?.isRemote ? `ssh ${project.path}\n` : '';
       const header = '## main';
-      const stdout = `${prefix}${header}\n M Sources/App.swift\n`;
+      const porcelain = `${header}\n M Sources/App.swift\n`;
+      const stdout = `${prefix}${porcelain}`;
       state.topBar.branchStatusLabel = branchStatusLabelFromHeader(header);
+      // Parse the clean porcelain (not the ssh-prefixed display stdout), mirroring native.
+      state.changedFilePaths = parseChangedFilePaths(porcelain);
       addToolCard({
         title: 'host.git.status',
         subtitle: 'Completed',

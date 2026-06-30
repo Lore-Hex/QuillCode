@@ -38,12 +38,19 @@ struct WorkspaceToolRunCoordinator {
         if let thread = model.selectedThread {
             model.threadPersistence.save(thread)
         }
-        // Capture branch + ahead/behind from a successful git status so the top-bar
-        // chip reflects the selected project's (or worktree's) branch.
+        // Capture branch + ahead/behind AND the changed-file set from a successful git
+        // status (one stdout, no extra git invocation): the chip reflects the branch, and
+        // `@` mentions boost/badge the files you just changed.
         if call.name == ToolDefinition.gitStatus.name, finishPlan.result.ok {
             model.setBranchStatus(
                 GitBranchStatus.parse(statusShortBranchOutput: finishPlan.result.stdout),
                 forProjectID: model.selectedThread?.projectID ?? model.root.selectedProjectID
+            )
+            // The changed set feeds the `@` mention index, which is built from
+            // `root.selectedProjectID`, so it is tagged with that same project notion.
+            model.setChangedFilePaths(
+                GitChangedFiles.parse(statusShortBranchOutput: finishPlan.result.stdout),
+                forProjectID: model.root.selectedProjectID
             )
         }
         model.refreshTopBar(agentStatus: finishPlan.agentStatus)
