@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-30 Terminal Cursor Addressing (2D screen buffer)
+
+Overall grade after this slice: **A completes faithful rendering of cursor-addressed output, bounded + tested**.
+
+Follow-up to the line-discipline renderer: `TerminalOutputRenderer.Screen` now models a **two-dimensional cursor**, so cursor-addressed output renders into its final on-screen state instead of having its moves stripped. This matters most not for full-screen TUIs (vim/htop, rare in an agent) but for the **multi-line progress** that modern build tools emit — `docker` layer progress, `npm`/`cargo` status — which previously rendered as a garbled pile-up.
+
+| Before | After |
+| --- | --- |
+| The cursor only moved horizontally (`\r`/`\b`) and down (`\n`); all CSI cursor sequences fell through `applyCSI`'s default and were stripped, so a tool repainting line N corrupted the transcript. | `applyCSI` now handles the cursor family: position `ESC[<r>;<c>H`/`f` (1-based, default 1;1), up/down/forward/back `A`/`B`/`C`/`D`, next/prev-line `E`/`F`, column-absolute `G`/`` ` ``, row-absolute `d`. Rows/columns pad on demand; the cursor clamps at 0. Erase-display `ESC[0J`/`ESC[1J` are now reachable mid-screen. |
+| — | **Memory safety baked in:** every cursor target clamps to `maxRows`/`maxCols` (5000), so a hostile or garbled `ESC[9999999B` / `ESC[9999999G` cannot pad millions of rows/columns into memory — proven by a test asserting the rendered line count stays ≤ 5001. |
+| — | 8 new tests: home overwrite + default `ESC[H`, row;col padding, cursor-forward padding, cursor-down padding, a docker/npm-style multi-line progress repaint collapsing to the final frame, erase-display reachable after a cursor move, the clamp/DoS guard, and cursor-up-at-top clamping. The 17 line-discipline tests are unchanged. |
+
+Adversarial-review fix (verdict BLOCKERS → a real mustFix crash): a near-`Int64.max` cursor parameter (`ESC[9223372036854775807C`/`B`/`E`) **overflow-trapped** — the clamp ran *after* the arithmetic, so `col + Int.max` aborted the whole process before `clampCol` could bound it. Since the renderer processes arbitrary subprocess stdout, a single garbled escape would crash the agent — strictly worse than the memory-padding case the caps were meant to prevent. Fixed by capping each CSI parameter to `0…maxRows` **inside `csiParams`, before any caller's arithmetic** (a value above the caps is meaningless after clamping). Also fixed `ESC[1J` to clear the current row up to the cursor (not just the rows above), and lowered `maxCols` 5000→1000 (it bounds only cursor padding, not real text) to shrink the worst-case padding product to a few million cells. Added tests: `Int.max`-magnitude params on C/B/E/H (which *crash* without the cap), `ESC[0;0H`→home, empty-field `ESC[;3H`, and the `ESC[1J` current-row clear.
+
+Residual risk / scope:
+
+- Still stripped (deliberately): scroll regions (`ESC[<t>;<b>r` + scroll up/down), save/restore cursor (`ESC[s`/`u`), and the alternate-screen buffer (`ESC[?1049h`) — a true full-screen TUI that relies on these will still not be pixel-faithful, but the common cursor-positioned repaint now is. The render remains a stateless full-buffer pass, so a TUI's accumulated frames collapse to approximately the final frame. Column counting stays one-per-scalar (wide/combining chars approximate the `\r`/erase column math).
+
 ## 2026-06-30 ANSI Terminal Output Rendering (PTY TUI handling, first step)
 
 Overall grade after this slice: **A makes raw PTY output readable, pure + thoroughly tested**.
