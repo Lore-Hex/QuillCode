@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-29 /init AGENTS.md Scaffold Pass
+
+Overall grade after this slice: **A reuse of existing dispatch, A non-destructive design**.
+
+Adds a `/init` command (and "Initialize AGENTS.md" palette entry) that scaffolds a starter `AGENTS.md` for the selected local project — the on-ramp the rich instruction system lacked (it loads `AGENTS.md`/`.quillcode/rules` but had no way to *create* them). Picked + designed by a docs-grounded judge-panel that centered the feature on a pure scaffolder and flagged the overwrite-clobber as the one load-bearing risk.
+
+| Before | After |
+| --- | --- |
+| QuillCode's instruction system discovers and loads `AGENTS.md` (broad-to-specific, per-file scopes) but offered no way to generate one — every project started with a blank instruction context. | A **pure, deterministic** `ProjectInitScaffolder` (Tools) turns detected `Signals` into `AGENTS.md` markdown (overview / build / test / layout / conventions), and an impure `ProjectInitScanner` probes root marker files (`Package.swift`, `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`/`requirements.txt`/`setup.py`, `Makefile`) + bounded sorted top-level dirs. The pure core is golden-tested, so the scaffold can't drift. |
+| — (dispatch) | `/init`/`/init-project` and the palette both resolve to one new `project-init` command → `WorkspaceCommandAction.projectInit` → `model.runInitProject`, which scans, writes `AGENTS.md` via the existing `host.file.write`, and `refreshProjectContext` so it becomes the active instructions. Mirrors the `git-status`/`project-refresh-context` precedents exactly. |
+| — (the load-bearing guard, review-hardened) | `host.file.write` silently overwrites, so `runInitProject` **refuses** (notice, no write) whenever the project already has instructions. The adversarial review found the first cut (a bare `fileExists` on root `AGENTS.md`) missed several intent-loss cases; the guard now refuses on a regular file, a **symlinked** `AGENTS.md` (even dangling — it would otherwise be replaced, destroying a symlink-to-shared-instructions setup), a **case-variant** (`agents.md` on a case-sensitive volume), **or** any existing instruction source (`.quillcode/rules.md`, nested files — so `/init` never layers a generic scaffold on top of real instructions), and refuses remote projects (local write only). |
+| No coverage. | `ProjectInitScaffolderTests` (swift golden markdown, multi-language build/test bullets, non-empty skeleton for an unknown project, determinism); `ProjectInitScannerTests` (each marker → language, python de-dupe, Makefile, top-level dirs skip build artifacts); `WorkspaceProjectInitTests` (creates `AGENTS.md` + loads it as instructions, **refuses to overwrite an existing file byte-for-byte**, reachable via the `project-init` command); Playwright scaffolds via `/init` and refuses the second run. New command ID → `WorkspaceRenderedCommandRoutingParityTests` is the gate (`project-init` in `harnessStaticCommandIDs`); command-list snapshot updated. |
+
+Residual risk:
+
+- Detection is root-marker only (an Xcode-project-only Swift repo with no `Package.swift` falls back to the generic skeleton — accepted; the file is a starting point to edit). Node has no standard build step, so the scaffold no longer claims one (review-flagged `npm install`-as-build dishonesty removed). A `/init --force`, a `.quillcode/rules.md` alternate target, and gating the palette tile to local-only (it currently no-ops with a notice on remote) are follow-ups.
+
 ## 2026-06-29 Per-Turn Revert UI Pass (2 of 2)
 
 Overall grade after this slice: **A truthful affordance, A cross-surface parity**.

@@ -25,6 +25,8 @@ enum QuillCodeCommandIconCatalog {
             return "plus.message"
         case "project-refresh-context":
             return "arrow.clockwise"
+        case "project-init":
+            return "doc.badge.plus"
         case "project-rename":
             return "text.cursor"
         case "project-remove":

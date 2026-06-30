@@ -223,6 +223,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case createWorkspaceScheduleTomorrow = "automation-create-workspace-schedule-tomorrow"
     case projectNewChat = "project-new-chat"
     case projectRefreshContext = "project-refresh-context"
+    case projectInit = "project-init"
     case projectRename = "project-rename"
     case projectRemove = "project-remove"
     case threadRename = "thread-rename"

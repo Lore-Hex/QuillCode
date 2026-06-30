@@ -20,6 +20,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case createWorkspaceScheduleTomorrow
     case newProjectThread(projectID: UUID)
     case refreshProjectContext(projectID: UUID)
+    case initProject(projectID: UUID)
     case setDraft(String)
     case removeProject(projectID: UUID)
     case duplicateThread(threadID: UUID)
@@ -77,6 +78,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return selectedProjectID.map { .newProjectThread(projectID: $0) }
         case .projectRefreshContext:
             return selectedProjectID.map { .refreshProjectContext(projectID: $0) }
+        case .projectInit:
+            return selectedProjectID.map { .initProject(projectID: $0) }
         case .projectRename:
             return selectedProject.map { .setDraft("/project rename \($0.name)") }
         case .projectRemove:
