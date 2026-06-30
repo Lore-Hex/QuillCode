@@ -57,6 +57,21 @@ struct QuillCodeDesktopRootView: View {
     @ObservedObject var controller: QuillCodeDesktopController
 
     var body: some View {
+        workspaceContent
+            .quillCodeDesktopCommandNotifications(controller: controller)
+            .fileImporter(
+                isPresented: $controller.isProjectImporterPresented,
+                allowedContentTypes: [.folder],
+                allowsMultipleSelection: false
+            ) { result in
+                controller.handleProjectImport(result)
+            }
+            .task {
+                await controller.refreshModelCatalog()
+            }
+    }
+
+    private var workspaceContent: some View {
         QuillCodeWorkspaceView(
             surface: controller.surface,
             draft: $controller.draft,
@@ -108,64 +123,70 @@ struct QuillCodeDesktopRootView: View {
             onSaveSidebarSavedSearch: controller.saveSidebarSavedSearch,
             onCommand: controller.runCommand
         )
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
-            controller.newChat()
+    }
+}
+
+private struct QuillCodeDesktopCommandNotifications: ViewModifier {
+    @ObservedObject var controller: QuillCodeDesktopController
+    @State private var observers: [NSObjectProtocol] = []
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear(perform: installObservers)
+            .onDisappear(perform: removeObservers)
+    }
+
+    private func installObservers() {
+        guard observers.isEmpty else { return }
+        observers = [
+            observe(.quillCodeNewChat) { $0.newChat() },
+            observe(.quillCodeCycleMode) { $0.runWorkspaceCommand("cycle-mode") },
+            observe(.quillCodeFocusComposer) { $0.runWorkspaceCommand("focus-composer") },
+            observe(.quillCodeToggleTerminal) { $0.toggleTerminal() },
+            observe(.quillCodeToggleBrowser) { $0.toggleBrowser() },
+            observe(.quillCodeBrowserBack) { $0.runWorkspaceCommand("browser-back") },
+            observe(.quillCodeBrowserForward) { $0.runWorkspaceCommand("browser-forward") },
+            observe(.quillCodeBrowserReload) { $0.runWorkspaceCommand("browser-reload") },
+            observe(.quillCodeToggleExtensions) { $0.toggleExtensions() },
+            observe(.quillCodeToggleMemories) { $0.toggleMemories() },
+            observe(.quillCodeToggleActivity) { $0.toggleActivity() },
+            observe(.quillCodeToggleAutomations) { $0.toggleAutomations() },
+            observe(.quillCodeOpenProject) { $0.requestAddProject() },
+            observe(.quillCodeCommandPalette) { $0.openCommandPalette() },
+            observe(.quillCodeKeyboardShortcuts) { $0.openKeyboardShortcuts() },
+            observe(.quillCodeOpenSettings) { $0.openSettings() },
+            observe(.quillCodeStopAll) { $0.stopAll() },
+            observe(.quillCodeRetryLastTurn) { $0.retryLastTurn() }
+        ]
+    }
+
+    private func removeObservers() {
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+    }
+
+    private func observe(
+        _ name: Notification.Name,
+        perform action: @escaping @MainActor (QuillCodeDesktopController) -> Void
+    ) -> NSObjectProtocol {
+        NotificationCenter.default.addObserver(
+            forName: name,
+            object: nil,
+            queue: .main
+        ) { [weak controller] _ in
+            guard let controller else { return }
+            Task { @MainActor in
+                action(controller)
+            }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeCycleMode)) { _ in
-            controller.runWorkspaceCommand("cycle-mode")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeFocusComposer)) { _ in
-            controller.runWorkspaceCommand("focus-composer")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleTerminal)) { _ in
-            controller.toggleTerminal()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleBrowser)) { _ in
-            controller.toggleBrowser()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeBrowserBack)) { _ in
-            controller.runWorkspaceCommand("browser-back")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeBrowserForward)) { _ in
-            controller.runWorkspaceCommand("browser-forward")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeBrowserReload)) { _ in
-            controller.runWorkspaceCommand("browser-reload")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleExtensions)) { _ in
-            controller.toggleExtensions()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleMemories)) { _ in
-            controller.toggleMemories()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenProject)) { _ in
-            controller.requestAddProject()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeCommandPalette)) { _ in
-            controller.openCommandPalette()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeKeyboardShortcuts)) { _ in
-            controller.openKeyboardShortcuts()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenSettings)) { _ in
-            controller.openSettings()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeStopAll)) { _ in
-            controller.stopAll()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .quillCodeRetryLastTurn)) { _ in
-            controller.retryLastTurn()
-        }
-        .fileImporter(
-            isPresented: $controller.isProjectImporterPresented,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            controller.handleProjectImport(result)
-        }
-        .task {
-            await controller.refreshModelCatalog()
-        }
+    }
+}
+
+private extension View {
+    func quillCodeDesktopCommandNotifications(
+        controller: QuillCodeDesktopController
+    ) -> some View {
+        modifier(QuillCodeDesktopCommandNotifications(controller: controller))
     }
 }
 

@@ -169,12 +169,14 @@ enum WorkspaceCommandStaticCatalog {
             WorkspaceCommandSurface(
                 id: "toggle-activity",
                 title: "Activity",
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-activity"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["task", "summary", "sources", "artifacts", "tools"]
             ),
             WorkspaceCommandSurface(
                 id: "toggle-automations",
                 title: "Automations",
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-automations"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["automation", "schedule", "recurring", "monitor", "follow-up", "heartbeat"]
             )
@@ -200,6 +202,7 @@ enum WorkspaceCommandStaticCatalog {
             WorkspaceCommandSurface(
                 id: "toggle-memories",
                 title: "Memories",
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-memories"),
                 category: WorkspaceCommandPalette.memoriesCategory,
                 keywords: ["memory", "context", "preferences", "facts"]
             ),
@@ -217,6 +220,7 @@ enum WorkspaceCommandStaticCatalog {
             WorkspaceCommandSurface(
                 id: "toggle-extensions",
                 title: "Extensions",
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-extensions"),
                 category: WorkspaceCommandPalette.extensionsCategory,
                 keywords: ["plugins", "skills", "mcp", "manifest"],
                 isEnabled: hasActiveWorkspaceRoot

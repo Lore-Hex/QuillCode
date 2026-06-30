@@ -22,4 +22,22 @@ final class WorkspaceShortcutRegistryTests: XCTestCase {
 
         XCTAssertEqual(Set(bindings).count, bindings.count)
     }
+
+    func testPrimaryPaneCommandsHaveKeyboardShortcuts() {
+        let paneCommandIDs = [
+            "toggle-terminal",
+            "toggle-browser",
+            "toggle-activity",
+            "toggle-automations",
+            "toggle-memories",
+            "toggle-extensions"
+        ]
+
+        for commandID in paneCommandIDs {
+            XCTAssertNotNil(
+                WorkspaceShortcutRegistry.shortcut(for: commandID),
+                "\(commandID) should stay keyboard reachable because it opens a primary workspace pane."
+            )
+        }
+    }
 }

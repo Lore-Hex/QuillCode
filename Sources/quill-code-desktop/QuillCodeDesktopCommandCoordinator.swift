@@ -9,6 +9,8 @@ protocol QuillCodeDesktopCommandPerforming: AnyObject {
     func openBrowserSession()
     func toggleExtensions()
     func toggleMemories()
+    func toggleActivity()
+    func toggleAutomations()
     func openCommandPalette()
     func openKeyboardShortcuts()
     func openSettings()
@@ -41,6 +43,10 @@ struct QuillCodeDesktopCommandCoordinator {
             performer.toggleExtensions()
         case .toggleMemories:
             performer.toggleMemories()
+        case .toggleActivity:
+            performer.toggleActivity()
+        case .toggleAutomations:
+            performer.toggleAutomations()
         case .commandPalette:
             performer.openCommandPalette()
         case .keyboardShortcuts:

@@ -44,9 +44,19 @@ struct QuillCodeDesktopCommands: Commands {
             Button("Toggle Extensions") {
                 NotificationCenter.default.post(name: .quillCodeToggleExtensions, object: nil)
             }
+            .quillCodeShortcut("toggle-extensions")
             Button("Toggle Memories") {
                 NotificationCenter.default.post(name: .quillCodeToggleMemories, object: nil)
             }
+            .quillCodeShortcut("toggle-memories")
+            Button("Toggle Activity") {
+                NotificationCenter.default.post(name: .quillCodeToggleActivity, object: nil)
+            }
+            .quillCodeShortcut("toggle-activity")
+            Button("Toggle Automations") {
+                NotificationCenter.default.post(name: .quillCodeToggleAutomations, object: nil)
+            }
+            .quillCodeShortcut("toggle-automations")
             Button("Command Palette") {
                 NotificationCenter.default.post(name: .quillCodeCommandPalette, object: nil)
             }
@@ -85,6 +95,8 @@ extension Notification.Name {
     static let quillCodeBrowserReload = Notification.Name("QuillCodeBrowserReload")
     static let quillCodeToggleExtensions = Notification.Name("QuillCodeToggleExtensions")
     static let quillCodeToggleMemories = Notification.Name("QuillCodeToggleMemories")
+    static let quillCodeToggleActivity = Notification.Name("QuillCodeToggleActivity")
+    static let quillCodeToggleAutomations = Notification.Name("QuillCodeToggleAutomations")
     static let quillCodeOpenSettings = Notification.Name("QuillCodeOpenSettings")
     static let quillCodeStopAll = Notification.Name("QuillCodeStopAll")
     static let quillCodeRetryLastTurn = Notification.Name("QuillCodeRetryLastTurn")
