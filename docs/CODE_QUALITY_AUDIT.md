@@ -10523,3 +10523,20 @@ Code quality changes:
 Remaining risk:
 
 - This is a source contract. The next A+ layer is packaged Accessibility automation that resolves owned-gesture contract IDs in a running app, clicks edge/interior points, and verifies the intended action fires.
+
+## 2026-06-30 Accessibility Frame Validator Fixture Pass
+
+Overall grade after this slice: **A release-validator evidence, A hit-test mismatch coverage, A- native click synthesis**.
+
+The packaged native smoke pipeline now carries enough click-probe data to validate live Accessibility frames, but the parity gate still mostly proved the Python validator existed by inspecting its source. That left the highest-risk path under-exercised: a control can have a valid 44 pt frame while an overlay, sibling, or stale hit region owns the actual click point.
+
+Code quality changes:
+
+- Extended the native click-probe validator fixture test to run the real `frames` subcommand against packaged-window-style Accessibility sample data.
+- Added a valid fixture with every required live Accessibility contract ID, edge/interior sample points, target identifiers, and manifest output assertions.
+- Added a negative fixture where a required unblocked sample point hits `quillcode-blocker`, proving the release validator fails when another owner steals the click.
+- Kept the fixture generated from typed Swift helpers instead of copy-pasted JSON so required contracts and sample-point geometry stay DRY and readable.
+
+Remaining risk:
+
+- This validates the report evidence path. The A+ layer remains full packaged `.app` automation that synthesizes actual clicks against each sampled Accessibility frame and verifies the intended command/focus/action fires.
