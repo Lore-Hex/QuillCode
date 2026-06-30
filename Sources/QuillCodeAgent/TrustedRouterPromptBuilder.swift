@@ -16,7 +16,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
             Self.chatMessage(role: "system", content: Self.systemPrompt(tools: tools))
         ]
 
-        appendPlanModeGuidance(from: thread, to: &messages)
+        appendModeGuidance(from: thread, to: &messages)
         appendProjectInstructions(from: thread, to: &messages)
         appendMemories(from: thread, to: &messages)
         appendRecentHistory(from: thread, to: &messages)
@@ -123,9 +123,21 @@ public struct TrustedRouterPromptBuilder: Sendable {
         ))
     }
 
-    private func appendPlanModeGuidance(from thread: ChatThread, to messages: inout [[String: Any]]) {
-        guard thread.mode == .plan else { return }
-        messages.append(Self.chatMessage(role: "system", content: Self.planModePrompt))
+    private func appendModeGuidance(from thread: ChatThread, to messages: inout [[String: Any]]) {
+        guard let guidance = Self.modeGuidance(for: thread.mode) else { return }
+        messages.append(Self.chatMessage(role: "system", content: guidance))
+    }
+
+    /// Mode-aware guidance so the agent's behavior matches the active approval mode and it does not
+    /// waste turns proposing tools the mode will block. `.auto` returns `nil`: it has no extra
+    /// constraint to announce (the Auto safety reviewer decides per call), so the base prompt stands.
+    static func modeGuidance(for mode: AgentMode) -> String? {
+        switch mode {
+        case .plan: return planModePrompt
+        case .readOnly: return readOnlyModePrompt
+        case .review: return reviewModePrompt
+        case .auto: return nil
+        }
     }
 
     static let planModePrompt = """
@@ -133,6 +145,30 @@ public struct TrustedRouterPromptBuilder: Sendable {
     with a concise numbered plan of the steps you intend to take, then update it as you go. \
     Investigate read-only first; every mutating step is gated for the user's explicit approval \
     before it runs, so lay out the plan so they can review it.
+    """
+
+    /// The read tools the Read-only guidance advertises as usable. Kept as data — the prompt is built
+    /// from it — so a test can assert every advertised tool is genuinely `.read`-risk (and therefore
+    /// approved by the `.readOnly` safety arm), and the prompt can never drift to naming a tool the
+    /// mode would block. `host.shell.run` is deliberately absent: it is the only shell tool and is
+    /// `.destructive`, so it is blocked in read-only and is named only in the negative below.
+    static let readOnlyUsableTools: [ToolDefinition] = [.fileRead, .fileList, .fileSearch, .gitStatus, .gitDiff]
+
+    static let readOnlyModePrompt: String = {
+        let usable = readOnlyUsableTools.map(\.name).joined(separator: ", ")
+        return """
+        You are in Read-only mode. File writes and every shell command are blocked and will not run — \
+        host.shell.run is unavailable here even for read-only commands like cat or ls, so use the \
+        dedicated read tools instead. Investigate and answer with read-only tools only: \(usable). \
+        Do not propose changes you cannot apply; if the request needs a file edit or a shell command, \
+        explain what you would do and that the user must switch out of Read-only mode to run it.
+        """
+    }()
+
+    static let reviewModePrompt = """
+    You are in Review mode. Read-only tools run automatically, but every mutating or destructive \
+    tool requires the user's explicit approval before it runs. Propose changes normally — each one \
+    is gated for the user to review and approve — and keep proposed steps small and clearly described.
     """
 
     private func appendRecentHistory(from thread: ChatThread, to messages: inout [[String: Any]]) {
