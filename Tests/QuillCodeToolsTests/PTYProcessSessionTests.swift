@@ -266,4 +266,53 @@ final class PTYProcessSessionTests: XCTestCase {
         // this stream would not finish until the 90s timeout — the test would visibly hang.
         XCTAssertEqual(result?.ok, false, "A cancelled suspended process must still terminate.")
     }
+
+    private func drainSession(command: String, environment: [String: String]) async -> (output: String, result: ToolResult?) {
+        let request = ShellExecutionRequest(
+            command: command,
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 15,
+            environment: environment
+        )
+        let session = PTYProcessSession(request: request)
+        session.start()
+        var output = ""
+        var result: ToolResult?
+        for await event in session.events {
+            switch event {
+            case .stdout(let text), .stderr(let text):
+                output += text
+            case .finished(let toolResult):
+                result = toolResult
+            }
+        }
+        return (output, result)
+    }
+
+    func testPTYDisablesTheInteractivePagerByDefault() async throws {
+        // Without this, a real PTY makes git log/diff launch a pager that blocks for keypresses and the
+        // command hangs to the timeout. The child should see the pager variables set to a passthrough.
+        let path = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
+        let (output, result) = await drainSession(
+            command: "echo \"PAGER=[$PAGER] GIT_PAGER=[$GIT_PAGER] MANPAGER=[$MANPAGER]\"",
+            environment: ["PATH": path]
+        )
+        XCTAssertTrue(output.contains("PAGER=[cat]"), "Expected PAGER=cat, got: \(output)")
+        XCTAssertTrue(output.contains("GIT_PAGER=[cat]"), "Expected GIT_PAGER=cat, got: \(output)")
+        XCTAssertTrue(output.contains("MANPAGER=[cat]"), "Expected MANPAGER=cat, got: \(output)")
+        XCTAssertEqual(result?.ok, true)
+    }
+
+    func testPTYForcesPagerEvenWhenInherited() async throws {
+        // An inherited or captured PAGER/MANPAGER=less (from the launching shell or a prior in-pane
+        // `export`) must be OVERRIDDEN — the pane cannot host an interactive pager, and respecting the
+        // value would re-introduce the hang. This is the load-bearing production case.
+        let path = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
+        let (output, _) = await drainSession(
+            command: "echo \"PAGER=[$PAGER] MANPAGER=[$MANPAGER]\"",
+            environment: ["PATH": path, "PAGER": "less", "MANPAGER": "less"]
+        )
+        XCTAssertTrue(output.contains("PAGER=[cat]"), "Inherited PAGER must be forced to cat, got: \(output)")
+        XCTAssertTrue(output.contains("MANPAGER=[cat]"), "Inherited MANPAGER must be forced to cat, got: \(output)")
+    }
 }

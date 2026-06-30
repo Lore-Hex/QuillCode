@@ -287,6 +287,17 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
         if resolved["TERM"] == nil {
             resolved["TERM"] = "xterm-256color"
         }
+        // Because this is a real PTY, commands see `isatty() == true` and launch their interactive
+        // pager (git log/diff/branch/tag, man, systemctl, ...). The workspace terminal renders output
+        // as scrollable text, not a full interactive screen, so a pager blocks the command waiting for
+        // keypresses — it hangs until the timeout. The pane fundamentally cannot host an interactive
+        // pager, so force a passthrough for every pager variable, OVERRIDING any inherited or captured
+        // value (e.g. `PAGER=less` from the launching shell, or a prior in-pane `export PAGER=less`
+        // persisted into the environment overrides) — respecting it would re-introduce the hang.
+        // `MANPAGER` is set too because `man` consults it before `PAGER`.
+        resolved["PAGER"] = "cat"
+        resolved["GIT_PAGER"] = "cat"
+        resolved["MANPAGER"] = "cat"
         return resolved
     }
 
