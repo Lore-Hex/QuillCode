@@ -152,4 +152,118 @@ final class PTYProcessSessionTests: XCTestCase {
         XCTAssertEqual(result?.ok, false)
         XCTAssertEqual(result?.error, ShellToolMessages.missingCommand)
     }
+
+    func testSuspendAndResumeAreRejectedBeforeStartAndAfterFinish() async throws {
+        let request = ShellExecutionRequest(
+            command: "printf done",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 15
+        )
+        let session = PTYProcessSession(request: request)
+
+        // Before start there is no process to signal.
+        XCTAssertFalse(session.suspend(), "Cannot suspend a session that has not started.")
+        XCTAssertFalse(session.resume(), "Cannot resume a session that has not started.")
+        XCTAssertFalse(session.isSuspended)
+
+        session.start()
+        for await event in session.events {
+            if case .finished = event { break }
+        }
+
+        // After the command finishes, job-control signals are no-ops.
+        XCTAssertFalse(session.suspend(), "A finished session cannot be suspended.")
+        XCTAssertFalse(session.resume(), "A finished session cannot be resumed.")
+        XCTAssertFalse(session.isSuspended)
+    }
+
+    func testSuspendThenResumeStillDrivesTheRunningProcess() async throws {
+        let request = ShellExecutionRequest(
+            command: "read x; echo \"got:$x\"",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 15
+        )
+        let session = PTYProcessSession(request: request)
+        session.start()
+
+        // A successful suspend both proves the child has launched and (SIGSTOP being uncatchable)
+        // deterministically guarantees it is stopped — no timing race on output.
+        var suspended = false
+        for _ in 0..<300 {
+            if session.suspend() {
+                suspended = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(suspended, "Expected to suspend the running child.")
+        XCTAssertTrue(session.isSuspended)
+        XCTAssertFalse(session.suspend(), "Suspending an already-suspended session is a no-op.")
+
+        XCTAssertTrue(session.resume(), "Expected to resume the suspended child.")
+        XCTAssertFalse(session.isSuspended)
+        XCTAssertFalse(session.resume(), "Resuming a non-suspended session is a no-op.")
+
+        // The resumed process must still accept input and run to completion — proving resume restored
+        // it rather than leaving it stopped.
+        var delivered = false
+        for _ in 0..<300 {
+            if session.sendInput("hello\n") {
+                delivered = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(delivered, "Expected to deliver input to the resumed session.")
+
+        var output = ""
+        var result: ToolResult?
+        for await event in session.events {
+            switch event {
+            case .stdout(let text), .stderr(let text):
+                output += text
+            case .finished(let toolResult):
+                result = toolResult
+            }
+        }
+
+        XCTAssertTrue(output.contains("got:hello"), "Expected the resumed read to receive input, got: \(output)")
+        XCTAssertEqual(result?.ok, true)
+    }
+
+    func testCancellingASuspendedProcessStillTerminatesIt() async throws {
+        // The load-bearing path: cancel() must SIGCONT-before-terminate, or a SIGSTOP-ped child would
+        // ignore the SIGTERM and the run would hang to the timeout. The 90s timeout is far above the
+        // expected near-instant cancellation, so a finished stream proves termination, not a time-out.
+        let request = ShellExecutionRequest(
+            command: "sleep 90",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 90
+        )
+        let session = PTYProcessSession(request: request)
+        session.start()
+
+        var suspended = false
+        for _ in 0..<300 {
+            if session.suspend() {
+                suspended = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(suspended, "Expected to suspend the running sleep.")
+
+        session.cancel()
+
+        var result: ToolResult?
+        for await event in session.events {
+            if case .finished(let toolResult) = event {
+                result = toolResult
+            }
+        }
+
+        // Without the SIGCONT before terminate, the stopped sleep would never receive the SIGTERM and
+        // this stream would not finish until the 90s timeout — the test would visibly hang.
+        XCTAssertEqual(result?.ok, false, "A cancelled suspended process must still terminate.")
+    }
 }
