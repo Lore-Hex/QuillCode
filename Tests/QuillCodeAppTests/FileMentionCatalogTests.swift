@@ -12,6 +12,60 @@ final class FileMentionCatalogTests: XCTestCase {
         return WorkspaceFileIndex(entries: entries, truncated: false)
     }
 
+    private func dirIndex(_ entries: [(String, WorkspaceFileIndexEntry.EntryKind)]) -> WorkspaceFileIndex {
+        let mapped = entries.map { path, kind -> WorkspaceFileIndexEntry in
+            let name = path.split(separator: "/").last.map(String.init) ?? path
+            let directory = path.contains("/") ? String(path[path.startIndex..<path.lastIndex(of: "/")!]) : ""
+            return WorkspaceFileIndexEntry(path: path, name: name, directory: directory, kind: kind)
+        }
+        return WorkspaceFileIndex(entries: mapped)
+    }
+
+    func testDirectoryMentionInsertsATrailingSlash() {
+        let suggestions = FileMentionCatalog.suggestions(
+            for: "open @Sour",
+            in: dirIndex([("Sources", .directory), ("Sources/App.swift", .file)]),
+            limit: 6
+        )
+        let sources = suggestions.first { $0.path == "Sources" }
+        XCTAssertEqual(sources?.kind, .directory)
+        XCTAssertEqual(sources?.insertText, "open @Sources/ ")
+    }
+
+    func testDirectoryFloatsAboveItsChildrenOnAPrefixQuery() {
+        let suggestions = FileMentionCatalog.suggestions(
+            for: "open @Sources",
+            in: dirIndex([("Sources/App.swift", .file), ("Sources", .directory)]),
+            limit: 6
+        )
+        // The folder name matches the query exactly (a higher score than its children, whose
+        // names don't match and only hit on the path prefix), so the folder leads.
+        XCTAssertEqual(suggestions.first?.path, "Sources")
+        XCTAssertEqual(suggestions.first?.kind, .directory)
+    }
+
+    func testEqualScoreMentionsBreakTiesByShorterPath() {
+        // Both files match `app` only via a name prefix (equal text score), so the
+        // path-length tiebreak alone decides — the shallower file must lead.
+        let suggestions = FileMentionCatalog.suggestions(
+            for: "open @app",
+            in: index(["Sources/App.swift", "Sources/Deep/Nested/App.swift"]),
+            limit: 6
+        )
+        XCTAssertEqual(suggestions.map(\.path), ["Sources/App.swift", "Sources/Deep/Nested/App.swift"])
+    }
+
+    func testDirectoriesAreNeverFlaggedChanged() {
+        let suggestions = FileMentionCatalog.suggestions(
+            for: "open @Sources",
+            in: dirIndex([("Sources", .directory), ("Sources/App.swift", .file)]),
+            changedPaths: ["Sources/App.swift"],
+            limit: 6
+        )
+        XCTAssertEqual(suggestions.first(where: { $0.path == "Sources" })?.isChanged, false)
+        XCTAssertEqual(suggestions.first(where: { $0.path == "Sources/App.swift" })?.isChanged, true)
+    }
+
     func testActiveMentionDetectsTrailingToken() {
         let mention = FileMentionCatalog.activeMention(in: "look at @App")
         XCTAssertEqual(mention?.prefix, "look at ")

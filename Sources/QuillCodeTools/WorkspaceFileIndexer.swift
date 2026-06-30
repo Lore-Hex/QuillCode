@@ -1,19 +1,36 @@
 import Foundation
 
-/// A single workspace-relative file discovered by ``WorkspaceFileIndexer``.
+/// A single workspace-relative file or directory discovered by ``WorkspaceFileIndexer``.
 public struct WorkspaceFileIndexEntry: Codable, Sendable, Hashable, Identifiable {
+    public enum EntryKind: String, Codable, Sendable, Hashable {
+        case file
+        case directory
+    }
+
     public var id: String { path }
     /// Workspace-relative path using forward slashes, for example `Sources/App.swift`.
     public var path: String
     /// Last path component, for example `App.swift`.
     public var name: String
-    /// Workspace-relative parent directory, or `""` for files at the workspace root.
+    /// Workspace-relative parent directory, or `""` for entries at the workspace root.
     public var directory: String
+    /// Whether this entry is a regular file or a directory.
+    public var kind: EntryKind
 
-    public init(path: String, name: String, directory: String) {
+    public init(path: String, name: String, directory: String, kind: EntryKind = .file) {
         self.path = path
         self.name = name
         self.directory = directory
+        self.kind = kind
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.directory = try container.decode(String.self, forKey: .directory)
+        // Older snapshots predate `kind`; default a missing value to a file.
+        self.kind = try container.decodeIfPresent(EntryKind.self, forKey: .kind) ?? .file
     }
 }
 
@@ -24,10 +41,20 @@ public struct WorkspaceFileIndex: Codable, Sendable, Hashable {
     public var entries: [WorkspaceFileIndexEntry]
     /// Whether the scan stopped early because the file cap was reached.
     public var truncated: Bool
+    /// Whether the directory cap was reached (independent of the file cap).
+    public var directoriesTruncated: Bool
 
-    public init(entries: [WorkspaceFileIndexEntry] = [], truncated: Bool = false) {
+    public init(entries: [WorkspaceFileIndexEntry] = [], truncated: Bool = false, directoriesTruncated: Bool = false) {
         self.entries = entries
         self.truncated = truncated
+        self.directoriesTruncated = directoriesTruncated
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.entries = try container.decode([WorkspaceFileIndexEntry].self, forKey: .entries)
+        self.truncated = try container.decodeIfPresent(Bool.self, forKey: .truncated) ?? false
+        self.directoriesTruncated = try container.decodeIfPresent(Bool.self, forKey: .directoriesTruncated) ?? false
     }
 
     public var isEmpty: Bool { entries.isEmpty }
@@ -42,6 +69,9 @@ public struct WorkspaceFileIndexer: Sendable {
 
     static let defaultMaxFiles = 4_000
     static let absoluteMaxFiles = 20_000
+    /// Directories are capped independently of files so a directory-heavy tree can never
+    /// reduce the number of indexed files.
+    static let defaultMaxDirectories = 1_000
     static let excludedDirectoryNames: Set<String> = [
         ".build",
         ".git",
@@ -63,6 +93,7 @@ public struct WorkspaceFileIndexer: Sendable {
     ///   - maxFiles: Optional override for the file cap. Bounded to a safe range.
     public func index(includeHidden: Bool = false, maxFiles: Int? = nil) -> WorkspaceFileIndex {
         let limit = boundedMaxFiles(maxFiles)
+        let dirLimit = Self.defaultMaxDirectories
 
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: workspaceRoot.path, isDirectory: &isDirectory),
@@ -80,7 +111,9 @@ public struct WorkspaceFileIndexer: Sendable {
         }
 
         var entries: [WorkspaceFileIndexEntry] = []
+        var directories: [WorkspaceFileIndexEntry] = []
         var truncated = false
+        var directoriesTruncated = false
 
         for case let candidate as URL in enumerator {
             let name = candidate.lastPathComponent
@@ -95,7 +128,23 @@ public struct WorkspaceFileIndexer: Sendable {
             }
 
             let values = try? candidate.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey])
-            guard values?.isDirectory != true else { continue }
+
+            if values?.isDirectory == true {
+                // Directories ride their OWN cap so they never consume the file budget, and
+                // we never skipDescendants here so file discovery (the file cap) is untouched.
+                if directories.count < dirLimit, let relative = relativePath(for: candidate) {
+                    directories.append(WorkspaceFileIndexEntry(
+                        path: relative,
+                        name: name,
+                        directory: parentDirectory(of: relative),
+                        kind: .directory
+                    ))
+                } else if directories.count >= dirLimit {
+                    directoriesTruncated = true
+                }
+                continue
+            }
+
             guard values?.isRegularFile == true else { continue }
 
             guard let relative = relativePath(for: candidate) else { continue }
@@ -107,12 +156,18 @@ public struct WorkspaceFileIndexer: Sendable {
 
             if entries.count >= limit {
                 truncated = true
+                // The enumerator is depth-first and interleaves directories with files, so
+                // aborting here leaves any directories deeper in the walk unvisited. Flag the
+                // directory set as incomplete too rather than reporting a partial set as whole.
+                directoriesTruncated = true
                 break
             }
         }
 
-        entries.sort { $0.path < $1.path }
-        return WorkspaceFileIndex(entries: entries, truncated: truncated)
+        var merged = entries
+        merged.append(contentsOf: directories)
+        merged.sort { $0.path < $1.path }
+        return WorkspaceFileIndex(entries: merged, truncated: truncated, directoriesTruncated: directoriesTruncated)
     }
 
     private func shouldSkipDirectory(_ url: URL, name: String, includeHidden: Bool) -> Bool {
