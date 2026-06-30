@@ -96,6 +96,32 @@ final class GitPatchToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("different path") == true, result.error ?? "")
     }
 
+    func testHunkActionsRejectSymlinkEscapePaths() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let outside = parent.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try initializeGitRepo(at: root)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+        let patch = """
+        diff --git a/escape/evil.txt b/escape/evil.txt
+        --- a/escape/evil.txt
+        +++ b/escape/evil.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+
+        let result = GitToolExecutor().stageHunk(cwd: root, path: "escape/evil.txt", patch: patch)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+    }
+
     func testDetectsQuotedPatchPathMismatch() {
         let patch = """
         diff --git "a/hello world.txt" "b/other file.txt"

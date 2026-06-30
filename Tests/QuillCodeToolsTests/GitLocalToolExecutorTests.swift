@@ -146,4 +146,19 @@ final class GitLocalToolExecutorTests: XCTestCase {
         XCTAssertThrowsError(try GitInputValidator.safeName("../main"))
         XCTAssertThrowsError(try GitInputValidator.safeRelativePath("../outside", cwd: root))
     }
+
+    func testInputValidatorRejectsSymlinkEscapePaths() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let outside = parent.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+
+        XCTAssertThrowsError(try GitInputValidator.safeRelativePath("escape/new.txt", cwd: root))
+        XCTAssertThrowsError(try GitInputValidator.safeRelativePath(root.appendingPathComponent("escape/new.txt").path, cwd: root))
+    }
 }
