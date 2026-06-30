@@ -28,6 +28,109 @@ public struct GitPatchToolExecutor: Sendable {
         )
     }
 
+    /// Reverse-applies a whole turn's recorded `apply_patch` diffs to undo exactly that
+    /// turn's file edits — never a restore-to-HEAD. `patches` are in chronological order;
+    /// they are reverse-applied newest-first (so a create-then-edit on one file unwinds
+    /// cleanly) via separate atomic `git apply --reverse` invocations. If any patch fails to
+    /// apply (e.g. its lines changed since the turn ran), the whole revert is rolled back to
+    /// the pre-revert state and the failure is returned — it never corrupts the tree or
+    /// silently restores to HEAD.
+    public func restoreTurnPatch(cwd: URL, patches: [String]) -> ToolResult {
+        let ordered = patches.reversed()
+            .map { $0.hasSuffix("\n") ? $0 : $0 + "\n" }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard !ordered.isEmpty else {
+            return ToolResult(ok: false, error: String(describing: GitToolError.emptyPatch))
+        }
+
+        // Validate every touched path stays inside the workspace, and snapshot those files
+        // so a mid-sequence failure can be rolled back atomically.
+        var touchedPaths: Set<String> = []
+        do {
+            for patch in ordered {
+                for path in Self.referencedPaths(in: patch) {
+                    _ = try GitInputValidator.safeRelativePath(path, cwd: cwd)
+                    touchedPaths.insert(path)
+                }
+            }
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+        let snapshots = touchedPaths.map { FileSnapshot(cwd: cwd, path: $0) }
+
+        let arguments = ["apply", "--reverse", "--whitespace=nowarn"]
+        for patch in ordered {
+            let patchURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("quillcode-turn-\(UUID().uuidString).patch")
+            do {
+                try patch.write(to: patchURL, atomically: true, encoding: .utf8)
+            } catch {
+                return rollback(snapshots, after: ToolResult(ok: false, error: String(describing: GitToolError.temporaryPatchFailed(String(describing: error)))))
+            }
+            let result = runner.runGit(arguments + [patchURL.path], cwd: cwd, timeoutSeconds: 30)
+            try? FileManager.default.removeItem(at: patchURL)
+            guard result.ok else {
+                return rollback(snapshots, after: result)
+            }
+        }
+        return ToolResult(ok: true, stdout: "Reverted this turn's edits.\n")
+    }
+
+    /// Rolls every touched file back to its pre-revert state after a failed patch, and
+    /// returns the original failure — escalating to a distinct error if any file could NOT
+    /// be restored, so the caller never reports a clean failure over a half-reverted tree.
+    private func rollback(_ snapshots: [FileSnapshot], after failure: ToolResult) -> ToolResult {
+        let unrestored = snapshots.compactMap { $0.restore() ? nil : $0.path }
+        guard unrestored.isEmpty else {
+            return ToolResult(ok: false, error: "Revert failed and could not fully roll back: \(unrestored.joined(separator: ", ")). Original error: \(failure.error ?? failure.stderr)")
+        }
+        return failure
+    }
+
+    /// Captures a file's pre-revert state (contents or absence) so a failed multi-patch
+    /// revert can be rolled back without touching anything else.
+    private struct FileSnapshot {
+        let path: String
+        let url: URL
+        let contents: Data?
+
+        init(cwd: URL, path: String) {
+            self.path = path
+            self.url = cwd.appendingPathComponent(path)
+            self.contents = try? Data(contentsOf: url)
+        }
+
+        /// Restores the file to its captured state; returns `false` if it could not.
+        func restore() -> Bool {
+            guard let contents else {
+                // The file did not exist pre-revert; remove it if a partial revert created it.
+                guard FileManager.default.fileExists(atPath: url.path) else { return true }
+                return (try? FileManager.default.removeItem(at: url)) != nil
+            }
+            // A reverse-apply may have deleted the file and pruned its now-empty parent dir,
+            // so recreate the directory before writing the contents back.
+            try? FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            return (try? contents.write(to: url)) != nil
+        }
+    }
+
+    /// Every non-`/dev/null` path referenced by the patch's diff metadata lines.
+    static func referencedPaths(in patch: String) -> [String] {
+        var paths: [String] = []
+        for line in patch.components(separatedBy: .newlines) {
+            guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
+                continue
+            }
+            for path in pathsInDiffMetadataLine(line) where path != "/dev/null" {
+                paths.append(normalizedPatchPath(path))
+            }
+        }
+        return paths
+    }
+
     public static func mismatchedPatchPath(in patch: String, expectedPath: String) -> String? {
         for line in patch.components(separatedBy: .newlines) {
             guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
