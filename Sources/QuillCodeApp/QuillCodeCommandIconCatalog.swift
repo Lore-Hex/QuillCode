@@ -15,6 +15,8 @@ enum QuillCodeCommandIconCatalog {
             return "square.and.pencil"
         case "cycle-mode":
             return "arrow.triangle.2.circlepath"
+        case "focus-composer":
+            return "text.cursor"
         case "search":
             return "magnifyingglass"
         case "command-palette":

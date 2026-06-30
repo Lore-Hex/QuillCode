@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-30 Focus-Composer Shortcut Pass
+
+Overall grade after this slice: **A model→view focus bridge, A routed-command consistency**.
+
+Adds **Cmd+L to jump focus to the message input** from anywhere — a standard, constantly-used composer shortcut. The interesting problem: focus is view-layer (`@FocusState`), but every command in this app routes through the *model*. Solved with a **surface token**, so focus-composer stays a normal routed command (palette + native + harness all go through it) rather than a special-case.
+
+| Before | After |
+| --- | --- |
+| No way to focus the composer by keyboard; the existing `focusesComposer` flag only applies to palette-triggered commands, not the native keyboard path. | A routed `focus-composer` command (`WorkspaceCommandAction` → planner → executor → `model.focusComposer()`) bumps a `focusToken` counter that the rendered `ComposerSurface` carries; `WorkspaceSwiftUIView` (which owns the `@FocusState`) observes `surface.composer.focusToken` via `.onChange` and grabs focus when it changes — a clean model→view bridge that fits the snapshot architecture. |
+| — | Bound to **Cmd+L** (verified free, guarded by the registry's no-duplicate-bindings test). Live on every surface: the native "Focus Message" menu button applies `.quillCodeShortcut("focus-composer")` → `runWorkspaceCommand`; the harness command focuses `#message`. Cmd+L is Cmd-modified, so it's unaffected by the Tab focus-guard from the cycle-mode pass. |
+| — (the review's mustFix) | The desktop `refreshState` rebuilt `surface.composer` from a **bare** `ComposerState`, resetting `focusToken` to 0 — so `.onChange` never fired and native Cmd+L was **dead** (the bare rebuild also dropped `sentMessageHistory` + the file-mention index, silently breaking native Up/Down recall + @-mentions). The rebuild now carries `focusToken`, `fileMentionIndex`, `changedFilePaths`, and `sentMessageHistory`. My first test read `model.surface()` directly and missed this; a `QuillCodeDesktopControllerSmokeTests` regression now drives the **real `refreshState` path** and asserts both the token and the history survive. |
+| — | `ParityDesktopGateTests` asserts the native `.quillCodeShortcut` + `runWorkspaceCommand("focus-composer")` route; Playwright proves Cmd+L moves focus to the input from a neutral element. |
+
+Residual risk:
+
+- The token is a monotonically-incrementing `Int` (`&+=` wrapping), so a focus request is a *change*, never a level — robust against repeated Cmd+L and snapshot dedup. Like the other Cmd shortcuts, no focus-traversal collision.
+
 ## 2026-06-30 Retry-Last-Turn Shortcut Pass
 
 Overall grade after this slice: **A reuse of an existing command, A keyboard-wiring discipline**.

@@ -40,11 +40,22 @@ struct QuillCodeDesktopModelStateCoordinator {
         if draft != nextState.draft, !isComposerBusy {
             draft = nextState.draft
         }
-        surface.composer = ComposerSurface(composer: ComposerState(
-            draft: draft,
-            isSending: isComposerBusy,
-            placeholder: nextState.surface.composer.placeholder
-        ))
+        // Rebuild from the LOCAL draft so slash/@-mention suggestions reflect live typing, but
+        // carry the model-derived fields the bare rebuild used to silently drop: the focusToken
+        // (focus-composer's signal — without it Cmd+L is dead on native because the view's
+        // .onChange never fires), the file-mention index + changed paths (so @-mentions aren't
+        // computed against an empty index), and the sent-message history (Up/Down recall).
+        surface.composer = ComposerSurface(
+            composer: ComposerState(
+                draft: draft,
+                isSending: isComposerBusy,
+                placeholder: nextState.surface.composer.placeholder,
+                focusToken: model.composer.focusToken
+            ),
+            fileMentionIndex: model.fileMentionIndex,
+            changedFilePaths: nextState.surface.changedFilePaths,
+            sentMessageHistory: nextState.surface.composer.sentMessageHistory
+        )
         if terminalDraft != nextState.terminalDraft, !model.terminal.isRunning {
             terminalDraft = nextState.terminalDraft
         }

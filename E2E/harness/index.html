@@ -3655,6 +3655,7 @@
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
+        { id: 'focus-composer', title: 'Focus message input', shortcut: 'Cmd+L', category: 'Workspace', keywords: ['focus', 'composer', 'message', 'input', 'prompt', 'type'], isEnabled: true },
         { id: 'sidebar-filter:all', title: 'Show all chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'all'], isEnabled: true },
         { id: 'sidebar-filter:pinned', title: 'Show pinned chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'pinned'], isEnabled: true },
         { id: 'sidebar-filter:recent', title: 'Show recent chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'recent'], isEnabled: true },
@@ -10393,6 +10394,7 @@
       'add-project',
       'add-ssh-project',
       'cycle-mode',
+      'focus-composer',
       'automation-create-thread-follow-up',
       'automation-create-thread-follow-up-every:daily',
       'automation-create-thread-follow-up-tomorrow',
@@ -10686,6 +10688,10 @@
       }
       if (commandID === 'cycle-mode') {
         cycleMode();
+        return;
+      }
+      if (commandID === 'focus-composer') {
+        document.getElementById('message')?.focus();
         return;
       }
       if (commandID === 'thread-rename') {

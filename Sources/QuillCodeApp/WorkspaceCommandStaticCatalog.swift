@@ -60,6 +60,13 @@ enum WorkspaceCommandStaticCatalog {
                 keywords: ["mode", "approval", "auto", "plan", "review", "read-only", "safety", "cycle"]
             ),
             WorkspaceCommandSurface(
+                id: "focus-composer",
+                title: "Focus message input",
+                shortcut: WorkspaceShortcutRegistry.label(for: "focus-composer"),
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["focus", "composer", "message", "input", "prompt", "type"]
+            ),
+            WorkspaceCommandSurface(
                 id: "add-project",
                 title: "Open project",
                 shortcut: WorkspaceShortcutRegistry.label(for: "add-project"),

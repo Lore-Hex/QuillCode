@@ -207,6 +207,7 @@ enum WorkspaceCommandPlan: Equatable {
 enum WorkspaceCommandAction: String, Equatable {
     case newChat = "new-chat"
     case cycleMode = "cycle-mode"
+    case focusComposer = "focus-composer"
     case toggleTerminal = "toggle-terminal"
     case clearTerminal = "terminal-clear"
     case toggleBrowser = "toggle-browser"

@@ -307,6 +307,8 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public var fileMentionSuggestions: [FileMentionSuggestionSurface]
     /// Previously sent user messages (oldest first) for Up/Down history recall.
     public var sentMessageHistory: [String]
+    /// Bumped by the `focus-composer` command; the view focuses the input when it changes.
+    public var focusToken: Int
 
     public init(
         composer: ComposerState,
@@ -325,5 +327,6 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
             changedPaths: changedFilePaths
         )
         self.sentMessageHistory = sentMessageHistory
+        self.focusToken = composer.focusToken
     }
 }

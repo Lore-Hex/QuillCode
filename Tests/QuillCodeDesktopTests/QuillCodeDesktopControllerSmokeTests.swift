@@ -496,6 +496,42 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         }
         return url
     }
+
+    func testDesktopRefreshPreservesComposerFocusTokenAndHistory() {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "first"),
+            ChatMessage(role: .assistant, content: "ok"),
+            ChatMessage(role: .user, content: "second")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        model.focusComposer()
+        let expectedToken = model.composer.focusToken
+        let expectedHistory = model.surface().composer.sentMessageHistory
+        XCTAssertGreaterThan(expectedToken, 0)
+        XCTAssertFalse(expectedHistory.isEmpty)
+
+        // Drive the REAL desktop refresh path (not model.surface() directly) — the path the live
+        // app renders from. Its composer rebuild must preserve the focus token (or Cmd+L is dead
+        // on native — the view's .onChange never fires) AND the sent-message history (Up/Down
+        // recall) — the bare rebuild used to reset both to their defaults.
+        var surface = model.surface()
+        var draft = ""
+        var terminalDraft = ""
+        var browserAddressDraft = ""
+        QuillCodeDesktopModelStateCoordinator().refreshState(
+            from: model,
+            surface: &surface,
+            draft: &draft,
+            terminalDraft: &terminalDraft,
+            browserAddressDraft: &browserAddressDraft
+        )
+
+        XCTAssertEqual(surface.composer.focusToken, expectedToken)
+        XCTAssertEqual(surface.composer.sentMessageHistory, expectedHistory)
+    }
 }
 
 private struct DesktopRealWorldSmokeCase {
