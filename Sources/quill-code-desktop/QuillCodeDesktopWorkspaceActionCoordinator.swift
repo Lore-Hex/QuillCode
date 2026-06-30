@@ -26,6 +26,17 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         )
     }
 
+    func runTurnRevert(
+        turnMessageID: UUID,
+        model: QuillCodeWorkspaceModel,
+        fallbackWorkspaceRoot: URL
+    ) {
+        model.runTurnRevert(
+            turnMessageID: turnMessageID,
+            workspaceRoot: activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
+        )
+    }
+
     func runPullRequestReviewThreadAction(
         _ action: WorkspacePullRequestReviewThreadActionSurface,
         model: QuillCodeWorkspaceModel,

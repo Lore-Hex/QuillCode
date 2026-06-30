@@ -257,13 +257,44 @@ public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
     public var text: String
     public var accessibilityLabel: String
     public var feedback: MessageFeedbackValue?
+    /// Present on the user message that began a turn whose `apply_patch` edits can be
+    /// reverted, so the UI can offer a "Revert this turn's edits" affordance there.
+    public var revert: MessageRevertSurface?
 
-    public init(message: ChatMessage, feedback: MessageFeedbackValue? = nil) {
+    public init(message: ChatMessage, feedback: MessageFeedbackValue? = nil, revert: MessageRevertSurface? = nil) {
         self.id = message.id
         self.role = message.role
         self.text = message.content
         self.accessibilityLabel = "\(message.role.rawValue): \(message.content)"
         self.feedback = feedback
+        self.revert = revert
+    }
+}
+
+/// The revert affordance for a turn: which turn to revert, and whether the turn also made
+/// edits outside `apply_patch` (so the UI can disclose what the revert cannot undo).
+public struct MessageRevertSurface: Codable, Sendable, Hashable {
+    public var turnMessageID: UUID
+    public var hasNonApplyPatchEdits: Bool
+
+    public init(turnMessageID: UUID, hasNonApplyPatchEdits: Bool) {
+        self.turnMessageID = turnMessageID
+        self.hasNonApplyPatchEdits = hasNonApplyPatchEdits
+    }
+}
+
+/// The single source of truth for the revert affordance's user-facing copy, so the native,
+/// HTML, and harness surfaces make byte-identical, truthful claims about what a reverse-patch
+/// revert does and does NOT undo.
+public enum TurnRevertCopy {
+    public static let buttonTitle = "Revert this turn's edits"
+
+    public static func scope(hasNonApplyPatchEdits: Bool) -> String {
+        var text = "Reverses the file edits this turn applied, including files it created. It does not undo your own earlier edits, shell commands the turn ran, or git commits."
+        if hasNonApplyPatchEdits {
+            text += " This turn also changed files outside apply_patch, which can't be reverted automatically."
+        }
+        return text
     }
 }
 

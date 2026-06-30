@@ -22,6 +22,7 @@ struct QuillCodeTranscriptView: View {
     var onToolCardAction: (ToolCardActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
+    var onRevertTurn: (UUID) -> Void = { _ in }
     var onUseMessageAsDraft: (String) -> Void
     var onSubmitStarterAction: (String) -> Void
     var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
@@ -165,7 +166,8 @@ struct QuillCodeTranscriptView: View {
                         },
                         onFeedback: { value in
                             onMessageFeedback(message.id, value)
-                        }
+                        },
+                        onRevertTurn: onRevertTurn
                     )
                 }
             case .toolCard:

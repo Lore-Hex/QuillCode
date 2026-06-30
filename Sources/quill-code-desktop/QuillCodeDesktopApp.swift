@@ -101,6 +101,7 @@ struct QuillCodeDesktopRootView: View {
             onPreviewWorktreePrune: controller.worktreePrunePreview,
             onPruneWorktrees: controller.pruneWorktrees,
             onCopyTranscriptItem: controller.copyTranscriptItem,
+            onRevertTurn: controller.runTurnRevert,
             onMessageFeedback: controller.setMessageFeedback,
             onSaveSidebarSavedSearch: controller.saveSidebarSavedSearch,
             onCommand: controller.runCommand

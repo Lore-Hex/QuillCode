@@ -3,14 +3,30 @@ import QuillCodeCore
 
 struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
     var thread: ChatThread
+    /// Whether to offer per-turn revert affordances. False for remote projects, where the
+    /// reverse-patch engine (local `git apply`) cannot operate on the remote tree.
+    var allowsRevert: Bool = true
 
     func messageSurfaces() -> [MessageSurface] {
         let feedbackByMessageID = Self.messageFeedbackByMessageID(for: thread)
+        let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
         return thread.messages
             .filter { $0.role != .tool }
             .map { message in
-                MessageSurface(message: message, feedback: feedbackByMessageID[message.id])
+                MessageSurface(message: message, feedback: feedbackByMessageID[message.id], revert: revertByMessageID[message.id])
             }
+    }
+
+    /// Maps each revertable turn's starting user-message id to its revert affordance.
+    static func revertByMessageID(for thread: ChatThread) -> [UUID: MessageRevertSurface] {
+        var map: [UUID: MessageRevertSurface] = [:]
+        for plan in WorkspaceTurnRevertPlanner.plans(for: thread) {
+            map[plan.turnMessageID] = MessageRevertSurface(
+                turnMessageID: plan.turnMessageID,
+                hasNonApplyPatchEdits: plan.hasNonApplyPatchEdits
+            )
+        }
+        return map
     }
 
     func toolCards() -> [ToolCardState] {
@@ -29,6 +45,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         }
 
         let feedbackByMessageID = Self.messageFeedbackByMessageID(for: thread)
+        let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
         var consumedMessageIDs = Set<UUID>()
         var reducer = WorkspaceToolCardEventReducer<[TranscriptTimelineItemSurface]>.timeline()
 
@@ -39,7 +56,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                 return
             }
             consumedMessageIDs.insert(message.id)
-            reducer.state.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id])))
+            reducer.state.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id], revert: revertByMessageID[message.id])))
         }
 
         for event in thread.events {
@@ -54,7 +71,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         }
 
         for message in thread.messages where message.role != .tool && !consumedMessageIDs.contains(message.id) {
-            reducer.state.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id])))
+            reducer.state.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id], revert: revertByMessageID[message.id])))
         }
         return reducer.state
     }

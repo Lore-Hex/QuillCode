@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-06-29 Per-Turn Revert UI Pass (2 of 2)
+
+Overall grade after this slice: **A truthful affordance, A cross-surface parity**.
+
+The UI on top of the merged revert engine: a **"Revert this turn's edits"** button on the user message that began any turn whose `apply_patch` edits can be undone. The whole design centers on *honesty* — the button only appears for turns the engine can actually honor, and its copy states exactly what a reverse-patch does and does **not** undo.
+
+| Before | After |
+| --- | --- |
+| The honest revert engine existed but had no surface — there was no way to undo a turn from the UI. | `MessageSurface` gains an optional `revert` (turn id + `hasNonApplyPatchEdits`); `WorkspaceTranscriptSurfaceBuilder` derives it from `WorkspaceTurnRevertPlanner.plans(for: thread)` and attaches it to the turn's starting user message. The native bubble renders a destructive button; clicking it threads `onRevertTurn(turnMessageID)` to `model.runTurnRevert`, which **re-derives** the plan from the live thread, reverse-applies via the engine, records a `host.git.revert_turn` tool run, and refreshes the diff on success. |
+| — (honesty) | `TurnRevertCopy` is the single source of the user-facing copy — the scope text truthfully says it reverts the turn's `apply_patch` edits (including files it created) and does **not** undo your own earlier edits, shell commands, or commits, and appends a disclosure when the turn also edited outside `apply_patch`. The native (help + accessibility), HTML (`title`), and harness (`title`) surfaces all render that one string. The button is **hidden** for turns with no plan, so it never offers an undo it can't perform; a dirtied-since revert surfaces the engine's honest failure as `lastError`. |
+| No coverage. | `WorkspaceTurnRevertSurfaceTests` (revert affordance attached only to apply_patch turns, scope copy truthful + discloses non-apply_patch edits, HTML renders the button + turn id, and `runTurnRevert` reverse-applies a real turn end-to-end and records the `host.git.revert_turn` run + diff refresh); Playwright reverts a turn from its user message and asserts none appears on a patch-free turn. No new command ID; the destructive button reuses a shared hit-target so the routing-parity and interaction-target gates stay green. |
+
+| — (review hardening) | The adversarial review caught a real blocker: the affordance was offered for **SSH-remote projects**, where the local reverse-patch would have applied the remote turn's patch against the wrong local tree. Fixed: the surface builder gates the affordance on `allowsRevert` (false for remote), and `runTurnRevert` refuses remote projects with an honest error. Also folded in: a **cross-language copy-parity test** (Swift `TurnRevertCopy` and the JS harness are pinned byte-for-byte to the same two literals, both variants); model tests for the honest **failure paths** (dirtied-since records a failed run with the user's edit intact + no diff refresh; no-plan returns a clear error); an HTML test that the `hasNonApplyPatchEdits` **disclosure** renders; the HTML button gains an `aria-label`; `host.git.revert_turn` joins the disclosure set; and a `MessageSurface` legacy-decode test. |
+
+Residual risk:
+
+- The button is placed on the turn's user message (the prompt anchor). The harness mocks only the success path; the dirtied-since failure UI is covered by the engine + model tests, not an end-to-end UI test. Clicking revert again on an already-reverted turn fails honestly (the engine's "files changed" message) rather than being suppressed — a UX wart, and a running-history view of reverts, are follow-ups.
+
 ## 2026-06-29 Per-Turn Revert Engine Pass (1 of 2)
 
 Overall grade after this slice: **A honest design, A atomic safety**.

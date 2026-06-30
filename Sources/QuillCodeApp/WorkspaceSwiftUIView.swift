@@ -46,6 +46,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onPreviewWorktreePrune: () async -> WorkspaceWorktreePrunePreview
     public var onPruneWorktrees: (WorkspaceWorktreePruneRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
+    public var onRevertTurn: (UUID) -> Void = { _ in }
     public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
     public var onSaveSidebarSavedSearch: (String, String) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
@@ -108,6 +109,7 @@ public struct QuillCodeWorkspaceView: View {
         onPreviewWorktreePrune: @escaping () async -> WorkspaceWorktreePrunePreview = { WorkspaceWorktreePrunePreview() },
         onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void = { _ in },
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
+        onRevertTurn: @escaping (UUID) -> Void = { _ in },
         onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
@@ -155,6 +157,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onPreviewWorktreePrune = onPreviewWorktreePrune
         self.onPruneWorktrees = onPruneWorktrees
         self.onCopyTranscriptItem = onCopyTranscriptItem
+        self.onRevertTurn = onRevertTurn
         self.onMessageFeedback = onMessageFeedback
         self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
         self.onCommand = onCommand
@@ -214,6 +217,7 @@ public struct QuillCodeWorkspaceView: View {
                     onToolCardAction: onToolCardAction,
                     onAddReviewComment: onAddReviewComment,
                     onCopyTranscriptItem: onCopyTranscriptItem,
+                    onRevertTurn: onRevertTurn,
                     onMessageFeedback: onMessageFeedback,
                     onCommand: handleCommand
                 )

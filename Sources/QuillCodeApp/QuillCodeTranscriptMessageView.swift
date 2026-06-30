@@ -10,6 +10,7 @@ struct QuillCodeMessageBubble: View {
     var canRetry: Bool
     var onRetry: () -> Void
     var onFeedback: (MessageFeedbackValue) -> Void
+    var onRevertTurn: (UUID) -> Void = { _ in }
 
     var body: some View {
         HStack {
@@ -36,6 +37,13 @@ struct QuillCodeMessageBubble: View {
                     if message.role == .user {
                         QuillCodeMessageDraftButton(action: onUseAsDraft)
                             .accessibilityIdentifier("message-use-as-draft")
+                        if let revert = message.revert {
+                            QuillCodeMessageRevertButton(
+                                hasNonApplyPatchEdits: revert.hasNonApplyPatchEdits,
+                                action: { onRevertTurn(revert.turnMessageID) }
+                            )
+                            .accessibilityIdentifier("message-revert-turn")
+                        }
                     }
                     if message.role == .assistant {
                         if canRetry {
@@ -90,6 +98,27 @@ private struct QuillCodeMessageDraftButton: View {
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Use as draft")
+    }
+}
+
+private struct QuillCodeMessageRevertButton: View {
+    var hasNonApplyPatchEdits: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(TurnRevertCopy.buttonTitle, systemImage: "arrow.uturn.backward")
+                .labelStyle(.iconOnly)
+                .font(.caption2.weight(.semibold))
+                .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
+                .foregroundStyle(QuillCodePalette.red)
+                .background(QuillCodePalette.red.opacity(0.14))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help(TurnRevertCopy.buttonTitle + ". " + TurnRevertCopy.scope(hasNonApplyPatchEdits: hasNonApplyPatchEdits))
+        .accessibilityLabel(TurnRevertCopy.buttonTitle)
+        .accessibilityHint(TurnRevertCopy.scope(hasNonApplyPatchEdits: hasNonApplyPatchEdits))
     }
 }
 

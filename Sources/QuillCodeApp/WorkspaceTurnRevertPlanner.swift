@@ -36,7 +36,9 @@ public enum WorkspaceTurnRevertPlanner {
         ToolDefinition.gitRestore.name,
         ToolDefinition.gitRestoreHunk.name,
         ToolDefinition.gitCommit.name,
-        ToolDefinition.mcpCall.name
+        ToolDefinition.mcpCall.name,
+        // A prior revert mutates the tree outside apply_patch too.
+        "host.git.revert_turn"
     ]
 
     public static func plans(for thread: ChatThread) -> [TurnRevertPlan] {

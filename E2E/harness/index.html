@@ -6088,6 +6088,11 @@
         if (!message || message.role !== 'user') return '';
         return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-use-as-draft" data-message-id="${escapeHTML(message.id || '')}" aria-label="Use as draft">Use as draft</button>`;
       };
+      const revertButton = message => {
+        if (!message || !message.revert) return '';
+        const scope = revertScopeCopy(message.revert.hasNonApplyPatchEdits);
+        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-revert-turn" data-turn-id="${escapeHTML(message.revert.turnMessageID || message.id || '')}" title="${escapeHTML(scope)}" aria-label="Revert this turn's edits">Revert this turn's edits</button>`;
+      };
       const retryButton = message => {
         const retryCommand = state.commands.find(command => command.id === 'retry-last-turn' && command.isEnabled);
         if (!message || message.role !== 'assistant' || message.id !== latestAssistantMessageID || !retryCommand) return '';
@@ -6096,7 +6101,7 @@
       const renderMessage = (message, timelineID = '') => `
         <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           <p>${escapeHTML(message.text)}</p>
-          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + retryButton(message) + feedbackButtons(message))}
+          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + revertButton(message) + retryButton(message) + feedbackButtons(message))}
         </article>`;
       const thinkingTraceLines = () => state.transcript.toolCards
         .filter(card => ['queued', 'running', 'review'].includes(card.status))
@@ -6707,6 +6712,11 @@
       document.querySelectorAll('[data-testid="message-use-as-draft"]').forEach(button => {
         button.addEventListener('click', event => {
           useMessageAsDraft(event.currentTarget.getAttribute('data-message-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="message-revert-turn"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runMockTurnRevert(event.currentTarget.getAttribute('data-turn-id'));
         });
       });
       document.querySelectorAll('[data-testid="empty-starter-action"]').forEach(button => {
@@ -8085,6 +8095,28 @@
       const message = state.transcript.messages.find(entry => entry.id === messageID && entry.role === 'user');
       if (!message) return;
       usePromptAsDraft(message.text || '');
+    }
+
+    // Mirrors TurnRevertCopy.scope (Swift) byte-for-byte so all three surfaces make the
+    // same truthful claim about what the revert does and does not undo.
+    function revertScopeCopy(hasNonApplyPatchEdits) {
+      let text = "Reverses the file edits this turn applied, including files it created. It does not undo your own earlier edits, shell commands the turn ran, or git commits.";
+      if (hasNonApplyPatchEdits) {
+        text += " This turn also changed files outside apply_patch, which can't be reverted automatically.";
+      }
+      return text;
+    }
+
+    function runMockTurnRevert(turnID) {
+      addToolCard({
+        title: 'host.git.revert_turn',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ turnId: turnID }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: "Reverted this turn's edits.\n" }, null, 2)
+      });
+      addMessage('assistant', "Reverted this turn's edits.");
+      render();
     }
 
     function usePromptAsDraft(prompt) {
@@ -13482,6 +13514,11 @@
           outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
         });
         addMessage('assistant', 'Patch applied. Review the resulting diff below.');
+        // The turn applied an apply_patch, so its user message can be reverted.
+        const lastUserMessage = [...state.transcript.messages].reverse().find(message => message.role === 'user');
+        if (lastUserMessage) {
+          lastUserMessage.revert = { turnMessageID: lastUserMessage.id, hasNonApplyPatchEdits: false };
+        }
       } else if (/^\/(diff|changes)\b/i.test(text)) {
         runGitDiffAction();
         return;
