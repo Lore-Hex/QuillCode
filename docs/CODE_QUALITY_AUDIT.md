@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-30 Disable the Interactive Pager in the Terminal PTY
+
+Overall grade after this slice: **A fixes a real hang on the most common terminal commands, tested**.
+
+| Before | After |
+| --- | --- |
+| The workspace terminal runs on a real PTY (so `isatty()` is true), but never disabled paging. Common commands — `git log`/`diff`/`branch`/`tag`, `man`, `systemctl` — therefore launch their interactive pager, which **blocks waiting for keypresses**. The pane renders output as scrollable text, not a full interactive screen, so the command just **hangs until the timeout**. | `PTYProcessSession.ptyEnvironment` now **forces** `PAGER`, `GIT_PAGER`, and `MANPAGER` to `cat` (a passthrough), so these commands stream their output and exit immediately. |
+| — | Two real-PTY integration tests: the default case (`$PAGER`/`$GIT_PAGER`/`$MANPAGER` observed as `cat` in the child) and the load-bearing production case (an **inherited** `PAGER=less`/`MANPAGER=less` is forced to `cat`). |
+
+Adversarial-review fix (verdict SHIP; four `should`s converged): the first cut only set the pager vars *when absent* (`== nil`). But the PTY pane's `request.environment` is never nil in production — it is seeded from the app's process environment and from `terminal.environmentOverrides`, into which a prior in-pane `export PAGER=less` is *captured* and persisted. So an inherited/captured `PAGER`/`MANPAGER` survived the guard and `man`/non-git pagers still hung (git was safe via its own `GIT_PAGER` precedence). Fixed by **forcing** the passthrough unconditionally — the pane fundamentally cannot host an interactive pager — and adding `MANPAGER` (consulted before `PAGER` by `man`). The override test was flipped to assert the inherited value is overridden, pinning the real fix.
+
+Residual risk:
+
+- Only the local PTY pane is affected (the agent's `host.shell.run` uses the non-TTY pipe runner, which never paged and never calls `ptyEnvironment`). A tool that hard-codes its own pager (ignoring these env vars) is unaffected, but those are rare among common CLIs. Forcing the value means a user cannot opt into a pager in this pane — which is correct, since the line-based pane cannot drive one.
+
 ## 2026-06-30 Terminal Cursor Addressing (2D screen buffer)
 
 Overall grade after this slice: **A completes faithful rendering of cursor-addressed output, bounded + tested**.
