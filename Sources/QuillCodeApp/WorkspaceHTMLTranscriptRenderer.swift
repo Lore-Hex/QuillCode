@@ -174,6 +174,7 @@ enum WorkspaceHTMLTranscriptRenderer {
                     attributes: [("data-copy-id", item.id)]
                 ))
                 \(renderMessageDraftAction(message))
+                \(renderMessageRevertAction(message))
                 \(renderMessageRetryAction(message, latestAssistantMessageID: latestAssistantMessageID, command: retryLastTurnCommand))
                 \(renderMessageFeedbackActions(message))
               </footer>
@@ -215,6 +216,19 @@ enum WorkspaceHTMLTranscriptRenderer {
             "Use as draft",
             testID: "message-use-as-draft",
             attributes: [("data-message-id", message.id.uuidString)]
+        )
+    }
+
+    private static func renderMessageRevertAction(_ message: MessageSurface) -> String {
+        guard let revert = message.revert else { return "" }
+        return WorkspaceHTMLPrimitives.button(
+            TurnRevertCopy.buttonTitle,
+            testID: "message-revert-turn",
+            ariaLabel: TurnRevertCopy.buttonTitle,
+            attributes: [
+                ("data-turn-id", revert.turnMessageID.uuidString),
+                ("title", TurnRevertCopy.scope(hasNonApplyPatchEdits: revert.hasNonApplyPatchEdits))
+            ]
         )
     }
 

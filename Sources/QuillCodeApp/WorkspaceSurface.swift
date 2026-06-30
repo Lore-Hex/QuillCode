@@ -119,7 +119,7 @@ public extension QuillCodeWorkspaceModel {
             projects: navigation.projects,
             sidebar: navigation.sidebar,
             transcript: TranscriptSurface(
-                messages: thread.map { WorkspaceTranscriptSurfaceBuilder(thread: $0).messageSurfaces() } ?? [],
+                messages: thread.map { WorkspaceTranscriptSurfaceBuilder(thread: $0, allowsRevert: selectedProject?.isRemote != true).messageSurfaces() } ?? [],
                 toolCards: toolCards,
                 timelineItems: thread == nil ? nil : currentTimelineItems,
                 thinking: WorkspaceTranscriptThinkingSurfaceBuilder(

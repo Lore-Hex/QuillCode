@@ -35,7 +35,7 @@ extension QuillCodeWorkspaceModel {
 
     public var currentTimelineItems: [TranscriptTimelineItemSurface] {
         guard let selectedThread else { return [] }
-        let items = WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).timelineItems()
+        let items = WorkspaceTranscriptSurfaceBuilder(thread: selectedThread, allowsRevert: selectedProject?.isRemote != true).timelineItems()
         return executionContextSurfaceBuilder.enrichTimelineItems(items, for: selectedThread)
     }
 
