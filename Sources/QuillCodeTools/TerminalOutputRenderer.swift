@@ -6,11 +6,13 @@ import Foundation
 /// this, raw PTY output shows literal escape codes (`^[[31m`) and progress bars / spinners that use
 /// `\r` to redraw a line pile up across the transcript instead of overwriting in place.
 ///
-/// Scope: this is a stateless, full-buffer line discipline. It deliberately does NOT implement full
-/// two-dimensional cursor addressing (the `ESC[<row>;<col>H` / `ESC[<n>A|B|C|D` family) — faithful
-/// redraw of full-screen TUIs like vim or htop is a larger follow-up that needs a real screen buffer.
-/// Unhandled CSI/OSC sequences are stripped rather than shown, which keeps normal colored output, git
-/// output, build logs, and `\r` progress indicators readable.
+/// It also models a two-dimensional cursor — CSI position (`ESC[<row>;<col>H`/`f`) and the relative
+/// moves (`A`/`B`/`C`/`D`/`E`/`F`/`G`/`d`) — so cursor-addressed output renders into its final on-screen
+/// state: full-screen TUIs (vim, htop) and, more commonly in an agent, build-tool multi-line progress
+/// (docker layer progress, npm/cargo status). Cursor growth is hard-capped so a hostile sequence cannot
+/// exhaust memory. Still out of scope (stripped): scroll regions, save/restore cursor, alternate
+/// screen, and SGR styling beyond plain text. Unhandled CSI/OSC sequences are stripped rather than
+/// shown, keeping normal colored output, git output, and build logs readable.
 public enum TerminalOutputRenderer {
     /// Processes a raw terminal buffer into the text a user should see. Pure and idempotent on
     /// already-clean text, so it is safe to re-run over a growing `stdout` buffer.
@@ -25,9 +27,20 @@ public enum TerminalOutputRenderer {
         return screen.text()
     }
 
-    /// A single-page, line-addressed buffer. The cursor only moves horizontally (column) plus down on
-    /// line feed; vertical addressing is out of scope (see type docs).
+    /// A line-addressed buffer with a two-dimensional cursor. Carriage return / line feed / backspace
+    /// move it; CSI cursor sequences (`H`/`f` position, `A`–`G`, `d`) reposition it so cursor-addressed
+    /// output — full-screen TUIs and, more commonly, build-tool multi-line progress (docker/npm/cargo)
+    /// — renders into the final on-screen state instead of stripping the moves.
     private struct Screen {
+        /// Hard caps on how far the *cursor* can move (and therefore how much padding it can force into
+        /// the backing buffer), so a garbled or hostile sequence like `ESC[9999999B` cannot blow up
+        /// memory. These bound only cursor positioning, not normal text: a genuinely long line of
+        /// printed output grows past `maxCols` via `put()`. The caps stay generous for real cursor
+        /// addressing (a terminal screen is ~50×200) while keeping the worst-case padding product
+        /// (`maxRows × maxCols`) in the low single-digit millions of cells rather than tens of millions.
+        private static let maxRows = 5000
+        private static let maxCols = 1000
+
         private var lines: [[Character]] = [[]]
         private var row = 0
         private var col = 0
@@ -165,14 +178,78 @@ public enum TerminalOutputRenderer {
                 case "", "0":  // cursor to end of screen
                     if col < lines[row].count { lines[row].removeSubrange(col..<lines[row].count) }
                     if row + 1 < lines.count { lines.removeSubrange((row + 1)..<lines.count) }
-                case "1":  // start of screen to cursor
+                case "1":  // start of screen to cursor (inclusive) — clears full rows above and the
+                           // current row's start up to the cursor.
                     for r in 0..<row where r < lines.count { lines[r].removeAll() }
+                    if row < lines.count {
+                        let end = Swift.min(col, lines[row].count - 1)
+                        if end >= 0 {
+                            for c in 0...end where c < lines[row].count { lines[row][c] = " " }
+                        }
+                    }
                 default:
                     break
                 }
+            case "A":  // CUU — cursor up
+                moveRow(by: -firstParam(params))
+            case "B":  // CUD — cursor down
+                moveRow(by: firstParam(params))
+            case "C":  // CUF — cursor forward
+                col = clampCol(col + firstParam(params))
+            case "D":  // CUB — cursor back
+                col = clampCol(col - firstParam(params))
+            case "E":  // CNL — cursor next line (column 0)
+                moveRow(by: firstParam(params))
+                col = 0
+            case "F":  // CPL — cursor previous line (column 0)
+                moveRow(by: -firstParam(params))
+                col = 0
+            case "G", "`":  // CHA / HPA — cursor to absolute column (1-based)
+                col = clampCol(firstParam(params) - 1)
+            case "d":  // VPA — cursor to absolute row (1-based)
+                setRow(firstParam(params) - 1)
+            case "H", "f":  // CUP / HVP — cursor to absolute row;col (1-based, default 1;1)
+                let parts = csiParams(params)
+                setRow((parts.count > 0 ? max(1, parts[0]) : 1) - 1)
+                col = clampCol((parts.count > 1 ? max(1, parts[1]) : 1) - 1)
             default:
-                break  // cursor movement and everything else: ignored (out of scope)
+                break  // other cursor controls (save/restore, scroll regions) and the rest: ignored
             }
+        }
+
+        /// Parses CSI numeric parameters split on `;`. An empty or non-numeric field becomes 0 (which
+        /// callers map to the spec default of 1 where appropriate). Empty params -> `[0]`.
+        ///
+        /// Each field is capped to `0...maxRows` *before* any caller does arithmetic with it. A param
+        /// can legitimately be up to `Int64.max` (`ESC[9223372036854775807C`); adding that to a non-zero
+        /// row/column would overflow and trap (a one-escape crash of the whole agent) before the cursor
+        /// clamp could run. Any value above the row/column caps is meaningless after clamping anyway.
+        private func csiParams(_ params: String) -> [Int] {
+            if params.isEmpty { return [0] }
+            return params.split(separator: ";", omittingEmptySubsequences: false).map { field in
+                guard let value = Int(field) else { return 0 }
+                return Swift.max(0, Swift.min(value, Self.maxRows))
+            }
+        }
+
+        /// The first parameter as a positive count (default/zero -> 1), for the single-argument cursor
+        /// moves where `ESC[A` == `ESC[1A`.
+        private func firstParam(_ params: String) -> Int {
+            max(1, csiParams(params).first ?? 1)
+        }
+
+        private func clampCol(_ value: Int) -> Int { max(0, min(value, Self.maxCols)) }
+
+        /// Moves the cursor row by a signed delta, padding new rows as needed (bounded by `maxRows`).
+        private mutating func moveRow(by delta: Int) {
+            setRow(row + delta)
+        }
+
+        /// Sets the cursor row (clamped to `0...maxRows`), appending empty lines so the row exists.
+        private mutating func setRow(_ target: Int) {
+            let clamped = max(0, min(target, Self.maxRows))
+            while lines.count <= clamped { lines.append([]) }
+            row = clamped
         }
 
         func text() -> String {
