@@ -437,6 +437,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
 
     public var actions: [WorkspaceReviewActionSurface] {
         [
+            WorkspaceReviewActionSurface(kind: .open, path: path),
             WorkspaceReviewActionSurface(kind: .stage, path: path),
             WorkspaceReviewActionSurface(kind: .restore, path: path)
         ]
@@ -557,6 +558,7 @@ public struct WorkspaceReviewHunkSurface: Codable, Sendable, Hashable, Identifia
 }
 
 public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
+    case open
     case stage
     case restore
     case stageHunk = "stage_hunk"
@@ -564,6 +566,8 @@ public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
 
     public var title: String {
         switch self {
+        case .open:
+            return "Open"
         case .stage:
             return "Stage"
         case .restore:
@@ -577,6 +581,8 @@ public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
 
     public var systemImage: String {
         switch self {
+        case .open:
+            return "doc.text"
         case .stage:
             return "plus.rectangle.on.folder"
         case .restore:
@@ -585,6 +591,18 @@ public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
             return "plus.square.on.square"
         case .restoreHunk:
             return "arrow.uturn.left.square"
+        }
+    }
+
+    /// Whether the action changes the working tree/index and therefore needs a diff
+    /// refresh. `.open` only reads a file, so it pairs no refresh and never clears
+    /// the review pane.
+    public var isMutating: Bool {
+        switch self {
+        case .open:
+            return false
+        case .stage, .restore, .stageHunk, .restoreHunk:
+            return true
         }
     }
 }

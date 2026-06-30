@@ -212,7 +212,7 @@ test('mock harness stages a changed file from the review pane', async ({ page })
   await page.getByLabel('Message').fill('git diff');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('review-pane')).toBeVisible();
-  await expect(page.getByTestId('review-action')).toHaveCount(4);
+  await expect(page.getByTestId('review-action')).toHaveCount(5);
 
   await page.getByRole('button', { name: 'Stage', exact: true }).click();
 
@@ -224,6 +224,25 @@ test('mock harness stages a changed file from the review pane', async ({ page })
     'host.git.diff'
   ]);
   await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Sources/App.swift');
+});
+
+test('mock harness opens a changed file from the review pane without clearing it', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('git diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+
+  await page.locator('[data-testid="review-action"][data-action="open"]').first().click();
+
+  // Open SUCCESSFULLY reads the changed file (a completed host.file.read card) ...
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.file.read');
+  await expect(page.getByTestId('tool-card-subtitle').last()).toContainText('Completed');
+  await expect(page.getByTestId('tool-card-subtitle').last()).toContainText('Sources/App.swift');
+  // ... adds no diff refresh ...
+  await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.git.diff' })).toHaveCount(1);
+  // ... and the review pane stays open (unlike Stage/Restore which clear it).
+  await expect(page.getByTestId('review-pane')).toBeVisible();
 });
 
 test('mock harness stages a single hunk from the review pane', async ({ page }) => {

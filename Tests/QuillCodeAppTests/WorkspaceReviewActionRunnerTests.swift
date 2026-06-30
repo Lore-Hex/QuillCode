@@ -21,7 +21,8 @@ final class WorkspaceReviewActionRunnerTests: XCTestCase {
         ])
         XCTAssertEqual(result.finalStatus, TopBarAgentStatusLabel.idle)
         XCTAssertTrue(result.action.result.ok, result.action.result.error ?? "")
-        XCTAssertTrue(result.diffRefresh.result.ok, result.diffRefresh.result.error ?? "")
+        let diffRefresh = try XCTUnwrap(result.diffRefresh)
+        XCTAssertTrue(diffRefresh.result.ok, diffRefresh.result.error ?? "")
         XCTAssertEqual(try runGit(["status", "--short"], cwd: root), "M  README.md\n")
     }
 
@@ -40,7 +41,8 @@ final class WorkspaceReviewActionRunnerTests: XCTestCase {
         ])
         XCTAssertEqual(result.finalStatus, TopBarAgentStatusLabel.failed)
         XCTAssertFalse(result.action.result.ok)
-        XCTAssertTrue(result.diffRefresh.result.ok, result.diffRefresh.result.error ?? "")
+        let diffRefresh = try XCTUnwrap(result.diffRefresh)
+        XCTAssertTrue(diffRefresh.result.ok, diffRefresh.result.error ?? "")
     }
 
     private func makeRunner(
