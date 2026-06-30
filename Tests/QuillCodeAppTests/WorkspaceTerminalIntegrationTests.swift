@@ -89,6 +89,53 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         )
     }
 
+    func testSuspendAndResumeAreRejectedWhenNoCommandIsRunning() async throws {
+        let model = QuillCodeWorkspaceModel()
+        XCTAssertFalse(model.suspendTerminalCommand(), "Nothing is running to suspend.")
+        XCTAssertFalse(model.resumeTerminalCommand(), "Nothing is running to resume.")
+        XCTAssertFalse(model.terminal.isSuspended)
+    }
+
+    func testLocalTerminalSuspendsAndResumesARunningCommand() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let task = Task {
+            await model.runTerminalCommand("read x; printf got:$x", workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 2) {
+            model.terminal.entries.first?.status == .running
+        }
+
+        // Suspend the live PTY (SIGSTOP); a successful suspend proves the child is stopped.
+        var suspended = false
+        for _ in 0..<300 {
+            if model.suspendTerminalCommand() {
+                suspended = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(suspended, "Expected to suspend the running local PTY command.")
+        XCTAssertTrue(model.terminal.isSuspended)
+        XCTAssertFalse(model.suspendTerminalCommand(), "Suspending an already-suspended command is a no-op.")
+
+        // Resume, then drive the previously-blocked read to completion.
+        XCTAssertTrue(model.resumeTerminalCommand())
+        XCTAssertFalse(model.terminal.isSuspended)
+        XCTAssertFalse(model.resumeTerminalCommand(), "Resuming a non-suspended command is a no-op.")
+
+        XCTAssertTrue(model.sendTerminalInput("hello\n"))
+        await task.value
+
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertFalse(model.terminal.isSuspended, "isSuspended is cleared once the run ends.")
+        XCTAssertTrue(
+            model.terminal.entries.first?.stdout.contains("got:hello") == true,
+            "Expected the resumed read to receive input, got: \(model.terminal.entries.first?.stdout ?? "<nil>")"
+        )
+    }
+
     func testTerminalCommandRunsThroughSSHRemoteProject() async throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-args.txt")

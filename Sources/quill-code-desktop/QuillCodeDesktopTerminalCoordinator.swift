@@ -71,6 +71,14 @@ struct QuillCodeDesktopTerminalCoordinator {
         )
     }
 
+    func suspendTerminal(model: QuillCodeWorkspaceModel) {
+        model.suspendTerminalCommand()
+    }
+
+    func resumeTerminal(model: QuillCodeWorkspaceModel) {
+        model.resumeTerminalCommand()
+    }
+
     private func recallCommand(
         draft: inout String,
         model: QuillCodeWorkspaceModel,

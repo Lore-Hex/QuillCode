@@ -3757,6 +3757,7 @@
         historyCursor: null,
         historyDraft: null,
         isRunning: false,
+        isSuspended: false,
         cwdLabel: '/mock/QuillCode',
         environment: {},
         entries: []
@@ -7451,6 +7452,16 @@
       document.querySelector('[data-testid="terminal-stop"]')?.addEventListener('click', () => {
         runCommand('stop-all');
       });
+      document.querySelector('[data-testid="terminal-suspend"]')?.addEventListener('click', () => {
+        if (!state.terminal.isRunning) return;
+        state.terminal.isSuspended = true;
+        render();
+      });
+      document.querySelector('[data-testid="terminal-resume"]')?.addEventListener('click', () => {
+        if (!state.terminal.isRunning) return;
+        state.terminal.isSuspended = false;
+        render();
+      });
       document.querySelector('[data-testid="terminal-clear"]')?.addEventListener('click', () => {
         runCommand('terminal-clear');
       });
@@ -8780,6 +8791,8 @@
             <strong>Terminal</strong>
             <code data-testid="terminal-cwd">${escapeHTML(state.terminal.cwdLabel)}</code>
             <button class="hit-target-text" type="button" data-testid="terminal-clear" ${state.terminal.entries.length && !state.terminal.isRunning ? '' : 'disabled'}>Clear</button>
+            ${state.terminal.isRunning && state.terminal.isSuspended ? '<button class="hit-target-text" type="button" data-testid="terminal-resume">Resume</button>' : ''}
+            ${state.terminal.isRunning && !state.terminal.isSuspended ? '<button class="hit-target-text" type="button" data-testid="terminal-suspend">Suspend</button>' : ''}
             ${state.terminal.isRunning ? '<button class="hit-target-text" type="button" data-testid="terminal-stop">Stop</button>' : ''}
           </header>
           <div class="terminal-history" data-testid="terminal-history">${entries}</div>
@@ -11223,6 +11236,7 @@
       state.terminal.historyDraft = null;
       state.terminal.isVisible = true;
       state.terminal.isRunning = true;
+      state.terminal.isSuspended = false;
       const cwd = state.terminal.cwdLabel;
       const entry = {
         command,

@@ -84,3 +84,28 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await expect(page.getByTestId('terminal-empty')).toBeVisible();
   await expect(page.getByTestId('terminal-clear')).toBeDisabled();
 });
+
+test('mock harness suspends and resumes a running terminal command', async ({ page }) => {
+  await page.goto(harnessURL());
+  await clickSidebarTool(page, 'terminal-button');
+
+  // A command that keeps running (waits for input) so job control applies.
+  await page.getByLabel('Terminal command').fill('read-demo');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
+
+  // While running and not suspended: Suspend is offered, Resume is not.
+  await expect(page.getByTestId('terminal-suspend')).toBeVisible();
+  await expect(page.getByTestId('terminal-resume')).toHaveCount(0);
+
+  // Suspend → Resume replaces Suspend; Stop stays available throughout.
+  await page.getByTestId('terminal-suspend').click();
+  await expect(page.getByTestId('terminal-resume')).toBeVisible();
+  await expect(page.getByTestId('terminal-suspend')).toHaveCount(0);
+  await expect(page.getByTestId('terminal-stop')).toBeVisible();
+
+  // Resume → back to Suspend.
+  await page.getByTestId('terminal-resume').click();
+  await expect(page.getByTestId('terminal-suspend')).toBeVisible();
+  await expect(page.getByTestId('terminal-resume')).toHaveCount(0);
+});

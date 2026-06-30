@@ -407,6 +407,42 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(toolCards.suffix(2).allSatisfy { $0.status == .done })
     }
 
+    func testControllerSuspendAndResumeRefreshTheRenderedSurface() async throws {
+        let controller = try makeController(workspaceRoot: try makeTempDirectory())
+        controller.terminalDraft = "read x; printf got:$x"
+        controller.runTerminalCommand()
+
+        // Drive suspend through the controller until it takes (the async run must reach the live PTY
+        // first). The rendered surface — not just the underlying model — must then reflect it, or the
+        // native pane shows a dead Suspend button that never becomes Resume. The `read` blocks with no
+        // output, so no event-driven refresh fires; only the controller calling refresh() after
+        // suspend can update the surface, so this would fail without that call.
+        var suspendedInSurface = false
+        for _ in 0..<300 {
+            controller.suspendTerminal()
+            if controller.surface.terminal.isSuspended { suspendedInSurface = true; break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(suspendedInSurface, "Controller.suspendTerminal must refresh the surface so the pane can render Resume.")
+        XCTAssertTrue(controller.surface.terminal.isRunning)
+        XCTAssertTrue(controller.surface.terminal.canResume)
+        XCTAssertFalse(controller.surface.terminal.canSuspend)
+
+        controller.resumeTerminal()
+        XCTAssertFalse(controller.surface.terminal.isSuspended, "Controller.resumeTerminal must refresh the surface back to running.")
+        XCTAssertTrue(controller.surface.terminal.canSuspend)
+
+        // Finish the command so the test does not leak a running PTY (Run sends input while running).
+        controller.terminalDraft = "hello\n"
+        controller.runTerminalCommand()
+        for _ in 0..<300 {
+            if !controller.surface.terminal.isRunning { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertFalse(controller.surface.terminal.isRunning)
+        XCTAssertFalse(controller.surface.terminal.isSuspended)
+    }
+
     private func makeController(
         workspaceRoot: URL,
         browserSessionPresenter: any DesktopBrowserSessionPresenting = NoopDesktopBrowserSessionPresenter()

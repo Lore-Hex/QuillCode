@@ -4,9 +4,19 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
     public var isVisible: Bool
     public var draft: String
     public var isRunning: Bool
+    public var isSuspended: Bool
     public var cwdLabel: String
     public var entries: [TerminalCommandSurface]
     public var emptyTitle: String
+
+    /// A running command can be paused (job control); a paused one can be resumed. Mutually exclusive.
+    public var canSuspend: Bool {
+        isRunning && !isSuspended
+    }
+
+    public var canResume: Bool {
+        isRunning && isSuspended
+    }
 
     public var canRun: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isRunning
@@ -36,6 +46,7 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
         self.isVisible = terminal.isVisible
         self.draft = terminal.draft
         self.isRunning = terminal.isRunning
+        self.isSuspended = terminal.isSuspended
         self.cwdLabel = cwd?.path ?? terminal.currentDirectoryPath ?? "No project"
         self.entries = terminal.entries.map(TerminalCommandSurface.init)
         self.emptyTitle = emptyTitle

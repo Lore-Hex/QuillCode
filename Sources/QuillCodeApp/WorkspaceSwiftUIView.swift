@@ -16,6 +16,8 @@ public struct QuillCodeWorkspaceView: View {
     public var onTerminalHistoryPrevious: () -> Void
     public var onTerminalHistoryNext: () -> Void
     public var onTerminalResize: (TerminalWindowSize) -> Void
+    public var onTerminalSuspend: () -> Void
+    public var onTerminalResume: () -> Void
     public var onOpenBrowserPreview: () -> Void
     public var onOpenBrowserSession: (() -> Void)?
     public var onAddBrowserComment: (String) -> Void
@@ -79,6 +81,8 @@ public struct QuillCodeWorkspaceView: View {
         onTerminalHistoryPrevious: @escaping () -> Void = {},
         onTerminalHistoryNext: @escaping () -> Void = {},
         onTerminalResize: @escaping (TerminalWindowSize) -> Void = { _ in },
+        onTerminalSuspend: @escaping () -> Void = {},
+        onTerminalResume: @escaping () -> Void = {},
         onOpenBrowserPreview: @escaping () -> Void,
         onOpenBrowserSession: (() -> Void)? = nil,
         onAddBrowserComment: @escaping (String) -> Void,
@@ -127,6 +131,8 @@ public struct QuillCodeWorkspaceView: View {
         self.onTerminalHistoryPrevious = onTerminalHistoryPrevious
         self.onTerminalHistoryNext = onTerminalHistoryNext
         self.onTerminalResize = onTerminalResize
+        self.onTerminalSuspend = onTerminalSuspend
+        self.onTerminalResume = onTerminalResume
         self.onOpenBrowserPreview = onOpenBrowserPreview
         self.onOpenBrowserSession = onOpenBrowserSession
         self.onAddBrowserComment = onAddBrowserComment
@@ -205,6 +211,8 @@ public struct QuillCodeWorkspaceView: View {
                     onTerminalHistoryPrevious: onTerminalHistoryPrevious,
                     onTerminalHistoryNext: onTerminalHistoryNext,
                     onTerminalResize: onTerminalResize,
+                    onTerminalSuspend: onTerminalSuspend,
+                    onTerminalResume: onTerminalResume,
                     onOpenBrowserPreview: onOpenBrowserPreview,
                     onOpenBrowserSession: onOpenBrowserSession,
                     onAddBrowserComment: onAddBrowserComment,

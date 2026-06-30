@@ -6,6 +6,8 @@ struct QuillCodeTerminalPaneView: View {
     @Binding var draft: String
     var onRun: () -> Void
     var onStop: () -> Void
+    var onSuspend: () -> Void = {}
+    var onResume: () -> Void = {}
     var onClear: () -> Void
     var onHistoryPrevious: () -> Void
     var onHistoryNext: () -> Void
@@ -39,8 +41,21 @@ struct QuillCodeTerminalPaneView: View {
                 .disabled(!terminal.canClear)
                 .accessibilityIdentifier("quillcode-terminal-clear")
             if terminal.isRunning {
-                ProgressView()
-                    .controlSize(.small)
+                if !terminal.isSuspended {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                if terminal.canResume {
+                    Button("Resume", action: onResume)
+                        .buttonStyle(QuillCodePressableButtonStyle())
+                        .quillCodeTextButtonTarget(minWidth: 64)
+                        .accessibilityIdentifier("quillcode-terminal-resume")
+                } else if terminal.canSuspend {
+                    Button("Suspend", action: onSuspend)
+                        .buttonStyle(QuillCodePressableButtonStyle())
+                        .quillCodeTextButtonTarget(minWidth: 64)
+                        .accessibilityIdentifier("quillcode-terminal-suspend")
+                }
                 Button("Stop", action: onStop)
                     .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 56))
                     .quillCodeFormActionTarget()

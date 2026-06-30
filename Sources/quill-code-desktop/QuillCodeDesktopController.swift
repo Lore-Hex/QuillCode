@@ -322,6 +322,18 @@ final class QuillCodeDesktopController: ObservableObject {
         terminalCoordinator.resizeTerminal(windowSize, model: model)
     }
 
+    func suspendTerminal() {
+        terminalCoordinator.suspendTerminal(model: model)
+        // Rebuild the published surface so the pane re-renders with the new isSuspended state
+        // (Resume replaces Suspend). isSuspended is a visible surface field, unlike resize.
+        refresh()
+    }
+
+    func resumeTerminal() {
+        terminalCoordinator.resumeTerminal(model: model)
+        refresh()
+    }
+
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {
         workspaceActionCoordinator.runReviewAction(action, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()

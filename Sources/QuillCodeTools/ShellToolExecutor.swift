@@ -36,6 +36,30 @@ public protocol ShellInteractiveSession: AnyObject, Sendable {
     func resize(to windowSize: PTYWindowSize) -> Bool
 
     func cancel()
+
+    /// Suspends the running command (terminal job control). Returns `false` if unsupported or not
+    /// applicable. Default: unsupported.
+    @discardableResult
+    func suspend() -> Bool
+
+    /// Resumes a suspended command. Returns `false` if unsupported or not currently suspended.
+    @discardableResult
+    func resume() -> Bool
+
+    /// Whether the command is currently suspended.
+    var isSuspended: Bool { get }
+}
+
+public extension ShellInteractiveSession {
+    // Job control is a PTY capability; pipe-backed and remote sessions do not support it, so they
+    // inherit these no-ops and report "not suspended".
+    @discardableResult
+    func suspend() -> Bool { false }
+
+    @discardableResult
+    func resume() -> Bool { false }
+
+    var isSuspended: Bool { false }
 }
 
 public final class ShellStreamingSession: ShellInteractiveSession, @unchecked Sendable {
