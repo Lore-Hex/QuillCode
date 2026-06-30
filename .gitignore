@@ -11,3 +11,7 @@ E2E/playwright/test-results/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+
+# Stray scratch/repro artifacts (single-letter names from ad-hoc testing)
+/t
+/t.swift

@@ -31,6 +31,73 @@ final class FileToolExecutorTests: XCTestCase {
         XCTAssertFalse(files.write(path: "../escape.txt", content: "no").ok)
     }
 
+    func testFileToolsRejectSymlinkEscapeOutsideWorkspace() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()  // a sibling dir, outside the workspace
+        try "secret".write(to: outside.appendingPathComponent("secret.txt"), atomically: true, encoding: .utf8)
+        // The agent could create such a symlink with `ln -s` via the shell, then try to read/write
+        // through it — standardizedFileURL would not catch it, but the symlink-resolved check must.
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        XCTAssertFalse(files.write(path: "escape/evil.txt", content: "pwned").ok, "write through a symlink escaping the workspace must be rejected")
+        XCTAssertFalse(files.read(path: "escape/secret.txt").ok, "read through a symlink escaping the workspace must be rejected")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: outside.appendingPathComponent("evil.txt").path),
+            "the rejected write must not have created a file outside the workspace"
+        )
+    }
+
+    func testFileToolsAllowSymlinkPointingInsideWorkspace() throws {
+        let root = try makeTempDirectory()
+        let realDir = root.appendingPathComponent("real")
+        try FileManager.default.createDirectory(at: realDir, withIntermediateDirectories: true)
+        // A symlink that stays inside the workspace is legitimate and must keep working.
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("link"),
+            withDestinationURL: realDir
+        )
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        XCTAssertTrue(files.write(path: "link/ok.txt", content: "fine\n").ok)
+        XCTAssertEqual(files.read(path: "real/ok.txt").stdout, "fine\n")
+    }
+
+    func testFileToolsRejectMidPathAndNestedSymlinkEscapes() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()
+        try FileManager.default.createDirectory(at: outside.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        let fm = FileManager.default
+
+        // Mid-path symlink: the symlink is not the first component (`link/sub/...`).
+        try fm.createSymbolicLink(at: root.appendingPathComponent("link"), withDestinationURL: outside)
+        // Nested chain: a -> b -> outside.
+        try fm.createSymbolicLink(at: root.appendingPathComponent("b"), withDestinationURL: outside)
+        try fm.createSymbolicLink(at: root.appendingPathComponent("a"), withDestinationURL: root.appendingPathComponent("b"))
+
+        let files = FileToolExecutor(workspaceRoot: root)
+        XCTAssertFalse(files.write(path: "link/sub/evil.txt", content: "x").ok, "mid-path symlink escape must be rejected")
+        XCTAssertFalse(files.write(path: "a/evil.txt", content: "x").ok, "nested symlink-chain escape must be rejected")
+        // The escapes wrote nothing outside.
+        XCTAssertFalse(fm.fileExists(atPath: outside.appendingPathComponent("sub/evil.txt").path))
+        XCTAssertFalse(fm.fileExists(atPath: outside.appendingPathComponent("evil.txt").path))
+    }
+
+    func testFileListAndSearchRejectSymlinkEscape() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()
+        try "secret".write(to: outside.appendingPathComponent("secret.txt"), atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("escape"), withDestinationURL: outside)
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        // list and search go through the same resolve() gate, so the escape is rejected there too.
+        XCTAssertFalse(files.list(path: "escape").ok, "listing a symlink dir escaping the workspace must be rejected")
+        XCTAssertFalse(files.search(query: "secret", path: "escape").ok, "searching through a symlink escape must be rejected")
+    }
+
     func testFileListReturnsBoundedWorkspaceRelativeEntries() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)
