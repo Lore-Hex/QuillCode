@@ -277,21 +277,10 @@ public struct FileToolExecutor: Sendable {
     }
 
     public func resolve(_ path: String) throws -> URL {
-        let candidate: URL
-        if path.hasPrefix("/") {
-            candidate = URL(fileURLWithPath: path)
-        } else {
-            candidate = workspaceRoot.appendingPathComponent(path)
-        }
-        let standardized = candidate.standardizedFileURL
-
-        // Enforce the shared workspace boundary: lexical (`..`-resolved) AND symlink-resolved, so a
-        // symlink inside the workspace pointing outside cannot let a write escape.
-        guard WorkspaceBoundary.isWithin(candidate, root: workspaceRoot) else {
+        guard let url = WorkspaceBoundary.safeURL(path, root: workspaceRoot) else {
             throw FileToolError.outsideWorkspace(path)
         }
-
-        return standardized
+        return url
     }
 
     private func scanSearchableFiles(

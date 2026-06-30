@@ -91,7 +91,7 @@ public struct PatchToolExecutor: Sendable {
             guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
                 continue
             }
-            let paths = pathsInDiffMetadataLine(line)
+            let paths = DiffMetadataPathParser.paths(in: line)
             for path in paths where isUnsafeDiffPath(path, workspaceRoot: workspaceRoot) {
                 return path
             }
@@ -99,26 +99,9 @@ public struct PatchToolExecutor: Sendable {
         return nil
     }
 
-    private static func pathsInDiffMetadataLine(_ line: String) -> [String] {
-        if line.hasPrefix("diff --git ") {
-            return line
-                .dropFirst("diff --git ".count)
-                .split(separator: " ")
-                .map(String.init)
-        }
-        return line
-            .dropFirst(4)
-            .split(separator: "\t")
-            .first
-            .map { [String($0)] } ?? []
-    }
-
     private static func isUnsafeDiffPath(_ rawPath: String, workspaceRoot: URL?) -> Bool {
         if rawPath == "/dev/null" { return false }
-        var path = rawPath
-        if path.hasPrefix("a/") || path.hasPrefix("b/") {
-            path.removeFirst(2)
-        }
+        let path = normalizedDiffPath(rawPath)
         // Lexical rejects (fast path, and the only check available for a remote patch).
         if path.hasPrefix("/") || path == ".." || path.hasPrefix("../") || path.contains("/../") {
             return true
@@ -126,9 +109,13 @@ public struct PatchToolExecutor: Sendable {
         // Local patch: also reject a target that escapes via a symlink inside the workspace, matching
         // FileToolExecutor / GitInputValidator. (Remote patches rely on the remote git apply.)
         if let workspaceRoot {
-            return !WorkspaceBoundary.isWithin(workspaceRoot.appendingPathComponent(path), root: workspaceRoot)
+            return WorkspaceBoundary.safeRelativePath(path, root: workspaceRoot) == nil
         }
         return false
+    }
+
+    private static func normalizedDiffPath(_ rawPath: String) -> String {
+        DiffMetadataPathParser.normalizedPath(rawPath)
     }
 
     private func shellQuote(_ value: String) -> String {
