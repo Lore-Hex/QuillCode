@@ -32,12 +32,14 @@ extension QuillCodeWorkspaceModel {
         onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
     ) async {
         let submissionPlan = WorkspaceComposerSubmissionPlanner.plan(draft: composer.draft)
+        let draftThreadID = root.selectedThreadID
         let prompt: String
         switch submissionPlan {
         case .ignore:
             return
         case .slash(let command, let originalPrompt):
             composer.draft = ""
+            threadDrafts = ComposerDraftStore.cleared(draftThreadID, drafts: threadDrafts)
             setLastError(nil)
             await handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
             return
@@ -54,6 +56,7 @@ extension QuillCodeWorkspaceModel {
         updateThreadFromAgentRun(sendStart.thread)
         threadPersistence.save(sendStart.thread)
         applyComposerSendLifecycle(sendStart.lifecycle)
+        threadDrafts = ComposerDraftStore.cleared(draftThreadID, drafts: threadDrafts)
         onStarted?()
 
         let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
