@@ -110,7 +110,9 @@ public struct QuillCodeWorkspaceView: View {
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
-        onPreviewWorktreePrune: @escaping () async -> WorkspaceWorktreePrunePreview = { WorkspaceWorktreePrunePreview() },
+        onPreviewWorktreePrune: @escaping () async -> WorkspaceWorktreePrunePreview = {
+            WorkspaceWorktreePrunePreview()
+        },
         onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void = { _ in },
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
         onRevertTurn: @escaping (UUID) -> Void = { _ in },

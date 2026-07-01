@@ -54,6 +54,42 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
+    func testTopBarSurfacesLiveModelCapabilityMetadata() throws {
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: AppConfig(defaultModel: "acme/vision-code"),
+            topBar: TopBarState(model: "acme/vision-code")
+        ))
+        model.setModelCatalog([
+            .init(
+                id: "acme/vision-code",
+                provider: "acme",
+                displayName: "Vision Code",
+                category: "Coding",
+                capabilities: ModelCapabilities(
+                    contextWindowTokens: 128_000,
+                    inputPricePerMillionTokens: 0.25,
+                    outputPricePerMillionTokens: 1.25,
+                    inputModalities: ["text", "image"],
+                    outputModalities: ["text"],
+                    capabilityTags: ["tools", "json mode"],
+                    status: "available",
+                    summary: "Vision coding model"
+                )
+            )
+        ])
+
+        let topBar = model.surface().topBar
+        let option = try XCTUnwrap(topBar.modelCategories.flatMap(\.models).first { $0.id == "acme/vision-code" })
+
+        XCTAssertEqual(option.metadataSummary, "Vision coding model")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Context" }?.value, "128K")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Pricing" }?.value, "$0.25 in / $1.25 out per 1M")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Modalities" }?.value, "text, image -> text")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Capabilities" }?.value, "tools, json mode")
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "128K image").flatMap(\.models).map(\.id), ["acme/vision-code"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "json mode available").flatMap(\.models).map(\.id), ["acme/vision-code"])
+    }
+
     func testSurfaceKeepsUnknownSelectedModelVisible() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(defaultModel: "custom/edge-model"),

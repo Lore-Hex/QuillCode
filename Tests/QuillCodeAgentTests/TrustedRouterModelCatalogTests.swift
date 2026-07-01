@@ -1,8 +1,18 @@
+import Foundation
 import XCTest
 import QuillCodeCore
 @testable import QuillCodeAgent
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 final class TrustedRouterModelCatalogTests: XCTestCase {
+    override func tearDown() {
+        ModelCatalogURLProtocol.reset()
+        super.tearDown()
+    }
+
     func testModelCatalogMapsProvidersAndCategories() {
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "trustedrouter/fast" })
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "tr/synth" })
@@ -41,4 +51,89 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         XCTAssertFalse(catalog.models.contains { $0.displayName.contains("Fusion") })
         XCTAssertTrue(catalog.models.contains { $0.id == "acme/code-pro" })
     }
+
+    func testCatalogFetchDecodesLiveCapabilityMetadata() async throws {
+        ModelCatalogURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/v1/models")
+            XCTAssertEqual(request.httpMethod, "GET")
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data("""
+                {
+                  "data": [
+                    {
+                      "id": "acme/vision-code",
+                      "display_name": "Vision Code",
+                      "context_window": "128,000",
+                      "pricing": { "prompt": "0.00000025", "completion": 0.00000125 },
+                      "input_modalities": ["text", "image"],
+                      "output_modalities": "text",
+                      "supported_parameters": { "tools": true, "json_mode": true, "legacy": false },
+                      "status": "available",
+                      "description": "Vision coding model"
+                    }
+                  ]
+                }
+                """.utf8)
+            )
+        }
+        let client = TrustedRouterModelCatalogClient(
+            apiKey: "sk-test",
+            baseURL: "https://api.trustedrouter.test/v1",
+            urlSession: ModelCatalogURLProtocol.session()
+        )
+
+        let catalog = try await client.fetch()
+        let model = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code" })
+
+        XCTAssertEqual(model.displayName, "Vision Code")
+        XCTAssertEqual(model.category, "acme")
+        XCTAssertEqual(model.capabilities.contextWindowTokens, 128_000)
+        XCTAssertEqual(model.capabilities.inputPricePerMillionTokens, 0.25)
+        XCTAssertEqual(model.capabilities.outputPricePerMillionTokens, 1.25)
+        XCTAssertEqual(model.capabilities.inputModalities, ["text", "image"])
+        XCTAssertEqual(model.capabilities.outputModalities, ["text"])
+        XCTAssertEqual(model.capabilities.capabilityTags, ["json mode", "tools"])
+        XCTAssertEqual(model.capabilities.status, "available")
+        XCTAssertEqual(model.capabilities.summary, "Vision coding model")
+    }
+}
+
+private final class ModelCatalogURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    static func session() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ModelCatalogURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    static func reset() {
+        handler = nil
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }
