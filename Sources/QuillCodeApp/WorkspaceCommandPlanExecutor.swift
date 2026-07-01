@@ -66,17 +66,17 @@ extension QuillCodeWorkspaceModel {
         case .toggleActivitySection(let section):
             toggleActivitySection(section)
             return true
-        case .openActivitySource(let path):
+        case .openActivitySource(let path, let lineNumber):
             runToolCall(
                 ToolCall(
                     name: ToolDefinition.fileRead.name,
-                    argumentsJSON: ToolArguments.json(["path": path])
+                    argumentsJSON: Self.activitySourceReadArguments(path: path, lineNumber: lineNumber)
                 ),
                 workspaceRoot: workspaceRoot
             )
             return true
-        case .editActivitySource(let path):
-            setDraft("Edit instruction source \(path): ")
+        case .editActivitySource(let path, let lineNumber):
+            setDraft(Self.activitySourceEditDraft(path: path, lineNumber: lineNumber))
             return true
         case .resolveInstructionDiagnostic(let id):
             return prepareResolveInstructionDiagnostic(id: id)
@@ -97,6 +97,24 @@ extension QuillCodeWorkspaceModel {
         case .action(let action):
             return runWorkspaceCommandAction(action)
         }
+    }
+
+    private static func activitySourceReadArguments(path: String, lineNumber: Int?) -> String {
+        guard let lineNumber else {
+            return ToolArguments.json(["path": path])
+        }
+        return ToolArguments.json([
+            "limit": 120,
+            "offset": lineNumber,
+            "path": path
+        ])
+    }
+
+    private static func activitySourceEditDraft(path: String, lineNumber: Int?) -> String {
+        guard let lineNumber else {
+            return "Edit instruction source \(path): "
+        }
+        return "Edit instruction source \(path):\(lineNumber): "
     }
 
     private func prepareResolveInstructionDiagnostic(id: String) -> Bool {

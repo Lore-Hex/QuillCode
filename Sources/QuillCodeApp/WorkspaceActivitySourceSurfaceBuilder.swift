@@ -16,12 +16,12 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                 actions: [
                     ActivityItemActionSurface(
                         title: "Open",
-                        commandID: "activity-source-open:\(instruction.path)",
+                        commandID: WorkspaceActivitySourceCommand.openCommandID(path: instruction.path),
                         kind: "open"
                     ),
                     ActivityItemActionSurface(
                         title: "Edit",
-                        commandID: "activity-source-edit:\(instruction.path)",
+                        commandID: WorkspaceActivitySourceCommand.editCommandID(path: instruction.path),
                         kind: "edit"
                     )
                 ]
@@ -31,13 +31,17 @@ enum WorkspaceActivitySourceSurfaceBuilder {
             .diagnostics(for: instructions)
             .filter { !dismissedInstructionDiagnosticIDs.contains($0.id) }
             .map { diagnostic in
-                ActivityItemSurface(
+                let sourceReference = diagnostic.sourceReferences.first
+                return ActivityItemSurface(
                     id: diagnostic.id,
                     title: diagnostic.title,
                     detail: diagnostic.detail,
                     kind: "instruction-diagnostic",
                     statusLabel: diagnostic.statusLabel,
-                    actions: [
+                    actions: diagnosticActions(
+                        diagnostic: diagnostic,
+                        sourceReference: sourceReference
+                    ) + [
                         ActivityItemActionSurface(
                             title: "Resolve",
                             commandID: "activity-instruction-resolve:\(diagnostic.id)",
@@ -66,5 +70,30 @@ enum WorkspaceActivitySourceSurfaceBuilder {
             )
         }
         return Array(instructionItems + diagnosticItems + memoryItems)
+    }
+
+    private static func diagnosticActions(
+        diagnostic: ProjectInstructionDiagnostic,
+        sourceReference: ProjectInstructionDiagnosticSourceReference?
+    ) -> [ActivityItemActionSurface] {
+        guard let sourceReference else { return [] }
+        return [
+            ActivityItemActionSurface(
+                title: "Open Source",
+                commandID: WorkspaceActivitySourceCommand.openCommandID(
+                    path: sourceReference.path,
+                    lineNumber: sourceReference.lineNumber
+                ),
+                kind: "open"
+            ),
+            ActivityItemActionSurface(
+                title: "Edit Source",
+                commandID: WorkspaceActivitySourceCommand.editCommandID(
+                    path: sourceReference.path,
+                    lineNumber: sourceReference.lineNumber
+                ),
+                kind: "edit"
+            )
+        ]
     }
 }
