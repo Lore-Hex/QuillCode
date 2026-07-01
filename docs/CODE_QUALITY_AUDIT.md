@@ -12571,3 +12571,57 @@ Remaining risk:
 - The next B+ parity hotspot is `ParityInteractionTargetGateTests.swift`, and
   the next B+ E2E hotspot is `command-palette.spec.ts`. They should receive the
   same ownership split and deduplication treatment next.
+
+## 2026-07-01 Interaction Target Parity Gate Split
+
+Overall grade after this slice: **A+ interaction target parity architecture,
+A+ rendered hit-target contract architecture, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `ParityInteractionTargetGateTests.swift` as the
+last B+ hotspot inside the Swift parity module. The file mixed Playwright audit
+contract requirements, rendered HTML primitive semantics, command routing,
+critical target registry coverage, responsive target layout, dynamic contract
+normalization, and Swift source-audit fixtures. This pass split those concerns
+into focused gate files and registered every new test in the focused-suite
+manifest.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| HTML interaction audit contract gates | A+ | Names, control coverage, active layers, clearance, sampling, semantic contracts, and tactile contracts are grouped together. |
+| HTML primitive hit-target gates | A+ | Default classes, semantic vocabulary, emitted attributes, and shared target families are isolated from rendered-flow checks. |
+| Rendered command routing gates | A+ | Dead rendered command target detection stays in one focused harness-routing gate. |
+| Critical target registry gates | A+ | Primary surfaces, risky compact controls, edge-click flows, and semantic/tactile fixtures are separated. |
+| Responsive rendered target gates | A+ | Clearance tokens, transcript find layout, dynamic normalization, and Activity contracts are grouped by rendered responsiveness. |
+| HTML source audit gates | A+ | Swift renderer primitive usage and raw shared-target semantic fixture coverage are isolated. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityHTMLInteractionAuditContractGateTests.swift` | A+ | Focused Playwright audit contract checks. |
+| `Tests/QuillCodeParityTests/ParityHTMLPrimitiveHitTargetGateTests.swift` | A+ | Focused rendered primitive semantic checks. |
+| `Tests/QuillCodeParityTests/ParityRenderedCommandRoutingGateTests.swift` | A+ | Focused rendered command routing checks. |
+| `Tests/QuillCodeParityTests/ParityRenderedCriticalTargetRegistryGateTests.swift` | A+ | Focused critical registry and edge-click coverage checks. |
+| `Tests/QuillCodeParityTests/ParityRenderedResponsiveTargetGateTests.swift` | A+ | Focused responsive and dynamic target contract checks. |
+| `Tests/QuillCodeParityTests/ParityHTMLSourceInteractionTargetGateTests.swift` | A+ | Focused Swift HTML source-audit fixture checks. |
+| `Tests/QuillCodeParityTests/ParityInteractionTargetTextSupport.swift` | A+ | Shared Playwright/harness text loading removes duplicated file IO. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest now tracks every interaction-target split gate. |
+
+Code quality changes:
+
+- Replaced the broad 529-line interaction target parity file with six
+  single-responsibility gate files plus one shared text-loader support helper.
+- Registered interaction-target gates in the focused-suite manifest; the old
+  broad file had no manifest entry.
+- Reused `QuillCodeParityTestCase.assertSource(...containsAll:)` for concise
+  contract checks instead of repeated long XCTest messages.
+- Regenerated the deterministic file/module grade matrix; every new
+  interaction-target split file grades A+ 100 with no automated issues.
+
+Remaining risk:
+
+- The Swift parity module no longer has a B+ hotspot. The next repo-wide B+
+  target is `E2E/playwright/tests/command-palette.spec.ts`, followed by several
+  A- test/source files with high duplication or long lines.

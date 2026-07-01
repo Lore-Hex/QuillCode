@@ -325,6 +325,38 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityNativePrimaryChromeHitTargetGateTests.swift", testNames: [
             "testNativePrimaryChromeKeepsSemanticHitTargets"
         ]),
+        Suite(fileName: "ParityHTMLInteractionAuditContractGateTests.swift", testNames: [
+            "testHTMLInteractionAuditRequiresNamesControlsAndLayers",
+            "testHTMLInteractionAuditRequiresClearanceRegistriesAndSamples",
+            "testHTMLInteractionAuditRequiresSemanticAndTactileContracts"
+        ]),
+        Suite(fileName: "ParityHTMLPrimitiveHitTargetGateTests.swift", testNames: [
+            "testHTMLButtonPrimitiveDefaultsToSharedHitTargetClass",
+            "testHTMLPrimitivesExposeSemanticTargetVocabulary",
+            "testHTMLPrimitivesEmitSemanticTargetAttributes",
+            "testHTMLPrimitivesRecognizeEverySharedTargetClass"
+        ]),
+        Suite(fileName: "ParityRenderedCommandRoutingGateTests.swift", testNames: [
+            "testHarnessAuditsVisibleCommandTargetsForRouting"
+        ]),
+        Suite(fileName: "ParityRenderedCriticalTargetRegistryGateTests.swift", testNames: [
+            "testRenderedCriticalTargetRegistryCoversPrimarySurfaces",
+            "testRenderedCriticalTargetRegistryCoversRiskySmallControls",
+            "testRenderedCriticalTargetRegistryCoversNearEdgeFlows",
+            "testRenderedCriticalTargetRegistryIncludesSemanticFixtures"
+        ]),
+        Suite(fileName: "ParityRenderedResponsiveTargetGateTests.swift", testNames: [
+            "testRenderedHarnessUsesNamedClearanceTokensForDenseActionClusters",
+            "testFindBarUsesResponsiveTargetPreservingLayout",
+            "testHarnessNormalizesDynamicClickTargetContracts",
+            "testHarnessDeclaresActivityTargetContracts"
+        ]),
+        Suite(fileName: "ParityHTMLSourceInteractionTargetGateTests.swift", testNames: [
+            "testHTMLRenderersUseSharedClickTargetPrimitives",
+            "testRenderedHTMLPrimitiveCallSitesDeclareExplicitHitTargetKinds",
+            "testHTMLSourceAuditRequiresSemanticKindForRawSharedTargets",
+            "testHTMLSourceAuditAcceptsRawSharedTargetsWithSemanticKind"
+        ]),
         Suite(fileName: "ParitySearchDialogGateTests.swift", testNames: [
             "testNativeSearchDialogsKeepLocalTypingState"
         ]),
