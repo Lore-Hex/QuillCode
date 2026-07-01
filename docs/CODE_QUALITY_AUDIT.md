@@ -13096,3 +13096,41 @@ Validation:
 
 - `swift test --filter 'WorkspaceMemoryEngineTests|WorkspaceMemoryWorkflowTests|WorkspaceMemoryIntegrationTests|ParityWorkspaceMemorySupportGateTests|ParityWorkspaceMemoryIntegrationGateTests|ParityWorkspaceMemoryModelGateTests'`
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Static Command Catalog Helper Pass
+
+Overall grade after this slice: **A+ static command catalog with explicit
+command-construction helpers**.
+
+This pass targets the command palette's static command catalog, which carried
+dozens of repeated `WorkspaceCommandSurface` initializers. The repetition made
+the file noisy and raised the risk that future commands would drift on shortcut
+or category wiring.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | The app module remains A+; `WorkspaceCommandStaticCatalog.swift` is no longer one of the app module's lowest files. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceCommandStaticCatalog.swift` | A | A+ | Replaces repeated initializer blocks with local command and shortcut helpers. |
+
+Code quality changes:
+
+- Added a local `Command` alias so the catalog reads in domain terms.
+- Added `command` and `shortcut` helpers that centralize shortcut lookup,
+  category defaults, keywords, and enabled-state wiring.
+- Added local category aliases in each section, keeping command definitions
+  focused on IDs, titles, search keywords, and availability.
+- Updated the browser adapter parity gate so it checks the visible-session
+  command ID rather than a specific initializer spelling.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'WorkspaceCommandSurfaceBuilderTests|QuillCodeWorkspaceViewCommandPlannerTests|ParityWorkspaceCommandSurfaceBuilderGateTests|ParityDesktopBrowserAdapterGateTests|WorkspaceRenderedCommandRoutingParityTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
