@@ -11,7 +11,7 @@ struct TerminalScreenBuffer {
     static let maxCols = 1_000
     static let maxCursorParameter = 1_001
 
-    var lines: [[Character]] = [[]]
+    var lines: [[TerminalScreenCell]] = [[]]
     var row = 0
     var col = 0
     var savedCursor: (row: Int, col: Int)?
@@ -19,7 +19,7 @@ struct TerminalScreenBuffer {
     var savedMainBuffer: BufferSnapshot?
 
     struct BufferSnapshot {
-        var lines: [[Character]]
+        var lines: [[TerminalScreenCell]]
         var row: Int
         var col: Int
         var savedCursor: (row: Int, col: Int)?
@@ -54,13 +54,21 @@ struct TerminalScreenBuffer {
     }
 
     mutating func put(_ character: Character) {
-        if col < lines[row].count {
-            lines[row][col] = character
-        } else {
-            while lines[row].count < col { lines[row].append(" ") }
-            lines[row].append(character)
+        let width = TerminalScreenCellWidth.width(of: character)
+        guard width > 0 else {
+            appendCombiningCharacter(character)
+            return
         }
-        col += 1
+
+        ensureColumn(col)
+        clearCellCluster(at: col)
+        lines[row][col] = .content(character)
+        if width == 2, col < Self.maxCols {
+            ensureColumn(col + 1)
+            clearCellCluster(at: col + 1)
+            lines[row][col + 1] = .continuation
+        }
+        col = clampCol(col + width)
     }
 
     /// Handles an escape sequence beginning at `start` (where `scalars[start] == ESC`). Applies the
@@ -138,6 +146,6 @@ struct TerminalScreenBuffer {
     }
 
     func text() -> String {
-        lines.map { String($0) }.joined(separator: "\n")
+        lines.map(TerminalScreenLineText.render).joined(separator: "\n")
     }
 }

@@ -178,6 +178,20 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("\u{1B}[33m\u{2713} ok\u{1B}[0m"), "\u{2713} ok")
     }
 
+    func testWideCharactersAdvanceByTwoTerminalCells() {
+        XCTAssertEqual(render("界X\u{1B}[1;3HY"), "界Y")
+        XCTAssertEqual(render("\u{1F680}X\u{1B}[1;3HY"), "\u{1F680}Y")
+    }
+
+    func testWideCharacterOverwriteClearsContinuationCell() {
+        XCTAssertEqual(render("界X\rA"), "A X")
+        XCTAssertEqual(render("\u{1F680}X\rA"), "A X")
+    }
+
+    func testCombiningMarksDoNotAdvanceCursor() {
+        XCTAssertEqual(render("e\u{0301}X\u{1B}[1;2HY"), "e\u{0301}Y")
+    }
+
     func testIsIdempotentOnCleanText() {
         let once = render("\u{1B}[31mred\u{1B}[0m\r\u{1B}[Kdone")
         XCTAssertEqual(render(once), once)
