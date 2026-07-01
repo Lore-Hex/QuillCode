@@ -105,6 +105,61 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render(firstFrame + secondFrame), "PID CPU MEM\n101  9  2\n102  8  4")
     }
 
+    func testScrollRegionLineFeedScrollsOnlyTheRegion() {
+        let raw = [
+            "header",
+            "row1",
+            "row2",
+            "footer"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[3;1H"
+            + "\nnew"
+
+        XCTAssertEqual(render(raw), "header\nrow2\nnew\nfooter")
+    }
+
+    func testReverseIndexScrollsDownInsideRegion() {
+        let raw = [
+            "header",
+            "row1",
+            "row2",
+            "footer"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[2;1H"
+            + "\u{1B}Mnew"
+
+        XCTAssertEqual(render(raw), "header\nnew\nrow1\nfooter")
+    }
+
+    func testCSIExplicitScrollUpAndDownUseCurrentRegion() {
+        let base = [
+            "header",
+            "row1",
+            "row2",
+            "footer"
+        ].joined(separator: "\n")
+
+        XCTAssertEqual(render(base + "\u{1B}[2;3r\u{1B}[S"), "header\nrow2\n\nfooter")
+        XCTAssertEqual(render(base + "\u{1B}[2;3r\u{1B}[T"), "header\n\nrow1\nfooter")
+    }
+
+    func testInsertAndDeleteLineOperateInsideTheVisibleBuffer() {
+        XCTAssertEqual(render("one\ntwo\nthree\u{1B}[2;1H\u{1B}[Lnew"), "one\nnew\ntwo")
+        XCTAssertEqual(render("one\ntwo\nthree\u{1B}[2;1H\u{1B}[M"), "one\nthree\n")
+    }
+
+    func testAlternateScreenExitPreservesLatestFrameForTranscriptScrollback() {
+        let raw = "before\n"
+            + "\u{1B}[?1049h"
+            + "ALT\nFRAME"
+            + "\u{1B}[?1049l"
+            + " after"
+
+        XCTAssertEqual(render(raw), "before\nALT\nFRAME after")
+    }
+
     func testStripsBellAndOSCTitleSequences() {
         XCTAssertEqual(render("ding\u{07}dong"), "dingdong")
         // OSC set-title terminated by BEL.

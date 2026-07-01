@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Terminal Scroll Buffer Parity
+
+Overall grade after this slice: **A+ terminal renderer, stronger Codex-style integrated terminal parity**.
+
+This pass moved `TerminalOutputRenderer` beyond cursor-addressed progress redraws into the next documented terminal parity gap while preserving the existing architecture: raw PTY bytes remain on `TerminalCommandState`, and only `TerminalCommandSurface` consumes the cleaned display text.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Scroll regions | `ESC[<top>;<bottom>r`, line-feed-at-bottom, reverse-index, and CSI scroll commands were stripped, so many TUI/status panes rendered stale rows instead of scrolling their active region. | The renderer now models bounded scroll regions, line-feed scrolling at the region bottom, reverse-index scrolling at the region top, and explicit `CSI S`/`CSI T` scroll up/down. |
+| Insert/delete line | `CSI L` and `CSI M` were stripped, so status panes that insert/delete rows drifted from the final screen state. | Insert/delete line now operate inside the current scroll region or visible buffer, preserving a useful final frame. |
+| Alternate screen | `CSI ?1049h/l` was stripped, so alternate-screen programs either leaked control intent or lost the useful latest frame. | Entering the alternate screen now isolates the frame, and exit appends the latest alternate frame back into transcript scrollback before subsequent output. |
+| Renderer structure | `TerminalOutputRenderer.swift` owned the whole parser and buffer, making new terminal semantics hard to review in one file. | `TerminalOutputRenderer.swift` is now a 28-line **A+** facade. `TerminalScreenBuffer*` extensions split parsing, erase controls, scroll regions, line mutation, scrolling, and alternate-screen behavior; all grade **A+**. |
+| Tests | Terminal tests covered cursor positioning, erase sequences, and overflow clamps. | Focused tests now pin scroll-region LF, reverse-index, explicit scroll up/down, insert/delete line, alternate-screen frame preservation, and app-surface rendering. |
+| Architecture gate | No parity test kept the terminal parser split once new semantics were added. | `ParityTerminalRendererGateTests` now requires focused terminal source files and behavior coverage, and the focused parity manifest includes the new gate. |
+
+Verification:
+
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests'`
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|ParityTerminalRendererGateTests|ParityFocusedSuiteManifestTests'`
+- `swift test` (1977 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is still not a full terminal emulator. Wide/combining-cell measurement, mouse tracking, attributes, deep alternate-screen history, and full curses semantics remain separate parity work.
+
 ## 2026-07-01 File Tool Boundary Split
 
 Overall grade after this slice: **A+ file tool facade, A/A+ file tool cluster, A+ tools source module average**.

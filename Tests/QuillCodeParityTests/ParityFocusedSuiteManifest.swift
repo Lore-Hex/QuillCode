@@ -11,6 +11,10 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityToolGateTests.swift", testNames: [
             "testToolArgumentJSONSerializationLivesInCore"
         ]),
+        Suite(fileName: "ParityTerminalRendererGateTests.swift", testNames: [
+            "testTerminalRendererKeepsEscapeSemanticsInFocusedFiles",
+            "testTerminalRendererBehaviorTestsCoverScrollAndAlternateScreenParity"
+        ]),
         Suite(fileName: "ParityDesktopGateTests.swift", testNames: [
             "testDesktopDefinesNativeMenuBarWidget"
         ]),
