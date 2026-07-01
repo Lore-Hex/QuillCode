@@ -177,6 +177,14 @@ final class ParityGitPullRequestToolGateTests: QuillCodeParityTestCase {
             routerTestsText.contains("testToolRouterRoutesPullRequestReviewTools"),
             "PR tool-router coverage should stay beside the PR executor tests."
         )
+        let splitSuiteText = [
+            baseTestsText,
+            editTestsText,
+            reviewTestsText,
+            mergeTestsText,
+            routerTestsText
+        ].joined(separator: "\n")
+        Self.assertSource(splitSuiteText, excludes: "final class GitHubPullRequestToolExecutorTests")
     }
 
     func testGitToolCoverageLivesOutsideMixedToolSuite() throws {

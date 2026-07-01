@@ -1215,7 +1215,7 @@ This pass addressed the remaining production tools hotspot from the generated re
 
 Verification:
 
-- `swift test --filter 'GitHubPullRequestToolExecutorTests|GitHubPullRequestMetadataResolverTests|ParityToolGateTests'`
+- `swift test --filter 'GitHubPullRequest|GitHubPullRequestMetadataResolverTests|ParityGitPullRequestToolGateTests'`
 - `swift test` (1968 tests, 1 skipped, 0 failures)
 - `git diff --check`
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
@@ -8759,8 +8759,8 @@ Overall grade after this slice: **A test ownership, A fixture reuse, A merge-con
 `ToolTests.swift` still mixed unrelated file, patch, git, GitHub PR, worktree, and router behavior after the shell split. GitHub PR command construction changes are frequent and carry their own input-validation and fake-`gh` fixture needs, so keeping them in the catch-all suite made future PR workflow work harder to review.
 
 What changed:
-- Added `GitHubPullRequestToolExecutorTests` for PR create/view/checks/diff/checkout/reviewer/label/comment/review/merge behavior, shared PR input/output helper coverage, and PR-specific router dispatch.
-- Replaced repeated fake-`gh` setup and argument-file parsing with one small `GitHubCLIFixture`.
+- Initially added `GitHubPullRequestToolExecutorTests` for PR create/view/checks/diff/checkout/reviewer/label/comment/review/merge behavior, shared PR input/output helper coverage, and PR-specific router dispatch. The 2026-07-01 tools test pass later split this bucket into focused command-family suites.
+- Replaced repeated fake-`gh` setup and argument-file parsing with one small fixture; the 2026-07-01 split later renamed and narrowed that helper as `GitHubPullRequestCLIFixture`.
 - Removed the same PR-specific tests from `ToolTests.swift`.
 - Added a parity gate so GitHub PR coverage does not drift back into the mixed tool suite.
 
@@ -10221,7 +10221,7 @@ Current strict grades:
 - `QuillCodeToolsTests` ownership: **A**. Each current suite now names a tool family or protocol boundary instead of relying on a broad catch-all.
 
 Remaining risk:
-- `MCPStdioProberTests.swift` and `GitHubPullRequestToolExecutorTests.swift` are still the largest tools test files. They are focused enough to keep for now, but should be split by protocol probing and PR command family if they grow materially.
+- This risk was resolved by the 2026-07-01 tools test pass: GitHub PR tests are now split by command family, and MCP stdio setup uses a shared fixture. The remaining tools-test quality targets are ordinary A/A+ cleanup rather than broad ownership problems.
 
 ## 2026-06-25 Browser Model API Extension
 
@@ -12743,3 +12743,61 @@ Remaining risk:
   are A- files with long lines or high test duplication, especially broad
   Playwright specs such as `real-world-actions.spec.ts`, `composer.spec.ts`, and
   `sidebar.spec.ts`.
+
+## 2026-07-01 Tools Test Quality Pass
+
+Overall grade after this slice: **A+ QuillCodeToolsTests module,
+A+ GitHub PR test ownership, A+ PTY test readability**.
+
+This slice rebased onto the existing GitHub pull request test split on `main`
+and kept that structure intact instead of adding a duplicate suite. The new work
+in this pass focuses on the remaining repeated MCP and PTY test scaffolding,
+plus a small parity assertion that rejects reintroducing the old broad PR test
+class.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `test:QuillCodeToolsTests` | A+ | 26 files, 3436 lines, average score 99. Lowest files are now A/A+, not broad A- PR/PTY buckets. |
+| GitHub PR tool suites | A+ | Existing base, edit, review, merge, router, metadata, and support coverage remains independently owned. |
+| PTY process tests | A+ | Shared session factory, event collector, and retry helper removed repeated async process loops. |
+| MCP stdio prober tests | A | Shared pipe/handshake fixture reduced repeated lifecycle setup while keeping protocol-message scenarios explicit. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestBaseToolExecutorTests.swift` | A+ | Focused create/read/checkout coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestEditToolExecutorTests.swift` | A+ | Focused reviewer, label, and comment mutation coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestReviewToolExecutorTests.swift` | A+ | Focused review, line comment, reply, and thread API coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestMergeToolExecutorTests.swift` | A+ | Focused PR merge method coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestToolRouterTests.swift` | A+ | Focused tool-router dispatch coverage for PR tools. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestTestSupport.swift` | A+ | Shared fake-`gh` fixture and argument capture. |
+| `Tests/QuillCodeToolsTests/PTYProcessSessionTests.swift` | A+ | Async PTY scenarios now use shared process/session helpers. |
+| `Tests/QuillCodeToolsTests/MCPStdioProberTests.swift` | A | Protocol fixture removes repeated pipe setup; remaining duplication is explicit MCP JSON scenario data. |
+
+Code quality changes:
+
+- Preserved the focused GitHub PR command-family suites already on `main` and
+  added a parity assertion that rejects the old broad class name.
+- Extracted MCP stdio pipe/handshake setup into `MCPStdioProbeFixture`.
+- Extracted PTY session creation, event collection, process finish waiting, and
+  retry polling into shared helpers.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; `PTYProcessSessionTests.swift`
+  now grades A+ 100, GitHub PR split tests remain A+, and
+  `MCPStdioProberTests.swift` improved from A- to A.
+
+Validation:
+
+- `swift test --filter GitHubPullRequest`
+- `swift test --filter ParityGitPullRequestToolGateTests`
+- `swift test --filter MCPStdioProberTests`
+- `swift test --filter PTYProcessSessionTests`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- The tools test module is A+ and no longer has broad A- PR/PTY files. The next
+  repo-wide quality targets remain broad Playwright specs and a few A- app/parity
+  files with long lines or intentionally repetitive source-audit checks.

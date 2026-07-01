@@ -2,6 +2,57 @@ import Foundation
 import XCTest
 @testable import QuillCodeTools
 
+private final class MCPStdioProbeFixture {
+    private let input = Pipe()
+    private let output = Pipe()
+
+    var prober: MCPStdioProber {
+        MCPStdioProber(
+            standardInput: input.fileHandleForWriting,
+            standardOutput: output.fileHandleForReading
+        )
+    }
+
+    func write(_ object: [String: Any]) throws {
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject(object))
+    }
+
+    func writeInitialize(
+        id: Int = 1,
+        capabilities: [String: Any] = ["tools": [:]],
+        serverInfo: [String: Any] = ["name": "Fixture MCP", "version": "1.0.0"]
+    ) throws {
+        try write([
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": [
+                "protocolVersion": "2024-11-05",
+                "serverInfo": serverInfo,
+                "capabilities": capabilities
+            ]
+        ])
+    }
+
+    func writeTools(id: Int = 2, _ tools: [[String: Any]]) throws {
+        try write([
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": ["tools": tools]
+        ])
+    }
+
+    func finishWriting() throws {
+        try output.fileHandleForWriting.close()
+    }
+
+    func close() {
+        try? input.fileHandleForWriting.close()
+        try? input.fileHandleForReading.close()
+        try? output.fileHandleForWriting.close()
+        try? output.fileHandleForReading.close()
+    }
+}
+
 final class MCPStdioProberTests: XCTestCase {
     func testCodecEncodesAndParsesContentLengthMessages() throws {
         let first = try MCPStdioMessageCodec.encodeJSONObject([
@@ -32,67 +83,39 @@ final class MCPStdioProberTests: XCTestCase {
     }
 
     func testProbeReadsInitializeAndToolsListResponses() throws {
-        let input = Pipe()
-        let output = Pipe()
-        defer {
-            try? input.fileHandleForWriting.close()
-            try? input.fileHandleForReading.close()
-            try? output.fileHandleForWriting.close()
-            try? output.fileHandleForReading.close()
-        }
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
 
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": [
-                "protocolVersion": "2024-11-05",
-                "serverInfo": [
-                    "name": "Fixture MCP",
-                    "version": "1.0.0"
-                ],
-                "capabilities": [
-                    "tools": [:]
-                ]
-            ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": [
-                "tools": [
-                    [
-                        "name": "read_file",
-                        "description": "Read a file",
-                        "inputSchema": [
-                            "type": "object",
-                            "properties": [
-                                "path": ["type": "string"],
-                                "encoding": ["type": "string"]
-                            ],
-                            "required": ["path"]
-                        ]
+        try fixture.writeInitialize()
+        try fixture.writeTools([
+            [
+                "name": "read_file",
+                "description": "Read a file",
+                "inputSchema": [
+                    "type": "object",
+                    "properties": [
+                        "path": ["type": "string"],
+                        "encoding": ["type": "string"]
                     ],
-                    [
-                        "name": "write_file",
-                        "inputSchema": [
-                            "type": "object",
-                            "properties": [
-                                "path": ["type": "string"],
-                                "content": ["type": "string"],
-                                "overwrite": ["type": "boolean"]
-                            ],
-                            "required": ["path", "content"]
-                        ]
-                    ]
+                    "required": ["path"]
+                ]
+            ],
+            [
+                "name": "write_file",
+                "inputSchema": [
+                    "type": "object",
+                    "properties": [
+                        "path": ["type": "string"],
+                        "content": ["type": "string"],
+                        "overwrite": ["type": "boolean"]
+                    ],
+                    "required": ["path", "content"]
                 ]
             ]
-        ]))
-        try output.fileHandleForWriting.close()
+        ])
+        try fixture.finishWriting()
 
-        let result = try MCPStdioProber(
-            standardInput: input.fileHandleForWriting,
-            standardOutput: output.fileHandleForReading
-        ).probe(timeout: 1.0)
+        let result = try fixture.prober.probe(timeout: 1.0)
 
         XCTAssertEqual(result.protocolVersion, "2024-11-05")
         XCTAssertEqual(result.serverName, "Fixture MCP")
@@ -105,47 +128,25 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(result.toolDescriptors[0].schemaSummary, "required: path:string; optional: encoding:string")
         XCTAssertEqual(result.toolDescriptors[1].requiredArguments, ["content", "path"])
         XCTAssertEqual(result.toolDescriptors[1].optionalArguments, ["overwrite"])
-        XCTAssertEqual(result.toolDescriptors[1].schemaSummary, "required: content:string, path:string; optional: overwrite:boolean")
+        XCTAssertEqual(
+            result.toolDescriptors[1].schemaSummary,
+            "required: content:string, path:string; optional: overwrite:boolean"
+        )
         XCTAssertEqual(result.resourceNames, [])
         XCTAssertEqual(result.promptNames, [])
     }
 
     func testProbeReadsResourcesAndPromptsWhenAdvertised() throws {
-        let input = Pipe()
-        let output = Pipe()
-        defer {
-            try? input.fileHandleForWriting.close()
-            try? input.fileHandleForReading.close()
-            try? output.fileHandleForWriting.close()
-            try? output.fileHandleForReading.close()
-        }
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
 
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": [
-                "protocolVersion": "2024-11-05",
-                "serverInfo": [
-                    "name": "Fixture MCP",
-                    "version": "1.0.0"
-                ],
-                "capabilities": [
-                    "tools": [:],
-                    "resources": [:],
-                    "prompts": [:]
-                ]
-            ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": [
-                "tools": [
-                    ["name": "read_file"]
-                ]
-            ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+        try fixture.writeInitialize(capabilities: [
+            "tools": [:],
+            "resources": [:],
+            "prompts": [:]
+        ])
+        try fixture.writeTools([["name": "read_file"]])
+        try fixture.write([
             "jsonrpc": "2.0",
             "id": 3,
             "result": [
@@ -154,8 +155,8 @@ final class MCPStdioProberTests: XCTestCase {
                     ["uri": "file:///workspace/package.json"]
                 ]
             ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+        ])
+        try fixture.write([
             "jsonrpc": "2.0",
             "id": 4,
             "result": [
@@ -163,13 +164,10 @@ final class MCPStdioProberTests: XCTestCase {
                     ["name": "summarize_project"]
                 ]
             ]
-        ]))
-        try output.fileHandleForWriting.close()
+        ])
+        try fixture.finishWriting()
 
-        let result = try MCPStdioProber(
-            standardInput: input.fileHandleForWriting,
-            standardOutput: output.fileHandleForReading
-        ).probe(timeout: 1.0)
+        let result = try fixture.prober.probe(timeout: 1.0)
 
         XCTAssertEqual(result.toolNames, ["read_file"])
         XCTAssertEqual(result.resourceNames, ["README", "file:///workspace/package.json"])
@@ -178,32 +176,12 @@ final class MCPStdioProberTests: XCTestCase {
     }
 
     func testCallToolSendsToolsCallAndParsesTextContent() throws {
-        let input = Pipe()
-        let output = Pipe()
-        defer {
-            try? input.fileHandleForWriting.close()
-            try? input.fileHandleForReading.close()
-            try? output.fileHandleForWriting.close()
-            try? output.fileHandleForReading.close()
-        }
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
 
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": [
-                "protocolVersion": "2024-11-05",
-                "serverInfo": ["name": "Fixture MCP"],
-                "capabilities": ["tools": [:]]
-            ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": [
-                "tools": [["name": "read_file"]]
-            ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+        try fixture.writeInitialize(serverInfo: ["name": "Fixture MCP"])
+        try fixture.writeTools([["name": "read_file"]])
+        try fixture.write([
             "jsonrpc": "2.0",
             "id": 3,
             "result": [
@@ -212,13 +190,10 @@ final class MCPStdioProberTests: XCTestCase {
                 ],
                 "isError": false
             ]
-        ]))
-        try output.fileHandleForWriting.close()
+        ])
+        try fixture.finishWriting()
 
-        let prober = MCPStdioProber(
-            standardInput: input.fileHandleForWriting,
-            standardOutput: output.fileHandleForReading
-        )
+        let prober = fixture.prober
         _ = try prober.probe(timeout: 1.0)
         let result = try prober.callTool(
             toolName: "read_file",
@@ -231,30 +206,15 @@ final class MCPStdioProberTests: XCTestCase {
     }
 
     func testReadResourceSendsResourcesReadAndParsesTextContent() throws {
-        let input = Pipe()
-        let output = Pipe()
-        defer {
-            try? input.fileHandleForWriting.close()
-            try? input.fileHandleForReading.close()
-            try? output.fileHandleForWriting.close()
-            try? output.fileHandleForReading.close()
-        }
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
 
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": [
-                "protocolVersion": "2024-11-05",
-                "serverInfo": ["name": "Fixture MCP"],
-                "capabilities": ["tools": [:], "resources": [:]]
-            ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": ["tools": []]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+        try fixture.writeInitialize(
+            capabilities: ["tools": [:], "resources": [:]],
+            serverInfo: ["name": "Fixture MCP"]
+        )
+        try fixture.writeTools([])
+        try fixture.write([
             "jsonrpc": "2.0",
             "id": 3,
             "result": [
@@ -262,8 +222,8 @@ final class MCPStdioProberTests: XCTestCase {
                     ["name": "README", "uri": "file:///workspace/README.md"]
                 ]
             ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+        ])
+        try fixture.write([
             "jsonrpc": "2.0",
             "id": 4,
             "result": [
@@ -271,13 +231,10 @@ final class MCPStdioProberTests: XCTestCase {
                     ["uri": "file:///workspace/README.md", "mimeType": "text/markdown", "text": "# README"]
                 ]
             ]
-        ]))
-        try output.fileHandleForWriting.close()
+        ])
+        try fixture.finishWriting()
 
-        let prober = MCPStdioProber(
-            standardInput: input.fileHandleForWriting,
-            standardOutput: output.fileHandleForReading
-        )
+        let prober = fixture.prober
         let probe = try prober.probe(timeout: 1.0)
         let result = try prober.readResource(uri: "file:///workspace/README.md", timeout: 1.0)
 
@@ -289,30 +246,15 @@ final class MCPStdioProberTests: XCTestCase {
     }
 
     func testGetPromptSendsPromptsGetAndParsesMessages() throws {
-        let input = Pipe()
-        let output = Pipe()
-        defer {
-            try? input.fileHandleForWriting.close()
-            try? input.fileHandleForReading.close()
-            try? output.fileHandleForWriting.close()
-            try? output.fileHandleForReading.close()
-        }
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
 
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": [
-                "protocolVersion": "2024-11-05",
-                "serverInfo": ["name": "Fixture MCP"],
-                "capabilities": ["tools": [:], "prompts": [:]]
-            ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": ["tools": []]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+        try fixture.writeInitialize(
+            capabilities: ["tools": [:], "prompts": [:]],
+            serverInfo: ["name": "Fixture MCP"]
+        )
+        try fixture.writeTools([])
+        try fixture.write([
             "jsonrpc": "2.0",
             "id": 3,
             "result": [
@@ -320,8 +262,8 @@ final class MCPStdioProberTests: XCTestCase {
                     ["name": "summarize_project"]
                 ]
             ]
-        ]))
-        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+        ])
+        try fixture.write([
             "jsonrpc": "2.0",
             "id": 4,
             "result": [
@@ -333,13 +275,10 @@ final class MCPStdioProberTests: XCTestCase {
                     ]
                 ]
             ]
-        ]))
-        try output.fileHandleForWriting.close()
+        ])
+        try fixture.finishWriting()
 
-        let prober = MCPStdioProber(
-            standardInput: input.fileHandleForWriting,
-            standardOutput: output.fileHandleForReading
-        )
+        let prober = fixture.prober
         _ = try prober.probe(timeout: 1.0)
         let result = try prober.getPrompt(name: "summarize_project", timeout: 1.0)
 
