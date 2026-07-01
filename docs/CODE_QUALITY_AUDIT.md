@@ -20,7 +20,7 @@ Verification:
 Residual risk:
 
 - `WorkspaceModelThreads.swift` is still A- because context fork/compact, draft switching, and lifecycle operations are all thread-owned but dense. The next clean seam would be moving context continuation helpers into a focused extension if that area changes again.
-- Remaining B+ production debt is now concentrated in `WorkspaceAutomationEngine.swift`, `QuillCodeNativeHitTargetCatalog.swift`, `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`, `Agent.swift`, and `GitHubPullRequestToolExecutor.swift`.
+- After the native hit-target split below, remaining B+ production debt is concentrated in `WorkspaceAutomationEngine.swift`, `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`, `QuillCodeTopBarView.swift`, `Agent.swift`, and `GitHubPullRequestToolExecutor.swift`.
 
 ## 2026-06-30 Immediate Agent Action Test Split
 
@@ -50,6 +50,43 @@ Verification:
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
 
 Residual quality debt in `test:QuillCodeAgentTests` is now concentrated in separate parser/streaming/final-answer suites, not the immediate-action behavior that protects one-turn commands like `whoami`, disk checks, file creation, and OpenClaw discovery.
+
+## 2026-06-30 Native Hit-Target Catalog Split
+
+Overall grade after this slice: **A+ native hit-target catalog files, A+ source module average, A/A+ click-target architecture**.
+
+This pass graded the active production hotspots after the pull-request review split and took the most UX-relevant one first: `QuillCodeNativeHitTargetCatalog.swift`. The old file was a 299-line B+ data contract that mixed five concerns:
+
+- required surface-family/kind/action/focus policies
+- design-system target contracts
+- persistent and transient surface contracts
+- command-derived target placement
+- visible secondary-pane conditional targets
+
+The contracts now follow those ownership seams:
+
+| File | Responsibility | Grade |
+| --- | --- | --- |
+| `QuillCodeNativeHitTargetCatalog.swift` | Tiny surface-contract aggregator. | A+ |
+| `QuillCodeNativeHitTargetPolicyCatalog.swift` | Required command IDs, required focus targets, and per-family policy matrix. | A+ |
+| `QuillCodeNativeHitTargetContractFactory.swift` | Shared contract factory and native test-id normalization. | A+ |
+| `QuillCodeNativeHitTargetDesignContracts.swift` | Design-system semantic target inventory. | A+ |
+| `QuillCodeNativeHitTargetCanonicalContracts.swift` | Persistent and canonical transient workspace target inventory. | A+ |
+| `QuillCodeNativeHitTargetCommandContracts.swift` | Workspace command to native target placement mapping. | A+ |
+| `QuillCodeNativeHitTargetPaneContracts.swift` | Conditional target inventory for visible secondary panes and thinking traces. | A+ |
+
+The parity source gate now reads the split files and still proves the same smoke-contract invariants: stable selectors, command IDs, surface-family policies, focus targets, canonical transient contracts, and conditional pane coverage. Behavioral coverage stayed unchanged; `QuillCodeNativeHitTargetAuditTests` still verifies the generated contracts and click probes end to end.
+
+Verification targets:
+
+- `swift test --filter QuillCodeNativeHitTargetAuditTests`
+- `swift test --filter ParityNativeInteractionContractGateTests`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- `QuillCodeNativeHitTargetCanonicalContracts.swift` is intentionally a long but simple inventory file. It is A+ by the deterministic grader, but if canonical transient coverage grows much further the next seam should be a split by surface family rather than a denser table.
+- The next production hotspots are unrelated ownership areas: `WorkspaceModelThreads.swift`, `WorkspaceAutomationEngine.swift`, and remote GitHub PR command construction. They should stay separate review slices.
 
 ## 2026-06-30 Computer Use Test Split
 
