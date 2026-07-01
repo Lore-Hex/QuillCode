@@ -117,6 +117,7 @@ public extension QuillCodeWorkspaceModel {
             instructions: activeSources.instructions,
             memories: activeSources.memories,
             modelCatalog: root.modelCatalog,
+            modelCatalogStatus: root.modelCatalogStatus,
             defaultModelID: root.config.defaultModel,
             favoriteModelIDs: root.config.favoriteModels,
             recentThreads: root.threads,
@@ -195,7 +196,8 @@ public extension QuillCodeWorkspaceModel {
                 config: root.config,
                 hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
                 runtimeIssue: runtimeIssue,
-                computerUseStatus: computerUse
+                computerUseStatus: computerUse,
+                modelCatalogStatus: root.modelCatalogStatus
             ),
             runtimeIssue: runtimeIssue,
             lastError: lastError

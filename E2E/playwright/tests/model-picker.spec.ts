@@ -6,6 +6,7 @@ test('mock harness searches and selects models from the composer', async ({ page
 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expect(page.getByTestId('model-catalog-status')).toHaveText('Bundled catalog');
   await expect(page.getByTestId('model-result-count')).toHaveText('6 models available');
   await expect(page.getByTestId('model-option').first()).toContainText('Socrates 1.1');
   await expect(page.getByTestId('model-option-summary').first()).toContainText('Leading frontier model');

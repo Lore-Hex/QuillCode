@@ -58,6 +58,7 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
             .fetchModelCatalog(config: AppConfig())
 
         XCTAssertEqual(catalog.defaultModelID, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(catalog.status.source, .bundled)
         XCTAssertTrue(catalog.models.contains { $0.id == "trustedrouter/fast" })
         XCTAssertTrue(catalog.models.contains { $0.id == TrustedRouterDefaults.synthModel })
         XCTAssertTrue(catalog.models.contains { $0.id == "z-ai/glm-5.2" })

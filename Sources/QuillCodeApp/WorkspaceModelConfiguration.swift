@@ -49,6 +49,13 @@ extension QuillCodeWorkspaceModel {
     public func setModelCatalog(_ models: [ModelInfo]) {
         guard let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: models) else { return }
         root.modelCatalog = catalog
+        root.modelCatalogStatus = .bundled
+    }
+
+    public func setModelCatalog(_ catalog: TrustedRouterModelCatalog) {
+        guard let models = WorkspaceConfigurationEngine.normalizedCatalog(from: catalog.models) else { return }
+        root.modelCatalog = models
+        root.modelCatalogStatus = catalog.status
     }
 
     public func applySettings(config: AppConfig, trustedRouterAPIKeyConfigured: Bool) {

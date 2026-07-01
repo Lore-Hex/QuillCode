@@ -106,6 +106,11 @@ struct QuillCodeModelPickerView: View {
             Text("Search provider, category, model, or state")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
+            Text(topBar.modelCatalogStatusLabel)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(QuillCodePalette.blue)
+                .lineLimit(1)
+                .help(topBar.modelCatalogStatusDetail ?? topBar.modelCatalogStatusLabel)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

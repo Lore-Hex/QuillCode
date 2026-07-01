@@ -14,6 +14,7 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.authMode, .oauth)
         XCTAssertEqual(settings.signInURL, TrustedRouterDefaults.loopbackCallbackURL)
         XCTAssertEqual(settings.apiKeyStatusLabel, "Not signed in")
+        XCTAssertEqual(settings.modelCatalogStatusLabel, "Bundled catalog")
         XCTAssertEqual(settings.computerUseStatus.message, "Needs Screen Recording + Accessibility")
         XCTAssertEqual(settings.computerUseSetupCommand.id, "computer-use-setup")
         XCTAssertEqual(settings.computerUseScreenRecordingCommand.id, "computer-use-open-screen-recording")
@@ -47,6 +48,20 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.apiKeyStatusLabel, "Signed in")
         XCTAssertEqual(settings.loginStatusLabel, "Signed in as quill@example.com")
         XCTAssertEqual(settings.accountLabel, "quill@example.com")
+    }
+
+    func testSettingsSurfaceShowsModelCatalogFallbackDiagnostics() {
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(),
+            hasStoredAPIKey: true,
+            modelCatalogStatus: .fallbackAfterFailure("HTTP 503")
+        )
+
+        XCTAssertEqual(settings.modelCatalogStatusLabel, "Bundled fallback · refresh failed")
+        XCTAssertEqual(
+            settings.modelCatalogStatusDetail,
+            "The latest TrustedRouter model refresh failed: HTTP 503"
+        )
     }
 
     func testSettingsSurfaceDecodesOlderComputerUsePayload() throws {

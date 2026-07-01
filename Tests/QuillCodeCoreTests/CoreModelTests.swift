@@ -305,6 +305,27 @@ final class CoreModelTests: XCTestCase {
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
     }
 
+    func testModelCatalogStatusLabelsFreshStaleAndFallbackStates() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let immediate = ModelCatalogStatus.liveTrustedRouter(fetchedAt: now.addingTimeInterval(-30))
+        let fresh = ModelCatalogStatus.liveTrustedRouter(fetchedAt: now.addingTimeInterval(-120))
+        let stale = ModelCatalogStatus.liveTrustedRouter(fetchedAt: now.addingTimeInterval(-7_200))
+        let fallback = ModelCatalogStatus.fallbackAfterFailure(
+            "  HTTP 500\nprovider down  ",
+            fetchedAt: now
+        )
+
+        XCTAssertEqual(immediate.statusLabel(now: now), "Live TrustedRouter catalog · just now")
+        XCTAssertEqual(fresh.statusLabel(now: now), "Live TrustedRouter catalog · 2m ago")
+        XCTAssertEqual(stale.statusLabel(now: now), "Live TrustedRouter catalog · stale 2h ago")
+        XCTAssertEqual(fallback.statusLabel(now: now), "Bundled fallback · refresh failed")
+        XCTAssertEqual(
+            fallback.detailLabel(now: now),
+            "The latest TrustedRouter model refresh failed: HTTP 500 provider down"
+        )
+        XCTAssertEqual(ModelCatalogStatus.bundled.statusLabel(now: now), "Bundled catalog")
+    }
+
     func testProjectConnectionParsesSSHAddresses() throws {
         let scpStyle = try XCTUnwrap(ProjectConnection.parseSSH("quill@feather.local:/srv/quill"))
         XCTAssertEqual(scpStyle, .ssh(path: "/srv/quill", host: "feather.local", user: "quill"))

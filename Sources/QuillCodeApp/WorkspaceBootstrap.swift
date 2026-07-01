@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
 
@@ -92,8 +93,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             .delete(QuillSecretKeys.trustedRouterAPIKey)
     }
 
-    public func fetchModelCatalog(config: AppConfig) async -> [ModelInfo] {
-        await runtimeFactory.fetchModelCatalog(config: config).models
+    public func fetchModelCatalog(config: AppConfig) async -> TrustedRouterModelCatalog {
+        await runtimeFactory.fetchModelCatalog(config: config)
     }
 
     private static func hasTrustedRouterAPIKey(secretStore: FileSecretStore) -> Bool {
