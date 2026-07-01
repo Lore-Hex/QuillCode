@@ -120,6 +120,27 @@ test('mock harness dismisses instruction diagnostics from Activity review and so
   await expect(page.getByTestId('activity-source-section')).not.toContainText('Conflicting instruction intent');
 });
 
+test('mock harness applies instruction quick fixes from Activity review', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const harness = window as unknown as { __quillCodeTestAddInstructionConflict: () => void };
+    harness.__quillCodeTestAddInstructionConflict();
+  });
+
+  const conflict = page.getByTestId('activity-instruction-conflict');
+  await expect(conflict).toContainText('Keep requires tests');
+  await expect(conflict).toContainText('Keep avoids tests');
+
+  await conflict.getByTestId('activity-source-action').filter({ hasText: 'Keep requires tests' }).click();
+
+  await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.apply_patch' })).toBeVisible();
+  await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.git.diff' })).toBeVisible();
+  await expect(page.getByTestId('message').filter({ hasText: 'Applied the instruction quick fix.' })).toBeVisible();
+  await expect(page.getByTestId('activity-instruction-conflict')).toHaveCount(0);
+  await expect(page.getByTestId('activity-source-section')).not.toContainText('Conflicting instruction intent');
+});
+
 test('mock harness shows context pressure banner and compacts or forks from latest turn', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto(harnessURL());

@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Instruction Conflict Quick-Fix Quality Pass
+
+Overall grade after this slice: **source modules remain A+; the touched Instruction Review quick-fix path is A+**.
+
+This pass targeted the next Instruction Review parity gap after durable resolved-by-edit auditing: exact two-source semantic
+conflicts could be opened, edited, dismissed, or drafted for resolution, but the Activity row could not apply the obvious
+"keep this rule, remove the opposing rule" fix directly.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Quick-fix ownership | Resolve always drafted an edit prompt, even for trivial two-line conflicts. | `ProjectInstructionDiagnosticPatchPlanner` owns the narrow quick-fix planner and only emits patches for deterministic two-reference semantic conflicts. |
+| Safety | A direct fix path risked stale line edits or hidden mutation. | The planner bounds generated paths, verifies the loaded instruction line and excerpt, and returns no patch when anything is stale, duplicated, ambiguous, or unsupported. |
+| Auditability | The Activity action could have bypassed the normal tool trail. | Quick fixes run through `host.apply_patch`, then the normal follow-up `host.git.diff`; successful edits refresh project context so resolved-by-edit audit records are produced. |
+| Harness parity | The HTML harness only mocked Resolve/Dismiss. | Playwright now exercises `Keep ...` actions, mocked patch cards, diagnostic removal, and assistant confirmation. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceCommandPlanTests|WorkspaceCommandPlanExecutorTests|WorkspaceActivityInstructionIntegrationTests'`
+- `npx playwright test tests/workspace-state.spec.ts --grep "instruction"`
+
+Residual risk:
+
+- The direct patch path intentionally supports only exact two-reference semantic conflicts. Duplicate-scope, nested-override,
+  remote, stale, and multi-file cases still use Resolve draft/edit until their UX can stay equally auditable.
+
 ## 2026-07-01 TrustedRouter Provider Health Summary Pass
 
 Overall grade after this slice: **source modules remain A+; the touched model-catalog diagnostics path is A+**.
@@ -1215,7 +1240,8 @@ Verification:
 
 Residual risk:
 
-- Resolve still prepares an edit draft instead of automatically applying a rule-file patch. Native editor jump-to-line and diff-assisted fixes remain the next Instruction Review parity work.
+- This earlier pass only added resolved-by-edit auditing. The later Instruction Conflict Quick-Fix pass adds audited direct
+  patches for exact two-reference conflicts; broader diagnostic shapes still use Resolve draft/edit.
 
 ## 2026-07-01 Static Secondary Pane Renderer Split
 
@@ -1262,7 +1288,8 @@ Verification:
 
 Residual risk:
 
-- Resolve still prepares an edit draft instead of directly applying a rule-file patch; that is intentional for now because instruction changes should remain explicit file edits with normal review/tool audit. Diff-assisted fixes and native editor jump-to-line remain future Instruction Review polish.
+- This earlier pass intentionally kept Resolve as draft/edit. The later Instruction Conflict Quick-Fix pass adds audited
+  direct patches for exact two-reference conflicts only; broader diagnostics still need richer diff-assisted UX.
 
 ## 2026-07-01 Terminal Wide Cell Parity
 
