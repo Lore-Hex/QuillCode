@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Integration Gate Split
+
+Overall grade after this slice: **A+ focused workspace integration parity gates, shared parity assertions**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceIntegrationGateTests.swift`, a 179-line B+ gate that
+mixed ten unrelated integration ownership checks. The split preserves the same source-boundary contracts while giving
+each failure a clear subsystem owner:
+
+| Area | Before | After |
+| --- | --- | --- |
+| MCP integration | Shared the broad workspace integration gate. | `ParityWorkspaceMCPIntegrationGateTests.swift` owns focused MCP integration placement. |
+| Review integration | Shared the broad workspace integration gate. | `ParityWorkspaceReviewIntegrationGateTests.swift` owns review diff/action/comment placement. |
+| Feedback, artifacts, runtime issues | Shared the broad workspace integration gate. | `ParityWorkspaceFeedbackRuntimeIntegrationGateTests.swift` owns feedback/artifact/runtime factory placement. |
+| Thread, slash, local environment | Shared the broad workspace integration gate. | `ParityWorkspaceThreadSlashIntegrationGateTests.swift` owns thread/slash/local-env integration placement. |
+| Automation and terminal | Shared the broad workspace integration gate. | `ParityWorkspaceAutomationTerminalIntegrationGateTests.swift` owns automation and terminal integration placement. |
+| Repeated assertions | One-off `XCTAssertTrue/False(source.contains(...))` lines. | `QuillCodeParityTestCase.assertSource(... containsAll/excludesAll ...)` keeps failure text consistent and cuts duplication. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspace(MCPIntegration|ReviewIntegration|FeedbackRuntimeIntegration|ThreadSlashIntegration|AutomationTerminalIntegration)GateTests|ParityGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new integration runtime scenarios.
+- The next highest B+ parity hotspots start with agent, workspace model, workspace memory, and automation gates.
+
 ## 2026-07-01 Workspace Surface Gate Split
 
 Overall grade after this slice: **A+ workspace surface parity gate files, clearer native/surface ownership**.
