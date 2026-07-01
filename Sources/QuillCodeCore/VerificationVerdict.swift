@@ -21,6 +21,11 @@ public enum VerificationVerdict: Sendable, Hashable {
 public enum VerificationResultParser {
     public static func parse(_ result: ToolResult) -> VerificationVerdict {
         if result.ok { return .passed }
+        // The shell executor reports a timeout in `error` ("Command timed out after Ns.") — surface it
+        // distinctly, since a timeout is not the same as failing checks.
+        if let error = result.error, error.range(of: "timed out", options: .caseInsensitive) != nil {
+            return .timedOut
+        }
         // 127 is the shell's "command not found"; treat it as unrunnable, not a real failure.
         if result.exitCode == 127 { return .commandNotFound }
         return .failed(count: failureCount(in: result.stdout + "\n" + result.stderr))
