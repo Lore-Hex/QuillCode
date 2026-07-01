@@ -42,10 +42,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
             contentsOf: Self.packageRoot().appendingPathComponent("scripts/packaged-macos-smoke.sh"),
             encoding: .utf8
         )
-        let clickProbeValidator = try String(
-            contentsOf: Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
-            encoding: .utf8
-        )
+        let clickProbeValidator = try Self.nativeClickProbeValidatorText()
 
         XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments)"))
         XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeLaunch.schedule(windowRequest)"))
