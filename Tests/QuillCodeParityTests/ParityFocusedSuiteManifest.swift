@@ -313,7 +313,7 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceSurfaceDelegatesCommandPaletteContract"
         ]),
         Suite(fileName: "ParityPlaywrightCommandPaletteGateTests.swift", testNames: [
-            "testPlaywrightCommandPaletteAndGitFlowsStayInFocusedSpec"
+            "testPlaywrightCommandPaletteFlowsStaySplitByWorkflow"
         ]),
         Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesSheetPresentation",

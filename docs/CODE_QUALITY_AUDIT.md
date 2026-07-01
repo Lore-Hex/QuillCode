@@ -12652,3 +12652,57 @@ Remaining risk:
 - The Swift parity module no longer has a B+ hotspot. The next repo-wide B+
   target is `E2E/playwright/tests/command-palette.spec.ts`, followed by several
   A- test/source files with high duplication or long lines.
+
+## 2026-07-01 Command Palette E2E Split
+
+Overall grade after this slice: **A+ command-palette E2E ownership,
+A+ Playwright helper reuse, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `E2E/playwright/tests/command-palette.spec.ts`
+as the next B+ hotspot after the Swift parity splits. The file mixed base
+palette behavior, keyboard navigation, worktree lifecycle dialogs, pull request
+actions, pull request review drafting, and local environment execution. This
+pass split those concerns into workflow-owned Playwright specs and updated the
+parity gate so command-palette coverage remains focused.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Command palette core E2E | A+ | Base open/focus/close, action/slash scoping, keyboard ranking, and keyboard navigation stay together. |
+| Command palette worktree E2E | A+ | Worktree list, prune, preview retry, create/open/remove, and choice retry flows stay together. |
+| Command palette pull request E2E | A+ | PR create/fill/view/checks/diff and draft command visibility stay together. |
+| Command palette PR review E2E | A+ | Review-pane launch, inline note selection/editing, review submission, and thread listing stay together. |
+| Command palette local environment E2E | A+ | Project action discovery, redaction, and shell dispatch stay isolated from git flows. |
+| Playwright harness helpers | A+ | Shared palette open/closed and selected-result helpers remove repeated selector boilerplate. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `E2E/playwright/tests/command-palette-core.spec.ts` | A+ | Focused base palette and keyboard behavior. |
+| `E2E/playwright/tests/command-palette-worktrees.spec.ts` | A+ | Focused worktree command and dialog behavior. |
+| `E2E/playwright/tests/command-palette-pull-requests.spec.ts` | A+ | Focused pull request command behavior. |
+| `E2E/playwright/tests/command-palette-pr-review.spec.ts` | A+ | Focused pull request review workflow behavior. |
+| `E2E/playwright/tests/command-palette-local-env.spec.ts` | A+ | Focused local environment action behavior. |
+| `E2E/playwright/tests/harness-helpers.ts` | A+ | Shared command-palette helper surface. |
+| `Tests/QuillCodeParityTests/ParityPlaywrightCommandPaletteGateTests.swift` | A+ | Split-spec parity contract. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest tracks the renamed command-palette parity gate. |
+
+Code quality changes:
+
+- Replaced the 443-line command-palette E2E bucket file with five
+  single-responsibility specs.
+- Added reusable Playwright helpers for opening/closing the command palette and
+  asserting selected command rows.
+- Updated the Swift parity gate to require the focused command-palette specs and
+  to keep broad `core.spec.ts` free of those command-palette workflow tests.
+- Regenerated the deterministic file/module grade matrix; every new
+  command-palette split file grades A+.
+
+Remaining risk:
+
+- The repo no longer has any B+ automated-grade files. The next quality targets
+  are A- files with long lines or high test duplication, especially broad
+  Playwright specs such as `real-world-actions.spec.ts`, `composer.spec.ts`, and
+  `sidebar.spec.ts`.
