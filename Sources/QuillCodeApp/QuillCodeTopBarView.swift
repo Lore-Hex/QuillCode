@@ -1,9 +1,6 @@
 import SwiftUI
-import QuillCodeCore
 
 struct QuillCodeTopBarView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var topBar: TopBarSurface
     var commands: [WorkspaceCommandSurface]
     var leadingInset: CGFloat = 0
@@ -19,7 +16,11 @@ struct QuillCodeTopBarView: View {
 
                 Spacer(minLength: 8)
 
-                topBarActions
+                QuillCodeTopBarActionClusterView(
+                    topBar: topBar,
+                    commands: commands,
+                    onCommand: onCommand
+                )
                     .layoutPriority(2)
             }
             .padding(.horizontal, 14)
@@ -27,15 +28,15 @@ struct QuillCodeTopBarView: View {
 
             if showsActivityHairline {
                 Rectangle()
-                    .fill(activityHairlineColor)
+                    .fill(TopBarToneColor.activityHairline(for: topBar))
                     .frame(height: 1)
                     .accessibilityHidden(true)
             }
         }
         .background(QuillCodePalette.background)
-        .help(topBarHelp)
+        .help(topBar.topBarHelpText)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(topBarAccessibilityLabel)
+        .accessibilityLabel(topBar.topBarAccessibilityLabel)
     }
 
     @ViewBuilder
@@ -52,320 +53,18 @@ struct QuillCodeTopBarView: View {
     }
 
     private var identityGroup: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(topBar.primaryTitle)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.text)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Text(topBar.subtitle)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            if let branchStatusLabel = topBar.branchStatusLabel {
-                Text(branchStatusLabel)
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(QuillCodePalette.background.opacity(0.6))
-                    )
-                    // The branch is already announced via the top bar's combined label.
-                    .accessibilityHidden(true)
-            }
-
-            if let usageStatusLabel = topBar.usageStatusLabel {
-                Text(usageStatusLabel)
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(QuillCodePalette.background.opacity(0.6))
-                    )
-                    // The usage is already announced via the top bar's combined label.
-                    .accessibilityHidden(true)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var agentStatus: TopBarStatusPresentation {
-        topBar.agentStatusPresentation
-    }
-
-    private var runtimeIssue: TopBarRuntimeIssuePresentation? {
-        topBar.runtimeIssuePresentation
+        QuillCodeTopBarIdentityView(topBar: topBar)
     }
 
     private var showsActivityHairline: Bool {
-        agentStatus.showsIndicator || runtimeIssue != nil
-    }
-
-    private var activityHairlineColor: Color {
-        if let runtimeIssue {
-            return runtimeIssueColor(for: runtimeIssue.tone)
-        }
-        return statusColor(for: agentStatus.tone)
-    }
-
-    private var topBarHelp: String {
-        var parts = [topBar.subtitle, agentStatus.accessibilityLabel]
-        if let runtimeIssue {
-            parts.append("Issue: \(runtimeIssue.label)")
-        }
-        return parts.joined(separator: ". ")
-    }
-
-    private var topBarAccessibilityLabel: String {
-        var label = "\(topBar.primaryTitle), \(topBar.subtitle), \(agentStatus.accessibilityLabel)"
-        if let branchStatusLabel = topBar.branchStatusLabel {
-            label += ", branch: \(branchStatusLabel)"
-        }
-        if let usageStatusLabel = topBar.usageStatusLabel {
-            label += ", token usage: \(usageStatusLabel)"
-        }
-        if let runtimeIssue {
-            label += ", issue: \(runtimeIssue.label)"
-        }
-        return label
-    }
-
-    private func statusColor(for tone: TopBarStatusTone) -> Color {
-        switch tone {
-        case .failed:
-            return QuillCodePalette.red
-        case .running:
-            return QuillCodePalette.yellow
-        case .stopped:
-            return QuillCodePalette.muted
-        case .idle:
-            return QuillCodePalette.green
-        }
-    }
-
-    private func runtimeIssueColor(for tone: TopBarRuntimeIssueTone) -> Color {
-        switch tone {
-        case .error:
-            return QuillCodePalette.red
-        case .warning:
-            return QuillCodePalette.yellow
-        }
-    }
-
-    private var overflowCommands: [WorkspaceCommandSurface] {
-        TopBarOverflowCommandCatalog.commands(
-            from: commands,
-            showsComputerUseSetup: topBar.showsComputerUseSetup
-        )
-    }
-
-    private var activeStopCommand: WorkspaceCommandSurface? {
-        commands.first { $0.id == "stop-all" && $0.isEnabled }
-    }
-
-    private var topBarActions: some View {
-        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-            if let activeStopCommand {
-                stopButton(activeStopCommand)
-                    .transition(reduceMotion ? .identity : .opacity.combined(with: .scale(scale: 0.94)))
-            }
-            commandMenu
-        }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: activeStopCommand?.id)
+        topBar.showsActivityHairline
     }
 
     private var navigationControls: some View {
-        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-            navigationButton(
-                commandID: "workspace-back",
-                systemImage: "chevron.left",
-                accessibilityLabel: "Back",
-                fallbackEnabled: topBar.canNavigateBack
-            )
-            navigationButton(
-                commandID: "workspace-forward",
-                systemImage: "chevron.right",
-                accessibilityLabel: "Forward",
-                fallbackEnabled: topBar.canNavigateForward
-            )
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Workspace navigation")
-    }
-
-    @ViewBuilder
-    private func navigationButton(
-        commandID: String,
-        systemImage: String,
-        accessibilityLabel: String,
-        fallbackEnabled: Bool
-    ) -> some View {
-        let command = commands.first { $0.id == commandID } ?? WorkspaceCommandSurface(
-            id: commandID,
-            title: accessibilityLabel,
-            category: WorkspaceCommandPalette.navigationCategory,
-            keywords: [],
-            isEnabled: fallbackEnabled
+        QuillCodeTopBarNavigationView(
+            topBar: topBar,
+            commands: commands,
+            onCommand: onCommand
         )
-        Button {
-            guard command.isEnabled else { return }
-            onCommand(command)
-        } label: {
-            Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.42))
-                .accessibilityHidden(true)
-        }
-        .quillCodeIconButtonTarget()
-        .background(QuillCodePalette.selection.opacity(command.isEnabled ? 0.18 : 0.12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(QuillCodePalette.selection.opacity(command.isEnabled ? 0.34 : 0.24), lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .disabled(!command.isEnabled)
-        .help(command.isEnabled ? command.title : "\(accessibilityLabel) unavailable")
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier("quillcode-top-bar-\(commandID)")
-    }
-
-    private func stopButton(_ command: WorkspaceCommandSurface) -> some View {
-        Button {
-            onCommand(command)
-        } label: {
-            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                Image(systemName: "stop.fill")
-                    .font(.caption.weight(.bold))
-                    .accessibilityHidden(true)
-                Text("Stop")
-                    .font(.caption.weight(.semibold))
-            }
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 12)
-            .quillCodeTextButtonTarget(minWidth: 64, radius: QuillCodeMetrics.minimumHitTarget / 2)
-            .background(QuillCodePalette.red.opacity(0.90))
-            .overlay {
-                Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1)
-            }
-            .clipShape(Capsule())
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help("Stop active work")
-        .accessibilityLabel("Stop active work")
-        .accessibilityIdentifier("quillcode-top-bar-stop")
-    }
-
-    private var commandMenu: some View {
-        Menu {
-            ForEach(overflowCommands) { command in
-                Button {
-                    onCommand(command)
-                } label: {
-                    if let shortcut = command.shortcut {
-                        Text("\(command.title)  \(shortcut)")
-                    } else {
-                        Text(command.title)
-                    }
-                }
-                .quillCodePlatformMenuItemTarget(reason: "AppKit owns top-bar overflow menu row geometry; the overflow trigger carries the custom hit-target contract.")
-                .disabled(!command.isEnabled)
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .quillCodeIconButtonTarget()
-                .background(QuillCodePalette.selection.opacity(0.22))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help("More")
-        .accessibilityLabel("More workspace actions")
-        .accessibilityIdentifier("quillcode-top-bar-overflow")
-    }
-}
-
-struct QuillCodeModePickerButton: View {
-    var modeLabel: String
-    var onSetMode: (AgentMode) -> Void
-
-    private var selectedMode: AgentMode {
-        AgentMode.allCases.first { $0.title == modeLabel } ?? .auto
-    }
-
-    private var orderedModes: [AgentMode] {
-        AgentMode.cycleOrder
-    }
-
-    private var selectedModeColor: Color {
-        switch selectedMode {
-        case .auto:
-            return QuillCodePalette.green
-        case .plan:
-            return QuillCodePalette.blue
-        case .review:
-            return QuillCodePalette.yellow
-        case .readOnly:
-            return QuillCodePalette.muted
-        }
-    }
-
-    var body: some View {
-        Menu {
-            ForEach(orderedModes, id: \.rawValue) { mode in
-                Button {
-                    onSetMode(mode)
-                } label: {
-                    HStack {
-                        Text(mode.title)
-                        if mode == selectedMode {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-                .quillCodePlatformMenuItemTarget(reason: "AppKit owns mode picker menu row geometry; the mode trigger carries the custom hit-target contract.")
-            }
-        } label: {
-            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                Circle()
-                    .fill(selectedModeColor)
-                    .frame(width: 7, height: 7)
-                    .accessibilityHidden(true)
-                Text(modeLabel)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(QuillCodePalette.muted)
-            }
-            .foregroundStyle(QuillCodePalette.text)
-            .padding(.horizontal, 10)
-            .quillCodeCapsuleButtonTarget()
-            .background(QuillCodePalette.selection.opacity(0.62))
-            .overlay {
-                Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1)
-            }
-            .clipShape(Capsule())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Auto safety mode, \(modeLabel)")
-            .accessibilityIdentifier("quillcode-mode-picker-button")
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help("Choose Auto safety mode")
-        .accessibilityLabel("Auto safety mode, \(modeLabel)")
-        .accessibilityIdentifier("quillcode-mode-picker-button")
     }
 }

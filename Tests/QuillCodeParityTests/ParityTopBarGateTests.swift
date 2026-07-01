@@ -5,15 +5,21 @@ final class ParityTopBarGateTests: QuillCodeParityTestCase {
         let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
         let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
         let presentationText = try Self.appSourceText(named: "QuillCodeTopBarStatusPresentation.swift")
+        let toneColorText = try Self.appSourceText(named: "QuillCodeTopBarToneColor.swift")
 
         XCTAssertTrue(presentationText.contains("public enum TopBarAgentStatusLabel"), "Shared status labels should live beside top-bar presentation semantics.")
         XCTAssertTrue(presentationText.contains("struct TopBarStatusPresentation"), "Top-bar status semantics should live in a focused presentation value.")
         XCTAssertTrue(presentationText.contains("static func agentStatus"), "Agent status classification should be directly testable.")
         XCTAssertTrue(presentationText.contains("struct TopBarRuntimeIssuePresentation"), "Runtime issue pill semantics should be directly testable.")
-        XCTAssertTrue(topBarViewText.contains("topBar.agentStatusPresentation"), "Native top bar should use shared status presentation.")
-        XCTAssertTrue(topBarViewText.contains("topBar.runtimeIssuePresentation"), "Native top bar should use shared runtime issue presentation.")
+        XCTAssertTrue(presentationText.contains("topBarHelpText"), "Shared top-bar help copy should live beside status presentation semantics.")
+        XCTAssertTrue(presentationText.contains("topBarAccessibilityLabel"), "Shared top-bar accessibility copy should live beside status presentation semantics.")
+        XCTAssertTrue(topBarViewText.contains("topBar.topBarHelpText"), "Native top bar should use shared help copy.")
+        XCTAssertTrue(topBarViewText.contains("topBar.topBarAccessibilityLabel"), "Native top bar should use shared accessibility copy.")
+        XCTAssertTrue(toneColorText.contains("topBar.agentStatusPresentation"), "Native tone mapping should use shared status presentation.")
+        XCTAssertTrue(toneColorText.contains("topBar.runtimeIssuePresentation"), "Native tone mapping should use shared runtime issue presentation.")
         XCTAssertTrue(htmlRendererText.contains("topBar.agentStatusPresentation"), "HTML top bar should use shared status presentation.")
         XCTAssertTrue(htmlRendererText.contains("topBar.runtimeIssuePresentation"), "HTML top bar should use shared runtime issue presentation.")
+        XCTAssertTrue(htmlRendererText.contains("topBar.topBarAccessibilityLabel"), "HTML top bar should use shared accessibility copy.")
         XCTAssertFalse(topBarViewText.contains("lowercasedStatus.contains"), "Top-bar view should not own status string classification.")
         XCTAssertFalse(topBarViewText.contains("runtimeIssueSeverity == .error"), "Top-bar view should not own runtime issue tone classification.")
         XCTAssertFalse(htmlRendererText.contains("runtimeIssueSeverity?.rawValue"), "HTML renderer should not own runtime issue tone fallback logic.")
@@ -21,15 +27,35 @@ final class ParityTopBarGateTests: QuillCodeParityTestCase {
 
     func testNativeTopBarKeepsCodexStyleChromeQuiet() throws {
         let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let identityText = try Self.appSourceText(named: "QuillCodeTopBarIdentityView.swift")
+        let navigationText = try Self.appSourceText(named: "QuillCodeTopBarNavigationView.swift")
+        let actionClusterText = try Self.appSourceText(named: "QuillCodeTopBarActionClusterView.swift")
         let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
 
         XCTAssertTrue(topBarViewText.contains("leadingInset"), "Native top bar should reserve the sidebar column so identity aligns with the main workspace.")
-        XCTAssertTrue(topBarViewText.contains("identityGroup"), "Native top bar should keep the active thread title and context together as one quiet identity group.")
+        XCTAssertTrue(topBarViewText.contains("QuillCodeTopBarIdentityView"), "Native top bar should delegate title/context chrome to a focused identity group.")
+        XCTAssertTrue(identityText.contains("statusChip"), "Native top-bar branch and token metadata should stay as quiet identity chips.")
+        XCTAssertTrue(navigationText.contains("QuillCodeTopBarNavigationView"), "Native top-bar navigation controls should live in a focused component.")
+        XCTAssertTrue(actionClusterText.contains("QuillCodeTopBarActionClusterView"), "Native top-bar stop/overflow actions should live in a focused component.")
         XCTAssertTrue(designText.contains("static let sidebarWidth"), "Native top bar and sidebar should share the same sidebar width metric.")
         XCTAssertTrue(topBarViewText.contains("showsActivityHairline"), "Native top bar should show run/error state as a subtle hairline instead of another pill.")
         XCTAssertTrue(designText.contains("static let topBarHeight: CGFloat = 44"), "Native top bar should keep a compact Codex-style 44 pt hit target height.")
         XCTAssertFalse(topBarViewText.contains("statusIndicator"), "Native top bar should not reintroduce a permanent status pill.")
         XCTAssertFalse(topBarViewText.contains("QuillCodeTopBarPill"), "Native top bar should not reintroduce runtime issue pills into the main chrome.")
+        XCTAssertFalse(topBarViewText.contains("private func navigationButton"), "Top-bar composition should not own navigation button internals.")
+        XCTAssertFalse(topBarViewText.contains("private func stopButton"), "Top-bar composition should not own stop-button internals.")
+        XCTAssertFalse(topBarViewText.contains("private var commandMenu"), "Top-bar composition should not own overflow-menu internals.")
+    }
+
+    func testNativeModePickerLivesBesideComposerAccessoryChrome() throws {
+        let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let modePickerText = try Self.appSourceText(named: "QuillCodeModePickerButton.swift")
+
+        XCTAssertTrue(modePickerText.contains("struct QuillCodeModePickerButton"), "Mode picker should live in a focused accessory control file.")
+        XCTAssertTrue(modePickerText.contains("selectedModeColor"), "Mode picker should keep safety-mode color cue logic beside the trigger.")
+        XCTAssertTrue(modePickerText.contains("quillCodeCapsuleButtonTarget"), "Mode picker trigger should keep a semantic capsule hit target.")
+        XCTAssertTrue(modePickerText.contains("QuillCodePressableButtonStyle"), "Mode picker trigger should keep shared 0.96 press feedback.")
+        XCTAssertFalse(topBarViewText.contains("struct QuillCodeModePickerButton"), "Top-bar chrome should not own composer approval-mode control internals.")
     }
 
     func testTopBarAgentStatusLabelsAreSharedByRuntimePaths() throws {

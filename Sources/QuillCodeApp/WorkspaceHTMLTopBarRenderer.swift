@@ -3,7 +3,7 @@ import Foundation
 enum WorkspaceHTMLTopBarRenderer {
     static func render(_ topBar: TopBarSurface, commands: [WorkspaceCommandSurface]) -> String {
         """
-        <header class="topbar" data-testid="top-bar" aria-label="\(escape(topBarAccessibilityLabel(topBar)))">
+        <header class="topbar" data-testid="top-bar" aria-label="\(escape(topBar.topBarAccessibilityLabel))">
           \(renderStatusMetadata(topBar))
           <div class="topbar-sidebar-slot" aria-hidden="true"></div>
           \(renderNavigationControls(commands: commands))
@@ -55,7 +55,7 @@ enum WorkspaceHTMLTopBarRenderer {
     }
 
     private static func showsActivityHairline(_ topBar: TopBarSurface) -> Bool {
-        topBar.agentStatusPresentation.showsIndicator || topBar.runtimeIssuePresentation != nil
+        topBar.showsActivityHairline
     }
 
     private static func activityHairlineTone(_ topBar: TopBarSurface) -> String {
@@ -63,18 +63,6 @@ enum WorkspaceHTMLTopBarRenderer {
             return issue.tone.rawValue
         }
         return topBar.agentStatusPresentation.tone.rawValue
-    }
-
-    private static func topBarAccessibilityLabel(_ topBar: TopBarSurface) -> String {
-        var parts = [
-            topBar.primaryTitle,
-            topBar.subtitle,
-            topBar.agentStatusPresentation.accessibilityLabel
-        ]
-        if let issue = topBar.runtimeIssuePresentation {
-            parts.append("Issue: \(issue.label)")
-        }
-        return parts.joined(separator: ", ")
     }
 
     private static func renderActionCluster(

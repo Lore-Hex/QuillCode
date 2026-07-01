@@ -247,6 +247,22 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(topBar.runtimeIssuePresentation, TopBarRuntimeIssuePresentation(label: "Missing key", tone: .error))
     }
 
+    func testTopBarPresentationTextIncludesQuietMetadataOnce() {
+        var topBar = makeTopBar(runtimeIssueLabel: "Rate limited", runtimeIssueSeverity: nil)
+        topBar.branchStatusLabel = "main ↑2"
+        topBar.usageStatusLabel = "42 ctx"
+
+        XCTAssertEqual(
+            topBar.topBarHelpText,
+            "Ready. Agent status: Running. Issue: Rate limited"
+        )
+        XCTAssertEqual(
+            topBar.topBarAccessibilityLabel,
+            "Project, Ready, Agent status: Running, branch: main ↑2, token usage: 42 ctx, issue: Rate limited"
+        )
+        XCTAssertTrue(topBar.showsActivityHairline)
+    }
+
     private func filteredModelIDs(_ topBar: TopBarSurface, query: String) -> [String] {
         topBar.filteredModelCategories(matching: query).flatMap(\.models).map(\.id)
     }
