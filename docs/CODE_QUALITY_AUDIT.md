@@ -12933,3 +12933,52 @@ Remaining risk:
   orchestration. A later train should split the production audit into report,
   policy, probe, and validation collaborators after the focused test ownership
   is merged.
+
+## 2026-07-01 Project Context Refresh Pass
+
+Overall grade after this slice: **A+ app module with explicit context-refresh
+collaboration**.
+
+This pass targets the project context refresh path, where local/remote metadata
+refresh, thread synchronization, and thread/worktree context creation were all
+wired directly through `WorkspaceProjectContextRefresher`. The public refresher
+API remains unchanged, but the reusable context source now owns snapshot and
+context creation.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | The app module remains A+; the new context-source collaborator grades A+. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceProjectContextRefresher.swift` | A- | A | Keeps public refresh/sync API, delegates typed context creation. |
+| `Sources/QuillCodeApp/WorkspaceThreadContextSource.swift` | n/a | A+ | Centralizes snapshot, thread creation, and worktree context construction. |
+
+Code quality changes:
+
+- Added `WorkspaceThreadContextSource` as the single place that turns
+  project/global memory inputs into snapshots, new-thread contexts, and
+  worktree-open contexts.
+- Collapsed local and remote metadata writes through one private
+  `applyMetadata` path with an explicit metadata-source enum.
+- Collapsed thread instruction/memory synchronization through one private
+  `syncThread` path so memory-only refresh cannot drift from full context
+  refresh.
+- Updated the workspace context resolver parity gate to inspect the new
+  collaborator instead of assuming the refresher directly calls the builder.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'WorkspaceProjectContextRefresherTests|ParityWorkspaceContextResolverGateTests|ParityWorkspaceContextRefreshGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- The refresher itself still grades A because it intentionally preserves the
+  existing public façade API; the next source-quality slice should target the
+  remaining A- app files listed in `docs/CODE_QUALITY_FILE_GRADES.md`.
