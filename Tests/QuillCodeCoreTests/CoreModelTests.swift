@@ -3,6 +3,46 @@ import XCTest
 @testable import QuillCodeCore
 
 final class CoreModelTests: XCTestCase {
+    func testModelInfoDecodesOlderPayloadWithoutCapabilities() throws {
+        let json = """
+        {
+          "id": "trustedrouter/fast",
+          "provider": "trustedrouter",
+          "displayName": "Nike 1.0",
+          "category": "Recommended"
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+
+        let model = try JSONDecoder().decode(ModelInfo.self, from: data)
+
+        XCTAssertEqual(model.id, TrustedRouterDefaults.fastModel)
+        XCTAssertTrue(model.capabilities.isEmpty)
+    }
+
+    func testModelCapabilitiesNormalizeCatalogMetadata() {
+        let capabilities = ModelCapabilities(
+            contextWindowTokens: -1,
+            inputPricePerMillionTokens: -0.5,
+            outputPricePerMillionTokens: 1.25,
+            inputModalities: [" text ", "image", "text", ""],
+            outputModalities: [" tool-call ", "tool_call"],
+            capabilityTags: [" JSON-mode ", "json mode", "vision"],
+            status: " available ",
+            summary: " "
+        )
+
+        XCTAssertEqual(capabilities.contextWindowTokens, 0)
+        XCTAssertEqual(capabilities.inputPricePerMillionTokens, 0)
+        XCTAssertEqual(capabilities.outputPricePerMillionTokens, 1.25)
+        XCTAssertEqual(capabilities.inputModalities, ["text", "image"])
+        XCTAssertEqual(capabilities.outputModalities, ["tool call"])
+        XCTAssertEqual(capabilities.capabilityTags, ["JSON mode", "vision"])
+        XCTAssertEqual(capabilities.status, "available")
+        XCTAssertNil(capabilities.summary)
+        XCTAssertFalse(capabilities.isEmpty)
+    }
+
     func testTrustedRouterDefaults() {
         XCTAssertEqual(TrustedRouterDefaults.fastModel, "trustedrouter/fast")
         XCTAssertEqual(TrustedRouterDefaults.synthModel, "tr/synth")
