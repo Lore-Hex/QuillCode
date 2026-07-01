@@ -2,6 +2,10 @@ import Foundation
 import QuillCodeCore
 import TrustedRouter
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 public struct TrustedRouterModelCatalog: Sendable {
     public var models: [QuillCodeCore.ModelInfo]
 
@@ -39,22 +43,30 @@ public struct TrustedRouterModelCatalog: Sendable {
 public struct TrustedRouterModelCatalogClient: Sendable {
     public var apiKey: String?
     public var baseURL: String
+    public var urlSession: URLSession
 
-    public init(apiKey: String? = nil, baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL) {
+    public init(
+        apiKey: String? = nil,
+        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        urlSession: URLSession = .shared
+    ) {
         self.apiKey = apiKey
         self.baseURL = baseURL
+        self.urlSession = urlSession
     }
 
     public func fetch() async throws -> TrustedRouterModelCatalog {
-        let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL))
-        let response = try await client.models()
+        let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL, urlSession: urlSession))
+        let data: Data = try await client.request(method: "GET", path: "/models")
+        let response = try JSONDecoder().decode(TrustedRouterCatalogModelsResponse.self, from: data)
         let models = response.data.map { model in
             let provider = Self.provider(from: model.id)
             return QuillCodeCore.ModelInfo(
                 id: TrustedRouterDefaults.canonicalModelID(model.id),
                 provider: provider,
-                displayName: Self.displayName(from: model.id),
-                category: Self.category(for: model.id, provider: provider)
+                displayName: model.displayName ?? Self.displayName(from: model.id),
+                category: Self.category(for: model.id, provider: provider),
+                capabilities: model.capabilities
             )
         }
         return TrustedRouterModelCatalog(models: models.isEmpty ? TrustedRouterModelCatalog.defaultModels : models)

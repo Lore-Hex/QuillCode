@@ -140,6 +140,29 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         )
     }
 
+    func testModelCategorySearchFilterMatchesCapabilityMetadata() {
+        let categories = [
+            ModelCategorySurface(category: "Coding", models: [
+                modelOption(
+                    id: "acme/vision-code",
+                    provider: "acme",
+                    displayName: "Vision Code",
+                    category: "Coding",
+                    capabilities: capabilityMetadata()
+                )
+            ])
+        ]
+
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "128K image").flatMap(\.models).map(\.id),
+            ["acme/vision-code"]
+        )
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "json mode available").flatMap(\.models).map(\.id),
+            ["acme/vision-code"]
+        )
+    }
+
     func testModelOptionBuildsTrustedRouterRecommendedMetadata() throws {
         let option = modelOption(
             id: TrustedRouterDefaults.defaultModel,
@@ -186,6 +209,45 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(option.metadataRows.first { $0.label == "Model ID" }?.value, "/synth")
         XCTAssertEqual(option.metadataRows.first { $0.label == "State" }?.value, "Current")
         XCTAssertTrue(option.metadataDetails.contains("Current selection"))
+    }
+
+    func testModelOptionBuildsCapabilityRowsFromCatalogMetadata() throws {
+        let option = modelOption(
+            id: "acme/vision-code",
+            provider: "acme",
+            displayName: "Vision Code",
+            category: "Coding",
+            capabilities: capabilityMetadata()
+        )
+
+        XCTAssertEqual(option.metadataSummary, "Vision coding model")
+        XCTAssertEqual(
+            option.capabilitySummary,
+            "128K context · text, image -> text · $0.25 in / $1.25 out per 1M · tools, json mode · available"
+        )
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Context" }?.value, "128K")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Modalities" }?.value, "text, image -> text")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Pricing" }?.value, "$0.25 in / $1.25 out per 1M")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Capabilities" }?.value, "tools, json mode")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Status" }?.value, "available")
+        XCTAssertTrue(option.metadataDetails.contains("Context: 128K"))
+    }
+
+    func testModelOptionPreservesCapabilitiesAcrossJSONRoundTrip() throws {
+        let option = modelOption(
+            id: "acme/vision-code",
+            provider: "acme",
+            displayName: "Vision Code",
+            category: "Coding",
+            capabilities: capabilityMetadata()
+        )
+
+        let data = try JSONEncoder().encode(option)
+        let decoded = try JSONDecoder().decode(ModelOptionSurface.self, from: data)
+
+        XCTAssertEqual(decoded.capabilities, option.capabilities)
+        XCTAssertEqual(decoded.metadataRows, option.metadataRows)
+        XCTAssertEqual(decoded.modelInfo.capabilities, option.capabilities)
     }
 
     func testModelCategoryAndMetadataRowIdentifiersAreStable() {
@@ -298,18 +360,33 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         category: String,
         selectedModelID: String = "other/model",
         isFavorite: Bool = false,
-        badges: [String] = []
+        badges: [String] = [],
+        capabilities: ModelCapabilities = .init()
     ) -> ModelOptionSurface {
         ModelOptionSurface(
             model: ModelInfo(
                 id: id,
                 provider: provider,
                 displayName: displayName,
-                category: category
+                category: category,
+                capabilities: capabilities
             ),
             selectedModelID: selectedModelID,
             isFavorite: isFavorite,
             badges: badges
+        )
+    }
+
+    private func capabilityMetadata() -> ModelCapabilities {
+        ModelCapabilities(
+            contextWindowTokens: 128_000,
+            inputPricePerMillionTokens: 0.25,
+            outputPricePerMillionTokens: 1.25,
+            inputModalities: ["text", "image"],
+            outputModalities: ["text"],
+            capabilityTags: ["tools", "json mode"],
+            status: "available",
+            summary: "Vision coding model"
         )
     }
 }
