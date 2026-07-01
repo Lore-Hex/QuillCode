@@ -136,7 +136,8 @@ enum WorkspaceActivitySurfaceBuilder {
 
     static func instructionConflictItems(from sources: [ActivityItemSurface]) -> [ActivityItemSurface] {
         sources.filter {
-            $0.kind == "instruction-diagnostic" && $0.statusLabel == "conflict"
+            $0.kind == "instruction-diagnostic"
+                && $0.statusLabel == ProjectInstructionDiagnosticStatusLabel.conflict
         }
     }
 

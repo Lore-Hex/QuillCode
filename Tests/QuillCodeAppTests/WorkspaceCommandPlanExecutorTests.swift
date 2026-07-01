@@ -209,6 +209,79 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertTrue(model.composer.draft.contains("Suggested fix: Choose one intent for tests guidance"))
     }
 
+    func testExecutorAppliesInstructionDiagnosticPatchAndRefreshesContext() throws {
+        let root = try makeTempDirectory()
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init", cwd: root)).ok)
+        let featureDirectory = root.appendingPathComponent("Sources/Feature")
+        try FileManager.default.createDirectory(at: featureDirectory, withIntermediateDirectories: true)
+        let rootInstruction = "Root guidance.\nAlways run tests before final answers.\n"
+        let featureInstruction = "Feature guidance.\nDo not run tests for feature changes.\n"
+        try rootInstruction.write(
+            to: root.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try featureInstruction.write(
+            to: featureDirectory.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let instructions = [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "AGENTS.md",
+                content: rootInstruction,
+                byteCount: rootInstruction.utf8.count
+            ),
+            ProjectInstruction(
+                path: "Sources/Feature/AGENTS.md",
+                title: "Feature AGENTS.md",
+                content: featureInstruction,
+                byteCount: featureInstruction.utf8.count
+            )
+        ]
+        let projectStore = JSONProjectStore(fileURL: root.appendingPathComponent("projects.json"))
+        let project = ProjectRef(name: "QuillCode", path: root.path, instructions: instructions)
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            projectID: project.id,
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            activity: ActivityState(isVisible: true),
+            projectStore: projectStore
+        )
+        let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: instructions)
+            .first { $0.statusLabel == "conflict" }?
+            .id)
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "activity-instruction-apply:0:\(diagnosticID)",
+            workspaceRoot: root
+        ))
+
+        let editedFeatureInstruction = try String(
+            contentsOf: featureDirectory.appendingPathComponent("AGENTS.md"),
+            encoding: .utf8
+        )
+        XCTAssertFalse(editedFeatureInstruction.contains("Do not run tests for feature changes."))
+        let selectedThread = try XCTUnwrap(model.selectedThread)
+        let cards = WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).toolCards()
+        XCTAssertEqual(cards.suffix(2).map(\.title), [ToolDefinition.applyPatch.name, ToolDefinition.gitDiff.name])
+        XCTAssertFalse(model.surface().activity.sources.contains { $0.id == diagnosticID })
+        XCTAssertEqual(model.root.projects.first?.resolvedInstructionDiagnosticIDs, [diagnosticID])
+        XCTAssertEqual(try projectStore.load().first?.resolvedInstructionDiagnosticIDs, [diagnosticID])
+    }
+
     func testExecutorRejectsMissingInstructionDiagnosticResolution() throws {
         let model = QuillCodeWorkspaceModel()
 

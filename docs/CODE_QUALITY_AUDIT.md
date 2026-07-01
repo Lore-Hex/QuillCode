@@ -13300,3 +13300,98 @@ Validation:
 - `swift test --filter 'WorkspaceCommandPlanTests|WorkspaceCommandPlanExecutorTests|WorkspaceHTMLSecondaryPaneRendererTests|QuillCodeDesktopSourceOpenerTests|ParityDesktopControllerGateTests'`
 - `swift test` (2,163 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Instruction Diagnostic Direct Patch Pass
+
+Overall grade after this slice: **A+ typed diagnostic commands, A+ deterministic patch planner, A+ Activity workflow tests**.
+
+This pass targets the Activity Instruction Review workflow. Instruction diagnostics could already show conflicts, jump to exact source lines, and prepare a manual Resolve draft, but the user still had to transcribe obvious semantic-conflict fixes. The new flow keeps the manual path for ambiguous structural issues while adding direct, audited patch actions for deterministic two-line semantic conflicts.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | Instruction diagnostic actions now share a typed parser and deterministic patch planner. |
+| `test:QuillCodeAppTests` | A+ | Planner, surface, parser, HTML, and real apply-patch executor paths are covered. |
+| `docs` | A+ | Parity and roadmap docs distinguish direct semantic-conflict patching from still-pending structural merge fixes. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceInstructionDiagnosticCommand.swift` | n/a | A+ | Central parser/builder for apply, resolve, and dismiss diagnostic commands. |
+| `Sources/QuillCodeApp/ProjectInstructionDiagnosticPatchPlanner.swift` | n/a | A+ | Builds direct keep-side unified diffs only when paths and line excerpts are deterministic. |
+| `Sources/QuillCodeApp/WorkspaceActivitySourceSurfaceBuilder.swift` | A+ | A+ | Adds keep-side apply actions for supported conflict diagnostics and removes remaining raw diagnostic command IDs. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlan.swift` | A+ | A+ | Routes diagnostic apply/resolve/dismiss through the typed command object. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlanExecutor.swift` | A+ | A+ | Runs supported diagnostic fixes through `host.apply_patch` and refreshes project context after success. |
+| `Sources/QuillCodeApp/WorkspaceInstructionDiagnosticsState.swift` | A+ | A+ | Exposes active instruction sources to same-module diagnostic command execution without widening API visibility. |
+
+Code quality changes:
+
+- Added `WorkspaceInstructionDiagnosticCommand` so Activity, command parsing, and command execution share one diagnostic-action schema.
+- Added `ProjectInstructionDiagnosticPatchPlanner` for narrow, deterministic keep-side patches on two-reference semantic conflicts.
+- Guarded direct patches against unsafe/generated-unhandled paths, stale diagnostic excerpts, unsupported diagnostic shapes, and duplicate instruction-path metadata.
+- Kept duplicate-scope and nested-override diagnostics manual because automatic merging would risk changing user intent.
+- Added end-to-end command execution coverage that writes real instruction files, applies the patch, refreshes project context, and verifies the diagnostic records as resolved by edit.
+
+Validation:
+
+- `swift test --filter 'ProjectInstructionDiagnosticPatchPlannerTests|WorkspaceCommandPlanTests|WorkspaceCommandPlanExecutorTests|WorkspaceActivityInstructionIntegrationTests|WorkspaceHTMLSecondaryPaneRendererTests'`
+- `swift test` (2,170 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Strict Architecture And File Grade Pass
+
+Overall architecture grade after this pass: **A+**. The current module
+boundaries remain clean: core models stay in `QuillCodeCore`, tool execution
+stays in `QuillCodeTools`, safety policies stay in `QuillCodeSafety`,
+persistence stays in `QuillCodePersistence`, platform-specific Computer Use
+branches stay in adapter packages, and app orchestration/UI state stays in
+`QuillCodeApp`.
+
+Module grades from the regenerated per-file report:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeAgent` | A+ | TrustedRouter auth/catalog/client logic remains isolated from app surfaces. |
+| `source:QuillCodeApp` | A+ | App orchestration uses typed command objects and small planners/builders rather than view-driven business logic. |
+| `source:QuillCodeCore` | A+ | Shared models remain Codable/Sendable/Hashable and free of UI/tool dependencies. |
+| `source:QuillCodePersistence` | A+ | Stores remain narrow and deterministic. |
+| `source:QuillCodeSafety` | A+ | Static safety policies remain independently testable. |
+| `source:QuillCodeTools` | A+ | Tool executors, validators, patch/git/file helpers, and terminal code stay modular. |
+| `source:QuillComputerUseKit` | A+ | Platform branches remain inside the adapter kit, not the app target. |
+| `source:quill-code` | A+ | CLI remains thin. |
+| `source:quill-code-desktop` | A+ | Desktop shell/menubar/native seams remain separate from core app state. |
+| `e2e:playwright` | A+ | Browser harness tests remain modular and parity-focused. |
+| `scripts` | A+ | Smoke/quality scripts remain deterministic enough for merge-train use. |
+
+Individual file grades:
+
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; every source, test, E2E,
+  and script file is listed there with its module, score, grade, line count,
+  and detected maintainability issues.
+- New/changed instruction-diagnostic files all grade A+ with no automated
+  issues: `WorkspaceInstructionDiagnosticCommand.swift`,
+  `ProjectInstructionDiagnosticPatchPlanner.swift`,
+  `ProjectInstructionDiagnostic.swift`,
+  `WorkspaceActivitySourceSurfaceBuilder.swift`,
+  `WorkspaceCommandPlan.swift`, and `WorkspaceCommandPlanExecutor.swift`.
+- Cleaned `ProjectInitScaffolder.swift` by removing a duplicate doc comment,
+  replacing the scaffold TODO marker with explicit behavior wording, and
+  splitting the generated notice without changing the golden output.
+
+Code quality changes:
+
+- Centralized instruction diagnostic status strings in
+  `ProjectInstructionDiagnosticStatusLabel` and added `isConflict` so logic no
+  longer depends on repeated raw `"conflict"` comparisons.
+- Kept UI status labels as strings at the presentation boundary so serialized
+  surfaces and HTML tests remain stable.
+- Verified app-level source scans do not introduce Linux-specific conditionals;
+  platform checks remain in adapter/tool layers.
+
+Validation:
+
+- `swift test --filter 'ProjectInitScaffolderTests|ProjectInstructionDiagnosticPatchPlannerTests|ProjectInstructionDiagnosticsBuilderTests|WorkspaceCommandPlanTests|WorkspaceCommandPlanExecutorTests|WorkspaceActivityInstructionIntegrationTests|WorkspaceHTMLSecondaryPaneRendererTests'`
+- `swift test` (2,170 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

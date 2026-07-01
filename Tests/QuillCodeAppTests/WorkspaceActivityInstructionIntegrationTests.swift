@@ -65,13 +65,18 @@ final class WorkspaceActivityInstructionIntegrationTests: XCTestCase {
         XCTAssertEqual(reviewSection.title, "Instruction Review")
         XCTAssertEqual(reviewSection.countLabel, "1 issue")
         XCTAssertEqual(reviewSection.items, [conflict])
-        XCTAssertEqual(conflict.actions.map(\.title), ["Open Source", "Edit Source", "Resolve", "Dismiss"])
-        XCTAssertEqual(conflict.actions.map(\.kind), ["open", "edit", "resolve", "dismiss"])
+        XCTAssertEqual(
+            conflict.actions.map(\.title),
+            ["Open Source", "Edit Source", "Keep requires tests", "Keep avoids tests", "Resolve", "Dismiss"]
+        )
+        XCTAssertEqual(conflict.actions.map(\.kind), ["open", "edit", "apply", "apply", "resolve", "dismiss"])
         XCTAssertEqual(
             conflict.actions.map(\.commandID),
             [
                 "activity-source-open-line:1:AGENTS.md",
                 "activity-source-edit-line:1:AGENTS.md",
+                "activity-instruction-apply:0:\(fixture.diagnosticID)",
+                "activity-instruction-apply:1:\(fixture.diagnosticID)",
                 "activity-instruction-resolve:\(fixture.diagnosticID)",
                 "activity-instruction-dismiss:\(fixture.diagnosticID)"
             ]

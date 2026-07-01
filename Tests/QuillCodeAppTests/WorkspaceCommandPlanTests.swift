@@ -199,6 +199,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .editActivitySource(path: "Sources/App/AGENTS.md", lineNumber: 9)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "activity-instruction-apply:1:instruction-conflict"),
+            .applyInstructionDiagnostic(id: "instruction-conflict", keepReferenceIndex: 1)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "activity-instruction-dismiss:instruction-conflict"),
             .dismissInstructionDiagnostic(id: "instruction-conflict")
         )
@@ -297,6 +301,9 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-source-open:   "))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-source-edit-line:0:AGENTS.md"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-source-open-line:not-a-line:AGENTS.md"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-instruction-apply:-1:instruction-conflict"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-instruction-apply:not-a-number:instruction-conflict"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-instruction-apply:1:   "))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "slash-command:9999"))
     }
 }

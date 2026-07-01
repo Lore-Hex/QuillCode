@@ -41,23 +41,31 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                     actions: diagnosticActions(
                         diagnostic: diagnostic,
                         sourceReference: sourceReference
-                    ) + [
+                    )
+                    + ProjectInstructionDiagnosticPatchPlanner.supportedKeepActions(for: diagnostic)
+                    + [
                         ActivityItemActionSurface(
                             title: "Resolve",
-                            commandID: "activity-instruction-resolve:\(diagnostic.id)",
+                            commandID: WorkspaceInstructionDiagnosticCommand.resolveCommandID(
+                                diagnosticID: diagnostic.id
+                            ),
                             kind: "resolve"
                         ),
                         ActivityItemActionSurface(
                             title: "Dismiss",
-                            commandID: "activity-instruction-dismiss:\(diagnostic.id)",
+                            commandID: WorkspaceInstructionDiagnosticCommand.dismissCommandID(
+                                diagnosticID: diagnostic.id
+                            ),
                             kind: "dismiss"
                         )
                     ]
                 )
             }
         let diagnosticItems = Array(
-            (allDiagnosticItems.filter { $0.statusLabel == "conflict" }
-                + allDiagnosticItems.filter { $0.statusLabel != "conflict" })
+            (allDiagnosticItems.filter { $0.statusLabel == ProjectInstructionDiagnosticStatusLabel.conflict }
+                + allDiagnosticItems.filter {
+                    $0.statusLabel != ProjectInstructionDiagnosticStatusLabel.conflict
+                })
                 .prefix(4)
         )
         let memoryItems = memories.prefix(4).map { memory in
