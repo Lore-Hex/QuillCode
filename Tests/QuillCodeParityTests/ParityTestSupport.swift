@@ -139,6 +139,27 @@ class QuillCodeParityTestCase: XCTestCase {
         return try String(contentsOf: file, encoding: .utf8)
     }
 
+    static func nativeClickProbeValidatorText() throws -> String {
+        let validatorRoot = packageRoot()
+            .appendingPathComponent("scripts")
+            .appendingPathComponent("native_click_probe_contracts")
+        let packageFiles = try FileManager.default.contentsOfDirectory(
+            at: validatorRoot,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "py" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        .map { try String(contentsOf: $0, encoding: .utf8) }
+
+        let entrypoint = try String(
+            contentsOf: self.packageRoot()
+                .appendingPathComponent("scripts")
+                .appendingPathComponent("native-click-probe-contracts.py"),
+            encoding: .utf8
+        )
+        return ([entrypoint] + packageFiles).joined(separator: "\n")
+    }
+
     static func safetySourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeSafety")
