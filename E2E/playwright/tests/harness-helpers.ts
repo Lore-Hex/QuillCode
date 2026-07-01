@@ -44,8 +44,25 @@ export async function clickSidebarTool(page: Page, testID: string) {
   await page.getByTestId(testID).click();
 }
 
+export async function openCommandPalette(page: Page) {
+  await clickSidebarTool(page, 'command-palette-button');
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+}
+
+export async function expectCommandPaletteClosed(page: Page) {
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+}
+
 export function commandPaletteResult(page: Page, commandID: string) {
   return page.locator(`[data-testid="command-palette-result"][data-command-id="${commandID}"]`);
+}
+
+export function selectedCommandPaletteResult(page: Page) {
+  return page.locator('[data-testid="command-palette-result"][data-selected="true"]');
+}
+
+export async function expectSelectedCommandPaletteResult(page: Page, label: string) {
+  await expect(selectedCommandPaletteResult(page)).toContainText(label);
 }
 
 export async function fillCommandPalette(page: Page, query: string) {
