@@ -75,4 +75,34 @@ extension TopBarSurface {
         let tone: TopBarRuntimeIssueTone = runtimeIssueSeverity == .error ? .error : .warning
         return TopBarRuntimeIssuePresentation(label: runtimeIssueLabel, tone: tone)
     }
+
+    var showsActivityHairline: Bool {
+        agentStatusPresentation.showsIndicator || runtimeIssuePresentation != nil
+    }
+
+    var topBarHelpText: String {
+        var parts = [subtitle, agentStatusPresentation.accessibilityLabel]
+        if let runtimeIssuePresentation {
+            parts.append("Issue: \(runtimeIssuePresentation.label)")
+        }
+        return parts.joined(separator: ". ")
+    }
+
+    var topBarAccessibilityLabel: String {
+        var parts = [
+            primaryTitle,
+            subtitle,
+            agentStatusPresentation.accessibilityLabel
+        ]
+        if let branchStatusLabel {
+            parts.append("branch: \(branchStatusLabel)")
+        }
+        if let usageStatusLabel {
+            parts.append("token usage: \(usageStatusLabel)")
+        }
+        if let runtimeIssuePresentation {
+            parts.append("issue: \(runtimeIssuePresentation.label)")
+        }
+        return parts.joined(separator: ", ")
+    }
 }
