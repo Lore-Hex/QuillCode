@@ -95,7 +95,7 @@ public struct PatchToolExecutor: Sendable {
                 stdout: check.stdout,
                 stderr: check.stderr,
                 exitCode: check.exitCode,
-                error: check.error ?? "Patch check failed."
+                error: Self.hunkFailureSummary(fromStderr: check.stderr) ?? check.error ?? "Patch check failed."
             )
         }
         let apply = shell.run(.init(command: "git apply \(quoted)", cwd: workspaceRoot, timeoutSeconds: 20))
@@ -107,7 +107,25 @@ public struct PatchToolExecutor: Sendable {
                 exitCode: apply.exitCode
             )
         }
-        return apply
+        var failed = apply
+        failed.error = Self.hunkFailureSummary(fromStderr: apply.stderr) ?? apply.error
+        return failed
+    }
+
+    /// Lift git's specific hunk diagnostics (`error: patch failed: file:line`, `error: <file>: No such
+    /// file or directory`, …) out of stderr into the tool error, so the model sees WHICH file/hunk
+    /// failed instead of a generic "Command failed with exit code 1" and re-reads the right region on
+    /// its next attempt. Returns nil when stderr carries no `error:` lines.
+    static func hunkFailureSummary(fromStderr stderr: String) -> String? {
+        let details = stderr
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("error:") }
+            .map { String($0.dropFirst("error:".count)).trimmingCharacters(in: .whitespaces) }
+        guard !details.isEmpty else { return nil }
+        let shown = details.prefix(5).joined(separator: "; ")
+        let suffix = details.count > 5 ? " (+\(details.count - 5) more)" : ""
+        return "Patch does not apply: \(shown)\(suffix). Re-read the affected region and regenerate the hunk against the current content."
     }
 
     public static func unsafePath(in patch: String) -> String? {
