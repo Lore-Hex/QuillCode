@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-07-01 Core Model Boundary Split
+
+Overall grade after this slice: **A+ core-source module, A+ focused tool/project model files**.
+
+This pass re-graded every file and module, then addressed the remaining broad core model files created during the
+earlier `Models.swift` extraction. `ProjectModels.swift` and `ToolModels.swift` were useful stepping stones, but each had
+become a mini umbrella file. The core package now keeps tool payloads and project/workspace records in files that map to
+one compatibility concern each, which makes persistence, prompt-schema, and workspace changes easier to review.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool schema ownership | `ToolModels.swift` owned tool definitions, calls, results, redaction, built-in core tool schemas, and browser/memory output DTOs. | `ToolDefinition.swift`, `ToolCall.swift`, `ToolResult.swift`, `CoreToolDefinitions.swift`, `BrowserInspectionToolOutput.swift`, and `MemoryRememberToolOutput.swift` each own one tool payload concern. |
+| Project model ownership | `ProjectModels.swift` owned connection parsing, project refs, instruction records, local environment actions, and extension manifests. | `ProjectConnection.swift`, `ProjectRef.swift`, `ProjectInstruction.swift`, `LocalEnvironmentAction.swift`, and `ProjectExtensionManifest.swift` split those records into scanable boundaries. |
+| Constructor surface | `ProjectRef` carried repeated compatibility convenience initializers even though the primary initializer's defaults covered those call sites. | `ProjectRef` has one source initializer, keeps older persisted-state decoding compatibility, and now grades **A+**. |
+| Parity gates | Core boundary gates only protected the previous broad extraction away from `Models.swift`. | `ParityCoreModelGateTests` now requires the focused files and rejects reintroducing `ToolModels.swift` or `ProjectModels.swift` as catch-all owners. |
+| File grades | `ToolModels.swift` and `ProjectModels.swift` were both **A-** due declaration density and size. | `CoreToolDefinitions.swift` grades **A+** with no automated issues, `ProjectRef.swift` grades **A+**, and `QuillCodeCore` remains **A+** overall. |
+
+Verification:
+
+- `swift package clean`
+- `swift test --filter 'CoreModelTests|ParityCoreModelGateTests|ParityBrowserGateTests|ParityWorkspaceProjectGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a boundary/refactor pass, not a new Codex-parity feature. Remaining lower grades are mostly broad parity
+  source gates, test harnesses, and script validators; those should be split by behavior family instead of by mechanical
+  line wrapping.
+
 ## 2026-07-01 Terminal Grapheme And Width Policy Pass
 
 Overall grade after this slice: **A+ terminal renderer boundary maintained, closer Codex terminal parity**.
@@ -2873,8 +2902,8 @@ Residual risk:
 | `Sources/QuillCodeCore/Models.swift` | A | General chat/thread/memory domain models only; app config, automation scheduling, project/workspace records, tool payloads, and TrustedRouter defaults/catalog records now live in focused core files. Watch for persistence, workflow, tool, or provider-specific behavior trying to drift back in. |
 | `Sources/QuillCodeCore/AppConfig.swift` | A | App settings, auth mode compatibility, signed-in account metadata, and favorite model normalization live together without pulling UI/runtime dependencies into core. |
 | `Sources/QuillCodeCore/AutomationModels.swift` | A | Automation kind/status/schedule records, recurrence semantics, next-run calculation, and display sorting live together without pulling app-layer automation execution into core. |
-| `Sources/QuillCodeCore/ProjectModels.swift` | A | Local/SSH project connection parsing, project refs, instructions, local environment actions, and extension manifests live together without pulling chat/thread runtime state into the project model boundary. |
-| `Sources/QuillCodeCore/ToolModels.swift` | A | Tool schema records, tool-call redaction, built-in core tool definitions, tool results, and browser/memory tool-output compatibility live together without pulling router/runtime dependencies into core. |
+| `Sources/QuillCodeCore/ProjectConnection.swift` / `ProjectRef.swift` / `ProjectInstruction.swift` | A+ | Project connection parsing/display, project refs, and instruction scope records now live in focused files; keep workspace compatibility behavior out of general thread/message models and out of catch-all project files. |
+| `Sources/QuillCodeCore/ToolDefinition.swift` / `ToolCall.swift` / `ToolResult.swift` / `CoreToolDefinitions.swift` | A+ | Tool schema records, redaction, results, and built-in core tool definitions now live in focused files; keep browser/memory output DTOs in their dedicated compatibility files. |
 | `Sources/QuillCodeCore/TrustedRouterDefaults.swift` | A | Central source of truth for TrustedRouter IDs, aliases, branded model names, fallback catalog rows, and catalog normalization. |
 | `Sources/QuillCodeCore/ModelInfo.swift` | A | Small catalog value records and sort-key semantics with no app/runtime dependency. |
 

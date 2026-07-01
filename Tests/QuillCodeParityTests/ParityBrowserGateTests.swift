@@ -204,14 +204,14 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
     }
 
     func testBrowserAgentToolsShareFocusedExecutor() throws {
-        let toolModelsText = try Self.coreSourceText(named: "ToolModels.swift")
+        let definitionsText = try Self.coreSourceText(named: "CoreToolDefinitions.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let executorText = try Self.appSourceText(named: "WorkspaceToolCallExecutor.swift")
         let browserToolText = try Self.appSourceText(named: "WorkspaceBrowserToolExecutor.swift")
         let normalizerText = try Self.agentSourceText(named: "AgentToolArgumentNormalizer.swift")
         let finalAnswerText = try Self.agentSourceText(named: "AgentBrowserToolAnswerFormatters.swift")
 
-        XCTAssertTrue(toolModelsText.contains("static let browserOpen"), "Browser navigation should have a first-class tool definition.")
+        XCTAssertTrue(definitionsText.contains("static let browserOpen"), "Browser navigation should have a first-class tool definition.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserOpen"), "Agent run context should expose browser navigation beside inspection.")
         XCTAssertTrue(executorText.contains("WorkspaceBrowserToolExecutor.execute"), "Workspace tool routing should delegate browser tools to the focused executor.")
         XCTAssertTrue(browserToolText.contains("ToolDefinition.browserInspect.name"), "Browser inspection should route through the focused browser tool executor.")
