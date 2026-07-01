@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-07-01 Thread Model Boundary Split
+
+Overall grade after this slice: **A+ thread creation, A+ thread selection, A+ lifecycle actions, A+ context continuation boundary**.
+
+This pass addressed the next production app-source hotspot from the generated grade report: `WorkspaceModelThreads.swift`. The remaining density was a mix of direct thread creation, composer-draft selection, lifecycle mutation side effects, and model-backed fork/compact continuation orchestration.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Thread creation coordinator | `WorkspaceModelThreads.swift` mixed new/fork/compact/duplicate construction with selection, draft switching, archive/delete lifecycle mutations, and async context continuation work. | `WorkspaceModelThreads.swift` now focuses on direct thread creation APIs and delegates insertion/selection to the focused selection extension. |
+| Thread selection and drafts | Created-thread insertion, thread selection, composer draft stashing, terminal sync, project touch, and top-bar refresh were interleaved with creation/lifecycle code. | `WorkspaceModelThreadSelection.swift` owns thread selection, created-thread insertion, composer draft restoration, terminal sync, project touch, persistence routing, and top-bar refresh. |
+| Lifecycle actions | Rename, pin, archive, unarchive, and delete copied thread arrays, reassigned selection, persisted changes, and recorded navigation inline. | `WorkspaceModelThreadLifecycleActions.swift` owns lifecycle actions and shares mutation, navigation-transition, persistence, and lifecycle-selection helpers. |
+| Context continuation path | Fork-with-summary and compact-with-summary scheduling, model summary requests, fallback handling, and telemetry were private helpers in the lifecycle file. | `WorkspaceModelContextContinuations.swift` owns `startForkThread`, `startCompactContext`, configured summary execution, source notices, and continuation telemetry append. |
+| Creation context | New-chat context assembly was inlined inside the engine call. | The creation context is assigned before passing to `WorkspaceThreadCreationEngine`, improving readability and removing the last long line. |
+| Architecture gates | Parity tests proved seed builders and summary generators existed, but did not pin the workspace-model orchestration seams. | `ParityWorkspaceModelThreadGateTests` now requires creation, selection, lifecycle, and context-continuation owners, and rejects lifecycle/draft/summary work drifting back into thread creation APIs. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceThreadLifecycleIntegrationTests|WorkspaceThreadCreationEngineTests|WorkspaceThreadLifecycleEngineTests|WorkspaceContextSummaryTelemetryPlannerTests|ParityWorkspaceModelThreadGateTests|ParityFocusedSuiteManifestTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This split is behavior-preserving. Broader thread lifecycle UX and command behavior remain covered by existing integration tests and were not redesigned.
+
 ## 2026-07-01 Static Secondary Pane Renderer Split
 
 Overall grade after this slice: **A+ secondary-pane facade, A+ focused pane renderer cluster, lower renderer conflict risk**.

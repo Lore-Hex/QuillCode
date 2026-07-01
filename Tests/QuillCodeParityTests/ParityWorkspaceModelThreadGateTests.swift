@@ -39,6 +39,8 @@ final class ParityWorkspaceModelThreadGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let seedBuilderText = try Self.appSourceText(named: "WorkspaceThreadSeedBuilder.swift")
         let creationText = try Self.appSourceText(named: "WorkspaceThreadCreationEngine.swift")
+        let continuationText = try Self.appSourceText(named: "WorkspaceModelContextContinuations.swift")
+        let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
         let summaryGeneratorText = try Self.appSourceText(named: "WorkspaceContextSummaryGenerator.swift")
         let runtimeText = try Self.appSourceText(named: "RuntimeFactory.swift")
 
@@ -51,6 +53,11 @@ final class ParityWorkspaceModelThreadGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(runtimeText.contains("contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator"), "TrustedRouter runtime should wire model-backed context summaries.")
         XCTAssertTrue(creationText.contains("WorkspaceThreadSeedBuilder.forkSeedMessages"), "Thread creation should delegate fork seeding.")
         XCTAssertTrue(creationText.contains("WorkspaceThreadSeedBuilder.compactSeedMessages"), "Thread creation should delegate context compaction seeding.")
+        XCTAssertTrue(continuationText.contains("func startForkThread"), "Model-backed fork startup should live in the context continuation extension.")
+        XCTAssertTrue(continuationText.contains("func compactContextWithConfiguredSummary"), "Model-backed compact execution should live in the context continuation extension.")
+        XCTAssertTrue(continuationText.contains("WorkspaceContextSummaryTelemetryPlanner.continuationEvent"), "Continuation telemetry should stay beside model-backed context execution.")
+        XCTAssertFalse(threadExtensionText.contains("contextSummaryGenerator.summary"), "Thread lifecycle APIs should not own model-backed context summary calls.")
+        XCTAssertFalse(threadExtensionText.contains("recordContextSummarySourceNotice"), "Thread lifecycle APIs should not own context-summary notices.")
         XCTAssertFalse(modelText.contains("private static func forkSeedMessages"), "WorkspaceModel should not own fork seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSeedMessages"), "WorkspaceModel should not own compact seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSummaryMessage"), "WorkspaceModel should not own compact summary formatting.")
@@ -60,9 +67,12 @@ final class ParityWorkspaceModelThreadGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesThreadCreationRecords() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
+        let threadSelectionText = try Self.appSourceText(named: "WorkspaceModelThreadSelection.swift")
         let creationText = try Self.appSourceText(named: "WorkspaceThreadCreationEngine.swift")
 
         XCTAssertTrue(threadExtensionText.contains("extension QuillCodeWorkspaceModel"), "Thread APIs should live in a focused WorkspaceModel extension.")
+        XCTAssertTrue(threadSelectionText.contains("func insertCreatedThread"), "Created-thread insertion should live with thread selection and draft restoration.")
+        XCTAssertTrue(threadSelectionText.contains("ComposerDraftStore.select"), "Thread selection should own composer draft switching.")
         XCTAssertTrue(creationText.contains("struct WorkspaceThreadCreationContext"), "New-thread context should live beside the focused creation engine.")
         XCTAssertTrue(creationText.contains("struct WorkspaceThreadCreationEngine"), "Thread record construction should live in a focused engine.")
         XCTAssertTrue(creationText.contains("static func newThread"), "New chat construction should be directly testable.")
@@ -85,6 +95,8 @@ final class ParityWorkspaceModelThreadGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesThreadLifecycleTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
+        let threadLifecycleText = try Self.appSourceText(named: "WorkspaceModelThreadLifecycleActions.swift")
+        let threadSelectionText = try Self.appSourceText(named: "WorkspaceModelThreadSelection.swift")
         let threadMutationText = try Self.appSourceText(named: "WorkspaceModelThreadMutation.swift")
         let lifecycleText = try Self.appSourceText(named: "WorkspaceThreadLifecycleEngine.swift")
         let persistenceText = try Self.appSourceText(named: "WorkspaceThreadPersistence.swift")
@@ -98,9 +110,12 @@ final class ParityWorkspaceModelThreadGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(lifecycleText.contains("static func unarchiveThread"), "Thread unarchive mutation should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func deleteThread"), "Thread delete fallback selection should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func applyAgentRunThreadUpdate"), "Agent-run thread upsert and fallback selection should be directly testable.")
-        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "WorkspaceModel thread APIs should delegate thread rename mutation.")
-        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel thread APIs should delegate thread archive mutation.")
-        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel thread APIs should delegate thread delete mutation.")
+        XCTAssertTrue(threadLifecycleText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "WorkspaceModel lifecycle actions should delegate thread rename mutation.")
+        XCTAssertTrue(threadLifecycleText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel lifecycle actions should delegate thread archive mutation.")
+        XCTAssertTrue(threadLifecycleText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel lifecycle actions should delegate thread delete mutation.")
+        XCTAssertTrue(threadLifecycleText.contains("updateAndSaveThread"), "Shared rename/pin persistence should stay factored in lifecycle actions.")
+        XCTAssertTrue(threadSelectionText.contains("func applyThreadDraftSelection"), "Draft selection should live in the focused selection extension.")
+        XCTAssertTrue(threadSelectionText.contains("func selectThread"), "Thread selection should live in the focused selection extension.")
         XCTAssertTrue(threadMutationText.contains("WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate"), "WorkspaceModel thread mutation extension should delegate agent-run thread upsert and fallback selection.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadPersistence(store: threadStore)"), "WorkspaceModel should bridge its existing initializer to the thread persistence helper.")
         XCTAssertTrue(threadMutationText.contains("func mutateSelectedThread"), "Selected-thread mutation should live in the focused thread mutation extension.")
@@ -125,6 +140,8 @@ final class ParityWorkspaceModelThreadGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("private func selectUpdatedThread"), "WorkspaceModel should not own agent-run fallback selection mutation.")
         XCTAssertFalse(modelText.contains("threadStore?.save"), "WorkspaceModel should not call JSONThreadStore save directly.")
         XCTAssertFalse(modelText.contains("threadStore?.delete"), "WorkspaceModel should not call JSONThreadStore delete directly.")
+        XCTAssertFalse(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "Thread creation APIs should not own lifecycle mutation delegation.")
+        XCTAssertFalse(threadExtensionText.contains("func applyThreadDraftSelection"), "Thread creation APIs should not own composer draft switching.")
     }
 
     func testWorkspaceModelDelegatesConfigurationTransitions() throws {
