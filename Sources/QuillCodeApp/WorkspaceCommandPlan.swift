@@ -28,8 +28,8 @@ enum WorkspaceCommandPlan: Equatable {
     case selectBrowserTab(id: UUID)
     case closeBrowserTab(id: UUID)
     case toggleActivitySection(ActivitySectionKind)
-    case openActivitySource(path: String)
-    case editActivitySource(path: String)
+    case openActivitySource(path: String, lineNumber: Int?)
+    case editActivitySource(path: String, lineNumber: Int?)
     case resolveInstructionDiagnostic(id: String)
     case dismissInstructionDiagnostic(id: String)
     case setDraft(String)
@@ -175,11 +175,13 @@ enum WorkspaceCommandPlan: Equatable {
            let section = ActivitySectionKind(rawValue: rawKind) {
             return .toggleActivitySection(section)
         }
-        if let path = commandID.value(after: "activity-source-open:") {
-            return path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : .openActivitySource(path: path)
-        }
-        if let path = commandID.value(after: "activity-source-edit:") {
-            return path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : .editActivitySource(path: path)
+        if let command = WorkspaceActivitySourceCommand(commandID: commandID) {
+            switch command.action {
+            case .open:
+                return .openActivitySource(path: command.path, lineNumber: command.lineNumber)
+            case .edit:
+                return .editActivitySource(path: command.path, lineNumber: command.lineNumber)
+            }
         }
         if let id = commandID.value(after: "activity-instruction-resolve:") {
             return id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : .resolveInstructionDiagnostic(id: id)

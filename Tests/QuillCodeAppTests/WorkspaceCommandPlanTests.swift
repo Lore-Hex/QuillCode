@@ -183,6 +183,22 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .toggleActivitySection(.tools)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "activity-source-open:AGENTS.md"),
+            .openActivitySource(path: "AGENTS.md", lineNumber: nil)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "activity-source-edit:AGENTS.md"),
+            .editActivitySource(path: "AGENTS.md", lineNumber: nil)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "activity-source-open-line:7:Sources/App/AGENTS.md"),
+            .openActivitySource(path: "Sources/App/AGENTS.md", lineNumber: 7)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "activity-source-edit-line:9:Sources/App/AGENTS.md"),
+            .editActivitySource(path: "Sources/App/AGENTS.md", lineNumber: 9)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "activity-instruction-dismiss:instruction-conflict"),
             .dismissInstructionDiagnostic(id: "instruction-conflict")
         )
@@ -278,6 +294,9 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-saved-search-move-up:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-saved-search-move-down:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-toggle-section:not-real"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-source-open:   "))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-source-edit-line:0:AGENTS.md"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-source-open-line:not-a-line:AGENTS.md"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "slash-command:9999"))
     }
 }

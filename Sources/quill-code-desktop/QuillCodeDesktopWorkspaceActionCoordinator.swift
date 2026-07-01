@@ -4,6 +4,12 @@ import QuillCodeCore
 
 @MainActor
 struct QuillCodeDesktopWorkspaceActionCoordinator {
+    private let sourceOpener: any QuillCodeDesktopSourceOpening
+
+    init(sourceOpener: any QuillCodeDesktopSourceOpening = MacSourceOpener()) {
+        self.sourceOpener = sourceOpener
+    }
+
     func runToolCardAction(
         _ action: ToolCardActionSurface,
         model: QuillCodeWorkspaceModel,
@@ -129,7 +135,14 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         model: QuillCodeWorkspaceModel,
         fallbackWorkspaceRoot: URL
     ) -> Bool {
-        model.runWorkspaceCommand(
+        if let sourceCommand = WorkspaceActivitySourceCommand(commandID: commandID),
+           let workspaceRoot = sourceWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot),
+           let request = sourceOpenRequest(for: sourceCommand, workspaceRoot: workspaceRoot),
+           sourceOpener.openSource(request) {
+            return true
+        }
+
+        return model.runWorkspaceCommand(
             commandID,
             workspaceRoot: activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
         )
@@ -137,5 +150,45 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
 
     private func activeWorkspaceRoot(for model: QuillCodeWorkspaceModel, fallback: URL) -> URL {
         model.activeWorkspaceRoot ?? fallback
+    }
+
+    private func sourceWorkspaceRoot(for model: QuillCodeWorkspaceModel, fallback: URL) -> URL? {
+        if let selectedProject = model.selectedProject {
+            return selectedProject.isRemote ? nil : URL(fileURLWithPath: selectedProject.path)
+        }
+        if let projectID = model.selectedThread?.projectID,
+           let project = model.root.projects.first(where: { $0.id == projectID }) {
+            return project.isRemote ? nil : URL(fileURLWithPath: project.path)
+        }
+        return fallback
+    }
+
+    private func sourceOpenRequest(
+        for command: WorkspaceActivitySourceCommand,
+        workspaceRoot: URL
+    ) -> QuillCodeDesktopSourceOpenRequest? {
+        guard !NSString(string: command.path).isAbsolutePath else { return nil }
+        let rootURL = workspaceRoot.standardizedFileURL
+        let fileURL = rootURL.appendingPathComponent(command.path).standardizedFileURL
+        guard fileIsReadableRegularFile(fileURL),
+              fileURL.isDescendant(of: rootURL)
+        else {
+            return nil
+        }
+        return QuillCodeDesktopSourceOpenRequest(fileURL: fileURL, lineNumber: command.lineNumber)
+    }
+
+    private func fileIsReadableRegularFile(_ fileURL: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory)
+        return exists && !isDirectory.boolValue
+    }
+}
+
+private extension URL {
+    func isDescendant(of rootURL: URL) -> Bool {
+        let rootPath = rootURL.resolvingSymlinksInPath().path
+        let filePath = resolvingSymlinksInPath().path
+        return filePath == rootPath || filePath.hasPrefix(rootPath + "/")
     }
 }

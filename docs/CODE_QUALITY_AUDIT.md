@@ -13220,3 +13220,56 @@ Validation:
 
 - `swift test --filter 'WorkspaceCommandSurfaceBuilderTests|QuillCodeWorkspaceViewCommandPlannerTests|ParityWorkspaceCommandSurfaceBuilderGateTests|ParityDesktopBrowserAdapterGateTests|WorkspaceRenderedCommandRoutingParityTests'`
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Activity Source Command Boundary Pass
+
+Overall grade after this slice: **A+ typed command boundary, A+ desktop
+source-opening safety, A+ parity documentation**.
+
+This pass targets Activity instruction source commands. The behavior was
+correct for path-only file reads, but the command format was string-built in
+the source surface and string-parsed in the command planner. That lost
+diagnostic line numbers before desktop could open the native editor, and it
+made future source actions more likely to drift.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | Activity source commands now share one typed command parser/builder. |
+| `source:quill-code-desktop` | A+ | Native source opening is injected, workspace-bounded, and falls back to the model path. |
+| `test:QuillCodeAppTests` | A+ | Command parsing, model fallback file reads, and HTML diagnostics now cover line-specific source actions. |
+| `test:QuillCodeDesktopTests` | A+ | Desktop coordinator tests cover exact-line open, fallback, and path-escape rejection. |
+| `test:QuillCodeParityTests` | A+ | Desktop architecture gate prevents source opening from drifting back into the controller. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceActivitySourceCommand.swift` | n/a | A+ | Central command parser/builder for path-only and line-specific source actions. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlan.swift` | A+ | A+ | Delegates activity-source parsing to the typed command instead of duplicating prefix parsing. |
+| `Sources/QuillCodeApp/WorkspaceActivitySourceSurfaceBuilder.swift` | A+ | A+ | Uses the typed command builder and exposes diagnostic Open Source/Edit Source actions at `file:line`. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlanExecutor.swift` | A+ | A+ | File-read fallback carries `offset`/`limit` for line-specific opens and drafts line-specific edits. |
+| `Sources/quill-code-desktop/QuillCodeDesktopSourceOpener.swift` | n/a | A+ | Owns native macOS source opening and uses `xed -l` before Launch Services fallback. |
+| `Sources/quill-code-desktop/QuillCodeDesktopWorkspaceActionCoordinator.swift` | A+ | A+ | Intercepts local source commands only when the target is a readable in-workspace file. |
+
+Code quality changes:
+
+- Added `WorkspaceActivitySourceCommand` so Activity, command parsing, command
+  execution, and desktop routing share one source-action schema.
+- Preserved existing path-only command IDs while adding line-specific
+  `activity-source-*-line:<line>:<path>` IDs.
+- Added diagnostic Open Source/Edit Source actions that preserve source
+  reference line numbers.
+- Added a desktop source opener seam with injectable behavior for tests.
+- Guarded native opening against remote projects, absolute paths, directories,
+  missing files, and workspace escapes; fallback behavior remains the existing
+  tool-card/draft path.
+- Updated parity docs to mark native exact-line local source opening as
+  implemented while keeping direct diff application pending.
+
+Validation:
+
+- `swift test --filter 'WorkspaceCommandPlanTests|WorkspaceCommandPlanExecutorTests|WorkspaceHTMLSecondaryPaneRendererTests|QuillCodeDesktopSourceOpenerTests|ParityDesktopControllerGateTests'`
+- `swift test` (2,163 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

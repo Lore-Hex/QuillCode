@@ -107,6 +107,43 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertEqual(card.inputJSON, ToolArguments.json(["path": "AGENTS.md"]))
     }
 
+    func testExecutorOpensActivityInstructionSourceAtLineWithFileReadWindow() throws {
+        let root = try makeTempDirectory()
+        try "First line.\nUse Swift patterns.\nThird line.\n".write(
+            to: root.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let thread = ChatThread(
+            title: "Inspect source",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: [
+                ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "AGENTS.md",
+                    content: "First line.\nUse Swift patterns.\nThird line.",
+                    byteCount: 42
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        XCTAssertTrue(model.runWorkspaceCommand("activity-source-open-line:2:AGENTS.md", workspaceRoot: root))
+
+        let selectedThread = try XCTUnwrap(model.selectedThread)
+        let card = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).toolCards().last)
+        XCTAssertEqual(card.title, ToolDefinition.fileRead.name)
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(card.inputJSON, ToolArguments.json([
+            "limit": 120,
+            "offset": 2,
+            "path": "AGENTS.md"
+        ]))
+    }
+
     func testExecutorPreparesActivityInstructionEditDraft() throws {
         let model = QuillCodeWorkspaceModel()
 
@@ -116,6 +153,17 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         ))
 
         XCTAssertEqual(model.composer.draft, "Edit instruction source .quillcode/rules.md: ")
+    }
+
+    func testExecutorPreparesActivityInstructionLineEditDraft() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "activity-source-edit-line:12:.quillcode/rules.md",
+            workspaceRoot: try makeTempDirectory()
+        ))
+
+        XCTAssertEqual(model.composer.draft, "Edit instruction source .quillcode/rules.md:12: ")
     }
 
     func testExecutorPreparesInstructionDiagnosticResolutionDraft() throws {
