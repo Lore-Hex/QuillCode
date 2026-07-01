@@ -19,10 +19,9 @@ public struct HttpRateLimitDetails: Sendable, Hashable {
     /// True when the server gave no usable rate-limit hint.
     public var isEmpty: Bool { retryAfter == nil }
 
-    // `Retry-After` is authoritative and checked first; the reset headers are a best-effort fallback in
-    // a fixed order (the unified/most-specific ones first).
-    private static let orderedKeys = [
-        "retry-after",
+    // The reset headers are a best-effort fallback (in a fixed order, unified/most-specific first) used
+    // only when `Retry-After` is absent. Unlike `Retry-After`, these may carry an ABSOLUTE reset time.
+    private static let resetKeys = [
         "anthropic-ratelimit-unified-reset",
         "x-ratelimit-reset",
         "x-ratelimit-reset-requests",
@@ -36,8 +35,14 @@ public struct HttpRateLimitDetails: Sendable, Hashable {
     public static func parse(headers: [String: String], now: Date) -> HttpRateLimitDetails {
         var lower: [String: String] = [:]
         for (key, value) in headers { lower[key.lowercased()] = value }
-        for key in orderedKeys {
-            if let raw = lower[key], let delay = parseDelay(raw, now: now) {
+        // `Retry-After` (RFC 7231) is authoritative and is ALWAYS delay-seconds or an HTTP-date — never
+        // an absolute unix epoch — so the epoch heuristic must not apply to it (a large delay-seconds
+        // value must not be misread as a past timestamp and collapsed to zero).
+        if let raw = lower["retry-after"], let delay = parseDelay(raw, now: now, allowEpochHeuristic: false) {
+            return HttpRateLimitDetails(retryAfter: delay)
+        }
+        for key in resetKeys {
+            if let raw = lower[key], let delay = parseDelay(raw, now: now, allowEpochHeuristic: true) {
                 return HttpRateLimitDetails(retryAfter: delay)
             }
         }
@@ -56,17 +61,21 @@ public struct HttpRateLimitDetails: Sendable, Hashable {
     // MARK: - Value parsing
 
     /// Liberal parse of a single header value into a non-negative delay. Accepts, in order: a bare
-    /// number (delta-seconds, or an absolute unix-epoch timestamp when it is implausibly large for a
-    /// delta), a Go-style duration (`6m0s`, `500ms`, `1.5s`), an HTTP-date, or an ISO-8601 timestamp.
-    static func parseDelay(_ raw: String, now: Date) -> Duration? {
+    /// number (delta-seconds; or, when `allowEpochHeuristic` is set, an absolute unix-epoch timestamp
+    /// when it is implausibly large for a delta), a Go-style duration (`6m0s`, `500ms`, `1.5s`), an
+    /// HTTP-date, or an ISO-8601 timestamp. A non-finite / unparseable value returns nil so the caller
+    /// falls back to normal backoff — critically, `Double("inf")` parses to +inf, which would trap
+    /// `Duration.seconds`, so we must reject it here.
+    static func parseDelay(_ raw: String, now: Date, allowEpochHeuristic: Bool) -> Duration? {
         let value = raw.trimmingCharacters(in: .whitespaces)
         guard !value.isEmpty else { return nil }
 
         if let number = Double(value) {
-            // A plain number is normally delta-seconds. Some gateways send an ABSOLUTE unix-epoch reset
-            // in this field; a value far too large to be a sane delay is almost certainly that, so treat
-            // it as an absolute time and subtract now.
-            if number > 1_000_000_000 {
+            guard number.isFinite else { return nil }   // reject inf / -inf / nan / magnitude overflow
+            // A plain number is normally delta-seconds. Some reset headers send an ABSOLUTE unix-epoch
+            // instead; a value far too large to be a sane delay is almost certainly that, so treat it as
+            // an absolute time and subtract now. (Never applied to `Retry-After` — see parse().)
+            if allowEpochHeuristic, number > 1_000_000_000 {
                 return clampNonNegative(number - now.timeIntervalSince1970)
             }
             return clampNonNegative(number)
@@ -81,7 +90,9 @@ public struct HttpRateLimitDetails: Sendable, Hashable {
     }
 
     private static func clampNonNegative(_ seconds: Double) -> Duration {
-        .seconds(max(0, seconds))
+        // Guard non-finite here too (a far-future date delta): Duration.seconds traps on inf.
+        guard seconds.isFinite else { return .zero }
+        return .seconds(max(0, seconds))
     }
 
     /// Parse a Go-style duration string (`1h`, `6m0s`, `500ms`, `1.5s`, `100µs`) into seconds. The whole

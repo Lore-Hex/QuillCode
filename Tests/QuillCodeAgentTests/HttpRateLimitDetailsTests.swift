@@ -43,6 +43,21 @@ final class HttpRateLimitDetailsTests: XCTestCase {
         XCTAssertEqual(retryAfter(["x-ratelimit-reset": "1700000045"]), .seconds(45))
     }
 
+    func testNonFiniteRetryAfterIsIgnoredNotCrash() {
+        // Double("inf") parses to +inf, which would trap Duration.seconds — a malformed/hostile header
+        // must degrade to "no hint", never crash the process.
+        for value in ["inf", "Infinity", "-inf", "nan", "1e400"] {
+            XCTAssertNil(retryAfter(["Retry-After": value]), "\(value) must be ignored, not crash")
+            XCTAssertNil(retryAfter(["x-ratelimit-reset": value]), "\(value) (reset) must be ignored")
+        }
+    }
+
+    func testRetryAfterLargeNumberIsDelaySecondsNotEpoch() {
+        // Per RFC 7231, Retry-After is delay-seconds or HTTP-date — never an absolute epoch. A large
+        // value must stay a (large) delay, NOT be misread as a past timestamp and collapsed to zero.
+        XCTAssertEqual(retryAfter(["Retry-After": "1700000045"]), .seconds(1_700_000_045))
+    }
+
     func testAnthropicUnifiedResetIso8601() {
         XCTAssertEqual(retryAfter(["anthropic-ratelimit-unified-reset": "2023-11-14T22:14:20Z"]), .seconds(60))
     }
