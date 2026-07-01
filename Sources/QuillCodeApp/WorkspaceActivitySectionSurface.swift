@@ -2,6 +2,7 @@ import Foundation
 
 public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterable {
     case plan
+    case changes
     case context
     case recent
     case subagents
@@ -16,6 +17,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return "Task Plan"
+        case .changes:
+            return "Changes"
         case .context:
             return "Context"
         case .recent:
@@ -41,6 +44,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return "No plan yet"
+        case .changes:
+            return "No file changes yet"
         case .context:
             return "No context compaction yet"
         case .recent:
@@ -66,6 +71,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return "activity-plan"
+        case .changes:
+            return "activity-change"
         case .context:
             return "activity-context"
         case .recent:
@@ -91,7 +98,7 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return true
-        case .context, .handoff, .instructionReview, .latestAnswer:
+        case .changes, .context, .handoff, .instructionReview, .latestAnswer:
             return false
         case .recent, .subagents, .tools, .sources, .artifacts:
             return true
@@ -126,6 +133,9 @@ public struct ActivitySectionSurface: Codable, Sendable, Hashable, Identifiable 
         }
         if kind == .instructionReview {
             return "\(items.count) issue\(items.count == 1 ? "" : "s")"
+        }
+        if kind == .changes {
+            return "\(items.count) file\(items.count == 1 ? "" : "s")"
         }
         return "\(items.count) item\(items.count == 1 ? "" : "s")"
     }
