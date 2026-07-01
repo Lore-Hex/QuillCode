@@ -192,6 +192,25 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("e\u{0301}X\u{1B}[1;2HY"), "e\u{0301}Y")
     }
 
+    func testZeroWidthJoinerEmojiClustersAdvanceAsOneWideGlyph() {
+        XCTAssertEqual(render("👨‍👩‍👧‍👦X\u{1B}[1;3HY"), "👨‍👩‍👧‍👦Y")
+        XCTAssertEqual(render("👩🏽‍💻X\u{1B}[1;3HY"), "👩🏽‍💻Y")
+    }
+
+    func testEmojiPresentationSequencesAdvanceAsWideGlyphs() {
+        XCTAssertEqual(render("♥️X\u{1B}[1;3HY"), "♥️Y")
+        XCTAssertEqual(render("☀️X\u{1B}[1;3HY"), "☀️Y")
+        XCTAssertEqual(render("©️X\u{1B}[1;3HY"), "©️Y")
+        XCTAssertEqual(render("™️X\u{1B}[1;3HY"), "™️Y")
+        XCTAssertEqual(render("1️⃣X\u{1B}[1;3HY"), "1️⃣Y")
+    }
+
+    func testAmbiguousWidthPolicyDefaultsToNarrowForTranscriptStability() {
+        XCTAssertEqual(render("ΩX\u{1B}[1;2HY"), "ΩY")
+        XCTAssertEqual(TerminalScreenCellWidth.width(of: "Ω"), 1)
+        XCTAssertEqual(TerminalScreenCellWidth.width(of: "Ω", ambiguousPolicy: .wide), 2)
+    }
+
     func testIsIdempotentOnCleanText() {
         let once = render("\u{1B}[31mred\u{1B}[0m\r\u{1B}[Kdone")
         XCTAssertEqual(render(once), once)
