@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Execution Tool Gate Split
+
+Overall grade after this slice: **A+ workspace tool-execution parity gate files, complete focused-suite coverage**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceExecutionToolGateTests.swift`, which mixed tool audit
+events, executor routing, generic tool-run preparation, run lifecycle planning, terminal lifecycle planning, active-work
+stop planning, shell tool-call construction, and per-run override composition in one 190-line B+ suite. The split keeps
+the same contracts but maps each check to a sharper workspace execution boundary:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool audit events | Shared the broad execution-tool gate. | `ParityWorkspaceToolEventGateTests.swift` owns event recording and redaction boundaries. |
+| Tool routing and overrides | Mixed with lifecycle and shell planning checks. | `ParityWorkspaceToolRoutingGateTests.swift` owns executor routing and override composition. |
+| Tool-run preparation/lifecycle | Mixed with terminal and active-work checks. | `ParityWorkspaceToolRunGateTests.swift` owns run preparation and lifecycle planner delegation. |
+| Terminal and active-work lifecycle | Shared unrelated tool execution checks. | `ParityWorkspaceTerminalActiveWorkGateTests.swift` owns terminal and stop/disconnect planner delegation. |
+| Shell tool-call planning | Buried in the broad execution-tool gate. | `ParityWorkspaceShellToolCallGateTests.swift` owns local action and project extension shell-call planning. |
+| Manifest | Listed only four of eight tool-execution checks under the older execution suite. | `ParityFocusedSuiteManifest.swift` lists every split suite and all eight checks explicitly. |
+| Grade | The original execution-tool gate was **B+** at 190 lines. | Every split workspace tool-execution gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspace(ToolEvent|ToolRouting|ToolRun|TerminalActiveWork|ShellToolCall)GateTests|ParityFocusedSuiteManifest'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves ownership and manifest completeness, but it does
+  not add new live workspace tool execution scenarios.
+- The next broad B+ hotspots are workspace surface, workspace integration, agent, workspace model, and memory gates.
+
 ## 2026-07-01 Top-Bar Model Picker Gate Refinement
 
 Overall grade after this slice: **A+ top-bar/model-picker parity gate files, stricter focused-suite ownership**.

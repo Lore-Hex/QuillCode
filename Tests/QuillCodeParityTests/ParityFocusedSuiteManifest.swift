@@ -135,12 +135,26 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesCommandPlanExecution",
             "testWorkspaceModelDelegatesAgentRunContextAssembly",
             "testWorkspaceModelDelegatesAgentSendSession",
-            "testWorkspaceModelDelegatesToolEventRecording",
-            "testWorkspaceModelDelegatesToolCallExecutionRouting",
-            "testWorkspaceModelDelegatesShellToolCallPlanning",
             "testWorkspaceComposerIntegrationTestsOwnModelComposerFlows",
-            "testWorkspaceModelDelegatesSlashCommandDispatchPlanning",
+            "testWorkspaceModelDelegatesSlashCommandDispatchPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolEventGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolEventRecording"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolRoutingGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolCallExecutionRouting",
             "testWorkspaceModelDelegatesToolExecutionOverrideCombining"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolRunGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolRunPreparation",
+            "testWorkspaceModelDelegatesToolRunLifecyclePlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceTerminalActiveWorkGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesTerminalLifecyclePlanning",
+            "testWorkspaceModelDelegatesActiveWorkStopPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceShellToolCallGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesShellToolCallPlanning"
         ]),
         Suite(fileName: "ParityWorkspaceProjectGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectMetadataLoading",
