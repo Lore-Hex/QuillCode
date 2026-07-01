@@ -23,13 +23,39 @@ Verification:
 
 - `swift test --filter 'ProjectExtensionManifestLoaderTests|QuillCodeBrowserSurfaceTests|WorkspaceTerminalEngineTests|QuillCodeNativeHitTargetAuditTests|ParityNativeInteractionContractGateTests|ParityBrowserGateTests|ParityWorkspaceProjectGateTests|ParityWorkspaceSurfaceGateTests'`
 - `git diff --check`
-- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
 
 Residual risk:
 
 - This is a boundary/refactor pass, not a new parity feature. Remaining lower grades are mostly broad parity/test
   harnesses and intentionally repetitive SwiftUI/model projection files. The next high-value quality passes should
   target `BrowserSessionSyncSnapshot.swift`, `WorkspaceModelBrowser.swift`, and the larger parity suites.
+
+## 2026-07-01 Context Summary Boundary Split
+
+Overall grade after this slice: **A+ context-summary model/prompt/generator/sanitizer files, A+ app-source module maintained**.
+
+This pass re-graded the repo after the native source audit split and addressed the next production app-source hotspot:
+`WorkspaceContextSummaryGenerator.swift`. That file was behaviorally sound, but it mixed public DTOs, generator
+implementations, prompt construction, model-output validation, redaction, and diagnostic text bounding in one source file.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Context summary ownership | `WorkspaceContextSummaryGenerator.swift` owned models, deterministic and LLM generators, prompt text, sanitizer logic, and localized errors. | The old broad file was removed. `WorkspaceContextSummaryGenerators.swift`, `WorkspaceContextSummaryPromptBuilder.swift`, `WorkspaceContextSummarySanitizer.swift`, and focused request/outcome/purpose/telemetry model files now own one concern each. |
+| Public DTO surface | Multiple public context-summary types lived together and generated a lower file score through declaration density. | Purpose, request, outcome, and telemetry are separate small files, all graded **A+** with no automated issues. |
+| Prompt and redaction path | Prompt transcript bounding and model-output secret redaction were colocated with generator orchestration. | Prompt shaping and text/redaction bounds now have explicit seams, making compaction/fork summary failures easier to inspect without touching runner code. |
+| Behavior | Context compaction and fork summaries already used model-backed summaries with deterministic fallback and telemetry. | Behavior is unchanged; focused lifecycle and summary tests still pass. |
+| File grades | `WorkspaceContextSummaryGenerator.swift` was **B+** and the lowest graded app-source file. | Every new context-summary file in this split is **A+**. The app-source module remains **A+**. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceContextSummaryGeneratorTests|WorkspaceContextSummaryTelemetryPlannerTests|WorkspaceThreadLifecycleIntegrationTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- `WorkspaceContextSummaryTelemetryPlanner.swift` remains a small **A** file because the telemetry copy intentionally has
+  similar compact/fork branches. Further abstraction would save a heuristic warning but would make the user-facing copy
+  harder to review.
 
 ## 2026-07-01 Native Hit-Target Model Boundary Split
 
