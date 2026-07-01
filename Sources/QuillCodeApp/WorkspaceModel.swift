@@ -35,6 +35,9 @@ public final class QuillCodeWorkspaceModel {
     /// The active runtime's retry channel; the model drains it into "Self-healing" thread notices while
     /// a run is in flight. nil for the mock runtime (which never retries).
     var retryEventChannel: RetryEventChannel?
+    /// Test seam for the verification green-gate: overrides how a verify command is run so a unit test
+    /// can supply a fake `ToolResult` instead of spawning a real shell. nil = run the real command.
+    var verificationRunner: (@Sendable (LocalEnvironmentAction, URL) async -> ToolResult)?
     let threadPersistence: WorkspaceThreadPersistence
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
