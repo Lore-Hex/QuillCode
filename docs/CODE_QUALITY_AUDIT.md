@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Agent Runner Boundary Split
+
+Overall grade after this slice: **A+ agent runner facade, A+ agent source module average, no new agent runner file below A+**.
+
+This pass addressed the remaining production agent hotspot from the generated report: `Agent.swift`. The old file had grown into a 425-line mixed orchestration surface that owned public API types, action selection, streaming collectors, usage-event streaming, reasoning/draft publication, and promised-work correction.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Agent facade | `Agent.swift` owned public agent contracts, run orchestration, streaming dispatch, stream collection, draft publication, and promised-work retry. It graded **B+**. | `Agent.swift` is now a 178-line **A+** orchestration facade focused on the send loop, tool-step execution flow, final-answer emission, and shared title/definition helpers. |
+| Public contracts | Public types and protocols were declared at the top of the runner implementation. | `AgentTypes.swift` owns `AgentAction`, LLM protocols, runner result/feedback types, errors, and handler typealiases. It grades **A+**. |
+| Action selection | Immediate-action preflight, usage streaming, text streaming, and non-streaming fallback lived inline in the runner. | `AgentActionResolver.swift`, `AgentTextStreamActionRunner.swift`, and `AgentUsageStreamActionRunner.swift` own the dispatch path. All grade **A+**. |
+| Stream collection | Raw text, draft-updating text streams, usage streams, reasoning summaries, and usage-event emission were private helpers in the runner. | `AgentRawTextStreamActionCollector.swift`, `AgentTextStreamActionCollector.swift`, `AgentUsageStreamActionCollector.swift`, and `AgentStreamingDraftPublisher.swift` own those focused responsibilities. All grade **A+**. |
+| Promised-work recovery | The retry/correction path for models that say "I'll do it" without returning a tool call lived inline in `Agent.swift`. | `AgentPromisedWorkResolver.swift` owns correction retry and embedded JSON recovery while preserving the one-turn execution behavior. It grades **A+**. |
+
+Verification:
+
+- `swift test --filter 'AgentToolLoopTests|AgentImmediateShellActionTests|AgentPlanModeTests|AgentStreamingTests|AgentPromisedWorkGuardTests'`
+- `swift test` (1967 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice intentionally preserves behavior and focuses on boundaries around the agent loop. The remaining lowest production agent files are `AgentPromisedWorkGuard.swift`, `TrustedRouterPromptBuilder.swift`, and `AgentActionStreaming.swift`, each graded **A-**.
+- Full Codex parity still requires broader real-world UI and tool-flow coverage beyond this core agent split.
+
 ## 2026-07-01 Automations Pane View Split
 
 Overall grade after this slice: **A+ automations pane cluster, A+ app source module average, no automations pane file below A+**.
@@ -18,7 +43,6 @@ Verification:
 - `swift test --filter 'ParityNativeInteractionContractGateTests|ParityWorkspaceSurfaceGateTests|WorkspaceAutomationSurfaceIntegrationTests|QuillCodeNativeHitTargetAuditTests'`
 - `swift test` (1967 tests, 1 skipped, 0 failures)
 - `git diff --check`
-- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
 
 Residual risk:
 
