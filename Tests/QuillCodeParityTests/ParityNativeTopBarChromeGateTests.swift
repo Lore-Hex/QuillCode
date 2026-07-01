@@ -20,13 +20,7 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
             "static let sidebarWidth",
             "static let topBarHeight: CGFloat = 44"
         ].forEach { Self.assertSource(designText, contains: $0) }
-        [
-            "statusIndicator",
-            "QuillCodeTopBarPill",
-            "private func navigationButton",
-            "private func stopButton",
-            "private var commandMenu"
-        ].forEach { Self.assertSource(topBarViewText, excludes: $0) }
+        assertTopBarCompositionAvoidsBusyChrome(topBarViewText)
     }
 
     func testNativeModePickerLivesBesideComposerAccessoryChrome() throws {
@@ -42,27 +36,13 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
         Self.assertSource(topBarViewText, excludes: "struct QuillCodeModePickerButton")
     }
 
-    func testNativeModelPickerKeepsRowsAndDetailsFocused() throws {
-        let pickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
-        let rowText = try Self.appSourceText(named: "QuillCodeModelPickerRows.swift")
-
+    private func assertTopBarCompositionAvoidsBusyChrome(_ source: String) {
         [
-            "struct QuillCodeModelPickerView",
-            "@State private var searchText",
-            "ensureHighlightedModel"
-        ].forEach { Self.assertSource(pickerText, contains: $0) }
-        [
-            "struct QuillCodeModelCategorySection",
-            "struct QuillCodeModelRow",
-            "struct QuillCodeModelDetails",
-            "QuillCodePressableButtonStyle",
-            "quillCodeFullRowButtonTarget",
-            "quillCodeIconButtonTarget"
-        ].forEach { Self.assertSource(rowText, contains: $0) }
-        [
-            "struct QuillCodeModelRow",
-            "struct QuillCodeModelDetails",
-            "badgeForeground"
-        ].forEach { Self.assertSource(pickerText, excludes: $0) }
+            "statusIndicator",
+            "QuillCodeTopBarPill",
+            "private func navigationButton",
+            "private func stopButton",
+            "private var commandMenu"
+        ].forEach { Self.assertSource(source, excludes: $0) }
     }
 }

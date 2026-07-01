@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 Top-Bar Model Picker Gate Refinement
+
+Overall grade after this slice: **A+ top-bar/model-picker parity gate files, stricter focused-suite ownership**.
+
+This pass builds on the already-merged top-bar gate split by moving the remaining model-picker-specific checks out of
+the native chrome and top-bar surface suites. Native chrome now owns only the quiet Codex-style top bar and mode-picker
+button placement, top-bar surface owns only DTO/search/builder contracts, and model-picker rows plus integration-suite
+placement each have a dedicated parity gate.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Native model picker | Lived inside `ParityNativeTopBarChromeGateTests.swift`. | `ParityNativeModelPickerGateTests.swift` owns picker shell versus row/detail boundaries. |
+| Model-picker integration placement | Lived inside `ParityTopBarSurfaceGateTests.swift`. | `ParityModelPickerIntegrationGateTests.swift` owns focused integration-test placement. |
+| Manifest | Listed the broader split suites only. | `ParityFocusedSuiteManifest.swift` lists the model-picker and integration gates explicitly. |
+| Grade | Top-bar files were already A+, but ownership remained mixed. | The split model-picker files grade **A+ 100** and keep native/surface gates narrower. |
+
+Verification:
+
+- `swift test --filter 'Parity(TopBarPresentation|NativeTopBarChrome|TopBarSurface|NativeModelPicker|ModelPickerIntegration)GateTests|ParityFocusedSuiteManifest'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves reviewability and ownership, but does not add new
+  rendered native model-picker interaction scenarios.
+- The next broad B+ hotspots are workspace execution-tool, workspace-surface, workspace-integration, agent, and
+  workspace-model gates.
+
 ## 2026-07-01 Slash Parser Gate Split
 
 Overall grade after this slice: **A+ slash parser parity gate files, command-domain ownership**.
