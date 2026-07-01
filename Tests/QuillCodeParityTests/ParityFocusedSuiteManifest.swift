@@ -34,8 +34,24 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding",
             "testModelPickerWorkspaceIntegrationCoverageStaysFocused"
         ]),
-        Suite(fileName: "ParitySlashGateTests.swift", testNames: [
-            "testSlashParserDelegatesPullRequestSubcommands"
+        Suite(fileName: "ParitySlashRepositoryParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesPullRequestSubcommands",
+            "testSlashParserDelegatesProjectSubcommands",
+            "testSlashParserDelegatesRemoteProjectSubcommands"
+        ]),
+        Suite(fileName: "ParitySlashSessionParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesTerminalSubcommands",
+            "testSlashParserDelegatesModeSubcommands",
+            "testSlashParserDelegatesModelSubcommands"
+        ]),
+        Suite(fileName: "ParitySlashThreadMemoryParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesThreadLifecycleSubcommands",
+            "testSlashParserDelegatesMemorySubcommands"
+        ]),
+        Suite(fileName: "ParitySlashWorkspaceParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesWorkspaceSubcommands",
+            "testSlashParserDelegatesEnvironmentSubcommands",
+            "testSlashParserDelegatesSchedulingSubcommands"
         ]),
         Suite(fileName: "ParityModelGateTests.swift", testNames: [
             "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
