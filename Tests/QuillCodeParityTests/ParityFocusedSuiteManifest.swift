@@ -354,13 +354,23 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityAgentBehaviorSuiteGateTests.swift", testNames: [
             "testAgentBehaviorTestsUseFocusedSuites"
         ]),
-        Suite(fileName: "ParityTrustedRouterGateTests.swift", testNames: [
-            "testTrustedRouterActionParserLivesOutsideTransportClient",
+        Suite(fileName: "ParityTrustedRouterActionParsingGateTests.swift", testNames: [
+            "testTrustedRouterActionParsingLivesOutsideTransportClient"
+        ]),
+        Suite(fileName: "ParityTrustedRouterPromptGateTests.swift", testNames: [
             "testTrustedRouterPromptBuilderLivesOutsideTransportClient",
-            "testTrustedRouterAPIKeyResolutionLivesInFocusedResolver",
-            "testTrustedRouterSafetyClientLivesOutsideActionTransportFile",
-            "testTrustedRouterChatParametersLiveOutsideTransportClients",
-            "testTrustedRouterAdapterTestsUseFocusedSuites"
+        ]),
+        Suite(fileName: "ParityTrustedRouterAPIKeyGateTests.swift", testNames: [
+            "testTrustedRouterAPIKeyResolutionLivesInFocusedResolver"
+        ]),
+        Suite(fileName: "ParityTrustedRouterSafetyTransportGateTests.swift", testNames: [
+            "testTrustedRouterSafetyClientLivesOutsideActionTransportFile"
+        ]),
+        Suite(fileName: "ParityTrustedRouterChatParametersGateTests.swift", testNames: [
+            "testTrustedRouterChatParametersLiveOutsideTransportClients"
+        ]),
+        Suite(fileName: "ParityTrustedRouterAdapterSuiteGateTests.swift", testNames: [
+            "testTrustedRouterAdapterCoverageUsesFocusedSuites"
         ]),
         Suite(fileName: "ParitySafetyGateTests.swift", testNames: [
             "testStaticSafetyPolicyLivesOutsideReviewerControlFlow"
