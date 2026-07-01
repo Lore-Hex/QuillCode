@@ -17,11 +17,7 @@ public enum QuillCodeNativeHitTargetAudit {
             .map(\.rawValue)
             .sorted()
         let allContracts = designContracts + surfaceContracts
-        let missingSurfaceKinds = missingRequiredSurfaceKinds(
-            policies: requiredSurfacePolicies,
-            contracts: allContracts
-        )
-        let missingSurfaceActions = missingRequiredSurfaceActions(
+        let policyCoverage = surfacePolicyCoverage(
             policies: requiredSurfacePolicies,
             contracts: allContracts
         )
@@ -30,22 +26,6 @@ public enum QuillCodeNativeHitTargetAudit {
             .filter { !coveredFocusTargets.contains($0) }
             .map(\.rawValue)
             .sorted()
-        let missingSurfaceFocusTargets = missingRequiredSurfaceFocusTargets(
-            policies: requiredSurfacePolicies,
-            contracts: allContracts
-        )
-        let unexpectedSurfaceKinds = unexpectedSurfaceKinds(
-            policies: requiredSurfacePolicies,
-            contracts: allContracts
-        )
-        let unexpectedSurfaceActions = unexpectedSurfaceActions(
-            policies: requiredSurfacePolicies,
-            contracts: allContracts
-        )
-        let unexpectedSurfaceFocusTargets = unexpectedSurfaceFocusTargets(
-            policies: requiredSurfacePolicies,
-            contracts: allContracts
-        )
         let duplicateContractIDs = duplicateIDs(in: allContracts.map(\.id))
         let validationIssues = allContracts.flatMap(\.validationIssues)
         let missingClickProbeContractIDs = missingClickProbeContractIDs(
@@ -68,135 +48,20 @@ public enum QuillCodeNativeHitTargetAudit {
             missingDesignKinds: missingKinds,
             coveredSurfaceFamilies: coveredFamilies.map(\.rawValue).sorted(),
             missingSurfaceFamilies: missingFamilies,
-            missingRequiredSurfaceKinds: missingSurfaceKinds,
+            missingRequiredSurfaceKinds: policyCoverage.missingRequiredKinds,
             coveredFocusTargets: coveredFocusTargets.map(\.rawValue).sorted(),
             missingRequiredFocusTargets: missingFocusTargets,
-            missingRequiredSurfaceActions: missingSurfaceActions,
-            missingRequiredSurfaceFocusTargets: missingSurfaceFocusTargets,
-            unexpectedSurfaceKinds: unexpectedSurfaceKinds,
-            unexpectedSurfaceActions: unexpectedSurfaceActions,
-            unexpectedSurfaceFocusTargets: unexpectedSurfaceFocusTargets,
+            missingRequiredSurfaceActions: policyCoverage.missingRequiredActions,
+            missingRequiredSurfaceFocusTargets: policyCoverage.missingRequiredFocusTargets,
+            unexpectedSurfaceKinds: policyCoverage.unexpectedKinds,
+            unexpectedSurfaceActions: policyCoverage.unexpectedActions,
+            unexpectedSurfaceFocusTargets: policyCoverage.unexpectedFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
             missingClickProbeContractIDs: missingClickProbeContractIDs,
             clickProbeValidationIssues: clickProbeValidationIssues,
             duplicateContractIDs: duplicateContractIDs,
             validationIssues: validationIssues
         )
-    }
-
-    private static func missingRequiredSurfaceKinds(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract]
-    ) -> [String] {
-        missingRequiredPolicyValues(
-            policies: policies,
-            contracts: contracts,
-            requiredValues: \.requiredKinds,
-            contractValue: { Optional($0.kind) },
-            valueDescription: \.rawValue
-        )
-    }
-
-    private static func missingRequiredSurfaceActions(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract]
-    ) -> [String] {
-        missingRequiredPolicyValues(
-            policies: policies,
-            contracts: contracts,
-            requiredValues: \.requiredActions,
-            contractValue: { Optional($0.action) },
-            valueDescription: \.rawValue
-        )
-    }
-
-    private static func missingRequiredSurfaceFocusTargets(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract]
-    ) -> [String] {
-        missingRequiredPolicyValues(
-            policies: policies,
-            contracts: contracts,
-            requiredValues: \.requiredFocusTargets,
-            contractValue: \.focusTarget,
-            valueDescription: \.rawValue
-        )
-    }
-
-    private static func missingRequiredPolicyValues<Value: Hashable>(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract],
-        requiredValues: (QuillCodeNativeSurfaceTargetPolicy) -> [Value],
-        contractValue: (QuillCodeNativeHitTargetContract) -> Value?,
-        valueDescription: (Value) -> String
-    ) -> [String] {
-        let contractsByFamily = Dictionary(grouping: contracts, by: \.family)
-        return policies.flatMap { policy in
-            let coveredValues = Set(contractsByFamily[policy.family, default: []].compactMap(contractValue))
-            return requiredValues(policy).compactMap { value in
-                coveredValues.contains(value) ? nil : "\(policy.family.rawValue):\(valueDescription(value))"
-            }
-        }
-        .sorted()
-    }
-
-    private static func unexpectedSurfaceKinds(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract]
-    ) -> [String] {
-        unexpectedPolicyValues(
-            policies: policies,
-            contracts: contracts,
-            allowedValues: \.allowedKinds,
-            contractValue: { $0.kind },
-            valueDescription: \.rawValue
-        )
-    }
-
-    private static func unexpectedSurfaceActions(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract]
-    ) -> [String] {
-        unexpectedPolicyValues(
-            policies: policies,
-            contracts: contracts,
-            allowedValues: \.allowedActions,
-            contractValue: { $0.action },
-            valueDescription: \.rawValue
-        )
-    }
-
-    private static func unexpectedSurfaceFocusTargets(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract]
-    ) -> [String] {
-        unexpectedPolicyValues(
-            policies: policies,
-            contracts: contracts,
-            allowedValues: \.allowedFocusTargets,
-            contractValue: \.focusTarget,
-            valueDescription: \.rawValue
-        )
-    }
-
-    private static func unexpectedPolicyValues<Value: Hashable>(
-        policies: [QuillCodeNativeSurfaceTargetPolicy],
-        contracts: [QuillCodeNativeHitTargetContract],
-        allowedValues: (QuillCodeNativeSurfaceTargetPolicy) -> [Value],
-        contractValue: (QuillCodeNativeHitTargetContract) -> Value?,
-        valueDescription: (Value) -> String
-    ) -> [String] {
-        let allowedValuesByFamily = Dictionary(
-            uniqueKeysWithValues: policies.map { ($0.family, Set(allowedValues($0))) }
-        )
-        return contracts.compactMap { contract in
-            guard let value = contractValue(contract),
-                  let allowedValues = allowedValuesByFamily[contract.family],
-                  !allowedValues.contains(value)
-            else { return nil }
-            return "\(contract.family.rawValue):\(contract.id):\(valueDescription(value))"
-        }
-        .sorted()
     }
 
     private static func duplicateIDs(in ids: [String]) -> [String] {
@@ -208,16 +73,4 @@ public enum QuillCodeNativeHitTargetAudit {
         }
         return duplicates.sorted()
     }
-
-    private static func missingClickProbeContractIDs(
-        contracts: [QuillCodeNativeHitTargetContract],
-        probes: [QuillCodeNativeHitTargetProbe]
-    ) -> [String] {
-        let probedContractIDs = Set(probes.map(\.contractID))
-        return contracts
-            .map(\.id)
-            .filter { !probedContractIDs.contains($0) }
-            .sorted()
-    }
-
 }
