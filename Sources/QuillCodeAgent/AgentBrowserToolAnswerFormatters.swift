@@ -28,17 +28,11 @@ enum AgentBrowserToolAnswerFormatters {
     }
 
     private static func browserInspectionAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
-        var lines = [
-            "Inspected `\(inspection.title)` at \(inspection.url).",
-            "Inspection depth: \(inspection.inspectionDepth.label).",
-            inspection.summary
-        ]
-        if !inspection.outline.isEmpty {
-            lines.append("Outline: \(inspection.outline.prefix(5).joined(separator: "; ")).")
-        }
-        if let textSnippet = inspection.textSnippet?.trimmedNonEmpty {
-            lines.append("Text: \(AgentToolAnswerFormatters.truncated(textSnippet, maxCharacters: 320))")
-        }
+        var lines = browserAnswerLines(
+            leadingLine: "Inspected `\(inspection.title)` at \(inspection.url).",
+            inspection: inspection,
+            includeDepth: true
+        )
         if !inspection.comments.isEmpty {
             lines.append("Browser comments: \(inspection.comments.map(\.text).prefix(3).joined(separator: "; ")).")
         }
@@ -46,16 +40,32 @@ enum AgentBrowserToolAnswerFormatters {
     }
 
     private static func browserOpenAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
+        browserAnswerLines(
+            leadingLine: "Opened `\(inspection.title)` at \(inspection.url).",
+            inspection: inspection,
+            includeDepth: false
+        )
+        .joined(separator: "\n")
+    }
+
+    private static func browserAnswerLines(
+        leadingLine: String,
+        inspection: BrowserInspectionToolOutput,
+        includeDepth: Bool
+    ) -> [String] {
         var lines = [
-            "Opened `\(inspection.title)` at \(inspection.url).",
+            leadingLine,
             inspection.summary
         ]
+        if includeDepth {
+            lines.insert("Inspection depth: \(inspection.inspectionDepth.label).", at: 1)
+        }
         if !inspection.outline.isEmpty {
             lines.append("Outline: \(inspection.outline.prefix(5).joined(separator: "; ")).")
         }
         if let textSnippet = inspection.textSnippet?.trimmedNonEmpty {
             lines.append("Text: \(AgentToolAnswerFormatters.truncated(textSnippet, maxCharacters: 320))")
         }
-        return lines.joined(separator: "\n")
+        return lines
     }
 }

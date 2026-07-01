@@ -14,7 +14,17 @@ import {
 } from './interaction-audit-contracts';
 
 export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
-  return page.evaluate(({ activeLayerSelector, edgeSampleFractions, expectedActionByKind, expectedKindByClass, interiorSampleFractions, minimumHitTarget, minimumTargetClearance, selector, sharedHitTargetClasses }) => {
+  return page.evaluate(({
+    activeLayerSelector,
+    edgeSampleFractions,
+    expectedActionByKind,
+    expectedKindByClass,
+    interiorSampleFractions,
+    minimumHitTarget,
+    minimumTargetClearance,
+    selector,
+    sharedHitTargetClasses
+  }) => {
     type VisibleTarget = {
       clipped: VisibleRectResult;
       element: Element;
@@ -85,6 +95,14 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
     function isRangeInput(element: Element) {
       return element instanceof HTMLInputElement
         && (element.type || '').toLowerCase() === 'range';
+    }
+
+    function spanOverlap(startA: number, endA: number, startB: number, endB: number) {
+      return Math.min(endA, endB) - Math.max(startA, startB);
+    }
+
+    function spanGap(startA: number, endA: number, startB: number, endB: number) {
+      return Math.max(startA, startB) - Math.min(endA, endB);
     }
 
     function isAuditableInteractiveElement(element: Element) {
@@ -541,8 +559,18 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
         if (first.layer !== second.layer) continue;
         if (first.element.contains(second.element) || second.element.contains(first.element)) continue;
 
-        const overlapWidth = Math.min(first.visibleRect.right, second.visibleRect.right) - Math.max(first.visibleRect.left, second.visibleRect.left);
-        const overlapHeight = Math.min(first.visibleRect.bottom, second.visibleRect.bottom) - Math.max(first.visibleRect.top, second.visibleRect.top);
+        const overlapWidth = spanOverlap(
+          first.visibleRect.left,
+          first.visibleRect.right,
+          second.visibleRect.left,
+          second.visibleRect.right
+        );
+        const overlapHeight = spanOverlap(
+          first.visibleRect.top,
+          first.visibleRect.bottom,
+          second.visibleRect.top,
+          second.visibleRect.bottom
+        );
         if (overlapWidth > 1 && overlapHeight > 1) {
           overlapIssues.push({
             a: labelFor(first.element),
@@ -553,10 +581,30 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
           continue;
         }
 
-        const verticalOverlap = Math.min(first.visibleRect.bottom, second.visibleRect.bottom) - Math.max(first.visibleRect.top, second.visibleRect.top);
-        const horizontalOverlap = Math.min(first.visibleRect.right, second.visibleRect.right) - Math.max(first.visibleRect.left, second.visibleRect.left);
-        const horizontalGap = Math.max(first.visibleRect.left, second.visibleRect.left) - Math.min(first.visibleRect.right, second.visibleRect.right);
-        const verticalGap = Math.max(first.visibleRect.top, second.visibleRect.top) - Math.min(first.visibleRect.bottom, second.visibleRect.bottom);
+        const verticalOverlap = spanOverlap(
+          first.visibleRect.top,
+          first.visibleRect.bottom,
+          second.visibleRect.top,
+          second.visibleRect.bottom
+        );
+        const horizontalOverlap = spanOverlap(
+          first.visibleRect.left,
+          first.visibleRect.right,
+          second.visibleRect.left,
+          second.visibleRect.right
+        );
+        const horizontalGap = spanGap(
+          first.visibleRect.left,
+          first.visibleRect.right,
+          second.visibleRect.left,
+          second.visibleRect.right
+        );
+        const verticalGap = spanGap(
+          first.visibleRect.top,
+          first.visibleRect.bottom,
+          second.visibleRect.top,
+          second.visibleRect.bottom
+        );
         if (
           verticalOverlap > 1
           && horizontalGap >= 0
@@ -599,4 +647,3 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
     sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES
   });
 }
-

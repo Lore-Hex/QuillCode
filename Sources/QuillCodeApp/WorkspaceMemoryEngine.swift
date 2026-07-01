@@ -20,11 +20,7 @@ enum WorkspaceMemoryEngine {
         return MemoryNoteLoader.loadGlobal(from: directory)
     }
 
-    static func saveGlobal(
-        content: String,
-        userText: String,
-        directory: URL?
-    ) -> WorkspaceMemoryMutation {
+    static func saveGlobal(content: String, userText: String, directory: URL?) -> WorkspaceMemoryMutation {
         guard let directory else {
             return WorkspaceMemoryMutationFactory.saveFailed(
                 userText: userText,
@@ -35,10 +31,9 @@ enum WorkspaceMemoryEngine {
 
         do {
             let saved = try WorkspaceMemoryRememberToolExecutor.saveGlobal(content: content, to: directory)
-            let note = saved.note
             return WorkspaceMemoryMutationFactory.saved(
                 userText: userText,
-                note: note,
+                note: saved.note,
                 refresh: .global(from: directory)
             )
         } catch let error as MemoryNoteWriteError {
@@ -56,80 +51,34 @@ enum WorkspaceMemoryEngine {
         }
     }
 
-    static func deleteGlobal(
-        id: String,
-        directory: URL?
-    ) -> WorkspaceMemoryMutation? {
-        guard let directory else { return nil }
-
-        do {
-            let note = try MemoryNoteLoader.deleteGlobal(id: id, from: directory)
-            return WorkspaceMemoryMutationFactory.deleted(note: note, refresh: .global(from: directory))
-        } catch let error as MemoryNoteDeleteError {
-            return WorkspaceMemoryMutationFactory.deleteFailed(error: error, refresh: .global(from: directory))
-        } catch {
-            return WorkspaceMemoryMutationFactory.deleteFailed(
-                error: MemoryNoteDeleteError.deleteFailed,
-                refresh: .global(from: directory)
-            )
-        }
+    static func deleteGlobal(id: String, directory: URL?) -> WorkspaceMemoryMutation? {
+        deleteLocalMemory(
+            root: directory,
+            missingRoot: nil,
+            refresh: WorkspaceMemoryRefresh.global(from:),
+            delete: { try MemoryNoteLoader.deleteGlobal(id: id, from: $0) }
+        )
     }
 
-    static func deleteProject(
-        id: String,
-        projectRoot: URL?
-    ) -> WorkspaceMemoryMutation {
-        guard let projectRoot else {
-            return WorkspaceMemoryMutationFactory.deleteFailed(
+    static func deleteProject(id: String, projectRoot: URL?) -> WorkspaceMemoryMutation {
+        deleteLocalMemory(
+            root: projectRoot,
+            missingRoot: WorkspaceMemoryMutationFactory.deleteFailed(
                 error: MemoryNoteDeleteError.deleteFailed,
                 refresh: .none
-            )
-        }
-
-        do {
-            let note = try MemoryNoteLoader.deleteProject(id: id, from: projectRoot)
-            return WorkspaceMemoryMutationFactory.deleted(note: note, refresh: .project(from: projectRoot))
-        } catch let error as MemoryNoteDeleteError {
-            return WorkspaceMemoryMutationFactory.deleteFailed(
-                error: error,
-                refresh: .project(from: projectRoot)
-            )
-        } catch {
-            return WorkspaceMemoryMutationFactory.deleteFailed(
-                error: MemoryNoteDeleteError.deleteFailed,
-                refresh: .project(from: projectRoot)
-            )
-        }
+            ),
+            refresh: WorkspaceMemoryRefresh.project(from:),
+            delete: { try MemoryNoteLoader.deleteProject(id: id, from: $0) }
+        ) ?? WorkspaceMemoryMutationFactory.deleteFailed(error: MemoryNoteDeleteError.deleteFailed, refresh: .none)
     }
 
-    static func updateGlobal(
-        id: String,
-        content: String,
-        userText: String,
-        directory: URL?
-    ) -> WorkspaceMemoryMutation {
-        guard let directory else {
-            return WorkspaceMemoryMutationFactory.updateFailed(
-                userText: userText,
-                error: MemoryNoteUpdateError.updateFailed,
-                refresh: .none
-            )
-        }
-
-        do {
-            let note = try MemoryNoteLoader.updateGlobal(id: id, content: content, in: directory)
-            return WorkspaceMemoryMutationFactory.updated(
-                userText: userText,
-                note: note,
-                refresh: .global(from: directory)
-            )
-        } catch {
-            return WorkspaceMemoryMutationFactory.updateFailed(
-                userText: userText,
-                error: error,
-                refresh: .global(from: directory)
-            )
-        }
+    static func updateGlobal(id: String, content: String, userText: String, directory: URL?) -> WorkspaceMemoryMutation {
+        updateLocalMemory(
+            root: directory,
+            userText: userText,
+            refresh: WorkspaceMemoryRefresh.global(from:),
+            update: { try MemoryNoteLoader.updateGlobal(id: id, content: content, in: $0) }
+        )
     }
 
     static func updateProject(
@@ -138,28 +87,12 @@ enum WorkspaceMemoryEngine {
         userText: String,
         projectRoot: URL?
     ) -> WorkspaceMemoryMutation {
-        guard let projectRoot else {
-            return WorkspaceMemoryMutationFactory.updateFailed(
-                userText: userText,
-                error: MemoryNoteUpdateError.updateFailed,
-                refresh: .none
-            )
-        }
-
-        do {
-            let note = try MemoryNoteLoader.updateProject(id: id, content: content, in: projectRoot)
-            return WorkspaceMemoryMutationFactory.updated(
-                userText: userText,
-                note: note,
-                refresh: .project(from: projectRoot)
-            )
-        } catch {
-            return WorkspaceMemoryMutationFactory.updateFailed(
-                userText: userText,
-                error: error,
-                refresh: .project(from: projectRoot)
-            )
-        }
+        updateLocalMemory(
+            root: projectRoot,
+            userText: userText,
+            refresh: WorkspaceMemoryRefresh.project(from:),
+            update: { try MemoryNoteLoader.updateProject(id: id, content: content, in: $0) }
+        )
     }
 
     static func updateRemoteProject(
@@ -250,5 +183,52 @@ enum WorkspaceMemoryEngine {
             relativePath: id,
             byteCount: 0
         )
+    }
+
+    private static func updateLocalMemory(
+        root: URL?,
+        userText: String,
+        refresh: (URL) -> WorkspaceMemoryRefresh,
+        update: (URL) throws -> MemoryNote
+    ) -> WorkspaceMemoryMutation {
+        guard let root else {
+            return WorkspaceMemoryMutationFactory.updateFailed(
+                userText: userText,
+                error: MemoryNoteUpdateError.updateFailed,
+                refresh: .none
+            )
+        }
+        do {
+            return WorkspaceMemoryMutationFactory.updated(
+                userText: userText,
+                note: try update(root),
+                refresh: refresh(root)
+            )
+        } catch {
+            return WorkspaceMemoryMutationFactory.updateFailed(
+                userText: userText,
+                error: error,
+                refresh: refresh(root)
+            )
+        }
+    }
+
+    private static func deleteLocalMemory(
+        root: URL?,
+        missingRoot: WorkspaceMemoryMutation?,
+        refresh: (URL) -> WorkspaceMemoryRefresh,
+        delete: (URL) throws -> MemoryNote
+    ) -> WorkspaceMemoryMutation? {
+        guard let root else { return missingRoot }
+        do {
+            return WorkspaceMemoryMutationFactory.deleted(note: try delete(root), refresh: refresh(root))
+        } catch let error as MemoryNoteDeleteError {
+            return WorkspaceMemoryMutationFactory.deleteFailed(error: error, refresh: refresh(root))
+        } catch {
+            return WorkspaceMemoryMutationFactory.deleteFailed(
+                error: MemoryNoteDeleteError.deleteFailed,
+                refresh: refresh(root)
+            )
+        }
     }
 }

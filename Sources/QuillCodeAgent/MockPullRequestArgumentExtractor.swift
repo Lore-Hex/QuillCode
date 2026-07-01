@@ -114,7 +114,11 @@ enum MockPullRequestArgumentExtractor {
         let labels = pullRequestTrimmed
             .replacingOccurrences(of: " and ", with: ",", options: [.caseInsensitive])
             .split(separator: ",")
-            .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: ".:;\"' ").union(.whitespacesAndNewlines)) }
+            .map {
+                String($0).trimmingCharacters(
+                    in: CharacterSet(charactersIn: ".:;\"' ").union(.whitespacesAndNewlines)
+                )
+            }
             .filter { !$0.isEmpty }
             .filter { $0.range(of: #"^#?\d+$"#, options: .regularExpression) == nil }
             .filter { label in

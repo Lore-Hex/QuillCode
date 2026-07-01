@@ -343,7 +343,11 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runTurnRevert(_ turnMessageID: UUID) {
-        workspaceActionCoordinator.runTurnRevert(turnMessageID: turnMessageID, model: model, fallbackWorkspaceRoot: workspaceRoot)
+        workspaceActionCoordinator.runTurnRevert(
+            turnMessageID: turnMessageID,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot
+        )
         refresh()
     }
 

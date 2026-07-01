@@ -209,7 +209,9 @@ mkdir -p "$SMOKE_HOME" "$SMOKE_WORKSPACE"
 SMOKE_WORKSPACE_PHYSICAL="$(cd "$SMOKE_WORKSPACE" && pwd -P)"
 cd "$ROOT_DIR"
 
-PASSIVE_ACTION_PATTERN="No shell command was specified|(I'?ll|I will) (run|check|do|download|create|write|execute|inspect|list|show|review|read|fetch|save)"
+PASSIVE_ACTION_PATTERN="No shell command was specified|"
+PASSIVE_ACTION_PATTERN+="(I'?ll|I will) "
+PASSIVE_ACTION_PATTERN+="(run|check|do|download|create|write|execute|inspect|list|show|review|read|fetch|save)"
 
 is_truthy() {
   case "$1" in
@@ -286,9 +288,15 @@ CLI_SHELL_STATUS="running"
 FINAL_DETAIL="mock CLI shell command failed"
 whoami_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "run whoami")"
 assert_cli_no_action_regression "$whoami_output" "run whoami"
-do_it_now_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Please run \`printf quillcode_now_smoke\` now and report the output.")"
+do_it_now_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Please run \`printf quillcode_now_smoke\` now and report the output.")"
 assert_cli_output_contains "$do_it_now_output" "quillcode_now_smoke" "run command now"
-polite_bare_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Can you run printf quillcode_polite_smoke?")"
+polite_bare_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Can you run printf quillcode_polite_smoke?")"
 assert_cli_output_contains "$polite_bare_output" "quillcode_polite_smoke" "polite bare command"
 CLI_SHELL_STATUS="passed"
 
@@ -306,7 +314,10 @@ assert_cli_output_contains "$list_files_output" "README.md" "list files"
 assert_cli_output_contains "$list_files_output" "Sources/" "list files"
 assert_cli_output_contains "$list_files_output" "contains" "list files"
 
-current_directory_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Can you show me the current directory?")"
+current_directory_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Can you show me the current directory?")"
 assert_cli_output_contains "$current_directory_output" "$SMOKE_WORKSPACE_PHYSICAL" "current directory"
 
 openclaw_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do you have openclaw?")"
@@ -337,8 +348,14 @@ CLI_FILE_READ_STATUS="passed"
 echo "==> Running mock CLI natural file search prompt"
 CLI_FILE_SEARCH_STATUS="running"
 FINAL_DETAIL="mock CLI natural file search prompt failed"
-file_search_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Where is SmokeSearchSymbol defined?")"
-assert_cli_output_contains "$file_search_output" 'Found 1 match for `SmokeSearchSymbol`' "Where is SmokeSearchSymbol defined"
+file_search_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Where is SmokeSearchSymbol defined?")"
+assert_cli_output_contains \
+  "$file_search_output" \
+  'Found 1 match for `SmokeSearchSymbol`' \
+  "Where is SmokeSearchSymbol defined"
 assert_cli_output_contains "$file_search_output" 'Sources/SmokeSearch.swift:1' "Where is SmokeSearchSymbol defined"
 CLI_FILE_SEARCH_STATUS="passed"
 
@@ -353,14 +370,20 @@ if grep -Fqi "You are" <<<"$negated_run_output"; then
   exit 1
 fi
 
-negated_write_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do not write \`forbidden.txt\` with content \`nope\`.")"
+negated_write_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Do not write \`forbidden.txt\` with content \`nope\`.")"
 assert_cli_output_contains "$negated_write_output" "won't take that action" "Do not write forbidden.txt"
 if [[ -e "$SMOKE_WORKSPACE/forbidden.txt" ]]; then
   echo "quill-code created forbidden.txt despite explicit negative intent" >&2
   exit 1
 fi
 
-negated_download_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Don't download https://example.com into \`downloads/forbidden.html\`.")"
+negated_download_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Don't download https://example.com into \`downloads/forbidden.html\`.")"
 assert_cli_output_contains "$negated_download_output" "won't take that action" "Don't download forbidden.html"
 if [[ -e "$SMOKE_WORKSPACE/downloads/forbidden.html" ]]; then
   echo "quill-code downloaded forbidden.html despite explicit negative intent" >&2
@@ -385,10 +408,16 @@ CLI_FILE_CREATION_STATUS="passed"
 echo "==> Running mock CLI workspace follow-up"
 CLI_WORKSPACE_FOLLOWUP_STATUS="running"
 FINAL_DETAIL="mock CLI workspace follow-up failed"
-list_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Run \`ls -1\` and tell me whether hello.txt is present")"
+list_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Run \`ls -1\` and tell me whether hello.txt is present")"
 assert_cli_output_contains "$list_output" "hello.txt" "list created hello.txt"
 
-read_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Read \`hello.txt\` and tell me its exact content")"
+read_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Read \`hello.txt\` and tell me its exact content")"
 assert_cli_output_contains "$read_output" "hello world" "read created hello.txt"
 CLI_WORKSPACE_FOLLOWUP_STATUS="passed"
 

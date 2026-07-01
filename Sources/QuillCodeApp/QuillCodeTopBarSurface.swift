@@ -106,13 +106,14 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     public var isSelected: Bool
     public var isFavorite: Bool
     public var badges: [String]
+    public var capabilities: ModelCapabilities
     public var metadataSummary: String
     public var metadataDetails: [String]
     public var detailTitle: String
     public var capabilitySummary: String
     public var metadataRows: [ModelMetadataRowSurface]
     public var modelInfo: ModelInfo {
-        ModelInfo(id: id, provider: provider, displayName: displayName, category: category)
+        ModelInfo(id: id, provider: provider, displayName: displayName, category: category, capabilities: capabilities)
     }
 
     public init(model: ModelInfo, selectedModelID: String, isFavorite: Bool = false, badges: [String] = []) {
@@ -123,13 +124,24 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isSelected = model.id == selectedModelID
         self.isFavorite = isFavorite
         self.badges = badges
-        self.metadataSummary = Self.metadataSummary(modelID: model.id, category: model.category)
+        self.capabilities = model.capabilities
+        self.metadataSummary = Self.metadataSummary(
+            modelID: model.id,
+            category: model.category,
+            capabilities: model.capabilities
+        )
         self.detailTitle = Self.detailTitle(modelID: model.id, provider: model.provider, displayName: model.displayName)
-        self.capabilitySummary = Self.capabilitySummary(modelID: model.id, category: model.category, badges: badges)
+        self.capabilitySummary = Self.capabilitySummary(
+            modelID: model.id,
+            category: model.category,
+            badges: badges,
+            capabilities: model.capabilities
+        )
         self.metadataRows = Self.metadataRows(
             provider: model.provider,
             modelID: model.id,
             category: model.category,
+            capabilities: model.capabilities,
             isSelected: model.id == selectedModelID,
             isFavorite: isFavorite,
             badges: badges
@@ -138,6 +150,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
             provider: model.provider,
             modelID: model.id,
             category: model.category,
+            capabilities: model.capabilities,
             isSelected: model.id == selectedModelID,
             isFavorite: isFavorite,
             badges: badges
@@ -152,6 +165,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         case isSelected
         case isFavorite
         case badges
+        case capabilities
         case metadataSummary
         case metadataDetails
         case detailTitle
@@ -168,17 +182,19 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
         self.isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         self.badges = try container.decodeIfPresent([String].self, forKey: .badges) ?? []
+        self.capabilities = try container.decodeIfPresent(ModelCapabilities.self, forKey: .capabilities) ?? .init()
         self.metadataSummary = try container.decodeIfPresent(String.self, forKey: .metadataSummary)
-            ?? Self.metadataSummary(modelID: id, category: category)
+            ?? Self.metadataSummary(modelID: id, category: category, capabilities: capabilities)
         self.detailTitle = try container.decodeIfPresent(String.self, forKey: .detailTitle)
             ?? Self.detailTitle(modelID: id, provider: provider, displayName: displayName)
         self.capabilitySummary = try container.decodeIfPresent(String.self, forKey: .capabilitySummary)
-            ?? Self.capabilitySummary(modelID: id, category: category, badges: badges)
+            ?? Self.capabilitySummary(modelID: id, category: category, badges: badges, capabilities: capabilities)
         self.metadataRows = try container.decodeIfPresent([ModelMetadataRowSurface].self, forKey: .metadataRows)
             ?? Self.metadataRows(
                 provider: provider,
                 modelID: id,
                 category: category,
+                capabilities: capabilities,
                 isSelected: isSelected,
                 isFavorite: isFavorite,
                 badges: badges
@@ -188,131 +204,11 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
                 provider: provider,
                 modelID: id,
                 category: category,
+                capabilities: capabilities,
                 isSelected: isSelected,
                 isFavorite: isFavorite,
                 badges: badges
             )
     }
 
-    private static func metadataSummary(modelID: String, category: String) -> String {
-        let canonicalModelID = TrustedRouterDefaults.canonicalModelID(modelID)
-        if canonicalModelID == TrustedRouterDefaults.defaultModel {
-            return "Fast everyday agent"
-        }
-        if canonicalModelID == TrustedRouterDefaults.synthModel {
-            return "Deeper planning and review"
-        }
-        if category == TrustedRouterDefaults.safetyCategory {
-            return "Auto safety reviewer"
-        }
-        return "\(category) model"
-    }
-
-    private static func detailTitle(modelID: String, provider: String, displayName: String) -> String {
-        if let recommendedName = TrustedRouterDefaults.recommendedDisplayNames[TrustedRouterDefaults.canonicalModelID(modelID)] {
-            return recommendedName
-        }
-        let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedDisplayName.isEmpty {
-            return trimmedDisplayName
-        }
-        return modelID
-    }
-
-    private static func capabilitySummary(modelID: String, category: String, badges: [String]) -> String {
-        if modelID == TrustedRouterDefaults.defaultModel {
-            return "\(TrustedRouterDefaults.fastModelDisplayName) is the fast default for coding, shell, and file-editing turns."
-        }
-        if modelID == TrustedRouterDefaults.synthModel {
-            return "\(TrustedRouterDefaults.synthModelDisplayName) is the balanced model for deeper coding and review turns."
-        }
-        if badges.contains("Recommended") {
-            return "Recommended model profile available through TrustedRouter."
-        }
-        if category == "Safety" {
-            return "Lightweight reviewer model for Auto safety decisions."
-        }
-        return "\(category) model available through TrustedRouter."
-    }
-
-    private static func metadataRows(
-        provider: String,
-        modelID: String,
-        category: String,
-        isSelected: Bool,
-        isFavorite: Bool,
-        badges: [String]
-    ) -> [ModelMetadataRowSurface] {
-        var state: [String] = []
-        if isSelected {
-            state.append("Current")
-        }
-        if badges.contains("Default") {
-            state.append("Default")
-        }
-        if badges.contains("Recommended") {
-            state.append("Recommended")
-        }
-        if isFavorite || badges.contains("Favorite") {
-            state.append("Favorite")
-        }
-        if badges.contains("Recent") {
-            state.append("Recent")
-        }
-
-        let displayModelID = TrustedRouterDefaults.preferredDisplayModelID(modelID)
-
-        return [
-            ModelMetadataRowSurface(label: "Provider", value: provider),
-            ModelMetadataRowSurface(label: "Model ID", value: displayModelID),
-            ModelMetadataRowSurface(label: "Category", value: category),
-            ModelMetadataRowSurface(label: "State", value: state.isEmpty ? "Available" : unique(state).joined(separator: ", "))
-        ]
-    }
-
-    private static func metadataDetails(
-        provider: String,
-        modelID: String,
-        category: String,
-        isSelected: Bool,
-        isFavorite: Bool,
-        badges: [String]
-    ) -> [String] {
-        let displayModelID = TrustedRouterDefaults.preferredDisplayModelID(modelID)
-        var details = [
-            "Provider: \(provider)",
-            "Model ID: \(displayModelID)",
-            "Category: \(category)"
-        ]
-        if isSelected {
-            details.append("Current selection")
-        }
-        if isFavorite {
-            details.append("Favorite")
-        }
-        for badge in badges {
-            switch badge {
-            case "Default":
-                details.append("Default model")
-            case "Recommended":
-                details.append("Recommended by QuillCode")
-            case "Recent":
-                details.append("Recently used")
-            case "Current", "Favorite":
-                continue
-            default:
-                details.append(badge)
-            }
-        }
-        return unique(details)
-    }
-
-    private static func unique(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-        for value in values where seen.insert(value).inserted {
-            result.append(value)
-        }
-        return result
-    }
 }
