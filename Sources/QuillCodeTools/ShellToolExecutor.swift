@@ -174,8 +174,10 @@ public struct ShellToolExecutor: Sendable {
         }
         processBox?.clear()
 
-        let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        let err = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        // Bound the output so a chatty command can't blow the model's context window on an unattended
+        // run — keep the tail (the final status/error is what matters for a shell command).
+        let out = ShellOutputCapper.cap(String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)).text
+        let err = ShellOutputCapper.cap(String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)).text
         let ok = process.terminationStatus == 0
         return ToolResult(
             ok: ok,

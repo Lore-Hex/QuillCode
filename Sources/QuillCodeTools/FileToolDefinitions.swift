@@ -3,8 +3,14 @@ import QuillCodeCore
 public extension ToolDefinition {
     static let fileRead = ToolDefinition(
         name: "host.file.read",
-        description: "Read a UTF-8 file inside the project workspace.",
-        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#,
+        description: """
+        Read a UTF-8 file inside the project workspace. Output is prefixed with 1-based line numbers \
+        (as `<number>\\t<line>`) for precise editing reference — do NOT include those prefixes when \
+        writing a patch. Long files are paginated: pass `offset` (1-based start line) and `limit` \
+        (max lines, default 2000) to page through. Very long lines are truncated. Binary/image files \
+        are reported, not dumped.
+        """,
+        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer","description":"1-based line to start at"},"limit":{"type":"integer","description":"maximum lines to return (default 2000)"}},"required":["path"]}"#,
         host: .local,
         risk: .read
     )

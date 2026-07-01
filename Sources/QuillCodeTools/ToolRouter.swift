@@ -45,7 +45,11 @@ public struct ToolRouter: Sendable {
             }
             switch call.name {
             case ToolDefinition.fileRead.name:
-                return files.read(path: try args.requiredString("path"))
+                return files.read(
+                    path: try args.requiredString("path"),
+                    offset: args.int("offset"),
+                    limit: args.int("limit")
+                )
             case ToolDefinition.fileList.name:
                 return files.list(
                     path: args.string("path") ?? ".",
