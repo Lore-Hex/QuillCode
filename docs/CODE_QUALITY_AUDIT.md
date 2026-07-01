@@ -11435,3 +11435,46 @@ Code quality changes:
 Remaining risk:
 
 - The static harness is still large and hand-maintained. The next A+ architecture pass should split harness state/render/event handlers by surface or generate more of the harness from shared `WorkspaceSurface` JSON.
+
+## 2026-06-30 Instruction Review Source Targeting Quality Pass
+
+Overall grade after this slice: **A+ instruction diagnostic architecture, A+ source-reference model, A+ focused validation, A- whole-repo maintainability**.
+
+The repo-wide grade pass still shows the source modules are largely A+, but several parity/audit test files and a few broad UI/runtime files remain below A+ because they are intentionally large contract gates or broad integration surfaces. This pass keeps the implementation change focused while making the active Instruction Review area A+ quality: responsibilities are split by model, reference construction, semantic matching, diagnostic assembly, and command drafting.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Instruction diagnostic model | A+ | `ProjectInstructionDiagnostic` and source references are pure `Sendable` values with bounded line labels and no workspace/model coupling. |
+| Semantic conflict detector | A+ | Phrase detection, normalization, dedupe, and line/excerpt capture live behind a focused detector instead of the UI-facing builder. |
+| Diagnostic assembly | A+ | `ProjectInstructionDiagnosticsBuilder` now owns only duplicate-scope, nested-override, and semantic-conflict assembly. |
+| Command execution draft | A | Resolve stays non-mutating and routes through the existing composer/model/safety path while adding precise source targets. |
+| Test coverage | A | Focused tests cover structural source references, semantic line references, and Resolve draft contents. |
+| Whole source architecture | A+ | Current generated source-module averages remain A+ for app, agent, core, tools, persistence, safety, desktop, and Computer Use modules. |
+| Whole test architecture | A- | Parity and integration gates remain useful but large; the next broad quality pass should split the lowest-scored gate files by capability. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Sources/QuillCodeApp/ProjectInstructionDiagnostic.swift` | A+ | Small value-model boundary for instruction diagnostic rows and source targets. |
+| `Sources/QuillCodeApp/ProjectInstructionDiagnosticReferenceBuilder.swift` | A+ | Single-purpose reference construction keeps excerpt fallback behavior DRY. |
+| `Sources/QuillCodeApp/ProjectInstructionSemanticConflictDetector.swift` | A+ | Semantic rule matching is isolated, deterministic, and cheap to unit test. |
+| `Sources/QuillCodeApp/ProjectInstructionDiagnosticsBuilder.swift` | A+ | Refactored from a mixed model/matcher/builder file into a compact assembler. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlanExecutor.swift` | A | Resolve draft rendering is explicit and behavior-preserving; future editor-jump commands should move formatting into a dedicated presenter if the draft grows. |
+| `Tests/QuillCodeAppTests/ProjectInstructionDiagnosticsBuilderTests.swift` | A- | Coverage is focused, though repeated fixture shape keeps the heuristic duplicate-line score noisy. |
+| `Tests/QuillCodeAppTests/WorkspaceCommandPlanExecutorTests.swift` | A | Adds command-level coverage without widening the executor test's responsibility. |
+
+Code quality changes:
+
+- Added source references to instruction diagnostics so each issue can point at `file:line`, role, excerpt, and suggested action.
+- Split diagnostic model, source-reference construction, semantic conflict detection, and final diagnostic assembly into separate files.
+- Changed Resolve action drafts from a generic issue summary to a targeted edit prompt with exact instruction-file targets.
+- Regenerated the full per-file/per-module quality matrix so every file has a current deterministic grade.
+- Kept Resolve non-mutating: edits still flow through composer, model, safety review, file tools, and normal diff review.
+
+Remaining risk:
+
+- Native editor opening at an exact diagnostic line and direct diff-assisted instruction fixes remain pending.
+- The repo-wide quality report still has B/B+ contract and integration test files. They are not part of this feature slice, but they should be split into focused fixtures/helpers before claiming literal A+ across every file.

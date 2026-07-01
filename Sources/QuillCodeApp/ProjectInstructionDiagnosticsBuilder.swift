@@ -1,13 +1,6 @@
 import Foundation
 import QuillCodeCore
 
-struct ProjectInstructionDiagnostic: Sendable, Hashable, Identifiable {
-    var id: String
-    var title: String
-    var detail: String
-    var statusLabel: String
-}
-
 enum ProjectInstructionDiagnosticsBuilder {
     static func diagnostics(for instructions: [ProjectInstruction]) -> [ProjectInstructionDiagnostic] {
         duplicateScopeDiagnostics(for: instructions)
@@ -15,35 +8,68 @@ enum ProjectInstructionDiagnosticsBuilder {
             + semanticConflictDiagnostics(for: instructions)
     }
 
-    private static func duplicateScopeDiagnostics(for instructions: [ProjectInstruction]) -> [ProjectInstructionDiagnostic] {
+    private static func duplicateScopeDiagnostics(
+        for instructions: [ProjectInstruction]
+    ) -> [ProjectInstructionDiagnostic] {
         orderedScopeGroups(for: instructions).compactMap { scopePath, scopedInstructions in
             guard scopedInstructions.count > 1 else { return nil }
             return ProjectInstructionDiagnostic(
                 id: "instruction-duplicate-scope-\(normalizedID(scopePath))",
                 title: "Shared instruction scope",
                 detail: "\(ProjectInstruction.scopeLabel(for: scopePath)): \(pathList(scopedInstructions))",
-                statusLabel: "review"
+                statusLabel: "review",
+                sourceReferences: scopedInstructions.map {
+                    ProjectInstructionDiagnosticReferenceBuilder.reference(
+                        for: $0,
+                        role: "same scope",
+                        suggestedAction: "Merge duplicate scope guidance or remove the redundant source."
+                    )
+                },
+                resolutionHint: "Keep one clear source of guidance for this scope, or merge the duplicated rules."
             )
         }
     }
 
-    private static func nestedOverrideDiagnostics(for instructions: [ProjectInstruction]) -> [ProjectInstructionDiagnostic] {
+    private static func nestedOverrideDiagnostics(
+        for instructions: [ProjectInstruction]
+    ) -> [ProjectInstructionDiagnostic] {
         orderedScopeGroups(for: instructions).compactMap { scopePath, scopedInstructions in
             guard scopePath != "." else { return nil }
             let broaderInstructions = instructions.filter { isBroaderScope($0.scopePath, than: scopePath) }
             guard !broaderInstructions.isEmpty else { return nil }
+            let detail = [
+                ProjectInstruction.scopeLabel(for: scopePath),
+                "from \(pathList(scopedInstructions))",
+                "may override \(pathList(broaderInstructions))"
+            ].joined(separator: " ")
 
             return ProjectInstructionDiagnostic(
                 id: "instruction-nested-override-\(normalizedID(scopePath))",
                 title: "Nested instruction override",
-                detail: "\(ProjectInstruction.scopeLabel(for: scopePath)) from \(pathList(scopedInstructions)) may override \(pathList(broaderInstructions))",
-                statusLabel: "scope"
+                detail: detail,
+                statusLabel: "scope",
+                sourceReferences: scopedInstructions.map {
+                    ProjectInstructionDiagnosticReferenceBuilder.reference(
+                        for: $0,
+                        role: "nested scope",
+                        suggestedAction: "Clarify whether this nested rule intentionally overrides broader guidance."
+                    )
+                } + broaderInstructions.map {
+                    ProjectInstructionDiagnosticReferenceBuilder.reference(
+                        for: $0,
+                        role: "broader scope",
+                        suggestedAction: "Clarify how this broader rule should interact with nested guidance."
+                    )
+                },
+                resolutionHint: "State the override explicitly or merge the broader and nested rules."
             )
         }
     }
 
-    private static func semanticConflictDiagnostics(for instructions: [ProjectInstruction]) -> [ProjectInstructionDiagnostic] {
-        let claims = semanticClaims(for: instructions)
+    private static func semanticConflictDiagnostics(
+        for instructions: [ProjectInstruction]
+    ) -> [ProjectInstructionDiagnostic] {
+        let claims = ProjectInstructionSemanticConflictDetector.claims(for: instructions)
         var diagnostics: [ProjectInstructionDiagnostic] = []
         var seenIDs = Set<String>()
 
@@ -56,39 +82,43 @@ enum ProjectInstructionDiagnosticsBuilder {
                     continue
                 }
 
-                let id = "instruction-semantic-conflict-\(first.intent.id)-\(normalizedSemanticID(first.instruction.path))-\(normalizedSemanticID(second.instruction.path))"
+                let id = semanticConflictID(first, second)
                 guard seenIDs.insert(id).inserted else { continue }
+                let displayName = first.intent.displayName
+                let detail = [
+                    "\(displayName): \(first.instruction.path) says \(first.polarity.detailLabel);",
+                    "\(second.instruction.path) says \(second.polarity.detailLabel)"
+                ].joined(separator: " ")
+                let resolutionHint = [
+                    "Choose one intent for \(displayName.lowercased()) guidance",
+                    "and edit the conflicting lines so they agree."
+                ].joined(separator: " ")
 
                 diagnostics.append(ProjectInstructionDiagnostic(
                     id: id,
                     title: "Conflicting instruction intent",
-                    detail: "\(first.intent.displayName): \(first.instruction.path) says \(first.polarity.detailLabel); \(second.instruction.path) says \(second.polarity.detailLabel)",
-                    statusLabel: "conflict"
+                    detail: detail,
+                    statusLabel: "conflict",
+                    sourceReferences: [
+                        ProjectInstructionDiagnosticReferenceBuilder.reference(
+                            for: first.instruction,
+                            match: first.match,
+                            role: first.polarity.referenceRole(for: first.intent),
+                            suggestedAction: first.polarity.suggestedAction(for: first.intent)
+                        ),
+                        ProjectInstructionDiagnosticReferenceBuilder.reference(
+                            for: second.instruction,
+                            match: second.match,
+                            role: second.polarity.referenceRole(for: second.intent),
+                            suggestedAction: second.polarity.suggestedAction(for: second.intent)
+                        )
+                    ],
+                    resolutionHint: resolutionHint
                 ))
             }
         }
 
         return diagnostics
-    }
-
-    private static func semanticClaims(for instructions: [ProjectInstruction]) -> [SemanticClaim] {
-        var claims: [SemanticClaim] = []
-        var seen = Set<String>()
-
-        for instruction in instructions {
-            let content = searchableText(instruction.content)
-            for rule in SemanticRule.allCases where rule.matches(content) {
-                let key = "\(instruction.path)|\(rule.intent.id)|\(rule.polarity.rawValue)"
-                guard seen.insert(key).inserted else { continue }
-                claims.append(SemanticClaim(
-                    instruction: instruction,
-                    intent: rule.intent,
-                    polarity: rule.polarity
-                ))
-            }
-        }
-
-        return claims
     }
 
     private static func orderedScopeGroups(
@@ -124,6 +154,18 @@ enum ProjectInstructionDiagnosticsBuilder {
         instructions.map(\.path).joined(separator: ", ")
     }
 
+    private static func semanticConflictID(
+        _ first: ProjectInstructionSemanticClaim,
+        _ second: ProjectInstructionSemanticClaim
+    ) -> String {
+        [
+            "instruction-semantic-conflict",
+            first.intent.id,
+            normalizedSemanticID(first.instruction.path),
+            normalizedSemanticID(second.instruction.path)
+        ].joined(separator: "-")
+    }
+
     private static func normalizedID(_ scopePath: String) -> String {
         scopePath == "." ? "root" : scopePath.replacingOccurrences(of: "/", with: "-")
     }
@@ -144,162 +186,4 @@ enum ProjectInstructionDiagnosticsBuilder {
         return normalized.isEmpty || scopePath == "." ? "root" : normalized
     }
 
-    private static func searchableText(_ text: String) -> String {
-        let lowered = text.lowercased().map { character -> Character in
-            character.isLetter || character.isNumber ? character : " "
-        }
-        return " " + lowered
-            .split(separator: " ")
-            .joined(separator: " ") + " "
-    }
-}
-
-private struct SemanticClaim: Sendable, Hashable {
-    var instruction: ProjectInstruction
-    var intent: SemanticIntent
-    var polarity: SemanticPolarity
-}
-
-private enum SemanticIntent: String, Sendable {
-    case tests
-    case formatter
-    case commits
-    case dependencies
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .tests: "Tests"
-        case .formatter: "Formatting"
-        case .commits: "Commits"
-        case .dependencies: "Dependencies"
-        }
-    }
-}
-
-private enum SemanticPolarity: String, Sendable {
-    case require
-    case avoid
-
-    var detailLabel: String {
-        switch self {
-        case .require: "require"
-        case .avoid: "avoid"
-        }
-    }
-}
-
-private struct SemanticRule: Sendable, Hashable {
-    var intent: SemanticIntent
-    var polarity: SemanticPolarity
-    var phrases: [String]
-
-    func matches(_ searchableText: String) -> Bool {
-        phrases.contains { phrase in
-            searchableText.contains(" \(phrase) ")
-        }
-    }
-
-    static let allCases: [SemanticRule] = [
-        SemanticRule(
-            intent: .tests,
-            polarity: .require,
-            phrases: [
-                "always run tests",
-                "must run tests",
-                "run tests before",
-                "run tests after",
-                "must write tests",
-                "always write tests",
-                "must add tests",
-                "always add tests",
-                "must include tests",
-                "always include tests",
-                "tests are required",
-                "test coverage required"
-            ]
-        ),
-        SemanticRule(
-            intent: .tests,
-            polarity: .avoid,
-            phrases: [
-                "never run tests",
-                "do not run tests",
-                "don t run tests",
-                "skip tests",
-                "avoid tests",
-                "do not add tests",
-                "don t add tests",
-                "without tests",
-                "tests are not required"
-            ]
-        ),
-        SemanticRule(
-            intent: .formatter,
-            polarity: .require,
-            phrases: [
-                "always format",
-                "must format",
-                "run formatter",
-                "run the formatter",
-                "format before committing",
-                "format all files"
-            ]
-        ),
-        SemanticRule(
-            intent: .formatter,
-            polarity: .avoid,
-            phrases: [
-                "never format",
-                "do not format",
-                "don t format",
-                "skip formatting",
-                "avoid formatting"
-            ]
-        ),
-        SemanticRule(
-            intent: .commits,
-            polarity: .require,
-            phrases: [
-                "always commit",
-                "must commit",
-                "create a commit",
-                "make a commit"
-            ]
-        ),
-        SemanticRule(
-            intent: .commits,
-            polarity: .avoid,
-            phrases: [
-                "never commit",
-                "do not commit",
-                "don t commit",
-                "avoid committing",
-                "no commits"
-            ]
-        ),
-        SemanticRule(
-            intent: .dependencies,
-            polarity: .require,
-            phrases: [
-                "always add dependencies",
-                "must add dependencies",
-                "must install dependencies",
-                "install required dependencies",
-                "use required dependencies"
-            ]
-        ),
-        SemanticRule(
-            intent: .dependencies,
-            polarity: .avoid,
-            phrases: [
-                "never add dependencies",
-                "do not add dependencies",
-                "don t add dependencies",
-                "avoid dependencies",
-                "no new dependencies"
-            ]
-        )
-    ]
 }
