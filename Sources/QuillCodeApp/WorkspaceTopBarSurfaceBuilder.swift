@@ -18,6 +18,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
 
     func surface() -> TopBarSurface {
         let modelCatalog = modelCatalogBuilder()
+        let providerHealth = modelCatalog.providerHealthSummary()
         return TopBarSurface(
             appName: topBarState.appName,
             primaryTitle: thread?.title ?? "QuillCode",
@@ -34,6 +35,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             modelCategories: modelCatalog.categories(),
             modelCatalogStatusLabel: modelCatalogStatus.statusLabel(),
             modelCatalogStatusDetail: modelCatalogStatus.detailLabel(),
+            modelProviderHealthLabel: providerHealth.label,
+            modelProviderHealthDetail: providerHealth.detail,
             modeLabel: WorkspaceStatusTextBuilder.modeLabel(topBarState.mode),
             agentStatus: topBarState.agentStatus,
             runtimeIssueLabel: runtimeIssue?.title,

@@ -197,7 +197,8 @@ public extension QuillCodeWorkspaceModel {
                 hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
                 runtimeIssue: runtimeIssue,
                 computerUseStatus: computerUse,
-                modelCatalogStatus: root.modelCatalogStatus
+                modelCatalogStatus: root.modelCatalogStatus,
+                modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog)
             ),
             runtimeIssue: runtimeIssue,
             lastError: lastError

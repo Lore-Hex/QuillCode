@@ -61,6 +61,8 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByTestId('top-bar-overflow-settings').click();
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await expect(page.getByTestId('settings-key-status')).toHaveText('Not signed in');
+  await expect(page.getByTestId('settings-model-catalog-status')).toHaveText('Bundled catalog');
+  await expect(page.getByTestId('settings-provider-health')).toHaveText('Provider health unavailable');
   await page.getByTestId('settings-sign-in').click();
   await expect(page.getByTestId('last-opened-url')).toHaveText('http://localhost:3000/callback');
   await page.getByLabel('TrustedRouter API base URL').fill('https://api.trustedrouter.test/v1');

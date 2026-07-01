@@ -43,6 +43,63 @@ final class CoreModelTests: XCTestCase {
         XCTAssertFalse(capabilities.isEmpty)
     }
 
+    func testModelProviderHealthSummaryAggregatesProviderStatuses() throws {
+        let summary = ModelProviderHealthSummary.summarize([
+            ModelInfo(
+                id: "acme/code-pro",
+                provider: "acme",
+                displayName: "Code Pro",
+                category: "Coding",
+                capabilities: ModelCapabilities(status: "available")
+            ),
+            ModelInfo(
+                id: "acme/code-lite",
+                provider: "acme",
+                displayName: "Code Lite",
+                category: "Coding",
+                capabilities: ModelCapabilities(status: "rate_limited")
+            ),
+            ModelInfo(
+                id: "z-ai/glm-5.2",
+                provider: "z-ai",
+                displayName: "GLM 5.2",
+                category: "Safety",
+                capabilities: ModelCapabilities(status: "online")
+            ),
+            ModelInfo(
+                id: "moonshotai/kimi-k2.6",
+                provider: "moonshotai",
+                displayName: "Kimi K2.6",
+                category: "Safety"
+            )
+        ])
+
+        XCTAssertEqual(summary.label, "Provider health: 1 provider needs attention")
+        XCTAssertTrue(summary.detail.contains("Provider statuses needing attention"))
+        XCTAssertEqual(summary.rows.map(\.provider), ["acme", "z-ai"])
+
+        let acme = try XCTUnwrap(summary.rows.first { $0.provider == "acme" })
+        XCTAssertEqual(acme.statusLabel, "rate limited")
+        XCTAssertEqual(acme.statusTone, "warning")
+        XCTAssertEqual(acme.modelCount, 2)
+        XCTAssertEqual(acme.statusBreakdown, ["rate limited (1 model)", "available (1 model)"])
+    }
+
+    func testModelProviderHealthSummaryHandlesMissingStatusMetadata() {
+        let summary = ModelProviderHealthSummary.summarize([
+            ModelInfo(
+                id: "acme/code-pro",
+                provider: "acme",
+                displayName: "Code Pro",
+                category: "Coding"
+            )
+        ])
+
+        XCTAssertEqual(summary.label, "Provider health unavailable")
+        XCTAssertEqual(summary.detail, "TrustedRouter catalog did not include live provider status metadata.")
+        XCTAssertTrue(summary.rows.isEmpty)
+    }
+
     func testTrustedRouterDefaults() {
         XCTAssertEqual(TrustedRouterDefaults.fastModel, "trustedrouter/fast")
         XCTAssertEqual(TrustedRouterDefaults.synthModel, "tr/synth")

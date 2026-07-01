@@ -45,6 +45,13 @@ struct QuillCodeSettingsView: View {
                     .foregroundStyle(QuillCodePalette.blue)
                     .fixedSize(horizontal: false, vertical: true)
                     .help(settings.modelCatalogStatusDetail ?? settings.modelCatalogStatusLabel)
+                if let healthLabel = settings.modelProviderHealthLabel {
+                    Text(healthLabel)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .help(settings.modelProviderHealthDetail ?? healthLabel)
+                }
             }
             Spacer()
             Text(settings.apiKeyStatusLabel)

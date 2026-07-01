@@ -487,12 +487,14 @@
     }
     .model-panel h2,
     .model-panel p { margin: 0; }
-    .model-panel .model-catalog-status {
+    .model-panel .model-catalog-status,
+    .model-panel .model-provider-health {
       color: var(--accent);
       font-size: 12px;
       font-weight: 650;
       line-height: 1.25;
     }
+    .model-panel .model-provider-health { color: var(--muted); }
     .model-panel input {
       width: 100%;
       padding: 10px 12px;
@@ -3443,6 +3445,8 @@
         selectedModelID: 'trustedrouter/fast',
         modelCatalogStatusLabel: 'Bundled catalog',
         modelCatalogStatusDetail: "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog.",
+        modelProviderHealthLabel: 'Provider health unavailable',
+        modelProviderHealthDetail: 'TrustedRouter catalog did not include live provider status metadata.',
         modelPickerOpen: false,
         expandedModelID: null,
         highlightedModelID: null,
@@ -3692,6 +3696,10 @@
         signInURL: 'http://localhost:3000/callback',
         apiKeyStatusLabel: 'Not signed in',
         loginStatusLabel: 'TrustedRouter login required',
+        modelCatalogStatusLabel: 'Bundled catalog',
+        modelCatalogStatusDetail: "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog.",
+        modelProviderHealthLabel: 'Provider health unavailable',
+        modelProviderHealthDetail: 'TrustedRouter catalog did not include live provider status metadata.',
         accountLabel: null,
         replacementAPIKey: '',
         computerUseStatus: {
@@ -6800,6 +6808,7 @@
             <h2>Choose Model</h2>
             <p>Search provider, category, model, or state</p>
             <p class="model-catalog-status" data-testid="model-catalog-status" title="${escapeHTML(state.topBar.modelCatalogStatusDetail || state.topBar.modelCatalogStatusLabel)}">${escapeHTML(state.topBar.modelCatalogStatusLabel)}</p>
+            ${state.topBar.modelProviderHealthLabel ? `<p class="model-provider-health" data-testid="model-provider-health" title="${escapeHTML(state.topBar.modelProviderHealthDetail || state.topBar.modelProviderHealthLabel)}">${escapeHTML(state.topBar.modelProviderHealthLabel)}</p>` : ''}
           </div>
           <input class="hit-target-text-entry" data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
           <div class="model-result-summary" data-testid="model-result-summary">
@@ -8114,6 +8123,8 @@
             <h2>Settings</h2>
             <p data-testid="settings-login-status">${escapeHTML(state.settings.loginStatusLabel)}</p>
             <p data-testid="settings-key-status">${escapeHTML(state.settings.apiKeyStatusLabel)}</p>
+            <p data-testid="settings-model-catalog-status" title="${escapeHTML(state.settings.modelCatalogStatusDetail || state.settings.modelCatalogStatusLabel)}">${escapeHTML(state.settings.modelCatalogStatusLabel)}</p>
+            ${state.settings.modelProviderHealthLabel ? `<p data-testid="settings-provider-health" title="${escapeHTML(state.settings.modelProviderHealthDetail || state.settings.modelProviderHealthLabel)}">${escapeHTML(state.settings.modelProviderHealthLabel)}</p>` : ''}
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
             ${renderComputerUseSettingsCard()}
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
