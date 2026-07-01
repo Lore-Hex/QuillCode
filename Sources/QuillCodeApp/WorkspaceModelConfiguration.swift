@@ -66,6 +66,7 @@ extension QuillCodeWorkspaceModel {
     public func applyRuntime(_ runtime: QuillCodeRuntime) {
         runner = runtime.runner
         contextSummaryGenerator = runtime.contextSummaryGenerator
+        retryEventChannel = runtime.retryChannel
         refreshTopBar(agentStatus: runtime.statusLabel)
     }
 

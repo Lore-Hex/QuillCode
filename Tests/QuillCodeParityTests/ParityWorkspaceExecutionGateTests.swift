@@ -244,7 +244,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "WorkspaceModel composer APIs should route typed send outcomes through a named terminal helper."
         )
         XCTAssertTrue(
-            submitBody.contains("finishAgentSend(outcome)"),
+            submitBody.contains("finishAgentSend(outcome, runThreadID:"),
             "submitComposer should delegate typed send outcome handling."
         )
         XCTAssertTrue(
