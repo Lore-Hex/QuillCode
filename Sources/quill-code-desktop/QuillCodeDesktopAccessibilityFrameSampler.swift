@@ -125,7 +125,7 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         contentView: NSView,
         nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     ) -> QuillCodeDesktopAccessibilityFrameSampleReport {
-        let elements = AccessibilityTree(root: contentView).elements
+        let elements = QuillCodeDesktopAccessibilityTree(root: contentView).elements
         let samples = nativeHitTargets.clickProbes.compactMap { probe -> QuillCodeDesktopAccessibilityFrameSample? in
             guard let element = resolveElement(for: probe, in: elements),
                   let frame = element.frame
@@ -181,8 +181,15 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
 
     private static func resolveElement(
         for probe: QuillCodeNativeHitTargetProbe,
-        in elements: [AccessibilityElementSnapshot]
-    ) -> AccessibilityElementSnapshot? {
+        in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
+    ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        resolveElementForActivation(probe, in: elements)
+    }
+
+    static func resolveElementForActivation(
+        _ probe: QuillCodeNativeHitTargetProbe,
+        in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
+    ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
         let identifiers = identifiers(for: probe)
         return elements
             .filter { identifiers.contains($0.identifier) }
@@ -213,7 +220,7 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
 
     private static func samplePoints(
         for probe: QuillCodeNativeHitTargetProbe,
-        target: AccessibilityElementSnapshot,
+        target: QuillCodeDesktopAccessibilityElementSnapshot,
         in frame: CGRect
     ) -> [[String: Any]] {
         probe.samplePoints.map { point in
@@ -221,7 +228,7 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
                 x: frame.minX + (frame.width * point.x),
                 y: frame.minY + (frame.height * point.y)
             )
-            let hitTest = AccessibilityTree.hitTest(at: absolutePoint)
+            let hitTest = QuillCodeDesktopAccessibilityTree.hitTest(at: absolutePoint)
             let hitTestSnapshot = hitTest.snapshot
             let hitTestAncestorIdentifiers = hitTestSnapshot?.ancestorIdentifiers ?? []
             let hitTestMatchesTarget = hitTestSnapshot?.identifier == target.identifier
@@ -366,213 +373,5 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
 
     private static func rounded(_ value: CGFloat) -> String {
         String(format: "%.1f", Double(value))
-    }
-}
-
-private struct AccessibilityElementSnapshot {
-    var identifier: String
-    var role: String
-    var title: String
-    var accessibilityLabel: String
-    var help: String
-    var value: String
-    var frame: CGRect?
-    var ancestorIdentifiers: [String]
-
-    var bestLabel: String {
-        [title, accessibilityLabel, help, value]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first(where: { !$0.isEmpty }) ?? ""
-    }
-
-    var frameArea: CGFloat {
-        guard let frame else { return 0 }
-        return frame.width * frame.height
-    }
-
-    var hasUsableHitTestIdentity: Bool {
-        !identifier.isEmpty || !ancestorIdentifiers.isEmpty
-    }
-}
-
-private struct AccessibilityHitTestResult {
-    var snapshot: AccessibilityElementSnapshot?
-    var error: AXError
-
-    var isAvailable: Bool {
-        error == .success && snapshot?.hasUsableHitTestIdentity == true
-    }
-
-    var errorDescription: String {
-        if error != .success {
-            return String(describing: error)
-        }
-        guard let snapshot else {
-            return "successWithoutElement"
-        }
-        return snapshot.hasUsableHitTestIdentity ? "" : "unidentifiedElement"
-    }
-}
-
-@MainActor
-private struct AccessibilityTree {
-    var elements: [AccessibilityElementSnapshot]
-
-    init(root: NSView) {
-        _ = root
-        var visited = Set<CFHashCode>()
-        var collected: [AccessibilityElementSnapshot] = []
-        let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
-        Self.collect(from: application, into: &collected, visited: &visited)
-        elements = collected
-    }
-
-    static func hitTest(at point: CGPoint) -> AccessibilityHitTestResult {
-        let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
-        var hitElement: AXUIElement?
-        let result = AXUIElementCopyElementAtPosition(application, Float(point.x), Float(point.y), &hitElement)
-        guard result == .success, let hitElement else {
-            return AccessibilityHitTestResult(snapshot: nil, error: result)
-        }
-        return AccessibilityHitTestResult(
-            snapshot: snapshot(
-                for: hitElement,
-                ancestorIdentifiers: ancestorIdentifiers(of: hitElement)
-            ),
-            error: result
-        )
-    }
-
-    private static func collect(
-        from element: AXUIElement,
-        into collected: inout [AccessibilityElementSnapshot],
-        visited: inout Set<CFHashCode>
-    ) {
-        let identity = CFHash(element)
-        guard visited.insert(identity).inserted else { return }
-
-        if let snapshot = snapshot(for: element), !snapshot.identifier.isEmpty {
-            collected.append(snapshot)
-        }
-
-        for child in children(of: element) {
-            collect(from: child, into: &collected, visited: &visited)
-        }
-    }
-
-    private static func snapshot(
-        for element: AXUIElement,
-        ancestorIdentifiers: [String] = []
-    ) -> AccessibilityElementSnapshot? {
-        let identifier = stringAttribute(kAXIdentifierAttribute, from: element)
-        let role = stringAttribute(kAXRoleAttribute, from: element)
-        let title = stringAttribute(kAXTitleAttribute, from: element)
-        let description = stringAttribute(kAXDescriptionAttribute, from: element)
-        let help = stringAttribute(kAXHelpAttribute, from: element)
-        let value = stringAttribute(kAXValueAttribute, from: element)
-        let frame = frame(from: element)
-        guard !identifier.isEmpty || frame != nil else { return nil }
-        return AccessibilityElementSnapshot(
-            identifier: identifier,
-            role: role,
-            title: title,
-            accessibilityLabel: description,
-            help: help,
-            value: value,
-            frame: frame,
-            ancestorIdentifiers: ancestorIdentifiers
-        )
-    }
-
-    private static func ancestorIdentifiers(of element: AXUIElement) -> [String] {
-        var identifiers: [String] = []
-        var visited = Set<CFHashCode>()
-        var current: AXUIElement? = element
-        while let parent = current.flatMap(parentElement) {
-            let identity = CFHash(parent)
-            guard visited.insert(identity).inserted else { break }
-            let identifier = stringAttribute(kAXIdentifierAttribute, from: parent)
-            if !identifier.isEmpty {
-                identifiers.append(identifier)
-            }
-            current = parent
-        }
-        return identifiers
-    }
-
-    private static func parentElement(of element: AXUIElement) -> AXUIElement? {
-        guard let value = axAttribute(kAXParentAttribute, from: element) else { return nil }
-        let cfValue = value as CFTypeRef
-        guard CFGetTypeID(cfValue) == AXUIElementGetTypeID() else { return nil }
-        return unsafeDowncast(cfValue, to: AXUIElement.self)
-    }
-
-    private static func children(of element: AXUIElement) -> [AXUIElement] {
-        var values: [AXUIElement] = []
-        for attribute in [
-            kAXWindowsAttribute as String,
-            kAXChildrenAttribute as String,
-            "AXVisibleChildren",
-            "AXContents"
-        ] {
-            if let children = axAttribute(attribute, from: element) as? [AXUIElement] {
-                values.append(contentsOf: children)
-            }
-        }
-        return values
-    }
-
-    private static func stringAttribute(_ attribute: String, from element: AXUIElement) -> String {
-        guard let value = axAttribute(attribute, from: element) else { return "" }
-        if let string = value as? String {
-            return string
-        }
-        if let number = value as? NSNumber {
-            return number.stringValue
-        }
-        return ""
-    }
-
-    private static func frame(from element: AXUIElement) -> CGRect? {
-        guard let position = pointAttribute(kAXPositionAttribute, from: element),
-              let size = sizeAttribute(kAXSizeAttribute, from: element)
-        else { return nil }
-        let frame = CGRect(origin: position, size: size)
-        guard frame.width > 0, frame.height > 0 else { return nil }
-        return frame
-    }
-
-    private static func axAttribute(_ attribute: String, from element: AXUIElement) -> Any? {
-        var value: CFTypeRef?
-        let result = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
-        guard result == .success else { return nil }
-        return value
-    }
-
-    private static func pointAttribute(_ attribute: String, from element: AXUIElement) -> CGPoint? {
-        guard let axValue = axValueAttribute(attribute, expectedType: .cgPoint, from: element) else { return nil }
-        var point = CGPoint.zero
-        guard AXValueGetValue(axValue, .cgPoint, &point) else { return nil }
-        return point
-    }
-
-    private static func sizeAttribute(_ attribute: String, from element: AXUIElement) -> CGSize? {
-        guard let axValue = axValueAttribute(attribute, expectedType: .cgSize, from: element) else { return nil }
-        var size = CGSize.zero
-        guard AXValueGetValue(axValue, .cgSize, &size) else { return nil }
-        return size
-    }
-
-    private static func axValueAttribute(
-        _ attribute: String,
-        expectedType: AXValueType,
-        from element: AXUIElement
-    ) -> AXValue? {
-        guard let value = axAttribute(attribute, from: element) else { return nil }
-        let cfValue = value as CFTypeRef
-        guard CFGetTypeID(cfValue) == AXValueGetTypeID() else { return nil }
-        let axValue = unsafeDowncast(cfValue, to: AXValue.self)
-        guard AXValueGetType(axValue) == expectedType else { return nil }
-        return axValue
     }
 }

@@ -268,6 +268,7 @@ struct QuillCodeDesktopWindowSmokeReport {
     var image: QuillCodeDesktopSmokePixelReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     var accessibilityFrameSamples: QuillCodeDesktopAccessibilityFrameSampleReport
+    var accessibilityActivation: QuillCodeDesktopAccessibilityActivationReport
     var surface: QuillCodeDesktopWindowSmokeSurfaceReport
 
     func prettyJSON() throws -> Data {
@@ -291,6 +292,7 @@ struct QuillCodeDesktopWindowSmokeReport {
                 "image": image.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary,
                 "accessibilityFrameSamples": accessibilityFrameSamples.dictionary,
+                "accessibilityActivation": accessibilityActivation.dictionary,
                 "surface": surface.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]
@@ -435,6 +437,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case htmlMissingResult
     case incompleteTranscript
     case invalidImageSize(Int, Int)
+    case nativeAccessibilityActivationFailed([String])
     case nativeAccessibilityFrameSamplingFailed([String])
     case nativeHitTargetAuditFailed([String])
     case pngEncodingFailed

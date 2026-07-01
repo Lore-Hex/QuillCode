@@ -16,6 +16,7 @@ from .accessibility_frame_samples import (
     accessibility_frame_spacing_issues,
     validated_accessibility_frame_sample,
 )
+from .accessibility_activation import validated_accessibility_activation_report
 from .json_io import load_report, relative_manifest_path, string_list
 from .packaged_window import validate_packaged_window_report, validated_comparison_manifest
 from .probe_contracts import window_command_contract_ids
@@ -25,7 +26,7 @@ def validated_accessibility_frame_samples(
     report_path: Path,
     screenshot_path: Path,
     click_probe_manifest_path: Path | None,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any] | None]:
     validate_packaged_window_report(report_path, screenshot_path)
     report = load_report(report_path)
     samples_report = report.get("accessibilityFrameSamples")
@@ -113,7 +114,8 @@ def validated_accessibility_frame_samples(
 
     normalized_samples_report = dict(samples_report)
     normalized_samples_report["sampleSummaries"] = sorted(sample_summaries, key=lambda sample: sample["contractID"])
-    return report, normalized_samples_report, click_probe_manifest
+    activation_report = validated_accessibility_activation_report(report_path, report)
+    return report, normalized_samples_report, activation_report, click_probe_manifest
 
 def write_accessibility_frames_manifest(
     report_path: Path,
@@ -122,7 +124,7 @@ def write_accessibility_frames_manifest(
     manifest_path: Path,
 ) -> None:
     manifest_directory = manifest_path.parent
-    report, samples_report, click_probe_manifest = validated_accessibility_frame_samples(
+    report, samples_report, activation_report, click_probe_manifest = validated_accessibility_frame_samples(
         report_path,
         screenshot_path,
         click_probe_manifest_path,
@@ -143,9 +145,15 @@ def write_accessibility_frames_manifest(
         "skippedContractIDs": samples_report["skippedContractIDs"],
         "sampleCount": samples_report["sampleCount"],
         "sampleSummaries": samples_report["sampleSummaries"],
+        "liveAccessibilityActivation": activation_report["liveAccessibilityActivation"],
+        "activationRequiredContractIDs": activation_report["requiredContractIDs"],
+        "activatedContractIDs": activation_report["activatedContractIDs"],
+        "activationCheckCount": activation_report["checkCount"],
+        "activationCheckSummaries": activation_report["checkSummaries"],
         "windowSurface": report.get("surface"),
         "image": report.get("image"),
         "validationIssues": samples_report["validationIssues"],
+        "activationValidationIssues": activation_report["validationIssues"],
     }
     surface = report.get("surface")
     if isinstance(surface, dict):

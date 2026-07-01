@@ -33,6 +33,11 @@ REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS = [
     "sidebar.tools-menu",
     "top-bar.overflow",
 ]
+REQUIRED_LIVE_ACCESSIBILITY_ACTIVATION_CONTRACT_IDS = [
+    "command.settings",
+    "command.toggle-automations",
+    "command.toggle-extensions",
+]
 EXPECTED_SAMPLE_POINTS = {
     "center": (0.5, 0.5),
     "leading-edge": (0.08, 0.5),
