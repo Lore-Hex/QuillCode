@@ -129,6 +129,23 @@ final class PersistenceTests: XCTestCase {
         XCTAssertTrue(loaded.isRemote)
     }
 
+    func testProjectStoreRoundTripsInstructionDiagnosticResolutions() throws {
+        let root = try makeTempDirectory()
+        let store = JSONProjectStore(fileURL: root.appendingPathComponent("projects.json"))
+        let resolutionDate = Date(timeIntervalSince1970: 1_775_000_000)
+        var project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
+        XCTAssertTrue(project.dismissInstructionDiagnostic(id: "instruction-semantic-conflict-tests", at: resolutionDate))
+
+        try store.save([project])
+        let loaded = try XCTUnwrap(store.load().first)
+
+        XCTAssertEqual(loaded.instructionDiagnosticResolutions.count, 1)
+        XCTAssertEqual(loaded.instructionDiagnosticResolutions.first?.diagnosticID, "instruction-semantic-conflict-tests")
+        XCTAssertEqual(loaded.instructionDiagnosticResolutions.first?.disposition, .dismissed)
+        XCTAssertEqual(loaded.instructionDiagnosticResolutions.first?.updatedAt, resolutionDate)
+        XCTAssertEqual(loaded.dismissedInstructionDiagnosticIDs, ["instruction-semantic-conflict-tests"])
+    }
+
     func testAutomationStoreRoundTripsSortedByStatusAndNextRun() throws {
         let root = try makeTempDirectory()
         let store = JSONAutomationStore(fileURL: root.appendingPathComponent("automations.json"))

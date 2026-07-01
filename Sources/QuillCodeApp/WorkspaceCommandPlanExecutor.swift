@@ -100,15 +100,10 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func prepareResolveInstructionDiagnostic(id: String) -> Bool {
-        guard let diagnostic = selectedInstructionDiagnostics.first(where: { $0.id == id }) else {
+        guard let diagnostic = activeInstructionDiagnostics.first(where: { $0.id == id }) else {
             return false
         }
         setDraft("Resolve instruction issue \"\(diagnostic.title)\" (\(diagnostic.detail)). Update the relevant instruction files so the guidance is consistent: ")
         return true
-    }
-
-    private var selectedInstructionDiagnostics: [ProjectInstructionDiagnostic] {
-        guard let thread = selectedThread else { return [] }
-        return ProjectInstructionDiagnosticsBuilder.diagnostics(for: thread.instructions)
     }
 }

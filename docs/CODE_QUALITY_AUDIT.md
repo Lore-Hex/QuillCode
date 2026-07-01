@@ -23,6 +23,30 @@ Residual risk:
 
 - This slice intentionally preserves static HTML behavior. It does not redesign native secondary panes or change the Playwright harness UI.
 
+## 2026-07-01 Durable Instruction Review Resolutions
+
+Overall grade after this slice: **A+ resolution boundary, A project-scoped instruction review state, A Activity command validation, A persistence compatibility**.
+
+This pass closes a Codex-style Activity/Instruction Review gap: dismissing a rule diagnostic should not be a fragile pane-only toggle that disappears after restart or project metadata refresh. It should be scoped to the project ruleset, persisted with the project, and filtered through the same Activity source projection as the visible diagnostic.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Instruction diagnostic dismissal | `ActivityState.dismissedInstructionDiagnosticIDs` hid diagnostics only for the current workspace model session. | `ProjectRef` owns durable `ProjectInstructionDiagnosticResolution` records; Activity combines project records with transient session dismissals. |
+| Command validation | `activity-instruction-dismiss:<id>` accepted any non-empty string. | Dismiss now requires the ID to match an active instruction diagnostic from the same source resolver used by Activity. |
+| Metadata refresh | Project refresh rewrote instructions/actions/memories and had no persisted place for review decisions. | Existing project resolution records survive local metadata refresh/upsert. |
+| Persistence | Older project JSON decoded without the new field, but no round-trip coverage existed because the field did not exist. | Project JSON decodes old payloads with empty resolutions and round-trips normalized dismissed diagnostics. |
+| Ownership | Resolve/dismiss behavior was split between pane state and command executor assumptions. | `WorkspaceInstructionDiagnosticsState` centralizes active instruction diagnostics for command and surface paths. |
+| File quality | Adding this directly to `ProjectModels.swift` would have made an already-broad model file worse. | `ProjectInstructionDiagnosticResolutions.swift` owns the new enum, record, normalization, and idempotent dismiss helper; the grader reports it as **A+** with no automated issues. |
+
+Verification:
+
+- `swift test --filter 'CoreModelTests|PersistenceTests|WorkspaceCommandPlanExecutorTests|WorkspaceActivityIntegrationTests|WorkspaceProjectEngineTests|WorkspaceUIStateTests'` (82 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py` (`source:QuillCodeCore` remains **A+** overall; `ProjectInstructionDiagnosticResolutions.swift` is **A+**)
+
+Residual risk:
+
+- Resolve still prepares an edit draft instead of directly applying a rule-file patch; that is intentional for now because instruction changes should remain explicit file edits with normal review/tool audit. Durable "resolved by edit" records and diff-assisted fixes remain future Instruction Review polish.
+
 ## 2026-07-01 Terminal Wide Cell Parity
 
 Overall grade after this slice: **A+ terminal cell model, A+ terminal renderer architecture, stronger transcript fidelity**.
@@ -47,7 +71,6 @@ Verification:
 Residual risk:
 
 - This is still a pragmatic transcript renderer, not a full terminal emulator. Ambiguous-width locales, ZWJ emoji clusters, text attributes, mouse tracking, and deep curses state remain deferred.
-
 ## 2026-07-01 Terminal Scroll Buffer Parity
 
 Overall grade after this slice: **A+ terminal renderer, stronger Codex-style integrated terminal parity**.
