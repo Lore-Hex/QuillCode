@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Command Gate Split
+
+Overall grade after this slice: **A+ workspace command parity gate files, clearer command-surface ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceCommandGateTests.swift`, a 131-line B+ gate that mixed
+native command dispatch planning, command-surface/catalog construction, command-palette/ranker contracts, and
+Playwright command-palette flow placement. The split preserves the same source-boundary checks while making each file
+map to one command responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Native command dispatch | Shared the broad command gate. | `ParityWorkspaceViewCommandPlannerGateTests.swift` owns view command-planner delegation. |
+| Command surface construction | Mixed with palette/ranker and E2E checks. | `ParityWorkspaceCommandSurfaceBuilderGateTests.swift` owns surface-builder and catalog boundaries. |
+| Palette/ranker contracts | Shared the broad command gate. | `ParityWorkspaceCommandPaletteContractGateTests.swift` owns command-palette API/ranker/test ownership. |
+| Playwright command flows | Mixed with native/source contracts. | `ParityPlaywrightCommandPaletteGateTests.swift` owns focused E2E spec placement. |
+| Grade | The original file was **B+** at 131 lines. | Every split workspace command gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceViewCommandPlannerGateTests|ParityWorkspaceCommandSurfaceBuilderGateTests|ParityWorkspaceCommandPaletteContractGateTests|ParityPlaywrightCommandPaletteGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new command runtime or Playwright scenarios.
+- The highest remaining B+ parity hotspots start with execution-slash, interaction-target, and TrustedRouter gates.
+
 ## 2026-07-01 Automation Gate Split
 
 Overall grade after this slice: **A+ automation parity gate files, stricter automation ownership**.
