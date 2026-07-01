@@ -229,7 +229,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         ].joined(separator: "\n")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
         let sidebarRowsText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
-        let composerText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
+        let composerText = [
+            try Self.appSourceText(named: "QuillCodeComposerView.swift"),
+            try Self.appSourceText(named: "QuillCodeComposerSuggestionPanels.swift")
+        ].joined(separator: "\n")
         let searchDialogText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
         let dialogChromeText = try Self.appSourceText(named: "QuillCodeDialogChrome.swift")

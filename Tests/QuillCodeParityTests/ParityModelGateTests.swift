@@ -2,7 +2,8 @@ import XCTest
 
 final class ParityModelGateTests: QuillCodeParityTestCase {
     func testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
+        Self.assertLegacyGeneralModelsFileIsRetired()
+        let modelsText = try Self.generalDomainModelsText()
         let modelInfoText = try Self.coreSourceText(named: "ModelInfo.swift")
         let defaultsText = try Self.coreSourceText(named: "TrustedRouterDefaults.swift")
 
@@ -39,7 +40,8 @@ final class ParityModelGateTests: QuillCodeParityTestCase {
     }
 
     func testAppConfigLivesOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
+        Self.assertLegacyGeneralModelsFileIsRetired()
+        let modelsText = try Self.generalDomainModelsText()
         let configText = try Self.coreSourceText(named: "AppConfig.swift")
 
         XCTAssertTrue(configText.contains("public struct AppConfig"), "App config should live in a focused core file.")

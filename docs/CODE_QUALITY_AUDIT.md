@@ -21,11 +21,39 @@ Verification:
 - `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|ParityTerminalRendererGateTests|ParityFocusedSuiteManifestTests'`
 - `swift test` (1977 tests, 1 skipped, 0 failures)
 - `git diff --check`
-- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
 
 Residual risk:
 
 - This is still not a full terminal emulator. Wide/combining-cell measurement, mouse tracking, attributes, deep alternate-screen history, and full curses semantics remain separate parity work.
+
+## 2026-07-01 Core, Safety, Composer, And Computer Use Boundary Pass
+
+Overall grade after this slice: **A+ production source module architecture across all production modules**.
+
+This pass re-graded the repo at the file, module, and architecture levels, then addressed the remaining production module hotspots where broad files were carrying multiple responsibilities. The generated grade report still lists every file-level heuristic warning; the important architectural result is that all production source modules now average **A+**, and the remaining lower grades are concentrated in test/parity/E2E harnesses, scripts, and declarative UI/DTO files where the heuristic flags repeated structure.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Static safety policy | `StaticSafetyPolicy.swift` mixed shell/read-only rules, download intent, pull-request intent, request parsing, path checks, and rule tables in one 900-line policy file. | `StaticSafetyPolicy.swift` is now a small orchestration root. Rule tables, request decoding/path helpers, download policy, read-only shell policy, and pull-request policy live in focused files; `source:QuillCodeSafety` grades **A+**. |
+| Core domain models | The historical `Models.swift` bucket still carried general chat/thread/memory records, making it easy for focused model families to drift back into a grab bag. | `Models.swift` is retired. General domain records are split into `AgentMode.swift`, `ChatModels.swift`, `AgentPlanModels.swift`, `SubagentModels.swift`, `ApprovalModels.swift`, `ThreadEventModels.swift`, `MemoryModels.swift`, `ChatThread.swift`, and `JSONHelpers.swift`; parity gates now reject reintroducing the umbrella file. |
+| Composer surface | `QuillCodeComposerView.swift` still owned slash suggestion row/chip rendering in addition to text-entry and submit behavior. | Suggestion chrome moved to `QuillCodeComposerSuggestionPanels.swift`, keeping the composer root focused on input state, send/stop, and keyboard interaction. |
+| Computer Use kit | `ComputerUse.swift` mixed public contracts, status calculation, a stub backend, tool execution/preflight, artifact writing, and tool definitions. | Contracts, status, stub backend, executor/preflight, and tool definitions now live in separate files. `source:QuillComputerUseKit` moved from **A** to **A+**. |
+| Swift warning hygiene | `WorkspaceModelReview.swift` emitted a redundant `public` warning inside a public extension. | Removed the redundant modifier so focused builds are warning-clean for this touched path. |
+
+Verification:
+
+- `swift test --filter 'Safety|StaticSafety|ParitySafetyGateTests'`
+- `swift test --filter 'ParityWorkspaceSettingsSheetGateTests|ParityWorkspaceSurfaceGateTests|ParityNativeInteractionContractGateTests|WorkspaceComposer'`
+- `swift test --filter 'CoreModelTests|ModelTokenUsageTests|PersistenceTests|ParityCoreModelGateTests|ParityModelGateTests|ParityAutomationGateTests|ParityWorkspaceModel'`
+- `swift test --filter 'ComputerUse|WorkspaceAgentRunContextBuilderTests|ParityWorkspaceExecutionAgentContextGateTests|ParityDesktopGateTests'`
+- `swift test`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- Production source modules now all grade **A+**, but individual production files still include A/A- heuristic warnings, mostly for declarative SwiftUI repetition, public contract density, and focused catalog files. Those are not the same risk as the previous broad ownership files and should be handled in smaller feature-adjacent passes.
+- Test/parity/E2E/script modules still include B/B+ files because broad source-audit gates and real-world smoke harnesses intentionally contain repeated assertions and fixtures. They are documented in `docs/CODE_QUALITY_FILE_GRADES.md` and remain the next quality frontier after production architecture.
 
 ## 2026-07-01 File Tool Boundary Split
 

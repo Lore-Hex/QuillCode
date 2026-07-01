@@ -2,7 +2,8 @@ import XCTest
 
 final class ParityCoreModelGateTests: QuillCodeParityTestCase {
     func testCoreToolModelsLiveOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
+        Self.assertLegacyGeneralModelsFileIsRetired()
+        let modelsText = try Self.generalDomainModelsText()
         let toolModelsText = try Self.coreSourceText(named: "ToolModels.swift")
 
         XCTAssertTrue(toolModelsText.contains("public struct ToolDefinition"), "Tool schema records should live in a focused core file.")
@@ -22,7 +23,8 @@ final class ParityCoreModelGateTests: QuillCodeParityTestCase {
     }
 
     func testProjectModelsLiveOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
+        Self.assertLegacyGeneralModelsFileIsRetired()
+        let modelsText = try Self.generalDomainModelsText()
         let projectText = try Self.coreSourceText(named: "ProjectModels.swift")
 
         XCTAssertTrue(projectText.contains("public enum ProjectConnectionKind"), "Project connection kinds should live in a focused core file.")
