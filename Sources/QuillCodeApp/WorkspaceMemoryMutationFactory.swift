@@ -4,89 +4,97 @@ import QuillCodeCore
 typealias MemoryMutation = WorkspaceMemoryMutation
 
 enum WorkspaceMemoryMutationFactory {
+    typealias Refresh = WorkspaceMemoryRefresh
+    typealias Outcome = WorkspaceMemoryMutationOutcome
+
     static func saved(
         userText: String,
         note: MemoryNote,
-        refresh: WorkspaceMemoryRefresh
+        refresh: Refresh
     ) -> MemoryMutation {
-        changed(.saved, userText, note, refresh)
+        mutation(
+            for: Outcome.changed(.saved, userText: userText, note: note),
+            refresh: refresh
+        )
     }
 
     static func updated(
         userText: String,
         note: MemoryNote,
-        refresh: WorkspaceMemoryRefresh
+        refresh: Refresh
     ) -> MemoryMutation {
-        changed(.updated, userText, note, refresh)
+        mutation(
+            for: Outcome.changed(.updated, userText: userText, note: note),
+            refresh: refresh
+        )
     }
 
-    static func deleted(note: MemoryNote, refresh: WorkspaceMemoryRefresh) -> MemoryMutation {
-        changed(.deleted, "Forget memory: \(note.title)", note, refresh)
+    static func deleted(note: MemoryNote, refresh: Refresh) -> MemoryMutation {
+        mutation(
+            for: Outcome.changed(
+                .deleted,
+                userText: "Forget memory: \(note.title)",
+                note: note
+            ),
+            refresh: refresh
+        )
     }
 
     static func saveFailed(
         userText: String,
         error: any Error,
-        refresh: WorkspaceMemoryRefresh
+        refresh: Refresh
     ) -> MemoryMutation {
-        failed(.save, userText, error, refresh)
+        mutation(
+            for: Outcome.failed(
+                .save,
+                userText: userText,
+                message: errorMessage(for: error)
+            ),
+            refresh: refresh
+        )
     }
 
     static func updateFailed(
         userText: String,
         error: any Error,
-        refresh: WorkspaceMemoryRefresh
-    ) -> MemoryMutation {
-        failed(.update, userText, error, refresh)
-    }
-
-    static func deleteFailed(error: any Error, refresh: WorkspaceMemoryRefresh) -> MemoryMutation {
-        failed(.delete, "Forget memory", error, refresh)
-    }
-
-    private static func changed(
-        _ kind: WorkspaceMemoryChangeKind,
-        _ userText: String,
-        _ note: MemoryNote,
-        _ refresh: WorkspaceMemoryRefresh
+        refresh: Refresh
     ) -> MemoryMutation {
         mutation(
-            transcript: kind.transcript(userText: userText, noteTitle: note.title),
-            refresh: refresh,
-            noticeSummary: kind.summary(noteTitle: note.title),
-            noticeRelativePath: note.relativePath
+            for: Outcome.failed(
+                .update,
+                userText: userText,
+                message: errorMessage(for: error)
+            ),
+            refresh: refresh
         )
     }
 
-    private static func failed(
-        _ kind: WorkspaceMemoryFailureKind,
-        _ userText: String,
-        _ error: any Error,
-        _ refresh: WorkspaceMemoryRefresh
-    ) -> MemoryMutation {
+    static func deleteFailed(error: any Error, refresh: Refresh) -> MemoryMutation {
         mutation(
-            transcript: kind.transcript(
-                userText,
-                WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
+            for: Outcome.failed(
+                .delete,
+                userText: "Forget memory",
+                message: errorMessage(for: error)
             ),
-            refresh: refresh,
-            noticeSummary: nil,
-            noticeRelativePath: nil
+            refresh: refresh
         )
     }
 
     private static func mutation(
-        transcript: WorkspaceLocalCommandTranscript,
-        refresh: WorkspaceMemoryRefresh,
-        noticeSummary: String?,
-        noticeRelativePath: String?
+        for outcome: Outcome,
+        refresh: Refresh
     ) -> MemoryMutation {
         WorkspaceMemoryMutation(
-            transcript: transcript,
+            transcript: outcome.transcript,
             updatedGlobalMemories: refresh.global,
             updatedProjectMemories: refresh.project,
-            noticeSummary: noticeSummary,
-            noticeRelativePath: noticeRelativePath
+            noticeSummary: outcome.noticeSummary,
+            noticeRelativePath: outcome.noticeRelativePath
         )
+    }
+
+    private static func errorMessage(for error: any Error) -> String {
+        WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
     }
 }
