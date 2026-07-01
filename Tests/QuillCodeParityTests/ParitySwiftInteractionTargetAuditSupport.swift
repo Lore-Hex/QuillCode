@@ -546,6 +546,8 @@ struct SwiftSourceInteractionTargetAudit {
         [
             "Sources/QuillCodeApp/QuillCodeDesignSystem.swift",
             "Sources/QuillCodeApp/QuillCodeHitTargetSpec.swift",
+            "Sources/QuillCodeApp/QuillCodeButtonHitTargetViewModifiers.swift",
+            "Sources/QuillCodeApp/QuillCodeControlHitTargetViewModifiers.swift",
             "Sources/QuillCodeApp/QuillCodeHitTargetViewModifiers.swift"
         ].contains(relativePath)
     }

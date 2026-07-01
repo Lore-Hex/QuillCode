@@ -91,28 +91,84 @@ final class ParityWorkspacePlaywrightFocusedSpecGateTests: QuillCodeParityTestCa
             contentsOf: testRoot.appendingPathComponent("composer.spec.ts"),
             encoding: .utf8
         )
+        let slashSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("composer-slash.spec.ts"),
+            encoding: .utf8
+        )
+        let mentionSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("composer-mentions.spec.ts"),
+            encoding: .utf8
+        )
+        let historySpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("composer-history.spec.ts"),
+            encoding: .utf8
+        )
+        let modelPickerSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("model-picker.spec.ts"),
+            encoding: .utf8
+        )
         let coreSpecText = try String(
             contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
             encoding: .utf8
         )
-        let composerFlowNames = [
-            "composer supports multiline editing and Enter-to-send",
-            "stops an active composer run from the composer",
-            "handles slash mode locally",
-            "changes approval mode independently from model selection",
-            "routes slash commands to workspace actions",
-            "suggests slash commands in the composer",
-            "searches and selects models from the composer"
+        let focusedSpecs: [(String, String, [String])] = [
+            (
+                "composer.spec.ts",
+                composerSpecText,
+                [
+                    "composer supports multiline editing and Enter-to-send",
+                    "stops an active composer run from the composer",
+                    "handles slash mode locally",
+                    "changes approval mode independently from model selection"
+                ]
+            ),
+            (
+                "composer-slash.spec.ts",
+                slashSpecText,
+                [
+                    "routes slash commands to workspace actions",
+                    "suggests slash commands in the composer"
+                ]
+            ),
+            (
+                "composer-mentions.spec.ts",
+                mentionSpecText,
+                [
+                    "suggests workspace files for @ mentions in the composer",
+                    "boosts and badges changed files in @ mentions after a git status"
+                ]
+            ),
+            (
+                "composer-history.spec.ts",
+                historySpecText,
+                [
+                    "preserves a separate composer draft per thread",
+                    "recalls sent messages with Up and Down"
+                ]
+            ),
+            (
+                "model-picker.spec.ts",
+                modelPickerSpecText,
+                [
+                    "searches and selects models from the composer",
+                    "supports keyboard navigation in the model picker"
+                ]
+            )
         ]
 
         XCTAssertTrue(composerSpecText.contains("harnessURL()"), "Focused composer flows should reuse the shared harness URL helper.")
-        XCTAssertTrue(composerSpecText.contains("slash-suggestions"), "Focused composer flows should cover slash suggestions.")
-        XCTAssertTrue(composerSpecText.contains("model-browser"), "Focused composer flows should cover model browser interactions.")
+        XCTAssertTrue(slashSpecText.contains("slash-suggestions"), "Focused slash flows should cover slash suggestions.")
+        XCTAssertTrue(mentionSpecText.contains("file-mention-suggestions"), "Focused mention flows should cover file mentions.")
+        XCTAssertTrue(historySpecText.contains("sidebar-item"), "Focused draft-history flows should cover thread switching.")
+        XCTAssertTrue(modelPickerSpecText.contains("model-browser"), "Focused model flows should cover model browser interactions.")
         XCTAssertTrue(composerSpecText.contains("mode-picker-button"), "Focused composer flows should cover approval mode switching.")
         XCTAssertTrue(composerSpecText.contains("stop-button"), "Focused composer flows should cover composer cancellation.")
-        for flowName in composerFlowNames {
-            XCTAssertTrue(composerSpecText.contains(flowName), "\(flowName) should live in composer.spec.ts.")
-            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        for (specName, specText, flowNames) in focusedSpecs {
+            XCTAssertTrue(specText.contains("harnessURL()"), "\(specName) should reuse the shared harness URL helper.")
+            for flowName in flowNames {
+                XCTAssertTrue(specText.contains(flowName), "\(flowName) should live in \(specName).")
+                XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+            }
         }
     }
 

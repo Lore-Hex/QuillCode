@@ -5,6 +5,8 @@ final class ParityNativeCompactHitTargetGateTests: QuillCodeParityTestCase {
         let designSystemText = [
             try Self.appSourceText(named: "QuillCodeDesignSystem.swift"),
             try Self.appSourceText(named: "QuillCodeHitTargetSpec.swift"),
+            try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift"),
+            try Self.appSourceText(named: "QuillCodeControlHitTargetViewModifiers.swift"),
             try Self.appSourceText(named: "QuillCodeHitTargetViewModifiers.swift")
         ].joined(separator: "\n")
         let computerUseText = try Self.appSourceText(named: "QuillCodeComputerUseSettingsCard.swift")

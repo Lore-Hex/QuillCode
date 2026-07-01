@@ -21,6 +21,8 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
         let designText = [
             try Self.appSourceText(named: "QuillCodeDesignSystem.swift"),
             try Self.appSourceText(named: "QuillCodeHitTargetSpec.swift"),
+            try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift"),
+            try Self.appSourceText(named: "QuillCodeControlHitTargetViewModifiers.swift"),
             try Self.appSourceText(named: "QuillCodeHitTargetViewModifiers.swift")
         ].joined(separator: "\n")
 
