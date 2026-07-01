@@ -11505,3 +11505,42 @@ Remaining risk:
 
 - Native editor opening at an exact diagnostic line and direct diff-assisted instruction fixes remain pending.
 - The repo-wide quality report still has B/B+ contract and integration test files. They are not part of this feature slice, but they should be split into focused fixtures/helpers before claiming literal A+ across every file.
+
+## 2026-07-01 Native Source Audit Test Architecture Pass
+
+Overall grade after this slice: **A+ native source-interaction gate architecture, A+ grading-tool fidelity, A whole-repo maintainability**.
+
+The repo-wide grade pass showed one parity gate mixing two concerns: native source-interaction contract coverage and the temporary-file/audit harness used to exercise embedded Swift fixtures. The file was large enough to make review noisy and the grader was also over-counting fixture string contents as source complexity. This pass made the gate smaller and made the grader measure code structure more accurately.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Native source-interaction audit tests | A+ | The old broad gate is split into focused core, control-target, icon/gesture, and spacing files, with shared temporary-file audit support. |
+| Code-quality grader | A+ | Swift multiline fixture payloads are excluded from structural heuristics, and test/source classification now uses repository-relative paths. |
+| Source modules | A+ | App, Agent, Core, Tools, Persistence, Safety, Desktop, and Computer Use modules remain A+ in the regenerated matrix. |
+| Test modules | A/A+ | Agent, App, Core, Desktop, Tools, and Computer Use tests are A+; Safety is A, Parity is A, Persistence is A-. |
+| Whole repo | A | Remaining debt is concentrated in a few large parity gates, scripts, and the Playwright interaction helper. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionAuditGateTests.swift` | A+ | Core acceptance and negative-scope tests remain in the primary gate. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionAuditTestSupport.swift` | A+ | Shared helper owns temporary fixture creation plus audit assertions. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionControlTargetTests.swift` | A+ | Disclosure, adjustable, link, generic-target, and mismatched-target cases live together. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionIconGestureTests.swift` | A+ | Icon naming, owned gesture, raw gesture, and decorative icon cases are isolated. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionSpacingTests.swift` | A+ | Explicit/implicit control-cluster spacing contracts are isolated. |
+| `scripts/grade-code-quality.py` | A+ | Structural metrics now ignore Swift fixture payloads and correctly apply test thresholds. |
+
+Code quality changes:
+
+- Extracted repeated temporary Swift-file audit setup into `ParityNativeSourceInteractionAuditTestSupport`.
+- Split the native source-interaction audit gate by interaction family so each file has one reviewable reason to change.
+- Fixed deterministic grading to analyze Swift source structure without treating multiline fixture payloads as duplicate code or fake top-level types.
+- Fixed test/source classification in the grader to use repository-relative paths instead of absolute filesystem path parts.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md` so each file and module has current grades.
+
+Remaining risk:
+
+- The lowest remaining maintainability debt is still broad contract coverage: `interaction-audit-helpers.ts`, `native-click-probe-contracts.py`, `live-tr-smoke.sh`, and several long parity gate files. Those should be split by surface or generated from shared contracts before claiming literal A+ across every file.
