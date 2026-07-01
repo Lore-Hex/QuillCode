@@ -54,6 +54,7 @@ struct QuillCodePullRequestReviewDraftView: View {
                 .background(QuillCodePalette.background.opacity(0.64))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .accessibilityLabel("Pull request selector")
+                .accessibilityIdentifier("quillcode-pr-review-selector")
 
             TextField(draft.action.bodyPlaceholder, text: bodyBinding, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -65,6 +66,7 @@ struct QuillCodePullRequestReviewDraftView: View {
                 .background(QuillCodePalette.background.opacity(0.64))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .accessibilityLabel("Pull request review body")
+                .accessibilityIdentifier("quillcode-pr-review-body")
 
             if draft.inlineCommentCount > 0 {
                 Toggle(isOn: includeInlineCommentsBinding) {
@@ -221,6 +223,7 @@ struct QuillCodePullRequestReviewDraftView: View {
                     .background(QuillCodePalette.background.opacity(0.52))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .accessibilityLabel("Inline note text at \(comment.locationLabel)")
+                    .accessibilityIdentifier("quillcode-pr-review-inline-note")
                 if draft.includeInlineComments && comment.isIncluded && comment.normalizedBody.isEmpty {
                     Text("Add note text or skip this note.")
                         .font(.caption2)
