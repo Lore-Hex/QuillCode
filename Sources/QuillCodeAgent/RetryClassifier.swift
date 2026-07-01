@@ -20,13 +20,21 @@ public enum TransientFailureClass: String, Sendable, Hashable {
 /// a transient network/gateway blip is `.none` so we never silently retry a deterministic error (a bad
 /// request, an auth failure) or a user cancellation.
 public enum RetryClassifier {
+    /// The delay the server explicitly asked us to wait, if the failure carried a `Retry-After` /
+    /// rate-limit reset header. `nil` when the error is not a rate-limited HTTP error or gave no hint —
+    /// in which case the pure jittered backoff is used. This is deliberately separate from `classify`:
+    /// classification decides WHETHER to retry; this decides the polite floor on HOW LONG to wait.
+    public static func retryAfter(_ error: any Error) -> Duration? {
+        (error as? TrustedRouterAgentError)?.rateLimitRetryAfter
+    }
+
     public static func classify(_ error: any Error) -> TransientFailureClass {
         // A cancellation is the user stopping the run — never retry it.
         if error is CancellationError { return .none }
 
         if let routerError = error as? TrustedRouterAgentError {
             switch routerError {
-            case .streamingHTTPError(let statusCode, _):
+            case .streamingHTTPError(let statusCode, _, _):
                 return classify(statusCode: statusCode)
             case .emptyResponse:
                 // The stream ended without producing an action before any content — a transient blip

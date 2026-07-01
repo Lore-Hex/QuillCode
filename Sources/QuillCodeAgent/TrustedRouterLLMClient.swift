@@ -7,7 +7,20 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
     case emptyResponse
     case invalidActionJSON(String)
     case emptyToolArguments(String)
-    case streamingHTTPError(statusCode: Int, body: String)
+    case streamingHTTPError(statusCode: Int, body: String, rateLimit: HttpRateLimitDetails)
+
+    /// Back-compat constructor for call sites (and tests) that have no header context — an error with
+    /// no rate-limit hint. New code that has the HTTP response should pass a parsed `rateLimit`.
+    public static func streamingHTTPError(statusCode: Int, body: String) -> TrustedRouterAgentError {
+        .streamingHTTPError(statusCode: statusCode, body: body, rateLimit: HttpRateLimitDetails())
+    }
+
+    /// The delay the server explicitly asked for (Retry-After / rate-limit reset), if this is a rate-
+    /// limited/overloaded HTTP error that carried one.
+    public var rateLimitRetryAfter: Duration? {
+        if case .streamingHTTPError(_, _, let rateLimit) = self { return rateLimit.retryAfter }
+        return nil
+    }
 
     public var description: String {
         switch self {
@@ -19,7 +32,7 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
             return "Model did not return a valid QuillCode action JSON object: \(text)"
         case .emptyToolArguments(let toolName):
             return "Model returned an empty argument object for \(toolName)."
-        case .streamingHTTPError(let statusCode, let body):
+        case .streamingHTTPError(let statusCode, let body, _):
             return TrustedRouterErrorBodyFormatter.streamingMessage(
                 statusCode: statusCode,
                 body: body
@@ -97,7 +110,8 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         if response.statusCode >= 400 {
             throw TrustedRouterAgentError.streamingHTTPError(
                 statusCode: response.statusCode,
-                body: try await Self.drain(bytes)
+                body: try await Self.drain(bytes),
+                rateLimit: HttpRateLimitDetails.parse(response: response, now: Date())
             )
         }
 
