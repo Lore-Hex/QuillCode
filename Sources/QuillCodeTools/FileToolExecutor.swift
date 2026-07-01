@@ -23,6 +23,16 @@ public struct FileToolExecutor: Sendable {
     public func read(path: String, offset: Int? = nil, limit: Int? = nil) -> ToolResult {
         do {
             let url = try resolve(path)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+                return ToolResult(ok: false, error: missingFileMessage(for: url))
+            }
+            if isDirectory.boolValue {
+                return ToolResult(
+                    ok: false,
+                    error: "\(pathResolver.relativePath(for: url)) is a directory, not a file. Use host.file.list to see its contents."
+                )
+            }
             let data = try Data(contentsOf: url)
             // Refuse binary/image content gracefully instead of erroring or dumping garbage into context.
             if FileReadRenderer.isProbablyBinary(data) {
@@ -96,6 +106,21 @@ public struct FileToolExecutor: Sendable {
 
     public func resolve(_ path: String) throws -> URL {
         try pathResolver.resolve(path)
+    }
+
+    /// A missing-file error the model can act on in one glance: the workspace-relative path plus
+    /// "did you mean" siblings when the name looks like a typo of something that exists.
+    private func missingFileMessage(for url: URL) -> String {
+        let relative = pathResolver.relativePath(for: url)
+        let parent = url.deletingLastPathComponent()
+        let matches = FilePathSuggester.suggest(missingFileAt: url)
+        guard !matches.isEmpty else {
+            return "File not found: \(relative)"
+        }
+        let parentRelative = pathResolver.relativePath(for: parent)
+        let prefix = parentRelative == "." ? "" : "\(parentRelative)/"
+        let hints = matches.map { "\(prefix)\($0)" }.joined(separator: ", ")
+        return "File not found: \(relative). Did you mean: \(hints)?"
     }
 
     private func encode<T: Encodable>(_ output: T) -> String {
