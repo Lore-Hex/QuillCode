@@ -57,7 +57,7 @@ enum WorkspaceProjectEngine {
 
         if let index = projects.firstIndex(where: { $0.path == standardized.path && !$0.isRemote }) {
             projects[index].name = projectName
-            projects[index].instructions = metadata.instructions
+            applyInstructionMetadata(metadata.instructions, to: &projects[index], now: now)
             projects[index].localActions = metadata.localActions
             projects[index].extensionManifests = metadata.extensionManifests
             projects[index].memories = metadata.memories
@@ -195,12 +195,13 @@ enum WorkspaceProjectEngine {
         _ metadata: WorkspaceProjectMetadata,
         to id: UUID?,
         projects: inout [ProjectRef],
-        includeLocalExtensions: Bool
+        includeLocalExtensions: Bool,
+        now: Date = Date()
     ) -> Bool {
         guard let id, let index = projects.firstIndex(where: { $0.id == id }) else {
             return false
         }
-        projects[index].instructions = metadata.instructions
+        applyInstructionMetadata(metadata.instructions, to: &projects[index], now: now)
         projects[index].memories = metadata.memories
         if includeLocalExtensions {
             projects[index].localActions = metadata.localActions
@@ -210,6 +211,23 @@ enum WorkspaceProjectEngine {
             projects[index].extensionManifests = []
         }
         return true
+    }
+
+    private static func applyInstructionMetadata(
+        _ instructions: [ProjectInstruction],
+        to project: inout ProjectRef,
+        now: Date
+    ) {
+        let previousDiagnosticIDs = instructionDiagnosticIDs(for: project.instructions)
+        let currentDiagnosticIDs = instructionDiagnosticIDs(for: instructions)
+        project.instructions = instructions
+        for diagnosticID in previousDiagnosticIDs.subtracting(currentDiagnosticIDs).sorted() {
+            project.resolveInstructionDiagnostic(id: diagnosticID, at: now)
+        }
+    }
+
+    private static func instructionDiagnosticIDs(for instructions: [ProjectInstruction]) -> Set<String> {
+        Set(ProjectInstructionDiagnosticsBuilder.diagnostics(for: instructions).map(\.id))
     }
 
     static func knownProjectID(_ id: UUID?, projects: [ProjectRef]) -> UUID? {

@@ -185,11 +185,22 @@ public final class QuillCodeWorkspaceModel {
 
     func refreshProjectMetadata(_ id: UUID?) {
         refreshGlobalMemories()
+        let previousResolutions = instructionDiagnosticResolutions(for: id)
         WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
             projectID: id,
             projects: &root.projects
         )
+        let currentResolutions = instructionDiagnosticResolutions(for: id)
+        if currentResolutions != previousResolutions {
+            saveProjects()
+        }
         refreshFileMentionIndex()
+    }
+
+    private func instructionDiagnosticResolutions(for projectID: UUID?) -> [ProjectInstructionDiagnosticResolution] {
+        projectID
+            .flatMap { id in root.projects.first { $0.id == id } }
+            .map(\.instructionDiagnosticResolutions) ?? []
     }
 
     /// Recomputes the cached composer file-mention index from the selected local

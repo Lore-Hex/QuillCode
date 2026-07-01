@@ -2,9 +2,11 @@ import Foundation
 
 public extension ProjectRef {
     var dismissedInstructionDiagnosticIDs: Set<String> {
-        Set(instructionDiagnosticResolutions
-            .filter { $0.disposition == .dismissed }
-            .map(\.diagnosticID))
+        instructionDiagnosticIDs(with: .dismissed)
+    }
+
+    var resolvedInstructionDiagnosticIDs: Set<String> {
+        instructionDiagnosticIDs(with: .resolved)
     }
 
     @discardableResult
@@ -12,16 +14,40 @@ public extension ProjectRef {
         id rawID: String,
         at date: Date = Date()
     ) -> Bool {
+        recordInstructionDiagnostic(id: rawID, disposition: .dismissed, at: date)
+    }
+
+    @discardableResult
+    mutating func resolveInstructionDiagnostic(
+        id rawID: String,
+        at date: Date = Date()
+    ) -> Bool {
+        recordInstructionDiagnostic(id: rawID, disposition: .resolved, at: date)
+    }
+
+    private func instructionDiagnosticIDs(
+        with disposition: ProjectInstructionDiagnosticDisposition
+    ) -> Set<String> {
+        Set(instructionDiagnosticResolutions
+            .filter { $0.disposition == disposition }
+            .map(\.diagnosticID))
+    }
+
+    private mutating func recordInstructionDiagnostic(
+        id rawID: String,
+        disposition: ProjectInstructionDiagnosticDisposition,
+        at date: Date
+    ) -> Bool {
         guard let id = ProjectInstructionDiagnosticResolution.normalizedDiagnosticID(rawID) else {
             return false
         }
         let resolution = ProjectInstructionDiagnosticResolution(
             diagnosticID: id,
-            disposition: .dismissed,
+            disposition: disposition,
             updatedAt: date
         )
         if let index = instructionDiagnosticResolutions.firstIndex(where: { $0.diagnosticID == id }) {
-            guard instructionDiagnosticResolutions[index].disposition != .dismissed else {
+            guard instructionDiagnosticResolutions[index].disposition != disposition else {
                 return false
             }
             instructionDiagnosticResolutions[index] = resolution
@@ -65,6 +91,7 @@ extension ProjectRef {
 
 public enum ProjectInstructionDiagnosticDisposition: String, Codable, Sendable, Hashable {
     case dismissed
+    case resolved
 }
 
 public struct ProjectInstructionDiagnosticResolution: Codable, Sendable, Hashable, Identifiable {

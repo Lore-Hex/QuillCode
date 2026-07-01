@@ -98,4 +98,42 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
 
         XCTAssertTrue(model.selectedThread?.instructions.first?.content.contains("targeted unit tests") == true)
     }
+
+    func testProjectMetadataRefreshPersistsResolvedInstructionDiagnostics() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode-store"))
+        try paths.ensure()
+        let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
+        let featureDirectory = root.appendingPathComponent("Sources/Feature")
+        try FileManager.default.createDirectory(at: featureDirectory, withIntermediateDirectories: true)
+        try "Always run tests before finishing.\n".write(
+            to: root.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Do not run tests for feature changes.\n".write(
+            to: featureDirectory.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let model = QuillCodeWorkspaceModel(projectStore: projectStore)
+        let projectID = model.addProject(path: root, name: "Rules Project")
+        let diagnosticID = try XCTUnwrap(
+            ProjectInstructionDiagnosticsBuilder
+                .diagnostics(for: model.root.projects[0].instructions)
+                .first { $0.statusLabel == "conflict" }?
+                .id
+        )
+
+        try "Always run focused tests before finishing.\n".write(
+            to: featureDirectory.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        model.refreshProjectMetadata(projectID)
+
+        let loaded = try XCTUnwrap(projectStore.load().first)
+        XCTAssertEqual(loaded.resolvedInstructionDiagnosticIDs, [diagnosticID])
+        XCTAssertEqual(loaded.dismissedInstructionDiagnosticIDs, [])
+    }
 }
