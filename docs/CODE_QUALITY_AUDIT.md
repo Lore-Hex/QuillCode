@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-07-01 Follow-Up Schedule Parser Ownership Pass
+
+Overall grade after this slice: **all files and modules grade A+; the follow-up schedule parser cluster now grades
+A+ 100 in every file**.
+
+This pass used `scripts/grade-code-quality.py` to grade every file and module, then targeted the lowest-scored
+production file where the score reflected a real ownership issue rather than harmless declarative UI repetition.
+`ThreadFollowUpScheduleParser.swift` was correct, but it owned interval parsing, recurrence parsing, natural-language
+clock parsing, weekday math, and top-level schedule assembly in one 494-line file. The new shape keeps the public
+parser behavior stable while moving interval and calendar/clock concerns into focused collaborators.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Schedule orchestration | `ThreadFollowUpScheduleParser.swift` mixed all parsing stages and date math in one broad type. | `ThreadFollowUpScheduleParser.swift` is now a 72-line coordinator that normalizes input and tries typed parser stages. |
+| Interval parsing | Relative delays, recurrence aliases, recurrence units, and user-facing relative descriptions lived beside calendar parsing. | `ThreadFollowUpScheduleIntervalParser.swift` owns only recurrence and relative-delay parsing and grades **A+ 100**. |
+| Calendar/clock parsing | Tomorrow, today, bare clocks, weekday lookup, meridiem handling, and date construction were private helpers in the broad parser. | `ThreadFollowUpScheduleCalendarParser.swift` owns natural-language clock/calendar parsing and grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceAutomationSchedulingIntegrationTests|WorkspaceAutomationsSurfaceBuilderTests|SlashSchedulingCommandParserTests|WorkspaceSlashCommandTranscriptPlannerTests'`
+- `swift test`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- This is behavior-preserving refactoring in a covered scheduling path. The next code-quality pass should target the
+  remaining broad production files that still score A+ but show size pressure, especially remote project execution and
+  composer orchestration.
+
 ## 2026-07-01 Native Hit Target Audit Collaborator Pass
 
 Overall grade after this slice: **all source modules remain A+; the touched native hit-target audit files are A+**.
