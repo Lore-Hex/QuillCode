@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-06-30 HTML Sidebar Renderer Split
+
+Overall grade after this slice: **A+ sidebar composition root, A+/A focused sidebar renderers, A+ app source module average**.
+
+This pass addressed the remaining static HTML sidebar hotspot from the generated report: `WorkspaceHTMLSidebarRenderer.swift`. The old file had grown to 366 lines and mixed shell composition, primary actions, saved filters, saved searches, bulk selection, thread rows, project rows, and the tools/settings footer.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Sidebar composition | `WorkspaceHTMLSidebarRenderer.swift` owned every sidebar subregion and graded **B+**. | `WorkspaceHTMLSidebarRenderer.swift` is now a 20-line **A+** composition root that wires focused sidebar renderers together. |
+| Primary and utility commands | Primary actions, grouped utility commands, footer menu, labels, icons, and HTML test IDs lived beside project/thread markup. | `WorkspaceHTMLSidebarCommandRenderer.swift` owns command/footer markup, reuses `QuillCodeSidebarCommandPresentation`, and grades **A+**. |
+| Projects | Project empty state, project rows, remote labels, and add-project action were inline in the sidebar root. | `WorkspaceHTMLSidebarProjectRenderer.swift` owns project markup and grades **A+**. |
+| Threads and filters | Saved filters, saved searches, selection toolbar, sections, rows, and row actions were inline in the sidebar root. | `WorkspaceHTMLSidebarThreadRenderer.swift` owns thread/filter/selection markup and grades **A+**. |
+| Architecture gates | Renderer parity tests only required helpers in the old monolithic file. | Parity gates now require the new split files, reject project/thread/footer helpers drifting back into the root, and scan all split renderers for shared hit-target primitives. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceHTMLChromeRendererTests|ParityHTMLRendererDelegationGateTests|ParityWorkspaceSidebarGateTests|ParityHTMLInteractionPrimitiveGateTests'`
+- `swift test`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- `WorkspaceHTMLSidebarThreadRenderer.swift` is still the densest member at 293 lines because saved-search, selection, and row action markup are closely related. It remains A+ by the generated report; the next split should only happen if those subregions start changing independently.
+- Remaining production B+ hotspots are now outside this sidebar ownership area: `QuillCodeAutomationsPaneView.swift`, `Agent.swift`, and `GitHubPullRequestToolExecutor.swift`.
+
 ## 2026-06-30 Remote Pull Request Command Builder Split
 
 Overall grade after this slice: **A+ remote PR command cluster, A+ app source module average, no remote PR command file below A+**.
@@ -23,7 +49,7 @@ Verification:
 Residual risk:
 
 - The local `GitHubPullRequestToolExecutor.swift` in `QuillCodeTools` remains a separate B+ production hotspot. It should be split in a future slice, likely mirroring this remote-family ownership.
-- Current app-source B+ debt is now concentrated in `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `QuillCodeAutomationsPaneView.swift`.
+- At that point, app-source B+ debt was concentrated in `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `QuillCodeAutomationsPaneView.swift`.
 
 ## 2026-06-30 Workspace Automation Engine Split
 
