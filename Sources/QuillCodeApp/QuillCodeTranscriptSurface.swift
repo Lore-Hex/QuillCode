@@ -309,12 +309,17 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public var sentMessageHistory: [String]
     /// Bumped by the `focus-composer` command; the view focuses the input when it changes.
     public var focusToken: Int
+    /// The current run's plan progress for the always-visible strip above the input. nil ⇒ no plan ⇒
+    /// the strip renders nothing (a plan-less session looks byte-identical). Optional, so it decodes
+    /// safely from surfaces persisted before this field existed.
+    public var planProgress: WorkspacePlanProgress?
 
     public init(
         composer: ComposerState,
         fileMentionIndex: WorkspaceFileIndex = WorkspaceFileIndex(),
         changedFilePaths: Set<String> = [],
-        sentMessageHistory: [String] = []
+        sentMessageHistory: [String] = [],
+        planProgress: WorkspacePlanProgress? = nil
     ) {
         self.draft = composer.draft
         self.placeholder = composer.placeholder
@@ -328,5 +333,6 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
         )
         self.sentMessageHistory = sentMessageHistory
         self.focusToken = composer.focusToken
+        self.planProgress = planProgress
     }
 }

@@ -185,7 +185,8 @@ public extension QuillCodeWorkspaceModel {
                 composer: composer,
                 fileMentionIndex: fileMentionIndex,
                 changedFilePaths: activeChangedFilePaths,
-                sentMessageHistory: ComposerHistoryRecall.history(from: thread?.messages ?? [])
+                sentMessageHistory: ComposerHistoryRecall.history(from: thread?.messages ?? []),
+                planProgress: WorkspacePlanProgressBuilder.progress(for: thread, agentStatus: topBarState.agentStatus)
             ),
             fileMentionIndex: fileMentionIndex,
             changedFilePaths: activeChangedFilePaths,

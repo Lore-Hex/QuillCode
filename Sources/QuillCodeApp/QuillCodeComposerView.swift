@@ -25,6 +25,9 @@ struct QuillCodeComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let planProgress = composer.planProgress {
+                QuillCodePlanProgressStrip(progress: planProgress, reduceMotion: reduceMotion)
+            }
             if !slashSuggestions.isEmpty {
                 QuillCodeSlashSuggestionPanel(
                     suggestions: slashSuggestions,

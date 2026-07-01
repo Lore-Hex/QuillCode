@@ -3001,6 +3001,40 @@
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
+    .composer-plan-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 2px 6px;
+      font-size: 11px;
+      color: var(--muted, rgba(158,176,184,1));
+    }
+    .composer-plan-progress .plan-progress-track {
+      flex: 0 0 72px;
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+    .composer-plan-progress .plan-progress-fill {
+      height: 100%;
+      width: 0;
+      background: var(--blue, #40b8e8);
+      transition: width .25s var(--ease-out);
+    }
+    .composer-plan-progress .plan-progress-count {
+      font-variant-numeric: tabular-nums;
+    }
+    .composer-plan-progress .plan-progress-step {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .composer-plan-progress[data-state="idle"] { opacity: .35; }
+    .composer-plan-progress[data-state="complete"] { opacity: .55; }
+    .composer-plan-progress[data-state="complete"] .plan-progress-fill { background: var(--green, #52d173); }
+    .composer-plan-progress[data-state="idle"] .plan-progress-fill { background: var(--muted, rgba(158,176,184,1)); }
     .composer-surface:focus-within {
       border-color: rgba(255,255,255,.18);
     }
@@ -3636,7 +3670,10 @@
         slashActiveIndex: 0,
         mentionActiveIndex: 0,
         historyRecallIndex: null,
-        historySavedDraft: null
+        historySavedDraft: null,
+        // The current run's plan progress for the always-visible strip above the input; null => no strip.
+        // Mirrors Swift ComposerSurface.planProgress (the surface renders the pre-computed struct).
+        planProgress: null
       },
       settings: {
         isOpen: false,
@@ -6839,6 +6876,7 @@
               ${renderSlashSuggestions()}
               ${renderFileMentionSuggestions()}
               <form class="composer" data-testid="composer">
+                ${renderComposerPlanProgress()}
                 <div class="composer-surface" data-testid="composer-surface">
                   <label class="composer-sr-only" for="message">Message</label>
                   <div class="composer-input-row">
@@ -8465,6 +8503,22 @@
           <button class="hit-target-icon" type="button" data-testid="find-next" ${matches.length ? '' : 'disabled'}>↓</button>
           <button class="hit-target-icon" type="button" data-testid="find-close" aria-label="Close find">×</button>
         </form>`;
+    }
+
+    // Mirrors Swift WorkspaceHTMLTranscriptRenderer.renderPlanProgress: the always-visible strip above
+    // the input, rendered from the pre-computed state.composer.planProgress (null => nothing).
+    function renderComposerPlanProgress() {
+      const p = state.composer.planProgress;
+      if (!p) return '';
+      const stateName = p.isComplete ? 'complete' : (p.isRunning ? 'running' : 'idle');
+      const percent = Math.round((p.fraction || 0) * 100);
+      const ariaLabel = `Plan progress: step ${p.currentStepIndex} of ${p.totalCount}: ${p.currentStepTitle}`;
+      return `
+        <div class="composer-plan-progress" data-testid="composer-plan-progress" data-state="${stateName}" role="progressbar" aria-valuemin="0" aria-valuemax="${p.totalCount}" aria-valuenow="${p.completedCount}" aria-label="${escapeHTML(ariaLabel)}">
+          <div class="plan-progress-track"><div class="plan-progress-fill" style="width:${percent}%"></div></div>
+          <span class="plan-progress-count" data-testid="plan-progress-count">${escapeHTML(p.stepCounterLabel)}</span>
+          <span class="plan-progress-step" data-testid="plan-progress-step" title="${escapeHTML(p.currentStepTitle)}">${escapeHTML(p.currentStepTitle)}</span>
+        </div>`;
     }
 
     function renderSlashSuggestions() {
