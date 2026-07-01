@@ -114,10 +114,8 @@ enum WorkspaceActivityPlanSurfaceBuilder {
     }
 
     private static func isActive(_ agentStatus: String) -> Bool {
-        let normalized = agentStatus.lowercased()
-        return normalized.contains("running")
-            || normalized.contains("streaming")
-            || normalized.contains("queued")
-            || normalized.contains("terminal")
+        // Single source of truth, shared with the composer plan-progress rail so a run's liveness can
+        // never drift between the two surfaces. (Behavior-identical to the previous inline predicate.)
+        AgentStatusClassifier.isActive(agentStatus)
     }
 }
