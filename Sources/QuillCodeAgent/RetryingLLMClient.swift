@@ -79,7 +79,12 @@ public struct RetryingLLMClient<Base: UsageStreamingLLMClient>: UsageStreamingLL
                 guard failureClass != .none, retryNumber < policy.maxAttempts else { throw error }
                 // Honor a cancellation that arrived while we were failing, before sleeping.
                 try Task.checkCancellation()
-                let delay = policy.delay(forAttempt: attempt, jitter: jitter())
+                // If the gateway told us how long to wait (Retry-After), be at least that polite.
+                let delay = policy.delay(
+                    forAttempt: attempt,
+                    jitter: jitter(),
+                    retryAfter: RetryClassifier.retryAfter(error)
+                )
                 onRetry(retryNumber, failureClass, delay)
                 try await sleeper.sleep(delay)
                 try Task.checkCancellation()

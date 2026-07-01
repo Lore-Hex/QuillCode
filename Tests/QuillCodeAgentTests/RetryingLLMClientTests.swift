@@ -166,6 +166,44 @@ final class RetryingLLMClientTests: XCTestCase {
         XCTAssertTrue(sleeper.slept.isEmpty)
     }
 
+    // MARK: - Retry-After honoring (integration through withRetry)
+
+    func testServerRetryAfterIsHonoredOverBackoff() async throws {
+        // A 429 that asks for 5s; jitter collapses our own backoff to ~0, so the ONLY reason the
+        // decorator would sleep 5s is that it honored the server's Retry-After end-to-end.
+        let flaky = FlakyClient(failures: [
+            TrustedRouterAgentError.streamingHTTPError(
+                statusCode: 429, body: "", rateLimit: HttpRateLimitDetails(retryAfter: .seconds(5))
+            ),
+        ])
+        let sleeper = RecordingSleeper()
+        let client = RetryingLLMClient(
+            base: flaky, policy: RetryBackoffPolicy(), sleeper: sleeper, jitter: { 0.0 }, onRetry: { _, _, _ in }
+        )
+
+        let action = try await client.nextAction(thread: thread, userMessage: "hi", tools: [])
+        XCTAssertEqual(action, .say("ok"))
+        XCTAssertEqual(flaky.callCount, 2)
+        XCTAssertEqual(sleeper.slept, [.seconds(5)])
+    }
+
+    func testOurBackoffWinsWhenLongerThanRetryAfter() async throws {
+        // A tiny Retry-After must never make us LESS patient than our own jittered backoff (0.5s here).
+        let flaky = FlakyClient(failures: [
+            TrustedRouterAgentError.streamingHTTPError(
+                statusCode: 429, body: "", rateLimit: HttpRateLimitDetails(retryAfter: .milliseconds(100))
+            ),
+        ])
+        let sleeper = RecordingSleeper()
+        let client = RetryingLLMClient(
+            base: flaky, policy: RetryBackoffPolicy(base: .milliseconds(500)), sleeper: sleeper,
+            jitter: { 1.0 }, onRetry: { _, _, _ in }
+        )
+
+        _ = try await client.nextAction(thread: thread, userMessage: "hi", tools: [])
+        XCTAssertEqual(sleeper.slept, [.milliseconds(500)])
+    }
+
     func testStreamObtainIsRetried() async throws {
         // The production path: a 429 on obtaining the event stream is retried before any token.
         let flaky = FlakyClient(failures: [TrustedRouterAgentError.streamingHTTPError(statusCode: 429, body: "")])
