@@ -1,5 +1,36 @@
 # Code Quality Audit
 
+## 2026-07-01 Desktop Parity Gate Split
+
+Overall grade after this slice: **A+ desktop parity gate files, focused desktop ownership contracts**.
+
+This pass followed the parity-tool split with the next broad parity hotspot:
+`Tests/QuillCodeParityTests/ParityDesktopGateTests.swift`. The old file mixed menu-bar widget contracts, packaged
+macOS smoke evidence, TrustedRouter OAuth wiring, cancellable task coordination, browser WebKit adapters, controller
+settings/project/pane/navigation/worktree routing, command planning, and automation notifications in one 518-line
+source-inspection suite. The split preserves the same checks but moves them into focused gate classes:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Menu bar | Shared the mixed desktop gate. | `ParityDesktopGateTests.swift` now owns only native menu-bar/widget shortcuts. |
+| Packaged smoke | Mixed with app controller and adapter checks. | `ParityPackagedMacOSSmokeGateTests.swift` owns packaged live-window proof. |
+| Auth | Mixed with unrelated desktop plumbing. | `ParityDesktopTrustedRouterAuthGateTests.swift` owns loopback OAuth ownership. |
+| Task coordination | Mixed with browser and controller checks. | `ParityDesktopTaskCoordinationGateTests.swift` owns cancellable task-slot delegation. |
+| Browser adapters | Mixed with controller routing. | `ParityDesktopBrowserAdapterGateTests.swift` owns live-DOM capture and visible browser-session adapters. |
+| Controller routing | Shared the broad gate. | `ParityDesktopControllerGateTests.swift` owns focused settings/project/pane/model/navigation/worktree/automation routing checks. |
+| Grade | `ParityDesktopGateTests.swift` was **B+** at 518 lines. | Every split desktop-parity file now grades **A+**. |
+
+Verification:
+
+- `swift test --filter 'ParityDesktop.*GateTests|ParityPackagedMacOSSmokeGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It makes desktop parity ownership easier to review but does
+  not add new runtime desktop smoke behavior.
+- The next parity hotspots are settings, browser, sidebar, project, and model/thread gates.
+
 ## 2026-07-01 Parity Tool Gate Split
 
 Overall grade after this slice: **A+ tool parity gate files, shared source assertion helper, lower review friction**.
