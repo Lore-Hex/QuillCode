@@ -12857,3 +12857,54 @@ Remaining risk:
   safety module now grades A+. The next A+ train should target the broad
   Playwright/app/parity files still listed at the top of
   `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+## 2026-07-01 Native Hit Target Test Architecture Pass
+
+Overall grade after this slice: **A+ native hit-target test ownership and A+
+focused click-target contract coverage**.
+
+This pass targets the lowest-scored app test file after the prior trains:
+`QuillCodeNativeHitTargetAuditTests.swift` was a 969-line A- bucket combining
+design-system semantics, surface-report assertions, source scanning fixtures,
+and negative validation cases. The coverage is preserved, but each test file now
+has one responsibility that maps to the interaction architecture.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `test:QuillCodeAppTests` | A+ | The old 969-line native hit-target test bucket is gone; every replacement native hit-target test file grades A+. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetDesignTests.swift` | A+ | Design-system/native/HTML semantic bridge and minimum target clamping. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetSurfaceAuditTests.swift` | A+ | Representative and plain workspace surface coverage, command contracts, probe coverage, and policy assertions. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetSourceAuditTests.swift` | A+ | Source-level guardrails for Buttons, text entries, gestures, identifiers, and owned gestures. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetValidationTests.swift` | A+ | Negative report/probe validation for metadata, geometry, selector, semantic, sample-point, and collision-scope drift. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetAuditTestSupport.swift` | A+ | Shared representative surface fixture and source-scanner helpers. |
+
+Code quality changes:
+
+- Replaced `QuillCodeNativeHitTargetAuditTests.swift` with four focused suites
+  and one shared support base.
+- Kept the minimum-hit-target, 8 pt clearance, 0.96 press-scale, text-entry
+  accessibility identifier, owned-gesture, semantic kind/action, selector, and
+  edge/interior sample-point assertions intact.
+- Extracted representative workspace, MCP, browser, memories, automations, and
+  source-scanner fixtures into reusable support.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; all native hit-target test
+  files now grade A+.
+
+Validation:
+
+- `swift test --filter 'QuillCodeNativeHitTarget'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- The native audit source itself still grades A- because it owns broad report
+  orchestration. A later train should split the production audit into report,
+  policy, probe, and validation collaborators after the focused test ownership
+  is merged.
