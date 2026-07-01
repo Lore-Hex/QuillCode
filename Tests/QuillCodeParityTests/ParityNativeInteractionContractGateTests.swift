@@ -165,6 +165,9 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
         let nativeModelText = try Self.appSourceText(named: "QuillCodeNativeHitTargetModels.swift")
         let auditText = [
             try Self.appSourceText(named: "QuillCodeNativeHitTargetAudit.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetAuditPolicyChecks.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetAuditProbeGeneration.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetAuditProbeValidation.swift"),
             nativeModelText,
             try Self.appSourceText(named: "QuillCodeNativeHitTargetContract.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetProbe.swift"),

@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Native Hit Target Audit Collaborator Pass
+
+Overall grade after this slice: **all source modules remain A+; the touched native hit-target audit files are A+**.
+
+This pass targeted the remaining A- production hotspot in the native click-target audit architecture. The old file was
+correct but too broad: it generated reports, compared surface policies, generated probe contracts, and validated probe
+geometry in one place. The new shape keeps the report API stable while separating each audit concern.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Audit entry point | `QuillCodeNativeHitTargetAudit.swift` was a 446-line file mixing orchestration, policy checks, probe generation, and validation. | The entry point is 76 lines and owns only report assembly plus duplicate-ID detection. |
+| Surface policy checks | Required and unexpected policy checks repeated six wrapper paths inside the broad audit file. | `QuillCodeNativeHitTargetAuditPolicyChecks.swift` computes one typed coverage value and grades **A+ 100**. |
+| Probe generation | Probe selector selection and normalized sample-point constants lived beside unrelated validation logic. | `QuillCodeNativeHitTargetAuditProbeGeneration.swift` owns probe creation and grades **A+ 100**. |
+| Probe validation | Geometry, selector, semantic, and sample-point validation lived in the same broad file. | `QuillCodeNativeHitTargetAuditProbeValidation.swift` owns validation and grades **A+ 96**. |
+
+Verification:
+
+- `swift test --filter 'QuillCodeNativeHitTarget'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is behavior-preserving architecture cleanup. Broader source and test modules still contain A/A- candidates, but
+  the production native hit-target audit cluster is now A+ and easier to extend without regressions.
+
 ## 2026-07-01 A+ Hotspot Pass
 
 Overall grade after this slice: **all source modules stay A+; the worst pre-existing PR-tool and core E2E mega-files
