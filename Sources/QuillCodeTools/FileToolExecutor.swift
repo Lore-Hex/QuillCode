@@ -20,14 +20,24 @@ public struct FileToolExecutor: Sendable {
         self.workspaceRoot = workspaceRoot.standardizedFileURL
     }
 
-    public func read(path: String) -> ToolResult {
+    public func read(path: String, offset: Int? = nil, limit: Int? = nil) -> ToolResult {
         do {
             let url = try resolve(path)
             let data = try Data(contentsOf: url)
-            guard let text = String(data: data, encoding: .utf8) else {
-                throw FileToolError.invalidUTF8(path)
+            // Refuse binary/image content gracefully instead of erroring or dumping garbage into context.
+            if FileReadRenderer.isProbablyBinary(data) {
+                return ToolResult(
+                    ok: true,
+                    stdout: FileReadRenderer.binaryDescription(data, fileName: url.lastPathComponent),
+                    artifacts: [url.path]
+                )
             }
-            return ToolResult(ok: true, stdout: text, artifacts: [url.path])
+            let text = String(data: data, encoding: .utf8) ?? ""
+            return ToolResult(
+                ok: true,
+                stdout: FileReadRenderer.render(text, offset: offset, limit: limit),
+                artifacts: [url.path]
+            )
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
