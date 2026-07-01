@@ -1,6 +1,12 @@
 import Foundation
 import QuillCodeCore
 
+private enum ShellToolDefinitionSchema {
+    static let run = #"""
+    {"type":"object","properties":{"cmd":{"type":"string"},"cwd":{"type":"string","description":"Optional workspace-relative working directory. It must resolve inside the current project."},"timeoutSeconds":{"type":"integer","minimum":1,"maximum":1800,"description":"Optional bounded timeout in seconds."},"environment":{"type":"object","additionalProperties":{"type":"string"},"description":"Optional command-local environment overrides. Keys must be ASCII identifiers; values must be single-line strings."}},"required":["cmd"]}
+    """#
+}
+
 public struct ShellExecutionRequest: Sendable {
     public var command: String
     public var cwd: URL
@@ -216,7 +222,7 @@ public extension ToolDefinition {
     static let shellRun = ToolDefinition(
         name: "host.shell.run",
         description: "Run a shell command in the current project workspace.",
-        parametersJSON: #"{"type":"object","properties":{"cmd":{"type":"string"},"cwd":{"type":"string","description":"Optional workspace-relative working directory. It must resolve inside the current project."},"timeoutSeconds":{"type":"integer","minimum":1,"maximum":1800,"description":"Optional bounded timeout in seconds."},"environment":{"type":"object","additionalProperties":{"type":"string"},"description":"Optional command-local environment overrides. Keys must be ASCII identifiers; values must be single-line strings."}},"required":["cmd"]}"#,
+        parametersJSON: ShellToolDefinitionSchema.run,
         host: .local,
         risk: .destructive
     )

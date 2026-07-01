@@ -62,7 +62,7 @@ struct QuillCodeToolCardView: View {
                     Text("Document previews")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.muted)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: QuillCodeMetrics.controlClusterSpacing)], spacing: QuillCodeMetrics.controlClusterSpacing) {
+                    LazyVGrid(columns: adaptivePreviewColumns, spacing: QuillCodeMetrics.controlClusterSpacing) {
                         ForEach(card.documentPreviewArtifacts) { artifact in
                             QuillCodeArtifactDocumentPreview(artifact: artifact)
                         }
@@ -74,7 +74,7 @@ struct QuillCodeToolCardView: View {
                     Text("Previews")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.muted)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: QuillCodeMetrics.controlClusterSpacing)], spacing: QuillCodeMetrics.controlClusterSpacing) {
+                    LazyVGrid(columns: adaptivePreviewColumns, spacing: QuillCodeMetrics.controlClusterSpacing) {
                         ForEach(card.imagePreviewArtifacts) { artifact in
                             QuillCodeArtifactImagePreview(artifact: artifact)
                         }
@@ -110,7 +110,11 @@ struct QuillCodeToolCardView: View {
                 }
                 .tint(QuillCodePalette.blue)
                 .onChange(of: card.status) { _, status in
-                    isDetailsOpen = ToolCardState.defaultDensity(status: status, isExpanded: card.isExpanded) == .expanded
+                    let density = ToolCardState.defaultDensity(
+                        status: status,
+                        isExpanded: card.isExpanded
+                    )
+                    isDetailsOpen = density == .expanded
                 }
                 .onChange(of: card.density) { _, density in
                     isDetailsOpen = density == .expanded
@@ -134,6 +138,15 @@ struct QuillCodeToolCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var adaptivePreviewColumns: [GridItem] {
+        [
+            GridItem(
+                .adaptive(minimum: 220),
+                spacing: QuillCodeMetrics.controlClusterSpacing
+            )
+        ]
     }
 
     private var toolHeader: some View {

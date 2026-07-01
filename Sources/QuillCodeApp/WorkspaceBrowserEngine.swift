@@ -138,7 +138,8 @@ struct WorkspaceBrowserEngine {
 
     static func markSnapshotFetchFailure(_ error: any Error, state: inout BrowserState) {
         if var snapshot = state.snapshot {
-            snapshot.details.append("Snapshot fetch: \(WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error))")
+            let message = WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error)
+            snapshot.details.append("Snapshot fetch: \(message)")
             state.snapshot = snapshot
         }
         state.status = "Preview ready"
