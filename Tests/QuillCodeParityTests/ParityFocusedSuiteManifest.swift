@@ -299,10 +299,16 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceSurfaceDelegatesRuntimeAndExecutionContextContracts",
             "testWorkspaceViewDelegatesRuntimeIssueRecoveryPlanning"
         ]),
-        Suite(fileName: "ParityWorkspaceCommandGateTests.swift", testNames: [
-            "testWorkspaceViewDelegatesCommandPlanning",
-            "testWorkspaceSurfaceDelegatesCommandSurfaceBuilding",
-            "testWorkspaceSurfaceDelegatesCommandPaletteContract",
+        Suite(fileName: "ParityWorkspaceViewCommandPlannerGateTests.swift", testNames: [
+            "testWorkspaceViewDelegatesCommandPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceCommandSurfaceBuilderGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesCommandSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceCommandPaletteContractGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesCommandPaletteContract"
+        ]),
+        Suite(fileName: "ParityPlaywrightCommandPaletteGateTests.swift", testNames: [
             "testPlaywrightCommandPaletteAndGitFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [
