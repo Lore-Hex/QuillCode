@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking   // HTTPURLResponse lives here on Linux
+#endif
 
 /// The rate-limit signal a gateway returns alongside a 429/503 — normalized into "how long the server
 /// is asking us to wait before retrying". We prefer `Retry-After` (the RFC 7231 standard, authoritative

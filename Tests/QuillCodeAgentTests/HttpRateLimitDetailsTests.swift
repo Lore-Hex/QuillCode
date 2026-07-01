@@ -1,5 +1,8 @@
 import XCTest
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking   // HTTPURLResponse lives here on Linux
+#endif
 @testable import QuillCodeAgent
 
 // MARK: - Unit: the pure header parser
