@@ -70,6 +70,11 @@ export async function clickCommandPaletteCommand(page: Page, query: string, comm
   await result.click();
 }
 
+export async function expectWorktreeChoicesLoaded(page: Page, labels: string[]) {
+  await expect(page.getByTestId('worktree-choice')).toContainText(labels);
+  await expect(page.getByTestId('worktree-choices-loading')).toHaveCount(0);
+}
+
 export async function openTopBarOverflow(page: Page) {
   await page.getByTestId('top-bar-overflow-button').click();
   await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
