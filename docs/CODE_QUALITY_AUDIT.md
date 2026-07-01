@@ -12982,3 +12982,43 @@ Remaining risk:
 - The refresher itself still grades A because it intentionally preserves the
   existing public façade API; the next source-quality slice should target the
   remaining A- app files listed in `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+## 2026-07-01 Sidebar Thread List Ownership Pass
+
+Overall grade after this slice: **A+ sidebar list composition with isolated
+bulk-action and section chrome**.
+
+This pass targets the native sidebar thread list, which is a Codex-parity
+first-touch surface and still carried empty state, section grouping, section
+headers, bulk-action controls, and row composition in one file.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | The app module remains A+; the sidebar list is no longer one of the lowest-scored app files. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/QuillCodeSidebarThreadListView.swift` | A- | A+ | Now owns only empty-state/list composition and section projection. |
+| `Sources/QuillCodeApp/QuillCodeSidebarBulkActionsView.swift` | n/a | A+ | Owns bulk selection label, action scroller, and per-action button styling. |
+| `Sources/QuillCodeApp/QuillCodeSidebarThreadSectionView.swift` | n/a | A+ | Owns section header and row composition. |
+
+Code quality changes:
+
+- Replaced three repeated pinned/recent/archived render blocks with one
+  `SidebarSurface.threadSections` projection.
+- Split bulk-selection chrome into `QuillCodeSidebarBulkActionsView` and a
+  private `QuillCodeSidebarBulkActionButton`.
+- Split section rendering into `QuillCodeSidebarThreadSectionView`, keeping row
+  behavior in `QuillCodeSidebarThreadRowView`.
+- Updated the sidebar parity gate so future changes preserve the list/section,
+  bulk-action, row, and command-adapter boundaries.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'ParitySidebarCommandPresentationGateTests|ParityWorkspaceSidebarSurfaceGateTests|QuillCodeThreadSidebarSurfaceTests|WorkspaceSidebarIntegrationTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
