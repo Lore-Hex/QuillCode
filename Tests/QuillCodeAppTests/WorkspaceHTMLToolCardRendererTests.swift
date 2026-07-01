@@ -79,10 +79,16 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Copy input"))
         let detailsIndex = try XCTUnwrap(html.range(of: #"data-testid="tool-card-details""#)?.lowerBound)
         let copyIndex = try XCTUnwrap(html.range(of: #"data-testid="tool-card-copy""#)?.lowerBound)
+        let approveActionHTML = #"data-testid="tool-card-action" data-action-kind="approve""#
+            + #" data-action-style="primary" data-request-id="approval-html">Run"#
+        let editActionHTML = #"data-testid="tool-card-action" data-action-kind="edit""#
+            + #" data-action-style="secondary" data-request-id="approval-html">Edit"#
+        let denyActionHTML = #"data-testid="tool-card-action" data-action-kind="deny""#
+            + #" data-action-style="secondary" data-request-id="approval-html">Skip"#
         XCTAssertLessThan(detailsIndex, copyIndex)
-        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="approve" data-action-style="primary" data-request-id="approval-html">Run"#))
-        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="edit" data-action-style="secondary" data-request-id="approval-html">Edit"#))
-        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="deny" data-action-style="secondary" data-request-id="approval-html">Skip"#))
+        XCTAssertTrue(html.contains(approveActionHTML))
+        XCTAssertTrue(html.contains(editActionHTML))
+        XCTAssertTrue(html.contains(denyActionHTML))
         XCTAssertTrue(html.contains(#"data-timeline-id="timeline-approval""#))
     }
 
@@ -117,8 +123,16 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let thread = ChatThread(
             title: "Screenshot",
             events: [
-                ThreadEvent(kind: .toolQueued, summary: "host.computer.screenshot queued", payloadJSON: try JSONHelpers.encodePretty(call)),
-                ThreadEvent(kind: .toolCompleted, summary: "host.computer.screenshot completed", payloadJSON: try JSONHelpers.encodePretty(result))
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.computer.screenshot queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.computer.screenshot completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
             ]
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
@@ -144,8 +158,16 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let thread = ChatThread(
             title: "Document artifact",
             events: [
-                ThreadEvent(kind: .toolQueued, summary: "host.file.write queued", payloadJSON: try JSONHelpers.encodePretty(call)),
-                ThreadEvent(kind: .toolCompleted, summary: "host.file.write completed", payloadJSON: try JSONHelpers.encodePretty(result))
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
             ]
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
@@ -170,8 +192,16 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let thread = ChatThread(
             title: "Appshot artifact",
             events: [
-                ThreadEvent(kind: .toolQueued, summary: "host.appshot.capture queued", payloadJSON: try JSONHelpers.encodePretty(call)),
-                ThreadEvent(kind: .toolCompleted, summary: "host.appshot.capture completed", payloadJSON: try JSONHelpers.encodePretty(result))
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.appshot.capture queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.appshot.capture completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
             ]
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(

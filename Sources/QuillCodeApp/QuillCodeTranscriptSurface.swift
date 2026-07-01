@@ -17,7 +17,8 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
         timelineItems: [TranscriptTimelineItemSurface]? = nil,
         thinking: TranscriptThinkingSurface? = nil,
         emptyTitle: String = "Ask QuillCode to inspect, edit, or run this project.",
-        emptySubtitle: String = "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.",
+        emptySubtitle: String = "Use Auto for normal coding work, Review for manual gates, "
+            + "or Read-only for exploration.",
         emptyStarterActions: [TranscriptStarterActionSurface] = TranscriptStarterActionSurface.defaults
     ) {
         self.messages = messages
@@ -51,7 +52,8 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
         self.emptyTitle = try container.decodeIfPresent(String.self, forKey: .emptyTitle)
             ?? "Ask QuillCode to inspect, edit, or run this project."
         self.emptySubtitle = try container.decodeIfPresent(String.self, forKey: .emptySubtitle)
-            ?? "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration."
+            ?? "Use Auto for normal coding work, Review for manual gates, "
+            + "or Read-only for exploration."
         self.emptyStarterActions = try container.decodeIfPresent(
             [TranscriptStarterActionSurface].self,
             forKey: .emptyStarterActions
@@ -290,7 +292,10 @@ public enum TurnRevertCopy {
     public static let buttonTitle = "Revert this turn's edits"
 
     public static func scope(hasNonApplyPatchEdits: Bool) -> String {
-        var text = "Reverses the file edits this turn applied, including files it created. It does not undo your own earlier edits, shell commands the turn ran, or git commits."
+        var text = [
+            "Reverses the file edits this turn applied, including files it created.",
+            "It does not undo your own earlier edits, shell commands the turn ran, or git commits."
+        ].joined(separator: " ")
         if hasNonApplyPatchEdits {
             text += " This turn also changed files outside apply_patch, which can't be reverted automatically."
         }

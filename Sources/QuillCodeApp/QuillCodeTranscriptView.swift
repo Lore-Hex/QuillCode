@@ -210,7 +210,7 @@ struct QuillCodeTranscriptView: View {
     }
 
     private var starterActions: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 156), spacing: QuillCodeMetrics.controlClusterSpacing)], spacing: QuillCodeMetrics.controlClusterSpacing) {
+        LazyVGrid(columns: starterActionColumns, spacing: QuillCodeMetrics.controlClusterSpacing) {
             ForEach(transcript.emptyStarterActions) { action in
                 Button {
                     onSubmitStarterAction(action.prompt)
@@ -283,6 +283,15 @@ struct QuillCodeTranscriptView: View {
                 proxy.scrollTo(id, anchor: .bottom)
             }
         }
+    }
+
+    private var starterActionColumns: [GridItem] {
+        [
+            GridItem(
+                .adaptive(minimum: 156),
+                spacing: QuillCodeMetrics.controlClusterSpacing
+            )
+        ]
     }
 }
 
