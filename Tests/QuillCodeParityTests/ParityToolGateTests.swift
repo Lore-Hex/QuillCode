@@ -315,6 +315,61 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testFileToolExecutorDelegatesWorkspaceFileOperations() throws {
+        let executorText = try Self.toolsSourceText(named: "FileToolExecutor.swift")
+        let resolverText = try Self.toolsSourceText(named: "FileWorkspacePathResolver.swift")
+        let listerText = try Self.toolsSourceText(named: "FileDirectoryLister.swift")
+        let searchText = try Self.toolsSourceText(named: "FileSearchScanner.swift")
+        let definitionsText = try Self.toolsSourceText(named: "FileToolDefinitions.swift")
+        let limitsText = try Self.toolsSourceText(named: "FileToolLimits.swift")
+        let indexerText = try Self.toolsSourceText(named: "WorkspaceFileIndexer.swift")
+
+        XCTAssertTrue(
+            executorText.contains("FileDirectoryLister(pathResolver:"),
+            "FileToolExecutor should delegate directory listing."
+        )
+        XCTAssertTrue(
+            executorText.contains("FileSearchScanner(pathResolver:"),
+            "FileToolExecutor should delegate search scanning."
+        )
+        XCTAssertTrue(
+            resolverText.contains("WorkspaceBoundary.isWithin"),
+            "File path containment should live in the focused workspace resolver."
+        )
+        XCTAssertTrue(
+            listerText.contains("contentsOfDirectory"),
+            "Directory enumeration should live in FileDirectoryLister."
+        )
+        XCTAssertTrue(
+            searchText.contains("enumerator("),
+            "Recursive text scanning should live in FileSearchScanner."
+        )
+        XCTAssertTrue(
+            definitionsText.contains("static let fileRead"),
+            "File tool definitions should live outside the executor facade."
+        )
+        XCTAssertTrue(
+            indexerText.contains("FileToolLimits.excludedWorkspaceDirectoryNames"),
+            "Workspace file indexing should share the file-search directory exclusion policy."
+        )
+        XCTAssertTrue(
+            limitsText.contains("excludedWorkspaceDirectoryNames"),
+            "Shared file-tool limits should own directory exclusion policy."
+        )
+        XCTAssertFalse(
+            executorText.contains("contentsOfDirectory"),
+            "FileToolExecutor should not own directory enumeration."
+        )
+        XCTAssertFalse(
+            executorText.contains("enumerator("),
+            "FileToolExecutor should not own recursive search enumeration."
+        )
+        XCTAssertFalse(
+            executorText.contains("public extension ToolDefinition"),
+            "FileToolExecutor should not own tool definition metadata."
+        )
+    }
+
     func testGitHubPullRequestToolCoverageLivesOutsideMixedToolSuite() throws {
         let pullRequestTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestToolExecutorTests.swift")
 

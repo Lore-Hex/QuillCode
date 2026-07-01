@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 File Tool Boundary Split
+
+Overall grade after this slice: **A+ file tool facade, A/A+ file tool cluster, A+ tools source module average**.
+
+This pass addressed the next production tools hotspot from the generated report: `FileToolExecutor.swift`. The old file mixed public read/write/list/search methods, workspace path resolution, directory listing, recursive text scanning, output DTOs, tool definitions, result limits, and directory-exclusion policy.
+
+| Area | Before | After |
+| --- | --- | --- |
+| File executor facade | `FileToolExecutor.swift` was a 410-line **A-** file with tool orchestration and implementation details mixed together. | `FileToolExecutor.swift` is now a 92-line **A+** facade that delegates path resolution, listing, and search scanning. |
+| File output models | File tool errors and structured list/search outputs lived in the executor file. | `FileToolModels.swift` owns errors and DTOs used by tools, agent final-answer formatting, and remote-file adapters. |
+| Workspace path resolution | File path containment was an executor helper, making the symlink boundary harder to audit. | `FileWorkspacePathResolver.swift` owns file-tool path normalization, relative paths, and the shared `WorkspaceBoundary` check. |
+| Directory listing | Directory enumeration, kind detection, sorting, and artifact extraction lived inside the executor. | `FileDirectoryLister.swift` owns bounded immediate directory listing and artifacts. |
+| Search scanning | Recursive enumeration, heavy-directory skips, file-size limits, UTF-8 filtering, and preview truncation lived inside the executor. | `FileSearchScanner.swift` owns bounded literal search scanning. |
+| Limits and definitions | Search/list caps, excluded directories, and `ToolDefinition` metadata lived in the executor. | `FileToolLimits.swift` owns shared caps/exclusions, `FileToolDefinitions.swift` owns metadata, and `WorkspaceFileIndexer` now reuses the same excluded-directory policy. |
+| Architecture gates | Parity tests only required focused file-tool coverage. | `ParityToolGateTests` now requires file-tool delegation and rejects directory/search/definition code drifting back into the facade. |
+
+Verification:
+
+- `swift test --filter 'FileToolExecutorTests|WorkspaceFileIndexerTests|ParityToolGateTests'`
+- `swift test` (1969 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice preserves local file-tool behavior and does not change remote SSH file adapters. The shared DTOs remain compatible with remote file-list parsing.
+- The next production tools-source hotspots are now `GitToolDefinitions.swift`, `GitHubPullRequestInputValidator.swift`, and `MCPStdioProber.swift`; all are already A-/A.
+
 ## 2026-07-01 Local GitHub Pull Request Executor Split
 
 Overall grade after this slice: **A+ local PR executor facade, A/A+ local PR command cluster, A+ tools source module average**.
