@@ -33,9 +33,12 @@ public struct FileToolExecutor: Sendable {
                 )
             }
             let text = String(data: data, encoding: .utf8) ?? ""
+            // Strip a leading BOM and normalize CRLF→LF so the numbered view is not polluted by a
+            // U+FEFF on line 1 or a trailing `\r` on every line. The file on disk is untouched.
+            let display = FileEncodingPreservation.normalizeForDisplay(text)
             return ToolResult(
                 ok: true,
-                stdout: FileReadRenderer.render(text, offset: offset, limit: limit),
+                stdout: FileReadRenderer.render(display, offset: offset, limit: limit),
                 artifacts: [url.path]
             )
         } catch {
@@ -50,7 +53,11 @@ public struct FileToolExecutor: Sendable {
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try content.write(to: url, atomically: true, encoding: .utf8)
+            // Preserve the existing file's BOM + line-ending style so a content edit doesn't silently
+            // rewrite every line. A new file gets the default (bare UTF-8, LF, no BOM).
+            let style = (try? Data(contentsOf: url)).map(FileEncodingPreservation.detect) ?? .default
+            let data = FileEncodingPreservation.apply(content, style: style)
+            try data.write(to: url, options: .atomic)
             return ToolResult(ok: true, stdout: "Wrote \(url.path)\n", artifacts: [url.path])
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
