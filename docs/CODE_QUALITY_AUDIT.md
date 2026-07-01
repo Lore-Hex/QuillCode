@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-06-30 Remote GitHub PR Command Builder Split
+
+Overall grade after this slice: **A+ remote PR facade, A/A+ focused remote PR builders, A+ app source module average**.
+
+This pass addressed the lowest remaining production App hotspot from the generated report: `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`. The file was correct behaviorally, but it had become a 397-line B+ command surface mixing PR creation/viewing/checkout/merge, reviewer and label edits, comments/reviews, inline review comments, review-thread GraphQL calls, and shell quoting helpers.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Remote PR facade | `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift` owned every remote GitHub CLI/API command branch. It graded **B+** at 397 lines. | The facade now owns only tool-name composition, URL-artifact routing, and sub-builder dispatch. It grades **A+** at 31 lines. |
+| Primary PR workflow | Create, view, checks, diff, checkout, and merge command construction lived beside review-thread API code. | `WorkspaceRemoteGitHubPullRequestPrimaryCommandBuilder.swift` owns primary PR command construction and validation. |
+| Collaboration workflow | Reviewers, labels, PR comments, and PR review commands were interleaved with unrelated command families. | `WorkspaceRemoteGitHubPullRequestCollaborationCommandBuilder.swift` owns collaboration-edit command construction and validation. |
+| Review-thread workflow | Inline review comments, replies, thread listing, and resolve/unresolve GraphQL commands were embedded in the broad facade. | `WorkspaceRemoteGitHubPullRequestReviewThreadCommandBuilder.swift` owns review-thread API command construction. |
+| Shared shell snippets | PR number lookup, head OID lookup, repository lookup, and shell quoting were local private helpers. | `WorkspaceRemoteGitHubPullRequestCommandSupport.swift` centralizes quoted command snippets reused by the focused builders. |
+| Architecture gates | The parity gate only required one focused PR builder. | `ParityToolGateTests` now requires the facade and all focused builders, and rejects primary/review-thread details drifting back into the facade. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceRemoteProjectToolExecutorTests|ParityToolGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The focused primary and collaboration builders grade **A** rather than A+ because the deterministic heuristic flags repeated `switch`/validation structure. Keeping the command families explicit is preferable here: it preserves readable one-to-one mapping from tool schema to remote command.
+- Remaining App production hotspots are now `WorkspaceHTMLSidebarRenderer.swift`, `QuillCodeAutomationsPaneView.swift`, and `QuillCodeComposerView.swift`.
+
 ## 2026-06-30 Workspace Automation Engine Split
 
 Overall grade after this slice: **A+ automation data engine, A+ app source module average, no automation production file below A**.

@@ -72,6 +72,16 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         let hunkBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitHunkCommandBuilder.swift")
         let pushBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitPushCommandBuilder.swift")
         let pullRequestBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitHubPullRequestCommandBuilder.swift")
+        let pullRequestPrimaryText = try Self.appSourceText(named: "WorkspaceRemoteGitHubPullRequestPrimaryCommandBuilder.swift")
+        let pullRequestCollaborationText = try Self.appSourceText(
+            named: "WorkspaceRemoteGitHubPullRequestCollaborationCommandBuilder.swift"
+        )
+        let pullRequestReviewThreadText = try Self.appSourceText(
+            named: "WorkspaceRemoteGitHubPullRequestReviewThreadCommandBuilder.swift"
+        )
+        let pullRequestSupportText = try Self.appSourceText(
+            named: "WorkspaceRemoteGitHubPullRequestCommandSupport.swift"
+        )
         let worktreeBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitWorktreeCommandBuilder.swift")
         let remotePathText = try Self.appSourceText(named: "WorkspaceRemoteProjectPath.swift")
 
@@ -89,8 +99,23 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(hunkBuilderText.contains("GitPatchToolExecutor.mismatchedPatchPath"), "Remote hunk command construction should reuse shared patch path validation.")
         XCTAssertTrue(pushBuilderText.contains("enum WorkspaceRemoteGitPushCommandBuilder"), "Remote git push command construction should live in a focused builder.")
         XCTAssertTrue(pushBuilderText.contains("GitInputValidator.safeName"), "Remote git push command construction should reuse shared git input validation.")
-        XCTAssertTrue(pullRequestBuilderText.contains("enum WorkspaceRemoteGitHubPullRequestCommandBuilder"), "Remote GitHub PR command construction should live in a focused builder.")
-        XCTAssertTrue(pullRequestBuilderText.contains("GitHubPullRequestInputValidator.safeSelector"), "Remote GitHub PR command construction should reuse local PR input validation.")
+        XCTAssertTrue(pullRequestBuilderText.contains("enum WorkspaceRemoteGitHubPullRequestCommandBuilder"), "Remote GitHub PR command construction should keep a stable facade.")
+        XCTAssertTrue(pullRequestBuilderText.contains("WorkspaceRemoteGitHubPullRequestPrimaryCommandBuilder.command"), "Remote PR facade should delegate primary PR commands.")
+        XCTAssertTrue(pullRequestBuilderText.contains("WorkspaceRemoteGitHubPullRequestCollaborationCommandBuilder.command"), "Remote PR facade should delegate collaboration PR commands.")
+        XCTAssertTrue(pullRequestBuilderText.contains("WorkspaceRemoteGitHubPullRequestReviewThreadCommandBuilder.command"), "Remote PR facade should delegate review-thread commands.")
+        XCTAssertTrue(pullRequestPrimaryText.contains("enum WorkspaceRemoteGitHubPullRequestPrimaryCommandBuilder"), "Remote PR create/view/checks/diff/checkout/merge commands should live together.")
+        XCTAssertTrue(pullRequestPrimaryText.contains("GitHubPullRequestInputValidator.safeSelector"), "Remote primary PR commands should reuse local PR selector validation.")
+        XCTAssertTrue(pullRequestPrimaryText.contains("GitInputValidator.safeName"), "Remote primary PR commands should reuse shared git name validation.")
+        XCTAssertTrue(pullRequestCollaborationText.contains("enum WorkspaceRemoteGitHubPullRequestCollaborationCommandBuilder"), "Remote PR reviewers/labels/comment/review commands should live together.")
+        XCTAssertTrue(pullRequestCollaborationText.contains("GitHubPullRequestInputValidator.safeReviewers"), "Remote PR reviewer changes should reuse local reviewer validation.")
+        XCTAssertTrue(pullRequestCollaborationText.contains("GitHubPullRequestInputValidator.safeReviewFlag"), "Remote PR reviews should reuse local review action validation.")
+        XCTAssertTrue(pullRequestReviewThreadText.contains("enum WorkspaceRemoteGitHubPullRequestReviewThreadCommandBuilder"), "Remote PR review-thread API commands should live together.")
+        XCTAssertTrue(pullRequestReviewThreadText.contains("GitHubPullRequestReviewThreadsQuery.graphql"), "Remote PR review-thread listing should reuse the shared GraphQL query.")
+        XCTAssertTrue(pullRequestReviewThreadText.contains("GitHubPullRequestInputValidator.safeReviewThreadID"), "Remote PR review-thread actions should reuse local thread validation.")
+        XCTAssertTrue(pullRequestSupportText.contains("enum WorkspaceRemoteGitHubPullRequestCommandSupport"), "Remote PR quoting and metadata command snippets should live in shared support.")
+        XCTAssertTrue(pullRequestSupportText.contains("WorkspaceTerminalSessionAdapter.shellSingleQuoted"), "Remote PR support should centralize shell quoting.")
+        XCTAssertTrue(pullRequestSupportText.contains("pullRequestNumberCommand"), "Remote PR support should centralize PR number lookup command construction.")
+        XCTAssertTrue(pullRequestSupportText.contains("repositoryNameWithOwnerCommand"), "Remote PR support should centralize repository lookup command construction.")
         XCTAssertTrue(worktreeBuilderText.contains("enum WorkspaceRemoteGitWorktreeCommandBuilder"), "Remote git worktree command construction should live in a focused builder.")
         XCTAssertTrue(worktreeBuilderText.contains("WorkspaceRemoteProjectPath.worktreePath"), "Remote worktree command construction should reuse remote path normalization.")
         XCTAssertTrue(remotePathText.contains("enum WorkspaceRemoteProjectPath"), "Remote path normalization should live in a focused helper.")
@@ -116,6 +141,9 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(gitPlannerText.contains("git commit -m"), "Generic remote git planning should not own git commit command construction.")
         XCTAssertFalse(gitPlannerText.contains("private static func remoteGitPullRequest"), "Generic remote git planning should not own GitHub CLI command construction.")
         XCTAssertFalse(gitPlannerText.contains(#"["gh", "pr""#), "Generic remote git planning should not assemble gh pr arguments inline.")
+        XCTAssertFalse(pullRequestBuilderText.contains("private static func create"), "Remote PR facade should not own primary command construction details.")
+        XCTAssertFalse(pullRequestBuilderText.contains("private static func reviewComment"), "Remote PR facade should not own review-thread API command construction.")
+        XCTAssertFalse(pullRequestBuilderText.contains("GitHubPullRequestReviewThreadsQuery.graphql"), "Remote PR facade should not own review-thread GraphQL details.")
         XCTAssertFalse(executorText.contains("private static func remoteGitWorktreePath"), "Remote executor should not own worktree path normalization.")
         XCTAssertFalse(gitPlannerText.contains("private static func remoteGitHunk"), "Generic remote git planning should not own hunk patch transport construction.")
         XCTAssertFalse(gitPlannerText.contains("quillcode-hunk"), "Generic remote git planning should not own hunk patch temp-file details.")
