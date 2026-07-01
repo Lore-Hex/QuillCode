@@ -178,6 +178,26 @@ extension QuillCodeWorkspaceModel {
         case .failed(let error):
             finishFailedSend(error)
         }
+        notifyRunFinishedIfNeeded(outcome: outcome)
+    }
+
+    /// After a run ends, ping the user if they were away and it needs them — finished, errored, or
+    /// blocked on an approval gate. A user-cancelled run is skipped (they were clearly watching). The
+    /// desktop handler additionally gates delivery on the app being unfocused.
+    private func notifyRunFinishedIfNeeded(outcome: WorkspaceAgentSendTaskOutcome) {
+        let didFail: Bool
+        switch outcome {
+        case .completed: didFail = false
+        case .failed: didFail = true
+        case .cancelled: return
+        }
+        guard let handler = onRunNotification,
+              let thread = selectedThread,
+              let notification = WorkspaceRunNotificationBuilder.notification(thread: thread, didFail: didFail)
+        else {
+            return
+        }
+        handler(notification)
     }
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {

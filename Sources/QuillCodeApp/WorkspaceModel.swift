@@ -24,6 +24,12 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var sidebarSelection: SidebarSelectionState
     public private(set) var lastError: String?
 
+    /// Set by the desktop layer to post a "come back and look" OS notification when an agent run
+    /// finishes while the user is away — finished, errored, or blocked on an approval gate. The whole
+    /// point of daily-driving on a loop is not watching, so the app pings you when it needs you. nil in
+    /// tests / the CLI, where there is no desktop notification surface.
+    public var onRunNotification: (@MainActor @Sendable (AgentRunNotification) -> Void)?
+
     var runner: AgentRunner
     var contextSummaryGenerator: any WorkspaceContextSummaryGenerating
     let threadPersistence: WorkspaceThreadPersistence

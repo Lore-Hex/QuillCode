@@ -75,6 +75,12 @@ final class QuillCodeDesktopController: ObservableObject {
         self.workspaceRoot = workspaceRoot
         modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: workspaceRoot)
         self.computerUseCoordinator.install(on: model)
+        // Ping the user when a run they walked away from needs them — but not when they are actively
+        // watching QuillCode (it is the frontmost app), which would just be noise.
+        model.onRunNotification = { [automationNotifier] notification in
+            guard !NSApplication.shared.isActive else { return }
+            automationNotifier.deliver(notification)
+        }
         let initialState = modelStateCoordinator.initialState(from: model)
         self.surface = initialState.surface
         self.draft = initialState.draft
