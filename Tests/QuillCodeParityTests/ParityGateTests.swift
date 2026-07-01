@@ -82,7 +82,12 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(mainText.contains(inlineRegistryNeedle), "Focused-suite manifest data should live in ParityFocusedSuiteManifest.")
 
         for suite in ParityFocusedSuiteManifest.suites {
+            let suiteText = try String(contentsOf: root.appendingPathComponent(suite.fileName), encoding: .utf8)
             for testName in suite.testNames {
+                XCTAssertTrue(
+                    suiteText.contains("func \(testName)() throws"),
+                    "\(suite.fileName) should define \(testName)."
+                )
                 XCTAssertFalse(
                     mainLines.contains("    func \(testName)() throws {"),
                     "\(testName) should live in \(suite.fileName)."

@@ -18,55 +18,122 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityDesktopGateTests.swift", testNames: [
             "testDesktopDefinesNativeMenuBarWidget"
         ]),
-        Suite(fileName: "ParityTopBarGateTests.swift", testNames: [
-            "testTopBarViewsDelegateStatusPresentationSemantics"
+        Suite(fileName: "ParityTopBarPresentationGateTests.swift", testNames: [
+            "testTopBarViewsDelegateStatusPresentationSemantics",
+            "testTopBarAgentStatusLabelsAreSharedByRuntimePaths",
+            "testRuntimeStatusLabelsAreSharedByAuthAndIssuePaths"
         ]),
-        Suite(fileName: "ParitySlashGateTests.swift", testNames: [
-            "testSlashParserDelegatesPullRequestSubcommands"
+        Suite(fileName: "ParityNativeTopBarChromeGateTests.swift", testNames: [
+            "testNativeTopBarKeepsCodexStyleChromeQuiet",
+            "testNativeModePickerLivesBesideComposerAccessoryChrome"
+        ]),
+        Suite(fileName: "ParityTopBarSurfaceGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesModelCatalogBuilding",
+            "testWorkspaceSurfaceDelegatesTopBarSurfaceContracts",
+            "testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityNativeModelPickerGateTests.swift", testNames: [
+            "testNativeModelPickerKeepsRowsAndDetailsFocused"
+        ]),
+        Suite(fileName: "ParityModelPickerIntegrationGateTests.swift", testNames: [
+            "testModelPickerWorkspaceIntegrationCoverageStaysFocused"
+        ]),
+        Suite(fileName: "ParitySlashRepositoryParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesPullRequestSubcommands",
+            "testSlashParserDelegatesProjectSubcommands",
+            "testSlashParserDelegatesRemoteProjectSubcommands"
+        ]),
+        Suite(fileName: "ParitySlashSessionParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesTerminalSubcommands",
+            "testSlashParserDelegatesModeSubcommands",
+            "testSlashParserDelegatesModelSubcommands"
+        ]),
+        Suite(fileName: "ParitySlashThreadMemoryParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesThreadLifecycleSubcommands",
+            "testSlashParserDelegatesMemorySubcommands"
+        ]),
+        Suite(fileName: "ParitySlashWorkspaceParserGateTests.swift", testNames: [
+            "testSlashParserDelegatesWorkspaceSubcommands",
+            "testSlashParserDelegatesEnvironmentSubcommands",
+            "testSlashParserDelegatesSchedulingSubcommands"
         ]),
         Suite(fileName: "ParityModelGateTests.swift", testNames: [
             "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
         ]),
-        Suite(fileName: "ParityWorkspaceSurfaceGateTests.swift", testNames: [
-            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts",
+        Suite(fileName: "ParityWorkspaceSecondaryPaneSurfaceGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"
+        ]),
+        Suite(fileName: "ParityWorkspaceComposerSurfaceGateTests.swift", testNames: [
+            "testComposerSeparatesModelAndApprovalModeControls"
+        ]),
+        Suite(fileName: "ParityWorkspaceTerminalBrowserSurfaceGateTests.swift", testNames: [
+            "testNativeTerminalAndBrowserPanesUseFocusedViewFiles",
+            "testWorkspaceSurfaceDelegatesTerminalSurfaceContracts",
+            "testTerminalStateContractsLiveOutsideEngine"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightFocusedSpecGateTests.swift", testNames: [
             "testPlaywrightTerminalFlowsStayInFocusedSpec",
             "testPlaywrightSearchFlowsStayInFocusedSpec",
             "testPlaywrightExtensionsFlowsStayInFocusedSpec",
             "testPlaywrightArtifactFlowsStayInFocusedSpec",
-            "testPlaywrightComposerFlowsStayInFocusedSpec",
+            "testPlaywrightComposerFlowsStayInFocusedSpec"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightChromeSpecGateTests.swift", testNames: [
             "testPlaywrightWorkspaceChromeFlowsStayInFocusedSpec",
             "testPlaywrightWorkspaceStateFlowsStayInFocusedSpec",
-            "testPlaywrightStatusFlowsStayInFocusedSpec",
+            "testPlaywrightStatusFlowsStayInFocusedSpec"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightRealWorldSpecGateTests.swift", testNames: [
             "testPlaywrightRealWorldActionFlowsStayInFocusedSpec",
+            "testDeterministicSmokeCollectsPlaywrightRealWorldActionEvidence"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightInteractionSpecGateTests.swift", testNames: [
+            "testPlaywrightResponsivenessBudgetsStayInFocusedSpec",
             "testPlaywrightShortcutFlowsStayInFocusedSpec",
             "testPlaywrightReviewFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityBrowserGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesBrowserSurfaceTypes",
+            "testBrowserArchitectureGatesStayOutOfBroadSuite"
+        ]),
+        Suite(fileName: "ParityBrowserSnapshotGateTests.swift", testNames: [
             "testBrowserInspectorDelegatesStaticHTMLSnapshotExtraction",
-            "testBrowserLiveDOMCaptureStaysBehindAdapterContract",
+            "testBrowserLiveDOMCaptureStaysBehindAdapterContract"
+        ]),
+        Suite(fileName: "ParityBrowserSessionSyncGateTests.swift", testNames: [
+            "testVisibleBrowserSessionSyncStaysBehindSnapshotContract"
+        ]),
+        Suite(fileName: "ParityBrowserWorkflowGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesBrowserStateTransitions",
             "testWorkspaceModelDelegatesBrowserLocationResolving",
-            "testWorkspaceBrowserIntegrationTestsOwnModelBrowserFlows",
+            "testWorkspaceBrowserIntegrationTestsOwnModelBrowserFlows"
+        ]),
+        Suite(fileName: "ParityBrowserToolRendererGateTests.swift", testNames: [
             "testBrowserAgentToolsShareFocusedExecutor",
             "testWorkspaceHTMLRendererDelegatesBrowserRendering",
-            "testBrowserArchitectureGatesStayOutOfBroadSuite",
             "testPlaywrightBrowserFlowsStayInFocusedSpec"
         ]),
-        Suite(fileName: "ParityWorkspaceModelGateTests.swift", testNames: [
-            "testWorkspaceModelDelegatesToolCardSurfaceTypes",
-            "testWorkspaceModelDelegatesProjectContextRefresh",
-            "testWorkspaceModelDelegatesThreadSeedBuilding",
-            "testWorkspaceModelDelegatesThreadCreationRecords",
-            "testWorkspaceModelDelegatesThreadLifecycleTransitions",
-            "testWorkspaceModelDelegatesConfigurationTransitions",
-            "testWorkspaceConfigurationIntegrationTestsOwnModelConfigurationFlows",
+        Suite(fileName: "ParityWorkspaceToolCardModelGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolCardSurfaceTypes"
+        ]),
+        Suite(fileName: "ParityWorkspaceUIStateModelGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesUIStateContracts"
+        ]),
+        Suite(fileName: "ParityWorkspaceReviewCardModelGateTests.swift", testNames: [
+            "testActionableReviewCardsStayWiredThroughSurfaces"
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionContextModelGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesExecutionContextSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceModelActivityGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesRetryPlanning",
             "testWorkspaceActivityIntegrationTestsOwnModelActivityFlows",
             "testWorkspaceActivitySurfaceUsesFocusedBuilderAndSectionTypes",
             "testWorkspaceToolCardIntegrationTestsOwnModelToolCardFlows",
             "testWorkspaceModelTestsRemainRetired",
-            "testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport",
+            "testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport"
+        ]),
+        Suite(fileName: "ParityWorkspaceModelStateGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesStatusTextAndLabels",
             "testWorkspaceModelDelegatesContextResolving",
             "testWorkspaceModelDelegatesAgentProgressStatusCopy",
@@ -74,56 +141,125 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesPaneVisibilityMutations",
             "testWorkspaceModelUsesExplicitAgentRunThreadUpdates"
         ]),
+        Suite(fileName: "ParityWorkspaceContextRefreshGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesProjectContextRefresh"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadSeedGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesThreadSeedBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadCreationGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesThreadCreationRecords"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadLifecycleGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesThreadLifecycleTransitions"
+        ]),
+        Suite(fileName: "ParityWorkspaceConfigurationGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesConfigurationTransitions",
+            "testWorkspaceConfigurationIntegrationTestsOwnModelConfigurationFlows"
+        ]),
         Suite(fileName: "ParityWorkspaceExecutionGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesComposerCancellationPlanning",
             "testWorkspaceModelDelegatesComposerSubmissionPlanning",
             "testWorkspaceModelDelegatesAgentSendSessionExecution",
+            "testWorkspaceModelDelegatesAgentSendStartPlanning",
+            "testWorkspaceModelDelegatesAgentSendThreadPreparation",
+            "testWorkspaceModelDelegatesAgentSendProgressPlanning",
+            "testWorkspaceModelDelegatesAgentSendTerminalPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionSlashGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesSlashCommandTranscriptPlanning",
             "testWorkspaceModelDelegatesCommandActionPlanning",
-            "testWorkspaceModelDelegatesCommandPlanExecution",
+            "testWorkspaceModelDelegatesCommandPlanExecution"
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionAgentContextGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesAgentRunContextAssembly",
-            "testWorkspaceModelDelegatesAgentSendSession",
-            "testWorkspaceModelDelegatesToolEventRecording",
-            "testWorkspaceModelDelegatesToolCallExecutionRouting",
-            "testWorkspaceModelDelegatesShellToolCallPlanning",
+            "testWorkspaceModelDelegatesAgentSendSession"
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionIntegrationGateTests.swift", testNames: [
             "testWorkspaceComposerIntegrationTestsOwnModelComposerFlows",
             "testWorkspaceModelDelegatesSlashCommandDispatchPlanning",
+            "testSubagentExecutionIsRealSchedulerNotDisplayOnly"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolEventGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolEventRecording"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolRoutingGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolCallExecutionRouting",
             "testWorkspaceModelDelegatesToolExecutionOverrideCombining"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolRunLifecycleGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolRunPreparation",
+            "testWorkspaceModelDelegatesToolRunLifecyclePlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceRuntimeToolGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesTerminalLifecyclePlanning",
+            "testWorkspaceModelDelegatesActiveWorkStopPlanning",
+            "testWorkspaceModelDelegatesShellToolCallPlanning"
         ]),
         Suite(fileName: "ParityWorkspaceProjectGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectMetadataLoading",
+            "testWorkspaceModelProjectAPIsLiveInFocusedExtension",
             "testWorkspaceModelTestsDoNotOwnPureProjectLoaderCoverage",
+            "testProjectInstructionScopesStayInCorePromptAndActivityContracts"
+        ]),
+        Suite(fileName: "ParityWorkspaceProjectIntegrationGateTests.swift", testNames: [
             "testWorkspaceProjectExtensionIntegrationTestsOwnModelExtensionFlows",
             "testWorkspaceProjectIntegrationTestsOwnModelProjectFlows",
             "testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows",
-            "testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows",
+            "testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceWorktreeGateTests.swift", testNames: [
             "testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows",
             "testWorkspaceModelDelegatesWorktreeOpenRecords"
         ]),
-        Suite(fileName: "ParityWorkspaceMemoryGateTests.swift", testNames: [
+        Suite(fileName: "ParityWorkspaceMemorySupportGateTests.swift", testNames: [
+            "testWorkspaceMemorySupportOwnsStoragePolicyAndCopyBoundaries"
+        ]),
+        Suite(fileName: "ParityWorkspaceMemoryModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesMemoryCommandOrchestration",
-            "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows",
+        ]),
+        Suite(fileName: "ParityWorkspaceMemoryIntegrationGateTests.swift", testNames: [
+            "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightMemoryGateTests.swift", testNames: [
             "testPlaywrightMemoryFlowsStayInFocusedSpec"
         ]),
-        Suite(fileName: "ParityWorkspaceIntegrationGateTests.swift", testNames: [
+        Suite(fileName: "ParityWorkspaceMCPReviewIntegrationGateTests.swift", testNames: [
             "testWorkspaceMCPIntegrationTestsOwnModelMCPFlows",
-            "testWorkspaceReviewIntegrationTestsOwnModelReviewFlows",
+            "testWorkspaceReviewIntegrationTestsOwnModelReviewFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceFeedbackRuntimeIntegrationGateTests.swift", testNames: [
             "testFocusedFeedbackAndArtifactTestsOwnSurfaceSpecificFlows",
-            "testWorkspaceRuntimeIssueIntegrationTestsOwnModelRuntimeIssueFlows",
+            "testWorkspaceRuntimeIssueIntegrationTestsOwnModelRuntimeIssueFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadCommandIntegrationGateTests.swift", testNames: [
             "testWorkspaceThreadLifecycleIntegrationTestsOwnModelLifecycleFlows",
             "testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows",
-            "testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows",
+            "testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceAutomationTerminalIntegrationGateTests.swift", testNames: [
             "testWorkspaceAutomationIntegrationTestsOwnModelAutomationFlows",
-            "testWorkspaceTerminalIntegrationTestsOwnModelTerminalFlows",
+            "testWorkspaceTerminalIntegrationTestsOwnModelTerminalFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceRuntimeFactoryGateTests.swift", testNames: [
             "testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage"
         ]),
         Suite(fileName: "ParityWorkspaceSidebarGateTests.swift", testNames: [
-            "testWorkspaceModelDelegatesSidebarSelectionTransitions",
-            "testSidebarRowActionsUseSharedPlannerAndExecutor",
+            "testWorkspaceModelDelegatesSidebarSelectionTransitions"
+        ]),
+        Suite(fileName: "ParityWorkspaceSidebarRowActionGateTests.swift", testNames: [
+            "testSidebarRowActionsUseSharedPlannerAndExecutor"
+        ]),
+        Suite(fileName: "ParitySidebarCommandPresentationGateTests.swift", testNames: [
             "testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces",
+            "testSidebarSavedFiltersWrapInsteadOfClippingHorizontally",
             "testNativeSidebarDelegatesProjectListRendering",
+        ]),
+        Suite(fileName: "ParityWorkspaceSidebarSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesSidebarSurfaceContracts",
-            "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding",
+            "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceSidebarPlaywrightGateTests.swift", testNames: [
             "testPlaywrightSidebarAndProjectFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityMCPGateTests.swift", testNames: [
@@ -150,20 +286,41 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesSheetPresentation",
-            "testNativeSettingsDelegatesFocusedViewsAndDraftState",
-            "testNativeSearchDialogsKeepLocalTypingState",
-            "testWorkspaceSurfaceDelegatesSettingsSurfaceContract",
+            "testNativeSettingsDelegatesFocusedViewsAndDraftState"
+        ]),
+        Suite(fileName: "ParityNativeCompactHitTargetGateTests.swift", testNames: [
+            "testNativeCompactPlainControlsKeepExplicitHitTargets"
+        ]),
+        Suite(fileName: "ParityNativePrimaryChromeHitTargetGateTests.swift", testNames: [
+            "testNativePrimaryChromeKeepsSemanticHitTargets"
+        ]),
+        Suite(fileName: "ParitySearchDialogGateTests.swift", testNames: [
+            "testNativeSearchDialogsKeepLocalTypingState"
+        ]),
+        Suite(fileName: "ParityWorkspaceSettingsSurfaceGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesSettingsSurfaceContract"
+        ]),
+        Suite(fileName: "ParityPlaywrightSettingsRuntimeGateTests.swift", testNames: [
             "testPlaywrightSettingsAndRuntimeFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceTranscriptGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner"
         ]),
-        Suite(fileName: "ParityAgentGateTests.swift", testNames: [
-            "testAgentRunnerDelegatesFinalAnswerFormatting",
-            "testMockLLMClientLivesOutsideAgentRunnerFile",
+        Suite(fileName: "ParityAgentFinalAnswerGateTests.swift", testNames: [
+            "testAgentRunnerDelegatesFinalAnswerFormatting"
+        ]),
+        Suite(fileName: "ParityAgentMockPlanningGateTests.swift", testNames: [
+            "testMockLLMClientLivesOutsideAgentRunnerFile"
+        ]),
+        Suite(fileName: "ParityAgentStreamingGateTests.swift", testNames: [
             "testAgentStreamingHelpersLiveOutsideAgentRunnerFile",
+            "testAgentCancellationTelemetryLivesInFocusedRecorder"
+        ]),
+        Suite(fileName: "ParityAgentContractsToolStepGateTests.swift", testNames: [
             "testAgentContractsAndActionResolutionLiveOutsideRunnerFile",
-            "testAgentToolStepRunnerLivesOutsideAgentRunnerFile",
+            "testAgentToolStepRunnerLivesOutsideAgentRunnerFile"
+        ]),
+        Suite(fileName: "ParityAgentBehaviorSuiteGateTests.swift", testNames: [
             "testAgentBehaviorTestsUseFocusedSuites"
         ]),
         Suite(fileName: "ParityTrustedRouterGateTests.swift", testNames: [

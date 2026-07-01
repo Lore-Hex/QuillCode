@@ -118,6 +118,56 @@ class QuillCodeParityTestCase: XCTestCase {
         )
     }
 
+    static func assertSource(
+        _ source: String,
+        contains expected: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(
+            source.contains(expected),
+            "Expected source to contain: \(expected)",
+            file: file,
+            line: line
+        )
+    }
+
+    static func assertSource(
+        _ source: String,
+        containsAll expectedValues: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for expected in expectedValues {
+            assertSource(source, contains: expected, file: file, line: line)
+        }
+    }
+
+    static func assertSource(
+        _ source: String,
+        excludes forbidden: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertFalse(
+            source.contains(forbidden),
+            "Expected source to exclude: \(forbidden)",
+            file: file,
+            line: line
+        )
+    }
+
+    static func assertSource(
+        _ source: String,
+        excludesAll forbiddenValues: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for forbidden in forbiddenValues {
+            assertSource(source, excludes: forbidden, file: file, line: line)
+        }
+    }
+
     static func toolsSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeTools")
@@ -158,6 +208,27 @@ class QuillCodeParityTestCase: XCTestCase {
             encoding: .utf8
         )
         return ([entrypoint] + packageFiles).joined(separator: "\n")
+    }
+
+    static func liveTrustedRouterSmokeText() throws -> String {
+        let helperRoot = packageRoot()
+            .appendingPathComponent("scripts")
+            .appendingPathComponent("live_tr_smoke")
+        let helperFiles = try FileManager.default.contentsOfDirectory(
+            at: helperRoot,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "sh" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        .map { try String(contentsOf: $0, encoding: .utf8) }
+
+        let entrypoint = try String(
+            contentsOf: self.packageRoot()
+                .appendingPathComponent("scripts")
+                .appendingPathComponent("live-tr-smoke.sh"),
+            encoding: .utf8
+        )
+        return ([entrypoint] + helperFiles).joined(separator: "\n")
     }
 
     static func safetySourceText(named fileName: String) throws -> String {

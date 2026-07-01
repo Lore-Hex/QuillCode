@@ -1,0 +1,123 @@
+import XCTest
+
+final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
+    func testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces() throws {
+        let presentationText = try Self.appSourceText(named: "QuillCodeSidebarCommandPresentation.swift")
+        let adapterText = try Self.appSourceText(named: "QuillCodeSidebarCommandAdapter.swift")
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let threadListText = try Self.appSourceText(named: "QuillCodeSidebarThreadListView.swift")
+        let threadRowText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
+        let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
+        let htmlSidebarText = try Self.appSourceText(named: "WorkspaceHTMLSidebarRenderer.swift")
+        let htmlCommandText = try Self.appSourceText(named: "WorkspaceHTMLSidebarCommandRenderer.swift")
+        let iconCatalogText = try Self.appSourceText(named: "QuillCodeCommandIconCatalog.swift")
+
+        assertCommandPresentationContract(presentationText, iconCatalogText)
+        assertNativeSidebarCommandRendering(sidebarText, threadListText, threadRowText, projectListText)
+        assertSidebarCommandAdapterUsage(adapterText, sidebarText, threadListText, threadRowText)
+        assertHTMLSidebarCommandRendering(htmlSidebarText, htmlCommandText)
+    }
+
+    func testSidebarSavedFiltersWrapInsteadOfClippingHorizontally() throws {
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let harnessText = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
+
+        Self.assertSource(sidebarText, contains: "LazyVGrid(")
+        Self.assertSource(sidebarText, contains: ".adaptive(minimum: 100)")
+        Self.assertSource(sidebarText, excludes: horizontalFilterScrollNeedle)
+        Self.assertSource(harnessText, contains: "flex-wrap: wrap;")
+        Self.assertSource(harnessText, excludes: ".sidebar-filter-bar::-webkit-scrollbar")
+    }
+
+    func testNativeSidebarDelegatesProjectListRendering() throws {
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
+
+        Self.assertSource(sidebarText, contains: "QuillCodeProjectListView(")
+        Self.assertSource(projectListText, contains: "struct QuillCodeProjectListView")
+        Self.assertSource(projectListText, contains: "struct QuillCodeProjectRowView")
+        Self.assertSource(projectListText, contains: "maxProjectListHeight")
+        Self.assertSource(sidebarText, excludes: "struct QuillCodeProjectRowView")
+        Self.assertSource(sidebarText, excludes: "maxProjectListHeight")
+    }
+
+    private var horizontalFilterScrollNeedle: String {
+        "ScrollView(.horizontal, showsIndicators: false) {\n            HStack(spacing: 6)"
+    }
+
+    private func assertCommandPresentationContract(
+        _ presentationText: String,
+        _ iconCatalogText: String
+    ) {
+        Self.assertSource(presentationText, contains: "struct QuillCodeSidebarCommandPresentation")
+        Self.assertSource(presentationText, contains: "QuillCodeSidebarCommandMetadata")
+        Self.assertSource(presentationText, contains: "metadataByCommandID")
+        Self.assertSource(presentationText, contains: "static let primaryCommandIDs")
+        Self.assertSource(presentationText, contains: "struct QuillCodeSidebarCommandGroup")
+        Self.assertSource(presentationText, contains: "static let utilityCommandGroups")
+        Self.assertSource(presentationText, contains: "static var utilityCommandIDs")
+        Self.assertSource(presentationText, contains: "visibleUtilityCommandGroups")
+        Self.assertSource(presentationText, contains: "static func displayTitle")
+        Self.assertSource(presentationText, contains: "QuillCodeCommandIconCatalog.systemImage")
+        Self.assertSource(presentationText, contains: "static func htmlIconToken")
+        Self.assertSource(presentationText, excludes: "switch commandID")
+        Self.assertSource(iconCatalogText, contains: "enum QuillCodeCommandIconCatalog")
+    }
+
+    private func assertNativeSidebarCommandRendering(
+        _ sidebarText: String,
+        _ threadListText: String,
+        _ threadRowText: String,
+        _ projectListText: String
+    ) {
+        Self.assertSource(sidebarText, contains: "QuillCodeSidebarThreadListView")
+        Self.assertSource(sidebarText, contains: "QuillCodeProjectListView")
+        Self.assertSource(threadListText, contains: "struct QuillCodeSidebarThreadListView")
+        Self.assertSource(threadListText, contains: "QuillCodeSidebarThreadRowView")
+        Self.assertSource(threadRowText, contains: "struct QuillCodeSidebarThreadRowView")
+        Self.assertSource(projectListText, contains: "struct QuillCodeProjectListView")
+        Self.assertSource(projectListText, contains: "QuillCodeProjectRowView")
+        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.primaryCommandIDs")
+        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups")
+        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.displayTitle")
+        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.systemImage")
+        Self.assertSource(sidebarText, excludes: "struct QuillCodeSidebarThreadRowView")
+        Self.assertSource(threadListText, excludes: "private struct QuillCodeSidebarThreadRowView")
+        Self.assertSource(sidebarText, excludes: "struct QuillCodeProjectRowView")
+        Self.assertSource(sidebarText, excludes: "private func displayTitle")
+        Self.assertSource(sidebarText, excludes: "private func systemImage")
+    }
+
+    private func assertSidebarCommandAdapterUsage(
+        _ adapterText: String,
+        _ sidebarText: String,
+        _ threadListText: String,
+        _ threadRowText: String
+    ) {
+        Self.assertSource(adapterText, contains: "enum QuillCodeSidebarCommandAdapter")
+        XCTAssertTrue(
+            sidebarText.contains("QuillCodeSidebarCommandAdapter.workspaceCommand")
+                || threadListText.contains("QuillCodeSidebarCommandAdapter.workspaceCommand")
+        )
+        Self.assertSource(threadRowText, contains: "QuillCodeSidebarCommandAdapter.toggleSelectionCommand")
+        Self.assertSource(sidebarText, excludes: "WorkspaceCommandSurface(")
+    }
+
+    private func assertHTMLSidebarCommandRendering(
+        _ htmlSidebarText: String,
+        _ htmlCommandText: String
+    ) {
+        Self.assertSource(htmlSidebarText, contains: "WorkspaceHTMLSidebarCommandRenderer.renderPrimaryActions")
+        Self.assertSource(htmlSidebarText, contains: "WorkspaceHTMLSidebarCommandRenderer.renderFooter")
+        Self.assertSource(htmlCommandText, contains: "renderPrimaryActions")
+        Self.assertSource(htmlCommandText, contains: "renderUtilityActions")
+        Self.assertSource(htmlCommandText, contains: "QuillCodeSidebarCommandPresentation.primaryCommandIDs")
+        Self.assertSource(htmlCommandText, contains: "QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups")
+        Self.assertSource(htmlCommandText, contains: "QuillCodeSidebarCommandPresentation.htmlIconToken")
+        Self.assertSource(htmlSidebarText, excludes: #"data-icon="plugins">Plugins"#)
+        Self.assertSource(htmlCommandText, excludes: #"data-icon="plugins">Plugins"#)
+    }
+}
