@@ -174,9 +174,13 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesAgentSendProgressPlanning",
             "testWorkspaceModelDelegatesAgentSendTerminalPlanning"
         ]),
-        Suite(fileName: "ParityWorkspaceExecutionSlashGateTests.swift", testNames: [
-            "testWorkspaceModelDelegatesSlashCommandTranscriptPlanning",
-            "testWorkspaceModelDelegatesCommandActionPlanning",
+        Suite(fileName: "ParityWorkspaceSlashTranscriptGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesSlashCommandTranscriptPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceCommandActionGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesCommandActionPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceCommandPlanGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesCommandPlanExecution"
         ]),
         Suite(fileName: "ParityWorkspaceExecutionAgentContextGateTests.swift", testNames: [

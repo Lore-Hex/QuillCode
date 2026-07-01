@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Execution Slash Gate Split
+
+Overall grade after this slice: **A+ workspace execution-slash parity gate files, clearer slash command ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceExecutionSlashGateTests.swift`, a 121-line B+ gate
+that mixed slash transcript planning, command action planning, and command-plan execution ownership. The split keeps the
+same source-boundary checks while making each gate map to one command execution responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Slash transcript planning | Shared the broad execution-slash gate. | `ParityWorkspaceSlashTranscriptGateTests.swift` owns transcript planners, appender boundaries, and slash copy ownership. |
+| Command action planning | Mixed with transcript and plan execution checks. | `ParityWorkspaceCommandActionGateTests.swift` owns action-effect planning and executor delegation. |
+| Command-plan execution | Shared the broad execution-slash gate. | `ParityWorkspaceCommandPlanGateTests.swift` owns parsed command-plan execution boundaries. |
+| Grade | The original file was **B+** at 121 lines. | Every split execution-slash gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspaceSlashTranscriptGateTests|ParityWorkspaceCommandActionGateTests|ParityWorkspaceCommandPlanGateTests'`
+- `swift test --filter ParityGateTests/testParityGatesUseFocusedSuitesAndSharedSupport`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new slash command runtime scenarios.
+- The highest remaining B+ parity hotspots start with interaction-target and TrustedRouter gates.
+
 ## 2026-07-01 Workspace Command Gate Split
 
 Overall grade after this slice: **A+ workspace command parity gate files, clearer command-surface ownership**.
