@@ -64,6 +64,15 @@ final class FileEncodingExecutorFunctionalTests: XCTestCase {
         // The numbered view must be clean: no U+FEFF on line 1, no trailing \r.
         XCTAssertEqual(files.read(path: "windows.txt").stdout, "1\ta\n2\tb")
     }
+
+    func testReadRendersLoneCRFileAsNumberedLines() throws {
+        // Classic-Mac CR-only endings must render as three numbered lines, not one line with
+        // embedded control characters.
+        let root = try makeWorkspace()
+        let files = FileToolExecutor(workspaceRoot: root)
+        try Data("one\rtwo\rthree".utf8).write(to: root.appendingPathComponent("classic.txt"))
+        XCTAssertEqual(files.read(path: "classic.txt").stdout, "1\tone\n2\ttwo\n3\tthree")
+    }
 }
 
 // MARK: - Integration: through the ToolRouter dispatch the agent uses
