@@ -24,6 +24,7 @@ final class ParityBrowserSnapshotGateTests: QuillCodeParityTestCase {
     func testBrowserLiveDOMCaptureStaysBehindAdapterContract() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowser.swift")
+        let browserSnapshotText = try Self.appSourceText(named: "WorkspaceModelBrowserSnapshots.swift")
         let contractText = try Self.appSourceText(named: "BrowserLiveDOMCapturing.swift")
         let builderText = try Self.appSourceText(named: "BrowserLiveDOMSnapshotBuilder.swift")
         let inspectorText = try Self.appSourceText(named: "BrowserInspector.swift")
@@ -47,7 +48,8 @@ final class ParityBrowserSnapshotGateTests: QuillCodeParityTestCase {
         ] {
             Self.assertSource(workflowText, contains: expected)
         }
-        Self.assertSource(browserModelText, contains: "any BrowserLiveDOMCapturing")
+        Self.assertSource(browserSnapshotText, contains: "any BrowserLiveDOMCapturing")
+        Self.assertSource(browserModelText, excludes: "any BrowserLiveDOMCapturing")
         Self.assertSource(builderTests, contains: "testLiveDOMSnapshotPrefersRenderedOutlineAndVisibleText")
         Self.assertSource(engineTests, contains: "testLiveDOMSnapshotReplacesCurrentHistoryEntry")
         Self.assertSource(

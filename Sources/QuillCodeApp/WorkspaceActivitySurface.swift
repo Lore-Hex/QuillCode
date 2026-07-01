@@ -2,22 +2,22 @@ import Foundation
 import QuillCodeCore
 
 public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
-    public var isVisible: Bool
-    public var title: String
-    public var subtitle: String
-    public var statusLabel: String
-    public var taskTitle: String
-    public var taskSubtitle: String
-    public var planItems: [ActivityItemSurface]
-    public var contextItems: [ActivityItemSurface]
-    public var recentSteps: [ActivityItemSurface]
-    public var subagents: [ActivityItemSurface]
-    public var tools: [ActivityItemSurface]
-    public var sources: [ActivityItemSurface]
-    public var artifacts: [ToolArtifactState]
-    public var finalAnswer: String?
-    public var handoffSummary: String?
-    public var sections: [ActivitySectionSurface]
+    public private(set) var isVisible: Bool
+    public private(set) var title: String
+    public private(set) var subtitle: String
+    public private(set) var statusLabel: String
+    public private(set) var taskTitle: String
+    public private(set) var taskSubtitle: String
+    public private(set) var planItems: [ActivityItemSurface]
+    public private(set) var contextItems: [ActivityItemSurface]
+    public private(set) var recentSteps: [ActivityItemSurface]
+    public private(set) var subagents: [ActivityItemSurface]
+    public private(set) var tools: [ActivityItemSurface]
+    public private(set) var sources: [ActivityItemSurface]
+    public private(set) var artifacts: [ToolArtifactState]
+    public private(set) var finalAnswer: String?
+    public private(set) var handoffSummary: String?
+    public private(set) var sections: [ActivitySectionSurface]
 
     public init(
         isVisible: Bool = false,
@@ -114,7 +114,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             ),
             statusLabel: agentStatus,
             taskTitle: WorkspaceActivitySurfaceBuilder.taskTitle(for: thread),
-            taskSubtitle: "\(thread.messages.count) message\(thread.messages.count == 1 ? "" : "s") - \(thread.events.count) event\(thread.events.count == 1 ? "" : "s")",
+            taskSubtitle: Self.threadCountSubtitle(thread),
             planItems: planItems,
             changeItems: WorkspaceActivityChangesSurfaceBuilder.items(from: changeFiles),
             contextItems: WorkspaceActivitySurfaceBuilder.contextItems(for: thread),
@@ -186,5 +186,16 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
                 handoffSummary: handoffSummary,
                 collapsedSectionIDs: []
             )
+    }
+
+    private static func threadCountSubtitle(_ thread: ChatThread) -> String {
+        [
+            Self.count(thread.messages.count, singular: "message"),
+            Self.count(thread.events.count, singular: "event")
+        ].joined(separator: " - ")
+    }
+
+    private static func count(_ value: Int, singular: String) -> String {
+        "\(value) \(singular)\(value == 1 ? "" : "s")"
     }
 }

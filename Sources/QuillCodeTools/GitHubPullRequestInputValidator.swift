@@ -170,12 +170,14 @@ public enum GitHubPullRequestInputValidator {
     }
 
     private static func isSafeGitHubReviewerComponent(_ value: String) -> Bool {
-        guard !value.isEmpty,
-              value.count <= 39,
-              value.range(of: #"^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$|^[A-Za-z0-9]$"#, options: .regularExpression) != nil
+        guard !value.isEmpty, value.count <= 39,
+              value.range(of: githubReviewerComponentPattern, options: .regularExpression) != nil
         else {
             return false
         }
         return true
     }
+
+    private static let githubReviewerComponentPattern =
+        #"^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$|^[A-Za-z0-9]$"#
 }

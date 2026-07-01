@@ -105,7 +105,10 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
         let topBarText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
         let toolCardText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
         let composerText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
-        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let sidebarText = [
+            try Self.appSourceText(named: "QuillCodeSidebarView.swift"),
+            try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
+        ].joined(separator: "\n")
         let modelRowsText = try Self.appSourceText(named: "QuillCodeModelPickerRows.swift")
 
         XCTAssertTrue(
@@ -431,7 +434,11 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
             try Self.appSourceText(named: "QuillCodeModePickerButton.swift"),
             try Self.appSourceText(named: "QuillCodeTopBarActionClusterView.swift")
         ].joined(separator: "\n")
-        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let sidebarText = [
+            try Self.appSourceText(named: "QuillCodeSidebarView.swift"),
+            try Self.appSourceText(named: "QuillCodeSidebarActionsView.swift"),
+            try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
+        ].joined(separator: "\n")
         let terminalText = try Self.appSourceText(named: "QuillCodeTerminalPaneView.swift")
         let browserText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
         let browserControlsText = try Self.appSourceText(named: "QuillCodeBrowserPaneControls.swift")
@@ -452,7 +459,7 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             sidebarText.contains(#".accessibilityIdentifier("quillcode-sidebar-tools-button")"#)
                 && sidebarText.contains(#".accessibilityIdentifier("quillcode-sidebar-command-\(command.id)")"#)
-                && sidebarText.contains(#".accessibilityIdentifier("quillcode-sidebar-command-\(settingsCommand.id)")"#),
+                && sidebarText.contains("settingsButton("),
             "Sidebar commands and bottom tools/settings controls should expose stable native accessibility IDs."
         )
         XCTAssertTrue(

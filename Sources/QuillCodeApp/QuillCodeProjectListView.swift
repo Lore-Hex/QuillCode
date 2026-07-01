@@ -1,6 +1,6 @@
 import SwiftUI
 
-private enum QuillCodeProjectListMetrics {
+enum QuillCodeProjectListMetrics {
     static let maxProjectListHeight: CGFloat = 220
     static let rowCornerRadius: CGFloat = 10
 }
@@ -70,63 +70,5 @@ struct QuillCodeProjectListView: View {
             }
             .frame(maxHeight: QuillCodeProjectListMetrics.maxProjectListHeight)
         }
-    }
-}
-
-private struct QuillCodeProjectRowView: View {
-    var project: ProjectItemSurface
-    var onSelectProject: (UUID?) -> Void
-    var onProjectAction: (ProjectItemActionSurface) -> Void
-
-    var body: some View {
-        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-            Button {
-                onSelectProject(project.id)
-            } label: {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                        Text(project.name)
-                            .font(.callout.weight(.semibold))
-                            .lineLimit(1)
-                        if project.isRemote {
-                            Text(project.connectionKindLabel)
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(QuillCodePalette.blue)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(QuillCodePalette.blue.opacity(0.14))
-                                .clipShape(Capsule())
-                        }
-                    }
-                    Text(project.path)
-                        .font(.caption)
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .lineLimit(1)
-                }
-                .quillCodeFullRowButtonTarget()
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-
-            Menu {
-                ForEach(project.actions) { action in
-                    Button(role: action.kind == .remove ? .destructive : nil) {
-                        onProjectAction(action)
-                    } label: {
-                        Text(action.kind.title)
-                    }
-                    .quillCodePlatformMenuItemTarget(reason: "AppKit owns project action menu row geometry; the ellipsis trigger carries the custom hit-target contract.")
-                    .disabled(!action.isEnabled)
-                    .help(action.disabledReason ?? action.kind.title)
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .quillCodeIconButtonTarget()
-                    .foregroundStyle(QuillCodePalette.muted)
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-        }
-        .padding(10)
-        .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: QuillCodeProjectListMetrics.rowCornerRadius, style: .continuous))
     }
 }

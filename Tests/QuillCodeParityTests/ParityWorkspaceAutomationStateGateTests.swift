@@ -39,9 +39,12 @@ final class ParityWorkspaceAutomationStateGateTests: QuillCodeParityTestCase {
     func testWorkspaceAutomationModelDelegatesStateMutations() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let automationModelText = try Self.appSourceText(named: "WorkspaceModelAutomations.swift")
+        let threadFollowUpText = try Self.appSourceText(named: "WorkspaceModelThreadFollowUpAutomations.swift")
+        let workspaceScheduleText = try Self.appSourceText(named: "WorkspaceModelWorkspaceScheduleAutomations.swift")
         let automationRunModelText = try Self.appSourceText(named: "WorkspaceModelAutomationRuns.swift")
+        let automationScheduleText = automationModelText + threadFollowUpText + workspaceScheduleText
 
-        Self.assertSource(automationModelText, containsAll: [
+        Self.assertSource(automationScheduleText, containsAll: [
             "extension QuillCodeWorkspaceModel",
             "WorkspaceAutomationStateReducer.setItems",
             "WorkspaceAutomationStateReducer.createThreadFollowUp",
@@ -53,7 +56,7 @@ final class ParityWorkspaceAutomationStateGateTests: QuillCodeParityTestCase {
             "WorkspaceAutomationStateReducer.delete",
             "WorkspaceAutomationStateReducer.replace"
         ])
-        Self.assertSource(automationModelText, excludesAll: [
+        Self.assertSource(automationScheduleText, excludesAll: [
             "WorkspaceAutomationStateReducer.updateStatus",
             "WorkspaceAutomationStateReducer.delete",
             "WorkspaceAutomationStateReducer.replace"

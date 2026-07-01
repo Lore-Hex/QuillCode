@@ -5,29 +5,43 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let presentationText = try Self.appSourceText(named: "QuillCodeSidebarCommandPresentation.swift")
         let adapterText = try Self.appSourceText(named: "QuillCodeSidebarCommandAdapter.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let sidebarActionsText = try Self.appSourceText(named: "QuillCodeSidebarActionsView.swift")
+        let sidebarUtilityText = try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
         let threadListText = try Self.appSourceText(named: "QuillCodeSidebarThreadListView.swift")
         let threadRowText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
         let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
+        let projectRowText = try Self.appSourceText(named: "QuillCodeProjectRowView.swift")
         let htmlSidebarText = try Self.appSourceText(named: "WorkspaceHTMLSidebarRenderer.swift")
         let htmlCommandText = try Self.appSourceText(named: "WorkspaceHTMLSidebarCommandRenderer.swift")
         let iconCatalogText = try Self.appSourceText(named: "QuillCodeCommandIconCatalog.swift")
 
         assertCommandPresentationContract(presentationText, iconCatalogText)
-        assertNativeSidebarCommandRendering(sidebarText, threadListText, threadRowText, projectListText)
-        assertSidebarCommandAdapterUsage(adapterText, sidebarText, threadListText, threadRowText)
+        assertNativeSidebarCommandRendering(
+            sidebarText,
+            sidebarActionsText + sidebarUtilityText,
+            threadListText,
+            threadRowText,
+            projectListText + projectRowText
+        )
+        assertSidebarCommandAdapterUsage(
+            adapterText,
+            sidebarText + sidebarActionsText + sidebarUtilityText,
+            threadListText,
+            threadRowText
+        )
         assertHTMLSidebarCommandRendering(htmlSidebarText, htmlCommandText)
     }
 
     func testSidebarSavedFiltersWrapInsteadOfClippingHorizontally() throws {
-        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let savedFilterText = try Self.appSourceText(named: "QuillCodeSidebarSavedFilterBar.swift")
         let harnessText = try String(
             contentsOf: Self.packageRoot().appendingPathComponent("E2E/harness/index.html"),
             encoding: .utf8
         )
 
-        Self.assertSource(sidebarText, contains: "LazyVGrid(")
-        Self.assertSource(sidebarText, contains: ".adaptive(minimum: 100)")
-        Self.assertSource(sidebarText, excludes: horizontalFilterScrollNeedle)
+        Self.assertSource(savedFilterText, contains: "LazyVGrid(")
+        Self.assertSource(savedFilterText, contains: ".adaptive(minimum: 100)")
+        Self.assertSource(savedFilterText, excludes: horizontalFilterScrollNeedle)
         Self.assertSource(harnessText, contains: "flex-wrap: wrap;")
         Self.assertSource(harnessText, excludes: ".sidebar-filter-bar::-webkit-scrollbar")
     }
@@ -35,10 +49,11 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
     func testNativeSidebarDelegatesProjectListRendering() throws {
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
         let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
+        let projectRowText = try Self.appSourceText(named: "QuillCodeProjectRowView.swift")
 
         Self.assertSource(sidebarText, contains: "QuillCodeProjectListView(")
         Self.assertSource(projectListText, contains: "struct QuillCodeProjectListView")
-        Self.assertSource(projectListText, contains: "struct QuillCodeProjectRowView")
+        Self.assertSource(projectRowText, contains: "struct QuillCodeProjectRowView")
         Self.assertSource(projectListText, contains: "maxProjectListHeight")
         Self.assertSource(sidebarText, excludes: "struct QuillCodeProjectRowView")
         Self.assertSource(sidebarText, excludes: "maxProjectListHeight")
@@ -69,6 +84,7 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
 
     private func assertNativeSidebarCommandRendering(
         _ sidebarText: String,
+        _ sidebarCommandText: String,
         _ threadListText: String,
         _ threadRowText: String,
         _ projectListText: String
@@ -80,15 +96,15 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         Self.assertSource(threadRowText, contains: "struct QuillCodeSidebarThreadRowView")
         Self.assertSource(projectListText, contains: "struct QuillCodeProjectListView")
         Self.assertSource(projectListText, contains: "QuillCodeProjectRowView")
-        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.primaryCommandIDs")
-        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups")
-        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.displayTitle")
-        Self.assertSource(sidebarText, contains: "QuillCodeSidebarCommandPresentation.systemImage")
+        Self.assertSource(sidebarCommandText, contains: "QuillCodeSidebarCommandPresentation.primaryCommandIDs")
+        Self.assertSource(sidebarCommandText, contains: "QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups")
+        Self.assertSource(sidebarCommandText, contains: "QuillCodeSidebarCommandPresentation.displayTitle")
+        Self.assertSource(sidebarCommandText, contains: "QuillCodeSidebarCommandPresentation.systemImage")
         Self.assertSource(sidebarText, excludes: "struct QuillCodeSidebarThreadRowView")
         Self.assertSource(threadListText, excludes: "private struct QuillCodeSidebarThreadRowView")
         Self.assertSource(sidebarText, excludes: "struct QuillCodeProjectRowView")
-        Self.assertSource(sidebarText, excludes: "private func displayTitle")
-        Self.assertSource(sidebarText, excludes: "private func systemImage")
+        Self.assertSource(sidebarCommandText, excludes: "private func displayTitle")
+        Self.assertSource(sidebarCommandText, excludes: "private func systemImage")
     }
 
     private func assertSidebarCommandAdapterUsage(
