@@ -21,6 +21,7 @@ REQUIRED_SCENARIOS = {
     "dispatches slash git read shortcuts as real workspace actions",
     "starter cards launch real workspace actions immediately",
     "respects explicit negative action prompts without tool cards or side effects",
+    "recovers transient runtime failures with the same actionable turn",
 }
 
 REQUIRED_PROMPT_FRAGMENTS = [
@@ -43,6 +44,8 @@ REQUIRED_PROMPT_FRAGMENTS = [
     "Do not run whoami.",
     "forbidden.txt",
     "downloads/forbidden.html",
+    "trigger network failure",
+    "Retry runtime issue",
 ]
 
 REQUIRED_REGRESSION_GUARDS = [
@@ -58,10 +61,13 @@ REQUIRED_REGRESSION_GUARDS = [
     "slash diff dispatches host.git.diff",
     "starter card creates a user turn without draft-only limbo",
     "negative shell intent creates no tool card",
+    "runtime issue retry clears the transient failure",
+    "retry dispatches a concrete nonempty shell action",
+    "retry preserves the user turn instead of creating draft-only limbo",
 ]
 
-MIN_PROMPT_COUNT = 20
-MIN_REGRESSION_GUARD_COUNT = 33
+MIN_PROMPT_COUNT = 22
+MIN_REGRESSION_GUARD_COUNT = 36
 
 
 def string_items(value: Any) -> list[str]:

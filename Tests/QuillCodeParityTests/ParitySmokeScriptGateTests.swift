@@ -81,9 +81,9 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("steps should be an object"))
         XCTAssertTrue(script.contains("steps.playwright should be an object"))
         XCTAssertTrue(script.contains("steps.playwright.realWorldActions should be an object"))
-        XCTAssertTrue(script.contains("scenarioCount should be at least 10"))
-        XCTAssertTrue(script.contains("promptCount should be at least 18"))
-        XCTAssertTrue(script.contains("regressionGuardCount should be at least 30"))
+        XCTAssertTrue(script.contains("scenarioCount should be at least 12"))
+        XCTAssertTrue(script.contains("promptCount should be at least 22"))
+        XCTAssertTrue(script.contains("regressionGuardCount should be at least 36"))
     }
 
     func testDeterministicSmokeCoversExplicitNegativeActionIntent() throws {
@@ -134,8 +134,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(script.contains("validate-playwright-real-world-manifest.py"))
         XCTAssertTrue(validator.contains("REQUIRED_SCENARIOS"))
-        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 20"))
-        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 33"))
+        XCTAssertTrue(validator.contains("MIN_PROMPT_COUNT = 22"))
+        XCTAssertTrue(validator.contains("MIN_REGRESSION_GUARD_COUNT = 36"))
         XCTAssertTrue(validator.contains("runs natural shell requests immediately with nonempty arguments"))
         XCTAssertTrue(validator.contains("lists workspace entries with the structured file list tool"))
         XCTAssertTrue(validator.contains("writes requested file content immediately without a confirmation loop"))
@@ -147,6 +147,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("dispatches slash git read shortcuts as real workspace actions"))
         XCTAssertTrue(validator.contains("starter cards launch real workspace actions immediately"))
         XCTAssertTrue(validator.contains("respects explicit negative action prompts without tool cards or side effects"))
+        XCTAssertTrue(validator.contains("recovers transient runtime failures with the same actionable turn"))
         XCTAssertTrue(validator.contains("Please check git status."))
         XCTAssertTrue(validator.contains("what changed?"))
         XCTAssertTrue(validator.contains("/git-status"))
@@ -155,6 +156,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("Can you list the files here?"))
         XCTAssertTrue(validator.contains("Where is AgentRunner defined?"))
         XCTAssertTrue(validator.contains("Review changes starter card"))
+        XCTAssertTrue(validator.contains("trigger network failure"))
+        XCTAssertTrue(validator.contains("Retry runtime issue"))
         XCTAssertTrue(validator.contains("shell arguments are never {}"))
         XCTAssertTrue(validator.contains("assistant does not answer with passive promises"))
         XCTAssertTrue(validator.contains("file list uses host.file.list instead of shell ls fallback"))
@@ -165,6 +168,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("slash git status dispatches host.git.status"))
         XCTAssertTrue(validator.contains("slash diff dispatches host.git.diff"))
         XCTAssertTrue(validator.contains("starter card creates a user turn without draft-only limbo"))
+        XCTAssertTrue(validator.contains("runtime issue retry clears the transient failure"))
+        XCTAssertTrue(validator.contains("retry dispatches a concrete nonempty shell action"))
     }
 
     func testRealWorldSmokeWorkflowRunsReleaseCandidateWrapperWithArtifacts() throws {
