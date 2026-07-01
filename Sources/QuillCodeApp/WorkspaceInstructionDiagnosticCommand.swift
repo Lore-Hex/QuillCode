@@ -2,7 +2,7 @@ import Foundation
 
 struct WorkspaceInstructionDiagnosticCommand: Equatable, Sendable {
     enum Action: Equatable, Sendable {
-        case apply(keepReferenceIndex: Int)
+        case apply(selectedReferenceIndex: Int)
         case resolve
         case dismiss
     }
@@ -31,8 +31,8 @@ struct WorkspaceInstructionDiagnosticCommand: Equatable, Sendable {
         return nil
     }
 
-    static func applyCommandID(diagnosticID: String, keepReferenceIndex: Int) -> String {
-        "\(applyPrefix)\(keepReferenceIndex):\(diagnosticID)"
+    static func applyCommandID(diagnosticID: String, selectedReferenceIndex: Int) -> String {
+        "\(applyPrefix)\(selectedReferenceIndex):\(diagnosticID)"
     }
 
     static func resolveCommandID(diagnosticID: String) -> String {
@@ -53,14 +53,14 @@ struct WorkspaceInstructionDiagnosticCommand: Equatable, Sendable {
         guard let separator = payload.firstIndex(of: ":") else { return nil }
         let rawIndex = payload[..<separator]
         let rawID = payload[payload.index(after: separator)...]
-        guard let keepReferenceIndex = Int(rawIndex),
-              keepReferenceIndex >= 0,
+        guard let selectedReferenceIndex = Int(rawIndex),
+              selectedReferenceIndex >= 0,
               let diagnosticID = normalizedDiagnosticID(String(rawID))
         else {
             return nil
         }
         return WorkspaceInstructionDiagnosticCommand(
-            action: .apply(keepReferenceIndex: keepReferenceIndex),
+            action: .apply(selectedReferenceIndex: selectedReferenceIndex),
             diagnosticID: diagnosticID
         )
     }

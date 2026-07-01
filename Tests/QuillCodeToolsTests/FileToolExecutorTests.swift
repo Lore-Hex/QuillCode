@@ -31,6 +31,26 @@ final class FileToolExecutorTests: XCTestCase {
         XCTAssertFalse(files.write(path: "../escape.txt", content: "no").ok)
     }
 
+    func testToolRouterAllowsEmptyFileWriteContent() throws {
+        let root = try makeTempDirectory()
+        try "old content\n".write(
+            to: root.appendingPathComponent("rules.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "content": "",
+                "path": "rules.md"
+            ])
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("rules.md"), encoding: .utf8), "")
+    }
+
     func testFileToolsRejectSymlinkEscapeOutsideWorkspace() throws {
         let root = try makeTempDirectory()
         let outside = try makeTempDirectory()  // a sibling dir, outside the workspace

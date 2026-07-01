@@ -42,7 +42,10 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                         diagnostic: diagnostic,
                         sourceReference: sourceReference
                     )
-                    + ProjectInstructionDiagnosticPatchPlanner.supportedKeepActions(for: diagnostic)
+                    + ProjectInstructionDiagnosticApplyPlanner.supportedActions(
+                        for: diagnostic,
+                        instructions: instructions
+                    )
                     + [
                         ActivityItemActionSurface(
                             title: "Resolve",

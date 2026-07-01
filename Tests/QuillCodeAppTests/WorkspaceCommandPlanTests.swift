@@ -200,7 +200,7 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "activity-instruction-apply:1:instruction-conflict"),
-            .applyInstructionDiagnostic(id: "instruction-conflict", keepReferenceIndex: 1)
+            .applyInstructionDiagnostic(id: "instruction-conflict", selectedReferenceIndex: 1)
         )
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "activity-instruction-dismiss:instruction-conflict"),

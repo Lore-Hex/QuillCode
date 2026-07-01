@@ -14,6 +14,11 @@ struct ProjectInstructionDiagnostic: Sendable, Hashable, Identifiable {
         statusLabel == ProjectInstructionDiagnosticStatusLabel.conflict
     }
 
+    var isDuplicateScope: Bool {
+        statusLabel == ProjectInstructionDiagnosticStatusLabel.review
+            && id.hasPrefix("instruction-duplicate-scope-")
+    }
+
     init(
         id: String,
         title: String,

@@ -85,7 +85,13 @@ public struct ToolArguments: Sendable {
     }
 
     public func requiredString(_ key: String) throws -> String {
-        guard let value = string(key), !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        try requiredString(key, allowingEmpty: false)
+    }
+
+    public func requiredString(_ key: String, allowingEmpty: Bool) throws -> String {
+        guard let value = string(key),
+              allowingEmpty || !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
             throw ToolArgumentError.missingString(key)
         }
         return value
