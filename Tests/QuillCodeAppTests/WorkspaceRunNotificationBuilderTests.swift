@@ -56,6 +56,13 @@ final class WorkspaceRunNotificationBuilderTests: XCTestCase {
         let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
         XCTAssertEqual(note?.kind, .needsApproval)
         XCTAssertTrue(note?.body.contains("host.shell.run") == true, note?.body ?? "")
+        // Carries the request id so the notification's Approve/Skip actions can decide this exact gate.
+        XCTAssertEqual(note?.approvalRequestID, "a1")
+    }
+
+    func testFinishedNotificationCarriesNoApprovalRequestID() {
+        let t = thread(messages: [ChatMessage(role: .assistant, content: "done")])
+        XCTAssertNil(WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)?.approvalRequestID)
     }
 
     func testDecidedApprovalDoesNotBlock() {
