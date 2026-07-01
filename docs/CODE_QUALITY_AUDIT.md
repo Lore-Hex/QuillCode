@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 TrustedRouter Provider Health Summary Pass
+
+Overall grade after this slice: **source modules remain A+; the touched model-catalog diagnostics path is A+**.
+
+This pass targeted the next Codex-parity gap after catalog freshness: users could see individual model status rows, but
+the picker and Settings did not summarize whether any provider represented in the live catalog needed attention.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Provider diagnostics | Model status metadata was row-local and easy to miss. | `ModelProviderHealthSummary` groups status metadata by canonical provider and ranks attention states first. |
+| Surface assembly | The top bar and Settings only projected catalog source freshness. | `WorkspaceModelCatalogSurfaceBuilder`, `WorkspaceTopBarSurfaceBuilder`, and `WorkspaceSettingsSurface` share the same provider-health summary. |
+| UI parity | The native picker/settings and HTML harness could drift on diagnostics copy. | SwiftUI and the Playwright harness expose the same provider-health line with tooltip/detail copy. |
+| Compatibility | Older settings payloads knew nothing about provider health. | Custom settings decoding leaves older payloads valid while new payloads include optional health fields. |
+
+Verification:
+
+- `swift test --filter 'CoreModelTests|QuillCodeTopBarSurfaceTests|WorkspaceTopBarSurfaceBuilderTests|WorkspaceSettingsRuntimeSurfaceTests|WorkspaceModelPickerSurfaceIntegrationTests|WorkspaceHTMLChromeRendererTests'`
+- `npx playwright test tests/model-picker.spec.ts tests/core.spec.ts`
+- `swift test`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- The summary uses status metadata already present in the `/models` catalog. Proactive polling is still deferred until
+  TrustedRouter exposes a stable provider-health endpoint.
+
 ## 2026-07-01 TrustedRouter Model Catalog Freshness Pass
 
 Overall grade after this slice: **source modules remain A+; the touched model-catalog runtime and picker surfaces are

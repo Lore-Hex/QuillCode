@@ -14,6 +14,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var modelCategories: [ModelCategorySurface]
     public var modelCatalogStatusLabel: String
     public var modelCatalogStatusDetail: String?
+    public var modelProviderHealthLabel: String?
+    public var modelProviderHealthDetail: String?
     public var modeLabel: String
     public var agentStatus: String
     public var runtimeIssueLabel: String?
@@ -42,6 +44,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         modelCategories: [ModelCategorySurface],
         modelCatalogStatusLabel: String = ModelCatalogStatus.bundled.statusLabel(),
         modelCatalogStatusDetail: String? = ModelCatalogStatus.bundled.detailLabel(),
+        modelProviderHealthLabel: String? = nil,
+        modelProviderHealthDetail: String? = nil,
         modeLabel: String,
         agentStatus: String,
         runtimeIssueLabel: String? = nil,
@@ -65,6 +69,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.modelCategories = modelCategories
         self.modelCatalogStatusLabel = modelCatalogStatusLabel
         self.modelCatalogStatusDetail = modelCatalogStatusDetail
+        self.modelProviderHealthLabel = modelProviderHealthLabel
+        self.modelProviderHealthDetail = modelProviderHealthDetail
         self.modeLabel = modeLabel
         self.agentStatus = agentStatus
         self.runtimeIssueLabel = runtimeIssueLabel

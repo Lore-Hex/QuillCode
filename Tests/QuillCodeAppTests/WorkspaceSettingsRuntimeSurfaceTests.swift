@@ -15,6 +15,7 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.signInURL, TrustedRouterDefaults.loopbackCallbackURL)
         XCTAssertEqual(settings.apiKeyStatusLabel, "Not signed in")
         XCTAssertEqual(settings.modelCatalogStatusLabel, "Bundled catalog")
+        XCTAssertEqual(settings.modelProviderHealthLabel, "Provider health unavailable")
         XCTAssertEqual(settings.computerUseStatus.message, "Needs Screen Recording + Accessibility")
         XCTAssertEqual(settings.computerUseSetupCommand.id, "computer-use-setup")
         XCTAssertEqual(settings.computerUseScreenRecordingCommand.id, "computer-use-open-screen-recording")
@@ -64,6 +65,33 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         )
     }
 
+    func testSettingsSurfaceShowsProviderHealthDiagnostics() {
+        let summary = ModelProviderHealthSummary.summarize([
+            ModelInfo(
+                id: "acme/code-pro",
+                provider: "acme",
+                displayName: "Code Pro",
+                category: "Coding",
+                capabilities: ModelCapabilities(status: "degraded")
+            ),
+            ModelInfo(
+                id: "z-ai/glm-5.2",
+                provider: "z-ai",
+                displayName: "GLM 5.2",
+                category: "Safety",
+                capabilities: ModelCapabilities(status: "available")
+            )
+        ])
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(),
+            hasStoredAPIKey: true,
+            modelProviderHealthSummary: summary
+        )
+
+        XCTAssertEqual(settings.modelProviderHealthLabel, "Provider health: 1 provider needs attention")
+        XCTAssertTrue(settings.modelProviderHealthDetail?.contains("acme: degraded") == true)
+    }
+
     func testSettingsSurfaceDecodesOlderComputerUsePayload() throws {
         let data = """
         {
@@ -105,6 +133,8 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
 
         let settings = try JSONDecoder().decode(WorkspaceSettingsSurface.self, from: data)
 
+        XCTAssertNil(settings.modelProviderHealthLabel)
+        XCTAssertNil(settings.modelProviderHealthDetail)
         XCTAssertEqual(settings.computerUseStatusLabel, "Accessibility needed")
         XCTAssertEqual(
             settings.computerUseNextAction,

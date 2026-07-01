@@ -57,6 +57,10 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
         return categories
     }
 
+    func providerHealthSummary() -> ModelProviderHealthSummary {
+        ModelProviderHealthSummary.summarize(catalogIncludingSelectedModel())
+    }
+
     private func catalogIncludingSelectedModel() -> [ModelInfo] {
         guard !catalog.contains(where: { $0.id == selectedModelID }) else {
             return catalog

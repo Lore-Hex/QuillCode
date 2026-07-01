@@ -39,6 +39,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var runtimeIssue: RuntimeIssueSurface?
     public var modelCatalogStatusLabel: String
     public var modelCatalogStatusDetail: String?
+    public var modelProviderHealthLabel: String?
+    public var modelProviderHealthDetail: String?
     public var computerUseStatus: ComputerUseStatus
     public var computerUseSetupCommand: WorkspaceCommandSurface
     public var computerUseScreenRecordingCommand: WorkspaceCommandSurface
@@ -57,7 +59,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             screenRecordingGranted: false,
             accessibilityGranted: false
         ),
-        modelCatalogStatus: ModelCatalogStatus = .bundled
+        modelCatalogStatus: ModelCatalogStatus = .bundled,
+        modelProviderHealthSummary: ModelProviderHealthSummary = .summarize([])
     ) {
         self.apiBaseURL = config.apiBaseURL
         self.authMode = config.authMode
@@ -68,6 +71,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.runtimeIssue = runtimeIssue
         self.modelCatalogStatusLabel = modelCatalogStatus.statusLabel()
         self.modelCatalogStatusDetail = modelCatalogStatus.detailLabel()
+        self.modelProviderHealthLabel = modelProviderHealthSummary.label
+        self.modelProviderHealthDetail = modelProviderHealthSummary.detail
         self.computerUseStatus = computerUseStatus
         self.computerUseSetupCommand = WorkspaceCommandSurface.computerUseSetup(isEnabled: !computerUseStatus.available)
         self.computerUseScreenRecordingCommand = WorkspaceCommandSurface.computerUseScreenRecordingSettings(
@@ -113,6 +118,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case runtimeIssue
         case modelCatalogStatusLabel
         case modelCatalogStatusDetail
+        case modelProviderHealthLabel
+        case modelProviderHealthDetail
         case computerUseStatus
         case computerUseSetupCommand
         case computerUseScreenRecordingCommand
@@ -139,6 +146,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             ?? ModelCatalogStatus.bundled.statusLabel()
         self.modelCatalogStatusDetail = try container.decodeIfPresent(String.self, forKey: .modelCatalogStatusDetail)
             ?? ModelCatalogStatus.bundled.detailLabel()
+        self.modelProviderHealthLabel = try container.decodeIfPresent(String.self, forKey: .modelProviderHealthLabel)
+        self.modelProviderHealthDetail = try container.decodeIfPresent(String.self, forKey: .modelProviderHealthDetail)
         let decodedComputerUseStatus = try container.decodeIfPresent(
             ComputerUseStatus.self,
             forKey: .computerUseStatus

@@ -111,6 +111,13 @@ struct QuillCodeModelPickerView: View {
                 .foregroundStyle(QuillCodePalette.blue)
                 .lineLimit(1)
                 .help(topBar.modelCatalogStatusDetail ?? topBar.modelCatalogStatusLabel)
+            if let healthLabel = topBar.modelProviderHealthLabel {
+                Text(healthLabel)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                    .help(topBar.modelProviderHealthDetail ?? healthLabel)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -46,7 +46,22 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
             projectName: "QuillCode",
             instructions: instructions,
             memories: memories,
-            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([
+                ModelInfo(
+                    id: TrustedRouterDefaults.synthModel,
+                    provider: TrustedRouterDefaults.trustedRouterProvider,
+                    displayName: TrustedRouterDefaults.synthModelDisplayName,
+                    category: "Recommended",
+                    capabilities: ModelCapabilities(status: "available")
+                ),
+                ModelInfo(
+                    id: "acme/code-pro",
+                    provider: "acme",
+                    displayName: "Code Pro",
+                    category: "Coding",
+                    capabilities: ModelCapabilities(status: "degraded")
+                )
+            ]),
             modelCatalogStatus: .liveTrustedRouter(fetchedAt: Date(timeIntervalSinceNow: -30)),
             defaultModelID: TrustedRouterDefaults.defaultModel,
             favoriteModelIDs: [],
@@ -64,6 +79,8 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(topBar.modelLabel, TrustedRouterDefaults.synthModelDisplayName)
         XCTAssertTrue(topBar.modelCatalogStatusLabel.contains("Live TrustedRouter catalog"))
         XCTAssertTrue(topBar.modelCatalogStatusDetail?.contains("Provider, pricing, modality") == true)
+        XCTAssertEqual(topBar.modelProviderHealthLabel, "Provider health: 1 provider needs attention")
+        XCTAssertTrue(topBar.modelProviderHealthDetail?.contains("acme: degraded") == true)
         XCTAssertEqual(topBar.selectedModelID, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(topBar.modeLabel, "Review")
         XCTAssertEqual(topBar.agentStatus, TopBarAgentStatusLabel.streaming)
