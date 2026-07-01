@@ -7,18 +7,21 @@ import QuillCodeCore
 /// notification (gated on the app being unfocused).
 enum WorkspaceRunNotificationBuilder {
     static func notification(thread: ChatThread, didFail: Bool) -> AgentRunNotification? {
-        AgentRunNotificationPlanner.notification(
+        let pending = pendingApproval(in: thread)
+        return AgentRunNotificationPlanner.notification(
             threadTitle: thread.title,
             threadID: thread.id,
             didFail: didFail,
-            pendingApprovalSummary: pendingApprovalToolName(in: thread),
-            finalAnswer: thread.messages.last(where: { $0.role == .assistant })?.content
+            pendingApprovalSummary: pending?.toolCall.name,
+            finalAnswer: thread.messages.last(where: { $0.role == .assistant })?.content,
+            pendingApprovalRequestID: pending?.id
         )
     }
 
     /// An approval that was requested but never decided means the run stopped waiting on the user —
-    /// the most important thing to surface for unattended driving.
-    private static func pendingApprovalToolName(in thread: ChatThread) -> String? {
+    /// the most important thing to surface for unattended driving. Its id lets the notification's
+    /// Approve/Skip actions decide the exact gate.
+    private static func pendingApproval(in thread: ChatThread) -> ApprovalRequest? {
         let decided = Set(thread.events.compactMap { event -> String? in
             guard event.kind == .approvalDecided,
                   let decision: ApprovalDecision = decode(from: event.payloadJSON)
@@ -33,7 +36,7 @@ enum WorkspaceRunNotificationBuilder {
             else {
                 continue
             }
-            return request.toolCall.name
+            return request
         }
         return nil
     }
