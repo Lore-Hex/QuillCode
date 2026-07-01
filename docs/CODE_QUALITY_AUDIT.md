@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Terminal Grapheme And Width Policy Pass
+
+Overall grade after this slice: **A+ terminal renderer boundary maintained, closer Codex terminal parity**.
+
+This pass closed two documented integrated-terminal rendering gaps while keeping the renderer a pragmatic transcript
+screen buffer rather than a full emulator. Printable terminal input now advances by Swift extended grapheme clusters
+instead of individual Unicode scalars, so ZWJ emoji sequences stay a single glyph for cursor math. Width policy is now
+explicit: ambiguous East Asian Width characters render narrow by default for stable transcripts, while the classifier can
+represent a wide policy for future locale-aware terminal sessions.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Printable input feed | `TerminalScreenBuffer.feed` walked Unicode scalars and wrote `Character(scalar)`, so family/profession emoji clusters were split across multiple cells. | `TerminalScreenGraphemeClusters` indexes extended grapheme cluster starts once per render, and the feed path writes the whole cluster before advancing by its scalar count. Escape/control parsing still stays scalar-based. |
+| Width policy | Width handling knew zero-width, CJK, and broad emoji ranges, but ambiguous-width behavior was implicit fallback. | `TerminalScreenCellWidth.swift` owns zero/wide/emoji-presentation/ambiguous classification and a narrow-by-default `TerminalScreenAmbiguousWidthPolicy`. |
+| Behavior evidence | Renderer tests covered CJK/emoji width-two cells and combining marks only. | Tests now cover ZWJ emoji clusters, skin-tone/profession clusters, emoji-presentation sequences such as `♥️`, and narrow/wide ambiguous policy for `Ω`. |
+| Parity gate | The terminal gate required the cell model but did not protect the new grapheme/width-policy boundary. | `ParityTerminalRendererGateTests` now requires the dedicated grapheme and width-policy files plus behavior tests for both documented gaps. |
+
+Verification:
+
+- `swift test --filter 'TerminalOutputRendererTests|ParityTerminalRendererGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This still deliberately is not a full terminal emulator. Full curses state, attributes, mouse tracking, richer job
+  control, and locale-specific ambiguous-width switching remain separate parity work.
+
 ## 2026-07-01 App Model Boundary Quality Pass
 
 Overall grade after this slice: **A+ production modules maintained, previous App A- hotspots removed from the
