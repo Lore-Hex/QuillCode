@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Memory Gate Split
+
+Overall grade after this slice: **A+ focused workspace-memory parity gates, lower B+ surface area**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceMemoryGateTests.swift`, a 146-line B+ gate that mixed
+memory model orchestration, focused integration-suite ownership, and Playwright memory-flow placement. The split keeps
+the same checks while assigning each responsibility to a smaller file:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Memory model orchestration | Shared the broad workspace memory gate. | `ParityWorkspaceMemoryModelGateTests.swift` owns model/workflow/engine/delegation boundaries. |
+| Memory integration coverage | Shared the broad workspace memory gate. | `ParityWorkspaceMemoryIntegrationGateTests.swift` owns focused app integration-suite placement. |
+| Playwright memory flow coverage | Shared the broad workspace memory gate. | `ParityPlaywrightMemoryGateTests.swift` owns memory E2E spec placement. |
+| Grade | The original file was **B+** with many long assertion lines. | The split removes memory from the B+ list and keeps the parity module at **98 A+**. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspaceMemory(Model|Integration)GateTests|ParityPlaywrightMemoryGateTests|ParityGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a source-boundary test refactor; it does not change memory runtime behavior.
+- Remaining B+ hotspots start with workspace model state, automation, workspace command, execution slash, interaction-target, and Playwright command-palette gates.
+
 ## 2026-07-01 Workspace Model Gate Split
 
 Overall grade after this slice: **A+ workspace model parity gate files, clearer model-surface boundaries**.
