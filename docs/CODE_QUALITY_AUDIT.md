@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 Remote Project Tool Executor Ownership Pass
+
+Overall grade after this slice: **all source modules remain A+; the touched remote-project tool executor cluster is
+A+**.
+
+This pass targeted `WorkspaceRemoteProjectToolExecutor.swift`, which was correct but still owned too many unrelated
+remote tool responsibilities. Remote projects are a core Codex-parity path because shell, file, patch, git, pull
+request, and worktree tools all need to route through SSH with consistent safety and artifact behavior.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Remote tool catalog | Tool definitions and git tool-name sets were embedded in the executor. | `WorkspaceRemoteProjectToolCatalog.swift` owns the static remote-safe catalog and grades **A+ 100**. |
+| SSH command execution | Shell, patch, git, and file tools each repeated SSH request construction and missing-host errors. | `WorkspaceRemoteProjectToolExecutionContext.swift` centralizes request/run behavior and grades **A+ 100**. |
+| Remote file tools | File read/list/write path validation, command construction, list parsing, and artifacts lived in the broad executor. | `WorkspaceRemoteProjectFileToolExecutor.swift` owns file tools and grades **A+ 100**. |
+| Remote tool router | The router mixed dispatch with file-tool implementation details and graded **A 92**. | The router now dispatches to focused collaborators and grades **A+ 96**. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceRemoteProjectToolExecutorTests|WorkspaceAgentRunContextBuilderTests|WorkspaceAgentSendSessionFactoryTests|WorkspaceRemoteProjectIntegrationTests|WorkspaceRemoteProjectShellGitIntegrationTests|WorkspaceRemoteProjectFilePatchIntegrationTests|WorkspaceRemoteProjectPullRequestIntegrationTests|WorkspaceRemoteProjectWorktreeIntegrationTests|ParityRemoteProjectToolGateTests|ParityWorkspaceToolRoutingGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+- `rg -n "^(<<<<<<<|=======|>>>>>>>)" Sources Tests docs --glob '!docs/CODE_QUALITY_FILE_GRADES.md' --glob '!docs/CODE_QUALITY_AUDIT.md'`
+
+Residual risk:
+
+- This is behavior-preserving architecture cleanup. The focused remote-project integration tests cover the key tool
+  paths, but live SSH host variance is still covered by broader smoke testing rather than this slice.
+
 ## 2026-07-01 Native Hit Target Audit Collaborator Pass
 
 Overall grade after this slice: **all source modules remain A+; the touched native hit-target audit files are A+**.
