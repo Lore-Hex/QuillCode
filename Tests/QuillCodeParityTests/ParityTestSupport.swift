@@ -134,6 +134,17 @@ class QuillCodeParityTestCase: XCTestCase {
 
     static func assertSource(
         _ source: String,
+        containsAll expectedValues: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for expected in expectedValues {
+            assertSource(source, contains: expected, file: file, line: line)
+        }
+    }
+
+    static func assertSource(
+        _ source: String,
         excludes forbidden: String,
         file: StaticString = #filePath,
         line: UInt = #line
@@ -144,6 +155,17 @@ class QuillCodeParityTestCase: XCTestCase {
             file: file,
             line: line
         )
+    }
+
+    static func assertSource(
+        _ source: String,
+        excludesAll forbiddenValues: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for forbidden in forbiddenValues {
+            assertSource(source, excludes: forbidden, file: file, line: line)
+        }
     }
 
     static func toolsSourceText(named fileName: String) throws -> String {

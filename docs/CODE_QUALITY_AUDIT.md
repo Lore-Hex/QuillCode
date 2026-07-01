@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Integration Gate Split
+
+Overall grade after this slice: **A+ workspace integration parity gate files, clearer integration ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceIntegrationGateTests.swift`, a 179-line B+ gate that
+mixed unrelated integration-suite ownership checks for MCP, review, feedback, runtime issues, thread lifecycle, slash
+commands, local environments, automations, terminal flows, and runtime factory coverage. The split keeps the same
+architecture boundaries while making each file map to one integration family:
+
+| Area | Before | After |
+| --- | --- | --- |
+| MCP and review | Shared the broad workspace integration gate. | `ParityWorkspaceMCPReviewIntegrationGateTests.swift` owns MCP and review integration-suite placement. |
+| Feedback and runtime issues | Mixed with command and terminal checks. | `ParityWorkspaceFeedbackRuntimeIntegrationGateTests.swift` owns feedback/artifact and runtime issue placement. |
+| Thread and command workflows | Mixed with automation and terminal checks. | `ParityWorkspaceThreadCommandIntegrationGateTests.swift` owns thread lifecycle, slash, and local environment placement. |
+| Automation and terminal workflows | Mixed with unrelated model/runtime checks. | `ParityWorkspaceAutomationTerminalIntegrationGateTests.swift` owns automation and terminal placement. |
+| Runtime factory | One assertion inside the broad file. | `ParityWorkspaceRuntimeFactoryGateTests.swift` owns runtime factory coverage placement. |
+| Grade | The original file was **B+** at 179 lines. | Every split workspace integration gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceMCPReviewIntegrationGateTests|ParityWorkspaceFeedbackRuntimeIntegrationGateTests|ParityWorkspaceThreadCommandIntegrationGateTests|ParityWorkspaceAutomationTerminalIntegrationGateTests|ParityWorkspaceRuntimeFactoryGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new model/runtime scenarios.
+- The highest remaining B+ parity hotspots start with agent, workspace model, memory, model state, and automation gates.
+
 ## 2026-07-01 Workspace Surface Gate Split
 
 Overall grade after this slice: **A+ workspace surface parity gate files, clearer native/surface ownership**.
