@@ -8778,6 +8778,7 @@
         .map(item => ({
           ...item,
           actions: [
+            ...instructionKeepReferenceActions(item),
             { title: 'Resolve', commandID: `activity-instruction-resolve:${item.id}`, kind: 'resolve' },
             { title: 'Dismiss', commandID: `activity-instruction-dismiss:${item.id}`, kind: 'dismiss' }
           ]
@@ -10831,6 +10832,7 @@
     const harnessRoutableCommandPrefixes = [
       'activity-toggle-section:',
       'activity-instruction-dismiss:',
+      'activity-instruction-apply:',
       'activity-instruction-resolve:',
       'activity-source-edit:',
       'activity-source-open:',
@@ -11268,6 +11270,41 @@
         state.composer.canSend = true;
         render();
         focusComposerAtDraftEnd();
+        return;
+      }
+      if (commandID?.startsWith('activity-instruction-apply:')) {
+        const payload = commandID.slice('activity-instruction-apply:'.length);
+        const separator = payload.indexOf(':');
+        const keptIndex = separator >= 0 ? Number(payload.slice(0, separator)) : 0;
+        const id = separator >= 0 ? payload.slice(separator + 1) : payload;
+        const diagnostic = (state.activity.instructionDiagnostics || []).find(item => item.id === id);
+        const removedReference = diagnostic?.sourceReferences?.find((_, index) => index !== keptIndex);
+        addToolCard({
+          title: 'host.apply_patch',
+          status: 'Done',
+          kind: 'done',
+          summary: 'Completed',
+          input: {
+            patch: `diff --git a/${removedReference?.path || 'AGENTS.md'} b/${removedReference?.path || 'AGENTS.md'}\n`
+              + `--- a/${removedReference?.path || 'AGENTS.md'}\n`
+              + `+++ b/${removedReference?.path || 'AGENTS.md'}\n`
+              + '@@ -1 +0,0 @@\n'
+              + `-${removedReference?.excerpt || 'Do not run tests.'}\n`
+          },
+          output: { ok: true, stdout: 'Patch applied.\n' }
+        });
+        addToolCard({
+          title: 'host.git.diff',
+          status: 'Done',
+          kind: 'done',
+          summary: 'Completed',
+          input: {},
+          output: { ok: true, stdout: 'diff --git a/AGENTS.md b/AGENTS.md\n' }
+        });
+        state.activity.instructionDiagnostics = (state.activity.instructionDiagnostics || [])
+          .filter(item => item.id !== id);
+        addMessage('assistant', 'Applied the instruction quick fix.');
+        render();
         return;
       }
       if (commandID?.startsWith('activity-instruction-dismiss:')) {
@@ -14270,6 +14307,17 @@
       return !editable;
     }
 
+    function instructionKeepReferenceActions(item) {
+      if (item.statusLabel !== 'conflict' || !Array.isArray(item.sourceReferences) || item.sourceReferences.length !== 2) {
+        return [];
+      }
+      return item.sourceReferences.map((reference, index) => ({
+        title: `Keep ${reference.role || `${reference.path}:${reference.lineNumber}`}`,
+        commandID: `activity-instruction-apply:${index}:${item.id}`,
+        kind: 'apply'
+      }));
+    }
+
     window.__quillCodeCommandRoutingAudit = commandRoutingAuditReport;
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;
     window.__quillCodeTestAddInstructionConflict = function() {
@@ -14278,7 +14326,21 @@
         title: 'Conflicting instruction intent',
         detail: 'Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid',
         kind: 'instruction-diagnostic',
-        statusLabel: 'conflict'
+        statusLabel: 'conflict',
+        sourceReferences: [
+          {
+            path: 'AGENTS.md',
+            lineNumber: 1,
+            role: 'requires tests',
+            excerpt: 'Always run tests.'
+          },
+          {
+            path: 'Sources/Feature/AGENTS.md',
+            lineNumber: 1,
+            role: 'avoids tests',
+            excerpt: 'Do not run tests.'
+          }
+        ]
       }];
       state.activity.dismissedInstructionDiagnostics = [];
       state.activity.isVisible = true;
