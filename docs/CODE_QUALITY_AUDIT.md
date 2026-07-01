@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-06-30 Remote Pull Request Command Builder Split
+
+Overall grade after this slice: **A+ remote PR command cluster, A+ app source module average, no remote PR command file below A+**.
+
+This pass addressed the remaining production app-source B+ hotspot from the generated report: `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`. The file had grown to 397 lines and mixed dispatch, tool argument decoding, selector validation, GitHub CLI construction, GitHub API command construction, URL artifact policy, and shell quoting.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Remote PR facade | `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift` owned every PR subcommand and graded **B+**. | The facade now only composes tool-name sets, URL-artifact policy, and subfamily dispatch. It grades **A+** at 44 lines. |
+| PR command families | Create/view/checks/diff/checkout, edit/comment, review-thread APIs, and merge commands lived in one switch. | `WorkspaceRemoteGitHubPullRequestBaseCommandBuilder.swift`, `WorkspaceRemoteGitHubPullRequestEditCommandBuilder.swift`, `WorkspaceRemoteGitHubPullRequestReviewCommandBuilder.swift`, and `WorkspaceRemoteGitHubPullRequestMergeCommandBuilder.swift` own their respective command families and all grade **A+**. |
+| Shared validation and quoting | Selector validation and shell quoting were repeated across remote git builders. | `WorkspaceRemoteGitHubPullRequestCommandSupport.swift` centralizes PR selector/view/repo command assembly, and `WorkspaceRemoteShellCommandFormatter.swift` centralizes shell quoting for remote git builders. Both grade **A+**. |
+| Architecture gates | The parity gate only required a focused PR builder file. | `ParityToolGateTests` now rejects argument decoding, validation, and GitHub API assembly drifting back into the facade, while requiring the new support/family builders. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceRemoteProjectToolExecutorTests|ParityToolGateTests'`
+- `swift test`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The local `GitHubPullRequestToolExecutor.swift` in `QuillCodeTools` remains a separate B+ production hotspot. It should be split in a future slice, likely mirroring this remote-family ownership.
+- Current app-source B+ debt is now concentrated in `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `QuillCodeAutomationsPaneView.swift`.
+
 ## 2026-06-30 Workspace Automation Engine Split
 
 Overall grade after this slice: **A+ automation data engine, A+ app source module average, no automation production file below A**.
@@ -19,12 +44,35 @@ Verification:
 - `swift test --filter 'WorkspaceAutomation|ParityAutomationGateTests'`
 - `swift test`
 - `git diff --check`
-- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
 
 Residual risk:
 
 - `WorkspaceAutomationRunner.swift` and `WorkspaceAutomationStateReducer.swift` grade **A** rather than A+ because the heuristic flags repeated Swift signatures and typed mutation boilerplate. The architecture is intentionally still direct and readable; the next real seam would be request structs if call sites need to pass more schedule metadata.
-- Remaining B+ production debt is now concentrated in `QuillCodeAutomationsPaneView.swift`, `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`.
+- Remaining B+ App production debt after the automation split is now concentrated in `QuillCodeAutomationsPaneView.swift`, `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`.
+
+## 2026-06-30 Native Top-Bar View Split
+
+Overall grade after this slice: **A+ top-bar composition root, A+/A focused top-bar controls, A+ app source module average**.
+
+This pass addressed the next UX-relevant production hotspot from the generated report: `QuillCodeTopBarView.swift`. The old file was a 329-line B+ view that mixed top-bar composition, title/context chips, navigation controls, stop/overflow actions, tone colors, help/accessibility copy, and the composer mode picker.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Top-bar composition | `QuillCodeTopBarView.swift` owned layout plus every button/menu implementation. It graded **B+** and made Codex-style chrome changes harder to review. | `QuillCodeTopBarView.swift` is now a 70-line **A+** composition root that delegates identity, navigation, and actions to focused views. |
+| Identity and metadata | Branch and token chips were inline in the root top-bar file. | `QuillCodeTopBarIdentityView.swift` owns quiet title/subtitle/branch/token chip rendering with tabular metadata. |
+| Navigation and actions | Back/Forward, Stop, and overflow menu internals lived inside the main top bar. | `QuillCodeTopBarNavigationView.swift` and `QuillCodeTopBarActionClusterView.swift` own those controls, preserve 44 pt semantic hit targets, and keep 0.96 press feedback. |
+| Mode picker | The composer approval-mode picker lived at the bottom of the top-bar file even though the top bar no longer presents it. | `QuillCodeModePickerButton.swift` owns mode menu state, color cueing, and hit-target markers beside the composer accessory control. |
+| Presentation text | Native and HTML top bars each had separate accessibility/help copy paths. | `QuillCodeTopBarStatusPresentation.swift` now owns shared help/accessibility text and activity-hairline policy; `WorkspaceHTMLTopBarRenderer` uses that shared label. |
+
+Verification:
+
+- `swift test --filter 'QuillCodeTopBarSurfaceTests|ParityTopBarGateTests|ParityWorkspaceSurfaceGateTests|ParityWorkspaceSettingsSheetGateTests|ParityNativeInteractionContractGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The next App production hotspots are unrelated ownership areas: `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `QuillCodeAutomationsPaneView.swift`.
+- `QuillCodeTopBarIdentityView.swift` and `QuillCodeTopBarToneColor.swift` grade A by the deterministic duplicate-line heuristic, but they are small focused files with no automated issue beyond repeated SwiftUI/tone structure.
 
 ## 2026-06-30 Workspace Model Sidebar Split
 
@@ -46,7 +94,7 @@ Verification:
 Residual risk:
 
 - `WorkspaceModelThreads.swift` is still A- because context fork/compact, draft switching, and lifecycle operations are all thread-owned but dense. The next clean seam would be moving context continuation helpers into a focused extension if that area changes again.
-- After the native hit-target and automation-engine splits, remaining B+ production debt is concentrated in `QuillCodeAutomationsPaneView.swift`, `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`.
+- After the native hit-target, automation-engine, and top-bar splits, remaining B+ production debt is concentrated in `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`, `WorkspaceHTMLSidebarRenderer.swift`, `QuillCodeAutomationsPaneView.swift`, `Agent.swift`, and `GitHubPullRequestToolExecutor.swift`.
 
 ## 2026-06-30 Immediate Agent Action Test Split
 

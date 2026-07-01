@@ -53,18 +53,16 @@ enum WorkspaceRemoteGitHunkCommandBuilder {
         }
 
         let encoded = Data(normalizedPatch.utf8).base64EncodedString()
-        let flags = applyArguments.map(shellSingleQuoted).joined(separator: " ")
+        let flags = applyArguments
+            .map(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted)
+            .joined(separator: " ")
         return [
             "patch_file=\"${TMPDIR:-/tmp}/quillcode-hunk.$$.patch\"",
             "trap 'rm -f \"$patch_file\"' EXIT",
-            "printf %s \(shellSingleQuoted(encoded)) | base64 --decode > \"$patch_file\"",
+            "printf %s \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(encoded)) | base64 --decode > \"$patch_file\"",
             "git apply \(flags) --check \"$patch_file\"",
             "git apply \(flags) \"$patch_file\"",
-            "printf \(shellSingleQuoted(successMessage))"
+            "printf \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(successMessage))"
         ].joined(separator: " && ")
-    }
-
-    private static func shellSingleQuoted(_ value: String) -> String {
-        WorkspaceTerminalSessionAdapter.shellSingleQuoted(value)
     }
 }

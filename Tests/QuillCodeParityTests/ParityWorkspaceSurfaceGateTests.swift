@@ -64,6 +64,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         let composerViewText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
         let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
         let modelPickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
+        let modePickerText = try Self.appSourceText(named: "QuillCodeModePickerButton.swift")
         let htmlTopBarText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
         let htmlTranscriptText = try Self.appSourceText(named: "WorkspaceHTMLTranscriptRenderer.swift")
 
@@ -74,10 +75,10 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(composerViewText.contains("composerAccessoryBar"), "Native composer should keep model and mode controls as an input accessory bar.")
         XCTAssertTrue(composerViewText.contains("composerSurfaceStroke"), "Native composer should show focus feedback on the whole input surface.")
         XCTAssertTrue(designText.contains("composerSurfaceRadius: CGFloat = 12"), "Native composer should keep a compact code-editor radius.")
-        XCTAssertTrue(topBarViewText.contains("Choose Auto safety mode"), "The mode control should advertise Auto safety intent.")
-        XCTAssertTrue(topBarViewText.contains("selectedModeColor"), "Native mode control should give safety mode a distinct compact cue.")
-        XCTAssertFalse(topBarViewText.contains(#"Text("Mode")"#), "Native mode control should keep the accessory bar compact.")
-        XCTAssertFalse(topBarViewText.contains("modeColor(for:"), "Native mode control should not reuse health-status color semantics.")
+        XCTAssertTrue(modePickerText.contains("Choose Auto safety mode"), "The mode control should advertise Auto safety intent.")
+        XCTAssertTrue(modePickerText.contains("selectedModeColor"), "Native mode control should give safety mode a distinct compact cue.")
+        XCTAssertFalse(modePickerText.contains(#"Text("Mode")"#), "Native mode control should keep the accessory bar compact.")
+        XCTAssertFalse(modePickerText.contains("modeColor(for:"), "Native mode control should not reuse health-status color semantics.")
         XCTAssertFalse(composerViewText.contains("topBar.agentStatus"), "Composer should not duplicate the top-bar agent status.")
         XCTAssertFalse(modelPickerText.contains("modeLabel"), "The model picker trigger and popover must not merge approval mode back into model selection.")
         XCTAssertNil(
