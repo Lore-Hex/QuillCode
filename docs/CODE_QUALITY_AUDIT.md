@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Instruction Diagnostic Apply Planner Pass
+
+Overall grade after this slice: **all modules remain A+; the touched instruction-diagnostic apply path is A+ and more
+deterministic**.
+
+This pass regenerated the file/module grade report, then targeted the next real AGENTS/rules architecture gap instead
+of churning already A+ files. Instruction diagnostics had a patch planner whose naming and behavior only fit semantic
+conflicts; exact duplicate same-scope rule files were detected but still required manual cleanup.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Diagnostic action model | `ProjectInstructionDiagnosticPatchPlanner` assumed every direct action was a keep-side patch. | `ProjectInstructionDiagnosticApplyPlanner` returns typed tool-call plans, so semantic patch fixes and structural cleanup share one generic apply boundary. |
+| Duplicate-scope cleanup | Exact duplicate `AGENTS.md`/rules files were review-only even when one source could be safely cleared. | Exact normalized duplicate sources expose `Clear duplicate ...` actions that run `host.file.write` with explicit empty content, then refresh project context. |
+| Tool arguments | `ToolArguments.requiredString` rejected empty strings everywhere. | The one-argument API remains compatibility-preserving, and `allowingEmpty: true` is available only for arguments such as file-write content. |
+| Intent safety | Structural diagnostics had no distinction between safe exact duplicates and ambiguous merges. | Non-identical duplicate-scope and nested-override diagnostics stay manual Resolve/Edit workflows. |
+
+Verification:
+
+- `swift test --filter 'ProjectInstructionDiagnosticApplyPlannerTests|WorkspaceCommandPlanTests|WorkspaceCommandPlanExecutorTests|WorkspaceActivityInstructionIntegrationTests|FileToolExecutorTests'`
+
+Residual risk:
+
+- This intentionally does not merge non-identical instruction files or nested overrides. Those still need an explicit
+  human/model review workflow because automatic merging would guess at precedence and user intent.
+
 ## 2026-07-01 Instruction Conflict Quick-Fix Quality Pass
 
 Overall grade after this slice: **source modules remain A+; the touched Instruction Review quick-fix path is A+**.

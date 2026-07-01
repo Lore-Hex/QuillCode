@@ -282,6 +282,79 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertEqual(try projectStore.load().first?.resolvedInstructionDiagnosticIDs, [diagnosticID])
     }
 
+    func testExecutorClearsExactDuplicateInstructionSourceAndRefreshesContext() throws {
+        let root = try makeTempDirectory()
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init", cwd: root)).ok)
+        let rulesDirectory = root.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: rulesDirectory, withIntermediateDirectories: true)
+        let instruction = "Prefer small diffs.\nRun focused tests.\n"
+        try instruction.write(
+            to: root.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try instruction.write(
+            to: rulesDirectory.appendingPathComponent("rules.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let instructions = [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "AGENTS.md",
+                content: instruction,
+                byteCount: instruction.utf8.count
+            ),
+            ProjectInstruction(
+                path: ".quillcode/rules.md",
+                title: "rules.md",
+                content: instruction,
+                byteCount: instruction.utf8.count
+            )
+        ]
+        let projectStore = JSONProjectStore(fileURL: root.appendingPathComponent("projects.json"))
+        let project = ProjectRef(name: "QuillCode", path: root.path, instructions: instructions)
+        let thread = ChatThread(
+            title: "Inspect duplicates",
+            projectID: project.id,
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            activity: ActivityState(isVisible: true),
+            projectStore: projectStore
+        )
+        let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: instructions)
+            .first(where: \.isDuplicateScope)?
+            .id)
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "activity-instruction-apply:1:\(diagnosticID)",
+            workspaceRoot: root
+        ))
+
+        let editedRules = try String(
+            contentsOf: rulesDirectory.appendingPathComponent("rules.md"),
+            encoding: .utf8
+        )
+        XCTAssertEqual(editedRules, "")
+        let selectedThread = try XCTUnwrap(model.selectedThread)
+        let card = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).toolCards().last)
+        XCTAssertEqual(card.title, ToolDefinition.fileWrite.name)
+        XCTAssertEqual(card.status, .done)
+        XCTAssertFalse(model.surface().activity.sources.contains { $0.id == diagnosticID })
+        XCTAssertEqual(model.root.projects.first?.resolvedInstructionDiagnosticIDs, [diagnosticID])
+        XCTAssertEqual(try projectStore.load().first?.resolvedInstructionDiagnosticIDs, [diagnosticID])
+    }
+
     func testExecutorRejectsMissingInstructionDiagnosticResolution() throws {
         let model = QuillCodeWorkspaceModel()
 

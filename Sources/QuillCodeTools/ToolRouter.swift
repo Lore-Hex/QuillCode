@@ -65,7 +65,7 @@ public struct ToolRouter: Sendable {
             case ToolDefinition.fileWrite.name:
                 return files.write(
                     path: try args.requiredString("path"),
-                    content: try args.requiredString("content")
+                    content: try args.requiredString("content", allowingEmpty: true)
                 )
             case ToolDefinition.applyPatch.name:
                 return patch.apply(unifiedDiff: try args.requiredString("patch"))

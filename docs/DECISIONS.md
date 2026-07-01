@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+- Instruction diagnostic apply actions must stay deterministic. Semantic conflicts may remove the opposite known line only
+  when source excerpts still match, and duplicate-scope diagnostics may clear a selected source only when another
+  same-scope instruction file has identical normalized content. Non-identical duplicate-scope and nested-override
+  diagnostics remain manual Resolve/Edit workflows because merging those files would guess at user intent.
 - Generated Python bytecode must not be tracked. Native click-probe validator caches are now ignored with
   `__pycache__/` and `*.py[cod]`, so grade generation and smoke validation cannot rewrite binary artifacts in normal
   development.

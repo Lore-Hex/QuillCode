@@ -78,10 +78,10 @@ extension QuillCodeWorkspaceModel {
         case .editActivitySource(let path, let lineNumber):
             setDraft(Self.activitySourceEditDraft(path: path, lineNumber: lineNumber))
             return true
-        case .applyInstructionDiagnostic(let id, let keepReferenceIndex):
+        case .applyInstructionDiagnostic(let id, let selectedReferenceIndex):
             return applyInstructionDiagnostic(
                 id: id,
-                keepReferenceIndex: keepReferenceIndex,
+                selectedReferenceIndex: selectedReferenceIndex,
                 workspaceRoot: workspaceRoot
             )
         case .resolveInstructionDiagnostic(let id):
@@ -133,13 +133,13 @@ extension QuillCodeWorkspaceModel {
 
     private func applyInstructionDiagnostic(
         id: String,
-        keepReferenceIndex: Int,
+        selectedReferenceIndex: Int,
         workspaceRoot: URL
     ) -> Bool {
         guard let diagnostic = activeInstructionDiagnostics.first(where: { $0.id == id }),
-              let plan = ProjectInstructionDiagnosticPatchPlanner.plan(
+              let plan = ProjectInstructionDiagnosticApplyPlanner.plan(
                 for: diagnostic,
-                keepReferenceIndex: keepReferenceIndex,
+                selectedReferenceIndex: selectedReferenceIndex,
                 instructions: activeInstructionSources
               )
         else {
@@ -147,10 +147,7 @@ extension QuillCodeWorkspaceModel {
         }
 
         let result = runToolCall(
-            ToolCall(
-                name: ToolDefinition.applyPatch.name,
-                argumentsJSON: ToolArguments.json(["patch": plan.patch])
-            ),
+            plan.toolCall,
             workspaceRoot: workspaceRoot
         )
         if result.ok, let projectID = selectedThread?.projectID ?? root.selectedProjectID {
