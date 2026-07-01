@@ -27,7 +27,7 @@ final class FileToolExecutorTests: XCTestCase {
         let result = files.write(path: "nested/hello.txt", content: "hello world\n")
 
         XCTAssertTrue(result.ok, result.error ?? "")
-        XCTAssertEqual(files.read(path: "nested/hello.txt").stdout, "hello world\n")
+        XCTAssertEqual(files.read(path: "nested/hello.txt").stdout, "1\thello world")
         XCTAssertFalse(files.write(path: "../escape.txt", content: "no").ok)
     }
 
@@ -63,7 +63,7 @@ final class FileToolExecutorTests: XCTestCase {
         let files = FileToolExecutor(workspaceRoot: root)
 
         XCTAssertTrue(files.write(path: "link/ok.txt", content: "fine\n").ok)
-        XCTAssertEqual(files.read(path: "real/ok.txt").stdout, "fine\n")
+        XCTAssertEqual(files.read(path: "real/ok.txt").stdout, "1\tfine")
     }
 
     func testFileToolsRejectMidPathAndNestedSymlinkEscapes() throws {
