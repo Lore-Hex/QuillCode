@@ -133,13 +133,21 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelTestsRemainRetired",
             "testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport"
         ]),
-        Suite(fileName: "ParityWorkspaceModelStateGateTests.swift", testNames: [
-            "testWorkspaceModelDelegatesStatusTextAndLabels",
-            "testWorkspaceModelDelegatesContextResolving",
-            "testWorkspaceModelDelegatesAgentProgressStatusCopy",
+        Suite(fileName: "ParityWorkspaceStatusModelGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesStatusTextAndLabels"
+        ]),
+        Suite(fileName: "ParityWorkspaceContextResolverGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesContextResolving"
+        ]),
+        Suite(fileName: "ParityWorkspaceAgentProgressModelGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesAgentProgressStatusCopy"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadMutationModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesThreadNoticeMutation",
-            "testWorkspaceModelDelegatesPaneVisibilityMutations",
             "testWorkspaceModelUsesExplicitAgentRunThreadUpdates"
+        ]),
+        Suite(fileName: "ParityWorkspacePaneVisibilityModelGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesPaneVisibilityMutations"
         ]),
         Suite(fileName: "ParityWorkspaceContextRefreshGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectContextRefresh"
@@ -266,10 +274,23 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesMCPSupportTypes",
             "testMCPStdioProberDelegatesCodecAndResultMapping"
         ]),
-        Suite(fileName: "ParityAutomationGateTests.swift", testNames: [
-            "testAutomationModelsLiveOutsideGeneralDomainModels",
-            "testWorkspaceModelDelegatesAutomationStateMutations",
-            "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding",
+        Suite(fileName: "ParityAutomationCoreModelGateTests.swift", testNames: [
+            "testAutomationModelsLiveOutsideGeneralDomainModels"
+        ]),
+        Suite(fileName: "ParityWorkspaceAutomationStateGateTests.swift", testNames: [
+            "testWorkspaceAutomationDataFactoryAndReducerStayFocused",
+            "testWorkspaceAutomationModelDelegatesStateMutations"
+        ]),
+        Suite(fileName: "ParityWorkspaceAutomationRunGateTests.swift", testNames: [
+            "testWorkspaceAutomationRunsDelegateRunnerAndEventSources"
+        ]),
+        Suite(fileName: "ParityAutomationEventSourceGateTests.swift", testNames: [
+            "testMonitorEventSourceWiringStaysImplemented"
+        ]),
+        Suite(fileName: "ParityWorkspaceAutomationSurfaceGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityPlaywrightAutomationGateTests.swift", testNames: [
             "testPlaywrightAutomationFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceRuntimeReviewGateTests.swift", testNames: [
@@ -278,10 +299,16 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceSurfaceDelegatesRuntimeAndExecutionContextContracts",
             "testWorkspaceViewDelegatesRuntimeIssueRecoveryPlanning"
         ]),
-        Suite(fileName: "ParityWorkspaceCommandGateTests.swift", testNames: [
-            "testWorkspaceViewDelegatesCommandPlanning",
-            "testWorkspaceSurfaceDelegatesCommandSurfaceBuilding",
-            "testWorkspaceSurfaceDelegatesCommandPaletteContract",
+        Suite(fileName: "ParityWorkspaceViewCommandPlannerGateTests.swift", testNames: [
+            "testWorkspaceViewDelegatesCommandPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceCommandSurfaceBuilderGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesCommandSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceCommandPaletteContractGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesCommandPaletteContract"
+        ]),
+        Suite(fileName: "ParityPlaywrightCommandPaletteGateTests.swift", testNames: [
             "testPlaywrightCommandPaletteAndGitFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [

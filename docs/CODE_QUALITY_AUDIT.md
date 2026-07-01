@@ -1,5 +1,89 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Command Gate Split
+
+Overall grade after this slice: **A+ workspace command parity gate files, clearer command-surface ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceCommandGateTests.swift`, a 131-line B+ gate that mixed
+native command dispatch planning, command-surface/catalog construction, command-palette/ranker contracts, and
+Playwright command-palette flow placement. The split preserves the same source-boundary checks while making each file
+map to one command responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Native command dispatch | Shared the broad command gate. | `ParityWorkspaceViewCommandPlannerGateTests.swift` owns view command-planner delegation. |
+| Command surface construction | Mixed with palette/ranker and E2E checks. | `ParityWorkspaceCommandSurfaceBuilderGateTests.swift` owns surface-builder and catalog boundaries. |
+| Palette/ranker contracts | Shared the broad command gate. | `ParityWorkspaceCommandPaletteContractGateTests.swift` owns command-palette API/ranker/test ownership. |
+| Playwright command flows | Mixed with native/source contracts. | `ParityPlaywrightCommandPaletteGateTests.swift` owns focused E2E spec placement. |
+| Grade | The original file was **B+** at 131 lines. | Every split workspace command gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceViewCommandPlannerGateTests|ParityWorkspaceCommandSurfaceBuilderGateTests|ParityWorkspaceCommandPaletteContractGateTests|ParityPlaywrightCommandPaletteGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new command runtime or Playwright scenarios.
+- The highest remaining B+ parity hotspots start with execution-slash, interaction-target, and TrustedRouter gates.
+
+## 2026-07-01 Automation Gate Split
+
+Overall grade after this slice: **A+ automation parity gate files, stricter automation ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityAutomationGateTests.swift`, a 140-line B+ gate that mixed core
+automation records, WorkspaceModel automation state mutation, automation run planning, monitor event-source wiring,
+automation pane construction, and Playwright flow placement. The split keeps the same contracts while separating
+automation concerns by owner:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Core automation records | Shared the broad automation gate. | `ParityAutomationCoreModelGateTests.swift` owns core model placement. |
+| State factory and reducer | Mixed with run and surface checks. | `ParityWorkspaceAutomationStateGateTests.swift` owns data/factory/reducer and WorkspaceModel state delegation. |
+| Run planning and event-source use | Mixed with general state mutation checks. | `ParityWorkspaceAutomationRunGateTests.swift` owns runner delegation and monitor trigger metadata wiring. |
+| Monitor event sources | Lived in the broad file and was not registered in the focused-suite manifest. | `ParityAutomationEventSourceGateTests.swift` owns event-source adapter coverage and is now manifest-registered. |
+| Automation pane surface | Mixed with Playwright and model checks. | `ParityWorkspaceAutomationSurfaceGateTests.swift` owns surface-builder delegation. |
+| Playwright automation flows | Shared the broad gate. | `ParityPlaywrightAutomationGateTests.swift` owns focused E2E spec placement. |
+| Grade | The original file was **B+** at 140 lines. | Every split automation gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityAutomationCoreModelGateTests|ParityWorkspaceAutomationStateGateTests|ParityWorkspaceAutomationRunGateTests|ParityAutomationEventSourceGateTests|ParityWorkspaceAutomationSurfaceGateTests|ParityPlaywrightAutomationGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new automation runtime or Playwright scenarios.
+- The highest remaining B+ parity hotspots start with command, execution-slash, interaction-target, and TrustedRouter gates.
+
+## 2026-07-01 Workspace Model State Gate Split
+
+Overall grade after this slice: **A+ workspace model-state parity gate files, clearer state responsibility**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceModelStateGateTests.swift`, a 142-line B+ gate that
+mixed status labels, context resolver plumbing, agent progress copy, thread notice mutation, explicit agent-run thread
+updates, and pane visibility state. The split keeps the same source-boundary contracts while making each file map to
+one WorkspaceModel state concern:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Status copy | Shared the broad model-state gate. | `ParityWorkspaceStatusModelGateTests.swift` owns status text and label delegation. |
+| Context resolution | Mixed with agent progress and pane visibility checks. | `ParityWorkspaceContextResolverGateTests.swift` owns context resolver delegation. |
+| Agent progress | Shared the broad model-state gate. | `ParityWorkspaceAgentProgressModelGateTests.swift` owns agent progress status copy boundaries. |
+| Thread mutations | Mixed with pane visibility checks. | `ParityWorkspaceThreadMutationModelGateTests.swift` owns thread notice and explicit agent-run thread update boundaries. |
+| Pane visibility | Shared the broad model-state gate. | `ParityWorkspacePaneVisibilityModelGateTests.swift` owns pane visibility mutation boundaries. |
+| Grade | The original file was **B+** at 142 lines. | Every split workspace model-state gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceStatusModelGateTests|ParityWorkspaceContextResolverGateTests|ParityWorkspaceAgentProgressModelGateTests|ParityWorkspaceThreadMutationModelGateTests|ParityWorkspacePaneVisibilityModelGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new WorkspaceModel runtime scenarios.
+- The highest remaining B+ parity hotspots start with automation, command, execution-slash, interaction-target, and TrustedRouter gates.
+
 ## 2026-07-01 Workspace Memory Gate Split
 
 Overall grade after this slice: **A+ workspace memory parity gate files, clearer memory ownership**.
