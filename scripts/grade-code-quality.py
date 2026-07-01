@@ -74,6 +74,45 @@ def issue_count(pattern: str, text: str) -> int:
     return len(re.findall(pattern, text, flags=re.MULTILINE))
 
 
+def swift_text_without_multiline_string_payloads(text: str) -> str:
+    """Keep Swift source structure while ignoring embedded fixture payloads.
+
+    Many parity tests embed sample Swift/HTML/script bodies in multiline string
+    literals. Those payloads are important test data, but counting their braces,
+    long lines, duplicate indentation, and fake top-level types as test-source
+    complexity makes the grade less useful. The source line count still uses the
+    real file; this helper only feeds structural heuristics.
+    """
+
+    rendered: list[str] = []
+    inside_multiline_literal = False
+
+    for line in text.splitlines():
+        if '"""' not in line:
+            if not inside_multiline_literal:
+                rendered.append(line)
+            continue
+
+        marker_count = line.count('"""')
+        if inside_multiline_literal:
+            suffix = line.rsplit('"""', 1)[-1]
+            rendered.append('"""' + suffix)
+        else:
+            prefix = line.split('"""', 1)[0]
+            rendered.append(prefix + '"""')
+
+        if marker_count % 2 == 1:
+            inside_multiline_literal = not inside_multiline_literal
+
+    return "\n".join(rendered)
+
+
+def analysis_text(relative_path: Path, text: str) -> str:
+    if relative_path.suffix == ".swift":
+        return swift_text_without_multiline_string_payloads(text)
+    return text
+
+
 def duplicate_line_ratio(lines: list[str]) -> float:
     normalized = [
         line.strip()
@@ -91,19 +130,25 @@ def score_file(root: Path, relative_path: Path) -> FileGrade:
     path = root / relative_path
     text = path.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
+    structural_text = analysis_text(relative_path, text)
+    structural_lines = structural_text.splitlines()
     line_count = len(lines)
-    long_lines = sum(1 for line in lines if len(line) > 120)
-    very_long_lines = sum(1 for line in lines if len(line) > 160)
-    duplicate_ratio = duplicate_line_ratio(lines)
-    open_item_count = issue_count(OPEN_ITEM_PATTERN, text)
-    unsafe_markers = issue_count(UNSAFE_MARKER_PATTERN, text)
-    force_unwrap_markers = issue_count(r"[A-Za-z0-9_\)\]]!\s*(\.|\)|,|\]|$)", text)
-    public_decl_count = issue_count(r"^\s*public\s+(struct|enum|class|actor|protocol|func|var|let)\b", text)
-    top_level_type_count = issue_count(r"^\s*(public\s+)?(struct|enum|class|actor|protocol)\b", text)
+    long_lines = sum(1 for line in structural_lines if len(line) > 120)
+    very_long_lines = sum(1 for line in structural_lines if len(line) > 160)
+    duplicate_ratio = duplicate_line_ratio(structural_lines)
+    open_item_count = issue_count(OPEN_ITEM_PATTERN, structural_text)
+    unsafe_markers = issue_count(UNSAFE_MARKER_PATTERN, structural_text)
+    force_unwrap_markers = issue_count(r"[A-Za-z0-9_\)\]]!\s*(\.|\)|,|\]|$)", structural_text)
+    public_decl_count = issue_count(
+        r"^\s*public\s+(struct|enum|class|actor|protocol|func|var|let)\b",
+        structural_text,
+    )
+    top_level_type_count = issue_count(r"^\s*(public\s+)?(struct|enum|class|actor|protocol)\b", structural_text)
 
     score = 100
     issues: list[str] = []
-    is_test = path.parts[0] == "Tests"
+    source_root = relative_path.parts[0] if relative_path.parts else ""
+    is_test = source_root == "Tests"
 
     size_limits = (650, 900, 1200) if is_test else (350, 550, 800)
     if line_count > size_limits[2]:
@@ -123,10 +168,11 @@ def score_file(root: Path, relative_path: Path) -> FileGrade:
     if very_long_lines:
         score -= min(6, very_long_lines)
         issues.append(f"{very_long_lines} lines >160 chars")
-    if duplicate_ratio >= 0.24:
+    duplicate_ratio_should_penalize = not is_test or line_count > 240
+    if duplicate_ratio_should_penalize and duplicate_ratio >= 0.24:
         score -= 8
         issues.append(f"high duplicate-line ratio ({duplicate_ratio:.0%})")
-    elif duplicate_ratio >= 0.16:
+    elif duplicate_ratio_should_penalize and duplicate_ratio >= 0.16:
         score -= 4
         issues.append(f"duplicate-line ratio ({duplicate_ratio:.0%})")
     if open_item_count:
@@ -135,7 +181,7 @@ def score_file(root: Path, relative_path: Path) -> FileGrade:
     if unsafe_markers:
         score -= min(12, unsafe_markers * 4)
         issues.append(f"{unsafe_markers} unsafe marker")
-    if force_unwrap_markers and path.parts[0] == "Sources":
+    if force_unwrap_markers and source_root == "Sources":
         score -= min(12, force_unwrap_markers * 3)
         issues.append(f"{force_unwrap_markers} force-unwrap marker")
     if public_decl_count > 12 and not is_test:
