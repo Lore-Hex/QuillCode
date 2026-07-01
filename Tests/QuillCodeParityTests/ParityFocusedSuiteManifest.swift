@@ -25,13 +25,17 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityNativeTopBarChromeGateTests.swift", testNames: [
             "testNativeTopBarKeepsCodexStyleChromeQuiet",
-            "testNativeModePickerLivesBesideComposerAccessoryChrome",
-            "testNativeModelPickerKeepsRowsAndDetailsFocused"
+            "testNativeModePickerLivesBesideComposerAccessoryChrome"
         ]),
         Suite(fileName: "ParityTopBarSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesModelCatalogBuilding",
             "testWorkspaceSurfaceDelegatesTopBarSurfaceContracts",
-            "testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding",
+            "testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityNativeModelPickerGateTests.swift", testNames: [
+            "testNativeModelPickerKeepsRowsAndDetailsFocused"
+        ]),
+        Suite(fileName: "ParityModelPickerIntegrationGateTests.swift", testNames: [
             "testModelPickerWorkspaceIntegrationCoverageStaysFocused"
         ]),
         Suite(fileName: "ParitySlashRepositoryParserGateTests.swift", testNames: [
