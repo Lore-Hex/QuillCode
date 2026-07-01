@@ -2,7 +2,7 @@ import XCTest
 
 final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
     func testLiveTrustedRouterSmokeManifestRecordsSecretFreeRuntimeEvidence() throws {
-        let script = try Self.scriptText(named: "live-tr-smoke.sh")
+        let script = try Self.liveTrustedRouterSmokeText()
 
         XCTAssertTrue(script.contains("API_KEY_SOURCE=\"missing\""))
         XCTAssertTrue(script.contains("API_KEY_SOURCE=\"env:QUILLCODE_API_KEY\""))
@@ -31,6 +31,8 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("quillcode_live_forbidden_shell"))
         XCTAssertTrue(script.contains("forbidden-live.txt"))
         XCTAssertTrue(script.contains("downloads/forbidden-live.html"))
+        XCTAssertTrue(script.contains("validate_no_workspace_file"))
+        XCTAssertTrue(script.contains("assert_workspace_file_absent"))
         XCTAssertTrue(script.contains("PASSIVE_ACTION_PATTERN="))
         XCTAssertTrue(script.contains("I will"))
         XCTAssertTrue(script.contains("execute|inspect|list|show|review|read|fetch|save"))

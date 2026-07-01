@@ -1,5 +1,40 @@
 # Code Quality Audit
 
+## 2026-07-01 Live TrustedRouter Smoke Split
+
+Overall grade after this slice: **A+ live smoke files, stable executable facade, lower operational risk**.
+
+This pass re-graded the repo after the native click-probe validator split and addressed the new lowest scripts file:
+`scripts/live-tr-smoke.sh`. The old 804-line shell script mixed runtime setup, API-key resolution, cleanup traps,
+artifact manifests, failure reporting, output assertions, transcript integrity checks, and the scenario matrix. The split
+keeps the public command path and all artifact names stable while moving behavior into focused helpers under
+`scripts/live_tr_smoke/`.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Entry point | `live-tr-smoke.sh` owned every helper and scenario. | `live-tr-smoke.sh` owns configuration, helper sourcing, setup order, and the visible scenario list. |
+| Runtime setup | Tool checks, key loading, git workspace setup, prompt execution, and scenario lifecycle were interleaved with assertions. | `environment.sh` owns runtime setup and scenario execution helpers. |
+| Artifacts | Cleanup, JSONL scenario recording, manifest writing, artifact copying, and failure printing were mixed with scenario validators. | `artifacts.sh` owns artifact/report/failure behavior. |
+| Assertions | Output checks, file checks, negative-intent checks, and transcript integrity shared one large script. | `assertions.sh` owns output/workspace validators; `transcript_assertions.sh` owns persisted transcript integrity. Negative-action validators now check both forbidden text and forbidden workspace side effects. |
+| Parity coverage | Source-inspection tests read only the entry script. | Parity tests read the entry script plus every `scripts/live_tr_smoke/*.sh` helper. |
+| Scripts grade | `live-tr-smoke.sh` was **B+** at 804 lines. | The entry script and every `scripts/live_tr_smoke/*.sh` helper now grade **A+**. |
+
+Verification:
+
+- `bash -n scripts/live-tr-smoke.sh scripts/live_tr_smoke/*.sh`
+- `QUILLCODE_LIVE_KEY_FILE=/tmp/nonexistent-quillcode-key QUILLCODE_LIVE_KEEP_ARTIFACTS=1 scripts/live-tr-smoke.sh`
+  exits `2` and keeps failure artifacts.
+- `swift test --filter ParitySmokeScriptGateTests`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The live smoke scenario matrix intentionally remains visible in the entry script instead of being converted to opaque
+  data tables. The deterministic grade is now A+, but preserving this reviewability is more important than shaving
+  the last repeated scenario-call lines.
+- `assertions.sh` and `transcript_assertions.sh` still contain intentional shell and jq repetition. Further improvement
+  should prefer behavior-focused tests before making the assertions more abstract.
+
 ## 2026-07-01 Native Click-Probe Validator Split
 
 Overall grade after this slice: **A+ scripts module, stable CLI facade, focused validator modules**.
