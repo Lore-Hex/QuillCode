@@ -138,6 +138,7 @@ private struct QuillCodeDesktopCommandNotifications: ViewModifier {
 
     private func installObservers() {
         guard observers.isEmpty else { return }
+        controller.installApprovalNotificationHandling()
         observers = [
             observe(.quillCodeNewChat) { $0.newChat() },
             observe(.quillCodeCycleMode) { $0.runWorkspaceCommand("cycle-mode") },

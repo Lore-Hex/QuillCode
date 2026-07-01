@@ -23,6 +23,15 @@ struct MacAutomationNotifier: QuillCodeAutomationNotifying {
             content.title = notification.title
             content.body = notification.body
             content.sound = .default
+            // A blocked-on-approval run gets Approve/Skip buttons on the notification, so the user can
+            // decide the gate without opening QuillCode. Everything else is a plain "come look" ping.
+            if notification.kind == .needsApproval, let requestID = notification.approvalRequestID {
+                content.categoryIdentifier = QuillCodeApprovalNotification.categoryIdentifier
+                content.userInfo = QuillCodeApprovalNotification.userInfo(
+                    threadID: notification.threadID,
+                    requestID: requestID
+                )
+            }
 
             let request = UNNotificationRequest(
                 identifier: "quillcode-run-\(notification.id)",
