@@ -98,6 +98,17 @@ public enum WorkspaceTurnRevertPlanner {
         plans(for: thread).first { $0.turnMessageID == turnMessageID }
     }
 
+    /// Whether this thread's run changed files at all — an `apply_patch` edit OR any non-read mutating
+    /// tool (shell write, git, file write, …). The verification gate uses this to check only after an
+    /// edit-bearing run. Reuses the same risk-classified mutation test as the revert-scope flag, so it
+    /// can never silently miss a new mutating tool.
+    static func threadMadeEdits(_ thread: ChatThread) -> Bool {
+        thread.events.contains { event in
+            guard event.kind == .toolQueued, let call = decodeCall(event.payloadJSON) else { return false }
+            return call.name == ToolDefinition.applyPatch.name || isMutatingNonApplyTool(call.name)
+        }
+    }
+
     private static func decodeCall(_ payloadJSON: String?) -> ToolCall? {
         guard let payloadJSON else { return nil }
         return try? JSONHelpers.decode(ToolCall.self, from: payloadJSON)
