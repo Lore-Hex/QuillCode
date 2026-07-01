@@ -16,7 +16,7 @@ extension QuillCodeWorkspaceModel {
         return root.projects.firstIndex { $0.id == activeProjectID }
     }
 
-    private var activeInstructionSources: [ProjectInstruction] {
+    var activeInstructionSources: [ProjectInstruction] {
         WorkspaceContextResolver(
             projects: root.projects,
             globalMemories: root.globalMemories,

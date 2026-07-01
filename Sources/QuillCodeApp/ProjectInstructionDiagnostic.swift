@@ -10,6 +10,10 @@ struct ProjectInstructionDiagnostic: Sendable, Hashable, Identifiable {
         sourceReferences.map(\.locationLabel).joined(separator: ", ")
     }
 
+    var isConflict: Bool {
+        statusLabel == ProjectInstructionDiagnosticStatusLabel.conflict
+    }
+
     init(
         id: String,
         title: String,
@@ -25,6 +29,12 @@ struct ProjectInstructionDiagnostic: Sendable, Hashable, Identifiable {
         self.sourceReferences = sourceReferences
         self.resolutionHint = resolutionHint
     }
+}
+
+enum ProjectInstructionDiagnosticStatusLabel {
+    static let review = "review"
+    static let scope = "scope"
+    static let conflict = "conflict"
 }
 
 struct ProjectInstructionDiagnosticSourceReference: Sendable, Hashable {

@@ -250,6 +250,18 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         assertContainsAction(
             html,
             testID: "activity-source-action",
+            commandID: "activity-instruction-apply:0:\(conflictID)",
+            title: "Keep requires tests"
+        )
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
+            commandID: "activity-instruction-apply:1:\(conflictID)",
+            title: "Keep avoids tests"
+        )
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
             commandID: "activity-instruction-resolve:\(conflictID)",
             title: "Resolve"
         )

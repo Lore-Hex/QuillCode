@@ -30,6 +30,7 @@ enum WorkspaceCommandPlan: Equatable {
     case toggleActivitySection(ActivitySectionKind)
     case openActivitySource(path: String, lineNumber: Int?)
     case editActivitySource(path: String, lineNumber: Int?)
+    case applyInstructionDiagnostic(id: String, keepReferenceIndex: Int)
     case resolveInstructionDiagnostic(id: String)
     case dismissInstructionDiagnostic(id: String)
     case setDraft(String)
@@ -183,11 +184,18 @@ enum WorkspaceCommandPlan: Equatable {
                 return .editActivitySource(path: command.path, lineNumber: command.lineNumber)
             }
         }
-        if let id = commandID.value(after: "activity-instruction-resolve:") {
-            return id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : .resolveInstructionDiagnostic(id: id)
-        }
-        if let id = commandID.value(after: "activity-instruction-dismiss:") {
-            return id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : .dismissInstructionDiagnostic(id: id)
+        if let command = WorkspaceInstructionDiagnosticCommand(commandID: commandID) {
+            switch command.action {
+            case .apply(let keepReferenceIndex):
+                return .applyInstructionDiagnostic(
+                    id: command.diagnosticID,
+                    keepReferenceIndex: keepReferenceIndex
+                )
+            case .resolve:
+                return .resolveInstructionDiagnostic(id: command.diagnosticID)
+            case .dismiss:
+                return .dismissInstructionDiagnostic(id: command.diagnosticID)
+            }
         }
         return nil
     }

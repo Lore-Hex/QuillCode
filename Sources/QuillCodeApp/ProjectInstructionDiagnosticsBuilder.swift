@@ -17,7 +17,7 @@ enum ProjectInstructionDiagnosticsBuilder {
                 id: "instruction-duplicate-scope-\(normalizedID(scopePath))",
                 title: "Shared instruction scope",
                 detail: "\(ProjectInstruction.scopeLabel(for: scopePath)): \(pathList(scopedInstructions))",
-                statusLabel: "review",
+                statusLabel: ProjectInstructionDiagnosticStatusLabel.review,
                 sourceReferences: scopedInstructions.map {
                     ProjectInstructionDiagnosticReferenceBuilder.reference(
                         for: $0,
@@ -47,7 +47,7 @@ enum ProjectInstructionDiagnosticsBuilder {
                 id: "instruction-nested-override-\(normalizedID(scopePath))",
                 title: "Nested instruction override",
                 detail: detail,
-                statusLabel: "scope",
+                statusLabel: ProjectInstructionDiagnosticStatusLabel.scope,
                 sourceReferences: scopedInstructions.map {
                     ProjectInstructionDiagnosticReferenceBuilder.reference(
                         for: $0,
@@ -98,7 +98,7 @@ enum ProjectInstructionDiagnosticsBuilder {
                     id: id,
                     title: "Conflicting instruction intent",
                     detail: detail,
-                    statusLabel: "conflict",
+                    statusLabel: ProjectInstructionDiagnosticStatusLabel.conflict,
                     sourceReferences: [
                         ProjectInstructionDiagnosticReferenceBuilder.reference(
                             for: first.instruction,
