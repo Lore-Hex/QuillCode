@@ -160,6 +160,27 @@ class QuillCodeParityTestCase: XCTestCase {
         return ([entrypoint] + packageFiles).joined(separator: "\n")
     }
 
+    static func liveTrustedRouterSmokeText() throws -> String {
+        let helperRoot = packageRoot()
+            .appendingPathComponent("scripts")
+            .appendingPathComponent("live_tr_smoke")
+        let helperFiles = try FileManager.default.contentsOfDirectory(
+            at: helperRoot,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "sh" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        .map { try String(contentsOf: $0, encoding: .utf8) }
+
+        let entrypoint = try String(
+            contentsOf: self.packageRoot()
+                .appendingPathComponent("scripts")
+                .appendingPathComponent("live-tr-smoke.sh"),
+            encoding: .utf8
+        )
+        return ([entrypoint] + helperFiles).joined(separator: "\n")
+    }
+
     static func safetySourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeSafety")
