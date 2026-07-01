@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Model State Gate Split
+
+Overall grade after this slice: **A+ workspace model-state parity gate files, clearer state responsibility**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceModelStateGateTests.swift`, a 142-line B+ gate that
+mixed status labels, context resolver plumbing, agent progress copy, thread notice mutation, explicit agent-run thread
+updates, and pane visibility state. The split keeps the same source-boundary contracts while making each file map to
+one WorkspaceModel state concern:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Status copy | Shared the broad model-state gate. | `ParityWorkspaceStatusModelGateTests.swift` owns status text and label delegation. |
+| Context resolution | Mixed with agent progress and pane visibility checks. | `ParityWorkspaceContextResolverGateTests.swift` owns context resolver delegation. |
+| Agent progress | Shared the broad model-state gate. | `ParityWorkspaceAgentProgressModelGateTests.swift` owns agent progress status copy boundaries. |
+| Thread mutations | Mixed with pane visibility checks. | `ParityWorkspaceThreadMutationModelGateTests.swift` owns thread notice and explicit agent-run thread update boundaries. |
+| Pane visibility | Shared the broad model-state gate. | `ParityWorkspacePaneVisibilityModelGateTests.swift` owns pane visibility mutation boundaries. |
+| Grade | The original file was **B+** at 142 lines. | Every split workspace model-state gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceStatusModelGateTests|ParityWorkspaceContextResolverGateTests|ParityWorkspaceAgentProgressModelGateTests|ParityWorkspaceThreadMutationModelGateTests|ParityWorkspacePaneVisibilityModelGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new WorkspaceModel runtime scenarios.
+- The highest remaining B+ parity hotspots start with automation, command, execution-slash, interaction-target, and TrustedRouter gates.
+
 ## 2026-07-01 Workspace Memory Gate Split
 
 Overall grade after this slice: **A+ workspace memory parity gate files, clearer memory ownership**.
