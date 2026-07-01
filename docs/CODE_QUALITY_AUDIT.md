@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Surface Gate Split
+
+Overall grade after this slice: **A+ workspace surface parity gate files, clearer UI surface ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceSurfaceGateTests.swift`, which mixed secondary-pane
+surface records, native secondary-pane views, composer model/mode controls, terminal/browser pane files, terminal
+surface records, and terminal state DTO ownership in one 190-line B+ suite. The split keeps the same source-boundary
+checks while grouping each surface family under a focused gate:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Secondary pane surfaces and native panes | Shared the broad workspace surface gate. | `ParityWorkspaceSecondaryPaneSurfaceGateTests.swift` owns Extensions, Memories, Automations, and shared secondary-pane chrome contracts. |
+| Composer model/mode controls | Mixed with terminal and secondary-pane checks. | `ParityWorkspaceComposerSurfaceGateTests.swift` owns composer surface, model picker, and approval-mode separation. |
+| Terminal/browser surfaces | Mixed with composer and secondary-pane checks. | `ParityWorkspaceTerminalBrowserSurfaceGateTests.swift` owns terminal/browser view files, terminal surface DTOs, and terminal state/adapter ownership. |
+| Manifest | Listed only the secondary-pane surface check. | `ParityFocusedSuiteManifest.swift` now lists all six split surface checks under their owning files. |
+| Grade | The original workspace surface gate was **B+** at 190 lines. | Every split workspace surface gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspace(SecondaryPaneSurface|ComposerSurface|TerminalBrowserSurface)GateTests|ParityGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves architecture ownership and diagnostics but does
+  not add new rendered or native surface interaction scenarios.
+- The next broad B+ hotspots are workspace integration, agent, workspace model, workspace memory, and model-state gates.
+
 ## 2026-07-01 Top-Bar Model Picker Gate Refinement
 
 Overall grade after this slice: **A+ top-bar/model-picker parity gate files, stricter focused-suite ownership**.

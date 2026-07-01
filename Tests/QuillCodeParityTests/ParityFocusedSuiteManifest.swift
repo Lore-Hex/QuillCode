@@ -60,8 +60,17 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityModelGateTests.swift", testNames: [
             "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
         ]),
-        Suite(fileName: "ParityWorkspaceSurfaceGateTests.swift", testNames: [
-            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"
+        Suite(fileName: "ParityWorkspaceSecondaryPaneSurfaceGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts",
+            "testNativeSecondaryPanesUseFocusedViewFiles"
+        ]),
+        Suite(fileName: "ParityWorkspaceComposerSurfaceGateTests.swift", testNames: [
+            "testComposerSeparatesModelAndApprovalModeControls"
+        ]),
+        Suite(fileName: "ParityWorkspaceTerminalBrowserSurfaceGateTests.swift", testNames: [
+            "testNativeTerminalAndBrowserPanesUseFocusedViewFiles",
+            "testWorkspaceSurfaceDelegatesTerminalSurfaceContracts",
+            "testTerminalStateContractsLiveOutsideEngine"
         ]),
         Suite(fileName: "ParityWorkspacePlaywrightFocusedSpecGateTests.swift", testNames: [
             "testPlaywrightTerminalFlowsStayInFocusedSpec",

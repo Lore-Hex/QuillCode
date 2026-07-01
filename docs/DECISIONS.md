@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+- Workspace surface parity gates should be split by UI surface family. Secondary pane contracts, composer model/mode
+  controls, and terminal/browser surfaces now live in focused source-inspection gates instead of one broad workspace
+  surface file. The focused-suite manifest must list every split surface check so future UI work cannot hide in an
+  over-broad gate.
 - Slash parser parity gates should be split by command domain. Repository/project/remote parsers, terminal/mode/model parsers, thread/memory parsers, and workspace/environment/scheduling parsers now live in separate focused gates instead of one broad parser ownership file.
 - Top-bar parity gates should be split by presentation, native chrome, and surface/model-catalog ownership. `ParityTopBarPresentationGateTests.swift` owns status/runtime copy semantics, `ParityNativeTopBarChromeGateTests.swift` owns native chrome and picker composition, and `ParityTopBarSurfaceGateTests.swift` owns top-bar DTO/model-catalog construction and focused integration-test placement.
 - Browser parity gates should be grouped by browser architecture boundary. Browser state/surface ownership, snapshot extraction, visible-session sync, workflow/location routing, browser tool/rendering ownership, broad-suite exclusion, and Playwright flow placement now live in focused parity classes instead of one mixed `ParityBrowserGateTests.swift` file.
