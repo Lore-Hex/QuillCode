@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-07-01 Activity Integration Test Boundary Pass
+
+Overall grade after this slice: **A+ app test module maintained, activity integration hotspot removed from lowest-file list**.
+
+This pass re-graded every file and module, then addressed the next low-risk test-quality hotspot:
+`WorkspaceActivityIntegrationTests.swift`. The file had become a grab bag of activity surface projection, instruction
+diagnostics, context telemetry, authored plans, section commands, plan/handoff tools, and subagent progress. The split
+is behavior-preserving, but gives future activity work smaller files with clearer ownership.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Activity surface/context coverage | One broad file mixed source rows, instruction review, context telemetry, plan/handoff, commands, and subagents. | `WorkspaceActivityIntegrationTests.swift` now owns activity surface and context projection. |
+| Instruction review coverage | Source rows, instruction diagnostics, dismissal, and reintroduced resolved diagnostics lived beside unrelated activity surface tests. | `WorkspaceActivityInstructionIntegrationTests.swift` owns instruction source rows and instruction-review projection. |
+| Plan and handoff coverage | Authored plan/handoff surface projection and plan/handoff tool execution lived beside unrelated instruction tests. | `WorkspaceActivityPlanHandoffIntegrationTests.swift` owns authored plan/handoff rows, activity commands, section collapse, and plan/handoff tool payload normalization. |
+| Subagent coverage | Subagent progress tool behavior lived in the same broad activity file. | `WorkspaceActivitySubagentIntegrationTests.swift` owns subagent progress activity rows and validation failures. |
+| Architecture guard | Parity gates only kept plan-update tests out of `WorkspaceModelTests`. | `ParityWorkspaceModelActivityGateTests` now also rejects plan-update flows drifting back into the surface/source activity suite and grades **A+** after helper extraction. |
+| File grades | `WorkspaceActivityIntegrationTests.swift` was a **B+** app-test hotspot and the lowest App test file. | The app-test module remains **A+** and the activity suite is no longer in the module's lowest-file list. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceActivityIntegrationTests|WorkspaceActivityInstructionIntegrationTests|WorkspaceActivityPlanHandoffIntegrationTests|WorkspaceActivitySubagentIntegrationTests|ParityWorkspaceModelActivityGateTests'`
+- `swift test`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This pass intentionally avoids the larger E2E/script/parity harness hotspots because they need separate reviewable
+  slices and have more CI blast radius.
+
 ## 2026-07-01 Core Model Boundary Split
 
 Overall grade after this slice: **A+ core-source module, A+ focused tool/project model files**.
