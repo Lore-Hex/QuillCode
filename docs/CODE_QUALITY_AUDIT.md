@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-07-01 Automation Gate Split
+
+Overall grade after this slice: **A+ automation parity gate files, stricter automation ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityAutomationGateTests.swift`, a 140-line B+ gate that mixed core
+automation records, WorkspaceModel automation state mutation, automation run planning, monitor event-source wiring,
+automation pane construction, and Playwright flow placement. The split keeps the same contracts while separating
+automation concerns by owner:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Core automation records | Shared the broad automation gate. | `ParityAutomationCoreModelGateTests.swift` owns core model placement. |
+| State factory and reducer | Mixed with run and surface checks. | `ParityWorkspaceAutomationStateGateTests.swift` owns data/factory/reducer and WorkspaceModel state delegation. |
+| Run planning and event-source use | Mixed with general state mutation checks. | `ParityWorkspaceAutomationRunGateTests.swift` owns runner delegation and monitor trigger metadata wiring. |
+| Monitor event sources | Lived in the broad file and was not registered in the focused-suite manifest. | `ParityAutomationEventSourceGateTests.swift` owns event-source adapter coverage and is now manifest-registered. |
+| Automation pane surface | Mixed with Playwright and model checks. | `ParityWorkspaceAutomationSurfaceGateTests.swift` owns surface-builder delegation. |
+| Playwright automation flows | Shared the broad gate. | `ParityPlaywrightAutomationGateTests.swift` owns focused E2E spec placement. |
+| Grade | The original file was **B+** at 140 lines. | Every split automation gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityAutomationCoreModelGateTests|ParityWorkspaceAutomationStateGateTests|ParityWorkspaceAutomationRunGateTests|ParityAutomationEventSourceGateTests|ParityWorkspaceAutomationSurfaceGateTests|ParityPlaywrightAutomationGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new automation runtime or Playwright scenarios.
+- The highest remaining B+ parity hotspots start with command, execution-slash, interaction-target, and TrustedRouter gates.
+
 ## 2026-07-01 Workspace Model State Gate Split
 
 Overall grade after this slice: **A+ workspace model-state parity gate files, clearer state responsibility**.
