@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Slash Parser Gate Split
+
+Overall grade after this slice: **A+ slash parser parity gate files, command-domain ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParitySlashGateTests.swift`, which mixed pull-request, project,
+terminal, mode, model, remote-project, thread, memory, workspace, environment, and scheduling parser contracts in one
+195-line B+ gate. The split preserves the same delegation checks while grouping them by slash-command domain:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Repository and project commands | Shared the broad slash gate. | `ParitySlashRepositoryParserGateTests.swift` owns PR, project, and remote-project parser delegation. |
+| Session commands | Shared the broad slash gate. | `ParitySlashSessionParserGateTests.swift` owns terminal, mode, and model parser delegation. |
+| Thread and memory commands | Shared the broad slash gate. | `ParitySlashThreadMemoryParserGateTests.swift` owns thread lifecycle and memory parser delegation. |
+| Workspace automation commands | Shared the broad slash gate. | `ParitySlashWorkspaceParserGateTests.swift` owns workspace, worktree, environment, and scheduling parser delegation. |
+| Grade | The original file was **B+** at 195 lines. | Every split slash parser gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParitySlashRepositoryParserGateTests|ParitySlashSessionParserGateTests|ParitySlashThreadMemoryParserGateTests|ParitySlashWorkspaceParserGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new slash runtime scenarios.
+- The highest remaining B+ parity hotspots start with workspace execution-tool and workspace surface gates.
+
 ## 2026-07-01 Top Bar Gate Split
 
 Overall grade after this slice: **A+ top-bar parity gate files, clearer chrome/surface boundaries**.
