@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-01 Local GitHub Pull Request Executor Split
+
+Overall grade after this slice: **A+ local PR executor facade, A/A+ local PR command cluster, A+ tools source module average**.
+
+This pass addressed the remaining production tools hotspot from the generated report: `GitHubPullRequestToolExecutor.swift`. The old file mixed public PR API methods, GitHub CLI argument assembly, review-thread GraphQL/API argument construction, metadata lookups, selector validation, and URL artifact extraction.
+
+| Area | Before | After |
+| --- | --- | --- |
+| PR executor facade | `GitHubPullRequestToolExecutor.swift` was a 393-line **B+** file with command construction and runner orchestration mixed together. | `GitHubPullRequestToolExecutor.swift` is now a 36-line **A+** state/runner facade. Public methods live in small family extensions. |
+| PR command families | Create/view/checks/diff/checkout, reviewer/label/comment edits, review comments/replies/threads, and merge assembly lived in one file. | `GitHubPullRequestBaseCommandBuilder.swift`, `GitHubPullRequestEditCommandBuilder.swift`, `GitHubPullRequestReviewCommandBuilder.swift`, and `GitHubPullRequestMergeCommandBuilder.swift` own those command families. |
+| Public API surface | All public PR methods lived in one large implementation file. | `GitHubPullRequestToolExecutorBaseCommands.swift`, `GitHubPullRequestToolExecutorEditCommands.swift`, `GitHubPullRequestToolExecutorReviewCommands.swift`, and `GitHubPullRequestToolExecutorMergeCommands.swift` split the public facade by behavior. |
+| Shared support | URL artifact decoration and repository owner/name splitting were private executor helpers. | `GitHubPullRequestCommandSupport.swift` centralizes selector assembly, URL artifact decoration, and repository owner/name splitting. |
+| Architecture gates | Parity tests only required metadata resolution to stay outside the executor. | `ParityToolGateTests` now requires the local PR executor extensions and command builders, and rejects CLI/API construction drifting back into the core facade. |
+
+Verification:
+
+- `swift test --filter 'GitHubPullRequestToolExecutorTests|GitHubPullRequestMetadataResolverTests|ParityToolGateTests'`
+- `swift test` (1968 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice preserves existing PR behavior and does not add new GitHub workflow capabilities. The next tools-source hotspots are `FileToolExecutor.swift`, `GitToolDefinitions.swift`, and `GitHubPullRequestInputValidator.swift`.
+- `GitHubPullRequestToolExecutorEditCommands.swift` and `GitHubPullRequestToolExecutorReviewCommands.swift` grade **A** due to repeated wrapper signatures, not size or behavior coupling.
+
 ## 2026-07-01 Agent Runner Boundary Split
 
 Overall grade after this slice: **A+ agent runner facade, A+ agent source module average, no new agent runner file below A+**.
