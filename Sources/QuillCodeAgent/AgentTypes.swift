@@ -43,13 +43,26 @@ public enum AgentError: Error, CustomStringConvertible {
     }
 }
 
+/// Why an agent run ended — so a run that HIT its tool-step ceiling (and had a summary synthesized from
+/// the last tool result) is no longer indistinguishable from a run the model genuinely finished. The
+/// unattended-driving trust story needs "finished" to mean finished, not "gave up at the budget".
+public enum AgentRunStopReason: Sendable, Hashable {
+    /// The model returned a final answer (or a repeated-call was finalized) — a genuine finish.
+    case finished
+    /// The run exhausted `maxToolSteps` without the model returning a final answer; the summary is
+    /// synthesized from the last tool result, not a real conclusion.
+    case toolStepCeilingExhausted(limit: Int)
+}
+
 public struct AgentRunResult: Sendable {
     public var thread: ChatThread
     public var toolResults: [ToolResult]
+    public var stopReason: AgentRunStopReason
 
-    public init(thread: ChatThread, toolResults: [ToolResult]) {
+    public init(thread: ChatThread, toolResults: [ToolResult], stopReason: AgentRunStopReason = .finished) {
         self.thread = thread
         self.toolResults = toolResults
+        self.stopReason = stopReason
     }
 }
 

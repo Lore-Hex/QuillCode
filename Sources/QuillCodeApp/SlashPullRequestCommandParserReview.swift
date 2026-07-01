@@ -2,10 +2,18 @@ import Foundation
 import QuillCodeTools
 
 extension SlashPullRequestCommandParser {
+    private struct ReviewTokenSlice {
+        let selector: String?
+        let tokens: [String]
+        let valueStartIndex: Int
+    }
+
     static func parseReview(_ argument: String) -> SlashCommand {
         let parts = argument.split(maxSplits: 1, whereSeparator: \.isWhitespace)
         guard let rawAction = parts.first?.lowercased() else {
-            return .invalid("Usage: /pr review approve, /pr review comment body, or /pr review request_changes body")
+            return .invalid(
+                "Usage: /pr review approve, /pr review comment body, or /pr review request_changes body"
+            )
         }
         let rest = parts.count > 1
             ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -25,19 +33,18 @@ extension SlashPullRequestCommandParser {
     }
 
     static func parseReviewComment(_ argument: String) -> SlashCommand {
-        let selectorTokens = argument.split(maxSplits: 3, whereSeparator: \.isWhitespace).map(String.init)
-        let hasSelector = selectorTokens.count >= 4
-            && looksLikePullRequestSelector(selectorTokens[0])
-            && Int(selectorTokens[2]) != nil
-        let tokens = hasSelector
-            ? selectorTokens
-            : argument.split(maxSplits: 2, whereSeparator: \.isWhitespace).map(String.init)
+        let parsed = reviewTokenSlice(
+            from: argument,
+            selectorMaxSplits: 3,
+            fallbackMaxSplits: 2,
+            requiredSelectorIntegerIndex: 2
+        )
+        let tokens = parsed.tokens
         guard tokens.count >= 3 else {
             return .invalid("Usage: /pr review-comment OptionalPRSelector path line comment body")
         }
 
-        let selector = hasSelector ? normalizedPullRequestSelector(tokens[0]) : nil
-        let pathIndex = hasSelector ? 1 : 0
+        let pathIndex = parsed.valueStartIndex
         let lineIndex = pathIndex + 1
         let bodyIndex = pathIndex + 2
         guard tokens.indices.contains(bodyIndex),
@@ -49,7 +56,7 @@ extension SlashPullRequestCommandParser {
         return pullRequestTool(
             .gitPullRequestReviewComment,
             arguments: compact([
-                "selector": selector,
+                "selector": parsed.selector,
                 "path": tokens[pathIndex],
                 "line": line,
                 "body": tokens[bodyIndex]
@@ -58,19 +65,18 @@ extension SlashPullRequestCommandParser {
     }
 
     static func parseReviewReply(_ argument: String) -> SlashCommand {
-        let selectorTokens = argument.split(maxSplits: 2, whereSeparator: \.isWhitespace).map(String.init)
-        let hasSelector = selectorTokens.count >= 3
-            && looksLikePullRequestSelector(selectorTokens[0])
-            && Int(selectorTokens[1]) != nil
-        let tokens = hasSelector
-            ? selectorTokens
-            : argument.split(maxSplits: 1, whereSeparator: \.isWhitespace).map(String.init)
+        let parsed = reviewTokenSlice(
+            from: argument,
+            selectorMaxSplits: 2,
+            fallbackMaxSplits: 1,
+            requiredSelectorIntegerIndex: 1
+        )
+        let tokens = parsed.tokens
         guard tokens.count >= 2 else {
             return .invalid("Usage: /pr review-reply OptionalPRSelector commentId reply body")
         }
 
-        let selector = hasSelector ? normalizedPullRequestSelector(tokens[0]) : nil
-        let commentIDIndex = hasSelector ? 1 : 0
+        let commentIDIndex = parsed.valueStartIndex
         let bodyIndex = commentIDIndex + 1
         guard tokens.indices.contains(bodyIndex),
               let commentID = Int(tokens[commentIDIndex]),
@@ -82,10 +88,32 @@ extension SlashPullRequestCommandParser {
         return pullRequestTool(
             .gitPullRequestReviewReply,
             arguments: compact([
-                "selector": selector,
+                "selector": parsed.selector,
                 "commentId": commentID,
                 "body": tokens[bodyIndex]
             ])
+        )
+    }
+
+    private static func reviewTokenSlice(
+        from argument: String,
+        selectorMaxSplits: Int,
+        fallbackMaxSplits: Int,
+        requiredSelectorIntegerIndex: Int
+    ) -> ReviewTokenSlice {
+        let selectorTokens = argument
+            .split(maxSplits: selectorMaxSplits, whereSeparator: \.isWhitespace)
+            .map(String.init)
+        let hasSelector = selectorTokens.indices.contains(requiredSelectorIntegerIndex)
+            && looksLikePullRequestSelector(selectorTokens[0])
+            && Int(selectorTokens[requiredSelectorIntegerIndex]) != nil
+        let tokens = hasSelector
+            ? selectorTokens
+            : argument.split(maxSplits: fallbackMaxSplits, whereSeparator: \.isWhitespace).map(String.init)
+        return ReviewTokenSlice(
+            selector: hasSelector ? normalizedPullRequestSelector(tokens[0]) : nil,
+            tokens: tokens,
+            valueStartIndex: hasSelector ? 1 : 0
         )
     }
 
