@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-07-01 HTML Renderer Delegation Gate Split
+
+Overall grade after this slice: **A+ HTML renderer parity gate files, explicit renderer-family ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityHTMLRendererDelegationGateTests.swift`, which mixed tool-card,
+top-bar, terminal, secondary-pane, review, transcript, and sidebar renderer contracts in one 206-line B+ suite. The split
+keeps the same source contracts while grouping checks by renderer family:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool cards | Mixed with unrelated HTML renderer checks. | `ParityHTMLToolCardRendererGateTests.swift` owns tool-card renderer and shared execution-chip delegation. |
+| Top bar | Shared the broad renderer delegation gate. | `ParityHTMLTopBarRendererGateTests.swift` owns top-bar chrome, overflow, and quiet status metadata contracts. |
+| Terminal | Mixed with transcript and sidebar checks. | `ParityHTMLTerminalRendererGateTests.swift` owns terminal pane renderer delegation. |
+| Secondary panes | Mixed extensions, memories, Activity, automations, and shared primitives with other HTML surfaces. | `ParityHTMLSecondaryPaneRendererGateTests.swift` owns secondary-pane facade and focused pane renderer contracts. |
+| Review/transcript | Split across unrelated assertions. | `ParityHTMLTranscriptRendererGateTests.swift` owns transcript and review renderer delegation. |
+| Sidebar | Buried at the bottom of the broad gate. | `ParityHTMLSidebarRendererGateTests.swift` owns sidebar facade plus project/thread/saved-search/command renderer contracts. |
+| Grade | The original file was **B+** at 206 lines. | Every split HTML renderer gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityHTML.*GateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves reviewability and failure localization but does not
+  add new rendered-browser scenarios.
+- The next broad B+ hotspots are top bar, slash, execution-tool, workspace-surface, and workspace-integration gates.
+
 ## 2026-07-01 Workspace Model Thread Gate Split
 
 Overall grade after this slice: **A+ thread/context/configuration parity gate files, cleaner focused-suite ownership**.
