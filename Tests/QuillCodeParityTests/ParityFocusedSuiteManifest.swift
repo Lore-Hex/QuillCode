@@ -158,6 +158,7 @@ struct ParityFocusedSuiteManifest {
             "testAgentRunnerDelegatesFinalAnswerFormatting",
             "testMockLLMClientLivesOutsideAgentRunnerFile",
             "testAgentStreamingHelpersLiveOutsideAgentRunnerFile",
+            "testAgentContractsAndActionResolutionLiveOutsideRunnerFile",
             "testAgentToolStepRunnerLivesOutsideAgentRunnerFile",
             "testAgentBehaviorTestsUseFocusedSuites"
         ]),

@@ -28,7 +28,7 @@ Residual risk:
 
 ## 2026-07-01 Agent Runner Boundary Split
 
-Overall grade after this slice: **A+ agent runner facade, A+ agent source module average, no new agent runner file below A+**.
+Overall grade after this slice: **A+ agent runner facade, A+ agent source module average, A+ streaming/promise/prompt cluster**.
 
 This pass addressed the remaining production agent hotspot from the generated report: `Agent.swift`. The old file had grown into a 425-line mixed orchestration surface that owned public API types, action selection, streaming collectors, usage-event streaming, reasoning/draft publication, and promised-work correction.
 
@@ -39,17 +39,21 @@ This pass addressed the remaining production agent hotspot from the generated re
 | Action selection | Immediate-action preflight, usage streaming, text streaming, and non-streaming fallback lived inline in the runner. | `AgentActionResolver.swift`, `AgentTextStreamActionRunner.swift`, and `AgentUsageStreamActionRunner.swift` own the dispatch path. All grade **A+**. |
 | Stream collection | Raw text, draft-updating text streams, usage streams, reasoning summaries, and usage-event emission were private helpers in the runner. | `AgentRawTextStreamActionCollector.swift`, `AgentTextStreamActionCollector.swift`, `AgentUsageStreamActionCollector.swift`, and `AgentStreamingDraftPublisher.swift` own those focused responsibilities. All grade **A+**. |
 | Promised-work recovery | The retry/correction path for models that say "I'll do it" without returning a tool call lived inline in `Agent.swift`. | `AgentPromisedWorkResolver.swift` owns correction retry and embedded JSON recovery while preserving the one-turn execution behavior. It grades **A+**. |
+| Prompt and promise heuristics | `AgentPromisedWorkGuard.swift` and `TrustedRouterPromptBuilder.swift` still had deterministic quality noise after the boundary split. | Promise detection now shares actionable-promise helpers, and prompt guidance is wrapped without weakening exact tool schema guidance. Both files grade **A+**. |
+| Architecture gates | Existing gates covered stream extraction but not the public contract/resolver split. | `ParityAgentGateTests` now requires contracts, action resolution, streaming runners/collectors, and promised-work retry to stay out of `Agent.swift`. |
 
 Verification:
 
 - `swift test --filter 'AgentToolLoopTests|AgentImmediateShellActionTests|AgentPlanModeTests|AgentStreamingTests|AgentPromisedWorkGuardTests'`
-- `swift test` (1967 tests, 1 skipped, 0 failures)
+- `swift test --filter 'TrustedRouterPromptBuilderTests|QuillCodeAgentTests|ParityAgentGateTests|ParityTrustedRouterGateTests|ParityFocusedSuiteManifestTests'`
+- `swift test` (1968 tests, 1 skipped, 0 failures)
+- `git diff --check`
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
 
 Residual risk:
 
-- This slice intentionally preserves behavior and focuses on boundaries around the agent loop. The remaining lowest production agent files are `AgentPromisedWorkGuard.swift`, `TrustedRouterPromptBuilder.swift`, and `AgentActionStreaming.swift`, each graded **A-**.
-- Full Codex parity still requires broader real-world UI and tool-flow coverage beyond this core agent split.
+- The agent source module now averages **A+**. Remaining **A** files in the module are mostly tool-step and formatter files where the deterministic grader flags repeated Swift signature/formatting structure; they are not below the current production quality bar.
+- Wider repo debt still exists outside this slice, especially in large parity/E2E test files and script harnesses. Those should be handled as separate reviewable quality passes so the critical command-execution path remains easy to review.
 
 ## 2026-07-01 Automations Pane View Split
 

@@ -91,6 +91,26 @@ final class ParityAgentGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(agentText.contains("var rawActionText"), "Agent.swift should not own raw streaming accumulation.")
     }
 
+    func testAgentContractsAndActionResolutionLiveOutsideRunnerFile() throws {
+        let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let typesText = try Self.agentSourceText(named: "AgentTypes.swift")
+        let resolverText = try Self.agentSourceText(named: "AgentActionResolver.swift")
+        let promisedWorkText = try Self.agentSourceText(named: "AgentPromisedWorkResolver.swift")
+
+        XCTAssertTrue(typesText.contains("public enum AgentAction"), "Agent action contracts should live in a focused API file.")
+        XCTAssertTrue(typesText.contains("public protocol LLMClient"), "LLM transport protocols should live with agent contracts.")
+        XCTAssertTrue(typesText.contains("public struct AgentRunResult"), "Run result records should live with agent contracts.")
+        XCTAssertTrue(typesText.contains("public typealias AgentRunProgressHandler"), "Runner callback contracts should stay out of the runner implementation.")
+        XCTAssertTrue(promisedWorkText.contains("actionByRetryingPromisedWorkIfNeeded"), "Promised-work retry should live with promised-work resolution.")
+        XCTAssertTrue(promisedWorkText.contains("recoveredPromisedWorkAction"), "Promised-work JSON recovery should live with promised-work resolution.")
+        XCTAssertTrue(resolverText.contains("func nextAction"), "Immediate, streaming, and non-streaming action selection should live with action resolution.")
+        XCTAssertFalse(agentText.contains("public enum AgentAction"), "Agent.swift should not own stable action contracts.")
+        XCTAssertFalse(agentText.contains("public protocol LLMClient"), "Agent.swift should not own LLM transport protocols.")
+        XCTAssertFalse(agentText.contains("public struct AgentRunResult"), "Agent.swift should not own run result records.")
+        XCTAssertFalse(agentText.contains("func actionByRetryingPromisedWorkIfNeeded"), "Agent.swift should not own promised-work retry internals.")
+        XCTAssertFalse(agentText.contains("private func nextAction"), "Agent.swift should not own model action selection internals.")
+    }
+
     func testAgentToolStepRunnerLivesOutsideAgentRunnerFile() throws {
         let agentText = try Self.agentSourceText(named: "Agent.swift")
         let runnerText = try Self.agentSourceText(named: "AgentToolStepRunner.swift")
