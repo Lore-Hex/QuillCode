@@ -51,6 +51,7 @@ enum WorkspaceHTMLTranscriptRenderer {
             )
         return """
         <form class="composer" data-testid="composer">
+          \(renderPlanProgress(composer.planProgress))
           <div class="composer-surface" data-testid="composer-surface">
             <label class="composer-sr-only" for="message">Message</label>
             <div class="composer-input-row">
@@ -77,6 +78,22 @@ enum WorkspaceHTMLTranscriptRenderer {
             </div>
           </div>
         </form>
+        """
+    }
+
+    /// The always-visible plan-progress strip, emitted as the first child of the composer form so DOM
+    /// order matches native. Empty string when there is no plan (byte-identical to before).
+    private static func renderPlanProgress(_ progress: WorkspacePlanProgress?) -> String {
+        guard let progress else { return "" }
+        let state = progress.isComplete ? "complete" : (progress.isRunning ? "running" : "idle")
+        let percent = Int((progress.fraction * 100).rounded())
+        let ariaLabel = "Plan progress: step \(progress.currentStepIndex) of \(progress.totalCount): \(progress.currentStepTitle)"
+        return """
+        <div class="composer-plan-progress" data-testid="composer-plan-progress" data-state="\(state)" role="progressbar" aria-valuemin="0" aria-valuemax="\(progress.totalCount)" aria-valuenow="\(progress.completedCount)" aria-label="\(escape(ariaLabel))">
+            <div class="plan-progress-track"><div class="plan-progress-fill" style="width:\(percent)%"></div></div>
+            <span class="plan-progress-count" data-testid="plan-progress-count">\(escape(progress.stepCounterLabel))</span>
+            <span class="plan-progress-step" data-testid="plan-progress-step" title="\(escape(progress.currentStepTitle))">\(escape(progress.currentStepTitle))</span>
+          </div>
         """
     }
 
