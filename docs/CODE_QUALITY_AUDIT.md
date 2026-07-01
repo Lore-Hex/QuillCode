@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-07-01 Static Secondary Pane Renderer Split
+
+Overall grade after this slice: **A+ secondary-pane facade, A+ focused pane renderer cluster, lower renderer conflict risk**.
+
+This pass re-graded the static HTML workspace renderer cluster and addressed the next production app hotspot: `WorkspaceHTMLSecondaryPaneRenderer.swift`. The old file carried Extensions, Memories, Activity, Automations, MCP metadata, automation actions, activity sections, memory card actions, and pluralization in one renderer. The public entry points stayed stable, but implementation ownership is now split by pane family.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Secondary pane facade | `WorkspaceHTMLSecondaryPaneRenderer.swift` was a 393-line **A-** file with four feature families and shared helpers interleaved. | `WorkspaceHTMLSecondaryPaneRenderer.swift` is now a 17-line facade delegating each pane to a focused renderer. |
+| Extensions HTML | MCP metadata, tool chips, resource/prompt actions, install/update/start/stop buttons, and extension card markup lived beside unrelated pane code. | `WorkspaceHTMLExtensionsPaneRenderer.swift` owns extension and MCP markup, with explicit shared command primitives and no over-120-column lines. |
+| Memories, Activity, Automations | Memory actions, activity section disclosure markup, and automation create/workflow actions shared one helper namespace. | `WorkspaceHTMLMemoriesPaneRenderer.swift`, `WorkspaceHTMLActivityPaneRenderer.swift`, and `WorkspaceHTMLAutomationsPaneRenderer.swift` own their pane-specific rendering rules. |
+| Shared helpers | Count labels, escaping, and command-button forwarding lived inside the broad renderer. | `WorkspaceHTMLSecondaryPanePrimitives.swift` is the shared secondary-pane helper boundary. |
+| Parity gates | Source-audit tests assumed all secondary-pane helpers lived in one file. | Delegation and interaction primitive gates now require the stable facade plus focused pane renderers, and reject detail helpers drifting back into the facade. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceHTMLSecondaryPaneRendererTests|ParityHTMLRendererDelegationGateTests|ParityHTMLInteractionPrimitiveGateTests|ParityHTMLRendererCoverageGateTests|ParityFocusedSuiteManifestTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice intentionally preserves static HTML behavior. It does not redesign native secondary panes or change the Playwright harness UI.
+
 ## 2026-07-01 Terminal Wide Cell Parity
 
 Overall grade after this slice: **A+ terminal cell model, A+ terminal renderer architecture, stronger transcript fidelity**.

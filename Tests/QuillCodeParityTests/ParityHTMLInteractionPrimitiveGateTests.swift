@@ -6,7 +6,7 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
         let browserText = try Self.appSourceText(named: "WorkspaceHTMLBrowserRenderer.swift")
         let toolCardText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
         let reviewText = try Self.appSourceText(named: "WorkspaceHTMLReviewRenderer.swift")
-        let secondaryText = try Self.appSourceText(named: "WorkspaceHTMLSecondaryPaneRenderer.swift")
+        let secondaryText = try Self.secondaryRendererText()
         let harnessText = try String(
             contentsOf: Self.packageRoot()
                 .appendingPathComponent("E2E/harness/index.html"),
@@ -207,7 +207,10 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
         let rendererNames = [
             "WorkspaceHTMLBrowserRenderer.swift",
             "WorkspaceHTMLReviewRenderer.swift",
-            "WorkspaceHTMLSecondaryPaneRenderer.swift",
+            "WorkspaceHTMLActivityPaneRenderer.swift",
+            "WorkspaceHTMLAutomationsPaneRenderer.swift",
+            "WorkspaceHTMLExtensionsPaneRenderer.swift",
+            "WorkspaceHTMLMemoriesPaneRenderer.swift",
             "WorkspaceHTMLSidebarCommandRenderer.swift",
             "WorkspaceHTMLSidebarProjectRenderer.swift",
             "WorkspaceHTMLSidebarRenderer.swift",
@@ -239,7 +242,10 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
         let rendererNames = [
             "WorkspaceHTMLBrowserRenderer.swift",
             "WorkspaceHTMLReviewRenderer.swift",
-            "WorkspaceHTMLSecondaryPaneRenderer.swift",
+            "WorkspaceHTMLActivityPaneRenderer.swift",
+            "WorkspaceHTMLAutomationsPaneRenderer.swift",
+            "WorkspaceHTMLExtensionsPaneRenderer.swift",
+            "WorkspaceHTMLMemoriesPaneRenderer.swift",
             "WorkspaceHTMLSidebarCommandRenderer.swift",
             "WorkspaceHTMLSidebarProjectRenderer.swift",
             "WorkspaceHTMLSidebarRenderer.swift",
@@ -262,7 +268,7 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
             for (lineNumber, line) in rawCommandLines {
                 let isStructuredNestedButton = rendererName == "WorkspaceHTMLBrowserRenderer.swift"
                     && line.contains(#"("data-command-id", tab.selectCommandID)"#)
-                    || rendererName == "WorkspaceHTMLSecondaryPaneRenderer.swift"
+                    || rendererName == "WorkspaceHTMLActivityPaneRenderer.swift"
                     && line.contains(#"("data-command-id", section.toggleCommandID)"#)
                 XCTAssertTrue(
                     isStructuredNestedButton,
@@ -272,4 +278,14 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
         }
     }
 
+    private static func secondaryRendererText() throws -> String {
+        try [
+            "WorkspaceHTMLActivityPaneRenderer.swift",
+            "WorkspaceHTMLAutomationsPaneRenderer.swift",
+            "WorkspaceHTMLExtensionsPaneRenderer.swift",
+            "WorkspaceHTMLMemoriesPaneRenderer.swift"
+        ]
+        .map { try Self.appSourceText(named: $0) }
+        .joined(separator: "\n")
+    }
 }
