@@ -106,6 +106,21 @@ public extension QuillCodeWorkspaceModel {
         return didRun
     }
 
+    /// Decide a blocked approval gate by its request id — the path the desktop uses to act on the
+    /// "needs approval" notification's Approve/Skip buttons without opening the app. Routes through the
+    /// exact same approval execution as the tool card (approve runs the held tool and resumes the plan;
+    /// skip denies it), so async approval and in-app approval behave identically.
+    @discardableResult
+    public func decidePendingApproval(requestID: String, approve: Bool, workspaceRoot: URL) async -> Bool {
+        let action = ToolCardActionSurface(
+            title: approve ? "Approve" : "Skip",
+            kind: approve ? .approve : .deny,
+            requestID: requestID,
+            style: approve ? .primary : .secondary
+        )
+        return await approveToolCardAndResume(action, workspaceRoot: workspaceRoot)
+    }
+
     @discardableResult
     func runToolCardAction(_ action: ToolCardActionSurface, workspaceRoot: URL) -> Bool {
         guard let plan = WorkspaceApprovalActionPlanner.plan(action: action, thread: selectedThread) else {

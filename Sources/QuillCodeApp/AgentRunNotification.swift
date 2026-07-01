@@ -21,14 +21,18 @@ public struct AgentRunNotification: Sendable, Hashable, Identifiable {
     public var title: String
     public var body: String
     public var threadID: UUID
+    /// The blocked approval's request id, set only for `.needsApproval`, so the notification's
+    /// Approve/Skip actions can decide the exact gate without opening the app.
+    public var approvalRequestID: String?
 
     public var id: String { "\(threadID.uuidString)-\(kind.rawValue)" }
 
-    public init(kind: Kind, title: String, body: String, threadID: UUID) {
+    public init(kind: Kind, title: String, body: String, threadID: UUID, approvalRequestID: String? = nil) {
         self.kind = kind
         self.title = title
         self.body = body
         self.threadID = threadID
+        self.approvalRequestID = approvalRequestID
     }
 }
 
@@ -42,7 +46,8 @@ public enum AgentRunNotificationPlanner {
         threadID: UUID,
         didFail: Bool,
         pendingApprovalSummary: String?,
-        finalAnswer: String?
+        finalAnswer: String?,
+        pendingApprovalRequestID: String? = nil
     ) -> AgentRunNotification? {
         let title = displayTitle(rawTitle)
         if let approval = trimmedNonEmpty(pendingApprovalSummary) {
@@ -50,7 +55,8 @@ public enum AgentRunNotificationPlanner {
                 kind: .needsApproval,
                 title: "QuillCode needs your approval",
                 body: "\(title): approve \(approval) to continue.",
-                threadID: threadID
+                threadID: threadID,
+                approvalRequestID: trimmedNonEmpty(pendingApprovalRequestID)
             )
         }
         if didFail {
