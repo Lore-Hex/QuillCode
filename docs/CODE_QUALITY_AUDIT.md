@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Model Gate Split
+
+Overall grade after this slice: **A+ workspace model parity gate files, clearer model-surface boundaries**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceModelGateTests.swift`, a 160-line B+ gate that mixed
+tool-card/artifact contracts, composer/UI state, actionable review cards, HTML/native/desktop wiring, and execution
+context enrichment. The split keeps the same boundaries while mapping each gate to one workspace-model responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool cards and artifacts | Shared the broad workspace-model gate. | `ParityWorkspaceToolCardModelGateTests.swift` owns tool-card and artifact surface delegation. |
+| UI state and send lifecycle | Mixed with review and context checks. | `ParityWorkspaceUIStateModelGateTests.swift` owns composer/activity/memory state and send lifecycle planner wiring. |
+| Actionable review cards | Mixed native, HTML, desktop, and model checks in the broad file. | `ParityWorkspaceReviewCardModelGateTests.swift` owns review-card action surface and host wiring. |
+| Execution context | Shared the broad workspace-model gate. | `ParityWorkspaceExecutionContextModelGateTests.swift` owns context extension and enrichment boundaries. |
+| Grade | The original file was **B+** at 160 lines. | Every split workspace-model gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceToolCardModelGateTests|ParityWorkspaceUIStateModelGateTests|ParityWorkspaceReviewCardModelGateTests|ParityWorkspaceExecutionContextModelGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new workspace runtime scenarios.
+- The highest remaining B+ parity hotspots start with memory, model state, automation, command, execution-slash, and interaction-target gates.
+
 ## 2026-07-01 Agent Parity Gate Split
 
 Overall grade after this slice: **A+ agent parity gate files, stricter agent-boundary registry**.
