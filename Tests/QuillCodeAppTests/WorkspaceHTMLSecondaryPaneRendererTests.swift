@@ -68,12 +68,37 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="extension-transport""#))
         XCTAssertTrue(html.contains(#"data-testid="extension-stop""#))
         XCTAssertTrue(html.contains(#"data-testid="extension-mcp-tool-schema">required: path:string · Read a file"#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-install" data-command-id="extension-install:plugin:github">Install"#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-update" data-command-id="extension-update:plugin:github">Update"#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-stop" data-command-id="mcp-stop:mcp_server:filesystem">Stop"#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-mcp-resource-action" data-command-id="mcp-resource:mcp_server:filesystem:0">Read README"#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-mcp-resource-action" data-command-id="mcp-resource:mcp_server:filesystem:1">Read Project config"#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-mcp-prompt-action" data-command-id="mcp-prompt:mcp_server:filesystem:0">Use summarize_project"#))
+        assertContainsAction(
+            html,
+            testID: "extension-install",
+            commandID: "extension-install:plugin:github",
+            title: "Install"
+        )
+        assertContainsAction(
+            html,
+            testID: "extension-update",
+            commandID: "extension-update:plugin:github",
+            title: "Update"
+        )
+        assertContainsAction(html, testID: "extension-stop", commandID: "mcp-stop:mcp_server:filesystem", title: "Stop")
+        assertContainsAction(
+            html,
+            testID: "extension-mcp-resource-action",
+            commandID: "mcp-resource:mcp_server:filesystem:0",
+            title: "Read README"
+        )
+        assertContainsAction(
+            html,
+            testID: "extension-mcp-resource-action",
+            commandID: "mcp-resource:mcp_server:filesystem:1",
+            title: "Read Project config"
+        )
+        assertContainsAction(
+            html,
+            testID: "extension-mcp-prompt-action",
+            commandID: "mcp-prompt:mcp_server:filesystem:0",
+            title: "Use summarize_project"
+        )
         XCTAssertFalse(html.contains(#"data-command="extension-"#))
         XCTAssertFalse(html.contains(#"data-command="mcp-"#))
         XCTAssertTrue(html.contains(".quillcode/mcp/filesystem.json"))
@@ -104,7 +129,12 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-status="Available""#))
         XCTAssertTrue(html.contains(#"data-testid="extension-status">Available"#))
         XCTAssertTrue(html.contains(#"1 available extension"#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-install" data-command-id="extension-install:plugin:github">Install"#))
+        assertContainsAction(
+            html,
+            testID: "extension-install",
+            commandID: "extension-install:plugin:github",
+            title: "Install"
+        )
     }
 
     func testHTMLRendererIncludesVisibleMemoriesPane() throws {
@@ -144,10 +174,30 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="memories-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="memory-item""#))
-        XCTAssertTrue(html.contains(#"data-testid="memory-edit" data-command-id="memory-edit:global:memories/preferences.md">Edit"#))
-        XCTAssertTrue(html.contains(#"data-testid="memory-edit" data-command-id="memory-edit:project:.quillcode/memories/project.md">Edit"#))
-        XCTAssertTrue(html.contains(#"data-testid="memory-delete" data-command-id="memory-delete:global:memories/preferences.md">Forget"#))
-        XCTAssertTrue(html.contains(#"data-testid="memory-delete" data-command-id="memory-delete:project:.quillcode/memories/project.md">Forget"#))
+        assertContainsAction(
+            html,
+            testID: "memory-edit",
+            commandID: "memory-edit:global:memories/preferences.md",
+            title: "Edit"
+        )
+        assertContainsAction(
+            html,
+            testID: "memory-edit",
+            commandID: "memory-edit:project:.quillcode/memories/project.md",
+            title: "Edit"
+        )
+        assertContainsAction(
+            html,
+            testID: "memory-delete",
+            commandID: "memory-delete:global:memories/preferences.md",
+            title: "Forget"
+        )
+        assertContainsAction(
+            html,
+            testID: "memory-delete",
+            commandID: "memory-delete:project:.quillcode/memories/project.md",
+            title: "Forget"
+        )
         XCTAssertTrue(html.contains("Project"))
         XCTAssertTrue(html.contains(".quillcode/memories/project.md"))
     }
@@ -184,9 +234,54 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="activity-instruction-conflict" data-kind="instruction-diagnostic""#))
         XCTAssertTrue(html.contains("Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"))
         XCTAssertTrue(html.contains(#"data-command-id="activity-toggle-section:instructionReview""#))
-        XCTAssertTrue(html.contains(#"data-testid="activity-source-action" data-command-id="activity-instruction-resolve:instruction-semantic-conflict-tests-agents-md-sources-feature-agents-md">Resolve"#))
-        XCTAssertTrue(html.contains(#"data-testid="activity-source-action" data-command-id="activity-instruction-dismiss:instruction-semantic-conflict-tests-agents-md-sources-feature-agents-md">Dismiss"#))
-        XCTAssertTrue(html.contains(#"data-testid="activity-source-action" data-command-id="activity-source-open:AGENTS.md">Open"#))
-        XCTAssertTrue(html.contains(#"data-testid="activity-source-action" data-command-id="activity-source-edit:AGENTS.md">Edit"#))
+        let conflictID = "instruction-semantic-conflict-tests-agents-md-sources-feature-agents-md"
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
+            commandID: "activity-source-open-line:1:AGENTS.md",
+            title: "Open Source"
+        )
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
+            commandID: "activity-source-edit-line:1:AGENTS.md",
+            title: "Edit Source"
+        )
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
+            commandID: "activity-instruction-resolve:\(conflictID)",
+            title: "Resolve"
+        )
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
+            commandID: "activity-instruction-dismiss:\(conflictID)",
+            title: "Dismiss"
+        )
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
+            commandID: "activity-source-open:AGENTS.md",
+            title: "Open"
+        )
+        assertContainsAction(
+            html,
+            testID: "activity-source-action",
+            commandID: "activity-source-edit:AGENTS.md",
+            title: "Edit"
+        )
+    }
+
+    private func assertContainsAction(
+        _ html: String,
+        testID: String,
+        commandID: String,
+        title: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let fragment = #"data-testid="\#(testID)" data-command-id="\#(commandID)">\#(title)"#
+        XCTAssertTrue(html.contains(fragment), file: file, line: line)
     }
 }

@@ -116,6 +116,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
         let actionCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopWorkspaceActionCoordinator.swift")
+        let sourceOpenerText = try Self.desktopSourceText(named: "QuillCodeDesktopSourceOpener.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopWorkspaceActionCoordinator")
         Self.assertSource(controllerText, contains: "workspaceActionCoordinator.runToolCardAction")
@@ -129,6 +130,10 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(actionCoordinatorText, contains: "model.setMessageFeedback")
         Self.assertSource(actionCoordinatorText, contains: "model.runWorkspaceCommand")
         Self.assertSource(actionCoordinatorText, contains: "model.activeWorkspaceRoot ?? fallback")
+        Self.assertSource(actionCoordinatorText, contains: "WorkspaceActivitySourceCommand")
+        Self.assertSource(actionCoordinatorText, contains: "sourceOpener.openSource")
+        Self.assertSource(sourceOpenerText, contains: "protocol QuillCodeDesktopSourceOpening")
+        Self.assertSource(sourceOpenerText, contains: "NSWorkspace.shared.open")
         Self.assertSource(controllerText, excludes: "model.runToolCardAction")
         Self.assertSource(controllerText, excludes: "model.runReviewAction")
         Self.assertSource(controllerText, excludes: "model.addReviewComment")
