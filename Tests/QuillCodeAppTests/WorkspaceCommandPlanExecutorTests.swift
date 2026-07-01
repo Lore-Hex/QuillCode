@@ -126,14 +126,14 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
                 ProjectInstruction(
                     path: "AGENTS.md",
                     title: "AGENTS.md",
-                    content: "Always run tests before final answers.",
-                    byteCount: 38
+                    content: "Root guidance.\nAlways run tests before final answers.",
+                    byteCount: 53
                 ),
                 ProjectInstruction(
                     path: "Sources/Feature/AGENTS.md",
                     title: "Feature AGENTS.md",
-                    content: "Do not run tests for feature changes.",
-                    byteCount: 37
+                    content: "Feature guidance.\nDo not run tests for feature changes.",
+                    byteCount: 55
                 )
             ]
         )
@@ -154,6 +154,11 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertTrue(model.composer.draft.hasPrefix("Resolve instruction issue \"Conflicting instruction intent\""))
         XCTAssertTrue(model.composer.draft.contains("AGENTS.md says require"))
         XCTAssertTrue(model.composer.draft.contains("Sources/Feature/AGENTS.md says avoid"))
+        XCTAssertTrue(model.composer.draft.contains("- AGENTS.md:2 [requires tests]"))
+        XCTAssertTrue(model.composer.draft.contains("Current: Always run tests before final answers."))
+        XCTAssertTrue(model.composer.draft.contains("- Sources/Feature/AGENTS.md:2 [avoids tests]"))
+        XCTAssertTrue(model.composer.draft.contains("Current: Do not run tests for feature changes."))
+        XCTAssertTrue(model.composer.draft.contains("Suggested fix: Choose one intent for tests guidance"))
     }
 
     func testExecutorRejectsMissingInstructionDiagnosticResolution() throws {

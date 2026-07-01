@@ -47,8 +47,11 @@ final class ProjectInstructionDiagnosticsBuilderTests: XCTestCase {
 
     func testDiagnosticsFlagSemanticContradictionsAcrossOverlappingScopes() {
         let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
-            instruction("AGENTS.md", content: "Always run tests before final answers."),
-            instruction("Sources/Feature/AGENTS.md", content: "Do not run tests for feature changes.")
+            instruction("AGENTS.md", content: "General guidance.\nAlways run tests before final answers."),
+            instruction(
+                "Sources/Feature/AGENTS.md",
+                content: "Feature guidance.\nDo not run tests for feature changes."
+            )
         ])
 
         XCTAssertEqual(diagnostics.map(\.id), [
@@ -61,6 +64,42 @@ final class ProjectInstructionDiagnosticsBuilderTests: XCTestCase {
             "Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"
         )
         XCTAssertEqual(diagnostics[1].statusLabel, "conflict")
+        XCTAssertEqual(
+            diagnostics[1].sourceReferences.map(\.locationLabel),
+            ["AGENTS.md:2", "Sources/Feature/AGENTS.md:2"]
+        )
+        XCTAssertEqual(
+            diagnostics[1].sourceReferences.map(\.excerpt),
+            [
+                "Always run tests before final answers.",
+                "Do not run tests for feature changes."
+            ]
+        )
+        XCTAssertEqual(diagnostics[1].sourceReferences.map(\.role), ["requires tests", "avoids tests"])
+        XCTAssertEqual(
+            diagnostics[1].resolutionHint,
+            "Choose one intent for tests guidance and edit the conflicting lines so they agree."
+        )
+    }
+
+    func testDiagnosticsAttachSourceReferencesToStructuralIssues() {
+        let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
+            instruction("AGENTS.md", content: "Root rule."),
+            instruction(".quillcode/rules.md", content: "Project rule."),
+            instruction("Sources/Feature/AGENTS.md", content: "Feature rule.")
+        ])
+
+        XCTAssertEqual(diagnostics[0].title, "Shared instruction scope")
+        XCTAssertEqual(
+            diagnostics[0].sourceReferences.map(\.locationLabel),
+            ["AGENTS.md:1", ".quillcode/rules.md:1"]
+        )
+        XCTAssertEqual(diagnostics[1].title, "Nested instruction override")
+        XCTAssertEqual(
+            diagnostics[1].sourceReferences.map(\.locationLabel),
+            ["Sources/Feature/AGENTS.md:1", "AGENTS.md:1", ".quillcode/rules.md:1"]
+        )
+        XCTAssertTrue(diagnostics[1].resolutionHint.contains("State the override explicitly"))
     }
 
     func testDiagnosticsDoNotFlagSemanticContradictionsAcrossSiblingScopes() {
