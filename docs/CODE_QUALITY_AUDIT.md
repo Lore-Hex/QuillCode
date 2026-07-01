@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-07-01 HTML Sidebar Renderer Split
+
+Overall grade after this slice: **A+ HTML sidebar renderer cluster, A+ app source module average, no sidebar renderer file below A+**.
+
+This pass addressed the remaining production HTML sidebar hotspot from the generated report: `WorkspaceHTMLSidebarRenderer.swift`. The old file had grown into a 374-line renderer that mixed primary commands, thread sections, bulk selection, saved searches, project rows, and the tools footer.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Sidebar facade | `WorkspaceHTMLSidebarRenderer.swift` owned all sidebar markup and graded **B+**. | `WorkspaceHTMLSidebarRenderer.swift` is now a 20-line **A+** facade that only composes focused sidebar renderers. |
+| Command markup | Primary actions and utility tools repeated command-button formatting inline. | `WorkspaceHTMLSidebarCommandRenderer.swift` owns primary and utility commands through one role-aware formatter and grades **A+**. |
+| Thread markup | Thread headers, filters, selection state, sections, and row actions were embedded in the facade. | `WorkspaceHTMLSidebarThreadRenderer.swift` owns thread/sidebar list rendering and grades **A+**. |
+| Project and saved-search markup | Project rows and saved-search controls were private helpers inside the facade. | `WorkspaceHTMLSidebarProjectRenderer.swift` and `WorkspaceHTMLSidebarSavedSearchRenderer.swift` own those surfaces and both grade **A+**. |
+| Architecture gates | Delegation tests expected one focused sidebar renderer but did not distinguish sidebar subdomains. | `ParityHTMLRendererDelegationGateTests`, interaction primitive gates, and sidebar presentation gates now require the focused renderers and reject markup drifting back into the facade. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceHTMLChromeRendererTests|ParityHTMLRendererDelegationGateTests|ParityHTMLInteractionPrimitiveGateTests|ParityWorkspaceSidebarGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice intentionally preserves the current HTML output and does not add new visual behavior. Richer Codex-style sidebar polish, drag/drop ordering, and workspace-list UX remain separate parity work.
+- The lowest production app-source files are now `QuillCodeAutomationsPaneView.swift`, `QuillCodeComposerView.swift`, and `WorkspaceHTMLSecondaryPaneRenderer.swift`.
+
 ## 2026-06-30 Remote Pull Request Command Builder Split
 
 Overall grade after this slice: **A+ remote PR command cluster, A+ app source module average, no remote PR command file below A+**.
