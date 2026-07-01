@@ -7,34 +7,81 @@ final class ParityWorkspaceSidebarPlaywrightGateTests: QuillCodeParityTestCase {
             contentsOf: testRoot.appendingPathComponent("sidebar.spec.ts"),
             encoding: .utf8
         )
+        let chatLifecycleSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("sidebar-chat-lifecycle.spec.ts"),
+            encoding: .utf8
+        )
+        let filterSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("sidebar-filters.spec.ts"),
+            encoding: .utf8
+        )
+        let projectSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("sidebar-projects.spec.ts"),
+            encoding: .utf8
+        )
+        let helperText = try String(
+            contentsOf: testRoot.appendingPathComponent("sidebar-test-helpers.ts"),
+            encoding: .utf8
+        )
         let coreSpecText = try String(
             contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
             encoding: .utf8
         )
+        let focusedSpecs: [(String, String, [String])] = [
+            (
+                "sidebar.spec.ts",
+                sidebarSpecText,
+                [
+                    "searches and reopens an existing chat",
+                    "starts a new chat from the sidebar action"
+                ]
+            ),
+            (
+                "sidebar-chat-lifecycle.spec.ts",
+                chatLifecycleSpecText,
+                [
+                    "manages chat lifecycle from the sidebar",
+                    "groups sidebar chats by recency bucket",
+                    "bulk-selects chats from the sidebar"
+                ]
+            ),
+            (
+                "sidebar-filters.spec.ts",
+                filterSpecText,
+                [
+                    "filters sidebar chats with saved filters",
+                    "filters sidebar chats with custom saved searches",
+                    "creates and deletes custom saved searches from explicit sidebar targets",
+                    "reorders custom saved searches from explicit sidebar targets"
+                ]
+            ),
+            (
+                "sidebar-projects.spec.ts",
+                projectSpecText,
+                [
+                    "manages projects from the sidebar",
+                    "adds an SSH remote project from command palette and slash command"
+                ]
+            )
+        ]
 
         Self.assertSource(sidebarSpecText, contains: "harnessURL()")
-        Self.assertSource(sidebarSpecText, contains: "clickSidebarTool")
-        Self.assertSource(sidebarSpecText, contains: "clickProjectAction")
-        Self.assertSource(sidebarSpecText, contains: "ssh://quill@feather.local/srv/quill")
+        Self.assertSource(helperText, contains: "clickProjectAction")
+        Self.assertSource(helperText, contains: "clickThreadAction")
+        Self.assertSource(projectSpecText, contains: "clickSidebarTool")
+        Self.assertSource(projectSpecText, contains: "ssh://quill@feather.local/srv/quill")
         Self.assertSource(coreSpecText, excludes: "clickProjectAction")
         Self.assertSource(coreSpecText, excludes: "replaceFocusedText")
 
-        for flowName in sidebarFlowNames {
-            Self.assertSource(sidebarSpecText, contains: flowName)
-            Self.assertSource(coreSpecText, excludes: flowName)
+        for (specName, specText, flowNames) in focusedSpecs {
+            XCTAssertTrue(
+                specText.contains("harnessURL()"),
+                "\(specName) should use the shared harness URL helper."
+            )
+            for flowName in flowNames {
+                XCTAssertTrue(specText.contains(flowName), "\(flowName) should live in \(specName).")
+                XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+            }
         }
-    }
-
-    private var sidebarFlowNames: [String] {
-        [
-            "searches and reopens an existing chat",
-            "starts a new chat from the sidebar action",
-            "manages chat lifecycle from the sidebar",
-            "groups sidebar chats by recency bucket",
-            "bulk-selects chats from the sidebar",
-            "filters sidebar chats with saved filters",
-            "manages projects from the sidebar",
-            "adds an SSH remote project from command palette and slash command"
-        ]
     }
 }

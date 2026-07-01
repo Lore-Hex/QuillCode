@@ -1,5 +1,42 @@
 # Code Quality Audit
 
+## 2026-07-01 A+ Hotspot Pass
+
+Overall grade after this slice: **all source modules stay A+; the worst pre-existing PR-tool and core E2E mega-files
+were split into smaller focused files; no B+ files remain in the touched areas**.
+
+This pass targeted the highest-leverage maintainability hotspots without changing product behavior:
+
+| Area | Before | After |
+| --- | --- | --- |
+| GitHub PR tool tests | One 625-line `GitHubPullRequestToolExecutorTests.swift` mixed create/view/comment/edit/review/merge/router coverage. | Split into shared support plus base, edit, review, merge, and router suites. The PR tool tests now map to executor responsibilities instead of one catch-all file. |
+| Composer E2E | `composer.spec.ts` carried core composer flow, slash commands, mentions, history, and model-picker coverage. | Split slash, mention, history, and model-picker flows into focused specs while keeping core composer assertions in `composer.spec.ts`. |
+| Sidebar E2E | `sidebar.spec.ts` mixed search, chat lifecycle, filters, project actions, and helper code. | Extracted sidebar helpers and moved lifecycle, filter, and project flows into dedicated specs. |
+| Real-world action E2E | `real-world-actions.spec.ts` included release evidence registration logic beside user-flow tests. | Extracted evidence-manifest registration into `real-world-action-evidence.ts`; the spec now reads as behavior coverage. |
+| Review thread source contracts | `WorkspacePullRequestReviewThreadSurface.swift` bundled thread, comment, reply, and action contracts. | Split comment, reply, and action contracts into focused source files while preserving public API names. |
+| Native hit-target modifiers | `QuillCodeHitTargetViewModifiers.swift` mixed public button/control helpers with the underlying private modifier. | Split button and control semantic wrappers from the lower-level modifier implementation and updated native interaction audits. |
+| Repeated parity assertions | Real-world and execution integration parity gates repeated long one-off string assertions. | Grouped required snippets into arrays with shared `assertSource` helpers so ownership checks are easier to scan and extend. |
+
+Verification:
+
+- `swift test --filter 'GitHubPullRequest|ParityGitPullRequestToolGateTests'`
+- `npx playwright test tests/composer.spec.ts tests/composer-slash.spec.ts tests/composer-mentions.spec.ts tests/composer-history.spec.ts tests/model-picker.spec.ts`
+- `swift test --filter ParityWorkspacePlaywrightFocusedSpecGateTests`
+- `npx playwright test tests/sidebar.spec.ts tests/sidebar-chat-lifecycle.spec.ts tests/sidebar-filters.spec.ts tests/sidebar-projects.spec.ts`
+- `swift test --filter ParityWorkspaceSidebarPlaywrightGateTests`
+- `npx playwright test tests/real-world-actions.spec.ts`
+- `npx playwright test tests/memories.spec.ts`
+- `swift test --filter 'QuillCodeReviewSurfaceTests|WorkspaceReviewActionToolCallPlannerTests|ParityWorkspacePlaywrightRealWorldSpecGateTests'`
+- `swift test --filter 'QuillCodeNativeHitTarget|ParityNativeInteractionContractGateTests|ParityNativeCompactHitTargetGateTests|ParityNativePrimaryChromeHitTargetGateTests'`
+- `swift test --filter ParityWorkspacePlaywrightMemoryGateTests`
+- `swift test --filter ParityWorkspaceExecutionIntegrationGateTests`
+
+Residual risk:
+
+- The automated grade remains a heuristic. It now shows source modules at A+, while broader E2E and some large
+  integration/parity test files remain A/A- cleanup candidates.
+- This pass intentionally avoided runtime behavior changes; it is a maintainability and test-architecture pass.
+
 ## 2026-07-01 Interaction, TrustedRouter, And Command Palette Gate Split
 
 Overall grade after this slice: **no B+ files remain in the automated grade report; all source modules stay A+**.
