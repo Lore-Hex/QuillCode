@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Terminal Wide Cell Parity
+
+Overall grade after this slice: **A+ terminal cell model, A+ terminal renderer architecture, stronger transcript fidelity**.
+
+This pass tightened the next integrated-terminal rendering gap without turning the transcript renderer into a full emulator. The terminal buffer now stores cells instead of raw characters, so it can represent display-width semantics while keeping raw PTY bytes preserved on `TerminalCommandState`.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Cell model | The screen buffer stored one `Character` per Swift array slot, so CJK/emoji output advanced like narrow ASCII and cursor-addressed overwrites landed one cell too early. | `TerminalScreenCell` records content cells plus continuation cells for width-two glyphs, and `TerminalScreenCellWidth` owns the narrow/wide/zero-width decision. |
+| Cluster mutation | Overwriting or erasing the second half of a wide glyph could leave stale visible content because clearing was single-slot only. | `TerminalScreenBufferCells` centralizes column growth, cluster clearing, and combining-mark attachment so overwrite/erase paths share one rule. |
+| Combining marks | A standalone combining scalar advanced the cursor like printable text. | Zero-width marks attach to the previous visible cell and do not advance the cursor, preserving common accent output. |
+| Architecture gate | Terminal parity gates required parser split and scroll/alternate-screen behavior only. | `ParityTerminalRendererGateTests` now also requires the cell model files and behavior tests for width-two advancement, wide-cell overwrite, and combining marks. |
+
+Verification:
+
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|ParityTerminalRendererGateTests'`
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|ParityTerminalRendererGateTests|ParityFocusedSuiteManifestTests'`
+- `swift test` (1980 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is still a pragmatic transcript renderer, not a full terminal emulator. Ambiguous-width locales, ZWJ emoji clusters, text attributes, mouse tracking, and deep curses state remain deferred.
+
 ## 2026-07-01 Terminal Scroll Buffer Parity
 
 Overall grade after this slice: **A+ terminal renderer, stronger Codex-style integrated terminal parity**.
