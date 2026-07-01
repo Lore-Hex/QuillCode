@@ -52,6 +52,12 @@ public enum AgentRunStopReason: Sendable, Hashable {
     /// The run exhausted `maxToolSteps` without the model returning a final answer; the summary is
     /// synthesized from the last tool result, not a real conclusion.
     case toolStepCeilingExhausted(limit: Int)
+    /// The flail detector confirmed the run was busy-but-stuck — repeating the same action or failure
+    /// with no workspace progress — even after a self-assessment nudge; the run was stopped to save
+    /// the remaining budget. `reason` is the human-readable stuck reason.
+    /// (Appended last: never insert enum cases mid-list — discriminants shift and stale incremental
+    /// builds miscompile.)
+    case flailDetected(reason: String)
 }
 
 public struct AgentRunResult: Sendable {

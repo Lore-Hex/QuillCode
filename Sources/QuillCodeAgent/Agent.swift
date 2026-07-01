@@ -15,6 +15,10 @@ public struct AgentRunner: Sendable {
     public var toolExecutionOverride: AgentToolExecutionOverride?
     public var maxToolSteps: Int
     public var enablesImmediateActionPreflight: Bool
+    /// Computes an opaque signature of the workspace state, sampled around tool steps to feed the
+    /// flail detector's "did anything actually change" judgment. nil = the git-based default;
+    /// injected in tests for determinism.
+    public var workspaceStateSignature: (@Sendable (URL) -> String)?
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -23,7 +27,8 @@ public struct AgentRunner: Sendable {
         additionalToolDefinitions: [ToolDefinition] = [],
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
         maxToolSteps: Int = AgentRunner.defaultMaxToolSteps,
-        enablesImmediateActionPreflight: Bool = false
+        enablesImmediateActionPreflight: Bool = false,
+        workspaceStateSignature: (@Sendable (URL) -> String)? = nil
     ) {
         self.llm = llm
         self.safety = safety
@@ -32,6 +37,7 @@ public struct AgentRunner: Sendable {
         self.toolExecutionOverride = toolExecutionOverride
         self.maxToolSteps = maxToolSteps
         self.enablesImmediateActionPreflight = enablesImmediateActionPreflight
+        self.workspaceStateSignature = workspaceStateSignature
     }
 
     public func send(
@@ -59,6 +65,13 @@ public struct AgentRunner: Sendable {
             var lastExecutedCall: ToolCall?
             var lastCompletion: AgentToolStepCompletion?
             let limit = max(1, maxToolSteps)
+            // Flail detection: catch a run that is busy but going NOWHERE (same action / same failure
+            // repeating with zero workspace change) — the overnight failure mode the exact-repeat
+            // short-circuit above and the step ceiling below both miss.
+            var flailDetector = FlailDetector()
+            let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
+            var previousWorkspaceState: String?
+            var flailAssessmentInjected = false
 
             for _ in 0..<limit {
                 let action = try await nextAction(
@@ -93,6 +106,11 @@ public struct AgentRunner: Sendable {
                         return AgentRunResult(thread: next, toolResults: toolResults)
                     }
 
+                    // Baseline the workspace state before the first tool step, so that step's own
+                    // delta is measurable. (Lazy: a .say-only run never pays for a signature.)
+                    if previousWorkspaceState == nil {
+                        previousWorkspaceState = stateSignature(workspaceRoot)
+                    }
                     let step = try await runToolStep(
                         call,
                         userMessage: userMessage,
@@ -109,6 +127,55 @@ public struct AgentRunner: Sendable {
                         lastExecutedCall = call
                         lastCompletion = completion
                         appendToolFeedback(completion, to: &next)
+
+                        let workspaceState = stateSignature(workspaceRoot)
+                        let verdict = flailDetector.record(FlailTurnRecord(
+                            fingerprints: [ToolCallFingerprint.make(call: call, workspaceRoot: workspaceRoot)],
+                            deltaSignature: workspaceState == previousWorkspaceState ? "" : workspaceState,
+                            failureSignature: FlailSignatures.failureSignature(fromToolOutput: [
+                                completion.result.stdout,
+                                completion.result.stderr,
+                                completion.result.error ?? "",
+                            ].joined(separator: "\n"))
+                        ))
+                        previousWorkspaceState = workspaceState
+                        switch verdict {
+                        case .none:
+                            break
+                        case .suspected(let reason):
+                            // ONE self-assessment nudge per run: make the model say why it is stuck
+                            // and change course, instead of burning the rest of the budget.
+                            if !flailAssessmentInjected {
+                                flailAssessmentInjected = true
+                                flailDetector.recordAssessment()
+                                next.messages.append(.init(role: .user, content: Self.flailSelfAssessmentPrompt(reason: reason)))
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: \(reason.message) Asked the agent to reassess its approach."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
+                        case .confirmed(let reason):
+                            // The nudge didn't help — stop honestly, summarizing from the latest step,
+                            // with a distinct stopReason so this is never mistaken for a real finish.
+                            appendAssistantMessage(Self.finalAnswer(
+                                for: completion.call,
+                                result: completion.result,
+                                followUpReviewResult: completion.followUpReviewResult
+                            ), to: &next)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: stopped the run — \(reason.message)"
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            return AgentRunResult(
+                                thread: next,
+                                toolResults: toolResults,
+                                stopReason: .flailDetected(reason: reason.message)
+                            )
+                        }
                     }
                 }
             }
@@ -169,6 +236,28 @@ public struct AgentRunner: Sendable {
             definitions.append(definition)
         }
         return definitions
+    }
+
+    /// The default workspace-state signature: a git hash over status + diff, so "nothing changed" is
+    /// judged by the actual tree, not by what the tools claimed. One fast local git invocation per
+    /// completed tool step; a non-git workspace degrades to a constant (flail rules then rely on
+    /// fingerprints and failure signatures alone).
+    static func defaultWorkspaceStateSignature(_ root: URL) -> String {
+        let result = ShellToolExecutor().run(.init(
+            command: "{ git status --porcelain; git diff HEAD; } 2>/dev/null | git hash-object --stdin 2>/dev/null || echo no-git",
+            cwd: root,
+            timeoutSeconds: 10
+        ))
+        let signature = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        return signature.isEmpty ? "no-git" : signature
+    }
+
+    /// The one nudge a suspected-flailing run gets before being stopped: name the loop it is in and
+    /// demand a change of course or an honest final answer.
+    static func flailSelfAssessmentPrompt(reason: FlailStuckReason) -> String {
+        "[QuillCode self-check] \(reason.message) Stop and reassess: state in one or two sentences why "
+            + "the previous attempts did not work, then either take a clearly different approach or give "
+            + "your best final answer now."
     }
 
     static func finalAnswer(
