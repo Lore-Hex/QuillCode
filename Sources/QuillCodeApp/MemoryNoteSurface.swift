@@ -32,7 +32,7 @@ public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
         self.deleteCommandID = canDelete ? "memory-delete:\(note.id)" : nil
     }
 
-    private static func preview(_ content: String) -> String {
+    static func preview(_ content: String) -> String {
         let normalized = content
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }

@@ -180,6 +180,19 @@ extension QuillCodeNativeHitTargetAudit {
                 )
             )
         }
+        if !surface.conflicts.isEmpty {
+            contracts.append(
+                contract(
+                    "memories.conflict-edit",
+                    family: .memories,
+                    surface: "Memories",
+                    label: "Edit conflicting memory",
+                    kind: .formAction,
+                    minWidth: 112,
+                    testID: "memory-conflict-edit"
+                )
+            )
+        }
         return contracts
     }
 

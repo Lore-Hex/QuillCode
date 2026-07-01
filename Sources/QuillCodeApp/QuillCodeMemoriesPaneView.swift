@@ -14,12 +14,20 @@ struct QuillCodeMemoriesPaneView: View {
                     subtitle: memories.emptySubtitle
                 )
             } else {
+                if !memories.conflicts.isEmpty {
+                    memoryConflicts
+                }
                 memoryCards
             }
         }
         .padding(14)
-        .frame(height: memories.items.isEmpty ? 170 : 220)
+        .frame(height: paneHeight)
         .background(QuillCodePalette.panel)
+    }
+
+    private var paneHeight: CGFloat {
+        if memories.items.isEmpty { return 170 }
+        return memories.conflicts.isEmpty ? 220 : 312
     }
 
     private var header: some View {
@@ -56,6 +64,71 @@ struct QuillCodeMemoriesPaneView: View {
                 }
             }
         }
+    }
+
+    private var memoryConflicts: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                ForEach(memories.conflicts) { conflict in
+                    memoryConflictCard(conflict)
+                }
+            }
+        }
+    }
+
+    private func memoryConflictCard(_ conflict: MemoryConflictSurface) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(QuillCodePalette.yellow)
+                Text(conflict.title)
+                    .font(.caption.weight(.bold))
+                    .lineLimit(1)
+                Spacer()
+            }
+            Text(conflict.summary)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(2)
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                memoryConflictSide(conflict.global)
+                memoryConflictSide(conflict.project)
+            }
+        }
+        .padding(12)
+        .frame(width: 420, alignment: .topLeading)
+        .background(QuillCodePalette.yellow.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(QuillCodePalette.yellow.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func memoryConflictSide(_ side: MemoryConflictSideSurface) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(side.scopeLabel)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(QuillCodePalette.yellow)
+            Text(side.title)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+            Text(side.relativePath)
+                .font(.caption2.monospaced())
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+            if let commandID = side.editCommandID {
+                Button {
+                    onCommand(commandID)
+                } label: {
+                    Label("Edit \(side.scopeLabel.lowercased())", systemImage: "pencil")
+                }
+                .buttonStyle(QuillCodeActionButtonStyle(.secondary))
+                .quillCodeFormActionTarget()
+                .help("Edit the \(side.scopeLabel.lowercased()) memory")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func memoryCard(_ item: MemoryNoteSurface) -> some View {
