@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace State Gate Split
+
+Overall grade after this slice: **A+ workspace state parity gate files, clearer state ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceModelStateGateTests.swift`, a broad B+ gate that mixed
+workspace status copy, context resolving, progress status copy, thread mutation, pane visibility, and agent-run thread
+updates. The split keeps the same source-boundary contracts while mapping each gate to one responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Status and progress copy | Shared the broad workspace state gate. | `ParityWorkspaceStatusModelGateTests.swift` owns status labels, top-bar subtitle copy, and live agent progress copy. |
+| Context resolving | Shared the broad workspace state gate. | `ParityWorkspaceContextModelGateTests.swift` owns instruction, memory, and local-action resolver boundaries. |
+| Thread mutation | Shared the broad workspace state gate. | `ParityWorkspaceThreadMutationModelGateTests.swift` owns notice mutation and agent-run thread update boundaries. |
+| Pane visibility | Shared the broad workspace state gate. | `ParityWorkspacePaneVisibilityGateTests.swift` owns pane toggle placement. |
+| Grade | The original file was **B+** at 142 lines. | Every split workspace-state gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter ParityWorkspaceStatusModelGateTests`
+- `swift test --filter ParityWorkspaceContextModelGateTests`
+- `swift test --filter ParityWorkspaceThreadMutationModelGateTests`
+- `swift test --filter ParityWorkspacePaneVisibilityGateTests`
+- `swift test`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
 ## 2026-07-01 Workspace Memory Gate Split
 
 Overall grade after this slice: **A+ workspace memory parity gate files, clearer memory ownership**.

@@ -133,13 +133,19 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelTestsRemainRetired",
             "testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport"
         ]),
-        Suite(fileName: "ParityWorkspaceModelStateGateTests.swift", testNames: [
+        Suite(fileName: "ParityWorkspaceStatusModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesStatusTextAndLabels",
-            "testWorkspaceModelDelegatesContextResolving",
             "testWorkspaceModelDelegatesAgentProgressStatusCopy",
+        ]),
+        Suite(fileName: "ParityWorkspaceContextModelGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesContextResolving",
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadMutationModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesThreadNoticeMutation",
-            "testWorkspaceModelDelegatesPaneVisibilityMutations",
             "testWorkspaceModelUsesExplicitAgentRunThreadUpdates"
+        ]),
+        Suite(fileName: "ParityWorkspacePaneVisibilityGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesPaneVisibilityMutations"
         ]),
         Suite(fileName: "ParityWorkspaceContextRefreshGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectContextRefresh"
