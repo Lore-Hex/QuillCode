@@ -12,9 +12,9 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
                 .appendingPathComponent("E2E/harness/index.html"),
             encoding: .utf8
         )
-        let interactionAuditHelperText = try String(
+        let interactionAuditReportText = try String(
             contentsOf: Self.packageRoot()
-                .appendingPathComponent("E2E/playwright/tests/interaction-audit-helpers.ts"),
+                .appendingPathComponent("E2E/playwright/tests/interaction-audit-report.ts"),
             encoding: .utf8
         )
 
@@ -97,11 +97,11 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
             "The Playwright harness should enforce a global 44 px baseline for buttons, summaries, fields, and link-style controls."
         )
         XCTAssertTrue(
-            interactionAuditHelperText.contains("function visibleRect(element: Element, rect: DOMRect)")
-                && interactionAuditHelperText.contains("scrollClipped")
-                && interactionAuditHelperText.contains("hardClipped")
-                && interactionAuditHelperText.contains("isScrollBoundarySliver")
-                && interactionAuditHelperText.contains("visible_area_too_small_or_clipped"),
+            interactionAuditReportText.contains("function visibleRect(element: Element, rect: DOMRect)")
+                && interactionAuditReportText.contains("scrollClipped")
+                && interactionAuditReportText.contains("hardClipped")
+                && interactionAuditReportText.contains("isScrollBoundarySliver")
+                && interactionAuditReportText.contains("visible_area_too_small_or_clipped"),
             "The Playwright harness should audit the visible actionable target after viewport and clipping ancestors, not only raw DOM bounds."
         )
         XCTAssertTrue(
