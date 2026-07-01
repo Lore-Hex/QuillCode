@@ -219,7 +219,6 @@ def render_markdown(grades: list[FileGrade]) -> str:
         lines.append(
             f"| {grade.grade} | {grade.score} | {grade.lines} | `{grade.module}` | `{grade.path}` | {grade.issue_summary} |"
         )
-    lines.append("")
     return "\n".join(lines)
 
 

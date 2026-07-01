@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-06-30 Remote Pull Request Command Builder Split
+
+Overall grade after this slice: **A+ remote PR command cluster, A+ app source module average, no remote PR command file below A+**.
+
+This pass addressed the remaining production app-source B+ hotspot from the generated report: `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`. The file had grown to 397 lines and mixed dispatch, tool argument decoding, selector validation, GitHub CLI construction, GitHub API command construction, URL artifact policy, and shell quoting.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Remote PR facade | `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift` owned every PR subcommand and graded **B+**. | The facade now only composes tool-name sets, URL-artifact policy, and subfamily dispatch. It grades **A+** at 44 lines. |
+| PR command families | Create/view/checks/diff/checkout, edit/comment, review-thread APIs, and merge commands lived in one switch. | `WorkspaceRemoteGitHubPullRequestBaseCommandBuilder.swift`, `WorkspaceRemoteGitHubPullRequestEditCommandBuilder.swift`, `WorkspaceRemoteGitHubPullRequestReviewCommandBuilder.swift`, and `WorkspaceRemoteGitHubPullRequestMergeCommandBuilder.swift` own their respective command families and all grade **A+**. |
+| Shared validation and quoting | Selector validation and shell quoting were repeated across remote git builders. | `WorkspaceRemoteGitHubPullRequestCommandSupport.swift` centralizes PR selector/view/repo command assembly, and `WorkspaceRemoteShellCommandFormatter.swift` centralizes shell quoting for remote git builders. Both grade **A+**. |
+| Architecture gates | The parity gate only required a focused PR builder file. | `ParityToolGateTests` now rejects argument decoding, validation, and GitHub API assembly drifting back into the facade, while requiring the new support/family builders. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceRemoteProjectToolExecutorTests|ParityToolGateTests'`
+- `swift test`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The local `GitHubPullRequestToolExecutor.swift` in `QuillCodeTools` remains a separate B+ production hotspot. It should be split in a future slice, likely mirroring this remote-family ownership.
+- Current app-source B+ debt is now concentrated in `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `QuillCodeAutomationsPaneView.swift`.
+
 ## 2026-06-30 Workspace Automation Engine Split
 
 Overall grade after this slice: **A+ automation data engine, A+ app source module average, no automation production file below A**.
