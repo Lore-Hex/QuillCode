@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-07-01 HTML Renderer Delegation Gate Split
+
+Overall grade after this slice: **A+ HTML renderer delegation gates, A+ parity-test module average**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityHTMLRendererDelegationGateTests.swift`, which mixed tool-card,
+top-bar, terminal, secondary-pane, review, transcript, and sidebar renderer contracts in one 206-line gate. The split
+preserves the same delegation checks while making each renderer family independently reviewable:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool cards | Shared the broad renderer delegation gate. | `ParityHTMLToolCardRendererGateTests.swift` owns tool-card and artifact-preview delegation. |
+| Top bar | Shared the broad renderer delegation gate. | `ParityHTMLTopBarRendererGateTests.swift` owns quiet top-bar chrome and overflow delegation. |
+| Terminal | Shared the broad renderer delegation gate. | `ParityHTMLTerminalRendererGateTests.swift` owns terminal pane delegation and status mapping. |
+| Secondary panes | Mixed extensions, memories, activity, and automation assertions. | `ParityHTMLSecondaryPaneRendererGateTests.swift` owns the secondary-pane facade and focused pane renderers. |
+| Review | Shared the broad renderer delegation gate. | `ParityHTMLReviewRendererGateTests.swift` owns review pane/file/hunk/line/action delegation. |
+| Transcript | Shared the broad renderer delegation gate. | `ParityHTMLTranscriptRendererGateTests.swift` owns transcript, composer, runtime issue, and context banner delegation. |
+| Sidebar | Mixed command, project, saved-search, and thread sidebar checks. | `ParityHTMLSidebarRendererGateTests.swift` owns the sidebar facade and focused sidebar renderers. |
+| Grade | The original file was **B+** at 206 lines. | Every split renderer-delegation file now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityHTMLGateTests|ParityHTML.*RendererGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new rendered HTML scenarios.
+- The highest remaining B+ parity hotspots start with top bar, slash, and workspace execution-tool gates.
+
 ## 2026-07-01 Workspace Model Thread Gate Split
 
 Overall grade after this slice: **A+ thread/context/configuration parity gate files, cleaner focused-suite ownership**.

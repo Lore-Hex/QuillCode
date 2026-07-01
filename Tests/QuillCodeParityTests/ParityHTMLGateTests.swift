@@ -16,7 +16,7 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         for testName in htmlGateNames {
             XCTAssertFalse(
                 broadSuiteText.contains("func \(testName)"),
-                "\(testName) should stay in ParityHTMLGateTests."
+                "\(testName) should stay in a focused HTML renderer parity gate."
             )
         }
     }

@@ -15,6 +15,27 @@ struct ParityFocusedSuiteManifest {
             "testTerminalRendererKeepsEscapeSemanticsInFocusedFiles",
             "testTerminalRendererBehaviorTestsCoverScrollAndAlternateScreenParity"
         ]),
+        Suite(fileName: "ParityHTMLToolCardRendererGateTests.swift", testNames: [
+            "testWorkspaceHTMLRendererDelegatesToolCardRendering"
+        ]),
+        Suite(fileName: "ParityHTMLTopBarRendererGateTests.swift", testNames: [
+            "testWorkspaceHTMLRendererDelegatesTopBarRendering"
+        ]),
+        Suite(fileName: "ParityHTMLTerminalRendererGateTests.swift", testNames: [
+            "testWorkspaceHTMLRendererDelegatesTerminalRendering"
+        ]),
+        Suite(fileName: "ParityHTMLSecondaryPaneRendererGateTests.swift", testNames: [
+            "testWorkspaceHTMLRendererDelegatesSecondaryPaneRendering"
+        ]),
+        Suite(fileName: "ParityHTMLReviewRendererGateTests.swift", testNames: [
+            "testWorkspaceHTMLRendererDelegatesReviewRendering"
+        ]),
+        Suite(fileName: "ParityHTMLTranscriptRendererGateTests.swift", testNames: [
+            "testWorkspaceHTMLRendererDelegatesTranscriptRendering"
+        ]),
+        Suite(fileName: "ParityHTMLSidebarRendererGateTests.swift", testNames: [
+            "testWorkspaceHTMLRendererDelegatesSidebarRendering"
+        ]),
         Suite(fileName: "ParityDesktopGateTests.swift", testNames: [
             "testDesktopDefinesNativeMenuBarWidget"
         ]),

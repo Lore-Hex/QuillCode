@@ -2,6 +2,7 @@
 
 ## 2026-07-01
 
+- HTML renderer delegation parity should be split by renderer family. Tool cards, top bar, terminal, secondary panes, review, transcript, and sidebar delegation now each have focused gate files. `ParityHTMLGateTests.swift` remains the broad-suite exclusion guard only, while `ParityFocusedSuiteManifest.swift` registers the renderer-family owners.
 - Browser parity gates should be grouped by browser architecture boundary. Browser state/surface ownership, snapshot extraction, visible-session sync, workflow/location routing, browser tool/rendering ownership, broad-suite exclusion, and Playwright flow placement now live in focused parity classes instead of one mixed `ParityBrowserGateTests.swift` file.
 - Settings/source-inspection parity gates should separate sheet ownership, settings draft/view ownership, native hit-target contracts, search/palette typing state, settings surface records, and Playwright settings/runtime evidence. `ParityWorkspaceSettingsSheetGateTests.swift` now keeps only workspace sheet presentation and settings view/draft delegation, while focused parity files own compact hit targets, primary chrome hit targets, search dialogs, settings surface records, and Playwright settings/runtime flow placement.
 - Browser source-inspection parity should stay split by browser boundary once those boundaries are established.
