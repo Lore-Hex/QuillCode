@@ -6,7 +6,16 @@ import QuillCodeCore
 /// needs them. Pure + testable: the desktop layer supplies the thread and outcome and posts the OS
 /// notification (gated on the app being unfocused).
 enum WorkspaceRunNotificationBuilder {
-    static func notification(thread: ChatThread, didFail: Bool) -> AgentRunNotification? {
+    /// `localActions` are the project's user-authored commands; a `test`/`verify`/`check` one is the
+    /// verification gate. `verification` is its result once run (nil until the execution slice wires it,
+    /// so an edit-bearing run with a verify action reads as an honest "unverified" rather than a claimed
+    /// green).
+    static func notification(
+        thread: ChatThread,
+        didFail: Bool,
+        localActions: [LocalEnvironmentAction] = [],
+        verification: VerificationVerdict? = nil
+    ) -> AgentRunNotification? {
         let pending = pendingApproval(in: thread)
         return AgentRunNotificationPlanner.notification(
             threadTitle: thread.title,
@@ -14,7 +23,10 @@ enum WorkspaceRunNotificationBuilder {
             didFail: didFail,
             pendingApprovalSummary: pending?.toolCall.name,
             finalAnswer: thread.messages.last(where: { $0.role == .assistant })?.content,
-            pendingApprovalRequestID: pending?.id
+            pendingApprovalRequestID: pending?.id,
+            didEditFiles: WorkspaceTurnRevertPlanner.threadMadeEdits(thread),
+            hasVerificationAction: LocalEnvironmentActionMatcher.verificationAction(in: localActions) != nil,
+            verification: verification
         )
     }
 
