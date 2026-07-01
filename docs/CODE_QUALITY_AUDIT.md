@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-06-30 Workspace Model Sidebar Split
+
+Overall grade after this slice: **A+ sidebar model extension, A- thread lifecycle model extension, A+ app source module average**.
+
+This pass addressed the lowest remaining production app model file from the generated report: `WorkspaceModelThreads.swift`. The file mixed thread lifecycle operations with sidebar saved-search and bulk-selection mutations, so every sidebar change made the thread lifecycle extension broader.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Thread lifecycle model | `WorkspaceModelThreads.swift` owned new/fork/compact/select/archive/delete thread behavior plus sidebar selection, saved-search, and bulk-action APIs. It graded **B+** at 534 lines. | Thread creation, selection, draft switching, and lifecycle mutations stay in `WorkspaceModelThreads.swift`. It now grades **A-** at 382 lines. |
+| Sidebar model mutation | Sidebar selection and saved-search state were implemented in the thread lifecycle file even though reducers/planners already existed. | `WorkspaceModelSidebar.swift` now owns the sidebar selection, saved-search, and bulk-action model API. It grades **A+** and delegates to the existing focused sidebar reducers/planners/executors. |
+| Architecture gates | The sidebar parity gate allowed the sidebar APIs to remain in the thread lifecycle extension. | `ParityWorkspaceSidebarGateTests` now requires the sidebar model extension and rejects those API bodies drifting back into `WorkspaceModelThreads.swift`. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceSidebar|ParityWorkspaceSidebarGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- `WorkspaceModelThreads.swift` is still A- because context fork/compact, draft switching, and lifecycle operations are all thread-owned but dense. The next clean seam would be moving context continuation helpers into a focused extension if that area changes again.
+- Remaining B+ production debt is now concentrated in `WorkspaceAutomationEngine.swift`, `QuillCodeNativeHitTargetCatalog.swift`, `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`, `Agent.swift`, and `GitHubPullRequestToolExecutor.swift`.
+
 ## 2026-06-30 Immediate Agent Action Test Split
 
 Overall grade after this slice: **A Agent test module, with all immediate-action files at A and no line-length debt in that cluster**.
