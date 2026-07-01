@@ -72,6 +72,7 @@ struct QuillCodeSettingsView: View {
             TextField("https://api.trustedrouter.com/v1", text: $draft.apiBaseURL)
                 .textFieldStyle(.roundedBorder)
                 .quillCodeTextEntryTarget()
+                .accessibilityIdentifier("quillcode-settings-api-base-url")
         }
     }
 
@@ -107,6 +108,7 @@ struct QuillCodeSettingsView: View {
             SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
                 .textFieldStyle(.roundedBorder)
                 .quillCodeTextEntryTarget()
+                .accessibilityIdentifier("quillcode-settings-api-key")
             if draft.shouldClearAPIKey {
                 Text("Saved key will be cleared when you save.")
                     .font(.caption)

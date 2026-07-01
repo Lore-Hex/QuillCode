@@ -215,6 +215,7 @@ private struct QuillCodePullRequestReviewThreadRowView: View {
                 .focused($isReplyFocused)
                 .onSubmit(submitReply)
                 .accessibilityLabel("Review thread reply")
+                .accessibilityIdentifier("quillcode-review-thread-reply")
 
             Button("Cancel", action: cancelReply)
                 .font(.caption.weight(.semibold))

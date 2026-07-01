@@ -447,6 +447,50 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(issues, [])
     }
 
+    func testSwiftTextEntrySourceAuditRequiresStableAccessibilityIdentifier() throws {
+        let source = """
+        import SwiftUI
+
+        struct MissingTextEntryIdentifier: View {
+            @State private var query = ""
+
+            var body: some View {
+                TextField("Search", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .quillCodeTextEntryTarget()
+            }
+        }
+        """
+
+        let issues = try sourceAuditIssues(for: source)
+
+        XCTAssertEqual(
+            issues.filter { $0.contains("text-entry target should declare a stable accessibilityIdentifier") }.count,
+            1
+        )
+    }
+
+    func testSwiftTextEntrySourceAuditAcceptsStableAccessibilityIdentifier() throws {
+        let source = """
+        import SwiftUI
+
+        struct IdentifiedTextEntry: View {
+            @State private var query = ""
+
+            var body: some View {
+                TextField("Search", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .quillCodeTextEntryTarget()
+                    .accessibilityIdentifier("quillcode-search-input")
+            }
+        }
+        """
+
+        let issues = try sourceAuditIssues(for: source)
+
+        XCTAssertEqual(issues, [])
+    }
+
     func testAuditCoversEverySurfaceFamilyForPlainWorkspaceSnapshot() {
         let report = QuillCodeNativeHitTargetAudit.report(for: QuillCodeWorkspaceModel().surface())
 
@@ -809,6 +853,10 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
                !snippet.contains(".buttonStyle(QuillCodePressableButtonStyle"),
                !snippet.contains(".buttonStyle(QuillCodeActionButtonStyle") {
                 issues.append("\(sourceLocation) missing QuillCode press/action button style near \(controlSummary)")
+            }
+            if ["TextField", "SecureField", "TextEditor"].contains(kind),
+               !snippet.contains(".accessibilityIdentifier(") {
+                issues.append("\(sourceLocation) text-entry target should declare a stable accessibilityIdentifier near \(controlSummary)")
             }
         }
 

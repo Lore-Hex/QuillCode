@@ -84,6 +84,7 @@ struct QuillCodeReviewLineRowView: View {
                     .quillCodeTextEntryTarget(radius: 8)
                     .background(QuillCodePalette.panel.opacity(0.82))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityIdentifier("quillcode-review-line-note")
                 Button("Add") {
                     guard let lineNumber = line.displayLineNumber else { return }
                     let text = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
