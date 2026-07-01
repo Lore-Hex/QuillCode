@@ -60,7 +60,7 @@ extension QuillCodeWorkspaceModel {
         onStarted?()
 
         let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot, onProgressUpdated: onProgressUpdated)
-        finishAgentSend(outcome)
+        finishAgentSend(outcome, runThreadID: sendStart.threadID)
     }
 
     private func prepareAgentSendThread() -> ChatThread? {
@@ -121,7 +121,7 @@ extension QuillCodeWorkspaceModel {
         )
         applyComposerSendLifecycle(sendStart.lifecycle)
         let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot)
-        finishAgentSend(outcome)
+        finishAgentSend(outcome, runThreadID: sendStart.threadID)
     }
 
     private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
@@ -162,7 +162,7 @@ extension QuillCodeWorkspaceModel {
         applyComposerSendLifecycle(completion.lifecycle)
     }
 
-    private func finishAgentSend(_ outcome: WorkspaceAgentSendTaskOutcome) {
+    private func finishAgentSend(_ outcome: WorkspaceAgentSendTaskOutcome, runThreadID: UUID) {
         switch outcome {
         case .completed(let result):
             do {
@@ -178,6 +178,9 @@ extension QuillCodeWorkspaceModel {
         case .failed(let error):
             finishFailedSend(error)
         }
+        // Surface any self-heal that happened during the run, pinned to the RUN's thread — not whatever
+        // thread happens to be selected now, so a mid-run thread switch never misattributes the notice.
+        drainSelfHealingNotices(expectedThreadID: runThreadID)
         notifyRunFinishedIfNeeded(outcome: outcome)
     }
 
@@ -214,6 +217,32 @@ extension QuillCodeWorkspaceModel {
         composer = progress.composer
         setLastError(progress.lastError)
         refreshTopBar(agentStatus: progress.agentStatus)
+    }
+
+    /// Turns any self-heals the retry decorator performed during the run (recorded off the main actor)
+    /// into visible "Self-healing" thread notices on the run's thread. Drained once the run ends —
+    /// NOT per progress tick, because each tick's `updateThreadFromAgentRun` replaces the thread with
+    /// the agent's authoritative copy and would clobber a model-appended notice. The channel is always
+    /// drained so a stale event never bleeds into a later run; the notices are appended only when the
+    /// run's thread is still selected (a thread switch drops them — they are purely informational).
+    func drainSelfHealingNotices(expectedThreadID: UUID?) {
+        guard let channel = retryEventChannel else { return }
+        let events = channel.drain()
+        guard !events.isEmpty,
+              let thread = selectedThread,
+              thread.id == expectedThreadID
+        else { return }
+        mutateSelectedThread { thread in
+            for event in events {
+                thread.events.append(ThreadEvent(
+                    kind: .notice,
+                    summary: SelfHealingNoticePlanner.noticeSummary(attempt: event.attempt, kind: event.kind)
+                ))
+            }
+        }
+        if let thread = selectedThread {
+            threadPersistence.save(thread)
+        }
     }
 
     private func executeBrowserToolForAgent(_ call: ToolCall, workspaceRoot: URL) -> ToolResult? {

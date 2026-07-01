@@ -14,17 +14,22 @@ public struct QuillCodeRuntime: Sendable {
     public var contextSummaryGenerator: any WorkspaceContextSummaryGenerating
     public var mode: QuillCodeRuntimeMode
     public var statusLabel: String
+    /// The retry decorator records here when it self-heals a transient blip; the model drains it into
+    /// a "Self-healing" thread notice. nil for the mock runtime (which never retries).
+    public var retryChannel: RetryEventChannel?
 
     public init(
         runner: AgentRunner,
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         mode: QuillCodeRuntimeMode,
-        statusLabel: String
+        statusLabel: String,
+        retryChannel: RetryEventChannel? = nil
     ) {
         self.runner = runner
         self.contextSummaryGenerator = contextSummaryGenerator
         self.mode = mode
         self.statusLabel = statusLabel
+        self.retryChannel = retryChannel
     }
 }
 
@@ -60,14 +65,23 @@ public struct QuillCodeRuntimeFactory: Sendable {
         // single call is retried with backoff instead of killing the whole unattended run. Retry is
         // safe here (the HTTP status error throws before any token is streamed) and covers both the
         // agent run loop and context-summary calls, since both go through this client.
-        let llm = RetryingLLMClient(
-            base: TrustedRouterLLMClient(
-                sessionStore: sessionStore,
-                apiKeyOverride: apiKey,
-                model: config.defaultModel,
-                baseURL: config.apiBaseURL
-            )
+        let baseClient = TrustedRouterLLMClient(
+            sessionStore: sessionStore,
+            apiKeyOverride: apiKey,
+            model: config.defaultModel,
+            baseURL: config.apiBaseURL
         )
+        // The agent run's client records each self-heal so the model can surface a "Self-healing"
+        // thread notice — the run quietly survived a blip and says so.
+        let retryChannel = RetryEventChannel()
+        let llm = RetryingLLMClient(
+            base: baseClient,
+            onRetry: { attempt, kind, _ in retryChannel.record(attempt: attempt, kind: kind) }
+        )
+        // Context-summary calls also retry transient blips, but SILENTLY: a background summary self-heal
+        // is not a run event and must not record to the run channel (that would misattribute it onto the
+        // next run's thread). So it gets its own wrapper with no onRetry.
+        let summaryLLM = RetryingLLMClient(base: baseClient)
         let safetyClient = TrustedRouterSafetyModelClient(
             sessionStore: sessionStore,
             apiKeyOverride: apiKey,
@@ -79,11 +93,12 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 safety: AutoSafetyReviewer(client: safetyClient),
                 enablesImmediateActionPreflight: true
             ),
-            contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator(llm: llm),
+            contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator(llm: summaryLLM),
             mode: .trustedRouter,
             statusLabel: config.authMode == .oauth
                 ? QuillCodeRuntimeStatusLabel.trustedRouterSignedIn
-                : QuillCodeRuntimeStatusLabel.trustedRouterReady
+                : QuillCodeRuntimeStatusLabel.trustedRouterReady,
+            retryChannel: retryChannel
         )
     }
 

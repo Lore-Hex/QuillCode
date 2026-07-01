@@ -32,6 +32,9 @@ public final class QuillCodeWorkspaceModel {
 
     var runner: AgentRunner
     var contextSummaryGenerator: any WorkspaceContextSummaryGenerating
+    /// The active runtime's retry channel; the model drains it into "Self-healing" thread notices while
+    /// a run is in flight. nil for the mock runtime (which never retries).
+    var retryEventChannel: RetryEventChannel?
     let threadPersistence: WorkspaceThreadPersistence
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
