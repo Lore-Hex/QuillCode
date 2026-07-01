@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Agent Parity Gate Split
+
+Overall grade after this slice: **A+ agent parity gate files, stricter agent-boundary registry**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityAgentGateTests.swift`, a 170-line B+ gate that mixed final-answer
+formatting, mock planning, streaming, cancellation, core contracts, tool-step execution, and behavior-suite ownership in
+one file. The split keeps the same source-boundary checks while making each gate map to one agent responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Final answers | Shared the broad agent gate. | `ParityAgentFinalAnswerGateTests.swift` owns final-answer builder and formatter registry boundaries. |
+| Mock planning | Mixed with production runner checks. | `ParityAgentMockPlanningGateTests.swift` owns mock LLM planning and parser delegation. |
+| Streaming and cancellation | Mixed with contracts/tool-step checks. | `ParityAgentStreamingGateTests.swift` owns streaming helpers and cancellation recorder placement. |
+| Contracts and tool steps | Shared the broad agent gate. | `ParityAgentContractsToolStepGateTests.swift` owns agent contracts, action resolution, promised-work recovery, and tool-step execution boundaries. |
+| Behavior-suite ownership | Shared the broad agent gate. | `ParityAgentBehaviorSuiteGateTests.swift` owns focused agent behavior-test placement and retired broad-suite sentinels. |
+| Grade | The original file was **B+** at 170 lines. | Every split agent gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityAgentFinalAnswerGateTests|ParityAgentMockPlanningGateTests|ParityAgentStreamingGateTests|ParityAgentContractsToolStepGateTests|ParityAgentBehaviorSuiteGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new agent runtime scenarios.
+- The highest remaining B+ parity hotspots start with workspace model, memory, model state, automation, command, and execution-slash gates.
+
 ## 2026-07-01 Workspace Integration Gate Split
 
 Overall grade after this slice: **A+ workspace integration parity gate files, clearer integration ownership**.
