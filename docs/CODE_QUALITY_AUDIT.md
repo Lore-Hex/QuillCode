@@ -1,5 +1,37 @@
 # Code Quality Audit
 
+## 2026-07-01 Parity Tool Gate Split
+
+Overall grade after this slice: **A+ tool parity gate files, shared source assertion helper, lower review friction**.
+
+This pass continued the repo-wide grade-down from the scripts module into the next broad parity-test hotspot:
+`Tests/QuillCodeParityTests/ParityToolGateTests.swift`. The old file mixed core tool-argument contracts, slash catalog
+contracts, remote project tool routing, git definition ownership, GitHub pull-request command construction, shell/file
+tool routing, and workspace-context banner delegation in one source-inspection suite. The split keeps the exact parity
+checks but moves them into focused files:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Core/slash contracts | Shared a 640-line mixed gate. | `ParityToolGateTests.swift` now owns only argument serialization and slash catalog checks. |
+| Remote project tools | Buried in the mixed gate. | `ParityRemoteProjectToolGateTests.swift` owns remote project routing and builder ownership checks. |
+| Git and PR tools | Mixed with shell/file and workspace checks. | `ParityGitPullRequestToolGateTests.swift` owns git, worktree, patch, and GitHub PR contracts. |
+| Shell and file tools | Mixed with git and remote checks. | `ParityShellFileToolGateTests.swift` owns shell router, shell executor, primitive tool, and file tool contracts. |
+| Workspace context | One unrelated tail test in the mixed gate. | `ParityWorkspaceContextToolGateTests.swift` owns context banner delegation. |
+| Assertion style | Repeated long `XCTAssertTrue(source.contains(...), "...")` lines. | `QuillCodeParityTestCase.assertSource` centralizes source contains/excludes diagnostics. |
+| Grade | `ParityToolGateTests.swift` was **B+** at 640 lines. | Every split tool-parity file now grades **A+**. |
+
+Verification:
+
+- `swift test --filter 'Parity.*Tool.*GateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves reviewability and failure diagnostics, but it does
+  not broaden runtime coverage by itself.
+- The parity module still has B+ files in desktop, settings, browser, sidebar, and other UI contract gates. Those should
+  get the same focused split/source-assertion treatment in later slices.
+
 ## 2026-07-01 Live TrustedRouter Smoke Split
 
 Overall grade after this slice: **A+ live smoke files, stable executable facade, lower operational risk**.
