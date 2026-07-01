@@ -63,6 +63,36 @@ Residual risk:
 - The lowest remaining repo-wide grades are now `live-tr-smoke.sh` and broad parity gates. They should each get
   separate reviewable slices.
 
+## 2026-07-01 Git Tool Definition Schema Quality Pass
+
+Overall grade after this slice: **A+ Git definition boundary, A+ schema construction, A+ Tools module maintained**.
+
+This pass re-graded every file and module, then addressed the Git tool definition catalog that had become the next
+production Tools hotspot. The old catalog removed executor coupling in an earlier pass, but still mixed local git,
+GitHub PR, worktree, JSON schema, host, and risk metadata in one repetitive file. The new structure keeps definitions
+small, validates schemas directly, and removes hand-authored JSON strings from the tool catalog.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool definition ownership | `GitToolDefinitions.swift` owned every local git, PR, and worktree definition in one broad file. | Local git, PR overview, PR metadata, PR review, PR merge, and worktree definitions live in focused files. |
+| JSON schema construction | Tool parameter schemas were hand-written JSON strings, which made required fields and enum values easy to drift. | `GitToolParameterSchema` builds deterministic JSON from Swift values, including selector, enum, array, and required-field schemas. |
+| Definition construction | Each definition repeated host/risk construction boilerplate. | `GitToolDefinitionFactory` and `GitPullRequestDefinitionFactory` centralize local-host definition construction and shared PR selector schemas. |
+| PR readability | PR view/checks/diff/checkout/reviewer/label/comment/review/thread/merge tools were crowded together. | PR workflow families are split by behavior, and the repeated read-only selector pattern is a small helper. |
+| Regression coverage | Git router tests checked routing but not schema validity. | `GitToolRouterTests` now parses every Git tool schema and verifies important enum/array schema contracts. |
+| File grades | The former `GitToolDefinitions.swift` graded **A-** due long JSON-heavy lines and later size/duplication. | New definition/schema/factory files grade **A+**, and `source:QuillCodeTools` remains **A+**. |
+
+Verification:
+
+- `swift test --filter GitToolRouterTests`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This pass intentionally stayed within production Git tool definitions. Remaining non-A+ repo grades are mostly broad
+  parity/E2E/script contract suites and a few existing tool execution files; those should be split in separate PRs with
+  focused CI evidence.
+
 ## 2026-07-01 Activity Integration Test Boundary Pass
 
 Overall grade after this slice: **A+ app test module maintained, activity integration hotspot removed from lowest-file list**.

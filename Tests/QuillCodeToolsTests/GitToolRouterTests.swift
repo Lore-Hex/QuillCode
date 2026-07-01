@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 import QuillCodeCore
 @testable import QuillCodeTools
@@ -48,6 +49,26 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(gitDefinitions.allSatisfy(routerDefinitions.contains))
     }
 
+    func testGitToolDefinitionsExposeValidObjectSchemas() throws {
+        for definition in GitToolCallDispatcher.definitions {
+            let schema = try schemaDictionary(for: definition)
+            XCTAssertEqual(schema["type"] as? String, "object", definition.name)
+            XCTAssertNotNil(schema["properties"] as? [String: Any], definition.name)
+        }
+
+        let reviewSchema = try schemaDictionary(for: .gitPullRequestReview)
+        let reviewProperties = try XCTUnwrap(reviewSchema["properties"] as? [String: Any])
+        let reviewAction = try XCTUnwrap(reviewProperties["action"] as? [String: Any])
+        XCTAssertEqual(reviewAction["enum"] as? [String], ["approve", "comment", "request_changes"])
+
+        let reviewersSchema = try schemaDictionary(for: .gitPullRequestReviewers)
+        let reviewersProperties = try XCTUnwrap(reviewersSchema["properties"] as? [String: Any])
+        let addReviewers = try XCTUnwrap(reviewersProperties["add"] as? [String: Any])
+        let reviewerItems = try XCTUnwrap(addReviewers["items"] as? [String: Any])
+        XCTAssertEqual(addReviewers["type"] as? String, "array")
+        XCTAssertEqual(reviewerItems["type"] as? String, "string")
+    }
+
     func testToolRouterRoutesGitWorktreeList() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
@@ -87,5 +108,11 @@ final class GitToolRouterTests: XCTestCase {
         ))
 
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+    }
+
+    private func schemaDictionary(for definition: ToolDefinition) throws -> [String: Any] {
+        let data = try XCTUnwrap(definition.parametersJSON.data(using: .utf8))
+        let json = try JSONSerialization.jsonObject(with: data)
+        return try XCTUnwrap(json as? [String: Any])
     }
 }
