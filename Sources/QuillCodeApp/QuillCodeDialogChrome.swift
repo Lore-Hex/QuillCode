@@ -5,6 +5,7 @@ struct QuillCodeLabeledTextField: View {
     var placeholder: String
     @Binding var text: String
     var footer: String?
+    var accessibilityIdentifier: String?
     var onSubmit: (() -> Void)?
 
     var body: some View {
@@ -15,6 +16,7 @@ struct QuillCodeLabeledTextField: View {
             TextField(placeholder, text: $text)
                 .textFieldStyle(.roundedBorder)
                 .quillCodeTextEntryTarget()
+                .accessibilityIdentifier(fieldIdentifier)
                 .onSubmit {
                     onSubmit?()
                 }
@@ -24,6 +26,18 @@ struct QuillCodeLabeledTextField: View {
                     .foregroundStyle(QuillCodePalette.muted)
             }
         }
+    }
+
+    private var fieldIdentifier: String {
+        if let accessibilityIdentifier {
+            return accessibilityIdentifier
+        }
+        let slug = title
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        return "quillcode-\(slug.isEmpty ? "labeled" : slug)-field"
     }
 }
 

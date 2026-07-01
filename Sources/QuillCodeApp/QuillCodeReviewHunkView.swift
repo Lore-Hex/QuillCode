@@ -58,6 +58,7 @@ struct QuillCodeReviewHunkView: View {
                     .quillCodeTextEntryTarget(radius: 8)
                     .background(QuillCodePalette.background.opacity(0.72))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityIdentifier("quillcode-review-range-start")
                 TextField("To", text: $rangeEndDraft)
                     .textFieldStyle(.plain)
                     .font(.caption.monospacedDigit())
@@ -66,6 +67,7 @@ struct QuillCodeReviewHunkView: View {
                     .quillCodeTextEntryTarget(radius: 8)
                     .background(QuillCodePalette.background.opacity(0.72))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityIdentifier("quillcode-review-range-end")
                 TextField("Range note", text: $rangeCommentDraft)
                     .textFieldStyle(.plain)
                     .font(.caption)
@@ -73,6 +75,7 @@ struct QuillCodeReviewHunkView: View {
                     .quillCodeTextEntryTarget(radius: 8)
                     .background(QuillCodePalette.background.opacity(0.72))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityIdentifier("quillcode-review-range-note")
                 Button("Add") {
                     guard let start = Int(rangeStartDraft.trimmingCharacters(in: .whitespacesAndNewlines)),
                           let end = Int(rangeEndDraft.trimmingCharacters(in: .whitespacesAndNewlines))
