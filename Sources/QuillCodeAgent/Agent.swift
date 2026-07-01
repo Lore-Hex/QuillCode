@@ -113,6 +113,10 @@ public struct AgentRunner: Sendable {
                 }
             }
 
+            // Reaching here means the loop ran its full tool-step budget without the model ever
+            // returning a final answer — the run hit its ceiling. Synthesize an answer as before, but
+            // record it HONESTLY (a notice + a distinct stopReason) so it is not mistaken for a real
+            // finish on an unattended run.
             if let lastCompletion {
                 appendAssistantMessage(Self.finalAnswer(
                     for: lastCompletion.call,
@@ -125,8 +129,16 @@ public struct AgentRunner: Sendable {
                 next.events.append(.init(kind: .message, summary: message))
                 next.updatedAt = Date()
             }
+            next.events.append(.init(
+                kind: .notice,
+                summary: "Reached the \(limit)-step tool limit before finishing; summary is from the latest step."
+            ))
             await onProgress?(next)
-            return AgentRunResult(thread: next, toolResults: toolResults)
+            return AgentRunResult(
+                thread: next,
+                toolResults: toolResults,
+                stopReason: .toolStepCeilingExhausted(limit: limit)
+            )
         } catch is CancellationError {
             AgentCancellationRecorder.recordCancelledRun(in: &next)
             await onProgress?(next)
