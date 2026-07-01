@@ -2,7 +2,8 @@ import XCTest
 
 final class ParityAutomationGateTests: QuillCodeParityTestCase {
     func testAutomationModelsLiveOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
+        Self.assertLegacyGeneralModelsFileIsRetired()
+        let modelsText = try Self.generalDomainModelsText()
         let automationText = try Self.coreSourceText(named: "AutomationModels.swift")
 
         XCTAssertTrue(automationText.contains("public enum QuillAutomationKind"), "Automation kind should live in a focused core file.")

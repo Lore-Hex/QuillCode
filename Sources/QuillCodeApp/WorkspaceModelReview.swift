@@ -111,7 +111,7 @@ public extension QuillCodeWorkspaceModel {
     /// exact same approval execution as the tool card (approve runs the held tool and resumes the plan;
     /// skip denies it), so async approval and in-app approval behave identically.
     @discardableResult
-    public func decidePendingApproval(requestID: String, approve: Bool, workspaceRoot: URL) async -> Bool {
+    func decidePendingApproval(requestID: String, approve: Bool, workspaceRoot: URL) async -> Bool {
         let action = ToolCardActionSurface(
             title: approve ? "Approve" : "Skip",
             kind: approve ? .approve : .deny,
