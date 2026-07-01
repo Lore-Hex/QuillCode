@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-06-30 Immediate Agent Action Test Split
+
+Overall grade after this slice: **A Agent test module, with all immediate-action files at A and no line-length debt in that cluster**.
+
+This pass addressed `AgentImmediateActionTests.swift`, which had grown into a 711-line regression file covering unrelated behavior:
+
+- direct shell and diagnostic execution
+- git status/diff/commit/push execution
+- file list/read/write/search immediacy
+- negated-action guardrails
+- shared queued-tool decoding fixtures
+
+The tests now follow those ownership seams:
+
+| New file | Responsibility |
+| --- | --- |
+| `AgentImmediateActionTestSupport.swift` | Shared queued-tool assertions, expected command builders, and tiny fake LLM clients. |
+| `AgentImmediateShellActionTests.swift` | Shell, disk, OpenClaw, download, and backtick/bare-command immediacy. |
+| `AgentImmediateGitActionTests.swift` | Git status/diff/commit/push immediacy and structured tool selection. |
+| `AgentImmediateFileActionTests.swift` | File list/read/write/search immediacy and ambiguous file-write fallback. |
+| `AgentImmediateNegationTests.swift` | Negative intent handling and affirmed-second-clause recovery. |
+
+Verification:
+
+- `swift test --filter QuillCodeAgentTests`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual quality debt in `test:QuillCodeAgentTests` is now concentrated in separate parser/streaming/final-answer suites, not the immediate-action behavior that protects one-turn commands like `whoami`, disk checks, file creation, and OpenClaw discovery.
+
 ## 2026-06-30 Computer Use Test Split
 
 Overall grade after this slice: **A Computer Use test module, with no Computer Use files below A-**.
