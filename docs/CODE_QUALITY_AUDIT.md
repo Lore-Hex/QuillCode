@@ -1,5 +1,94 @@
 # Code Quality Audit
 
+## 2026-07-01 Native Hit Target Audit Collaborator Pass
+
+Overall grade after this slice: **all source modules remain A+; the touched native hit-target audit files are A+**.
+
+This pass targeted the remaining A- production hotspot in the native click-target audit architecture. The old file was
+correct but too broad: it generated reports, compared surface policies, generated probe contracts, and validated probe
+geometry in one place. The new shape keeps the report API stable while separating each audit concern.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Audit entry point | `QuillCodeNativeHitTargetAudit.swift` was a 446-line file mixing orchestration, policy checks, probe generation, and validation. | The entry point is 76 lines and owns only report assembly plus duplicate-ID detection. |
+| Surface policy checks | Required and unexpected policy checks repeated six wrapper paths inside the broad audit file. | `QuillCodeNativeHitTargetAuditPolicyChecks.swift` computes one typed coverage value and grades **A+ 100**. |
+| Probe generation | Probe selector selection and normalized sample-point constants lived beside unrelated validation logic. | `QuillCodeNativeHitTargetAuditProbeGeneration.swift` owns probe creation and grades **A+ 100**. |
+| Probe validation | Geometry, selector, semantic, and sample-point validation lived in the same broad file. | `QuillCodeNativeHitTargetAuditProbeValidation.swift` owns validation and grades **A+ 96**. |
+
+Verification:
+
+- `swift test --filter 'QuillCodeNativeHitTarget'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is behavior-preserving architecture cleanup. Broader source and test modules still contain A/A- candidates, but
+  the production native hit-target audit cluster is now A+ and easier to extend without regressions.
+
+## 2026-07-01 A+ Hotspot Pass
+
+Overall grade after this slice: **all source modules stay A+; the worst pre-existing PR-tool and core E2E mega-files
+were split into smaller focused files; no B+ files remain in the touched areas**.
+
+This pass targeted the highest-leverage maintainability hotspots without changing product behavior:
+
+| Area | Before | After |
+| --- | --- | --- |
+| GitHub PR tool tests | One 625-line `GitHubPullRequestToolExecutorTests.swift` mixed create/view/comment/edit/review/merge/router coverage. | Split into shared support plus base, edit, review, merge, and router suites. The PR tool tests now map to executor responsibilities instead of one catch-all file. |
+| Composer E2E | `composer.spec.ts` carried core composer flow, slash commands, mentions, history, and model-picker coverage. | Split slash, mention, history, and model-picker flows into focused specs while keeping core composer assertions in `composer.spec.ts`. |
+| Sidebar E2E | `sidebar.spec.ts` mixed search, chat lifecycle, filters, project actions, and helper code. | Extracted sidebar helpers and moved lifecycle, filter, and project flows into dedicated specs. |
+| Real-world action E2E | `real-world-actions.spec.ts` included release evidence registration logic beside user-flow tests. | Extracted evidence-manifest registration into `real-world-action-evidence.ts`; the spec now reads as behavior coverage. |
+| Review thread source contracts | `WorkspacePullRequestReviewThreadSurface.swift` bundled thread, comment, reply, and action contracts. | Split comment, reply, and action contracts into focused source files while preserving public API names. |
+| Native hit-target modifiers | `QuillCodeHitTargetViewModifiers.swift` mixed public button/control helpers with the underlying private modifier. | Split button and control semantic wrappers from the lower-level modifier implementation and updated native interaction audits. |
+| Repeated parity assertions | Real-world and execution integration parity gates repeated long one-off string assertions. | Grouped required snippets into arrays with shared `assertSource` helpers so ownership checks are easier to scan and extend. |
+
+Verification:
+
+- `swift test --filter 'GitHubPullRequest|ParityGitPullRequestToolGateTests'`
+- `npx playwright test tests/composer.spec.ts tests/composer-slash.spec.ts tests/composer-mentions.spec.ts tests/composer-history.spec.ts tests/model-picker.spec.ts`
+- `swift test --filter ParityWorkspacePlaywrightFocusedSpecGateTests`
+- `npx playwright test tests/sidebar.spec.ts tests/sidebar-chat-lifecycle.spec.ts tests/sidebar-filters.spec.ts tests/sidebar-projects.spec.ts`
+- `swift test --filter ParityWorkspaceSidebarPlaywrightGateTests`
+- `npx playwright test tests/real-world-actions.spec.ts`
+- `npx playwright test tests/memories.spec.ts`
+- `swift test --filter 'QuillCodeReviewSurfaceTests|WorkspaceReviewActionToolCallPlannerTests|ParityWorkspacePlaywrightRealWorldSpecGateTests'`
+- `swift test --filter 'QuillCodeNativeHitTarget|ParityNativeInteractionContractGateTests|ParityNativeCompactHitTargetGateTests|ParityNativePrimaryChromeHitTargetGateTests'`
+- `swift test --filter ParityWorkspacePlaywrightMemoryGateTests`
+- `swift test --filter ParityWorkspaceExecutionIntegrationGateTests`
+
+Residual risk:
+
+- The automated grade remains a heuristic. It now shows source modules at A+, while broader E2E and some large
+  integration/parity test files remain A/A- cleanup candidates.
+- This pass intentionally avoided runtime behavior changes; it is a maintainability and test-architecture pass.
+
+## 2026-07-01 Interaction, TrustedRouter, And Command Palette Gate Split
+
+Overall grade after this slice: **no B+ files remain in the automated grade report; all source modules stay A+**.
+
+This pass addressed the final B+ hotspots from the grade report and kept the edits behavior-preserving:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Interaction target parity | `ParityInteractionTargetGateTests.swift` mixed Playwright audit contracts, rendered harness layout, primitive contracts, registry coverage, and source scans in one 529-line B+ file. | Split into focused audit-contract, harness, primitive/source, registry, and support files. The parity module now grades A+ with no B+ files. |
+| TrustedRouter parity | `ParityTrustedRouterGateTests.swift` repeated one assertion per marker and graded B+ due to long lines. | Grouped source include/exclude assertions by parser, prompt, key resolution, safety client, parameter catalog, and adapter-test ownership. |
+| Command palette E2E | `command-palette.spec.ts` mixed core palette, worktree, pull request, and local environment flows in one 443-line B+ file. | Kept core palette behavior in `command-palette.spec.ts` and split workflow tests into worktree, pull request, and local-env specs with shared helpers. |
+| Generated report | `docs/CODE_QUALITY_FILE_GRADES.md` still reflected earlier hotspots. | Regenerated the report after the split; the lowest current files are A- maintainability targets. |
+
+Verification:
+
+- `swift test --filter ParityInteractionTarget`
+- `swift test --filter ParityTrustedRouterGateTests`
+- `npx playwright test tests/command-palette.spec.ts tests/command-palette-worktrees.spec.ts tests/command-palette-pull-requests.spec.ts tests/command-palette-local-env.spec.ts`
+- `swift test --filter ParityPlaywrightCommandPaletteGateTests`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- This is a behavior-preserving test-architecture split. It does not add new runtime functionality.
+- The next quality targets are A- files, starting with broad GitHub PR tool tests and large Playwright flow specs.
+
 ## 2026-07-01 Python Bytecode Artifact Cleanup
 
 Overall grade after this slice: **A+ repository hygiene, no generated Python bytecode in source control**.
@@ -1151,7 +1240,7 @@ This pass addressed the remaining production tools hotspot from the generated re
 
 Verification:
 
-- `swift test --filter 'GitHubPullRequestToolExecutorTests|GitHubPullRequestMetadataResolverTests|ParityToolGateTests'`
+- `swift test --filter 'GitHubPullRequest|GitHubPullRequestMetadataResolverTests|ParityGitPullRequestToolGateTests'`
 - `swift test` (1968 tests, 1 skipped, 0 failures)
 - `git diff --check`
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
@@ -8695,8 +8784,8 @@ Overall grade after this slice: **A test ownership, A fixture reuse, A merge-con
 `ToolTests.swift` still mixed unrelated file, patch, git, GitHub PR, worktree, and router behavior after the shell split. GitHub PR command construction changes are frequent and carry their own input-validation and fake-`gh` fixture needs, so keeping them in the catch-all suite made future PR workflow work harder to review.
 
 What changed:
-- Added `GitHubPullRequestToolExecutorTests` for PR create/view/checks/diff/checkout/reviewer/label/comment/review/merge behavior, shared PR input/output helper coverage, and PR-specific router dispatch.
-- Replaced repeated fake-`gh` setup and argument-file parsing with one small `GitHubCLIFixture`.
+- Initially added `GitHubPullRequestToolExecutorTests` for PR create/view/checks/diff/checkout/reviewer/label/comment/review/merge behavior, shared PR input/output helper coverage, and PR-specific router dispatch. The 2026-07-01 tools test pass later split this bucket into focused command-family suites.
+- Replaced repeated fake-`gh` setup and argument-file parsing with one small fixture; the 2026-07-01 split later renamed and narrowed that helper as `GitHubPullRequestCLIFixture`.
 - Removed the same PR-specific tests from `ToolTests.swift`.
 - Added a parity gate so GitHub PR coverage does not drift back into the mixed tool suite.
 
@@ -10157,7 +10246,7 @@ Current strict grades:
 - `QuillCodeToolsTests` ownership: **A**. Each current suite now names a tool family or protocol boundary instead of relying on a broad catch-all.
 
 Remaining risk:
-- `MCPStdioProberTests.swift` and `GitHubPullRequestToolExecutorTests.swift` are still the largest tools test files. They are focused enough to keep for now, but should be split by protocol probing and PR command family if they grow materially.
+- This risk was resolved by the 2026-07-01 tools test pass: GitHub PR tests are now split by command family, and MCP stdio setup uses a shared fixture. The remaining tools-test quality targets are ordinary A/A+ cleanup rather than broad ownership problems.
 
 ## 2026-06-25 Browser Model API Extension
 
@@ -12520,3 +12609,376 @@ Remaining risk:
 
 - The next broad B+ hotspot is `ParityWorkspaceModelThreadGateTests.swift`,
   followed by HTML renderer, top-bar, slash-command, and execution parity gates.
+
+## 2026-07-01 TrustedRouter Parity Gate Split
+
+Overall grade after this slice: **A+ TrustedRouter parity architecture, A+
+agent transport boundary architecture, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `ParityTrustedRouterGateTests.swift` as the
+next B+ hotspot inside the parity suite. The file mixed action parsing, prompt
+building, API-key resolution, safety transport, chat parameter sharing, and
+agent test-suite ownership. This pass split those concerns into small focused
+files so each failure points at one TrustedRouter boundary.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| TrustedRouter action parsing gates | A+ | Parser, extractor, recovery, normalizer, and transport boundaries are isolated. |
+| TrustedRouter prompt gates | A+ | Prompt history, project instruction, and memory rendering stay in the builder. |
+| TrustedRouter auth gates | A+ | API-key override/session fallback rules stay in one resolver. |
+| TrustedRouter safety transport gates | A+ | Safety model transport remains separate from action transport. |
+| TrustedRouter chat parameter gates | A+ | Shared JSON response-format parameters stay outside both clients. |
+| TrustedRouter adapter-suite gates | A+ | Parser, streaming, prompt, catalog, and key resolver tests stay focused. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterActionParsingGateTests.swift` | A+ | Focused action parsing and normalization ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterPromptGateTests.swift` | A+ | Focused prompt-builder ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterAPIKeyGateTests.swift` | A+ | Focused API-key resolver ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterSafetyTransportGateTests.swift` | A+ | Focused safety transport ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterChatParametersGateTests.swift` | A+ | Focused shared chat-parameter ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterAdapterSuiteGateTests.swift` | A+ | Focused adapter test-suite placement checks. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest now tracks every TrustedRouter split gate. |
+
+Code quality changes:
+
+- Replaced the broad TrustedRouter parity file with six single-responsibility
+  gate files.
+- Removed long custom assertion prose in favor of concise source-contract
+  assertions and focused test names.
+- Kept adapter suite coverage factored through small helper methods instead of
+  one long mixed test body.
+- Regenerated the deterministic file/module grade matrix; all new
+  TrustedRouter split files grade A+ 100 with no automated issues.
+
+Remaining risk:
+
+- The next B+ parity hotspot is `ParityInteractionTargetGateTests.swift`, and
+  the next B+ E2E hotspot is `command-palette.spec.ts`. They should receive the
+  same ownership split and deduplication treatment next.
+
+## 2026-07-01 Interaction Target Parity Gate Split
+
+Overall grade after this slice: **A+ interaction target parity architecture,
+A+ rendered hit-target contract architecture, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `ParityInteractionTargetGateTests.swift` as the
+last B+ hotspot inside the Swift parity module. The file mixed Playwright audit
+contract requirements, rendered HTML primitive semantics, command routing,
+critical target registry coverage, responsive target layout, dynamic contract
+normalization, and Swift source-audit fixtures. This pass split those concerns
+into focused gate files and registered every new test in the focused-suite
+manifest.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| HTML interaction audit contract gates | A+ | Names, control coverage, active layers, clearance, sampling, semantic contracts, and tactile contracts are grouped together. |
+| HTML primitive hit-target gates | A+ | Default classes, semantic vocabulary, emitted attributes, and shared target families are isolated from rendered-flow checks. |
+| Rendered command routing gates | A+ | Dead rendered command target detection stays in one focused harness-routing gate. |
+| Critical target registry gates | A+ | Primary surfaces, risky compact controls, edge-click flows, and semantic/tactile fixtures are separated. |
+| Responsive rendered target gates | A+ | Clearance tokens, transcript find layout, dynamic normalization, and Activity contracts are grouped by rendered responsiveness. |
+| HTML source audit gates | A+ | Swift renderer primitive usage and raw shared-target semantic fixture coverage are isolated. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityHTMLInteractionAuditContractGateTests.swift` | A+ | Focused Playwright audit contract checks. |
+| `Tests/QuillCodeParityTests/ParityHTMLPrimitiveHitTargetGateTests.swift` | A+ | Focused rendered primitive semantic checks. |
+| `Tests/QuillCodeParityTests/ParityRenderedCommandRoutingGateTests.swift` | A+ | Focused rendered command routing checks. |
+| `Tests/QuillCodeParityTests/ParityRenderedCriticalTargetRegistryGateTests.swift` | A+ | Focused critical registry and edge-click coverage checks. |
+| `Tests/QuillCodeParityTests/ParityRenderedResponsiveTargetGateTests.swift` | A+ | Focused responsive and dynamic target contract checks. |
+| `Tests/QuillCodeParityTests/ParityHTMLSourceInteractionTargetGateTests.swift` | A+ | Focused Swift HTML source-audit fixture checks. |
+| `Tests/QuillCodeParityTests/ParityInteractionTargetTextSupport.swift` | A+ | Shared Playwright/harness text loading removes duplicated file IO. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest now tracks every interaction-target split gate. |
+
+Code quality changes:
+
+- Replaced the broad 529-line interaction target parity file with six
+  single-responsibility gate files plus one shared text-loader support helper.
+- Registered interaction-target gates in the focused-suite manifest; the old
+  broad file had no manifest entry.
+- Reused `QuillCodeParityTestCase.assertSource(...containsAll:)` for concise
+  contract checks instead of repeated long XCTest messages.
+- Regenerated the deterministic file/module grade matrix; every new
+  interaction-target split file grades A+ 100 with no automated issues.
+
+Remaining risk:
+
+- The Swift parity module no longer has a B+ hotspot. The next repo-wide B+
+  target is `E2E/playwright/tests/command-palette.spec.ts`, followed by several
+  A- test/source files with high duplication or long lines.
+
+## 2026-07-01 Command Palette E2E Split
+
+Overall grade after this slice: **A+ command-palette E2E ownership,
+A+ Playwright helper reuse, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `E2E/playwright/tests/command-palette.spec.ts`
+as the next B+ hotspot after the Swift parity splits. The file mixed base
+palette behavior, keyboard navigation, worktree lifecycle dialogs, pull request
+actions, pull request review drafting, and local environment execution. This
+pass split those concerns into workflow-owned Playwright specs and updated the
+parity gate so command-palette coverage remains focused.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Command palette core E2E | A+ | Base open/focus/close, action/slash scoping, keyboard ranking, and keyboard navigation stay together. |
+| Command palette worktree E2E | A+ | Worktree list, prune, preview retry, create/open/remove, and choice retry flows stay together. |
+| Command palette pull request E2E | A+ | PR create/fill/view/checks/diff and draft command visibility stay together. |
+| Command palette PR review E2E | A+ | Review-pane launch, inline note selection/editing, review submission, and thread listing stay together. |
+| Command palette local environment E2E | A+ | Project action discovery, redaction, and shell dispatch stay isolated from git flows. |
+| Playwright harness helpers | A+ | Shared palette open/closed and selected-result helpers remove repeated selector boilerplate. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `E2E/playwright/tests/command-palette-core.spec.ts` | A+ | Focused base palette and keyboard behavior. |
+| `E2E/playwright/tests/command-palette-worktrees.spec.ts` | A+ | Focused worktree command and dialog behavior. |
+| `E2E/playwright/tests/command-palette-pull-requests.spec.ts` | A+ | Focused pull request command behavior. |
+| `E2E/playwright/tests/command-palette-pr-review.spec.ts` | A+ | Focused pull request review workflow behavior. |
+| `E2E/playwright/tests/command-palette-local-env.spec.ts` | A+ | Focused local environment action behavior. |
+| `E2E/playwright/tests/harness-helpers.ts` | A+ | Shared command-palette helper surface. |
+| `Tests/QuillCodeParityTests/ParityPlaywrightCommandPaletteGateTests.swift` | A+ | Split-spec parity contract. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest tracks the renamed command-palette parity gate. |
+
+Code quality changes:
+
+- Replaced the 443-line command-palette E2E bucket file with five
+  single-responsibility specs.
+- Added reusable Playwright helpers for opening/closing the command palette and
+  asserting selected command rows.
+- Updated the Swift parity gate to require the focused command-palette specs and
+  to keep broad `core.spec.ts` free of those command-palette workflow tests.
+- Regenerated the deterministic file/module grade matrix; every new
+  command-palette split file grades A+.
+
+Remaining risk:
+
+- The repo no longer has any B+ automated-grade files. The next quality targets
+  are A- files with long lines or high test duplication, especially broad
+  Playwright specs such as `real-world-actions.spec.ts`, `composer.spec.ts`, and
+  `sidebar.spec.ts`.
+
+## 2026-07-01 Tools Test Quality Pass
+
+Overall grade after this slice: **A+ QuillCodeToolsTests module,
+A+ GitHub PR test ownership, A+ PTY test readability**.
+
+This slice rebased onto the existing GitHub pull request test split on `main`
+and kept that structure intact instead of adding a duplicate suite. The new work
+in this pass focuses on the remaining repeated MCP and PTY test scaffolding,
+plus a small parity assertion that rejects reintroducing the old broad PR test
+class.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `test:QuillCodeToolsTests` | A+ | 26 files, 3436 lines, average score 99. Lowest files are now A/A+, not broad A- PR/PTY buckets. |
+| GitHub PR tool suites | A+ | Existing base, edit, review, merge, router, metadata, and support coverage remains independently owned. |
+| PTY process tests | A+ | Shared session factory, event collector, and retry helper removed repeated async process loops. |
+| MCP stdio prober tests | A | Shared pipe/handshake fixture reduced repeated lifecycle setup while keeping protocol-message scenarios explicit. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestBaseToolExecutorTests.swift` | A+ | Focused create/read/checkout coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestEditToolExecutorTests.swift` | A+ | Focused reviewer, label, and comment mutation coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestReviewToolExecutorTests.swift` | A+ | Focused review, line comment, reply, and thread API coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestMergeToolExecutorTests.swift` | A+ | Focused PR merge method coverage. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestToolRouterTests.swift` | A+ | Focused tool-router dispatch coverage for PR tools. |
+| `Tests/QuillCodeToolsTests/GitHubPullRequestTestSupport.swift` | A+ | Shared fake-`gh` fixture and argument capture. |
+| `Tests/QuillCodeToolsTests/PTYProcessSessionTests.swift` | A+ | Async PTY scenarios now use shared process/session helpers. |
+| `Tests/QuillCodeToolsTests/MCPStdioProberTests.swift` | A | Protocol fixture removes repeated pipe setup; remaining duplication is explicit MCP JSON scenario data. |
+
+Code quality changes:
+
+- Preserved the focused GitHub PR command-family suites already on `main` and
+  added a parity assertion that rejects the old broad class name.
+- Extracted MCP stdio pipe/handshake setup into `MCPStdioProbeFixture`.
+- Extracted PTY session creation, event collection, process finish waiting, and
+  retry polling into shared helpers.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; `PTYProcessSessionTests.swift`
+  now grades A+ 100, GitHub PR split tests remain A+, and
+  `MCPStdioProberTests.swift` improved from A- to A.
+
+Validation:
+
+- `swift test --filter GitHubPullRequest`
+- `swift test --filter ParityGitPullRequestToolGateTests`
+- `swift test --filter MCPStdioProberTests`
+- `swift test --filter PTYProcessSessionTests`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- The tools test module is A+ and no longer has broad A- PR/PTY files. The next
+  repo-wide quality targets remain broad Playwright specs and a few A- app/parity
+  files with long lines or intentionally repetitive source-audit checks.
+
+## 2026-07-01 Persistence And Safety Test Quality Pass
+
+Overall grade after this slice: **A+ persistence tests, A+ safety tests, A+
+shared safety review helpers**.
+
+This pass targets the lowest remaining module grades after the tools-test split:
+`test:QuillCodePersistenceTests` was a single broad A- bucket and
+`test:QuillCodeSafetyTests` was an A module with repeated review construction
+inside policy scenarios.
+
+Module grades:
+
+| Module | Before | After | Notes |
+| --- | --- | --- | --- |
+| `test:QuillCodePersistenceTests` | A- | A+ | Split by store type; each file now owns one persistence contract. |
+| `test:QuillCodeSafetyTests` | A | A+ | Shared reviewer/tool-call helpers remove repeated safety-context construction. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodePersistenceTests/ConfigStoreTests.swift` | A+ | Config round-trip, auth-mode, account, favorites, and legacy override behavior. |
+| `Tests/QuillCodePersistenceTests/JSONThreadStoreTests.swift` | A+ | Focused thread-store round-trip coverage. |
+| `Tests/QuillCodePersistenceTests/JSONProjectStoreTests.swift` | A+ | Project sorting, SSH connection, diagnostics, and legacy local decode coverage. |
+| `Tests/QuillCodePersistenceTests/JSONAutomationStoreTests.swift` | A+ | Automation sorting, recurrence, event source, and missing-file behavior. |
+| `Tests/QuillCodePersistenceTests/FileSecretStoreTests.swift` | A+ | Secret round-trip, permissions, and key sanitization behavior. |
+| `Tests/QuillCodePersistenceTests/PersistenceTestSupport.swift` | A+ | Shared temp-directory and POSIX-permission helpers. |
+| `Tests/QuillCodeSafetyTests/SafetyPolicyTestCase.swift` | A+ | Shared review, verdict, non-verdict, and shell-argument helpers. |
+| `Tests/QuillCodeSafetyTests/SafetyGeneralPolicyTests.swift` | A+ | General policy scenarios now read as policy assertions instead of setup code. |
+
+Code quality changes:
+
+- Replaced the single mixed `PersistenceTests.swift` file with focused
+  store-specific suites.
+- Moved temp-directory and POSIX-permission helpers into
+  `PersistenceTestSupport.swift`.
+- Added reusable safety review helpers to `SafetyPolicyTestCase`.
+- Rewrote general safety policy tests around concise policy assertions.
+- Removed the local shell-command JSON encoder from download policy tests so
+  every safety test uses the same argument encoding path.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; persistence and safety test
+  modules now both report A+.
+
+Validation:
+
+- `swift test --filter 'QuillCodePersistenceTests|SafetyGeneralPolicyTests|SafetyDownloadPolicyTests|SafetyGitPullRequestPolicyTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- `SafetyGitPullRequestPolicyTests.swift` and `SafetyDownloadPolicyTests.swift`
+  still contain intentionally explicit scenario tables that grade A-, but the
+  safety module now grades A+. The next A+ train should target the broad
+  Playwright/app/parity files still listed at the top of
+  `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+## 2026-07-01 Native Hit Target Test Architecture Pass
+
+Overall grade after this slice: **A+ native hit-target test ownership and A+
+focused click-target contract coverage**.
+
+This pass targets the lowest-scored app test file after the prior trains:
+`QuillCodeNativeHitTargetAuditTests.swift` was a 969-line A- bucket combining
+design-system semantics, surface-report assertions, source scanning fixtures,
+and negative validation cases. The coverage is preserved, but each test file now
+has one responsibility that maps to the interaction architecture.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `test:QuillCodeAppTests` | A+ | The old 969-line native hit-target test bucket is gone; every replacement native hit-target test file grades A+. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetDesignTests.swift` | A+ | Design-system/native/HTML semantic bridge and minimum target clamping. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetSurfaceAuditTests.swift` | A+ | Representative and plain workspace surface coverage, command contracts, probe coverage, and policy assertions. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetSourceAuditTests.swift` | A+ | Source-level guardrails for Buttons, text entries, gestures, identifiers, and owned gestures. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetValidationTests.swift` | A+ | Negative report/probe validation for metadata, geometry, selector, semantic, sample-point, and collision-scope drift. |
+| `Tests/QuillCodeAppTests/QuillCodeNativeHitTargetAuditTestSupport.swift` | A+ | Shared representative surface fixture and source-scanner helpers. |
+
+Code quality changes:
+
+- Replaced `QuillCodeNativeHitTargetAuditTests.swift` with four focused suites
+  and one shared support base.
+- Kept the minimum-hit-target, 8 pt clearance, 0.96 press-scale, text-entry
+  accessibility identifier, owned-gesture, semantic kind/action, selector, and
+  edge/interior sample-point assertions intact.
+- Extracted representative workspace, MCP, browser, memories, automations, and
+  source-scanner fixtures into reusable support.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; all native hit-target test
+  files now grade A+.
+
+Validation:
+
+- `swift test --filter 'QuillCodeNativeHitTarget'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- The native audit source itself still grades A- because it owns broad report
+  orchestration. A later train should split the production audit into report,
+  policy, probe, and validation collaborators after the focused test ownership
+  is merged.
+
+## 2026-07-01 Project Context Refresh Pass
+
+Overall grade after this slice: **A+ app module with explicit context-refresh
+collaboration**.
+
+This pass targets the project context refresh path, where local/remote metadata
+refresh, thread synchronization, and thread/worktree context creation were all
+wired directly through `WorkspaceProjectContextRefresher`. The public refresher
+API remains unchanged, but the reusable context source now owns snapshot and
+context creation.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | The app module remains A+; the new context-source collaborator grades A+. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceProjectContextRefresher.swift` | A- | A | Keeps public refresh/sync API, delegates typed context creation. |
+| `Sources/QuillCodeApp/WorkspaceThreadContextSource.swift` | n/a | A+ | Centralizes snapshot, thread creation, and worktree context construction. |
+
+Code quality changes:
+
+- Added `WorkspaceThreadContextSource` as the single place that turns
+  project/global memory inputs into snapshots, new-thread contexts, and
+  worktree-open contexts.
+- Collapsed local and remote metadata writes through one private
+  `applyMetadata` path with an explicit metadata-source enum.
+- Collapsed thread instruction/memory synchronization through one private
+  `syncThread` path so memory-only refresh cannot drift from full context
+  refresh.
+- Updated the workspace context resolver parity gate to inspect the new
+  collaborator instead of assuming the refresher directly calls the builder.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'WorkspaceProjectContextRefresherTests|ParityWorkspaceContextResolverGateTests|ParityWorkspaceContextRefreshGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- The refresher itself still grades A because it intentionally preserves the
+  existing public façade API; the next source-quality slice should target the
+  remaining A- app files listed in `docs/CODE_QUALITY_FILE_GRADES.md`.

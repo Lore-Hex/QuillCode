@@ -1,66 +1,6 @@
 import Foundation
 import QuillCodeCore
 
-public enum MemoryNoteWriteError: Error, Equatable, LocalizedError {
-    case empty
-    case tooLarge(actual: Int, maximum: Int)
-    case sensitiveContent
-    case unavailable
-    case writeFailed
-
-    public var errorDescription: String? {
-        switch self {
-        case .empty:
-            return "Nothing to remember. Use `/remember a durable preference or fact`."
-        case .tooLarge(let actual, let maximum):
-            return "Memory is too large (\(actual) bytes). Keep explicit memories under \(maximum) bytes."
-        case .sensitiveContent:
-            return "Memory was not saved because it looks like it contains a credential, token, password, or private key."
-        case .unavailable:
-            return "Memory saving is unavailable in this runtime."
-        case .writeFailed:
-            return "Memory could not be written."
-        }
-    }
-}
-
-public enum MemoryNoteDeleteError: Error, Equatable, LocalizedError {
-    case notFound
-    case deleteFailed
-
-    public var errorDescription: String? {
-        switch self {
-        case .notFound:
-            return "Memory was not found. It may already have been removed."
-        case .deleteFailed:
-            return "Memory could not be deleted."
-        }
-    }
-}
-
-public enum MemoryNoteUpdateError: Error, Equatable, LocalizedError {
-    case notFound
-    case empty
-    case tooLarge(actual: Int, maximum: Int)
-    case sensitiveContent
-    case updateFailed
-
-    public var errorDescription: String? {
-        switch self {
-        case .notFound:
-            return "Memory was not found. It may already have been removed."
-        case .empty:
-            return "Memory cannot be empty."
-        case .tooLarge(let actual, let maximum):
-            return "Memory is too large (\(actual) bytes). Keep explicit memories under \(maximum) bytes."
-        case .sensitiveContent:
-            return "Memory was not updated because it looks like it contains a credential, token, password, or private key."
-        case .updateFailed:
-            return "Memory could not be updated."
-        }
-    }
-}
-
 public enum MemoryNoteLoader {
     public static let projectRelativeDirectory = ".quillcode/memories"
     public static let supportedExtensions: Set<String> = ["md", "txt", "json"]
@@ -75,9 +15,10 @@ public enum MemoryNoteLoader {
         maxTotalBytes: Int = maxTotalBytes
     ) -> [MemoryNote] {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
-        return load(
+        return MemoryNoteFileReader.load(
             root: root,
             directory: root,
+            supportedExtensions: supportedExtensions,
             scope: .global,
             displayPrefix: "memories",
             maxNotes: maxNotes,
@@ -94,10 +35,14 @@ public enum MemoryNoteLoader {
         maxTotalBytes: Int = maxTotalBytes
     ) -> [MemoryNote] {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory) else { return [] }
-        return load(
+        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(
+            in: root,
+            relativeDirectory: relativeDirectory
+        ) else { return [] }
+        return MemoryNoteFileReader.load(
             root: root,
             directory: directory,
+            supportedExtensions: supportedExtensions,
             scope: .project,
             displayPrefix: relativeDirectory,
             maxNotes: maxNotes,
@@ -126,9 +71,10 @@ public enum MemoryNoteLoader {
         )
         let fileURL = root.appendingPathComponent(filename)
         try content.appending("\n").write(to: fileURL, atomically: true, encoding: .utf8)
-        guard let note = loadFile(
+        guard let note = MemoryNoteFileReader.loadFile(
             root: root,
             fileURL: fileURL,
+            supportedExtensions: supportedExtensions,
             scope: .global,
             displayPrefix: "memories",
             maxBytes: maxBytes
@@ -145,28 +91,11 @@ public enum MemoryNoteLoader {
         maxBytes: Int = maxFileBytes
     ) throws -> MemoryNote {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
-        guard let existing = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }),
-              let fileURL = MemoryNotePathResolver.globalMemoryFileURL(for: existing, in: root)
-        else {
-            throw MemoryNoteUpdateError.notFound
-        }
-
-        let content = try validatedUpdateContent(rawContent, maxBytes: maxBytes)
-        do {
-            try content.appending("\n").write(to: fileURL, atomically: true, encoding: .utf8)
-        } catch {
-            throw MemoryNoteUpdateError.updateFailed
-        }
-        guard let updated = loadFile(
-            root: root,
-            fileURL: fileURL,
-            scope: .global,
-            displayPrefix: "memories",
+        return try updateNote(
+            in: globalLocation(id: id, root: root, notFoundError: MemoryNoteUpdateError.notFound),
+            content: rawContent,
             maxBytes: maxBytes
-        ) else {
-            throw MemoryNoteUpdateError.updateFailed
-        }
-        return updated
+        )
     }
 
     public static func updateProject(
@@ -177,29 +106,16 @@ public enum MemoryNoteLoader {
         maxBytes: Int = maxFileBytes
     ) throws -> MemoryNote {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
-              let existing = loadProject(from: root, relativeDirectory: relativeDirectory).first(where: { $0.id == id && $0.scope == .project }),
-              let fileURL = MemoryNotePathResolver.projectMemoryFileURL(for: existing, root: root, directory: directory, relativeDirectory: relativeDirectory)
-        else {
-            throw MemoryNoteUpdateError.notFound
-        }
-
-        let content = try validatedUpdateContent(rawContent, maxBytes: maxBytes)
-        do {
-            try content.appending("\n").write(to: fileURL, atomically: true, encoding: .utf8)
-        } catch {
-            throw MemoryNoteUpdateError.updateFailed
-        }
-        guard let updated = loadFile(
-            root: root,
-            fileURL: fileURL,
-            scope: .project,
-            displayPrefix: relativeDirectory,
+        return try updateNote(
+            in: projectLocation(
+                id: id,
+                root: root,
+                relativeDirectory: relativeDirectory,
+                notFoundError: MemoryNoteUpdateError.notFound
+            ),
+            content: rawContent,
             maxBytes: maxBytes
-        ) else {
-            throw MemoryNoteUpdateError.updateFailed
-        }
-        return updated
+        )
     }
 
     public static func deleteGlobal(
@@ -207,19 +123,7 @@ public enum MemoryNoteLoader {
         from directory: URL
     ) throws -> MemoryNote {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
-        guard let note = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }) else {
-            throw MemoryNoteDeleteError.notFound
-        }
-        guard let fileURL = MemoryNotePathResolver.globalMemoryFileURL(for: note, in: root) else {
-            throw MemoryNoteDeleteError.notFound
-        }
-
-        do {
-            try FileManager.default.removeItem(at: fileURL)
-        } catch {
-            throw MemoryNoteDeleteError.deleteFailed
-        }
-        return note
+        return try deleteNote(in: globalLocation(id: id, root: root, notFoundError: MemoryNoteDeleteError.notFound))
     }
 
     public static func deleteProject(
@@ -228,112 +132,106 @@ public enum MemoryNoteLoader {
         relativeDirectory: String = projectRelativeDirectory
     ) throws -> MemoryNote {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
-              let note = loadProject(from: root, relativeDirectory: relativeDirectory).first(where: { $0.id == id && $0.scope == .project }),
-              let fileURL = MemoryNotePathResolver.projectMemoryFileURL(for: note, root: root, directory: directory, relativeDirectory: relativeDirectory)
-        else {
-            throw MemoryNoteDeleteError.notFound
-        }
+        return try deleteNote(
+            in: projectLocation(
+                id: id,
+                root: root,
+                relativeDirectory: relativeDirectory,
+                notFoundError: MemoryNoteDeleteError.notFound
+            )
+        )
+    }
 
+    private static func updateNote(
+        in location: MemoryNoteFileLocation,
+        content rawContent: String,
+        maxBytes: Int
+    ) throws -> MemoryNote {
+        let content = try validatedUpdateContent(rawContent, maxBytes: maxBytes)
         do {
-            try FileManager.default.removeItem(at: fileURL)
+            try content.appending("\n").write(to: location.fileURL, atomically: true, encoding: .utf8)
+        } catch {
+            throw MemoryNoteUpdateError.updateFailed
+        }
+        guard let updated = MemoryNoteFileReader.loadFile(
+            root: location.root,
+            fileURL: location.fileURL,
+            supportedExtensions: supportedExtensions,
+            scope: location.note.scope,
+            displayPrefix: location.displayPrefix,
+            maxBytes: maxBytes
+        ) else {
+            throw MemoryNoteUpdateError.updateFailed
+        }
+        return updated
+    }
+
+    private static func deleteNote(in location: MemoryNoteFileLocation) throws -> MemoryNote {
+        do {
+            try FileManager.default.removeItem(at: location.fileURL)
         } catch {
             throw MemoryNoteDeleteError.deleteFailed
         }
-        return note
+        return location.note
     }
 
-    private static func load(
+    private static func globalLocation(
+        id: String,
         root: URL,
-        directory: URL,
-        scope: MemoryScope,
-        displayPrefix: String,
-        maxNotes: Int,
-        maxFileBytes: Int,
-        maxTotalBytes: Int
-    ) -> [MemoryNote] {
-        guard maxNotes > 0, maxFileBytes > 0, maxTotalBytes > 0 else { return [] }
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
-            options: [.skipsHiddenFiles]
-        )) ?? []
-
-        var totalBytes = 0
-        var notes: [MemoryNote] = []
-        for fileURL in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            guard notes.count < maxNotes, totalBytes < maxTotalBytes else { break }
-            let remainingBytes = maxTotalBytes - totalBytes
-            guard let note = loadFile(
-                root: root,
-                fileURL: fileURL,
-                scope: scope,
-                displayPrefix: displayPrefix,
-                maxBytes: min(maxFileBytes, remainingBytes)
-            ) else {
-                continue
-            }
-            totalBytes += note.byteCount
-            notes.append(note)
+        notFoundError: Error
+    ) throws -> MemoryNoteFileLocation {
+        guard let note = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }) else {
+            throw notFoundError
         }
-        return notes
+        guard let fileURL = MemoryNotePathResolver.globalMemoryFileURL(for: note, in: root) else {
+            throw notFoundError
+        }
+        return MemoryNoteFileLocation(
+            note: note,
+            root: root,
+            fileURL: fileURL,
+            displayPrefix: "memories"
+        )
+    }
+
+    private static func projectLocation(
+        id: String,
+        root: URL,
+        relativeDirectory: String,
+        notFoundError: Error
+    ) throws -> MemoryNoteFileLocation {
+        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(
+                  in: root,
+                  relativeDirectory: relativeDirectory
+              ),
+              let note = loadProject(from: root, relativeDirectory: relativeDirectory)
+                  .first(where: { $0.id == id && $0.scope == .project }),
+              let fileURL = MemoryNotePathResolver.projectMemoryFileURL(
+                  for: note,
+                  root: root,
+                  directory: directory,
+                  relativeDirectory: relativeDirectory
+        )
+        else {
+            throw notFoundError
+        }
+        return MemoryNoteFileLocation(
+            note: note,
+            root: root,
+            fileURL: fileURL,
+            displayPrefix: relativeDirectory
+        )
     }
 
     static func validatedUpdateContent(_ rawContent: String, maxBytes: Int = maxFileBytes) throws -> String {
         try MemoryNoteContentPolicy.validatedUpdateContent(rawContent, maxBytes: maxBytes)
     }
 
-    private static func loadFile(
-        root: URL,
-        fileURL: URL,
-        scope: MemoryScope,
-        displayPrefix: String,
-        maxBytes: Int
-    ) -> MemoryNote? {
-        guard maxBytes > 0,
-              supportedExtensions.contains(fileURL.pathExtension.lowercased())
-        else {
-            return nil
-        }
+}
 
-        let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
-        guard values?.isRegularFile == true,
-              values?.isSymbolicLink != true
-        else {
-            return nil
-        }
-
-        let resolved = fileURL.standardizedFileURL.resolvingSymlinksInPath()
-        guard resolved.path.hasPrefix(root.path + "/") || resolved.deletingLastPathComponent().path == root.path else {
-            return nil
-        }
-
-        guard let handle = try? FileHandle(forReadingFrom: resolved) else { return nil }
-        defer { try? handle.close() }
-
-        let data = handle.readData(ofLength: maxBytes + 1)
-        let wasTruncated = data.count > maxBytes
-        let boundedData = wasTruncated ? data.prefix(maxBytes) : data[...]
-        guard var content = String(data: Data(boundedData), encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !content.isEmpty
-        else {
-            return nil
-        }
-        if wasTruncated {
-            content += "\n\n[QuillCode truncated this memory file at \(maxBytes) bytes.]"
-        }
-
-        let relativePath = "\(displayPrefix)/\(resolved.lastPathComponent)"
-        return MemoryNote(
-            id: "\(scope.rawValue):\(relativePath)",
-            scope: scope,
-            title: MemoryNoteContentPolicy.title(from: resolved.deletingPathExtension().lastPathComponent),
-            content: content,
-            relativePath: relativePath,
-            byteCount: min(data.count, maxBytes),
-            wasTruncated: wasTruncated
-        )
-    }
-
+private struct MemoryNoteFileLocation {
+    var note: MemoryNote
+    var root: URL
+    var fileURL: URL
+    var displayPrefix: String
 }

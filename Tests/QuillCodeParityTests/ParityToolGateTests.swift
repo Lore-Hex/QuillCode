@@ -5,7 +5,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         let argumentsText = try Self.coreSourceText(named: "Arguments.swift")
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
-        let pullRequestSlashText = try Self.appSourceText(named: "SlashPullRequestCommandParser.swift")
+        let pullRequestSlashText = try Self.appSourceText(named: "SlashPullRequestCommandParserSupport.swift")
         let shellPlannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
         let worktreePlannerText = try Self.appSourceText(named: "WorkspaceWorktreeToolCallPlanner.swift")
         let reviewPlannerText = try Self.appSourceText(named: "WorkspaceReviewActionToolCallPlanner.swift")
@@ -46,7 +46,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
 
     func testSlashCommandCatalogLivesOutsideParser() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
-        let pullRequestSlashText = try Self.appSourceText(named: "SlashPullRequestCommandParser.swift")
+        let pullRequestSlashText = try Self.appSourceText(named: "SlashPullRequestCommandParserSupport.swift")
         let catalogText = try Self.appSourceText(named: "SlashCommandCatalog.swift")
 
         Self.assertSource(catalogText, contains: "public struct SlashCommandSuggestionSurface")

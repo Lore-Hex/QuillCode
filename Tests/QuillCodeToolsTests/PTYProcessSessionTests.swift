@@ -6,15 +6,34 @@ final class PTYProcessSessionTests: XCTestCase {
     private func drain(
         _ command: String,
         windowSize: PTYWindowSize? = nil,
-        timeout: TimeInterval = 15
+        timeout: TimeInterval = 15,
+        environment: [String: String]? = nil
     ) async -> (output: String, result: ToolResult?) {
+        let request = ShellExecutionRequest(
+            command: command,
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: timeout,
+            environment: environment
+        )
+        let session = PTYProcessSession(request: request, windowSize: windowSize)
+        session.start()
+        return await collect(session)
+    }
+
+    private func makeSession(
+        command: String,
+        timeout: TimeInterval = 15,
+        windowSize: PTYWindowSize? = nil
+    ) -> PTYProcessSession {
         let request = ShellExecutionRequest(
             command: command,
             cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
             timeoutSeconds: timeout
         )
-        let session = PTYProcessSession(request: request, windowSize: windowSize)
-        session.start()
+        return PTYProcessSession(request: request, windowSize: windowSize)
+    }
+
+    private func collect(_ session: PTYProcessSession) async -> (output: String, result: ToolResult?) {
         var output = ""
         var result: ToolResult?
         for await event in session.events {
@@ -26,6 +45,24 @@ final class PTYProcessSessionTests: XCTestCase {
             }
         }
         return (output, result)
+    }
+
+    private func waitUntilPTYAccepts(_ action: () -> Bool) async throws -> Bool {
+        for _ in 0..<300 {
+            if action() {
+                return true
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        return false
+    }
+
+    private func waitForFinish(_ session: PTYProcessSession) async {
+        for await event in session.events {
+            if case .finished = event {
+                break
+            }
+        }
     }
 
     func testCommandObservesATTYOnStandardOutput() async throws {
@@ -48,92 +85,51 @@ final class PTYProcessSessionTests: XCTestCase {
     func testPropagatesWindowSizeToTheChild() async throws {
         let (output, result) = await drain("stty size", windowSize: PTYWindowSize(rows: 24, columns: 80))
 
-        XCTAssertTrue(output.contains("24 80"), "Expected the child to see the configured terminal size, got: \(output)")
+        XCTAssertTrue(
+            output.contains("24 80"),
+            "Expected the child to see the configured terminal size, got: \(output)"
+        )
         XCTAssertEqual(result?.ok, true)
     }
 
     func testSendInputDrivesAnInteractiveRead() async throws {
-        let request = ShellExecutionRequest(
-            command: "read x; echo \"got:$x\"",
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
-            timeoutSeconds: 15
-        )
-        let session = PTYProcessSession(request: request)
+        let session = makeSession(command: "read x; echo \"got:$x\"")
         session.start()
 
         // The master fd becomes writable once the child has launched; retry until ready.
-        var delivered = false
-        for _ in 0..<300 {
-            if session.sendInput("hello\n") {
-                delivered = true
-                break
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+        let delivered = try await waitUntilPTYAccepts { session.sendInput("hello\n") }
         XCTAssertTrue(delivered, "Expected to deliver typed input to the pty master.")
 
-        var output = ""
-        var result: ToolResult?
-        for await event in session.events {
-            switch event {
-            case .stdout(let text), .stderr(let text):
-                output += text
-            case .finished(let toolResult):
-                result = toolResult
-            }
-        }
+        let (output, result) = await collect(session)
 
         XCTAssertTrue(output.contains("got:hello"), "Expected the interactive read to receive input, got: \(output)")
         XCTAssertEqual(result?.ok, true)
     }
 
     func testResizeUpdatesARunningSessionsWindow() async throws {
-        let request = ShellExecutionRequest(
+        let session = makeSession(
             command: "read x; stty size",
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
-            timeoutSeconds: 15
+            windowSize: PTYWindowSize(rows: 24, columns: 80)
         )
-        let session = PTYProcessSession(request: request, windowSize: PTYWindowSize(rows: 24, columns: 80))
         session.start()
 
         // Resize the live session, then unblock the read so `stty size` reports the new size.
-        var resized = false
-        for _ in 0..<300 {
-            if session.resize(to: PTYWindowSize(rows: 30, columns: 100)) {
-                resized = true
-                break
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
+        let resized = try await waitUntilPTYAccepts {
+            session.resize(to: PTYWindowSize(rows: 30, columns: 100))
         }
         XCTAssertTrue(resized, "Expected to resize the running pty session.")
         _ = session.sendInput("\n")
 
-        var output = ""
-        var result: ToolResult?
-        for await event in session.events {
-            switch event {
-            case .stdout(let text), .stderr(let text):
-                output += text
-            case .finished(let toolResult):
-                result = toolResult
-            }
-        }
+        let (output, result) = await collect(session)
 
         XCTAssertTrue(output.contains("30 100"), "Expected the resized terminal size, got: \(output)")
         XCTAssertEqual(result?.ok, true)
     }
 
     func testSendInputIsRejectedAfterTheSessionFinishes() async throws {
-        let request = ShellExecutionRequest(
-            command: "printf done",
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
-            timeoutSeconds: 15
-        )
-        let session = PTYProcessSession(request: request)
+        let session = makeSession(command: "printf done")
         session.start()
-        for await event in session.events {
-            if case .finished = event { break }
-        }
+        await waitForFinish(session)
 
         XCTAssertFalse(session.sendInput("late\n"), "A finished session must not accept further input.")
     }
@@ -154,12 +150,7 @@ final class PTYProcessSessionTests: XCTestCase {
     }
 
     func testSuspendAndResumeAreRejectedBeforeStartAndAfterFinish() async throws {
-        let request = ShellExecutionRequest(
-            command: "printf done",
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
-            timeoutSeconds: 15
-        )
-        let session = PTYProcessSession(request: request)
+        let session = makeSession(command: "printf done")
 
         // Before start there is no process to signal.
         XCTAssertFalse(session.suspend(), "Cannot suspend a session that has not started.")
@@ -167,9 +158,7 @@ final class PTYProcessSessionTests: XCTestCase {
         XCTAssertFalse(session.isSuspended)
 
         session.start()
-        for await event in session.events {
-            if case .finished = event { break }
-        }
+        await waitForFinish(session)
 
         // After the command finishes, job-control signals are no-ops.
         XCTAssertFalse(session.suspend(), "A finished session cannot be suspended.")
@@ -178,24 +167,12 @@ final class PTYProcessSessionTests: XCTestCase {
     }
 
     func testSuspendThenResumeStillDrivesTheRunningProcess() async throws {
-        let request = ShellExecutionRequest(
-            command: "read x; echo \"got:$x\"",
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
-            timeoutSeconds: 15
-        )
-        let session = PTYProcessSession(request: request)
+        let session = makeSession(command: "read x; echo \"got:$x\"")
         session.start()
 
         // A successful suspend both proves the child has launched and (SIGSTOP being uncatchable)
         // deterministically guarantees it is stopped — no timing race on output.
-        var suspended = false
-        for _ in 0..<300 {
-            if session.suspend() {
-                suspended = true
-                break
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+        let suspended = try await waitUntilPTYAccepts { session.suspend() }
         XCTAssertTrue(suspended, "Expected to suspend the running child.")
         XCTAssertTrue(session.isSuspended)
         XCTAssertFalse(session.suspend(), "Suspending an already-suspended session is a no-op.")
@@ -206,26 +183,10 @@ final class PTYProcessSessionTests: XCTestCase {
 
         // The resumed process must still accept input and run to completion — proving resume restored
         // it rather than leaving it stopped.
-        var delivered = false
-        for _ in 0..<300 {
-            if session.sendInput("hello\n") {
-                delivered = true
-                break
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+        let delivered = try await waitUntilPTYAccepts { session.sendInput("hello\n") }
         XCTAssertTrue(delivered, "Expected to deliver input to the resumed session.")
 
-        var output = ""
-        var result: ToolResult?
-        for await event in session.events {
-            switch event {
-            case .stdout(let text), .stderr(let text):
-                output += text
-            case .finished(let toolResult):
-                result = toolResult
-            }
-        }
+        let (output, result) = await collect(session)
 
         XCTAssertTrue(output.contains("got:hello"), "Expected the resumed read to receive input, got: \(output)")
         XCTAssertEqual(result?.ok, true)
@@ -235,66 +196,27 @@ final class PTYProcessSessionTests: XCTestCase {
         // The load-bearing path: cancel() must SIGCONT-before-terminate, or a SIGSTOP-ped child would
         // ignore the SIGTERM and the run would hang to the timeout. The 90s timeout is far above the
         // expected near-instant cancellation, so a finished stream proves termination, not a time-out.
-        let request = ShellExecutionRequest(
-            command: "sleep 90",
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
-            timeoutSeconds: 90
-        )
-        let session = PTYProcessSession(request: request)
+        let session = makeSession(command: "sleep 90", timeout: 90)
         session.start()
 
-        var suspended = false
-        for _ in 0..<300 {
-            if session.suspend() {
-                suspended = true
-                break
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+        let suspended = try await waitUntilPTYAccepts { session.suspend() }
         XCTAssertTrue(suspended, "Expected to suspend the running sleep.")
 
         session.cancel()
 
-        var result: ToolResult?
-        for await event in session.events {
-            if case .finished(let toolResult) = event {
-                result = toolResult
-            }
-        }
+        let (_, result) = await collect(session)
 
         // Without the SIGCONT before terminate, the stopped sleep would never receive the SIGTERM and
         // this stream would not finish until the 90s timeout — the test would visibly hang.
         XCTAssertEqual(result?.ok, false, "A cancelled suspended process must still terminate.")
     }
 
-    private func drainSession(command: String, environment: [String: String]) async -> (output: String, result: ToolResult?) {
-        let request = ShellExecutionRequest(
-            command: command,
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
-            timeoutSeconds: 15,
-            environment: environment
-        )
-        let session = PTYProcessSession(request: request)
-        session.start()
-        var output = ""
-        var result: ToolResult?
-        for await event in session.events {
-            switch event {
-            case .stdout(let text), .stderr(let text):
-                output += text
-            case .finished(let toolResult):
-                result = toolResult
-            }
-        }
-        return (output, result)
-    }
-
     func testPTYDisablesTheInteractivePagerByDefault() async throws {
         // Without this, a real PTY makes git log/diff launch a pager that blocks for keypresses and the
         // command hangs to the timeout. The child should see the pager variables set to a passthrough.
         let path = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
-        let (output, result) = await drainSession(
-            command: "echo \"PAGER=[$PAGER] GIT_PAGER=[$GIT_PAGER] MANPAGER=[$MANPAGER]\"",
+        let (output, result) = await drain(
+            "echo \"PAGER=[$PAGER] GIT_PAGER=[$GIT_PAGER] MANPAGER=[$MANPAGER]\"",
             environment: ["PATH": path]
         )
         XCTAssertTrue(output.contains("PAGER=[cat]"), "Expected PAGER=cat, got: \(output)")
@@ -308,8 +230,8 @@ final class PTYProcessSessionTests: XCTestCase {
         // `export`) must be OVERRIDDEN — the pane cannot host an interactive pager, and respecting the
         // value would re-introduce the hang. This is the load-bearing production case.
         let path = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
-        let (output, _) = await drainSession(
-            command: "echo \"PAGER=[$PAGER] MANPAGER=[$MANPAGER]\"",
+        let (output, _) = await drain(
+            "echo \"PAGER=[$PAGER] MANPAGER=[$MANPAGER]\"",
             environment: ["PATH": path, "PAGER": "less", "MANPAGER": "less"]
         )
         XCTAssertTrue(output.contains("PAGER=[cat]"), "Inherited PAGER must be forced to cat, got: \(output)")

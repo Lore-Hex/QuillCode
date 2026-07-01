@@ -2,11 +2,6 @@ import Foundation
 import QuillCodeCore
 import QuillCodeTools
 
-struct WorkspaceThreadContextSnapshot: Equatable, Sendable {
-    var instructions: [ProjectInstruction]
-    var memories: [MemoryNote]
-}
-
 enum WorkspaceProjectContextRefresher {
     static func refreshLocalProjectMetadata(
         projectID: UUID?,
@@ -20,11 +15,11 @@ enum WorkspaceProjectContextRefresher {
         }
 
         let rootURL = URL(fileURLWithPath: projects[index].path)
-        WorkspaceProjectEngine.applyMetadata(
+        applyMetadata(
             WorkspaceProjectMetadataLoader.loadLocal(from: rootURL),
             to: projectID,
             projects: &projects,
-            includeLocalExtensions: true
+            source: .local
         )
     }
 
@@ -43,7 +38,7 @@ enum WorkspaceProjectContextRefresher {
             connection: projects[index].connection,
             executor: executor
         )
-        WorkspaceProjectEngine.applyMetadata(metadata, to: projectID, projects: &projects, includeLocalExtensions: false)
+        applyMetadata(metadata, to: projectID, projects: &projects, source: .remote)
         return true
     }
 
@@ -52,15 +47,11 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadContextSnapshot {
-        let resolver = WorkspaceContextResolver(
+        contextSource(
+            projectID: projectID,
             projects: projects,
-            globalMemories: globalMemories,
-            selectedProject: nil
-        )
-        return WorkspaceThreadContextSnapshot(
-            instructions: resolver.instructions(for: projectID),
-            memories: resolver.memoryNotes(for: projectID)
-        )
+            globalMemories: globalMemories
+        ).snapshot()
     }
 
     static func threadCreationContext(
@@ -70,14 +61,11 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadCreationContext {
-        let snapshot = threadContext(projectID: projectID, projects: projects, globalMemories: globalMemories)
-        return WorkspaceThreadCreationContext(
+        contextSource(
             projectID: projectID,
-            mode: mode,
-            model: model,
-            instructions: snapshot.instructions,
-            memories: snapshot.memories
-        )
+            projects: projects,
+            globalMemories: globalMemories
+        ).threadCreation(mode: mode, model: model)
     }
 
     static func worktreeOpenContext(
@@ -88,14 +76,16 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
-        worktreeOpenContext(
+        contextSource(
+            projectID: projectID,
+            projects: projects,
+            globalMemories: globalMemories
+        ).worktreeOpen(
             path: request.path,
             branch: request.branch,
             projectID: projectID,
             mode: mode,
-            model: model,
-            projects: projects,
-            globalMemories: globalMemories
+            model: model
         )
     }
 
@@ -107,35 +97,16 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
-        worktreeOpenContext(
+        contextSource(
+            projectID: projectID,
+            projects: projects,
+            globalMemories: globalMemories
+        ).worktreeOpen(
             path: request.path,
             branch: "",
             projectID: projectID,
             mode: mode,
-            model: model,
-            projects: projects,
-            globalMemories: globalMemories
-        )
-    }
-
-    private static func worktreeOpenContext(
-        path: String,
-        branch: String,
-        projectID: UUID,
-        mode: AgentMode,
-        model: String,
-        projects: [ProjectRef],
-        globalMemories: [MemoryNote]
-    ) -> WorkspaceWorktreeOpenContext {
-        let snapshot = threadContext(projectID: projectID, projects: projects, globalMemories: globalMemories)
-        return WorkspaceWorktreeOpenContext(
-            path: path,
-            branch: branch,
-            projectID: projectID,
-            mode: mode,
-            model: model,
-            instructions: snapshot.instructions,
-            memories: snapshot.memories
+            model: model
         )
     }
 
@@ -145,13 +116,13 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) {
-        let snapshot = threadContext(
-            projectID: thread.projectID ?? fallbackProjectID,
+        syncThread(
+            &thread,
+            fallbackProjectID: fallbackProjectID,
             projects: projects,
-            globalMemories: globalMemories
+            globalMemories: globalMemories,
+            includeInstructions: true
         )
-        thread.instructions = snapshot.instructions
-        thread.memories = snapshot.memories
     }
 
     static func syncThreadMemories(
@@ -160,15 +131,69 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) {
-        let snapshot = threadContext(
-            projectID: thread.projectID ?? fallbackProjectID,
+        syncThread(
+            &thread,
+            fallbackProjectID: fallbackProjectID,
             projects: projects,
-            globalMemories: globalMemories
+            globalMemories: globalMemories,
+            includeInstructions: false
         )
-        thread.memories = snapshot.memories
     }
 
     static func globalMemories(directory: URL?) -> [MemoryNote] {
         WorkspaceMemoryEngine.loadGlobal(from: directory)
+    }
+
+    private static func applyMetadata(
+        _ metadata: WorkspaceProjectMetadata,
+        to projectID: UUID,
+        projects: inout [ProjectRef],
+        source: ProjectMetadataSource
+    ) {
+        WorkspaceProjectEngine.applyMetadata(
+            metadata,
+            to: projectID,
+            projects: &projects,
+            includeLocalExtensions: source.includesLocalExtensions
+        )
+    }
+
+    private static func syncThread(
+        _ thread: inout ChatThread,
+        fallbackProjectID: UUID?,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote],
+        includeInstructions: Bool
+    ) {
+        let snapshot = contextSource(
+            projectID: thread.projectID ?? fallbackProjectID,
+            projects: projects,
+            globalMemories: globalMemories
+        ).snapshot()
+        if includeInstructions {
+            thread.instructions = snapshot.instructions
+        }
+        thread.memories = snapshot.memories
+    }
+
+    private static func contextSource(
+        projectID: UUID?,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote]
+    ) -> WorkspaceThreadContextSource {
+        WorkspaceThreadContextSource(
+            projectID: projectID,
+            projects: projects,
+            globalMemories: globalMemories
+        )
+    }
+
+    private enum ProjectMetadataSource {
+        case local
+        case remote
+
+        var includesLocalExtensions: Bool {
+            self == .local
+        }
     }
 }

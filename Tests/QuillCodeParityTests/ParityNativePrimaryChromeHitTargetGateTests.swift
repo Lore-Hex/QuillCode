@@ -5,6 +5,8 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
         let designSystemText = [
             try Self.appSourceText(named: "QuillCodeDesignSystem.swift"),
             try Self.appSourceText(named: "QuillCodeHitTargetSpec.swift"),
+            try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift"),
+            try Self.appSourceText(named: "QuillCodeControlHitTargetViewModifiers.swift"),
             try Self.appSourceText(named: "QuillCodeHitTargetViewModifiers.swift")
         ].joined(separator: "\n")
         let topBarText = [
@@ -12,7 +14,11 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
             try Self.appSourceText(named: "QuillCodeTopBarActionClusterView.swift"),
             try Self.appSourceText(named: "QuillCodeTopBarNavigationView.swift")
         ].joined(separator: "\n")
-        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let sidebarText = [
+            try Self.appSourceText(named: "QuillCodeSidebarView.swift"),
+            try Self.appSourceText(named: "QuillCodeSidebarActionsView.swift"),
+            try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
+        ].joined(separator: "\n")
         let sidebarRowsText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
         let composerText = [
             try Self.appSourceText(named: "QuillCodeComposerView.swift"),
@@ -22,7 +28,10 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
         let dialogChromeText = try Self.appSourceText(named: "QuillCodeDialogChrome.swift")
         let settingsText = try Self.appSourceText(named: "QuillCodeSettingsView.swift")
-        let transcriptMessageText = try Self.appSourceText(named: "QuillCodeTranscriptMessageView.swift")
+        let transcriptMessageText = [
+            try Self.appSourceText(named: "QuillCodeTranscriptMessageView.swift"),
+            try Self.appSourceText(named: "QuillCodeTranscriptMessageButtons.swift")
+        ].joined(separator: "\n")
         let findText = try Self.appSourceText(named: "QuillCodeTranscriptFindView.swift")
 
         Self.assertSource(designSystemText, contains: "static func icon(")

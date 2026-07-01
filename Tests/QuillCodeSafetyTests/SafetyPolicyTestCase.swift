@@ -150,4 +150,67 @@ class SafetyPolicyTestCase: XCTestCase {
         host: .local,
         risk: .append
     )
+
+    func review(
+        _ tool: ToolDefinition,
+        argumentsJSON: String = "{}",
+        mode: AgentMode = .auto,
+        userMessage: String,
+        recentMessages: [ChatMessage]? = nil
+    ) async -> SafetyReview {
+        await StaticSafetyReviewer().review(.init(
+            mode: mode,
+            userMessage: userMessage,
+            toolCall: ToolCall(name: tool.name, argumentsJSON: argumentsJSON),
+            toolDefinition: tool,
+            recentMessages: recentMessages ?? [.init(role: .user, content: userMessage)]
+        ))
+    }
+
+    func assertVerdict(
+        _ verdict: ApprovalVerdict,
+        tool: ToolDefinition,
+        argumentsJSON: String = "{}",
+        mode: AgentMode = .auto,
+        userMessage: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let review = await review(
+            tool,
+            argumentsJSON: argumentsJSON,
+            mode: mode,
+            userMessage: userMessage
+        )
+        XCTAssertEqual(review.verdict, verdict, review.rationale, file: file, line: line)
+    }
+
+    func assertNotVerdict(
+        _ verdict: ApprovalVerdict,
+        tool: ToolDefinition,
+        argumentsJSON: String = "{}",
+        userMessage: String,
+        because reason: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let review = await review(tool, argumentsJSON: argumentsJSON, userMessage: userMessage)
+        XCTAssertNotEqual(review.verdict, verdict, reason, file: file, line: line)
+    }
+
+    func shellArgumentsJSON(_ command: String) -> String {
+        struct ShellArguments: Encodable {
+            var cmd: String
+        }
+
+        let encoder = JSONEncoder()
+        guard
+            let data = try? encoder.encode(ShellArguments(cmd: command)),
+            let string = String(data: data, encoding: .utf8)
+        else {
+            XCTFail("Failed to encode shell command arguments.")
+            return #"{"cmd":""}"#
+        }
+        return string
+    }
 }

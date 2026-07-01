@@ -313,7 +313,7 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceSurfaceDelegatesCommandPaletteContract"
         ]),
         Suite(fileName: "ParityPlaywrightCommandPaletteGateTests.swift", testNames: [
-            "testPlaywrightCommandPaletteAndGitFlowsStayInFocusedSpec"
+            "testPlaywrightCommandPaletteFlowsStaySplitByWorkflow"
         ]),
         Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesSheetPresentation",
@@ -324,6 +324,38 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityNativePrimaryChromeHitTargetGateTests.swift", testNames: [
             "testNativePrimaryChromeKeepsSemanticHitTargets"
+        ]),
+        Suite(fileName: "ParityHTMLInteractionAuditContractGateTests.swift", testNames: [
+            "testHTMLInteractionAuditRequiresNamesControlsAndLayers",
+            "testHTMLInteractionAuditRequiresClearanceRegistriesAndSamples",
+            "testHTMLInteractionAuditRequiresSemanticAndTactileContracts"
+        ]),
+        Suite(fileName: "ParityHTMLPrimitiveHitTargetGateTests.swift", testNames: [
+            "testHTMLButtonPrimitiveDefaultsToSharedHitTargetClass",
+            "testHTMLPrimitivesExposeSemanticTargetVocabulary",
+            "testHTMLPrimitivesEmitSemanticTargetAttributes",
+            "testHTMLPrimitivesRecognizeEverySharedTargetClass"
+        ]),
+        Suite(fileName: "ParityRenderedCommandRoutingGateTests.swift", testNames: [
+            "testHarnessAuditsVisibleCommandTargetsForRouting"
+        ]),
+        Suite(fileName: "ParityRenderedCriticalTargetRegistryGateTests.swift", testNames: [
+            "testRenderedCriticalTargetRegistryCoversPrimarySurfaces",
+            "testRenderedCriticalTargetRegistryCoversRiskySmallControls",
+            "testRenderedCriticalTargetRegistryCoversNearEdgeFlows",
+            "testRenderedCriticalTargetRegistryIncludesSemanticFixtures"
+        ]),
+        Suite(fileName: "ParityRenderedResponsiveTargetGateTests.swift", testNames: [
+            "testRenderedHarnessUsesNamedClearanceTokensForDenseActionClusters",
+            "testFindBarUsesResponsiveTargetPreservingLayout",
+            "testHarnessNormalizesDynamicClickTargetContracts",
+            "testHarnessDeclaresActivityTargetContracts"
+        ]),
+        Suite(fileName: "ParityHTMLSourceInteractionTargetGateTests.swift", testNames: [
+            "testHTMLRenderersUseSharedClickTargetPrimitives",
+            "testRenderedHTMLPrimitiveCallSitesDeclareExplicitHitTargetKinds",
+            "testHTMLSourceAuditRequiresSemanticKindForRawSharedTargets",
+            "testHTMLSourceAuditAcceptsRawSharedTargetsWithSemanticKind"
         ]),
         Suite(fileName: "ParitySearchDialogGateTests.swift", testNames: [
             "testNativeSearchDialogsKeepLocalTypingState"
@@ -354,13 +386,23 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityAgentBehaviorSuiteGateTests.swift", testNames: [
             "testAgentBehaviorTestsUseFocusedSuites"
         ]),
-        Suite(fileName: "ParityTrustedRouterGateTests.swift", testNames: [
-            "testTrustedRouterActionParserLivesOutsideTransportClient",
+        Suite(fileName: "ParityTrustedRouterActionParsingGateTests.swift", testNames: [
+            "testTrustedRouterActionParsingLivesOutsideTransportClient"
+        ]),
+        Suite(fileName: "ParityTrustedRouterPromptGateTests.swift", testNames: [
             "testTrustedRouterPromptBuilderLivesOutsideTransportClient",
-            "testTrustedRouterAPIKeyResolutionLivesInFocusedResolver",
-            "testTrustedRouterSafetyClientLivesOutsideActionTransportFile",
-            "testTrustedRouterChatParametersLiveOutsideTransportClients",
-            "testTrustedRouterAdapterTestsUseFocusedSuites"
+        ]),
+        Suite(fileName: "ParityTrustedRouterAPIKeyGateTests.swift", testNames: [
+            "testTrustedRouterAPIKeyResolutionLivesInFocusedResolver"
+        ]),
+        Suite(fileName: "ParityTrustedRouterSafetyTransportGateTests.swift", testNames: [
+            "testTrustedRouterSafetyClientLivesOutsideActionTransportFile"
+        ]),
+        Suite(fileName: "ParityTrustedRouterChatParametersGateTests.swift", testNames: [
+            "testTrustedRouterChatParametersLiveOutsideTransportClients"
+        ]),
+        Suite(fileName: "ParityTrustedRouterAdapterSuiteGateTests.swift", testNames: [
+            "testTrustedRouterAdapterCoverageUsesFocusedSuites"
         ]),
         Suite(fileName: "ParitySafetyGateTests.swift", testNames: [
             "testStaticSafetyPolicyLivesOutsideReviewerControlFlow"

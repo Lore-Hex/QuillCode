@@ -3,19 +3,30 @@ import XCTest
 final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCase {
     func testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
-        let secondaryText = try Self.appSourceText(named: "QuillCodeSecondaryPaneSurface.swift")
+        let extensionsText = try Self.appSourceText(named: "WorkspaceExtensionsSurface.swift")
+        let memoriesText = try Self.appSourceText(named: "WorkspaceMemoriesSurface.swift")
+        let automationsText = try Self.appSourceText(named: "WorkspaceAutomationsSurface.swift")
         let extensionRowText = try Self.appSourceText(named: "ProjectExtensionManifestSurface.swift")
         let memoryRowText = try Self.appSourceText(named: "MemoryNoteSurface.swift")
         let automationRowText = try Self.appSourceText(named: "AutomationWorkflowSurface.swift")
 
         [
             "public struct WorkspaceExtensionsSurface",
-            "public struct WorkspaceMemoriesSurface",
-            "public struct WorkspaceAutomationsSurface",
             "ProjectExtensionManifestSurface(",
+            "WorkspacePaneSummaryFormatter.joinedCounts"
+        ].forEach { Self.assertSource(extensionsText, contains: $0) }
+
+        [
+            "public struct WorkspaceMemoriesSurface",
             "MemoryNoteSurface(note:",
-            "AutomationWorkflowSurface.init"
-        ].forEach { Self.assertSource(secondaryText, contains: $0) }
+            "WorkspacePaneSummaryFormatter.joinedCounts"
+        ].forEach { Self.assertSource(memoriesText, contains: $0) }
+
+        [
+            "public struct WorkspaceAutomationsSurface",
+            "AutomationWorkflowSurface.init",
+            "WorkspacePaneSummaryFormatter.count"
+        ].forEach { Self.assertSource(automationsText, contains: $0) }
 
         [
             "public struct ProjectExtensionManifestSurface",
@@ -32,11 +43,12 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
         Self.assertSource(automationRowText, contains: "public struct AutomationWorkflowSurface")
         Self.assertSource(automationRowText, contains: "automation-run:")
 
-        [
-            "public struct ProjectExtensionManifestSurface",
-            "public struct MemoryNoteSurface",
-            "public struct AutomationWorkflowSurface"
-        ].forEach { Self.assertSource(secondaryText, excludes: $0) }
+        Self.assertSource(extensionsText, excludes: "public struct WorkspaceMemoriesSurface")
+        Self.assertSource(extensionsText, excludes: "public struct WorkspaceAutomationsSurface")
+        Self.assertSource(memoriesText, excludes: "public struct WorkspaceExtensionsSurface")
+        Self.assertSource(memoriesText, excludes: "public struct WorkspaceAutomationsSurface")
+        Self.assertSource(automationsText, excludes: "public struct WorkspaceExtensionsSurface")
+        Self.assertSource(automationsText, excludes: "public struct WorkspaceMemoriesSurface")
 
         [
             "public struct WorkspaceExtensionsSurface",

@@ -138,24 +138,53 @@ final class ParityGitPullRequestToolGateTests: QuillCodeParityTestCase {
     }
 
     func testGitHubPullRequestToolCoverageLivesOutsideMixedToolSuite() throws {
-        let pullRequestTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestToolExecutorTests.swift")
+        let baseTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestBaseToolExecutorTests.swift")
+        let editTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestEditToolExecutorTests.swift")
+        let reviewTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestReviewToolExecutorTests.swift")
+        let mergeTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestMergeToolExecutorTests.swift")
+        let routerTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestToolRouterTests.swift")
+        let supportText = try Self.toolsTestSourceText(named: "GitHubPullRequestTestSupport.swift")
 
         XCTAssertTrue(
-            pullRequestTestsText.contains("final class GitHubPullRequestToolExecutorTests"),
-            "GitHub PR command construction and routing coverage should live in a focused suite."
+            baseTestsText.contains("final class GitHubPullRequestBaseToolExecutorTests"),
+            "GitHub PR create/view/checks/diff/checkout coverage should live in a focused suite."
         )
         XCTAssertTrue(
-            pullRequestTestsText.contains("struct GitHubCLIFixture"),
+            editTestsText.contains("final class GitHubPullRequestEditToolExecutorTests"),
+            "GitHub PR reviewer/label/comment coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            reviewTestsText.contains("final class GitHubPullRequestReviewToolExecutorTests"),
+            "GitHub PR review-comment/thread coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            mergeTestsText.contains("final class GitHubPullRequestMergeToolExecutorTests"),
+            "GitHub PR merge and helper coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            routerTestsText.contains("final class GitHubPullRequestToolRouterTests"),
+            "GitHub PR tool-router coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            supportText.contains("struct GitHubPullRequestCLIFixture"),
             "GitHub PR tests should share the fake gh fixture instead of repeating setup in each test."
         )
         XCTAssertTrue(
-            pullRequestTestsText.contains("testCreatePullRequestUsesGitHubCLIArguments"),
+            baseTestsText.contains("testCreatePullRequestUsesGitHubCLIArguments"),
             "PR creation coverage should stay beside the GitHub PR executor tests."
         )
         XCTAssertTrue(
-            pullRequestTestsText.contains("testToolRouterRoutesPullRequestReadAndMutationTools"),
+            routerTestsText.contains("testToolRouterRoutesPullRequestReviewTools"),
             "PR tool-router coverage should stay beside the PR executor tests."
         )
+        let splitSuiteText = [
+            baseTestsText,
+            editTestsText,
+            reviewTestsText,
+            mergeTestsText,
+            routerTestsText
+        ].joined(separator: "\n")
+        Self.assertSource(splitSuiteText, excludes: "final class GitHubPullRequestToolExecutorTests")
     }
 
     func testGitToolCoverageLivesOutsideMixedToolSuite() throws {

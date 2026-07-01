@@ -115,7 +115,7 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
         let recentCount = recentMessages.count
         var lines = [
             purpose.titleLine(sourceTitle: sourceTitle),
-            "Kept \(recentCount) latest message\(recentCount == 1 ? "" : "s") and summarized \(olderCount) earlier message\(olderCount == 1 ? "" : "s")."
+            countSummary(recentCount: recentCount, olderCount: olderCount)
         ]
         if olderMessages.isEmpty {
             lines.append("No earlier turns were dropped.")
@@ -172,6 +172,15 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
         case .tool:
             return "Tool"
         }
+    }
+
+    private static func countSummary(recentCount: Int, olderCount: Int) -> String {
+        "Kept \(pluralized(recentCount, noun: "latest message")) " +
+            "and summarized \(pluralized(olderCount, noun: "earlier message"))."
+    }
+
+    private static func pluralized(_ count: Int, noun: String) -> String {
+        "\(count) \(noun)\(count == 1 ? "" : "s")"
     }
 
     private static func singleLineExcerpt(_ text: String, limit: Int) -> String {

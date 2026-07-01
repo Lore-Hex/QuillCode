@@ -3,6 +3,7 @@ import XCTest
 final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
     func testWorkspaceMemorySupportOwnsStoragePolicyAndCopyBoundaries() throws {
         let engineText = try Self.appSourceText(named: "WorkspaceMemoryEngine.swift")
+        let mutationFactoryText = try Self.appSourceText(named: "WorkspaceMemoryMutationFactory.swift")
         let loaderText = try Self.appSourceText(named: "MemoryNoteLoader.swift")
         let contentPolicyText = try Self.appSourceText(named: "MemoryNoteContentPolicy.swift")
         let pathResolverText = try Self.appSourceText(named: "MemoryNotePathResolver.swift")
@@ -17,6 +18,7 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
             "WorkspaceRemoteProjectMemoryUpdater.update",
             "WorkspaceRemoteProjectMemoryDeleter.delete"
         ])
+        Self.assertSource(mutationFactoryText, contains: "enum WorkspaceMemoryMutationFactory")
         Self.assertSource(contentPolicyText, contains: "enum MemoryNoteContentPolicy")
         Self.assertSource(pathResolverText, contains: "enum MemoryNotePathResolver")
         Self.assertSource(loaderText, containsAll: [
@@ -36,7 +38,7 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
         Self.assertSource(plannerText, contains: "struct WorkspaceMemoryCommandTranscriptPlanner")
         Self.assertSource(errorText, contains: "enum WorkspaceMemoryErrorMessageBuilder")
         Self.assertSource(contextUpdateText, contains: "struct WorkspaceMemoryContextUpdatePlanner")
-        Self.assertSource(engineText, containsAll: [
+        Self.assertSource(mutationFactoryText, containsAll: [
             "WorkspaceMemoryCommandTranscriptPlanner.memorySaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary",
@@ -46,8 +48,8 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
-            "WorkspaceMemoryErrorMessageBuilder.userFacingMessage",
-            "WorkspaceMemoryContextUpdatePlanner.memoryChanged"
+            "WorkspaceMemoryErrorMessageBuilder.userFacingMessage"
         ])
+        Self.assertSource(engineText, contains: "WorkspaceMemoryContextUpdatePlanner.memoryChanged")
     }
 }

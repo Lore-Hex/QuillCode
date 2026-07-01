@@ -26,33 +26,32 @@ enum WorkspaceMemoryEngine {
         directory: URL?
     ) -> WorkspaceMemoryMutation {
         guard let directory else {
-            return memoryNotSaved(
+            return WorkspaceMemoryMutationFactory.saveFailed(
                 userText: userText,
                 error: MemoryNoteWriteError.unavailable,
-                updatedGlobalMemories: nil
+                refresh: .none
             )
         }
 
         do {
             let saved = try WorkspaceMemoryRememberToolExecutor.saveGlobal(content: content, to: directory)
             let note = saved.note
-            return WorkspaceMemoryMutation(
-                transcript: WorkspaceMemoryCommandTranscriptPlanner.memorySaved(
-                    userText: userText,
-                    noteTitle: note.title
-                ),
-                updatedGlobalMemories: loadGlobal(from: directory),
-                updatedProjectMemories: nil,
-                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary(noteTitle: note.title),
-                noticeRelativePath: note.relativePath
+            return WorkspaceMemoryMutationFactory.saved(
+                userText: userText,
+                note: note,
+                refresh: .global(from: directory)
             )
         } catch let error as MemoryNoteWriteError {
-            return memoryNotSaved(userText: userText, error: error, updatedGlobalMemories: loadGlobal(from: directory))
+            return WorkspaceMemoryMutationFactory.saveFailed(
+                userText: userText,
+                error: error,
+                refresh: .global(from: directory)
+            )
         } catch {
-            return memoryNotSaved(
+            return WorkspaceMemoryMutationFactory.saveFailed(
                 userText: userText,
                 error: MemoryNoteWriteError.writeFailed,
-                updatedGlobalMemories: loadGlobal(from: directory)
+                refresh: .global(from: directory)
             )
         }
     }
@@ -65,20 +64,14 @@ enum WorkspaceMemoryEngine {
 
         do {
             let note = try MemoryNoteLoader.deleteGlobal(id: id, from: directory)
-            return WorkspaceMemoryMutation(
-                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
-                    userText: "Forget memory: \(note.title)",
-                    noteTitle: note.title
-                ),
-                updatedGlobalMemories: loadGlobal(from: directory),
-                updatedProjectMemories: nil,
-                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title),
-                noticeRelativePath: note.relativePath
-            )
+            return WorkspaceMemoryMutationFactory.deleted(note: note, refresh: .global(from: directory))
         } catch let error as MemoryNoteDeleteError {
-            return memoryNotDeleted(error: error, updatedGlobalMemories: loadGlobal(from: directory))
+            return WorkspaceMemoryMutationFactory.deleteFailed(error: error, refresh: .global(from: directory))
         } catch {
-            return memoryNotDeleted(error: MemoryNoteDeleteError.deleteFailed, updatedGlobalMemories: loadGlobal(from: directory))
+            return WorkspaceMemoryMutationFactory.deleteFailed(
+                error: MemoryNoteDeleteError.deleteFailed,
+                refresh: .global(from: directory)
+            )
         }
     }
 
@@ -87,36 +80,24 @@ enum WorkspaceMemoryEngine {
         projectRoot: URL?
     ) -> WorkspaceMemoryMutation {
         guard let projectRoot else {
-            return memoryNotDeleted(
+            return WorkspaceMemoryMutationFactory.deleteFailed(
                 error: MemoryNoteDeleteError.deleteFailed,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: nil
+                refresh: .none
             )
         }
 
         do {
             let note = try MemoryNoteLoader.deleteProject(id: id, from: projectRoot)
-            return WorkspaceMemoryMutation(
-                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
-                    userText: "Forget memory: \(note.title)",
-                    noteTitle: note.title
-                ),
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot),
-                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title),
-                noticeRelativePath: note.relativePath
-            )
+            return WorkspaceMemoryMutationFactory.deleted(note: note, refresh: .project(from: projectRoot))
         } catch let error as MemoryNoteDeleteError {
-            return memoryNotDeleted(
+            return WorkspaceMemoryMutationFactory.deleteFailed(
                 error: error,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot)
+                refresh: .project(from: projectRoot)
             )
         } catch {
-            return memoryNotDeleted(
+            return WorkspaceMemoryMutationFactory.deleteFailed(
                 error: MemoryNoteDeleteError.deleteFailed,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot)
+                refresh: .project(from: projectRoot)
             )
         }
     }
@@ -128,32 +109,25 @@ enum WorkspaceMemoryEngine {
         directory: URL?
     ) -> WorkspaceMemoryMutation {
         guard let directory else {
-            return memoryNotUpdated(
+            return WorkspaceMemoryMutationFactory.updateFailed(
                 userText: userText,
                 error: MemoryNoteUpdateError.updateFailed,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: nil
+                refresh: .none
             )
         }
 
         do {
             let note = try MemoryNoteLoader.updateGlobal(id: id, content: content, in: directory)
-            return WorkspaceMemoryMutation(
-                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
-                    userText: userText,
-                    noteTitle: note.title
-                ),
-                updatedGlobalMemories: loadGlobal(from: directory),
-                updatedProjectMemories: nil,
-                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(noteTitle: note.title),
-                noticeRelativePath: note.relativePath
+            return WorkspaceMemoryMutationFactory.updated(
+                userText: userText,
+                note: note,
+                refresh: .global(from: directory)
             )
         } catch {
-            return memoryNotUpdated(
+            return WorkspaceMemoryMutationFactory.updateFailed(
                 userText: userText,
                 error: error,
-                updatedGlobalMemories: loadGlobal(from: directory),
-                updatedProjectMemories: nil
+                refresh: .global(from: directory)
             )
         }
     }
@@ -165,32 +139,25 @@ enum WorkspaceMemoryEngine {
         projectRoot: URL?
     ) -> WorkspaceMemoryMutation {
         guard let projectRoot else {
-            return memoryNotUpdated(
+            return WorkspaceMemoryMutationFactory.updateFailed(
                 userText: userText,
                 error: MemoryNoteUpdateError.updateFailed,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: nil
+                refresh: .none
             )
         }
 
         do {
             let note = try MemoryNoteLoader.updateProject(id: id, content: content, in: projectRoot)
-            return WorkspaceMemoryMutation(
-                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
-                    userText: userText,
-                    noteTitle: note.title
-                ),
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot),
-                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(noteTitle: note.title),
-                noticeRelativePath: note.relativePath
+            return WorkspaceMemoryMutationFactory.updated(
+                userText: userText,
+                note: note,
+                refresh: .project(from: projectRoot)
             )
         } catch {
-            return memoryNotUpdated(
+            return WorkspaceMemoryMutationFactory.updateFailed(
                 userText: userText,
                 error: error,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot)
+                refresh: .project(from: projectRoot)
             )
         }
     }
@@ -203,11 +170,10 @@ enum WorkspaceMemoryEngine {
         executor: SSHRemoteShellExecutor
     ) -> WorkspaceMemoryMutation {
         guard let project, project.isRemote else {
-            return memoryNotUpdated(
+            return WorkspaceMemoryMutationFactory.updateFailed(
                 userText: userText,
                 error: WorkspaceRemoteProjectMemoryUpdateError.invalidConnection,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: project?.memories
+                refresh: .project(project?.memories)
             )
         }
 
@@ -219,24 +185,16 @@ enum WorkspaceMemoryEngine {
                 executor: executor
             )
             let note = updatedMemories.first { $0.id == id }
-            return WorkspaceMemoryMutation(
-                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
-                    userText: userText,
-                    noteTitle: note?.title ?? "remote project memory"
-                ),
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: updatedMemories,
-                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(
-                    noteTitle: note?.title ?? "remote project memory"
-                ),
-                noticeRelativePath: note?.relativePath ?? id
+            return WorkspaceMemoryMutationFactory.updated(
+                userText: userText,
+                note: note ?? fallbackRemoteMemoryNote(id: id),
+                refresh: .project(updatedMemories)
             )
         } catch {
-            return memoryNotUpdated(
+            return WorkspaceMemoryMutationFactory.updateFailed(
                 userText: userText,
                 error: error,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: project.memories
+                refresh: .project(project.memories)
             )
         }
     }
@@ -247,10 +205,9 @@ enum WorkspaceMemoryEngine {
         executor: SSHRemoteShellExecutor
     ) -> WorkspaceMemoryMutation {
         guard let project, project.isRemote else {
-            return memoryNotDeleted(
+            return WorkspaceMemoryMutationFactory.deleteFailed(
                 error: WorkspaceRemoteProjectMemoryUpdateError.invalidConnection,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: project?.memories
+                refresh: .project(project?.memories)
             )
         }
 
@@ -260,23 +217,14 @@ enum WorkspaceMemoryEngine {
                 project: project,
                 executor: executor
             )
-            return WorkspaceMemoryMutation(
-                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
-                    userText: "Forget memory: \(result.deleted.title)",
-                    noteTitle: result.deleted.title
-                ),
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: result.updatedMemories,
-                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(
-                    noteTitle: result.deleted.title
-                ),
-                noticeRelativePath: result.deleted.relativePath
+            return WorkspaceMemoryMutationFactory.deleted(
+                note: result.deleted,
+                refresh: .project(result.updatedMemories)
             )
         } catch {
-            return memoryNotDeleted(
+            return WorkspaceMemoryMutationFactory.deleteFailed(
                 error: error,
-                updatedGlobalMemories: nil,
-                updatedProjectMemories: project.memories
+                refresh: .project(project.memories)
             )
         }
     }
@@ -293,55 +241,14 @@ enum WorkspaceMemoryEngine {
         )
     }
 
-    private static func memoryNotSaved(
-        userText: String,
-        error: any Error,
-        updatedGlobalMemories: [MemoryNote]?
-    ) -> WorkspaceMemoryMutation {
-        WorkspaceMemoryMutation(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
-                userText: userText,
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
-            ),
-            updatedGlobalMemories: updatedGlobalMemories,
-            updatedProjectMemories: nil,
-            noticeSummary: nil,
-            noticeRelativePath: nil
-        )
-    }
-
-    private static func memoryNotDeleted(
-        error: any Error,
-        updatedGlobalMemories: [MemoryNote]?,
-        updatedProjectMemories: [MemoryNote]? = nil
-    ) -> WorkspaceMemoryMutation {
-        WorkspaceMemoryMutation(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
-                userText: "Forget memory",
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
-            ),
-            updatedGlobalMemories: updatedGlobalMemories,
-            updatedProjectMemories: updatedProjectMemories,
-            noticeSummary: nil,
-            noticeRelativePath: nil
-        )
-    }
-
-    private static func memoryNotUpdated(
-        userText: String,
-        error: any Error,
-        updatedGlobalMemories: [MemoryNote]?,
-        updatedProjectMemories: [MemoryNote]?
-    ) -> WorkspaceMemoryMutation {
-        WorkspaceMemoryMutation(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated(
-                userText: userText,
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
-            ),
-            updatedGlobalMemories: updatedGlobalMemories,
-            updatedProjectMemories: updatedProjectMemories,
-            noticeSummary: nil,
-            noticeRelativePath: nil
+    private static func fallbackRemoteMemoryNote(id: String) -> MemoryNote {
+        MemoryNote(
+            id: id,
+            scope: .project,
+            title: "remote project memory",
+            content: "",
+            relativePath: id,
+            byteCount: 0
         )
     }
 }
