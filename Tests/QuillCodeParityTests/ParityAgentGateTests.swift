@@ -60,17 +60,55 @@ final class ParityAgentGateTests: QuillCodeParityTestCase {
 
     func testAgentStreamingHelpersLiveOutsideAgentRunnerFile() throws {
         let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let actionResolverText = try Self.agentSourceText(named: "AgentActionResolver.swift")
         let streamingText = try Self.agentSourceText(named: "AgentActionStreaming.swift")
+        let textRunnerText = try Self.agentSourceText(named: "AgentTextStreamActionRunner.swift")
+        let usageRunnerText = try Self.agentSourceText(named: "AgentUsageStreamActionRunner.swift")
+        let rawCollectorText = try Self.agentSourceText(named: "AgentRawTextStreamActionCollector.swift")
+        let textCollectorText = try Self.agentSourceText(named: "AgentTextStreamActionCollector.swift")
+        let usageCollectorText = try Self.agentSourceText(named: "AgentUsageStreamActionCollector.swift")
+        let draftPublisherText = try Self.agentSourceText(named: "AgentStreamingDraftPublisher.swift")
 
         XCTAssertTrue(streamingText.contains("public enum AgentActionStreamCollector"), "Streaming action collection should live in a focused helper.")
         XCTAssertTrue(streamingText.contains("public enum AgentActionStreamPreview"), "Partial assistant preview parsing should live with streaming helpers.")
         XCTAssertTrue(streamingText.contains("var rawActionText"), "Progressive stream accumulation should live with the stream collector.")
         XCTAssertTrue(streamingText.contains("AgentActionStreamPreview.visibleAssistantText"), "Stream collector should own draft-preview extraction.")
-        XCTAssertTrue(agentText.contains("AgentActionStreamCollector.collect"), "AgentRunner should delegate streaming collection.")
+        XCTAssertTrue(actionResolverText.contains("nextTextStreamingAction"), "Agent action resolution should delegate text-streaming setup.")
+        XCTAssertTrue(actionResolverText.contains("nextUsageStreamingAction"), "Agent action resolution should delegate usage-streaming setup.")
+        XCTAssertTrue(textRunnerText.contains("func nextTextStreamingAction"), "Text streaming setup should live outside Agent.swift.")
+        XCTAssertTrue(usageRunnerText.contains("func nextUsageStreamingAction"), "Usage streaming setup should live outside Agent.swift.")
+        XCTAssertTrue(rawCollectorText.contains("AgentActionStreamCollector.collect"), "Raw streaming collection should delegate to the focused collector.")
+        XCTAssertTrue(textCollectorText.contains("AgentActionStreamCollector.collect"), "Draft-updating text streams should delegate to the focused collector.")
+        XCTAssertTrue(usageCollectorText.contains("AgentActionStreamCollector.collect"), "Usage streams should delegate to the focused collector.")
+        XCTAssertTrue(draftPublisherText.contains("publishAssistantDraft"), "Streaming draft publication should live outside Agent.swift.")
+        XCTAssertTrue(draftPublisherText.contains("publishReasoningSummary"), "Reasoning summary publication should live outside Agent.swift.")
         XCTAssertFalse(agentText.contains("public enum AgentActionStreamCollector"), "Agent.swift should not own streaming collection details.")
         XCTAssertFalse(agentText.contains("private static func partialJSONStringValue"), "Agent.swift should not own partial JSON preview parsing.")
         XCTAssertFalse(agentText.contains("AgentActionStreamPreview.visibleAssistantText"), "Agent.swift should not own streaming preview parsing.")
+        XCTAssertFalse(agentText.contains("AgentActionStreamCollector.collect"), "Agent.swift should not directly collect streaming actions.")
+        XCTAssertFalse(agentText.contains("actionTextStream("), "Agent.swift should not own text-streaming setup.")
+        XCTAssertFalse(agentText.contains("actionEventStream("), "Agent.swift should not own usage-streaming setup.")
         XCTAssertFalse(agentText.contains("var rawActionText"), "Agent.swift should not own raw streaming accumulation.")
+    }
+
+    func testAgentContractsAndActionResolutionLiveOutsideRunnerFile() throws {
+        let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let typesText = try Self.agentSourceText(named: "AgentTypes.swift")
+        let resolverText = try Self.agentSourceText(named: "AgentActionResolver.swift")
+        let promisedWorkText = try Self.agentSourceText(named: "AgentPromisedWorkResolver.swift")
+
+        XCTAssertTrue(typesText.contains("public enum AgentAction"), "Agent action contracts should live in a focused API file.")
+        XCTAssertTrue(typesText.contains("public protocol LLMClient"), "LLM transport protocols should live with agent contracts.")
+        XCTAssertTrue(typesText.contains("public struct AgentRunResult"), "Run result records should live with agent contracts.")
+        XCTAssertTrue(typesText.contains("public typealias AgentRunProgressHandler"), "Runner callback contracts should stay out of the runner implementation.")
+        XCTAssertTrue(promisedWorkText.contains("actionByRetryingPromisedWorkIfNeeded"), "Promised-work retry should live with promised-work resolution.")
+        XCTAssertTrue(promisedWorkText.contains("recoveredPromisedWorkAction"), "Promised-work JSON recovery should live with promised-work resolution.")
+        XCTAssertTrue(resolverText.contains("func nextAction"), "Immediate, streaming, and non-streaming action selection should live with action resolution.")
+        XCTAssertFalse(agentText.contains("public enum AgentAction"), "Agent.swift should not own stable action contracts.")
+        XCTAssertFalse(agentText.contains("public protocol LLMClient"), "Agent.swift should not own LLM transport protocols.")
+        XCTAssertFalse(agentText.contains("public struct AgentRunResult"), "Agent.swift should not own run result records.")
+        XCTAssertFalse(agentText.contains("func actionByRetryingPromisedWorkIfNeeded"), "Agent.swift should not own promised-work retry internals.")
+        XCTAssertFalse(agentText.contains("private func nextAction"), "Agent.swift should not own model action selection internals.")
     }
 
     func testAgentToolStepRunnerLivesOutsideAgentRunnerFile() throws {

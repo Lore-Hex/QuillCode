@@ -72,14 +72,7 @@ public struct WorkspaceFileIndexer: Sendable {
     /// Directories are capped independently of files so a directory-heavy tree can never
     /// reduce the number of indexed files.
     static let defaultMaxDirectories = 1_000
-    static let excludedDirectoryNames: Set<String> = [
-        ".build",
-        ".git",
-        ".swiftpm",
-        "DerivedData",
-        "build",
-        "node_modules"
-    ]
+    static let excludedDirectoryNames = FileToolLimits.excludedWorkspaceDirectoryNames
 
     public init(workspaceRoot: URL) {
         self.workspaceRoot = workspaceRoot.standardizedFileURL

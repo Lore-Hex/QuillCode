@@ -95,6 +95,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         let memoriesText = try Self.appSourceText(named: "QuillCodeMemoriesPaneView.swift")
         let worktreeChromeText = try Self.appSourceText(named: "QuillCodeWorktreeDialogChrome.swift")
         let browserText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+        let browserControlsText = try Self.appSourceText(named: "QuillCodeBrowserPaneControls.swift")
         let terminalText = try Self.appSourceText(named: "QuillCodeTerminalPaneView.swift")
         let contextBannerText = try Self.appSourceText(named: "QuillCodeContextBannerView.swift")
         let reviewActionText = try Self.appSourceText(named: "QuillCodeReviewActionButton.swift")
@@ -173,12 +174,12 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             "Activity section toggles should keep shared 0.96 press feedback."
         )
         XCTAssertTrue(
-            browserText.contains(".quillCodeIconButtonTarget()")
+            browserControlsText.contains(".quillCodeIconButtonTarget()")
                 && browserText.contains("QuillCodeActionButtonStyle(.secondary, minWidth: 92)"),
             "Browser nav and comment controls should use semantic 44 pt click targets."
         )
         XCTAssertFalse(
-            browserText.contains(".controlSize(.small)"),
+            browserControlsText.contains(".controlSize(.small)"),
             "Browser nav buttons should not wrap 44 pt labels in visually small controls."
         )
         XCTAssertTrue(
@@ -229,7 +230,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         ].joined(separator: "\n")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
         let sidebarRowsText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
-        let composerText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
+        let composerText = [
+            try Self.appSourceText(named: "QuillCodeComposerView.swift"),
+            try Self.appSourceText(named: "QuillCodeComposerSuggestionPanels.swift")
+        ].joined(separator: "\n")
         let searchDialogText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
         let dialogChromeText = try Self.appSourceText(named: "QuillCodeDialogChrome.swift")

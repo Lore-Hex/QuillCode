@@ -30,23 +30,12 @@ public enum AgentActionStreamCollector {
         emptyError: @autoclosure () -> any Error,
         onVisibleAssistantText: ((String) async -> Void)?
     ) async throws -> AgentAction {
-        var rawActionText = ""
-        var lastVisibleText = ""
-        for try await chunk in stream {
-            try Task.checkCancellation()
-            rawActionText.append(chunk)
-            guard let visibleText = AgentActionStreamPreview.visibleAssistantText(from: rawActionText),
-                  !visibleText.isEmpty,
-                  !AgentPromisedWorkGuard.shouldSuppressStreamingPreview(for: visibleText),
-                  visibleText != lastVisibleText
-            else {
-                continue
-            }
-            lastVisibleText = visibleText
-            await onVisibleAssistantText?(visibleText)
-        }
-
-        return try parseAction(from: rawActionText, emptyError: emptyError())
+        try await collect(
+            from: stream.asAgentTextEvents(),
+            emptyError: emptyError(),
+            onVisibleAssistantText: onVisibleAssistantText,
+            onUsage: nil
+        )
     }
 
     public static func collect(
@@ -97,6 +86,24 @@ public enum AgentActionStreamCollector {
     }
 }
 
+extension AsyncThrowingStream where Element == String, Failure == Error {
+    func asAgentTextEvents() -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
+        AsyncThrowingStream<AgentTextStreamEvent, Error> { continuation in
+            let task = Task {
+                do {
+                    for try await chunk in self {
+                        continuation.yield(.text(chunk))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}
+
 public enum AgentActionStreamPreview {
     public static func visibleAssistantText(from rawActionText: String) -> String? {
         guard partialJSONStringValue(for: "type", in: rawActionText) == "say" else {
@@ -139,7 +146,10 @@ public enum AgentActionStreamPreview {
         return value
     }
 
-    private static func decodeEscape(in text: String, after slashIndex: String.Index) -> (character: Character, nextIndex: String.Index) {
+    private static func decodeEscape(
+        in text: String,
+        after slashIndex: String.Index
+    ) -> (character: Character, nextIndex: String.Index) {
         let escapeIndex = text.index(after: slashIndex)
         guard escapeIndex < text.endIndex else {
             return ("\\", escapeIndex)
@@ -170,7 +180,10 @@ public enum AgentActionStreamPreview {
         }
     }
 
-    private static func decodeUnicodeEscape(in text: String, after unicodeMarkerIndex: String.Index) -> (character: Character, nextIndex: String.Index) {
+    private static func decodeUnicodeEscape(
+        in text: String,
+        after unicodeMarkerIndex: String.Index
+    ) -> (character: Character, nextIndex: String.Index) {
         var index = text.index(after: unicodeMarkerIndex)
         var scalarText = ""
         for _ in 0..<4 {

@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 @testable import QuillCodeApp
 
@@ -125,14 +126,14 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
                 ProjectInstruction(
                     path: "AGENTS.md",
                     title: "AGENTS.md",
-                    content: "Always run tests before final answers.",
-                    byteCount: 38
+                    content: "Root guidance.\nAlways run tests before final answers.",
+                    byteCount: 53
                 ),
                 ProjectInstruction(
                     path: "Sources/Feature/AGENTS.md",
                     title: "Feature AGENTS.md",
-                    content: "Do not run tests for feature changes.",
-                    byteCount: 37
+                    content: "Feature guidance.\nDo not run tests for feature changes.",
+                    byteCount: 55
                 )
             ]
         )
@@ -153,6 +154,11 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertTrue(model.composer.draft.hasPrefix("Resolve instruction issue \"Conflicting instruction intent\""))
         XCTAssertTrue(model.composer.draft.contains("AGENTS.md says require"))
         XCTAssertTrue(model.composer.draft.contains("Sources/Feature/AGENTS.md says avoid"))
+        XCTAssertTrue(model.composer.draft.contains("- AGENTS.md:2 [requires tests]"))
+        XCTAssertTrue(model.composer.draft.contains("Current: Always run tests before final answers."))
+        XCTAssertTrue(model.composer.draft.contains("- Sources/Feature/AGENTS.md:2 [avoids tests]"))
+        XCTAssertTrue(model.composer.draft.contains("Current: Do not run tests for feature changes."))
+        XCTAssertTrue(model.composer.draft.contains("Suggested fix: Choose one intent for tests guidance"))
     }
 
     func testExecutorRejectsMissingInstructionDiagnosticResolution() throws {
@@ -166,15 +172,59 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
     }
 
     func testExecutorDismissesInstructionDiagnostic() throws {
-        let model = QuillCodeWorkspaceModel()
+        let root = try makeTempDirectory()
+        let store = JSONProjectStore(fileURL: root.appendingPathComponent("projects.json"))
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: root.path,
+            instructions: Self.conflictingInstructions
+        )
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            projectID: project.id,
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: Self.conflictingInstructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            activity: ActivityState(isVisible: true),
+            projectStore: store
+        )
+        let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: Self.conflictingInstructions)
+            .first { $0.statusLabel == "conflict" }?
+            .id)
 
         XCTAssertTrue(model.runWorkspaceCommand(
-            "activity-instruction-dismiss:instruction-conflict",
-            workspaceRoot: try makeTempDirectory()
+            "activity-instruction-dismiss:\(diagnosticID)",
+            workspaceRoot: root
         ))
 
         XCTAssertTrue(model.activity.isVisible)
-        XCTAssertEqual(model.activity.dismissedInstructionDiagnosticIDs, ["instruction-conflict"])
+        XCTAssertEqual(model.activity.dismissedInstructionDiagnosticIDs, [diagnosticID])
+        XCTAssertEqual(model.root.projects.first?.dismissedInstructionDiagnosticIDs, [diagnosticID])
+        XCTAssertFalse(model.surface().activity.sources.contains { $0.id == diagnosticID })
+        XCTAssertEqual(try store.load().first?.dismissedInstructionDiagnosticIDs, [diagnosticID])
     }
+
+    private static let conflictingInstructions = [
+        ProjectInstruction(
+            path: "AGENTS.md",
+            title: "AGENTS.md",
+            content: "Always run tests before final answers.",
+            byteCount: 38
+        ),
+        ProjectInstruction(
+            path: "Sources/Feature/AGENTS.md",
+            title: "Feature AGENTS.md",
+            content: "Do not run tests for feature changes.",
+            byteCount: 37
+        )
+    ]
 
 }

@@ -83,6 +83,41 @@ class QuillCodeParityTestCase: XCTestCase {
         return try String(contentsOf: file, encoding: .utf8)
     }
 
+    static var generalDomainModelSourceFiles: [String] {
+        [
+            "AgentMode.swift",
+            "ChatModels.swift",
+            "AgentPlanModels.swift",
+            "SubagentModels.swift",
+            "ApprovalModels.swift",
+            "ThreadEventModels.swift",
+            "MemoryModels.swift",
+            "ChatThread.swift",
+            "JSONHelpers.swift"
+        ]
+    }
+
+    static func generalDomainModelsText() throws -> String {
+        try generalDomainModelSourceFiles
+            .map { try coreSourceText(named: $0) }
+            .joined(separator: "\n")
+    }
+
+    static func assertLegacyGeneralModelsFileIsRetired(
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let legacyFile = packageRoot()
+            .appendingPathComponent("Sources/QuillCodeCore")
+            .appendingPathComponent("Models.swift")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: legacyFile.path),
+            "General model records should stay in focused source files; do not reintroduce Models.swift.",
+            file: file,
+            line: line
+        )
+    }
+
     static func toolsSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeTools")

@@ -9,11 +9,7 @@ enum AgentPromisedWorkGuard {
 
     static func shouldSuppressStreamingPreview(for assistantText: String) -> Bool {
         let normalized = normalizedText(assistantText)
-        guard !asksForPermission(normalized),
-              !containsNegativePromise(normalized)
-        else {
-            return false
-        }
+        guard canContainActionablePromise(normalized) else { return false }
 
         return containsFutureWorkPhrase(in: normalized)
             || containsUnresolvedFutureWorkStarter(in: normalized)
@@ -29,17 +25,15 @@ enum AgentPromisedWorkGuard {
         Previous response:
         \(assistantText)
 
-        Return exactly one QuillCode JSON action now. If you intended to perform the promised work, return the appropriate {"type":"tool",...} action with complete arguments. If no tool is needed, return {"type":"say","text":"..."} with a direct final answer and no future-tense promise.
+        Return exactly one QuillCode JSON action now. If you intended to perform the promised work,
+        return the appropriate {"type":"tool",...} action with complete arguments. If no tool is
+        needed, return {"type":"say","text":"..."} with a direct final answer and no future-tense promise.
         """
     }
 
     private static func promisesExecutableWork(_ text: String) -> Bool {
         let normalized = normalizedText(text)
-        guard !asksForPermission(normalized),
-              !containsNegativePromise(normalized)
-        else {
-            return false
-        }
+        guard canContainActionablePromise(normalized) else { return false }
 
         return containsFutureWorkPhrase(in: normalized)
     }
@@ -51,65 +45,71 @@ enum AgentPromisedWorkGuard {
             .replacingOccurrences(of: "’", with: "'")
     }
 
+    private static func canContainActionablePromise(_ text: String) -> Bool {
+        !asksForPermission(text) && !containsNegativePromise(text)
+    }
+
     private static func asksForPermission(_ text: String) -> Bool {
-        [
+        containsAnyPhrase(in: text, phrases: [
             "do you want me",
             "would you like me",
             "should i ",
             "can i ",
             "may i "
-        ].contains { text.contains($0) }
+        ])
     }
 
     private static func containsNegativePromise(_ text: String) -> Bool {
-        [
+        containsAnyPhrase(in: text, phrases: [
             "i will not",
             "i won't",
             "i cannot",
             "i can't",
             "i do not",
             "i don't"
-        ].contains { text.contains($0) }
+        ])
+    }
+
+    private static func containsAnyPhrase(in text: String, phrases: [String]) -> Bool {
+        phrases.contains { text.contains($0) }
     }
 
     private static func containsFutureWorkPhrase(in text: String) -> Bool {
-        for starter in futureWorkStarters {
-            var searchStart = text.startIndex
-            while let range = text.range(of: starter, range: searchStart..<text.endIndex) {
-                if isLetMeKnowCourtesy(text, after: range) {
-                    searchStart = range.upperBound
-                    continue
-                }
-                let tail = text[range.upperBound...].prefix(64)
-                if containsWorkVerb(in: tail) {
-                    return true
-                }
-                searchStart = range.upperBound
-            }
+        actionableStarterRanges(in: text).contains { range in
+            containsWorkVerb(in: text[range.upperBound...].prefix(64))
         }
-        return false
     }
 
     private static func containsUnresolvedFutureWorkStarter(in text: String) -> Bool {
-        for starter in futureWorkStarters {
-            guard let range = text.range(of: starter) else { continue }
-            if isLetMeKnowCourtesy(text, after: range) {
-                continue
-            }
-            let tail = text[range.upperBound...]
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if tail.count < unresolvedStarterPreviewCharacterLimit {
-                return true
-            }
+        actionableStarterRanges(in: text).contains { range in
+            trimmedText(after: range, in: text).count < unresolvedStarterPreviewCharacterLimit
         }
-        return false
+    }
+
+    private static func actionableStarterRanges(in text: String) -> [Range<String.Index>] {
+        futureWorkStarters.flatMap { starter in
+            ranges(of: starter, in: text)
+        }.filter { range in
+            !isLetMeKnowCourtesy(text, after: range)
+        }
     }
 
     private static func isLetMeKnowCourtesy(_ text: String, after range: Range<String.Index>) -> Bool {
-        text[range] == "let me"
-            && text[range.upperBound...]
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .hasPrefix("know")
+        text[range] == "let me" && trimmedText(after: range, in: text).hasPrefix("know")
+    }
+
+    private static func trimmedText(after range: Range<String.Index>, in text: String) -> String {
+        text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func ranges(of starter: String, in text: String) -> [Range<String.Index>] {
+        var ranges: [Range<String.Index>] = []
+        var searchStart = text.startIndex
+        while let range = text.range(of: starter, range: searchStart..<text.endIndex) {
+            ranges.append(range)
+            searchStart = range.upperBound
+        }
+        return ranges
     }
 
     private static func containsWorkVerb(in text: Substring) -> Bool {

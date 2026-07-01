@@ -1,5 +1,338 @@
 # Code Quality Audit
 
+## 2026-07-01 App Pane And MCP Runtime Boundary Pass
+
+Overall grade after this slice: **A+ production source modules maintained, A+ pane shells, clearer MCP runtime seams**.
+
+This pass re-graded every file and module, then addressed the next app-source files that were still carrying multiple
+responsibilities: native Browser pane rendering, native Extensions/MCP pane rendering, and MCP runtime process/tool
+execution. The refactor is behavior-preserving and keeps production module averages at **A+**.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Browser native pane | `QuillCodeBrowserPaneView.swift` owned pane composition, tab controls, navigation controls, snapshot summaries, badges, detail chips, and comments in one file. | The root pane now owns only composition and comment state. `QuillCodeBrowserPaneControls.swift`, `QuillCodeBrowserPaneSnapshot.swift`, and `QuillCodeBrowserPaneSnapshotPrimitives.swift` own controls, snapshot flow, and reusable snapshot chrome. |
+| Extensions native pane | `QuillCodeExtensionsPaneView.swift` mixed header/counts, extension cards, install/start/stop actions, MCP probe counts, tool chips, resource/prompt actions, and command construction. | The root pane now owns header and empty state. `QuillCodeExtensionsPaneCards.swift`, `QuillCodeExtensionsPaneProbeMetadata.swift`, and `QuillCodeExtensionsPaneProbeChips.swift` split card actions from MCP metadata/chip rendering. |
+| MCP runtime | `WorkspaceMCPRuntime.swift` owned process lifecycle, dynamic tool execution, probe copy, and process-handle storage. | Process lifecycle stays in `WorkspaceMCPRuntime.swift`; dynamic execution, probe notice copy, and process handles now live in focused support files with parity gates protecting the boundary. |
+| Parity gates | Source-audit tests assumed MCP routing and extension metadata stayed in the broad owner files. | Gates now assert the focused files and reject drift back into pane shells or runtime lifecycle code. |
+| File grades | Browser and Extensions pane roots were **A-** due size and repeated SwiftUI structure. | `QuillCodeBrowserPaneView.swift` and `QuillCodeExtensionsPaneView.swift` are **A+**. Most new focused support files are **A+**; remaining **A** files reflect intentionally similar SwiftUI branches where further abstraction would reduce clarity. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceMCPServerLauncherTests|WorkspaceMCPToolCatalogTests|QuillCodeMCPSupportTests|ParityMCPGateTests|ParityWorkspaceSurfaceGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The grader still reports lower grades for broad parity/test harnesses and a few focused production files with
+  intentionally similar UI branches. The next quality frontier is splitting `QuillCodeNativeHitTargetModels.swift`,
+  `ProjectExtensionManifestLoader.swift`, and `WorkspaceTerminalEngine.swift`, then reducing the largest parity gates.
+
+## 2026-07-01 Slash Command Catalog Polish
+
+Overall grade after this slice: **A+ slash command catalog, A+ app-source module maintained**.
+
+This pass addressed a production app-source hotspot from the generated grade report: `SlashCommandCatalog.swift`.
+The old catalog was behaviorally fine, but dense single-line `.init(...)` declarations made command metadata
+hard to review and generated many over-120-column lines.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Command metadata construction | Each global slash command repeated the full `SlashCommandDefinition` initializer with explicit `insertText` and `aliases`, even when defaults matched the usage or aliases were empty. | A focused `slashDefinition(...)` helper centralizes defaults for insert text and aliases, keeping each row about command intent instead of boilerplate. |
+| Readability | Long command details, scheduling examples, and alias lists lived in one-line entries. | Long details and alias lists are wrapped at the call site, making additions and review safer. |
+| Command-palette projection | Keyword construction was packed into one expression inside the `WorkspaceCommandSurface` initializer. | Keyword construction is named locally before returning the palette row. |
+| Ownership | Static command data and suggestion/palette behavior lived in one file. | `SlashCommandCatalog.swift` owns help, palette, and ranking behavior; `SlashCommandCatalogDefinitions.swift` owns the global static command table and defaulting helper. |
+| Behavior | The catalog already drove `/help`, suggestions, and command-palette insertions. | Behavior stays unchanged; focused slash/palette tests cover the same surfaces after the refactor. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceCommandPaletteRankerTests|WorkspaceCommandPlanTests|WorkspaceSlashCommandActionExecutorTests|WorkspaceSlashCommandTranscriptPlannerTests|QuillCodeCommandIconCatalogTests|WorkspacePullRequestCommandCatalogTests|ParityWorkspaceExecutionSlashGateTests|ParityToolGateTests|ParityWorkspaceCommandGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a readability/DRY refactor. It does not promote slash metadata into a fully shared command descriptor
+  model for every command family; PR commands already use that pattern, and the remaining global commands can be
+  migrated gradually when there is a stronger ownership need.
+
+## 2026-07-01 Thread Model Boundary Split
+
+Overall grade after this slice: **A+ thread creation, A+ thread selection, A+ lifecycle actions, A+ context continuation boundary**.
+
+This pass addressed the next production app-source hotspot from the generated grade report: `WorkspaceModelThreads.swift`. The remaining density was a mix of direct thread creation, composer-draft selection, lifecycle mutation side effects, and model-backed fork/compact continuation orchestration.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Thread creation coordinator | `WorkspaceModelThreads.swift` mixed new/fork/compact/duplicate construction with selection, draft switching, archive/delete lifecycle mutations, and async context continuation work. | `WorkspaceModelThreads.swift` now focuses on direct thread creation APIs and delegates insertion/selection to the focused selection extension. |
+| Thread selection and drafts | Created-thread insertion, thread selection, composer draft stashing, terminal sync, project touch, and top-bar refresh were interleaved with creation/lifecycle code. | `WorkspaceModelThreadSelection.swift` owns thread selection, created-thread insertion, composer draft restoration, terminal sync, project touch, persistence routing, and top-bar refresh. |
+| Lifecycle actions | Rename, pin, archive, unarchive, and delete copied thread arrays, reassigned selection, persisted changes, and recorded navigation inline. | `WorkspaceModelThreadLifecycleActions.swift` owns lifecycle actions and shares mutation, navigation-transition, persistence, and lifecycle-selection helpers. |
+| Context continuation path | Fork-with-summary and compact-with-summary scheduling, model summary requests, fallback handling, and telemetry were private helpers in the lifecycle file. | `WorkspaceModelContextContinuations.swift` owns `startForkThread`, `startCompactContext`, configured summary execution, source notices, and continuation telemetry append. |
+| Creation context | New-chat context assembly was inlined inside the engine call. | The creation context is assigned before passing to `WorkspaceThreadCreationEngine`, improving readability and removing the last long line. |
+| Architecture gates | Parity tests proved seed builders and summary generators existed, but did not pin the workspace-model orchestration seams. | `ParityWorkspaceModelThreadGateTests` now requires creation, selection, lifecycle, and context-continuation owners, and rejects lifecycle/draft/summary work drifting back into thread creation APIs. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceThreadLifecycleIntegrationTests|WorkspaceThreadCreationEngineTests|WorkspaceThreadLifecycleEngineTests|WorkspaceContextSummaryTelemetryPlannerTests|ParityWorkspaceModelThreadGateTests|ParityFocusedSuiteManifestTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This split is behavior-preserving. Broader thread lifecycle UX and command behavior remain covered by existing integration tests and were not redesigned.
+
+## 2026-07-01 Instruction Review Resolved-By-Edit Audit Pass
+
+Overall grade after this slice: **A+ diagnostic state model, A+ refresh boundary, A+ reintroduced-warning coverage**.
+
+This pass re-graded the Instruction Review path after durable dismissals and closed the next state gap: when a user edits `AGENTS.md` or `.quillcode/rules.md` so a diagnostic disappears, QuillCode now records that disappearance as an audit event without mutating the instruction file or hiding future reintroduced issues.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Diagnostic dispositions | `ProjectInstructionDiagnosticResolution` only represented dismissed active diagnostics. | The record now has explicit `dismissed` and `resolved` dispositions with shared normalization and idempotent mutation helpers. |
+| Metadata refresh | Refresh could prove that a diagnostic disappeared, but the project state had no durable record of that resolution. | `WorkspaceProjectEngine` diffs previous/current diagnostic IDs during metadata application and records disappeared IDs as `resolved`. |
+| Suppression semantics | Future code could accidentally treat any resolution record as hidden state. | Activity still consumes only `dismissedInstructionDiagnosticIDs`; resolved audit records do not suppress reintroduced active diagnostics. |
+| Persistence | Project-store coverage only round-tripped dismissed records. | Persistence now round-trips both dismissed and resolved records, including compatibility with older payloads. |
+| Test quality | New tests initially depended on diagnostic ordering. | Tests now select the semantic conflict explicitly and keep a nested instruction file present so the resolved audit record covers only the disappearing contradiction. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceActivityIntegrationTests|WorkspaceProjectEngineTests|WorkspaceProjectIntegrationTests|CoreModelTests|PersistenceTests|WorkspaceCommandPlanExecutorTests'` (87 tests, 0 failures)
+
+Residual risk:
+
+- Resolve still prepares an edit draft instead of automatically applying a rule-file patch. Native editor jump-to-line and diff-assisted fixes remain the next Instruction Review parity work.
+
+## 2026-07-01 Static Secondary Pane Renderer Split
+
+Overall grade after this slice: **A+ secondary-pane facade, A+ focused pane renderer cluster, lower renderer conflict risk**.
+
+This pass re-graded the static HTML workspace renderer cluster and addressed the next production app hotspot: `WorkspaceHTMLSecondaryPaneRenderer.swift`. The old file carried Extensions, Memories, Activity, Automations, MCP metadata, automation actions, activity sections, memory card actions, and pluralization in one renderer. The public entry points stayed stable, but implementation ownership is now split by pane family.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Secondary pane facade | `WorkspaceHTMLSecondaryPaneRenderer.swift` was a 393-line **A-** file with four feature families and shared helpers interleaved. | `WorkspaceHTMLSecondaryPaneRenderer.swift` is now a 17-line facade delegating each pane to a focused renderer. |
+| Extensions HTML | MCP metadata, tool chips, resource/prompt actions, install/update/start/stop buttons, and extension card markup lived beside unrelated pane code. | `WorkspaceHTMLExtensionsPaneRenderer.swift` owns extension and MCP markup, with explicit shared command primitives and no over-120-column lines. |
+| Memories, Activity, Automations | Memory actions, activity section disclosure markup, and automation create/workflow actions shared one helper namespace. | `WorkspaceHTMLMemoriesPaneRenderer.swift`, `WorkspaceHTMLActivityPaneRenderer.swift`, and `WorkspaceHTMLAutomationsPaneRenderer.swift` own their pane-specific rendering rules. |
+| Shared helpers | Count labels, escaping, and command-button forwarding lived inside the broad renderer. | `WorkspaceHTMLSecondaryPanePrimitives.swift` is the shared secondary-pane helper boundary. |
+| Parity gates | Source-audit tests assumed all secondary-pane helpers lived in one file. | Delegation and interaction primitive gates now require the stable facade plus focused pane renderers, and reject detail helpers drifting back into the facade. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceHTMLSecondaryPaneRendererTests|ParityHTMLRendererDelegationGateTests|ParityHTMLInteractionPrimitiveGateTests|ParityHTMLRendererCoverageGateTests|ParityFocusedSuiteManifestTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice intentionally preserves static HTML behavior. It does not redesign native secondary panes or change the Playwright harness UI.
+
+## 2026-07-01 Durable Instruction Review Resolutions
+
+Overall grade after this slice: **A+ resolution boundary, A project-scoped instruction review state, A Activity command validation, A persistence compatibility**.
+
+This pass closes a Codex-style Activity/Instruction Review gap: dismissing a rule diagnostic should not be a fragile pane-only toggle that disappears after restart or project metadata refresh. It should be scoped to the project ruleset, persisted with the project, and filtered through the same Activity source projection as the visible diagnostic.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Instruction diagnostic dismissal | `ActivityState.dismissedInstructionDiagnosticIDs` hid diagnostics only for the current workspace model session. | `ProjectRef` owns durable `ProjectInstructionDiagnosticResolution` records; Activity combines project records with transient session dismissals. |
+| Command validation | `activity-instruction-dismiss:<id>` accepted any non-empty string. | Dismiss now requires the ID to match an active instruction diagnostic from the same source resolver used by Activity. |
+| Metadata refresh | Project refresh rewrote instructions/actions/memories and had no persisted place for review decisions. | Existing project resolution records survive local metadata refresh/upsert. |
+| Persistence | Older project JSON decoded without the new field, but no round-trip coverage existed because the field did not exist. | Project JSON decodes old payloads with empty resolutions and round-trips normalized dismissed diagnostics. |
+| Ownership | Resolve/dismiss behavior was split between pane state and command executor assumptions. | `WorkspaceInstructionDiagnosticsState` centralizes active instruction diagnostics for command and surface paths. |
+| File quality | Adding this directly to `ProjectModels.swift` would have made an already-broad model file worse. | `ProjectInstructionDiagnosticResolutions.swift` owns the new enum, record, normalization, and idempotent dismiss helper; the grader reports it as **A+** with no automated issues. |
+
+Verification:
+
+- `swift test --filter 'CoreModelTests|PersistenceTests|WorkspaceCommandPlanExecutorTests|WorkspaceActivityIntegrationTests|WorkspaceProjectEngineTests|WorkspaceUIStateTests'` (82 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py` (`source:QuillCodeCore` remains **A+** overall; `ProjectInstructionDiagnosticResolutions.swift` is **A+**)
+
+Residual risk:
+
+- Resolve still prepares an edit draft instead of directly applying a rule-file patch; that is intentional for now because instruction changes should remain explicit file edits with normal review/tool audit. Diff-assisted fixes and native editor jump-to-line remain future Instruction Review polish.
+
+## 2026-07-01 Terminal Wide Cell Parity
+
+Overall grade after this slice: **A+ terminal cell model, A+ terminal renderer architecture, stronger transcript fidelity**.
+
+This pass tightened the next integrated-terminal rendering gap without turning the transcript renderer into a full emulator. The terminal buffer now stores cells instead of raw characters, so it can represent display-width semantics while keeping raw PTY bytes preserved on `TerminalCommandState`.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Cell model | The screen buffer stored one `Character` per Swift array slot, so CJK/emoji output advanced like narrow ASCII and cursor-addressed overwrites landed one cell too early. | `TerminalScreenCell` records content cells plus continuation cells for width-two glyphs, and `TerminalScreenCellWidth` owns the narrow/wide/zero-width decision. |
+| Cluster mutation | Overwriting or erasing the second half of a wide glyph could leave stale visible content because clearing was single-slot only. | `TerminalScreenBufferCells` centralizes column growth, cluster clearing, and combining-mark attachment so overwrite/erase paths share one rule. |
+| Combining marks | A standalone combining scalar advanced the cursor like printable text. | Zero-width marks attach to the previous visible cell and do not advance the cursor, preserving common accent output. |
+| Architecture gate | Terminal parity gates required parser split and scroll/alternate-screen behavior only. | `ParityTerminalRendererGateTests` now also requires the cell model files and behavior tests for width-two advancement, wide-cell overwrite, and combining marks. |
+
+Verification:
+
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|ParityTerminalRendererGateTests'`
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|ParityTerminalRendererGateTests|ParityFocusedSuiteManifestTests'`
+- `swift test` (1980 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is still a pragmatic transcript renderer, not a full terminal emulator. Ambiguous-width locales, ZWJ emoji clusters, text attributes, mouse tracking, and deep curses state remain deferred.
+## 2026-07-01 Terminal Scroll Buffer Parity
+
+Overall grade after this slice: **A+ terminal renderer, stronger Codex-style integrated terminal parity**.
+
+This pass moved `TerminalOutputRenderer` beyond cursor-addressed progress redraws into the next documented terminal parity gap while preserving the existing architecture: raw PTY bytes remain on `TerminalCommandState`, and only `TerminalCommandSurface` consumes the cleaned display text.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Scroll regions | `ESC[<top>;<bottom>r`, line-feed-at-bottom, reverse-index, and CSI scroll commands were stripped, so many TUI/status panes rendered stale rows instead of scrolling their active region. | The renderer now models bounded scroll regions, line-feed scrolling at the region bottom, reverse-index scrolling at the region top, and explicit `CSI S`/`CSI T` scroll up/down. |
+| Insert/delete line | `CSI L` and `CSI M` were stripped, so status panes that insert/delete rows drifted from the final screen state. | Insert/delete line now operate inside the current scroll region or visible buffer, preserving a useful final frame. |
+| Alternate screen | `CSI ?1049h/l` was stripped, so alternate-screen programs either leaked control intent or lost the useful latest frame. | Entering the alternate screen now isolates the frame, and exit appends the latest alternate frame back into transcript scrollback before subsequent output. |
+| Renderer structure | `TerminalOutputRenderer.swift` owned the whole parser and buffer, making new terminal semantics hard to review in one file. | `TerminalOutputRenderer.swift` is now a 28-line **A+** facade. `TerminalScreenBuffer*` extensions split parsing, erase controls, scroll regions, line mutation, scrolling, and alternate-screen behavior; all grade **A+**. |
+| Tests | Terminal tests covered cursor positioning, erase sequences, and overflow clamps. | Focused tests now pin scroll-region LF, reverse-index, explicit scroll up/down, insert/delete line, alternate-screen frame preservation, and app-surface rendering. |
+| Architecture gate | No parity test kept the terminal parser split once new semantics were added. | `ParityTerminalRendererGateTests` now requires focused terminal source files and behavior coverage, and the focused parity manifest includes the new gate. |
+
+Verification:
+
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests'`
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|ParityTerminalRendererGateTests|ParityFocusedSuiteManifestTests'`
+- `swift test` (1977 tests, 1 skipped, 0 failures)
+- `git diff --check`
+
+Residual risk:
+
+- This is still not a full terminal emulator. Wide/combining-cell measurement, mouse tracking, attributes, deep alternate-screen history, and full curses semantics remain separate parity work.
+
+## 2026-07-01 Core, Safety, Composer, And Computer Use Boundary Pass
+
+Overall grade after this slice: **A+ production source module architecture across all production modules**.
+
+This pass re-graded the repo at the file, module, and architecture levels, then addressed the remaining production module hotspots where broad files were carrying multiple responsibilities. The generated grade report still lists every file-level heuristic warning; the important architectural result is that all production source modules now average **A+**, and the remaining lower grades are concentrated in test/parity/E2E harnesses, scripts, and declarative UI/DTO files where the heuristic flags repeated structure.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Static safety policy | `StaticSafetyPolicy.swift` mixed shell/read-only rules, download intent, pull-request intent, request parsing, path checks, and rule tables in one 900-line policy file. | `StaticSafetyPolicy.swift` is now a small orchestration root. Rule tables, request decoding/path helpers, download policy, read-only shell policy, and pull-request policy live in focused files; `source:QuillCodeSafety` grades **A+**. |
+| Core domain models | The historical `Models.swift` bucket still carried general chat/thread/memory records, making it easy for focused model families to drift back into a grab bag. | `Models.swift` is retired. General domain records are split into `AgentMode.swift`, `ChatModels.swift`, `AgentPlanModels.swift`, `SubagentModels.swift`, `ApprovalModels.swift`, `ThreadEventModels.swift`, `MemoryModels.swift`, `ChatThread.swift`, and `JSONHelpers.swift`; parity gates now reject reintroducing the umbrella file. |
+| Composer surface | `QuillCodeComposerView.swift` still owned slash suggestion row/chip rendering in addition to text-entry and submit behavior. | Suggestion chrome moved to `QuillCodeComposerSuggestionPanels.swift`, keeping the composer root focused on input state, send/stop, and keyboard interaction. |
+| Computer Use kit | `ComputerUse.swift` mixed public contracts, status calculation, a stub backend, tool execution/preflight, artifact writing, and tool definitions. | Contracts, status, stub backend, executor/preflight, and tool definitions now live in separate files. `source:QuillComputerUseKit` moved from **A** to **A+**. |
+| Swift warning hygiene | `WorkspaceModelReview.swift` emitted a redundant `public` warning inside a public extension. | Removed the redundant modifier so focused builds are warning-clean for this touched path. |
+
+Verification:
+
+- `swift test --filter 'Safety|StaticSafety|ParitySafetyGateTests'`
+- `swift test --filter 'ParityWorkspaceSettingsSheetGateTests|ParityWorkspaceSurfaceGateTests|ParityNativeInteractionContractGateTests|WorkspaceComposer'`
+- `swift test --filter 'CoreModelTests|ModelTokenUsageTests|PersistenceTests|ParityCoreModelGateTests|ParityModelGateTests|ParityAutomationGateTests|ParityWorkspaceModel'`
+- `swift test --filter 'ComputerUse|WorkspaceAgentRunContextBuilderTests|ParityWorkspaceExecutionAgentContextGateTests|ParityDesktopGateTests'`
+- `swift test`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- Production source modules now all grade **A+**, but individual production files still include A/A- heuristic warnings, mostly for declarative SwiftUI repetition, public contract density, and focused catalog files. Those are not the same risk as the previous broad ownership files and should be handled in smaller feature-adjacent passes.
+- Test/parity/E2E/script modules still include B/B+ files because broad source-audit gates and real-world smoke harnesses intentionally contain repeated assertions and fixtures. They are documented in `docs/CODE_QUALITY_FILE_GRADES.md` and remain the next quality frontier after production architecture.
+
+## 2026-07-01 File Tool Boundary Split
+
+Overall grade after this slice: **A+ file tool facade, A/A+ file tool cluster, A+ tools source module average**.
+
+This pass addressed the next production tools hotspot from the generated report: `FileToolExecutor.swift`. The old file mixed public read/write/list/search methods, workspace path resolution, directory listing, recursive text scanning, output DTOs, tool definitions, result limits, and directory-exclusion policy.
+
+| Area | Before | After |
+| --- | --- | --- |
+| File executor facade | `FileToolExecutor.swift` was a 410-line **A-** file with tool orchestration and implementation details mixed together. | `FileToolExecutor.swift` is now a 92-line **A+** facade that delegates path resolution, listing, and search scanning. |
+| File output models | File tool errors and structured list/search outputs lived in the executor file. | `FileToolModels.swift` owns errors and DTOs used by tools, agent final-answer formatting, and remote-file adapters. |
+| Workspace path resolution | File path containment was an executor helper, making the symlink boundary harder to audit. | `FileWorkspacePathResolver.swift` owns file-tool path normalization, relative paths, and the shared `WorkspaceBoundary` check. |
+| Directory listing | Directory enumeration, kind detection, sorting, and artifact extraction lived inside the executor. | `FileDirectoryLister.swift` owns bounded immediate directory listing and artifacts. |
+| Search scanning | Recursive enumeration, heavy-directory skips, file-size limits, UTF-8 filtering, and preview truncation lived inside the executor. | `FileSearchScanner.swift` owns bounded literal search scanning. |
+| Limits and definitions | Search/list caps, excluded directories, and `ToolDefinition` metadata lived in the executor. | `FileToolLimits.swift` owns shared caps/exclusions, `FileToolDefinitions.swift` owns metadata, and `WorkspaceFileIndexer` now reuses the same excluded-directory policy. |
+| Architecture gates | Parity tests only required focused file-tool coverage. | `ParityToolGateTests` now requires file-tool delegation and rejects directory/search/definition code drifting back into the facade. |
+
+Verification:
+
+- `swift test --filter 'FileToolExecutorTests|WorkspaceFileIndexerTests|ParityToolGateTests'`
+- `swift test` (1969 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice preserves local file-tool behavior and does not change remote SSH file adapters. The shared DTOs remain compatible with remote file-list parsing.
+- The next production tools-source hotspots are now `GitToolDefinitions.swift`, `GitHubPullRequestInputValidator.swift`, and `MCPStdioProber.swift`; all are already A-/A.
+
+## 2026-07-01 Local GitHub Pull Request Executor Split
+
+Overall grade after this slice: **A+ local PR executor facade, A/A+ local PR command cluster, A+ tools source module average**.
+
+This pass addressed the remaining production tools hotspot from the generated report: `GitHubPullRequestToolExecutor.swift`. The old file mixed public PR API methods, GitHub CLI argument assembly, review-thread GraphQL/API argument construction, metadata lookups, selector validation, and URL artifact extraction.
+
+| Area | Before | After |
+| --- | --- | --- |
+| PR executor facade | `GitHubPullRequestToolExecutor.swift` was a 393-line **B+** file with command construction and runner orchestration mixed together. | `GitHubPullRequestToolExecutor.swift` is now a 36-line **A+** state/runner facade. Public methods live in small family extensions. |
+| PR command families | Create/view/checks/diff/checkout, reviewer/label/comment edits, review comments/replies/threads, and merge assembly lived in one file. | `GitHubPullRequestBaseCommandBuilder.swift`, `GitHubPullRequestEditCommandBuilder.swift`, `GitHubPullRequestReviewCommandBuilder.swift`, and `GitHubPullRequestMergeCommandBuilder.swift` own those command families. |
+| Public API surface | All public PR methods lived in one large implementation file. | `GitHubPullRequestToolExecutorBaseCommands.swift`, `GitHubPullRequestToolExecutorEditCommands.swift`, `GitHubPullRequestToolExecutorReviewCommands.swift`, and `GitHubPullRequestToolExecutorMergeCommands.swift` split the public facade by behavior. |
+| Shared support | URL artifact decoration and repository owner/name splitting were private executor helpers. | `GitHubPullRequestCommandSupport.swift` centralizes selector assembly, URL artifact decoration, and repository owner/name splitting. |
+| Architecture gates | Parity tests only required metadata resolution to stay outside the executor. | `ParityToolGateTests` now requires the local PR executor extensions and command builders, and rejects CLI/API construction drifting back into the core facade. |
+
+Verification:
+
+- `swift test --filter 'GitHubPullRequestToolExecutorTests|GitHubPullRequestMetadataResolverTests|ParityToolGateTests'`
+- `swift test` (1968 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice preserves existing PR behavior and does not add new GitHub workflow capabilities. The next tools-source hotspots are `FileToolExecutor.swift`, `GitToolDefinitions.swift`, and `GitHubPullRequestInputValidator.swift`.
+- `GitHubPullRequestToolExecutorEditCommands.swift` and `GitHubPullRequestToolExecutorReviewCommands.swift` grade **A** due to repeated wrapper signatures, not size or behavior coupling.
+
+## 2026-07-01 Agent Runner Boundary Split
+
+Overall grade after this slice: **A+ agent runner facade, A+ agent source module average, A+ streaming/promise/prompt cluster**.
+
+This pass addressed the remaining production agent hotspot from the generated report: `Agent.swift`. The old file had grown into a 425-line mixed orchestration surface that owned public API types, action selection, streaming collectors, usage-event streaming, reasoning/draft publication, and promised-work correction.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Agent facade | `Agent.swift` owned public agent contracts, run orchestration, streaming dispatch, stream collection, draft publication, and promised-work retry. It graded **B+**. | `Agent.swift` is now a 178-line **A+** orchestration facade focused on the send loop, tool-step execution flow, final-answer emission, and shared title/definition helpers. |
+| Public contracts | Public types and protocols were declared at the top of the runner implementation. | `AgentTypes.swift` owns `AgentAction`, LLM protocols, runner result/feedback types, errors, and handler typealiases. It grades **A+**. |
+| Action selection | Immediate-action preflight, usage streaming, text streaming, and non-streaming fallback lived inline in the runner. | `AgentActionResolver.swift`, `AgentTextStreamActionRunner.swift`, and `AgentUsageStreamActionRunner.swift` own the dispatch path. All grade **A+**. |
+| Stream collection | Raw text, draft-updating text streams, usage streams, reasoning summaries, and usage-event emission were private helpers in the runner. | `AgentRawTextStreamActionCollector.swift`, `AgentTextStreamActionCollector.swift`, `AgentUsageStreamActionCollector.swift`, and `AgentStreamingDraftPublisher.swift` own those focused responsibilities. All grade **A+**. |
+| Promised-work recovery | The retry/correction path for models that say "I'll do it" without returning a tool call lived inline in `Agent.swift`. | `AgentPromisedWorkResolver.swift` owns correction retry and embedded JSON recovery while preserving the one-turn execution behavior. It grades **A+**. |
+| Prompt and promise heuristics | `AgentPromisedWorkGuard.swift` and `TrustedRouterPromptBuilder.swift` still had deterministic quality noise after the boundary split. | Promise detection now shares actionable-promise helpers, and prompt guidance is wrapped without weakening exact tool schema guidance. Both files grade **A+**. |
+| Architecture gates | Existing gates covered stream extraction but not the public contract/resolver split. | `ParityAgentGateTests` now requires contracts, action resolution, streaming runners/collectors, and promised-work retry to stay out of `Agent.swift`. |
+
+Verification:
+
+- `swift test --filter 'AgentToolLoopTests|AgentImmediateShellActionTests|AgentPlanModeTests|AgentStreamingTests|AgentPromisedWorkGuardTests'`
+- `swift test --filter 'TrustedRouterPromptBuilderTests|QuillCodeAgentTests|ParityAgentGateTests|ParityTrustedRouterGateTests|ParityFocusedSuiteManifestTests'`
+- `swift test` (1968 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The agent source module now averages **A+**. Remaining **A** files in the module are mostly tool-step and formatter files where the deterministic grader flags repeated Swift signature/formatting structure; they are not below the current production quality bar.
+- Wider repo debt still exists outside this slice, especially in large parity/E2E test files and script harnesses. Those should be handled as separate reviewable quality passes so the critical command-execution path remains easy to review.
+
+## 2026-07-01 Automations Pane View Split
+
+Overall grade after this slice: **A+ automations pane cluster, A+ app source module average, no automations pane file below A+**.
+
+This pass addressed the lowest production app-source file from the generated report: `QuillCodeAutomationsPaneView.swift`. The old file mixed pane shell layout, create-menu command routing, workflow card rendering, row actions, and automation command construction.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Pane shell | `QuillCodeAutomationsPaneView.swift` owned header, empty state, grid layout, menu, cards, and actions. It graded **B+**. | `QuillCodeAutomationsPaneView.swift` is now a 67-line **A+** composition root that owns only pane layout and delegates subregions. |
+| Create menu | Create-thread, create-workspace, relative schedule, and recurring schedule commands repeated menu-item hit-target modifiers inline. | `QuillCodeAutomationCreateMenu.swift` owns create-menu visibility, grouping, platform menu hit-target contracts, and grades **A+**. |
+| Workflow cards | Schedule/status labels, detail text, run/pause/resume/delete actions, and command construction lived in the pane root. | `QuillCodeAutomationWorkflowCard.swift` owns workflow card rendering and row action command construction, keeps explicit QuillCode button styles visible to audits, and grades **A+**. |
+| Architecture gates | The secondary-pane parity gate only required the automations pane file to exist. | `ParityWorkspaceSurfaceGateTests` now requires the pane to delegate to the create menu and workflow card, and rejects menu/card/action construction drifting back into the pane shell. |
+
+Verification:
+
+- `swift test --filter 'ParityNativeInteractionContractGateTests|ParityWorkspaceSurfaceGateTests|WorkspaceAutomationSurfaceIntegrationTests|QuillCodeNativeHitTargetAuditTests'`
+- `swift test` (1967 tests, 1 skipped, 0 failures)
+- `git diff --check`
+
+Residual risk:
+
+- This slice preserves the current automation UI behavior. Richer scheduling UX, inline editing, and automation-history previews should remain separate feature work.
+- The lowest production app-source files are now `QuillCodeComposerView.swift`, `WorkspaceHTMLSecondaryPaneRenderer.swift`, and `WorkspaceModelThreads.swift`.
+
 ## 2026-07-01 HTML Sidebar Renderer Split
 
 Overall grade after this slice: **A+ HTML sidebar renderer cluster, A+ app source module average, no sidebar renderer file below A+**.
@@ -11129,3 +11462,85 @@ Code quality changes:
 Remaining risk:
 
 - The static harness is still large and hand-maintained. The next A+ architecture pass should split harness state/render/event handlers by surface or generate more of the harness from shared `WorkspaceSurface` JSON.
+
+## 2026-06-30 Instruction Review Source Targeting Quality Pass
+
+Overall grade after this slice: **A+ instruction diagnostic architecture, A+ source-reference model, A+ focused validation, A- whole-repo maintainability**.
+
+The repo-wide grade pass still shows the source modules are largely A+, but several parity/audit test files and a few broad UI/runtime files remain below A+ because they are intentionally large contract gates or broad integration surfaces. This pass keeps the implementation change focused while making the active Instruction Review area A+ quality: responsibilities are split by model, reference construction, semantic matching, diagnostic assembly, and command drafting.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Instruction diagnostic model | A+ | `ProjectInstructionDiagnostic` and source references are pure `Sendable` values with bounded line labels and no workspace/model coupling. |
+| Semantic conflict detector | A+ | Phrase detection, normalization, dedupe, and line/excerpt capture live behind a focused detector instead of the UI-facing builder. |
+| Diagnostic assembly | A+ | `ProjectInstructionDiagnosticsBuilder` now owns only duplicate-scope, nested-override, and semantic-conflict assembly. |
+| Command execution draft | A | Resolve stays non-mutating and routes through the existing composer/model/safety path while adding precise source targets. |
+| Test coverage | A | Focused tests cover structural source references, semantic line references, and Resolve draft contents. |
+| Whole source architecture | A+ | Current generated source-module averages remain A+ for app, agent, core, tools, persistence, safety, desktop, and Computer Use modules. |
+| Whole test architecture | A- | Parity and integration gates remain useful but large; the next broad quality pass should split the lowest-scored gate files by capability. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Sources/QuillCodeApp/ProjectInstructionDiagnostic.swift` | A+ | Small value-model boundary for instruction diagnostic rows and source targets. |
+| `Sources/QuillCodeApp/ProjectInstructionDiagnosticReferenceBuilder.swift` | A+ | Single-purpose reference construction keeps excerpt fallback behavior DRY. |
+| `Sources/QuillCodeApp/ProjectInstructionSemanticConflictDetector.swift` | A+ | Semantic rule matching is isolated, deterministic, and cheap to unit test. |
+| `Sources/QuillCodeApp/ProjectInstructionDiagnosticsBuilder.swift` | A+ | Refactored from a mixed model/matcher/builder file into a compact assembler. |
+| `Sources/QuillCodeApp/WorkspaceCommandPlanExecutor.swift` | A | Resolve draft rendering is explicit and behavior-preserving; future editor-jump commands should move formatting into a dedicated presenter if the draft grows. |
+| `Tests/QuillCodeAppTests/ProjectInstructionDiagnosticsBuilderTests.swift` | A- | Coverage is focused, though repeated fixture shape keeps the heuristic duplicate-line score noisy. |
+| `Tests/QuillCodeAppTests/WorkspaceCommandPlanExecutorTests.swift` | A | Adds command-level coverage without widening the executor test's responsibility. |
+
+Code quality changes:
+
+- Added source references to instruction diagnostics so each issue can point at `file:line`, role, excerpt, and suggested action.
+- Split diagnostic model, source-reference construction, semantic conflict detection, and final diagnostic assembly into separate files.
+- Changed Resolve action drafts from a generic issue summary to a targeted edit prompt with exact instruction-file targets.
+- Regenerated the full per-file/per-module quality matrix so every file has a current deterministic grade.
+- Kept Resolve non-mutating: edits still flow through composer, model, safety review, file tools, and normal diff review.
+
+Remaining risk:
+
+- Native editor opening at an exact diagnostic line and direct diff-assisted instruction fixes remain pending.
+- The repo-wide quality report still has B/B+ contract and integration test files. They are not part of this feature slice, but they should be split into focused fixtures/helpers before claiming literal A+ across every file.
+
+## 2026-07-01 Native Source Audit Test Architecture Pass
+
+Overall grade after this slice: **A+ native source-interaction gate architecture, A+ grading-tool fidelity, A whole-repo maintainability**.
+
+The repo-wide grade pass showed one parity gate mixing two concerns: native source-interaction contract coverage and the temporary-file/audit harness used to exercise embedded Swift fixtures. The file was large enough to make review noisy and the grader was also over-counting fixture string contents as source complexity. This pass made the gate smaller and made the grader measure code structure more accurately.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Native source-interaction audit tests | A+ | The old broad gate is split into focused core, control-target, icon/gesture, and spacing files, with shared temporary-file audit support. |
+| Code-quality grader | A+ | Swift multiline fixture payloads are excluded from structural heuristics, and test/source classification now uses repository-relative paths. |
+| Source modules | A+ | App, Agent, Core, Tools, Persistence, Safety, Desktop, and Computer Use modules remain A+ in the regenerated matrix. |
+| Test modules | A/A+ | Agent, App, Core, Desktop, Tools, and Computer Use tests are A+; Safety is A, Parity is A, Persistence is A-. |
+| Whole repo | A | Remaining debt is concentrated in a few large parity gates, scripts, and the Playwright interaction helper. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionAuditGateTests.swift` | A+ | Core acceptance and negative-scope tests remain in the primary gate. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionAuditTestSupport.swift` | A+ | Shared helper owns temporary fixture creation plus audit assertions. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionControlTargetTests.swift` | A+ | Disclosure, adjustable, link, generic-target, and mismatched-target cases live together. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionIconGestureTests.swift` | A+ | Icon naming, owned gesture, raw gesture, and decorative icon cases are isolated. |
+| `Tests/QuillCodeParityTests/ParityNativeSourceInteractionSpacingTests.swift` | A+ | Explicit/implicit control-cluster spacing contracts are isolated. |
+| `scripts/grade-code-quality.py` | A+ | Structural metrics now ignore Swift fixture payloads and correctly apply test thresholds. |
+
+Code quality changes:
+
+- Extracted repeated temporary Swift-file audit setup into `ParityNativeSourceInteractionAuditTestSupport`.
+- Split the native source-interaction audit gate by interaction family so each file has one reviewable reason to change.
+- Fixed deterministic grading to analyze Swift source structure without treating multiline fixture payloads as duplicate code or fake top-level types.
+- Fixed test/source classification in the grader to use repository-relative paths instead of absolute filesystem path parts.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md` so each file and module has current grades.
+
+Remaining risk:
+
+- The lowest remaining maintainability debt is still broad contract coverage: `interaction-audit-helpers.ts`, `native-click-probe-contracts.py`, `live-tr-smoke.sh`, and several long parity gate files. Those should be split by surface or generated from shared contracts before claiming literal A+ across every file.

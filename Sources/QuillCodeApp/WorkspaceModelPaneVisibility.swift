@@ -34,9 +34,15 @@ extension QuillCodeWorkspaceModel {
 
     public func dismissInstructionDiagnostic(id: String) -> Bool {
         let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
+        guard !trimmed.isEmpty,
+              activeInstructionDiagnosticIDs.contains(trimmed)
+        else { return false }
         activity.isVisible = true
         activity.dismissedInstructionDiagnosticIDs.insert(trimmed)
+        if let projectIndex = activeInstructionResolutionProjectIndex {
+            root.projects[projectIndex].dismissInstructionDiagnostic(id: trimmed)
+            saveProjects()
+        }
         return true
     }
 }

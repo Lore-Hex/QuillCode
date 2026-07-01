@@ -55,6 +55,80 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertEqual(projects[0].memories.map(\.title), ["Two"])
     }
 
+    func testUpsertLocalProjectPreservesInstructionDiagnosticResolutions() {
+        let path = URL(fileURLWithPath: "/tmp/QuillCode")
+        var projects = [
+            ProjectRef(
+                name: "QuillCode",
+                path: path.path,
+                instructionDiagnosticResolutions: [
+                    ProjectInstructionDiagnosticResolution(
+                        diagnosticID: "instruction-conflict",
+                        updatedAt: Date(timeIntervalSince1970: 10)
+                    )
+                ]
+            )
+        ]
+
+        WorkspaceProjectEngine.upsertLocalProject(
+            path: path,
+            name: nil,
+            metadata: metadata(instructionTitle: "Updated", memoryTitle: "Two"),
+            projects: &projects,
+            now: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(projects.count, 1)
+        XCTAssertEqual(projects[0].instructions.map(\.title), ["Updated"])
+        XCTAssertEqual(projects[0].dismissedInstructionDiagnosticIDs, ["instruction-conflict"])
+    }
+
+    func testApplyMetadataRecordsResolvedInstructionDiagnosticsWhenTheyDisappear() throws {
+        let path = URL(fileURLWithPath: "/tmp/QuillCode")
+        let conflictingInstructions = conflictingInstructionPair()
+        let diagnosticID = try XCTUnwrap(
+            ProjectInstructionDiagnosticsBuilder
+                .diagnostics(for: conflictingInstructions)
+                .first { $0.statusLabel == "conflict" }?
+                .id
+        )
+        var projects = [
+            ProjectRef(
+                name: "QuillCode",
+                path: path.path,
+                instructions: conflictingInstructions
+            )
+        ]
+        let resolvedAt = Date(timeIntervalSince1970: 50)
+
+        XCTAssertTrue(WorkspaceProjectEngine.applyMetadata(
+            metadata(instructions: nonConflictingInstructions(), memoryTitle: "Updated"),
+            to: projects[0].id,
+            projects: &projects,
+            includeLocalExtensions: true,
+            now: resolvedAt
+        ))
+
+        XCTAssertEqual(projects[0].resolvedInstructionDiagnosticIDs, [diagnosticID])
+        XCTAssertEqual(projects[0].dismissedInstructionDiagnosticIDs, [])
+        XCTAssertEqual(projects[0].instructionDiagnosticResolutions.first?.disposition, .resolved)
+        XCTAssertEqual(projects[0].instructionDiagnosticResolutions.first?.updatedAt, resolvedAt)
+
+        XCTAssertTrue(WorkspaceProjectEngine.applyMetadata(
+            metadata(instructions: conflictingInstructions, memoryTitle: "Updated"),
+            to: projects[0].id,
+            projects: &projects,
+            includeLocalExtensions: true,
+            now: Date(timeIntervalSince1970: 60)
+        ))
+        let visibleItems = WorkspaceActivitySourceSurfaceBuilder.items(
+            instructions: projects[0].instructions,
+            memories: [],
+            dismissedInstructionDiagnosticIDs: projects[0].dismissedInstructionDiagnosticIDs
+        )
+        XCTAssertTrue(visibleItems.contains { $0.id == diagnosticID })
+    }
+
     func testUpsertSSHProjectValidatesCreatesAndUpdatesByConnection() {
         var projects: [ProjectRef] = []
         let firstDate = Date(timeIntervalSince1970: 10)
@@ -268,7 +342,7 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         instructionTitle: String,
         memoryTitle: String
     ) -> WorkspaceProjectMetadata {
-        WorkspaceProjectMetadata(
+        metadata(
             instructions: [
                 ProjectInstruction(
                     path: "AGENTS.md",
@@ -277,6 +351,16 @@ final class WorkspaceProjectEngineTests: XCTestCase {
                     byteCount: 21
                 )
             ],
+            memoryTitle: memoryTitle
+        )
+    }
+
+    private func metadata(
+        instructions: [ProjectInstruction],
+        memoryTitle: String
+    ) -> WorkspaceProjectMetadata {
+        WorkspaceProjectMetadata(
+            instructions: instructions,
             localActions: [
                 LocalEnvironmentAction(
                     id: "bootstrap",
@@ -304,5 +388,43 @@ final class WorkspaceProjectEngineTests: XCTestCase {
                 )
             ]
         )
+    }
+
+    private func conflictingInstructionPair() -> [ProjectInstruction] {
+        let rootContent = "Always run tests before finishing."
+        let featureContent = "Do not run tests for feature changes."
+        return [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "Root instructions",
+                content: rootContent,
+                byteCount: rootContent.utf8.count
+            ),
+            ProjectInstruction(
+                path: "Sources/Feature/AGENTS.md",
+                title: "Feature instructions",
+                content: featureContent,
+                byteCount: featureContent.utf8.count
+            )
+        ]
+    }
+
+    private func nonConflictingInstructions() -> [ProjectInstruction] {
+        let rootContent = "Always run tests before finishing."
+        let featureContent = "Always run focused tests before finishing."
+        return [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "Root instructions",
+                content: rootContent,
+                byteCount: rootContent.utf8.count
+            ),
+            ProjectInstruction(
+                path: "Sources/Feature/AGENTS.md",
+                title: "Feature instructions",
+                content: featureContent,
+                byteCount: featureContent.utf8.count
+            )
+        ]
     }
 }

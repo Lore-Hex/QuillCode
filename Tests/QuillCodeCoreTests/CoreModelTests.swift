@@ -319,6 +319,9 @@ final class CoreModelTests: XCTestCase {
         }
         """)
         XCTAssertEqual(project.instructions, [])
+        XCTAssertEqual(project.instructionDiagnosticResolutions, [])
+        XCTAssertEqual(project.dismissedInstructionDiagnosticIDs, [])
+        XCTAssertEqual(project.resolvedInstructionDiagnosticIDs, [])
         XCTAssertEqual(project.localActions, [])
         XCTAssertEqual(project.memories, [])
 
@@ -341,6 +344,45 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(thread.model, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(thread.instructions, [])
         XCTAssertEqual(thread.memories, [])
+    }
+
+    func testProjectInstructionDiagnosticResolutionsNormalizeAndDeduplicate() throws {
+        var project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            instructionDiagnosticResolutions: [
+                ProjectInstructionDiagnosticResolution(
+                    diagnosticID: " instruction-conflict ",
+                    updatedAt: Date(timeIntervalSince1970: 10)
+                ),
+                ProjectInstructionDiagnosticResolution(
+                    diagnosticID: "instruction-conflict",
+                    updatedAt: Date(timeIntervalSince1970: 20)
+                ),
+                ProjectInstructionDiagnosticResolution(
+                    diagnosticID: " ",
+                    updatedAt: Date(timeIntervalSince1970: 30)
+                )
+            ]
+        )
+
+        XCTAssertEqual(project.instructionDiagnosticResolutions.map(\.diagnosticID), ["instruction-conflict"])
+        XCTAssertEqual(project.instructionDiagnosticResolutions.map(\.updatedAt), [Date(timeIntervalSince1970: 20)])
+        XCTAssertEqual(project.dismissedInstructionDiagnosticIDs, ["instruction-conflict"])
+        XCTAssertEqual(project.resolvedInstructionDiagnosticIDs, [])
+
+        XCTAssertFalse(project.dismissInstructionDiagnostic(id: "instruction-conflict", at: Date(timeIntervalSince1970: 20)))
+        XCTAssertFalse(project.dismissInstructionDiagnostic(id: "instruction-conflict", at: Date(timeIntervalSince1970: 40)))
+        XCTAssertTrue(project.dismissInstructionDiagnostic(id: "new-conflict", at: Date(timeIntervalSince1970: 40)))
+        XCTAssertTrue(project.resolveInstructionDiagnostic(id: "instruction-conflict", at: Date(timeIntervalSince1970: 60)))
+        XCTAssertFalse(project.resolveInstructionDiagnostic(id: "instruction-conflict", at: Date(timeIntervalSince1970: 80)))
+        XCTAssertEqual(project.instructionDiagnosticResolutions.map(\.diagnosticID), ["instruction-conflict", "new-conflict"])
+        XCTAssertEqual(
+            project.instructionDiagnosticResolutions.map(\.updatedAt),
+            [Date(timeIntervalSince1970: 60), Date(timeIntervalSince1970: 40)]
+        )
+        XCTAssertEqual(project.dismissedInstructionDiagnosticIDs, ["new-conflict"])
+        XCTAssertEqual(project.resolvedInstructionDiagnosticIDs, ["instruction-conflict"])
     }
 
     func testProjectInstructionDerivesScopedApplicabilityFromPath() throws {

@@ -164,7 +164,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
     }
 
     func testGitHubPullRequestMetadataResolutionStaysFocused() throws {
-        let executorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
+        let reviewExecutorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutorReviewCommands.swift")
         let resolverText = try Self.toolsSourceText(named: "GitHubPullRequestMetadataResolver.swift")
         let resolverTests = try Self.toolsTestSourceText(named: "GitHubPullRequestMetadataResolverTests.swift")
 
@@ -174,16 +174,49 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(resolverText.contains("func pullRequest(selector: String?, cwd: URL)"), "PR metadata resolution should be directly testable.")
         XCTAssertTrue(resolverText.contains("func repository(cwd: URL)"), "Repository metadata resolution should be directly testable.")
         XCTAssertTrue(resolverText.contains("JSONDecoder().decode"), "Metadata JSON decoding should live in the resolver.")
-        XCTAssertTrue(executorText.contains("metadataResolver.pullRequest"), "GitHub PR executor should delegate PR metadata resolution.")
-        XCTAssertTrue(executorText.contains("metadataResolver.repository"), "GitHub PR executor should delegate repository metadata resolution.")
+        XCTAssertTrue(reviewExecutorText.contains("metadataResolver.pullRequest"), "GitHub PR review execution should delegate PR metadata resolution.")
+        XCTAssertTrue(reviewExecutorText.contains("metadataResolver.repository"), "GitHub PR review execution should delegate repository metadata resolution.")
         XCTAssertTrue(resolverTests.contains("testResolverUsesGitHubCLIAndDecodesMetadata"), "Metadata resolver needs focused success coverage.")
         XCTAssertTrue(resolverTests.contains("testResolverRejectsInvalidPullRequestMetadata"), "Metadata resolver needs focused invalid PR metadata coverage.")
         XCTAssertTrue(resolverTests.contains("testResolverRejectsInvalidRepositoryMetadata"), "Metadata resolver needs focused invalid repository metadata coverage.")
-        XCTAssertFalse(executorText.contains("struct PullRequestMetadata"), "GitHub PR executor should not own PR metadata records.")
-        XCTAssertFalse(executorText.contains("struct RepositoryMetadata"), "GitHub PR executor should not own repository metadata records.")
-        XCTAssertFalse(executorText.contains("func resolvePullRequest"), "GitHub PR executor should not own PR metadata resolution.")
-        XCTAssertFalse(executorText.contains("func resolveRepository"), "GitHub PR executor should not own repository metadata resolution.")
-        XCTAssertFalse(executorText.contains("JSONDecoder().decode"), "GitHub PR executor should not own metadata JSON decoding.")
+        XCTAssertFalse(reviewExecutorText.contains("struct PullRequestMetadata"), "GitHub PR review execution should not own PR metadata records.")
+        XCTAssertFalse(reviewExecutorText.contains("struct RepositoryMetadata"), "GitHub PR review execution should not own repository metadata records.")
+        XCTAssertFalse(reviewExecutorText.contains("func resolvePullRequest"), "GitHub PR review execution should not own PR metadata resolution.")
+        XCTAssertFalse(reviewExecutorText.contains("func resolveRepository"), "GitHub PR review execution should not own repository metadata resolution.")
+        XCTAssertFalse(reviewExecutorText.contains("JSONDecoder().decode"), "GitHub PR review execution should not own metadata JSON decoding.")
+    }
+
+    func testGitHubPullRequestExecutorDelegatesCommandBuilding() throws {
+        let executorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
+        let baseExecutorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutorBaseCommands.swift")
+        let editExecutorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutorEditCommands.swift")
+        let reviewExecutorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutorReviewCommands.swift")
+        let mergeExecutorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutorMergeCommands.swift")
+        let baseBuilderText = try Self.toolsSourceText(named: "GitHubPullRequestBaseCommandBuilder.swift")
+        let editBuilderText = try Self.toolsSourceText(named: "GitHubPullRequestEditCommandBuilder.swift")
+        let reviewBuilderText = try Self.toolsSourceText(named: "GitHubPullRequestReviewCommandBuilder.swift")
+        let mergeBuilderText = try Self.toolsSourceText(named: "GitHubPullRequestMergeCommandBuilder.swift")
+        let supportText = try Self.toolsSourceText(named: "GitHubPullRequestCommandSupport.swift")
+
+        XCTAssertTrue(baseBuilderText.contains("enum GitHubPullRequestBaseCommandBuilder"), "GitHub PR create/view/check/diff/checkout commands should live in a base builder.")
+        XCTAssertTrue(editBuilderText.contains("enum GitHubPullRequestEditCommandBuilder"), "GitHub PR reviewer/label/comment commands should live in an edit builder.")
+        XCTAssertTrue(reviewBuilderText.contains("enum GitHubPullRequestReviewCommandBuilder"), "GitHub PR review-comment, reply, and thread commands should live in a review builder.")
+        XCTAssertTrue(mergeBuilderText.contains("enum GitHubPullRequestMergeCommandBuilder"), "GitHub PR merge commands should live in a merge builder.")
+        XCTAssertTrue(supportText.contains("static func appendSelector"), "Shared PR selector assembly should live in command support.")
+        XCTAssertTrue(supportText.contains("static func addURLArtifacts"), "Shared PR URL artifact extraction should live in command support.")
+        XCTAssertTrue(supportText.contains("static func repositoryOwnerAndName"), "Shared PR repository owner/name splitting should live in command support.")
+        XCTAssertTrue(baseExecutorText.contains("GitHubPullRequestBaseCommandBuilder.create"), "GitHub PR base executor should delegate create command construction.")
+        XCTAssertTrue(editExecutorText.contains("GitHubPullRequestEditCommandBuilder.reviewers"), "GitHub PR edit executor should delegate edit command construction.")
+        XCTAssertTrue(reviewExecutorText.contains("GitHubPullRequestReviewCommandBuilder.reviewComment"), "GitHub PR review executor should delegate review API command construction.")
+        XCTAssertTrue(mergeExecutorText.contains("GitHubPullRequestMergeCommandBuilder.merge"), "GitHub PR merge executor should delegate merge command construction.")
+        XCTAssertTrue(executorText.contains("GitHubPullRequestCommandSupport.addURLArtifacts"), "GitHub PR executor should delegate URL artifact extraction.")
+        XCTAssertFalse(executorText.contains(#"["pr", "create"]"#), "GitHub PR executor should not own create CLI assembly.")
+        XCTAssertFalse(executorText.contains(#"["pr", "edit"]"#), "GitHub PR executor should not own edit CLI assembly.")
+        XCTAssertFalse(executorText.contains(#"["api", "graphql"]"#), "GitHub PR executor should not own GraphQL CLI assembly.")
+        XCTAssertFalse(executorText.contains("GitInputValidator.safeRelativePath"), "GitHub PR executor should not own review-comment path validation.")
+        XCTAssertFalse(executorText.contains("GitHubPullRequestInputValidator.safeMergeFlag"), "GitHub PR executor should not own merge validation.")
+        XCTAssertFalse(executorText.contains("reviewThreadMutation"), "GitHub PR executor should not own GraphQL mutation construction.")
+        XCTAssertFalse(executorText.contains("repositoryOwnerAndName"), "GitHub PR executor should not own repository owner/name splitting.")
     }
 
     func testToolRouterDelegatesGitToolCallDispatch() throws {
@@ -282,6 +315,61 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testFileToolExecutorDelegatesWorkspaceFileOperations() throws {
+        let executorText = try Self.toolsSourceText(named: "FileToolExecutor.swift")
+        let resolverText = try Self.toolsSourceText(named: "FileWorkspacePathResolver.swift")
+        let listerText = try Self.toolsSourceText(named: "FileDirectoryLister.swift")
+        let searchText = try Self.toolsSourceText(named: "FileSearchScanner.swift")
+        let definitionsText = try Self.toolsSourceText(named: "FileToolDefinitions.swift")
+        let limitsText = try Self.toolsSourceText(named: "FileToolLimits.swift")
+        let indexerText = try Self.toolsSourceText(named: "WorkspaceFileIndexer.swift")
+
+        XCTAssertTrue(
+            executorText.contains("FileDirectoryLister(pathResolver:"),
+            "FileToolExecutor should delegate directory listing."
+        )
+        XCTAssertTrue(
+            executorText.contains("FileSearchScanner(pathResolver:"),
+            "FileToolExecutor should delegate search scanning."
+        )
+        XCTAssertTrue(
+            resolverText.contains("WorkspaceBoundary.isWithin"),
+            "File path containment should live in the focused workspace resolver."
+        )
+        XCTAssertTrue(
+            listerText.contains("contentsOfDirectory"),
+            "Directory enumeration should live in FileDirectoryLister."
+        )
+        XCTAssertTrue(
+            searchText.contains("enumerator("),
+            "Recursive text scanning should live in FileSearchScanner."
+        )
+        XCTAssertTrue(
+            definitionsText.contains("static let fileRead"),
+            "File tool definitions should live outside the executor facade."
+        )
+        XCTAssertTrue(
+            indexerText.contains("FileToolLimits.excludedWorkspaceDirectoryNames"),
+            "Workspace file indexing should share the file-search directory exclusion policy."
+        )
+        XCTAssertTrue(
+            limitsText.contains("excludedWorkspaceDirectoryNames"),
+            "Shared file-tool limits should own directory exclusion policy."
+        )
+        XCTAssertFalse(
+            executorText.contains("contentsOfDirectory"),
+            "FileToolExecutor should not own directory enumeration."
+        )
+        XCTAssertFalse(
+            executorText.contains("enumerator("),
+            "FileToolExecutor should not own recursive search enumeration."
+        )
+        XCTAssertFalse(
+            executorText.contains("public extension ToolDefinition"),
+            "FileToolExecutor should not own tool definition metadata."
+        )
+    }
+
     func testGitHubPullRequestToolCoverageLivesOutsideMixedToolSuite() throws {
         let pullRequestTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestToolExecutorTests.swift")
 
@@ -366,20 +454,26 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
     func testGitHubPullRequestExecutionLivesOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let pullRequestText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
+        let pullRequestBaseExecutorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutorBaseCommands.swift")
+        let pullRequestBaseBuilderText = try Self.toolsSourceText(named: "GitHubPullRequestBaseCommandBuilder.swift")
+        let pullRequestMergeBuilderText = try Self.toolsSourceText(named: "GitHubPullRequestMergeCommandBuilder.swift")
         let inputValidatorText = try Self.toolsSourceText(named: "GitHubPullRequestInputValidator.swift")
         let outputParserText = try Self.toolsSourceText(named: "GitHubPullRequestOutputParser.swift")
+        let commandSupportText = try Self.toolsSourceText(named: "GitHubPullRequestCommandSupport.swift")
         let processRunnerText = try Self.toolsSourceText(named: "GitProcessRunner.swift")
 
         XCTAssertTrue(pullRequestText.contains("public struct GitHubPullRequestToolExecutor"), "GitHub PR execution should live in a focused executor.")
-        XCTAssertTrue(pullRequestText.contains("func createPullRequest"), "GitHub PR creation should be directly testable.")
-        XCTAssertTrue(pullRequestText.contains("func merge("), "GitHub PR merge command construction should be directly testable.")
+        XCTAssertTrue(pullRequestBaseExecutorText.contains("func createPullRequest"), "GitHub PR creation should be exposed from a focused executor extension.")
+        XCTAssertTrue(pullRequestBaseBuilderText.contains("static func create"), "GitHub PR create command construction should be directly testable.")
+        XCTAssertTrue(pullRequestMergeBuilderText.contains("static func merge("), "GitHub PR merge command construction should be directly testable.")
         XCTAssertTrue(inputValidatorText.contains("public enum GitHubPullRequestInputValidator"), "GitHub PR input validation should live in a focused helper.")
         XCTAssertTrue(inputValidatorText.contains("static func safeSelector"), "GitHub PR selector validation should be directly testable.")
         XCTAssertTrue(inputValidatorText.contains("static func safeReviewers"), "GitHub PR reviewer validation should be directly testable.")
         XCTAssertTrue(outputParserText.contains("public enum GitHubPullRequestOutputParser"), "GitHub PR output parsing should live in a focused helper.")
         XCTAssertTrue(outputParserText.contains("static func extractURLs"), "GitHub PR URL extraction should be directly testable.")
-        XCTAssertTrue(pullRequestText.contains("GitHubPullRequestInputValidator.safeSelector"), "GitHub PR execution should delegate selector validation.")
-        XCTAssertTrue(pullRequestText.contains("GitHubPullRequestOutputParser.extractURLs"), "GitHub PR execution should delegate URL artifact parsing.")
+        XCTAssertTrue(commandSupportText.contains("GitHubPullRequestInputValidator.safeSelector"), "GitHub PR command support should delegate selector validation.")
+        XCTAssertTrue(commandSupportText.contains("GitHubPullRequestOutputParser.extractURLs"), "GitHub PR command support should delegate URL artifact parsing.")
+        XCTAssertTrue(pullRequestText.contains("GitHubPullRequestCommandSupport.addURLArtifacts"), "GitHub PR execution should delegate URL artifact decoration.")
         XCTAssertTrue(processRunnerText.contains("public struct GitProcessRunner"), "Git and GitHub CLI process launching should live in a reusable runner.")
         XCTAssertTrue(processRunnerText.contains("func runGitHub"), "GitHub CLI invocation should be owned by the process runner.")
         XCTAssertTrue(executorText.contains("private let pullRequests: GitHubPullRequestToolExecutor"), "GitToolExecutor should delegate GitHub PR work.")
@@ -434,6 +528,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")
         let validatorText = try Self.toolsSourceText(named: "GitInputValidator.swift")
         let pullRequestText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
+        let pullRequestBaseBuilderText = try Self.toolsSourceText(named: "GitHubPullRequestBaseCommandBuilder.swift")
         let worktreeText = try Self.toolsSourceText(named: "GitWorktreeToolExecutor.swift")
         let remoteGitPlannerText = try Self.appSourceText(named: "WorkspaceRemoteGitToolRequestPlanner.swift")
         let remoteGitPushBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitPushCommandBuilder.swift")
@@ -444,7 +539,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validatorText.contains("static func safeName"), "Shared git name validation should live in GitInputValidator.")
         XCTAssertTrue(validatorText.contains("static func safeRelativePath"), "Shared local git path validation should live in GitInputValidator.")
         XCTAssertTrue(localText.contains("GitInputValidator.safeRelativePath"), "Local git execution should use the shared path validator.")
-        XCTAssertTrue(pullRequestText.contains("GitInputValidator.safeName"), "GitHub PR execution should use the shared git-name validator.")
+        XCTAssertTrue(pullRequestBaseBuilderText.contains("GitInputValidator.safeName"), "GitHub PR command builders should use the shared git-name validator.")
         XCTAssertTrue(worktreeText.contains("GitInputValidator.safeName"), "Worktree execution should use the shared git-name validator.")
         XCTAssertTrue(remoteGitPushBuilderText.contains("GitInputValidator.safeName"), "Remote git push planning should use the shared git-name validator.")
         XCTAssertTrue(remoteGitPushBuilderText.contains("GitInputValidator.safeNameCharacters"), "Remote git current-branch shell guards should use the shared git-name character policy.")

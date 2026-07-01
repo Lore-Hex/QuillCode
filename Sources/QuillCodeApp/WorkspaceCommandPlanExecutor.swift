@@ -100,15 +100,38 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func prepareResolveInstructionDiagnostic(id: String) -> Bool {
-        guard let diagnostic = selectedInstructionDiagnostics.first(where: { $0.id == id }) else {
+        guard let diagnostic = activeInstructionDiagnostics.first(where: { $0.id == id }) else {
             return false
         }
-        setDraft("Resolve instruction issue \"\(diagnostic.title)\" (\(diagnostic.detail)). Update the relevant instruction files so the guidance is consistent: ")
+        setDraft(Self.instructionResolutionDraft(for: diagnostic))
         return true
     }
 
-    private var selectedInstructionDiagnostics: [ProjectInstructionDiagnostic] {
-        guard let thread = selectedThread else { return [] }
-        return ProjectInstructionDiagnosticsBuilder.diagnostics(for: thread.instructions)
+    static func instructionResolutionDraft(for diagnostic: ProjectInstructionDiagnostic) -> String {
+        let references = diagnostic.sourceReferences.map { reference in
+            [
+                "- \(reference.locationLabel) [\(reference.role)]",
+                "  Current: \(reference.excerpt)",
+                reference.suggestedAction.isEmpty ? nil : "  Suggested: \(reference.suggestedAction)"
+            ]
+            .compactMap(\.self)
+            .joined(separator: "\n")
+        }
+        .joined(separator: "\n")
+        let targets = references.isEmpty
+            ? "- \(diagnostic.detail)"
+            : references
+        let hint = diagnostic.resolutionHint.isEmpty
+            ? "Update the relevant instruction files so the guidance is consistent."
+            : diagnostic.resolutionHint
+
+        return """
+        Resolve instruction issue "\(diagnostic.title)".
+        Issue: \(diagnostic.detail)
+        Targets:
+        \(targets)
+        Suggested fix: \(hint)
+        Apply the smallest instruction-file edit needed:
+        """
     }
 }

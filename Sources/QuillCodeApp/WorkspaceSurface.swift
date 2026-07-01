@@ -90,6 +90,11 @@ public extension QuillCodeWorkspaceModel {
         let canEditProjectMemories = activeProjectID
             .flatMap { projectID in root.projects.first { $0.id == projectID } }
             .map { _ in true } ?? false
+        let dismissedInstructionDiagnosticIDs = activity.dismissedInstructionDiagnosticIDs.union(
+            activeProjectID
+                .flatMap { projectID in root.projects.first { $0.id == projectID } }
+                .map(\.dismissedInstructionDiagnosticIDs) ?? []
+        )
         let sidebarSelectedThreadIDs = sidebarSelection.isActive
             ? Set(selectedSidebarThreadIDs())
             : []
@@ -168,7 +173,7 @@ public extension QuillCodeWorkspaceModel {
                 agentStatus: topBarState.agentStatus,
                 changeFiles: review.files,
                 collapsedSectionIDs: activity.collapsedSectionIDs,
-                dismissedInstructionDiagnosticIDs: activity.dismissedInstructionDiagnosticIDs
+                dismissedInstructionDiagnosticIDs: dismissedInstructionDiagnosticIDs
             ),
             automations: WorkspaceAutomationsSurfaceBuilder(
                 isVisible: automations.isVisible,
