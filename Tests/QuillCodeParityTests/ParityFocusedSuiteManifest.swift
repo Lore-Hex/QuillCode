@@ -101,11 +101,17 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityWorkspaceProjectGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectMetadataLoading",
+            "testWorkspaceModelProjectAPIsLiveInFocusedExtension",
             "testWorkspaceModelTestsDoNotOwnPureProjectLoaderCoverage",
+            "testProjectInstructionScopesStayInCorePromptAndActivityContracts"
+        ]),
+        Suite(fileName: "ParityWorkspaceProjectIntegrationGateTests.swift", testNames: [
             "testWorkspaceProjectExtensionIntegrationTestsOwnModelExtensionFlows",
             "testWorkspaceProjectIntegrationTestsOwnModelProjectFlows",
             "testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows",
-            "testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows",
+            "testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceWorktreeGateTests.swift", testNames: [
             "testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows",
             "testWorkspaceModelDelegatesWorktreeOpenRecords"
         ]),
