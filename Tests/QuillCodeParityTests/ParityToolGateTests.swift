@@ -152,13 +152,64 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
 
     func testGitToolDefinitionsLiveOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
-        let definitionsText = try Self.toolsSourceText(named: "GitToolDefinitions.swift")
+        let localDefinitionsText = try Self.toolsSourceText(named: "GitLocalToolDefinitions.swift")
+        let pullRequestOverviewText = try Self.toolsSourceText(named: "GitPullRequestOverviewToolDefinitions.swift")
+        let pullRequestMetadataText = try Self.toolsSourceText(named: "GitPullRequestMetadataToolDefinitions.swift")
+        let pullRequestReviewText = try Self.toolsSourceText(named: "GitPullRequestReviewToolDefinitions.swift")
+        let pullRequestMergeText = try Self.toolsSourceText(named: "GitPullRequestMergeToolDefinitions.swift")
+        let worktreeDefinitionsText = try Self.toolsSourceText(named: "GitWorktreeToolDefinitions.swift")
+        let schemaText = try Self.toolsSourceText(named: "GitToolParameterSchema.swift")
+        let definitionFactoryText = try Self.toolsSourceText(named: "GitToolDefinitionFactory.swift")
+        let pullRequestFactoryText = try Self.toolsSourceText(named: "GitPullRequestDefinitionFactory.swift")
+        let definitionTexts = [
+            localDefinitionsText,
+            pullRequestOverviewText,
+            pullRequestMetadataText,
+            pullRequestReviewText,
+            pullRequestMergeText,
+            worktreeDefinitionsText
+        ].joined(separator: "\n")
 
-        XCTAssertTrue(definitionsText.contains("public extension ToolDefinition"), "Git tool schema should live in the definitions catalog.")
-        XCTAssertTrue(definitionsText.contains("static let gitStatus"), "Git command definitions should remain available from the catalog.")
-        XCTAssertTrue(definitionsText.contains("static let gitPullRequestMerge"), "GitHub PR definitions should remain available from the catalog.")
-        XCTAssertTrue(definitionsText.contains("static let gitWorktreeRemove"), "Worktree definitions should remain available from the catalog.")
-        XCTAssertTrue(definitionsText.contains("static let gitWorktreePrune"), "Worktree cleanup definitions should remain available from the catalog.")
+        XCTAssertTrue(localDefinitionsText.contains("static let gitStatus"), "Local git definitions should live in the local catalog.")
+        XCTAssertTrue(localDefinitionsText.contains("static let gitPush"), "Local git mutation definitions should live in the local catalog.")
+        XCTAssertTrue(
+            pullRequestOverviewText.contains("static let gitPullRequestView"),
+            "PR overview/read definitions should live in the overview catalog."
+        )
+        XCTAssertTrue(
+            pullRequestMetadataText.contains("static let gitPullRequestReviewers"),
+            "PR metadata mutations should live in the metadata catalog."
+        )
+        XCTAssertTrue(
+            pullRequestReviewText.contains("static let gitPullRequestReviewComment"),
+            "PR review-thread definitions should live in the review catalog."
+        )
+        XCTAssertTrue(
+            pullRequestMergeText.contains("static let gitPullRequestMerge"),
+            "PR merge definitions should live in the merge catalog."
+        )
+        XCTAssertTrue(
+            worktreeDefinitionsText.contains("static let gitWorktreeRemove"),
+            "Worktree definitions should live in the worktree catalog."
+        )
+        XCTAssertTrue(
+            worktreeDefinitionsText.contains("static let gitWorktreePrune"),
+            "Worktree cleanup definitions should remain available from the worktree catalog."
+        )
+        XCTAssertTrue(schemaText.contains("enum GitToolParameterSchema"), "Git schema construction should live in a focused schema builder.")
+        XCTAssertTrue(schemaText.contains("JSONEncoder()"), "Git tool schemas should be built through deterministic JSON encoding.")
+        XCTAssertTrue(
+            definitionFactoryText.contains("enum GitToolDefinitionFactory"),
+            "Shared local-host ToolDefinition construction should live in a focused factory."
+        )
+        XCTAssertTrue(
+            pullRequestFactoryText.contains("enum GitPullRequestDefinitionFactory"),
+            "Shared PR selector schema construction should live in a focused PR factory."
+        )
+        XCTAssertFalse(
+            definitionTexts.contains(#"parametersJSON: #"{"#),
+            "Git definitions should not reintroduce hand-written JSON schema strings."
+        )
         XCTAssertFalse(executorText.contains("public extension ToolDefinition"), "GitToolExecutor should not own tool schema declarations.")
         XCTAssertFalse(executorText.contains("parametersJSON"), "GitToolExecutor should not own JSON schema strings.")
     }

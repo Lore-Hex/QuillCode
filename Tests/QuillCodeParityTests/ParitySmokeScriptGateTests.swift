@@ -193,7 +193,7 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
 
     func testPackagedMacOSSmokeComparesDirectAndLaunchServicesClickProbes() throws {
         let script = try Self.scriptText(named: "packaged-macos-smoke.sh")
-        let validator = try Self.scriptText(named: "native-click-probe-contracts.py")
+        let validator = try Self.nativeClickProbeValidatorText()
 
         XCTAssertTrue(script.contains("DIRECT_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/direct-executable\""))
         XCTAssertTrue(script.contains("LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR=\"$SMOKE_ROOT/launch-services\""))

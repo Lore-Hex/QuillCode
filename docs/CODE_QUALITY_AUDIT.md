@@ -1,5 +1,37 @@
 # Code Quality Audit
 
+## 2026-07-01 Native Click-Probe Validator Split
+
+Overall grade after this slice: **A+ scripts module, stable CLI facade, focused validator modules**.
+
+This pass re-graded every file and module, then addressed the only remaining B-grade file in the repo:
+`scripts/native-click-probe-contracts.py`. The old script mixed JSON loading, click-probe normalization, packaged
+window validation, direct-vs-Launch Services comparison, Accessibility readiness evidence, live Accessibility frame
+validation, and CLI parsing in one 845-line executable. The split preserves the existing command path so smoke scripts
+and CI do not need rewiring.
+
+| Area | Before | After |
+| --- | --- | --- |
+| CLI entrypoint | One executable owned all validation behavior and all argument parsing. | `scripts/native-click-probe-contracts.py` is an 8-line facade that calls the package CLI. |
+| Shared constants | Required commands, sample points, target floors, and Accessibility contract IDs lived beside validation flow. | `scripts/native_click_probe_contracts/constants.py` owns shared release-smoke constants. |
+| JSON/value helpers | Primitive parsing helpers were interleaved with domain checks. | `json_io.py` owns JSON loading and small type guards. |
+| Click-probe normalization | Selector precedence, sample coordinate validation, policy drift checks, and one-probe-per-contract coverage were buried in the large script. | `probe_contracts.py` owns the normalized click-probe contract boundary. |
+| Packaged-window evidence | Window semantic checks, screenshot checks, Launch Services parity, and readiness manifests shared one file with AX frame sampling. | `packaged_window.py` owns packaged window and comparison manifests. |
+| Live Accessibility frames | Frame sample validation, hit-test ownership, peer spacing, and final frame manifest writing were coupled to unrelated parser code. | `accessibility_frame_samples.py` owns per-frame sample and spacing rules; `accessibility_frames.py` owns live AX manifest orchestration. |
+| Scripts grade | `scripts` was **95/A**, with `native-click-probe-contracts.py` at **83/B**. | `scripts` is now **97/A+**; the B-grade validator is gone from the lowest-file list. |
+
+Verification:
+
+- `python3 -m py_compile scripts/native-click-probe-contracts.py scripts/native_click_probe_contracts/*.py`
+- `swift test --filter 'ParitySmokeScriptGateTests|ParityDesktopGateTests|ParityNativeInteractionContractGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- `live-tr-smoke.sh` is now the lowest scripts file at **B+** because it is still a large shell workflow. It should be
+  split only after deciding the right artifact contract boundaries, because live smoke has higher operational blast
+  radius than the mechanical validator split.
+
 ## 2026-07-01 Playwright Interaction Audit Helper Split
 
 Overall grade after this slice: **A+ public interaction helper façade, A+ contracts, A+ target assertions, A browser report**.
@@ -28,8 +60,38 @@ Residual risk:
 
 - The browser-side report remains an A, not A+, because Playwright serializes the browser audit into `page.evaluate`;
   splitting that further would require a deliberate injected-browser-helper strategy rather than a mechanical file split.
-- The lowest remaining repo-wide grades are now `native-click-probe-contracts.py`, `live-tr-smoke.sh`, and broad parity
-  gates. They should each get separate reviewable slices.
+- The lowest remaining repo-wide grades are now `live-tr-smoke.sh` and broad parity gates. They should each get
+  separate reviewable slices.
+
+## 2026-07-01 Git Tool Definition Schema Quality Pass
+
+Overall grade after this slice: **A+ Git definition boundary, A+ schema construction, A+ Tools module maintained**.
+
+This pass re-graded every file and module, then addressed the Git tool definition catalog that had become the next
+production Tools hotspot. The old catalog removed executor coupling in an earlier pass, but still mixed local git,
+GitHub PR, worktree, JSON schema, host, and risk metadata in one repetitive file. The new structure keeps definitions
+small, validates schemas directly, and removes hand-authored JSON strings from the tool catalog.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool definition ownership | `GitToolDefinitions.swift` owned every local git, PR, and worktree definition in one broad file. | Local git, PR overview, PR metadata, PR review, PR merge, and worktree definitions live in focused files. |
+| JSON schema construction | Tool parameter schemas were hand-written JSON strings, which made required fields and enum values easy to drift. | `GitToolParameterSchema` builds deterministic JSON from Swift values, including selector, enum, array, and required-field schemas. |
+| Definition construction | Each definition repeated host/risk construction boilerplate. | `GitToolDefinitionFactory` and `GitPullRequestDefinitionFactory` centralize local-host definition construction and shared PR selector schemas. |
+| PR readability | PR view/checks/diff/checkout/reviewer/label/comment/review/thread/merge tools were crowded together. | PR workflow families are split by behavior, and the repeated read-only selector pattern is a small helper. |
+| Regression coverage | Git router tests checked routing but not schema validity. | `GitToolRouterTests` now parses every Git tool schema and verifies important enum/array schema contracts. |
+| File grades | The former `GitToolDefinitions.swift` graded **A-** due long JSON-heavy lines and later size/duplication. | New definition/schema/factory files grade **A+**, and `source:QuillCodeTools` remains **A+**. |
+
+Verification:
+
+- `swift test --filter GitToolRouterTests`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This pass intentionally stayed within production Git tool definitions. Remaining non-A+ repo grades are mostly broad
+  parity/E2E/script contract suites and a few existing tool execution files; those should be split in separate PRs with
+  focused CI evidence.
 
 ## 2026-07-01 Activity Integration Test Boundary Pass
 

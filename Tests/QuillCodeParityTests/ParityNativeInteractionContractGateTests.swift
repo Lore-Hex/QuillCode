@@ -182,10 +182,7 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
             contentsOf: Self.packageRoot().appendingPathComponent("scripts/native-desktop-smoke.sh"),
             encoding: .utf8
         )
-        let clickProbeValidatorText = try String(
-            contentsOf: Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
-            encoding: .utf8
-        )
+        let clickProbeValidatorText = try Self.nativeClickProbeValidatorText()
 
         XCTAssertTrue(
             auditText.contains("public enum QuillCodeNativeHitTargetKind")
