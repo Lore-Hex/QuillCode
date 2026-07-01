@@ -23,6 +23,71 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("public enum WorkspaceReviewActionKind"), "WorkspaceSurface should not own review action presentation.")
     }
 
+    func testPullRequestReviewDraftContractsLiveInFocusedFile() throws {
+        let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")
+        let draftText = try Self.appSourceText(named: "WorkspacePullRequestReviewDraftSurface.swift")
+        let runtimeText = try Self.appSourceText(named: "WorkspacePullRequestReviewDraft.swift")
+
+        XCTAssertTrue(
+            draftText.contains("public enum WorkspacePullRequestReviewActionKind"),
+            "Pull request review action presentation should live beside the draft surface."
+        )
+        XCTAssertTrue(
+            draftText.contains("public struct WorkspacePullRequestReviewDraftSurface"),
+            "Pull request review draft state should live in the focused draft surface file."
+        )
+        XCTAssertTrue(
+            draftText.contains("public struct WorkspacePullRequestReviewDraftSubmitSummarySurface"),
+            "Pull request review submit summary should live in the focused draft surface file."
+        )
+        XCTAssertTrue(
+            draftText.contains("public struct WorkspacePullRequestReviewDraftCommentSurface"),
+            "Pull request inline draft comments should live in the focused draft surface file."
+        )
+        XCTAssertTrue(
+            runtimeText.contains("WorkspacePullRequestReviewDraftToolCallPlanner"),
+            "Pull request review runtime planning should remain in the runtime draft file."
+        )
+        XCTAssertFalse(
+            reviewText.contains("public enum WorkspacePullRequestReviewActionKind"),
+            "Broad review diff surface should not own pull request review draft action presentation."
+        )
+        XCTAssertFalse(
+            reviewText.contains("public struct WorkspacePullRequestReviewDraftSurface"),
+            "Broad review diff surface should not own pull request review draft state."
+        )
+        XCTAssertFalse(
+            reviewText.contains("public struct WorkspacePullRequestReviewDraftSubmitSummarySurface"),
+            "Broad review diff surface should not own pull request review submit summaries."
+        )
+        XCTAssertFalse(
+            reviewText.contains("public struct WorkspacePullRequestReviewDraftCommentSurface"),
+            "Broad review diff surface should not own pull request inline draft comments."
+        )
+    }
+
+    func testPullRequestReviewDraftViewLivesInFocusedFile() throws {
+        let paneText = try Self.appSourceText(named: "QuillCodeReviewPaneView.swift")
+        let draftViewText = try Self.appSourceText(named: "QuillCodePullRequestReviewDraftView.swift")
+
+        XCTAssertTrue(
+            paneText.contains("QuillCodePullRequestReviewDraftView("),
+            "Review pane should compose the focused pull request review draft editor."
+        )
+        XCTAssertFalse(
+            paneText.contains("struct QuillCodePullRequestReviewDraftView"),
+            "Broad review pane should not own the pull request review draft editor implementation."
+        )
+        XCTAssertTrue(
+            draftViewText.contains("struct QuillCodePullRequestReviewDraftView: View"),
+            "Pull request review draft editor should live in its own SwiftUI file."
+        )
+        XCTAssertTrue(
+            draftViewText.contains("WorkspacePullRequestReviewDraftSurface"),
+            "Pull request review draft editor should bind directly to the focused draft surface."
+        )
+    }
+
     func testWorkspaceSurfaceDelegatesTranscriptSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptSurface.swift")

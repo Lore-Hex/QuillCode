@@ -27,6 +27,28 @@ Verification:
 
 Residual quality debt is no longer concentrated in Computer Use. The remaining B/B+ rows are older parity gates, app/tool integration tests, and a few production hotspots already listed in `docs/CODE_QUALITY_FILE_GRADES.md`; they should be handled in separate reviewable slices because they touch unrelated feature seams.
 
+## 2026-06-30 Pull Request Review Surface Decomposition
+
+Overall grade after this slice: **A+ review surface contracts, A+ pull request review draft view, A review pane, A+ source module average**.
+
+This pass continued the file-by-file/module grading work by taking the lowest production review files out of the B+ bucket without changing behavior. The main issue was ownership concentration: `QuillCodeReviewSurface.swift` mixed git-diff review contracts with pull request review draft presentation contracts, and `QuillCodeReviewPaneView.swift` owned the whole PR draft editor inline.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Review surface contracts | `QuillCodeReviewSurface.swift` was a 631-line, 13-top-level-type file with 100 public declarations and a **B+** grade. | Diff review contracts stay in `QuillCodeReviewSurface.swift`; PR review draft action/state/summary/comment contracts live in `WorkspacePullRequestReviewDraftSurface.swift`. The broad review surface is now **A+**. |
+| Pull request review draft UI | `QuillCodeReviewPaneView.swift` was a 593-line **B+** pane owning draft editing, inline-comment editing, thread rows, and broad review layout. | `QuillCodeReviewPaneView.swift` composes `QuillCodePullRequestReviewDraftView` and is now a 262-line **A** layout/thread pane; the new draft editor is **A+** and owns the draft bindings and validation UI. |
+| Architecture gates | Review parity gates only checked that review contracts were out of the root workspace surface. | `ParityWorkspaceReviewSurfaceGateTests` now enforces that PR draft contracts and the SwiftUI draft editor stay in focused files, while runtime planning stays in `WorkspacePullRequestReviewDraft.swift`. |
+
+Verification targets:
+
+- `swift test --filter 'QuillCodeReviewSurfaceTests|ParityWorkspaceReviewSurfaceGateTests|WorkspaceHTMLReviewRendererTests|WorkspaceReviewActionToolCallPlannerTests'`
+- `scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- `QuillCodeReviewPaneView.swift` is intentionally still not A+ because it owns both broad review layout and pull request thread rows. The next clean seam is a focused `QuillCodePullRequestReviewThreadRowView.swift` split when the PR thread workflow gets more work.
+- The lowest production files are now outside this review feature: `WorkspaceModelThreads.swift`, `WorkspaceAutomationEngine.swift`, and `QuillCodeNativeHitTargetCatalog.swift`. They should be handled in separate feature-owned slices rather than bundled into this review refactor.
+
 ## 2026-06-30 Omnibus Test Architecture Split
 
 Overall grade after this slice: **A+/A production modules, A safety tests, A E2E Playwright module, A- parity tests with residual long-line gates**.
