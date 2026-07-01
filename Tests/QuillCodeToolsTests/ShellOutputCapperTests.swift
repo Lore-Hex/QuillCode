@@ -33,6 +33,39 @@ final class ShellOutputCapperTests: XCTestCase {
     func testEmptyIsPassthrough() {
         XCTAssertFalse(ShellOutputCapper.cap("").truncated)
     }
+
+    func testExactlyMaxLinesWithTrailingNewlineIsNotTruncated() {
+        // 100 lines ending in a newline IS 100 lines (wc -l semantics) — the trailing newline must not
+        // count as a 101st empty line and trip the cap one line early.
+        let text = (1...100).map { "line\($0)\n" }.joined()
+        let result = ShellOutputCapper.cap(text, maxLines: 100, maxBytes: 1_000_000)
+        XCTAssertFalse(result.truncated)
+        XCTAssertEqual(result.text, text)
+    }
+
+    func testNoteReportsWcStyleLineCount() {
+        let text = (1...150).map { "line\($0)\n" }.joined()
+        let result = ShellOutputCapper.cap(text, maxLines: 100, maxBytes: 1_000_000)
+        XCTAssertTrue(result.truncated)
+        XCTAssertTrue(result.text.contains("150 lines"), "must report 150, not 151: \(result.text.prefix(80))")
+    }
+
+    func testByteCutLandsOnCodepointBoundaryNoReplacementChars() {
+        // 34 '€' (3 bytes each = 102 bytes) cut at 50 bytes lands mid-scalar; the cut must back off to
+        // a codepoint boundary instead of decoding dangling continuation bytes to U+FFFD garbage.
+        let text = String(repeating: "\u{20AC}", count: 34)
+        let result = ShellOutputCapper.cap(text, maxLines: 2000, maxBytes: 50)
+        XCTAssertTrue(result.truncated)
+        XCTAssertFalse(result.text.contains("\u{FFFD}"), "no replacement characters allowed")
+        XCTAssertTrue(result.text.hasSuffix("\u{20AC}"), "the tail should still be euro signs")
+    }
+
+    func testByteCutInsideFourByteScalarDropsItCleanly() {
+        // suffix(3) of a 4-byte emoji is pure continuation bytes — they must be dropped, not decoded.
+        let result = ShellOutputCapper.cap("a\u{1F600}", maxLines: 10, maxBytes: 3)
+        XCTAssertTrue(result.truncated)
+        XCTAssertFalse(result.text.contains("\u{FFFD}"))
+    }
 }
 
 // MARK: - Functional: through the shell executor with real output
