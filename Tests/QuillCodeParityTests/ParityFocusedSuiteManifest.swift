@@ -274,10 +274,19 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesMCPSupportTypes",
             "testMCPStdioProberDelegatesCodecAndResultMapping"
         ]),
-        Suite(fileName: "ParityAutomationGateTests.swift", testNames: [
+        Suite(fileName: "ParityAutomationModelGateTests.swift", testNames: [
             "testAutomationModelsLiveOutsideGeneralDomainModels",
+        ]),
+        Suite(fileName: "ParityWorkspaceAutomationModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesAutomationStateMutations",
+        ]),
+        Suite(fileName: "ParityAutomationEventSourceGateTests.swift", testNames: [
+            "testMonitorEventSourceWiringStaysImplemented",
+        ]),
+        Suite(fileName: "ParityWorkspaceAutomationSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding",
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightAutomationGateTests.swift", testNames: [
             "testPlaywrightAutomationFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceRuntimeReviewGateTests.swift", testNames: [

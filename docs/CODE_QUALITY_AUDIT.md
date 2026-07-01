@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 Automation Gate Split
+
+Overall grade after this slice: **A+ automation parity gate files, clearer automation ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityAutomationGateTests.swift`, a 140-line B+ gate that mixed core
+automation models, workspace mutation delegation, monitor event-source wiring, automation pane surface building, and
+Playwright automation-flow placement. The split keeps the same source-boundary checks while making each file map to one
+automation concern:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Core records | Shared the broad automation gate. | `ParityAutomationModelGateTests.swift` owns core automation model isolation. |
+| Workspace mutations | Mixed with records and surface checks. | `ParityWorkspaceAutomationModelGateTests.swift` owns factory, reducer, runner, and model-extension boundaries. |
+| Monitor event sources | Shared the broad automation gate. | `ParityAutomationEventSourceGateTests.swift` owns monitor adapter wiring and integration coverage. |
+| Automation surface | Shared the broad automation gate. | `ParityWorkspaceAutomationSurfaceGateTests.swift` owns automation pane builder placement. |
+| Playwright flows | Mixed with source-boundary checks. | `ParityWorkspacePlaywrightAutomationGateTests.swift` owns automation E2E spec placement. |
+
+Verification:
+
+- `swift test --filter ParityAutomationModelGateTests`
+- `swift test --filter ParityWorkspaceAutomationModelGateTests`
+- `swift test --filter ParityAutomationEventSourceGateTests`
+- `swift test --filter ParityWorkspaceAutomationSurfaceGateTests`
+- `swift test --filter ParityWorkspacePlaywrightAutomationGateTests`
+- `swift test --filter ParityGateTests`
+- `swift test`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
 ## 2026-07-01 Workspace Model State Gate Split
 
 Overall grade after this slice: **A+ workspace model-state parity gate files, clearer state responsibility**.
