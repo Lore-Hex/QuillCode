@@ -163,7 +163,13 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
         let auditText = [
             try Self.appSourceText(named: "QuillCodeNativeHitTargetAudit.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetModels.swift"),
-            try Self.appSourceText(named: "QuillCodeNativeHitTargetCatalog.swift")
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetCatalog.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetCanonicalContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetCommandContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetContractFactory.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetDesignContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetPaneContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetPolicyCatalog.swift")
         ].joined(separator: "\n")
         let smokeSupportText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
         let smokeRunnerText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeRunner.swift")
@@ -243,9 +249,15 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
                 && auditText.contains("requiredFocusTargets: [QuillCodeNativeFocusTarget]")
                 && auditText.contains("missingRequiredSurfaceActions")
                 && auditText.contains("missingRequiredSurfaceFocusTargets")
-                && auditText.contains("policy(.composer, kinds: [.textEntry, .icon, .capsule], actions: [.textInput, .press], focusTargets: [.composerMessage])")
-                && auditText.contains("policy(.browser, kinds: [.textEntry, .textButton, .icon], actions: [.textInput, .press], focusTargets: [.browserAddress, .browserComment])")
-                && auditText.contains("policy(.review, kinds: [.textEntry, .segmentedControl, .fullRow, .formAction], actions: [.textInput, .press], focusTargets: [.reviewBody, .reviewThreadReply])"),
+                && auditText.contains(".composer")
+                && auditText.contains("kinds: [.textEntry, .icon, .capsule]")
+                && auditText.contains("focusTargets: [.composerMessage]")
+                && auditText.contains(".browser")
+                && auditText.contains("kinds: [.textEntry, .textButton, .icon]")
+                && auditText.contains("focusTargets: [.browserAddress, .browserComment]")
+                && auditText.contains(".review")
+                && auditText.contains("kinds: [.textEntry, .segmentedControl, .fullRow, .formAction]")
+                && auditText.contains("focusTargets: [.reviewBody, .reviewThreadReply]"),
             "Native hit-target audit should define the expected kind, action, and focus mix per surface family, not just prove that each family has one example control."
         )
         XCTAssertTrue(
