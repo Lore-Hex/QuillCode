@@ -55,6 +55,34 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertEqual(projects[0].memories.map(\.title), ["Two"])
     }
 
+    func testUpsertLocalProjectPreservesInstructionDiagnosticResolutions() {
+        let path = URL(fileURLWithPath: "/tmp/QuillCode")
+        var projects = [
+            ProjectRef(
+                name: "QuillCode",
+                path: path.path,
+                instructionDiagnosticResolutions: [
+                    ProjectInstructionDiagnosticResolution(
+                        diagnosticID: "instruction-conflict",
+                        updatedAt: Date(timeIntervalSince1970: 10)
+                    )
+                ]
+            )
+        ]
+
+        WorkspaceProjectEngine.upsertLocalProject(
+            path: path,
+            name: nil,
+            metadata: metadata(instructionTitle: "Updated", memoryTitle: "Two"),
+            projects: &projects,
+            now: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(projects.count, 1)
+        XCTAssertEqual(projects[0].instructions.map(\.title), ["Updated"])
+        XCTAssertEqual(projects[0].dismissedInstructionDiagnosticIDs, ["instruction-conflict"])
+    }
+
     func testUpsertSSHProjectValidatesCreatesAndUpdatesByConnection() {
         var projects: [ProjectRef] = []
         let firstDate = Date(timeIntervalSince1970: 10)

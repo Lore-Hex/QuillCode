@@ -307,6 +307,53 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertFalse(sourceItems.contains { $0.statusLabel == "conflict" })
     }
 
+    func testActivitySourcesHideProjectResolvedInstructionDiagnostics() throws {
+        let instructions = [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "AGENTS.md",
+                content: "Always run tests before final answers.",
+                byteCount: 38
+            ),
+            ProjectInstruction(
+                path: "Sources/Feature/AGENTS.md",
+                title: "Feature AGENTS.md",
+                content: "Do not run tests for feature changes.",
+                byteCount: 37
+            )
+        ]
+        let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: instructions)
+            .first { $0.statusLabel == "conflict" }?
+            .id)
+        var project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/quillcode",
+            instructions: instructions
+        )
+        project.dismissInstructionDiagnostic(id: diagnosticID)
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            projectID: project.id,
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertFalse(activity.sources.contains { $0.id == diagnosticID })
+        XCTAssertNil(activity.sections.first { $0.kind == .instructionReview })
+    }
+
     func testActivitySourcesPrioritizeConflictDiagnosticsWithinSourceCap() throws {
         let instructions = [
             ProjectInstruction(path: "AGENTS.md", title: "AGENTS.md", content: "Always run tests.", byteCount: 17),

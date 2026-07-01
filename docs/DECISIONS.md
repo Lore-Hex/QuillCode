@@ -1,5 +1,9 @@
 # QuillCode Decisions
 
+## 2026-07-01
+
+- Instruction Review dismissals are project-scoped resolution records, not only pane UI state. `ProjectRef` now owns normalized `ProjectInstructionDiagnosticResolution` records, metadata refresh preserves them, and Activity combines those durable dismissals with transient session dismissals before rendering diagnostics. The dismiss command only accepts currently known instruction diagnostics, so stale or fabricated command IDs cannot hide nonexistent rule issues. Resolve remains an explicit draft/edit workflow because changing `AGENTS.md` or `.quillcode/rules.md` should leave a normal file-edit audit trail.
+
 ## 2026-06-30
 
 - Agent runner files must preserve the command-execution ownership split. `Agent.swift` is the orchestration root only: it records the user turn, loops bounded tool steps, emits final answers, and handles cancellation. `AgentTypes.swift` owns the stable public API, `AgentActionResolver.swift` owns immediate/streaming/non-streaming action selection, `AgentTextStreamActionRunner.swift` and `AgentUsageStreamActionRunner.swift` own streaming setup, the focused stream collectors and `AgentStreamingDraftPublisher.swift` own progress mutation, and `AgentPromisedWorkResolver.swift` owns the bounded recovery path for assistant text that promises action without returning a tool call. This keeps the high-risk "run this now" behavior modular, test-gated, and resistant to regressions where the model says "I'll do it" or emits an empty shell action.

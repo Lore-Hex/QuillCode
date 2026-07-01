@@ -90,6 +90,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var path: String
     public var connection: ProjectConnection
     public var instructions: [ProjectInstruction]
+    public var instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution]
     public var localActions: [LocalEnvironmentAction]
     public var extensionManifests: [ProjectExtensionManifest]
     public var memories: [MemoryNote]
@@ -102,6 +103,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         connection: ProjectConnection? = nil,
         lastOpenedAt: Date = Date(),
         instructions: [ProjectInstruction] = [],
+        instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution] = [],
         localActions: [LocalEnvironmentAction] = [],
         extensionManifests: [ProjectExtensionManifest] = [],
         memories: [MemoryNote] = []
@@ -111,6 +113,9 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         self.path = path
         self.connection = connection ?? .local(path: path)
         self.instructions = instructions
+        self.instructionDiagnosticResolutions = Self.normalizedInstructionDiagnosticResolutions(
+            instructionDiagnosticResolutions
+        )
         self.localActions = localActions
         self.extensionManifests = extensionManifests
         self.memories = memories
@@ -123,6 +128,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         path: String,
         lastOpenedAt: Date = Date(),
         instructions: [ProjectInstruction] = [],
+        instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution] = [],
         localActions: [LocalEnvironmentAction] = []
     ) {
         self.init(
@@ -131,6 +137,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
             path: path,
             lastOpenedAt: lastOpenedAt,
             instructions: instructions,
+            instructionDiagnosticResolutions: instructionDiagnosticResolutions,
             localActions: localActions,
             extensionManifests: [],
             memories: []
@@ -143,6 +150,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         path: String,
         lastOpenedAt: Date = Date(),
         instructions: [ProjectInstruction] = [],
+        instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution] = [],
         localActions: [LocalEnvironmentAction] = [],
         memories: [MemoryNote]
     ) {
@@ -152,6 +160,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
             path: path,
             lastOpenedAt: lastOpenedAt,
             instructions: instructions,
+            instructionDiagnosticResolutions: instructionDiagnosticResolutions,
             localActions: localActions,
             extensionManifests: [],
             memories: memories
@@ -164,6 +173,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         case path
         case connection
         case instructions
+        case instructionDiagnosticResolutions
         case localActions
         case extensionManifests
         case memories
@@ -177,6 +187,12 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         self.path = try container.decode(String.self, forKey: .path)
         self.connection = try container.decodeIfPresent(ProjectConnection.self, forKey: .connection) ?? .local(path: path)
         self.instructions = try container.decodeIfPresent([ProjectInstruction].self, forKey: .instructions) ?? []
+        self.instructionDiagnosticResolutions = Self.normalizedInstructionDiagnosticResolutions(
+            try container.decodeIfPresent(
+                [ProjectInstructionDiagnosticResolution].self,
+                forKey: .instructionDiagnosticResolutions
+            ) ?? []
+        )
         self.localActions = try container.decodeIfPresent([LocalEnvironmentAction].self, forKey: .localActions) ?? []
         self.extensionManifests = try container.decodeIfPresent([ProjectExtensionManifest].self, forKey: .extensionManifests) ?? []
         self.memories = try container.decodeIfPresent([MemoryNote].self, forKey: .memories) ?? []
@@ -190,6 +206,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         try container.encode(path, forKey: .path)
         try container.encode(connection, forKey: .connection)
         try container.encode(instructions, forKey: .instructions)
+        try container.encode(instructionDiagnosticResolutions, forKey: .instructionDiagnosticResolutions)
         try container.encode(localActions, forKey: .localActions)
         try container.encode(extensionManifests, forKey: .extensionManifests)
         try container.encode(memories, forKey: .memories)
@@ -203,6 +220,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var displayPath: String {
         connection.displayLabel
     }
+
 }
 
 public struct ProjectInstruction: Codable, Sendable, Hashable, Identifiable {
