@@ -2,11 +2,7 @@ import XCTest
 
 final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
     func testHTMLInteractionAuditRequiresNamedClickableTargets() throws {
-        let auditHelperText = try String(
-            contentsOf: Self.packageRoot()
-                .appendingPathComponent("E2E/playwright/tests/interaction-audit-helpers.ts"),
-            encoding: .utf8
-        )
+        let auditHelperText = try Self.playwrightInteractionAuditText()
 
         XCTAssertTrue(
             auditHelperText.contains("accessibleName(element)")
@@ -112,6 +108,20 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditHelperText.contains(#"[role="dialog"]"#),
             "The active-layer audit should cover generic dialogs in addition to QuillCode-specific popovers and panels."
         )
+    }
+
+    private static func playwrightInteractionAuditText() throws -> String {
+        try [
+            "interaction-audit-contracts.ts",
+            "interaction-audit-report.ts",
+            "interaction-audit-targets.ts",
+        ].map { fileName in
+            try String(
+                contentsOf: Self.packageRoot()
+                    .appendingPathComponent("E2E/playwright/tests/\(fileName)"),
+                encoding: .utf8
+            )
+        }.joined(separator: "\n")
     }
 
     func testRenderedHarnessUsesNamedClearanceTokensForDenseActionClusters() throws {

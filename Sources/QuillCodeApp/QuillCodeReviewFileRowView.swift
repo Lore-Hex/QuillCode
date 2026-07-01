@@ -73,6 +73,7 @@ struct QuillCodeReviewFileRowView: View {
                 .quillCodeTextEntryTarget(radius: 8)
                 .background(QuillCodePalette.background.opacity(0.72))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityIdentifier("quillcode-review-file-note")
             Button {
                 let text = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                 onAddReviewComment(file.path, nil, nil, nil, text)

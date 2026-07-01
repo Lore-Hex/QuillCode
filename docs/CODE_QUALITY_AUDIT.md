@@ -1,5 +1,36 @@
 # Code Quality Audit
 
+## 2026-07-01 Playwright Interaction Audit Helper Split
+
+Overall grade after this slice: **A+ public interaction helper façade, A+ contracts, A+ target assertions, A browser report**.
+
+This pass re-graded every file and module after the activity/core splits, then addressed the largest remaining E2E
+maintainability hotspot: `interaction-audit-helpers.ts`. The old file combined public constants, report DTOs,
+browser-side geometry/a11y auditing, Playwright target assertions, and registry helpers in one 1,050-line module. The
+split is behavior-preserving while keeping existing tests on the same public import path.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Public imports | Tests imported everything from one large helper file that also owned browser audit internals. | `interaction-audit-helpers.ts` is a 32-line compatibility façade. |
+| Constants and DTOs | Hit-target classes, expected semantic mappings, selectors, and report/probe types were mixed with test logic. | `interaction-audit-contracts.ts` owns shared constants and types and grades **A+**. |
+| Browser-side audit | `page.evaluate` geometry, clipping, target ownership, overlap, clearance, and nesting logic lived beside assertion helpers. | `interaction-audit-report.ts` owns browser report construction and grades **A**; it is still intentionally larger because the serialized browser audit must stay self-contained. |
+| Assertion helpers | Individual hit-target checks, critical target registries, edge-click probes, and focus probes were appended to the same broad file. | `interaction-audit-targets.ts` owns Playwright assertions and grades **A+**. |
+| E2E module grade | `interaction-audit-helpers.ts` was the only B-grade Playwright file and the lowest whole-repo E2E file. | The B-grade helper is gone from the lowest-file list, and the Playwright module average moved from **93/A** to **94/A**. |
+
+Verification:
+
+- `npm --prefix E2E/playwright ci`
+- `npm --prefix E2E/playwright test -- tests/interaction-audit.spec.ts tests/interaction-audit-fixtures.spec.ts tests/interaction-audit-registry.spec.ts tests/interaction-audit-responsive.spec.ts tests/interaction-audit-edge-controls.spec.ts`
+- `npm --prefix E2E/playwright test`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The browser-side report remains an A, not A+, because Playwright serializes the browser audit into `page.evaluate`;
+  splitting that further would require a deliberate injected-browser-helper strategy rather than a mechanical file split.
+- The lowest remaining repo-wide grades are now `native-click-probe-contracts.py`, `live-tr-smoke.sh`, and broad parity
+  gates. They should each get separate reviewable slices.
+
 ## 2026-07-01 Activity Integration Test Boundary Pass
 
 Overall grade after this slice: **A+ app test module maintained, activity integration hotspot removed from lowest-file list**.

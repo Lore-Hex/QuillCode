@@ -114,6 +114,7 @@ struct QuillCodeTranscriptFindBar: View {
             .textFieldStyle(.roundedBorder)
             .focused($isFocused)
             .quillCodeTextEntryTarget()
+            .accessibilityIdentifier("quillcode-transcript-find-input")
             .onSubmit(onNext)
     }
 
