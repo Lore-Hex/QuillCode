@@ -127,12 +127,21 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage"
         ]),
         Suite(fileName: "ParityWorkspaceSidebarGateTests.swift", testNames: [
-            "testWorkspaceModelDelegatesSidebarSelectionTransitions",
-            "testSidebarRowActionsUseSharedPlannerAndExecutor",
+            "testWorkspaceModelDelegatesSidebarSelectionTransitions"
+        ]),
+        Suite(fileName: "ParityWorkspaceSidebarRowActionGateTests.swift", testNames: [
+            "testSidebarRowActionsUseSharedPlannerAndExecutor"
+        ]),
+        Suite(fileName: "ParitySidebarCommandPresentationGateTests.swift", testNames: [
             "testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces",
+            "testSidebarSavedFiltersWrapInsteadOfClippingHorizontally",
             "testNativeSidebarDelegatesProjectListRendering",
+        ]),
+        Suite(fileName: "ParityWorkspaceSidebarSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesSidebarSurfaceContracts",
-            "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding",
+            "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceSidebarPlaywrightGateTests.swift", testNames: [
             "testPlaywrightSidebarAndProjectFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityMCPGateTests.swift", testNames: [
