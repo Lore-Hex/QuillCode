@@ -12520,3 +12520,54 @@ Remaining risk:
 
 - The next broad B+ hotspot is `ParityWorkspaceModelThreadGateTests.swift`,
   followed by HTML renderer, top-bar, slash-command, and execution parity gates.
+
+## 2026-07-01 TrustedRouter Parity Gate Split
+
+Overall grade after this slice: **A+ TrustedRouter parity architecture, A+
+agent transport boundary architecture, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `ParityTrustedRouterGateTests.swift` as the
+next B+ hotspot inside the parity suite. The file mixed action parsing, prompt
+building, API-key resolution, safety transport, chat parameter sharing, and
+agent test-suite ownership. This pass split those concerns into small focused
+files so each failure points at one TrustedRouter boundary.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| TrustedRouter action parsing gates | A+ | Parser, extractor, recovery, normalizer, and transport boundaries are isolated. |
+| TrustedRouter prompt gates | A+ | Prompt history, project instruction, and memory rendering stay in the builder. |
+| TrustedRouter auth gates | A+ | API-key override/session fallback rules stay in one resolver. |
+| TrustedRouter safety transport gates | A+ | Safety model transport remains separate from action transport. |
+| TrustedRouter chat parameter gates | A+ | Shared JSON response-format parameters stay outside both clients. |
+| TrustedRouter adapter-suite gates | A+ | Parser, streaming, prompt, catalog, and key resolver tests stay focused. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterActionParsingGateTests.swift` | A+ | Focused action parsing and normalization ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterPromptGateTests.swift` | A+ | Focused prompt-builder ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterAPIKeyGateTests.swift` | A+ | Focused API-key resolver ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterSafetyTransportGateTests.swift` | A+ | Focused safety transport ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterChatParametersGateTests.swift` | A+ | Focused shared chat-parameter ownership checks. |
+| `Tests/QuillCodeParityTests/ParityTrustedRouterAdapterSuiteGateTests.swift` | A+ | Focused adapter test-suite placement checks. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest now tracks every TrustedRouter split gate. |
+
+Code quality changes:
+
+- Replaced the broad TrustedRouter parity file with six single-responsibility
+  gate files.
+- Removed long custom assertion prose in favor of concise source-contract
+  assertions and focused test names.
+- Kept adapter suite coverage factored through small helper methods instead of
+  one long mixed test body.
+- Regenerated the deterministic file/module grade matrix; all new
+  TrustedRouter split files grade A+ 100 with no automated issues.
+
+Remaining risk:
+
+- The next B+ parity hotspot is `ParityInteractionTargetGateTests.swift`, and
+  the next B+ E2E hotspot is `command-palette.spec.ts`. They should receive the
+  same ownership split and deduplication treatment next.
