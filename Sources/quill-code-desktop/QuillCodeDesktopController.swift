@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 import QuillCodeApp
 import QuillCodeCore
 
@@ -36,6 +37,8 @@ final class QuillCodeDesktopController: ObservableObject {
     private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
     private let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
     private let tasks = QuillCodeDesktopTaskCoordinator()
+    // Retained here because UNUserNotificationCenter.delegate is weak; nil until the window installs it.
+    private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
 
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
@@ -101,6 +104,44 @@ final class QuillCodeDesktopController: ObservableObject {
             notifier: automationNotifier,
             refresh: { [weak self] in self?.refresh() }
         )
+    }
+
+    /// Registers the Approve/Skip notification category and the delegate that routes a tapped action
+    /// back into the workspace. Called once when the real window appears (never in headless smoke),
+    /// and idempotent so repeated onAppear calls are no-ops.
+    func installApprovalNotificationHandling() {
+        guard approvalNotificationDelegate == nil else { return }
+        // UNUserNotificationCenter.current() requires a real application bundle. In a bare-executable
+        // context (the headless render smoke) it throws "bundleProxyForCurrentProcess is nil"; only the
+        // packaged .app has a bundle identifier. Notifications can't be delivered without a bundle
+        // anyway, so skip registration when there isn't one.
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        let delegate = QuillCodeApprovalNotificationDelegate { [weak self] requestID, approve, threadID in
+            self?.decideNotificationApproval(requestID: requestID, approve: approve, threadID: threadID)
+        }
+        approvalNotificationDelegate = delegate
+        let center = UNUserNotificationCenter.current()
+        center.delegate = delegate
+        center.setNotificationCategories([QuillCodeApprovalNotification.category])
+    }
+
+    /// Decides a blocked approval gate from a tapped notification action. Selects the gate's thread
+    /// first (a notification may target a thread the user is not currently viewing), then routes through
+    /// the exact same `decidePendingApproval` path as the in-app tool card so async and in-app approval
+    /// behave identically.
+    func decideNotificationApproval(requestID: String, approve: Bool, threadID: UUID?) {
+        if let threadID, model.selectedThread?.id != threadID {
+            selectThread(threadID)
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            _ = await model.decidePendingApproval(
+                requestID: requestID,
+                approve: approve,
+                workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot
+            )
+            refresh()
+        }
     }
 
     func newChat() {
