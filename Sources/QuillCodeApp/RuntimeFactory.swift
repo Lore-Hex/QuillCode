@@ -56,11 +56,17 @@ public struct QuillCodeRuntimeFactory: Sendable {
             }
         }
 
-        let llm = TrustedRouterLLMClient(
-            sessionStore: sessionStore,
-            apiKeyOverride: apiKey,
-            model: config.defaultModel,
-            baseURL: config.apiBaseURL
+        // Wrap the model client so a momentary TrustedRouter 429/5xx or a dropped connection on a
+        // single call is retried with backoff instead of killing the whole unattended run. Retry is
+        // safe here (the HTTP status error throws before any token is streamed) and covers both the
+        // agent run loop and context-summary calls, since both go through this client.
+        let llm = RetryingLLMClient(
+            base: TrustedRouterLLMClient(
+                sessionStore: sessionStore,
+                apiKeyOverride: apiKey,
+                model: config.defaultModel,
+                baseURL: config.apiBaseURL
+            )
         )
         let safetyClient = TrustedRouterSafetyModelClient(
             sessionStore: sessionStore,
