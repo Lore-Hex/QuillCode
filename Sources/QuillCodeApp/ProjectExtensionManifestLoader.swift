@@ -22,47 +22,21 @@ public enum ProjectExtensionManifestLoader {
         maxManifestBytes: Int = maxManifestBytes
     ) -> [ProjectExtensionManifest] {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        var manifests: [ProjectExtensionManifest] = []
-        var seenIDs = Set<String>()
-
-        for directory in directories {
-            guard manifests.count < maxManifests else {
-                break
-            }
-
-            guard let directory = manifestDirectory(
+        let scanDirectories = directories.map(ManifestDirectoryRequest.init)
+        return loadManifests(
+            root: root,
+            directories: scanDirectories,
+            maxManifests: maxManifests,
+            maxManifestBytes: maxManifestBytes
+        ) { root, directory, fileURL, maxManifestBytes in
+            manifest(
                 root: root,
-                relativePath: directory.relativePath,
-                kind: directory.kind
-            ) else {
-                continue
-            }
-
-            let files = (try? FileManager.default.contentsOfDirectory(
-                at: directory.url,
-                includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
-                options: [.skipsHiddenFiles]
-            )) ?? []
-
-            for fileURL in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                guard manifests.count < maxManifests,
-                      let manifest = manifest(
-                        root: root,
-                        directory: directory.relativePath,
-                        kind: directory.kind,
-                        fileURL: fileURL,
-                        maxManifestBytes: maxManifestBytes
-                      ),
-                      !seenIDs.contains(manifest.id)
-                else {
-                    continue
-                }
-                seenIDs.insert(manifest.id)
-                manifests.append(manifest)
-            }
+                directory: directory.relativePath,
+                kind: directory.kind,
+                fileURL: fileURL,
+                maxManifestBytes: maxManifestBytes
+            )
         }
-
-        return manifests
     }
 
     public static func loadMarketplace(
@@ -74,47 +48,68 @@ public enum ProjectExtensionManifestLoader {
     ) -> [ProjectExtensionManifest] {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
         let installedIDs = Set(installedManifests.map(\.id))
+        let scanDirectories = directories.map {
+            ManifestDirectoryRequest(relativePath: $0, kind: .plugin)
+        }
+        return loadManifests(
+            root: root,
+            directories: scanDirectories,
+            maxManifests: maxManifests,
+            maxManifestBytes: maxManifestBytes,
+            excludedIDs: installedIDs
+        ) { root, directory, fileURL, maxManifestBytes in
+            marketplaceManifest(
+                root: root,
+                directory: directory.relativePath,
+                fileURL: fileURL,
+                maxManifestBytes: maxManifestBytes
+            )
+        }
+    }
+
+    private static func loadManifests(
+        root: URL,
+        directories: [ManifestDirectoryRequest],
+        maxManifests: Int,
+        maxManifestBytes: Int,
+        excludedIDs: Set<String> = [],
+        manifestFactory: (URL, ManifestDirectory, URL, Int) -> ProjectExtensionManifest?
+    ) -> [ProjectExtensionManifest] {
         var manifests: [ProjectExtensionManifest] = []
         var seenIDs = Set<String>()
 
-        for relativePath in directories {
-            guard manifests.count < maxManifests else {
-                break
-            }
-
+        for request in directories {
+            guard manifests.count < maxManifests else { break }
             guard let directory = manifestDirectory(
                 root: root,
-                relativePath: relativePath,
-                kind: .plugin
+                relativePath: request.relativePath,
+                kind: request.kind
             ) else {
                 continue
             }
 
-            let files = (try? FileManager.default.contentsOfDirectory(
-                at: directory.url,
-                includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
-                options: [.skipsHiddenFiles]
-            )) ?? []
-
-            for fileURL in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            for fileURL in manifestFiles(in: directory.url) {
                 guard manifests.count < maxManifests,
-                      let manifest = marketplaceManifest(
-                        root: root,
-                        directory: directory.relativePath,
-                        fileURL: fileURL,
-                        maxManifestBytes: maxManifestBytes
-                      ),
-                      !installedIDs.contains(manifest.id),
-                      !seenIDs.contains(manifest.id)
+                      let manifest = manifestFactory(root, directory, fileURL, maxManifestBytes),
+                      !excludedIDs.contains(manifest.id),
+                      seenIDs.insert(manifest.id).inserted
                 else {
                     continue
                 }
-                seenIDs.insert(manifest.id)
                 manifests.append(manifest)
             }
         }
 
         return manifests
+    }
+
+    private static func manifestFiles(in directoryURL: URL) -> [URL] {
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        return files.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     private static func manifestDirectory(
@@ -208,7 +203,7 @@ public enum ProjectExtensionManifestLoader {
         root: URL,
         fileURL: URL,
         maxManifestBytes: Int
-    ) -> ManifestPayload? {
+    ) -> ProjectExtensionManifestPayload? {
         guard maxManifestBytes > 0,
               fileURL.pathExtension == "json"
         else {
@@ -230,7 +225,7 @@ public enum ProjectExtensionManifestLoader {
 
         guard let data = try? Data(contentsOf: resolved),
               data.count <= maxManifestBytes,
-              let payload = try? JSONDecoder().decode(ManifestPayload.self, from: data)
+              let payload = try? JSONDecoder().decode(ProjectExtensionManifestPayload.self, from: data)
         else {
             return nil
         }
@@ -239,7 +234,7 @@ public enum ProjectExtensionManifestLoader {
     }
 
     private static func manifest(
-        payload: ManifestPayload,
+        payload: ProjectExtensionManifestPayload,
         kind: ProjectExtensionKind,
         directory: String,
         fileURL: URL
@@ -287,145 +282,23 @@ public enum ProjectExtensionManifestLoader {
     }
 }
 
+private struct ManifestDirectoryRequest {
+    var relativePath: String
+    var kind: ProjectExtensionKind
+
+    init(relativePath: String, kind: ProjectExtensionKind) {
+        self.relativePath = relativePath
+        self.kind = kind
+    }
+
+    init(_ directory: (relativePath: String, kind: ProjectExtensionKind)) {
+        self.relativePath = directory.relativePath
+        self.kind = directory.kind
+    }
+}
+
 private struct ManifestDirectory {
     var relativePath: String
     var kind: ProjectExtensionKind
     var url: URL
-}
-
-private struct ManifestPayload: Decodable {
-    var id: String?
-    var kind: String?
-    var name: String?
-    var description: String?
-    var summary: String?
-    var version: String?
-    var source: String?
-    var homepage: String?
-    var enabled: Bool?
-    var command: String?
-    var args: [String]?
-    var transport: String?
-    var installCommand: String?
-    var installTimeoutSeconds: Int?
-    var updateCommand: String?
-    var updateTimeoutSeconds: Int?
-
-    var normalizedID: String {
-        (id ?? name ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .filter { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" || $0 == "-" }
-    }
-
-    var marketplaceKind: ProjectExtensionKind? {
-        guard let kind = normalizedOptional(kind, maxLength: 80)?
-            .lowercased()
-            .replacingOccurrences(of: "-", with: "_")
-            .replacingOccurrences(of: " ", with: "_")
-        else {
-            return nil
-        }
-
-        switch kind {
-        case "plugin", "plugins":
-            return .plugin
-        case "skill", "skills":
-            return .skill
-        case "mcp", "mcp_server", "mcpserver", "mcp_servers", "mcpservers":
-            return .mcpServer
-        default:
-            return nil
-        }
-    }
-
-    var displayName: String? {
-        normalizedOptional(name, maxLength: 120)
-    }
-
-    var summaryText: String {
-        let text = summary ?? description ?? ""
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var versionText: String? {
-        normalizedOptional(version, maxLength: 80)
-    }
-
-    var sourceText: String? {
-        normalizedOptional(source ?? homepage, maxLength: 500)
-    }
-
-    var updateCommandText: String? {
-        normalizedOptional(updateCommand, maxLength: 1_200)
-    }
-
-    var installCommandText: String? {
-        normalizedOptional(installCommand, maxLength: 1_200)
-    }
-
-    var updateTimeout: Int? {
-        boundedTimeout(updateTimeoutSeconds)
-    }
-
-    var installTimeout: Int? {
-        boundedTimeout(installTimeoutSeconds)
-    }
-
-    var launchCommand: String? {
-        guard let command = launchExecutable
-        else {
-            return nil
-        }
-        let args = (args ?? [])
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard !args.isEmpty else {
-            return command
-        }
-        return ([command] + args).joined(separator: " ")
-    }
-
-    var launchExecutable: String? {
-        guard let command = command?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !command.isEmpty
-        else {
-            return nil
-        }
-        return command
-    }
-
-    var launchArguments: [String]? {
-        let args = (args ?? [])
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return args.isEmpty ? nil : args
-    }
-
-    func transportKind(for kind: ProjectExtensionKind) -> ProjectExtensionTransport? {
-        if let transport = transport?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased(),
-           let parsed = ProjectExtensionTransport(rawValue: transport) {
-            return parsed
-        }
-        return kind == .mcpServer && launchCommand != nil ? .stdio : nil
-    }
-
-    private func boundedTimeout(_ seconds: Int?) -> Int? {
-        guard let seconds else { return nil }
-        return min(max(seconds, 5), 1_800)
-    }
-
-    private func normalizedOptional(_ value: String?, maxLength: Int) -> String? {
-        guard let text = value?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !text.isEmpty
-        else {
-            return nil
-        }
-        guard text.count <= maxLength else {
-            return nil
-        }
-        return text
-    }
 }
