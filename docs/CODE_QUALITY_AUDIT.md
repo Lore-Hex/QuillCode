@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Model Gate Split
+
+Overall grade after this slice: **A+ focused workspace-model surface gates, cleaner parity module score**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceModelGateTests.swift`, a 160-line B+ gate that mixed
+tool-card surface state, composer/UI contracts, actionable review-card wiring, and execution-context surface building.
+The split keeps the same boundary contracts while making each gate match one workspace-model responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool-card surfaces | Shared the broad workspace model gate. | `ParityWorkspaceToolCardSurfaceGateTests.swift` owns tool-card and artifact surface ownership. |
+| UI state contracts | Shared the broad workspace model gate. | `ParityWorkspaceUIStateGateTests.swift` owns composer, memory, activity, and send-lifecycle boundaries. |
+| Review-card actions | Shared the broad workspace model gate. | `ParityWorkspaceReviewCardGateTests.swift` owns native/HTML review-card action wiring. |
+| Execution context surfaces | Shared the broad workspace model gate. | `ParityWorkspaceExecutionContextSurfaceGateTests.swift` owns selected-thread/project and tool-card enrichment boundaries. |
+| Grade | The original file was **B+** with many long assertion lines. | Each split gate now has no over-120-character lines and the parity module average moved to **98 A+**. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspace(ToolCardSurface|UIState|ReviewCard|ExecutionContextSurface)GateTests|ParityGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a source-boundary refactor of parity tests, not a production behavior change.
+- The next B+ parity hotspots are workspace memory, workspace model state, automation, workspace command, and execution slash gates.
+
 ## 2026-07-01 Agent Parity Gate Split
 
 Overall grade after this slice: **A+ agent parity gate files, stricter agent-boundary registry**.

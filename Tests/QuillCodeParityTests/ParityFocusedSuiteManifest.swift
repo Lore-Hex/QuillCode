@@ -113,10 +113,16 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceHTMLRendererDelegatesBrowserRendering",
             "testPlaywrightBrowserFlowsStayInFocusedSpec"
         ]),
-        Suite(fileName: "ParityWorkspaceModelGateTests.swift", testNames: [
+        Suite(fileName: "ParityWorkspaceToolCardSurfaceGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesToolCardSurfaceTypes",
+        ]),
+        Suite(fileName: "ParityWorkspaceUIStateGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesUIStateContracts",
+        ]),
+        Suite(fileName: "ParityWorkspaceReviewCardGateTests.swift", testNames: [
             "testActionableReviewCardsStayWiredThroughSurfaces",
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionContextSurfaceGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesExecutionContextSurfaceBuilding"
         ]),
         Suite(fileName: "ParityWorkspaceModelActivityGateTests.swift", testNames: [
