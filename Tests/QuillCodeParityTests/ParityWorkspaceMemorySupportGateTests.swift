@@ -4,6 +4,8 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
     func testWorkspaceMemorySupportOwnsStoragePolicyAndCopyBoundaries() throws {
         let engineText = try Self.appSourceText(named: "WorkspaceMemoryEngine.swift")
         let mutationFactoryText = try Self.appSourceText(named: "WorkspaceMemoryMutationFactory.swift")
+        let changeKindText = try Self.appSourceText(named: "WorkspaceMemoryChangeKind.swift")
+        let failureKindText = try Self.appSourceText(named: "WorkspaceMemoryFailureKind.swift")
         let loaderText = try Self.appSourceText(named: "MemoryNoteLoader.swift")
         let contentPolicyText = try Self.appSourceText(named: "MemoryNoteContentPolicy.swift")
         let pathResolverText = try Self.appSourceText(named: "MemoryNotePathResolver.swift")
@@ -19,6 +21,8 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
             "WorkspaceRemoteProjectMemoryDeleter.delete"
         ])
         Self.assertSource(mutationFactoryText, contains: "enum WorkspaceMemoryMutationFactory")
+        Self.assertSource(changeKindText, contains: "enum WorkspaceMemoryChangeKind")
+        Self.assertSource(failureKindText, contains: "enum WorkspaceMemoryFailureKind")
         Self.assertSource(contentPolicyText, contains: "enum MemoryNoteContentPolicy")
         Self.assertSource(pathResolverText, contains: "enum MemoryNotePathResolver")
         Self.assertSource(loaderText, containsAll: [
@@ -38,7 +42,7 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
         Self.assertSource(plannerText, contains: "struct WorkspaceMemoryCommandTranscriptPlanner")
         Self.assertSource(errorText, contains: "enum WorkspaceMemoryErrorMessageBuilder")
         Self.assertSource(contextUpdateText, contains: "struct WorkspaceMemoryContextUpdatePlanner")
-        Self.assertSource(mutationFactoryText, containsAll: [
+        Self.assertSource(mutationFactoryText + changeKindText + failureKindText, containsAll: [
             "WorkspaceMemoryCommandTranscriptPlanner.memorySaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary",
