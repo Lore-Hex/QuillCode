@@ -51,6 +51,28 @@ Residual risk:
 
 - This split is behavior-preserving. Broader thread lifecycle UX and command behavior remain covered by existing integration tests and were not redesigned.
 
+## 2026-07-01 Instruction Review Resolved-By-Edit Audit Pass
+
+Overall grade after this slice: **A+ diagnostic state model, A+ refresh boundary, A+ reintroduced-warning coverage**.
+
+This pass re-graded the Instruction Review path after durable dismissals and closed the next state gap: when a user edits `AGENTS.md` or `.quillcode/rules.md` so a diagnostic disappears, QuillCode now records that disappearance as an audit event without mutating the instruction file or hiding future reintroduced issues.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Diagnostic dispositions | `ProjectInstructionDiagnosticResolution` only represented dismissed active diagnostics. | The record now has explicit `dismissed` and `resolved` dispositions with shared normalization and idempotent mutation helpers. |
+| Metadata refresh | Refresh could prove that a diagnostic disappeared, but the project state had no durable record of that resolution. | `WorkspaceProjectEngine` diffs previous/current diagnostic IDs during metadata application and records disappeared IDs as `resolved`. |
+| Suppression semantics | Future code could accidentally treat any resolution record as hidden state. | Activity still consumes only `dismissedInstructionDiagnosticIDs`; resolved audit records do not suppress reintroduced active diagnostics. |
+| Persistence | Project-store coverage only round-tripped dismissed records. | Persistence now round-trips both dismissed and resolved records, including compatibility with older payloads. |
+| Test quality | New tests initially depended on diagnostic ordering. | Tests now select the semantic conflict explicitly and keep a nested instruction file present so the resolved audit record covers only the disappearing contradiction. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceActivityIntegrationTests|WorkspaceProjectEngineTests|WorkspaceProjectIntegrationTests|CoreModelTests|PersistenceTests|WorkspaceCommandPlanExecutorTests'` (87 tests, 0 failures)
+
+Residual risk:
+
+- Resolve still prepares an edit draft instead of automatically applying a rule-file patch. Native editor jump-to-line and diff-assisted fixes remain the next Instruction Review parity work.
+
 ## 2026-07-01 Static Secondary Pane Renderer Split
 
 Overall grade after this slice: **A+ secondary-pane facade, A+ focused pane renderer cluster, lower renderer conflict risk**.
@@ -96,7 +118,7 @@ Verification:
 
 Residual risk:
 
-- Resolve still prepares an edit draft instead of directly applying a rule-file patch; that is intentional for now because instruction changes should remain explicit file edits with normal review/tool audit. Durable "resolved by edit" records and diff-assisted fixes remain future Instruction Review polish.
+- Resolve still prepares an edit draft instead of directly applying a rule-file patch; that is intentional for now because instruction changes should remain explicit file edits with normal review/tool audit. Diff-assisted fixes and native editor jump-to-line remain future Instruction Review polish.
 
 ## 2026-07-01 Terminal Wide Cell Parity
 

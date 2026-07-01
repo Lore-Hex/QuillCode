@@ -133,17 +133,29 @@ final class PersistenceTests: XCTestCase {
         let root = try makeTempDirectory()
         let store = JSONProjectStore(fileURL: root.appendingPathComponent("projects.json"))
         let resolutionDate = Date(timeIntervalSince1970: 1_775_000_000)
+        let fixedDate = Date(timeIntervalSince1970: 1_775_000_060)
         var project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
         XCTAssertTrue(project.dismissInstructionDiagnostic(id: "instruction-semantic-conflict-tests", at: resolutionDate))
+        XCTAssertTrue(project.resolveInstructionDiagnostic(id: "instruction-nested-override-sources", at: fixedDate))
 
         try store.save([project])
         let loaded = try XCTUnwrap(store.load().first)
 
-        XCTAssertEqual(loaded.instructionDiagnosticResolutions.count, 1)
-        XCTAssertEqual(loaded.instructionDiagnosticResolutions.first?.diagnosticID, "instruction-semantic-conflict-tests")
-        XCTAssertEqual(loaded.instructionDiagnosticResolutions.first?.disposition, .dismissed)
-        XCTAssertEqual(loaded.instructionDiagnosticResolutions.first?.updatedAt, resolutionDate)
+        XCTAssertEqual(loaded.instructionDiagnosticResolutions.count, 2)
         XCTAssertEqual(loaded.dismissedInstructionDiagnosticIDs, ["instruction-semantic-conflict-tests"])
+        XCTAssertEqual(loaded.resolvedInstructionDiagnosticIDs, ["instruction-nested-override-sources"])
+
+        let dismissed = try XCTUnwrap(
+            loaded.instructionDiagnosticResolutions.first { $0.disposition == .dismissed }
+        )
+        XCTAssertEqual(dismissed.diagnosticID, "instruction-semantic-conflict-tests")
+        XCTAssertEqual(dismissed.updatedAt, resolutionDate)
+
+        let resolved = try XCTUnwrap(
+            loaded.instructionDiagnosticResolutions.first { $0.disposition == .resolved }
+        )
+        XCTAssertEqual(resolved.diagnosticID, "instruction-nested-override-sources")
+        XCTAssertEqual(resolved.updatedAt, fixedDate)
     }
 
     func testAutomationStoreRoundTripsSortedByStatusAndNextRun() throws {
