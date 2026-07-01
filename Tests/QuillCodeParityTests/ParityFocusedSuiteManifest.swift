@@ -99,13 +99,25 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesSlashCommandDispatchPlanning",
             "testWorkspaceModelDelegatesToolExecutionOverrideCombining"
         ]),
-        Suite(fileName: "ParityWorkspaceProjectGateTests.swift", testNames: [
+        Suite(fileName: "ParityWorkspaceProjectMetadataGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectMetadataLoading",
             "testWorkspaceModelTestsDoNotOwnPureProjectLoaderCoverage",
+            "testProjectInstructionScopesStayInCorePromptAndActivityContracts"
+        ]),
+        Suite(fileName: "ParityWorkspaceProjectAPIGateTests.swift", testNames: [
+            "testWorkspaceModelProjectAPIsLiveInFocusedExtension"
+        ]),
+        Suite(fileName: "ParityWorkspaceProjectIntegrationGateTests.swift", testNames: [
             "testWorkspaceProjectExtensionIntegrationTestsOwnModelExtensionFlows",
-            "testWorkspaceProjectIntegrationTestsOwnModelProjectFlows",
-            "testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows",
-            "testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows",
+            "testWorkspaceProjectIntegrationTestsOwnModelProjectFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceRemoteProjectIntegrationGateTests.swift", testNames: [
+            "testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows"
+        ]),
+        Suite(fileName: "ParityWorkspacePullRequestIntegrationGateTests.swift", testNames: [
+            "testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceWorktreeIntegrationGateTests.swift", testNames: [
             "testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows",
             "testWorkspaceModelDelegatesWorktreeOpenRecords"
         ]),

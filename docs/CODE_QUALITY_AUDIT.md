@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-07-01 Project Gate Split
+
+Overall grade after this slice: **A+ project parity ownership, full focused-suite registration**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceProjectGateTests.swift`, now the lowest B+ parity
+hotspot after the sidebar split. The old file mixed metadata loading, workspace project APIs, pure loader test
+ownership, instruction scope contracts, project extension integration, local project integration, SSH Remote project
+integration, pull-request integration, and worktree handoff contracts. The split keeps the same contracts while grouping
+failures by project workflow boundary:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Metadata and instructions | Shared the broad project gate. | `ParityWorkspaceProjectMetadataGateTests.swift` owns project metadata loading, pure loader-test ownership, and scoped instruction contracts. |
+| Workspace project APIs | Mixed with project integration checks. | `ParityWorkspaceProjectAPIGateTests.swift` owns focused `WorkspaceModelProjects.swift` delegation. |
+| Local project and extensions | Mixed with remote, PR, and worktree checks. | `ParityWorkspaceProjectIntegrationGateTests.swift` owns local project and project-extension integration ownership. |
+| SSH Remote projects | Shared the broad project gate. | `ParityWorkspaceRemoteProjectIntegrationGateTests.swift` owns remote-project integration test placement. |
+| Pull requests | Shared the broad project gate. | `ParityWorkspacePullRequestIntegrationGateTests.swift` owns PR workflow integration placement. |
+| Worktrees | Shared the broad project gate. | `ParityWorkspaceWorktreeIntegrationGateTests.swift` owns worktree integration placement and open-record delegation. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceProjectMetadataGateTests|ParityWorkspaceProjectAPIGateTests|ParityWorkspaceProjectIntegrationGateTests|ParityWorkspaceRemoteProjectIntegrationGateTests|ParityWorkspacePullRequestIntegrationGateTests|ParityWorkspaceWorktreeIntegrationGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves ownership and diagnostics but does not add a new
+  runtime project scenario.
+- The next B+ parity hotspots are model/thread, HTML renderer delegation, top bar, slash, and execution gates.
+
 ## 2026-07-01 Browser Gate Split
 
 Overall grade after this slice: **A+ browser parity gate files, explicit browser architecture ownership**.
