@@ -4,15 +4,24 @@ final class ParitySlashRepositoryParserGateTests: QuillCodeParityTestCase {
     func testSlashParserDelegatesPullRequestSubcommands() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
         let parserText = try Self.appSourceText(named: "SlashPullRequestCommandParser.swift")
+        let parserSupportText = try Self.appSourceText(named: "SlashPullRequestCommandParserSupport.swift")
+        let parserPeopleText = try Self.appSourceText(named: "SlashPullRequestCommandParserPeople.swift")
+        let parserReviewText = try Self.appSourceText(named: "SlashPullRequestCommandParserReview.swift")
+        let parserThreadText = try Self.appSourceText(named: "SlashPullRequestCommandParserThreads.swift")
         let parserTests = try Self.appTestSourceText(named: "SlashPullRequestCommandParserTests.swift")
 
         Self.assertSource(slashText, contains: "SlashPullRequestCommandParser.parse(argument)")
         [
             "enum SlashPullRequestCommandParser",
-            "selectorAndBody",
             "parseReviewers",
-            "parseLabels"
+            "parseLabels",
+            "parseReviewThread"
         ].forEach { Self.assertSource(parserText, contains: $0) }
+        Self.assertSource(parserSupportText, contains: "selectorAndBody")
+        Self.assertSource(parserPeopleText, contains: "parseReviewers")
+        Self.assertSource(parserPeopleText, contains: "parseLabels")
+        Self.assertSource(parserReviewText, contains: "parseReviewComment")
+        Self.assertSource(parserThreadText, contains: "parseReviewThreadID")
         Self.assertSource(
             parserTests,
             contains: "testReviewerLabelAndMergeCommandsBuildStructuredArguments"

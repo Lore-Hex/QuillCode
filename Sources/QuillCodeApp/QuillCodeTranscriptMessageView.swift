@@ -78,110 +78,15 @@ struct QuillCodeMessageBubble: View {
 
     private var background: some ShapeStyle {
         message.role == .user
-            ? AnyShapeStyle(LinearGradient(colors: [QuillCodePalette.blue, QuillCodePalette.coral], startPoint: .leading, endPoint: .trailing))
+            ? AnyShapeStyle(userBubbleGradient)
             : AnyShapeStyle(QuillCodePalette.panel)
     }
-}
 
-private struct QuillCodeMessageDraftButton: View {
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label("Use as draft", systemImage: "square.and.pencil")
-                .labelStyle(.iconOnly)
-                .font(.caption2.weight(.semibold))
-                .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
-                // Dark chip + bright glyph stays legible on the bright user-bubble gradient (matches
-                // the harness contrast fix), vs the old faint white-on-white.
-                .foregroundStyle(Color.white.opacity(0.85))
-                .background(Color.black.opacity(0.30))
-                .clipShape(Capsule())
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help("Use as draft")
-    }
-}
-
-private struct QuillCodeMessageRevertButton: View {
-    var hasNonApplyPatchEdits: Bool
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(TurnRevertCopy.buttonTitle, systemImage: "arrow.uturn.backward")
-                .labelStyle(.iconOnly)
-                .font(.caption2.weight(.semibold))
-                .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(QuillCodePalette.red)
-                .background(QuillCodePalette.red.opacity(0.14))
-                .clipShape(Capsule())
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help(TurnRevertCopy.buttonTitle + ". " + TurnRevertCopy.scope(hasNonApplyPatchEdits: hasNonApplyPatchEdits))
-        .accessibilityLabel(TurnRevertCopy.buttonTitle)
-        .accessibilityHint(TurnRevertCopy.scope(hasNonApplyPatchEdits: hasNonApplyPatchEdits))
-    }
-}
-
-private struct QuillCodeMessageRetryButton: View {
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label("Retry", systemImage: "arrow.clockwise")
-                .labelStyle(.iconOnly)
-                .font(.caption2.weight(.semibold))
-                .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(QuillCodePalette.blue)
-                .background(QuillCodePalette.blue.opacity(0.14))
-                .clipShape(Capsule())
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help("Retry last turn")
-    }
-}
-
-private struct QuillCodeMessageFeedbackButton: View {
-    var label: String
-    var systemImage: String
-    var isSelected: Bool
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(label, systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                .font(.caption2.weight(.semibold))
-                .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(isSelected ? QuillCodePalette.green : Color.white.opacity(0.85))
-                .background(isSelected ? QuillCodePalette.green.opacity(0.16) : Color.black.opacity(0.30))
-                .clipShape(Capsule())
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help(label)
-    }
-}
-
-struct QuillCodeTranscriptCopyButton: View {
-    var label: String
-    var copiedLabel: String
-    var isCopied: Bool
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(isCopied ? copiedLabel : label, systemImage: isCopied ? "checkmark" : "doc.on.doc")
-                .font(.caption2.weight(.semibold))
-                .lineLimit(1)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .quillCodeTextButtonTarget(minWidth: 64, radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(isCopied ? QuillCodePalette.green : Color.white.opacity(0.85))
-                .background(isCopied ? QuillCodePalette.green.opacity(0.16) : Color.black.opacity(0.30))
-                .clipShape(Capsule())
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help(isCopied ? copiedLabel : label)
+    private var userBubbleGradient: LinearGradient {
+        LinearGradient(
+            colors: [QuillCodePalette.blue, QuillCodePalette.coral],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
     }
 }

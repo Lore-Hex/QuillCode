@@ -3,9 +3,10 @@ import XCTest
 final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
     func testVisibleBrowserSessionSyncStaysBehindSnapshotContract() throws {
         let snapshotText = try Self.appSourceText(named: "BrowserSessionSyncSnapshot.swift")
+        let updateText = try Self.appSourceText(named: "BrowserSessionUpdate.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
         let workflowText = try Self.appSourceText(named: "WorkspaceBrowserWorkflow.swift")
-        let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowser.swift")
+        let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowserSession.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
         let coordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
@@ -16,14 +17,21 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         for expected in [
             "public struct BrowserSessionSyncSnapshot",
             "public struct BrowserSessionTabSnapshot",
-            "public struct BrowserSessionUpdate",
-            "public struct BrowserSessionTabUpdate",
             "public init(browser: BrowserState)"
         ] {
             Self.assertSource(snapshotText, contains: expected)
         }
+        for expected in [
+            "public struct BrowserSessionUpdate",
+            "public struct BrowserSessionTabUpdate",
+            "tabs.first { $0.isActive }?.id"
+        ] {
+            Self.assertSource(updateText, contains: expected)
+        }
         Self.assertSource(snapshotText, excludes: "WebKit")
         Self.assertSource(snapshotText, excludes: "AppKit")
+        Self.assertSource(updateText, excludes: "WebKit")
+        Self.assertSource(updateText, excludes: "AppKit")
         Self.assertSource(engineText, contains: "static func applySessionUpdate")
         Self.assertSource(workflowText, contains: "WorkspaceBrowserEngine.applySessionUpdate")
         Self.assertSource(browserModelText, contains: "public func applyBrowserSessionUpdate")

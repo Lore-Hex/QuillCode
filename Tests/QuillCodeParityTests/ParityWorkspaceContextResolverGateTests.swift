@@ -6,6 +6,7 @@ final class ParityWorkspaceContextResolverGateTests: QuillCodeParityTestCase {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let resolverText = try Self.appSourceText(named: "WorkspaceContextResolver.swift")
         let refresherText = try Self.appSourceText(named: "WorkspaceProjectContextRefresher.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceThreadContextBuilder.swift")
         let matcherText = try Self.appSourceText(named: "LocalEnvironmentActionMatcher.swift")
 
         Self.assertSource(resolverText, containsAll: [
@@ -21,7 +22,8 @@ final class ParityWorkspaceContextResolverGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(matcherText, contains: "enum LocalEnvironmentActionMatcher")
         Self.assertSource(surfaceText, contains: "WorkspaceContextResolver(")
-        Self.assertSource(refresherText, contains: "WorkspaceContextResolver(")
+        Self.assertSource(builderText, contains: "WorkspaceContextResolver(")
+        Self.assertSource(refresherText, contains: "WorkspaceThreadContextBuilder")
         Self.assertSource(modelText, excludesAll: [
             "WorkspaceContextResolver(",
             "private func instructions(for projectID",
