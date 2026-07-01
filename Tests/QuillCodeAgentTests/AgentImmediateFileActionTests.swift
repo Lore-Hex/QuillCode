@@ -79,10 +79,10 @@ final class AgentImmediateFileActionTests: XCTestCase {
         )
 
         XCTAssertEqual(try queuedFileRead(in: readResult), "hello.txt")
-        XCTAssertEqual(readResult.thread.messages.last?.content, "Contents of `hello.txt`:\nhello world")
+        XCTAssertEqual(readResult.thread.messages.last?.content, "Contents of `hello.txt`:\n1\thello world")
         XCTAssertEqual(
             readResult.thread.messages.filter { $0.role == .assistant }.map(\.content),
-            ["Wrote `hello.txt`.", "Contents of `hello.txt`:\nhello world"]
+            ["Wrote `hello.txt`.", "Contents of `hello.txt`:\n1\thello world"]
         )
     }
 
@@ -119,7 +119,7 @@ final class AgentImmediateFileActionTests: XCTestCase {
 
         try assertSingleSuccessfulToolResult(in: result)
         XCTAssertEqual(try queuedFileRead(in: result), "hello.txt")
-        XCTAssertEqual(result.thread.messages.last?.content, "Contents of `hello.txt`:\nhello world")
+        XCTAssertEqual(result.thread.messages.last?.content, "Contents of `hello.txt`:\n1\thello world")
         XCTAssertNoAssistantMessageContains("I'll read", in: result)
         XCTAssertNoAssistantMessageContains("No shell command was specified", in: result)
     }
@@ -137,7 +137,7 @@ final class AgentImmediateFileActionTests: XCTestCase {
 
         try assertSingleSuccessfulToolResult(in: result)
         XCTAssertEqual(try queuedFileRead(in: result), "README.md")
-        XCTAssertEqual(result.thread.messages.last?.content, "Contents of `README.md`:\n# QuillCode")
+        XCTAssertEqual(result.thread.messages.last?.content, "Contents of `README.md`:\n1\t# QuillCode")
         XCTAssertNoAssistantMessageContains("I'll read", in: result)
         XCTAssertNoAssistantMessageContains("I will read", in: result)
         XCTAssertNoAssistantMessageContains("No shell command was specified", in: result)
