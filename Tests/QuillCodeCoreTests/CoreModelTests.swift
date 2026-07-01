@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import QuillCodeCore
 
@@ -173,6 +174,25 @@ final class CoreModelTests: XCTestCase {
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""groupPath""#))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("blocked"))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("cancelled"))
+    }
+
+    func testCoreToolDefinitionSchemasAreValidJSONObjects() throws {
+        let definitions: [ToolDefinition] = [
+            .planUpdate,
+            .handoffUpdate,
+            .subagentsUpdate,
+            .browserInspect,
+            .browserOpen,
+            .memoryRemember
+        ]
+
+        for definition in definitions {
+            let data = try XCTUnwrap(definition.parametersJSON.data(using: .utf8))
+            XCTAssertTrue(
+                try JSONSerialization.jsonObject(with: data) is [String: Any],
+                "\(definition.name) parametersJSON should be a JSON object schema."
+            )
+        }
     }
 
     func testToolArgumentsRejectMissingCommand() throws {
