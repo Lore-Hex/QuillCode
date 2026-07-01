@@ -11,6 +11,8 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
         let plannerText = try Self.appSourceText(named: "WorkspaceMemoryCommandTranscriptPlanner.swift")
         let errorText = try Self.appSourceText(named: "WorkspaceMemoryErrorMessageBuilder.swift")
         let contextUpdateText = try Self.appSourceText(named: "WorkspaceMemoryContextUpdatePlanner.swift")
+        let refreshText = try Self.appSourceText(named: "WorkspaceMemoryRefresh.swift")
+        let outcomeText = try Self.appSourceText(named: "WorkspaceMemoryMutationOutcome.swift")
 
         Self.assertSource(engineText, containsAll: [
             "enum WorkspaceMemoryEngine",
@@ -19,6 +21,8 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
             "WorkspaceRemoteProjectMemoryDeleter.delete"
         ])
         Self.assertSource(mutationFactoryText, contains: "enum WorkspaceMemoryMutationFactory")
+        Self.assertSource(refreshText, contains: "struct WorkspaceMemoryRefresh")
+        Self.assertSource(outcomeText, contains: "struct WorkspaceMemoryMutationOutcome")
         Self.assertSource(contentPolicyText, contains: "enum MemoryNoteContentPolicy")
         Self.assertSource(pathResolverText, contains: "enum MemoryNotePathResolver")
         Self.assertSource(loaderText, containsAll: [
@@ -38,7 +42,7 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
         Self.assertSource(plannerText, contains: "struct WorkspaceMemoryCommandTranscriptPlanner")
         Self.assertSource(errorText, contains: "enum WorkspaceMemoryErrorMessageBuilder")
         Self.assertSource(contextUpdateText, contains: "struct WorkspaceMemoryContextUpdatePlanner")
-        Self.assertSource(mutationFactoryText, containsAll: [
+        Self.assertSource(outcomeText, containsAll: [
             "WorkspaceMemoryCommandTranscriptPlanner.memorySaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary",
@@ -47,7 +51,11 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
             "WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
-            "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
+            "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary"
+        ])
+        Self.assertSource(mutationFactoryText, containsAll: [
+            "WorkspaceMemoryMutationOutcome.saved",
+            "WorkspaceMemoryMutationOutcome.updateFailed",
             "WorkspaceMemoryErrorMessageBuilder.userFacingMessage"
         ])
         Self.assertSource(engineText, contains: "WorkspaceMemoryContextUpdatePlanner.memoryChanged")

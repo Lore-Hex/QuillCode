@@ -13022,3 +13022,43 @@ Validation:
 
 - `swift test --filter 'ParitySidebarCommandPresentationGateTests|ParityWorkspaceSidebarSurfaceGateTests|QuillCodeThreadSidebarSurfaceTests|WorkspaceSidebarIntegrationTests'`
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Memory Mutation Factory Ownership Pass
+
+Overall grade after this slice: **A+ memory mutation assembly with separate
+refresh and outcome ownership**.
+
+This pass targets the workspace memory mutation path, where the factory still
+mixed memory refresh loading, transcript planning, notice projection, and
+mutation assembly in one file.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | The app module remains A+; all memory mutation files touched in this slice now grade A+. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceMemoryMutationFactory.swift` | A- | A+ | Now owns only public factory entry points and final `WorkspaceMemoryMutation` assembly. |
+| `Sources/QuillCodeApp/WorkspaceMemoryRefresh.swift` | n/a | A+ | Owns memory refresh loading and refresh payload shape. |
+| `Sources/QuillCodeApp/WorkspaceMemoryMutationOutcome.swift` | n/a | A+ | Owns transcript, notice summary, and relative-path projection for mutation outcomes. |
+
+Code quality changes:
+
+- Split refresh loading out of `WorkspaceMemoryMutationFactory` into
+  `WorkspaceMemoryRefresh`.
+- Split success/failure transcript and notice projection into
+  `WorkspaceMemoryMutationOutcome`.
+- Kept the factory as a small façade over outcome creation, error-message
+  normalization, and final mutation assembly.
+- Updated the workspace memory parity gate so future changes preserve the
+  factory/refresh/outcome boundaries.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'WorkspaceMemoryEngineTests|WorkspaceMemoryWorkflowTests|WorkspaceMemoryIntegrationTests|ParityWorkspaceMemorySupportGateTests|ParityWorkspaceMemoryIntegrationGateTests|ParityWorkspaceMemoryModelGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
