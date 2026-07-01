@@ -11997,3 +11997,52 @@ Code quality changes:
 Remaining risk:
 
 - The lowest remaining maintainability debt is still broad contract coverage: `interaction-audit-helpers.ts`, `native-click-probe-contracts.py`, `live-tr-smoke.sh`, and several long parity gate files. Those should be split by surface or generated from shared contracts before claiming literal A+ across every file.
+
+## 2026-07-01 Sidebar Parity Gate Split
+
+Overall grade after this slice: **A+ sidebar parity architecture, A+ focused-suite
+bookkeeping, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `ParityWorkspaceSidebarGateTests.swift` as the
+highest-scored remaining B+ hotspot after the browser split. It was not failing
+behaviorally, but it mixed reducer ownership, row-action planning, command
+presentation, native/HTML sidebar rendering, surface contracts, navigation
+assembly, and Playwright placement into one broad gate. This pass split those
+responsibilities into smaller files and fixed a manifest omission for the saved
+filter wrapping gate.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Sidebar selection and bulk-action gates | A+ | Reducer/planner/executor ownership stays in the primary sidebar gate with concise source assertions. |
+| Sidebar row-action gates | A+ | Row action planning and desktop mutation execution are isolated from selection state. |
+| Sidebar command presentation gates | A+ | Shared native/HTML command metadata, icon mapping, saved-filter wrapping, and project-list rendering are grouped together. |
+| Sidebar surface gates | A+ | Project/sidebar contracts, list builders, navigation-surface assembly, and focused app-test ownership have one reviewable owner. |
+| Sidebar Playwright gates | A+ | Sidebar/project E2E placement is isolated from source-architecture assertions. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityWorkspaceSidebarGateTests.swift` | A+ | Reduced to selection, stale-selection pruning, and bulk planner/executor ownership. |
+| `Tests/QuillCodeParityTests/ParityWorkspaceSidebarRowActionGateTests.swift` | A+ | Row mutation planning and desktop boundary checks are focused. |
+| `Tests/QuillCodeParityTests/ParitySidebarCommandPresentationGateTests.swift` | A+ | Command presentation and sidebar rendering assertions are factored into small helpers. |
+| `Tests/QuillCodeParityTests/ParityWorkspaceSidebarSurfaceGateTests.swift` | A+ | Surface contract checks are split by project, thread sidebar, list builder, and focused test ownership. |
+| `Tests/QuillCodeParityTests/ParityWorkspaceSidebarPlaywrightGateTests.swift` | A+ | E2E ownership assertions are compact and explicit. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest now tracks every focused sidebar gate, including saved-filter wrapping. |
+
+Code quality changes:
+
+- Split the broad sidebar parity gate into five focused suites by ownership.
+- Reused shared source assertion helpers instead of long repeated custom
+  assertion messages.
+- Added the missing saved-filter wrapping gate to the focused-suite manifest.
+- Regenerated the deterministic file/module grade matrix; every new sidebar
+  split file grades A+ 100 with no automated issues.
+
+Remaining risk:
+
+- The next broad B+ hotspots are still workspace project/model, HTML renderer,
+  top-bar, slash-command, and execution parity gates. They should receive the
+  same ownership split before claiming literal A+ across all parity coverage.
