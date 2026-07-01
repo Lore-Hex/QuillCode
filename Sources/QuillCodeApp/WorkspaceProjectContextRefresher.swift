@@ -2,11 +2,6 @@ import Foundation
 import QuillCodeCore
 import QuillCodeTools
 
-struct WorkspaceThreadContextSnapshot: Equatable, Sendable {
-    var instructions: [ProjectInstruction]
-    var memories: [MemoryNote]
-}
-
 enum WorkspaceProjectContextRefresher {
     static func refreshLocalProjectMetadata(
         projectID: UUID?,
@@ -43,7 +38,12 @@ enum WorkspaceProjectContextRefresher {
             connection: projects[index].connection,
             executor: executor
         )
-        WorkspaceProjectEngine.applyMetadata(metadata, to: projectID, projects: &projects, includeLocalExtensions: false)
+        WorkspaceProjectEngine.applyMetadata(
+            metadata,
+            to: projectID,
+            projects: &projects,
+            includeLocalExtensions: false
+        )
         return true
     }
 
@@ -52,14 +52,10 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadContextSnapshot {
-        let resolver = WorkspaceContextResolver(
+        WorkspaceThreadContextBuilder.snapshot(
+            projectID: projectID,
             projects: projects,
-            globalMemories: globalMemories,
-            selectedProject: nil
-        )
-        return WorkspaceThreadContextSnapshot(
-            instructions: resolver.instructions(for: projectID),
-            memories: resolver.memoryNotes(for: projectID)
+            globalMemories: globalMemories
         )
     }
 
@@ -70,13 +66,12 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadCreationContext {
-        let snapshot = threadContext(projectID: projectID, projects: projects, globalMemories: globalMemories)
-        return WorkspaceThreadCreationContext(
+        WorkspaceThreadContextBuilder.threadCreationContext(
             projectID: projectID,
             mode: mode,
             model: model,
-            instructions: snapshot.instructions,
-            memories: snapshot.memories
+            projects: projects,
+            globalMemories: globalMemories
         )
     }
 
@@ -88,7 +83,7 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
-        worktreeOpenContext(
+        WorkspaceThreadContextBuilder.worktreeOpenContext(
             path: request.path,
             branch: request.branch,
             projectID: projectID,
@@ -107,7 +102,7 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
-        worktreeOpenContext(
+        WorkspaceThreadContextBuilder.worktreeOpenContext(
             path: request.path,
             branch: "",
             projectID: projectID,
@@ -118,38 +113,13 @@ enum WorkspaceProjectContextRefresher {
         )
     }
 
-    private static func worktreeOpenContext(
-        path: String,
-        branch: String,
-        projectID: UUID,
-        mode: AgentMode,
-        model: String,
-        projects: [ProjectRef],
-        globalMemories: [MemoryNote]
-    ) -> WorkspaceWorktreeOpenContext {
-        let snapshot = threadContext(projectID: projectID, projects: projects, globalMemories: globalMemories)
-        return WorkspaceWorktreeOpenContext(
-            path: path,
-            branch: branch,
-            projectID: projectID,
-            mode: mode,
-            model: model,
-            instructions: snapshot.instructions,
-            memories: snapshot.memories
-        )
-    }
-
     static func syncThreadContext(
         _ thread: inout ChatThread,
         fallbackProjectID: UUID?,
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) {
-        let snapshot = threadContext(
-            projectID: thread.projectID ?? fallbackProjectID,
-            projects: projects,
-            globalMemories: globalMemories
-        )
+        let snapshot = snapshot(for: thread, fallbackProjectID: fallbackProjectID, projects: projects, globalMemories: globalMemories)
         thread.instructions = snapshot.instructions
         thread.memories = snapshot.memories
     }
@@ -160,15 +130,24 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) {
-        let snapshot = threadContext(
-            projectID: thread.projectID ?? fallbackProjectID,
-            projects: projects,
-            globalMemories: globalMemories
-        )
+        let snapshot = snapshot(for: thread, fallbackProjectID: fallbackProjectID, projects: projects, globalMemories: globalMemories)
         thread.memories = snapshot.memories
     }
 
     static func globalMemories(directory: URL?) -> [MemoryNote] {
         WorkspaceMemoryEngine.loadGlobal(from: directory)
+    }
+
+    private static func snapshot(
+        for thread: ChatThread,
+        fallbackProjectID: UUID?,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote]
+    ) -> WorkspaceThreadContextSnapshot {
+        threadContext(
+            projectID: thread.projectID ?? fallbackProjectID,
+            projects: projects,
+            globalMemories: globalMemories
+        )
     }
 }

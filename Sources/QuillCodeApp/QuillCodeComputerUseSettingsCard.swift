@@ -61,12 +61,12 @@ struct QuillCodeComputerUseSettingsCard: View {
 
     private var nextActionRow: some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: settings.computerUseStatus.available ? "checkmark.circle.fill" : "arrow.forward.circle.fill")
-                .foregroundStyle(settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.blue)
+            Image(systemName: nextActionIconName)
+                .foregroundStyle(nextActionTint)
                 .frame(width: 18)
             Text(settings.computerUseNextAction)
                 .font(.caption)
-                .foregroundStyle(settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.muted)
+                .foregroundStyle(nextActionTextColor)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
         }
@@ -80,17 +80,33 @@ struct QuillCodeComputerUseSettingsCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
+    private var nextActionIconName: String {
+        settings.computerUseStatus.available ? "checkmark.circle.fill" : "arrow.forward.circle.fill"
+    }
+
+    private var nextActionTint: Color {
+        settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.blue
+    }
+
+    private var nextActionTextColor: Color {
+        settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.muted
+    }
+
     private var restartHint: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "info.circle")
                 .foregroundStyle(QuillCodePalette.blue)
                 .frame(width: 18)
-            Text("After changing permissions or desktop helper tools, quit and reopen QuillCode if the status does not update.")
+            Text(Self.restartHintText)
                 .font(.caption2)
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
+
+    private static let restartHintText = """
+    After changing permissions or desktop helper tools, quit and reopen QuillCode if the status does not update.
+    """
 
     private var refreshAction: some View {
         HStack {
@@ -114,7 +130,7 @@ private struct QuillCodePermissionRow: View {
             ZStack {
                 Circle()
                     .fill(iconTint.opacity(0.14))
-                Image(systemName: requirement.isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                Image(systemName: iconName)
                     .foregroundStyle(iconTint)
             }
             .quillCodeDecorativeIconFrame()
@@ -153,5 +169,9 @@ private struct QuillCodePermissionRow: View {
 
     private var iconTint: Color {
         requirement.isGranted ? QuillCodePalette.green : QuillCodePalette.yellow
+    }
+
+    private var iconName: String {
+        requirement.isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
     }
 }

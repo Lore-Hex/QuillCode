@@ -4,6 +4,7 @@ final class ParityBrowserWorkflowGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesBrowserStateTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowser.swift")
+        let browserSnapshotText = try Self.appSourceText(named: "WorkspaceModelBrowserSnapshots.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
         let workflowText = try Self.appSourceText(named: "WorkspaceBrowserWorkflow.swift")
         let workflowTests = try Self.appTestSourceText(named: "WorkspaceBrowserWorkflowTests.swift")
@@ -32,11 +33,15 @@ final class ParityBrowserWorkflowGateTests: QuillCodeParityTestCase {
         for expected in [
             "mutateBrowserState",
             "WorkspaceBrowserWorkflow.openPreview",
+        ] {
+            Self.assertSource(browserModelText, contains: expected)
+        }
+        for expected in [
             "WorkspaceBrowserWorkflow.beginSnapshotFetch",
             "WorkspaceBrowserWorkflow.applySnapshotFetchSuccess",
             "WorkspaceBrowserWorkflow.applySnapshotFetchFailure"
         ] {
-            Self.assertSource(browserModelText, contains: expected)
+            Self.assertSource(browserSnapshotText, contains: expected)
         }
         for forbidden in [
             "public func openBrowserPreview(",

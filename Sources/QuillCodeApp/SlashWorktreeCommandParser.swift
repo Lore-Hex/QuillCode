@@ -28,7 +28,7 @@ enum SlashWorktreeCommandParser {
         case "prune", "cleanup":
             return parsePrune(Array(tokens.dropFirst()))
         default:
-            return .invalid("Unknown worktree action '\(action)'. Try /worktree create, /worktree open, /worktree remove, /worktree prune, or /worktree list.")
+            return .invalid("Unknown worktree action '\(action)'. \(usageSummary)")
         }
     }
 
@@ -203,4 +203,12 @@ enum SlashWorktreeCommandParser {
         tokens.append(current)
         current = ""
     }
+
+    private static let usageSummary = [
+        "Try /worktree create,",
+        "/worktree open,",
+        "/worktree remove,",
+        "/worktree prune,",
+        "or /worktree list."
+    ].joined(separator: " ")
 }
