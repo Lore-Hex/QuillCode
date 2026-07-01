@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Surface Gate Split
+
+Overall grade after this slice: **A+ workspace surface parity gate files, clearer native/surface ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceSurfaceGateTests.swift`, a 190-line B+ gate that mixed
+secondary-pane surface DTOs, native secondary-pane placement, composer controls, terminal/browser pane files, terminal
+surface DTOs, and terminal state contracts. The split preserves the same boundaries while making each gate map to one
+UI/surface family:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Secondary panes | Shared the broad workspace surface gate. | `ParityWorkspaceSecondaryPaneSurfaceGateTests.swift` owns secondary-pane DTOs and native secondary-pane view placement. |
+| Composer controls | Mixed with pane and terminal checks. | `ParityWorkspaceComposerSurfaceGateTests.swift` owns model/mode composer separation for native and HTML surfaces. |
+| Terminal and browser panes | Mixed with secondary-pane and composer checks. | `ParityWorkspaceTerminalBrowserSurfaceGateTests.swift` owns terminal/browser focused views, terminal DTOs, and terminal state boundaries. |
+| Grade | The original file was **B+** at 190 lines. | Every split workspace surface gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceSecondaryPaneSurfaceGateTests|ParityWorkspaceComposerSurfaceGateTests|ParityWorkspaceTerminalBrowserSurfaceGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new rendered UI scenarios.
+- The highest remaining B+ parity hotspots start with workspace integration, agent, workspace model, memory, and automation gates.
+
 ## 2026-07-01 Top-Bar Model Picker Gate Refinement
 
 Overall grade after this slice: **A+ top-bar/model-picker parity gate files, stricter focused-suite ownership**.
