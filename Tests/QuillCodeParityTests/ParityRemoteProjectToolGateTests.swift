@@ -6,6 +6,9 @@ final class ParityRemoteProjectToolGateTests: QuillCodeParityTestCase {
         let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let executorText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolExecutor.swift")
+        let toolCatalogText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolCatalog.swift")
+        let executionContextText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolExecutionContext.swift")
+        let fileExecutorText = try Self.appSourceText(named: "WorkspaceRemoteProjectFileToolExecutor.swift")
         let gitPlannerText = try Self.appSourceText(named: "WorkspaceRemoteGitToolRequestPlanner.swift")
         let basicBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitBasicCommandBuilder.swift")
         let hunkBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitHunkCommandBuilder.swift")
@@ -25,6 +28,21 @@ final class ParityRemoteProjectToolGateTests: QuillCodeParityTestCase {
         Self.assertSource(executorText, contains: "static let gitToolNames")
         Self.assertSource(executorText, contains: "static func executionOverride")
         Self.assertSource(executorText, contains: "static func execute")
+        Self.assertSource(toolCatalogText, containsAll: [
+            "enum WorkspaceRemoteProjectToolCatalog",
+            "static let toolDefinitions",
+            "static let gitToolNames"
+        ])
+        Self.assertSource(executionContextText, containsAll: [
+            "struct WorkspaceRemoteProjectToolExecutionContext",
+            "func run(",
+            "SSH Remote project is missing a usable host."
+        ])
+        Self.assertSource(fileExecutorText, containsAll: [
+            "enum WorkspaceRemoteProjectFileToolExecutor",
+            "WorkspaceRemoteProjectPath.relativePath",
+            "WorkspaceRemoteProjectPath.artifactPath"
+        ])
         Self.assertSource(gitPlannerText, contains: "struct WorkspaceRemoteGitToolRequest")
         Self.assertSource(gitPlannerText, contains: "enum WorkspaceRemoteGitToolRequestPlanner")
         Self.assertSource(basicBuilderText, contains: "enum WorkspaceRemoteGitBasicCommandBuilder")
@@ -60,7 +78,7 @@ final class ParityRemoteProjectToolGateTests: QuillCodeParityTestCase {
         Self.assertSource(gitPlannerText, contains: "WorkspaceRemoteGitPushCommandBuilder.command")
         Self.assertSource(gitPlannerText, contains: "WorkspaceRemoteGitHubPullRequestCommandBuilder.command")
         Self.assertSource(gitPlannerText, contains: "WorkspaceRemoteGitWorktreeCommandBuilder.plan")
-        Self.assertSource(executorText, contains: "WorkspaceRemoteProjectPath.relativePath")
+        Self.assertSource(fileExecutorText, contains: "WorkspaceRemoteProjectPath.relativePath")
         Self.assertSource(builderText, contains: "WorkspaceRemoteProjectToolExecutor.toolDefinitions")
         Self.assertSource(builderText, contains: "WorkspaceRemoteProjectToolExecutor.executionOverride")
         Self.assertSource(toolRunsText, contains: "WorkspaceToolRunCoordinator")
