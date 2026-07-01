@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-07-01 Browser Gate Split
+
+Overall grade after this slice: **A+ browser parity gate files, explicit browser architecture ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityBrowserGateTests.swift`, which mixed browser state/surface
+ownership, static HTML snapshots, live DOM adapters, visible-session sync, workflow/location routing, integration-test
+ownership, agent browser tools, HTML rendering, broad-suite exclusion, and Playwright browser flow placement in one
+268-line gate. The split keeps the same contracts while grouping them by browser boundary:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Browser state/surface ownership | Shared the broad browser gate. | `ParityBrowserGateTests.swift` now owns only state/surface ownership and broad-suite exclusion. |
+| Snapshot extraction | Mixed static and live DOM checks with unrelated browser workflow checks. | `ParityBrowserSnapshotGateTests.swift` owns static HTML and live DOM snapshot adapter contracts. |
+| Visible browser session sync | Mixed with browser model and desktop presenter checks. | `ParityBrowserSessionSyncGateTests.swift` owns app-layer snapshot/update and desktop reverse-sync contracts. |
+| Browser workflow | Mixed with tools and renderer checks. | `ParityBrowserWorkflowGateTests.swift` owns model workflow, URL resolving, and browser integration-test ownership. |
+| Browser tools/rendering/E2E | Mixed with workflow checks. | `ParityBrowserToolRendererGateTests.swift` owns browser tool routing, HTML renderer delegation, and Playwright browser-flow placement. |
+| Grade | The original file was **B+** at 268 lines. | Every split browser-parity file now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityBrowser.*GateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It tightens architecture ownership but does not add new browser
+  runtime scenarios.
+- The next B+ parity hotspots are sidebar, project, model/thread, HTML renderer delegation, top bar, and slash gates.
+
 ## 2026-07-01 Settings Sheet Gate Split
 
 Overall grade after this slice: **A+ settings parity gate files, explicit settings/hit-target ownership**.
