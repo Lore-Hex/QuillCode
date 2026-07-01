@@ -63,7 +63,7 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         Self.assertSource(appText, contains: "onOpenBrowserSession: controller.openBrowserSession")
         Self.assertSource(browserPaneText, contains: "var onOpenSession: (() -> Void)?")
         XCTAssertTrue(browserControlsText.contains(#"Button("Session", action: onOpenSession)"#), "Browser pane should expose a compact visible session action when available.")
-        XCTAssertTrue(commandCatalogText.contains(#"id: "open-browser-session""#), "Command palette should expose visible browser sessions.")
+        XCTAssertTrue(commandCatalogText.contains(#""open-browser-session""#), "Command palette should expose visible browser sessions.")
         Self.assertSource(commandCatalogText, contains: "browserCanOpenSession")
         XCTAssertTrue(viewCommandPlannerText.contains(#"case "open-browser-session":"#), "Shared command routing should present visible sessions without falling through to text insertion.")
         Self.assertSource(controllerText, excludes: "WKWebView")

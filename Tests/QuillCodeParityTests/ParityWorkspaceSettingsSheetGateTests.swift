@@ -11,6 +11,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         let worktreeDraftsText = try Self.appSourceText(named: "QuillCodeWorktreeDrafts.swift")
         let worktreeChromeText = try Self.appSourceText(named: "QuillCodeWorktreeDialogChrome.swift")
         let worktreeCoordinatorText = try Self.appSourceText(named: "QuillCodeWorktreeDialogCoordinator.swift")
+        let worktreeTasksText = try Self.appSourceText(named: "QuillCodeWorktreeDialogTasks.swift")
         let dialogChromeText = try Self.appSourceText(named: "QuillCodeDialogChrome.swift")
 
         for expected in [
@@ -53,7 +54,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         Self.assertSource(worktreeCoordinatorText, contains: "final class QuillCodeWorktreeDialogCoordinator")
         Self.assertSource(worktreeCoordinatorText, contains: "func presentOpen(")
         Self.assertSource(worktreeCoordinatorText, contains: "guard self.sheet == sheet else { return }")
-        Self.assertSource(worktreeCoordinatorText, contains: "choiceLoadTask?.cancel()")
+        Self.assertSource(worktreeCoordinatorText, contains: "private let tasks = QuillCodeWorktreeDialogTasks()")
+        Self.assertSource(worktreeTasksText, contains: "final class QuillCodeWorktreeDialogTasks")
+        Self.assertSource(worktreeTasksText, contains: "private enum Slot")
+        Self.assertSource(worktreeTasksText, contains: "private var runningTasks: [Slot: Task<Void, Never>]")
         Self.assertSource(worktreeDialogsText, excludes: "struct QuillCodeWorktreeCreateDraft")
         Self.assertSource(worktreeDialogsText, excludes: "struct QuillCodeWorktreeChoiceSection")
         Self.assertSource(worktreeDialogsText, excludes: "struct QuillCodeWorktreeDialogFrame")

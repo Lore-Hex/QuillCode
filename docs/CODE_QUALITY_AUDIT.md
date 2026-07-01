@@ -25,6 +25,40 @@ Residual risk:
 - This is behavior-preserving architecture cleanup. Broader source and test modules still contain A/A- candidates, but
   the production native hit-target audit cluster is now A+ and easier to extend without regressions.
 
+## 2026-07-01 Source Architecture A+ Pass
+
+Overall grade after this slice: **all production source modules remain A+; the touched source files are A+ except
+the remote memory updater, which improved from A- to A after consolidating duplicated SSH refresh/command paths**.
+
+This pass graded every module and source file with `scripts/grade-code-quality.py`, then targeted the source files
+where the grade exposed real ownership or DRY issues instead of mechanically rewriting stable declarative builders:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Project context refresh | `WorkspaceProjectContextRefresher` repeated thread-sync and worktree-open context setup across entry points. | Added a typed sync scope and a shared worktree context builder so memory/instruction refresh behavior is owned in one path. |
+| Sidebar thread list | `QuillCodeSidebarThreadListView` owned section rendering and bulk controls directly. | Split bulk actions and section rendering into focused SwiftUI views; the list now composes display sections only. |
+| Memory mutation events | `WorkspaceMemoryMutationFactory` bundled refresh data, change/failure copy, and mutation assembly. | Split refresh, change-kind, and failure-kind models into focused files; mutation assembly is now a small factory. |
+| Worktree dialog tasks | The coordinator owned cancellable task handles and repeated open/remove choice-load handling. | Added a slot-based task helper plus a typed choice-sheet helper so async lifecycle and sheet routing are centralized. |
+| Pull request review slash parsing | Review comment/reply parsing repeated optional selector detection and index math. | Added one review-token slice parser shared by comment and reply commands, with the same structured tool-call output. |
+| Remote project memory mutation | Remote update/delete repeated metadata refresh error handling and SSH command execution wiring. | Added shared refresh and command helpers; update/delete now only choose target, action, and returned value. |
+
+Verification:
+
+- `swift test --filter WorkspaceProjectContextRefresherTests`
+- `swift test --filter 'QuillCodeThreadSidebarSurfaceTests|ParitySidebarCommandPresentationGateTests'`
+- `swift test --filter 'QuillCodeWorktreeDialogCoordinatorTests|WorkspaceMemoryCommandTranscriptPlannerTests|WorkspaceMemoryEngineTests|WorkspaceMemoryIntegrationTests|ParityWorkspaceMemorySupportGateTests'`
+- `swift test --filter 'SlashPullRequestCommandParserTests|WorkspaceMemoryEngineTests|WorkspaceMemoryIntegrationTests|ParityWorkspaceMemorySupportGateTests|ParitySlashRepositoryParserGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `swift test`
+- `git diff --check`
+
+Residual risk:
+
+- The grade script is a maintainability heuristic. Several simple SwiftUI/catalog source files still score A because
+  declarative builders naturally repeat shape and modifier lines; broad churn there would reduce readability more than
+  it would improve architecture.
+- Broader E2E Playwright cleanup remains a future quality pass; this slice focused on Swift source architecture.
+
 ## 2026-07-01 A+ Hotspot Pass
 
 Overall grade after this slice: **all source modules stay A+; the worst pre-existing PR-tool and core E2E mega-files
@@ -13021,4 +13055,82 @@ Code quality changes:
 Validation:
 
 - `swift test --filter 'ParitySidebarCommandPresentationGateTests|ParityWorkspaceSidebarSurfaceGateTests|QuillCodeThreadSidebarSurfaceTests|WorkspaceSidebarIntegrationTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Memory Mutation Factory Ownership Pass
+
+Overall grade after this slice: **A+ memory mutation assembly with separate
+refresh and outcome ownership**.
+
+This pass targets the workspace memory mutation path, where the factory still
+mixed memory refresh loading, transcript planning, notice projection, and
+mutation assembly in one file.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | The app module remains A+; all memory mutation files touched in this slice now grade A+. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceMemoryMutationFactory.swift` | A- | A+ | Now owns only public factory entry points and final `WorkspaceMemoryMutation` assembly. |
+| `Sources/QuillCodeApp/WorkspaceMemoryRefresh.swift` | n/a | A+ | Owns memory refresh loading and refresh payload shape. |
+| `Sources/QuillCodeApp/WorkspaceMemoryMutationOutcome.swift` | n/a | A+ | Owns transcript, notice summary, and relative-path projection for mutation outcomes. |
+
+Code quality changes:
+
+- Split refresh loading out of `WorkspaceMemoryMutationFactory` into
+  `WorkspaceMemoryRefresh`.
+- Split success/failure transcript and notice projection into
+  `WorkspaceMemoryMutationOutcome`.
+- Kept the factory as a small façade over outcome creation, error-message
+  normalization, and final mutation assembly.
+- Updated the workspace memory parity gate so future changes preserve the
+  factory/refresh/outcome boundaries.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'WorkspaceMemoryEngineTests|WorkspaceMemoryWorkflowTests|WorkspaceMemoryIntegrationTests|ParityWorkspaceMemorySupportGateTests|ParityWorkspaceMemoryIntegrationGateTests|ParityWorkspaceMemoryModelGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Static Command Catalog Helper Pass
+
+Overall grade after this slice: **A+ static command catalog with explicit
+command-construction helpers**.
+
+This pass targets the command palette's static command catalog, which carried
+dozens of repeated `WorkspaceCommandSurface` initializers. The repetition made
+the file noisy and raised the risk that future commands would drift on shortcut
+or category wiring.
+
+Module grade:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | The app module remains A+; `WorkspaceCommandStaticCatalog.swift` is no longer one of the app module's lowest files. |
+
+Individual file grades:
+
+| File | Before | After | Notes |
+| --- | --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceCommandStaticCatalog.swift` | A | A+ | Replaces repeated initializer blocks with local command and shortcut helpers. |
+
+Code quality changes:
+
+- Added a local `Command` alias so the catalog reads in domain terms.
+- Added `command` and `shortcut` helpers that centralize shortcut lookup,
+  category defaults, keywords, and enabled-state wiring.
+- Added local category aliases in each section, keeping command definitions
+  focused on IDs, titles, search keywords, and availability.
+- Updated the browser adapter parity gate so it checks the visible-session
+  command ID rather than a specific initializer spelling.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'WorkspaceCommandSurfaceBuilderTests|QuillCodeWorkspaceViewCommandPlannerTests|ParityWorkspaceCommandSurfaceBuilderGateTests|ParityDesktopBrowserAdapterGateTests|WorkspaceRenderedCommandRoutingParityTests'`
 - `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
