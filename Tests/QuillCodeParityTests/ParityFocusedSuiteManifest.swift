@@ -211,16 +211,24 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows",
             "testPlaywrightMemoryFlowsStayInFocusedSpec"
         ]),
-        Suite(fileName: "ParityWorkspaceIntegrationGateTests.swift", testNames: [
+        Suite(fileName: "ParityWorkspaceMCPReviewIntegrationGateTests.swift", testNames: [
             "testWorkspaceMCPIntegrationTestsOwnModelMCPFlows",
-            "testWorkspaceReviewIntegrationTestsOwnModelReviewFlows",
+            "testWorkspaceReviewIntegrationTestsOwnModelReviewFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceFeedbackRuntimeIntegrationGateTests.swift", testNames: [
             "testFocusedFeedbackAndArtifactTestsOwnSurfaceSpecificFlows",
-            "testWorkspaceRuntimeIssueIntegrationTestsOwnModelRuntimeIssueFlows",
+            "testWorkspaceRuntimeIssueIntegrationTestsOwnModelRuntimeIssueFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadCommandIntegrationGateTests.swift", testNames: [
             "testWorkspaceThreadLifecycleIntegrationTestsOwnModelLifecycleFlows",
             "testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows",
-            "testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows",
+            "testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceAutomationTerminalIntegrationGateTests.swift", testNames: [
             "testWorkspaceAutomationIntegrationTestsOwnModelAutomationFlows",
-            "testWorkspaceTerminalIntegrationTestsOwnModelTerminalFlows",
+            "testWorkspaceTerminalIntegrationTestsOwnModelTerminalFlows"
+        ]),
+        Suite(fileName: "ParityWorkspaceRuntimeFactoryGateTests.swift", testNames: [
             "testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage"
         ]),
         Suite(fileName: "ParityWorkspaceSidebarGateTests.swift", testNames: [
