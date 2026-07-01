@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Command Gate Split
+
+Overall grade after this slice: **A+ workspace command parity gate files, clearer command ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceCommandGateTests.swift`, a 131-line B+ gate that mixed
+native view command routing, command surface catalog construction, command-palette contracts, and Playwright command
+flows. The split keeps the same command contracts while making each gate map to one responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| View command routing | Shared the broad command gate. | `ParityWorkspaceViewCommandGateTests.swift` owns native view command dispatch boundaries. |
+| Command surface catalogs | Shared the broad command gate. | `ParityWorkspaceCommandSurfaceGateTests.swift` owns command-surface catalog placement. |
+| Palette contracts | Shared the broad command gate. | `ParityWorkspaceCommandPaletteContractGateTests.swift` owns ranking, grouping, and compatibility boundaries. |
+| Playwright command flows | Shared the broad command gate. | `ParityWorkspacePlaywrightCommandPaletteGateTests.swift` owns command-palette E2E spec placement. |
+
+Verification:
+
+- `swift test --filter ParityWorkspaceViewCommandGateTests`
+- `swift test --filter ParityWorkspaceCommandSurfaceGateTests`
+- `swift test --filter ParityWorkspaceCommandPaletteContractGateTests`
+- `swift test --filter ParityWorkspacePlaywrightCommandPaletteGateTests`
+- `swift test --filter ParityGateTests`
+- `swift test`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
 ## 2026-07-01 Automation Gate Split
 
 Overall grade after this slice: **A+ automation parity gate files, stricter automation ownership**.
