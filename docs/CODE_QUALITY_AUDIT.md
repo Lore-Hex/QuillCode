@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Memory Gate Split
+
+Overall grade after this slice: **A+ workspace memory parity gate files, clearer memory ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceMemoryGateTests.swift`, a 146-line B+ gate that mixed
+memory storage policy, command orchestration, model extension boundaries, integration-suite ownership, and Playwright
+spec ownership. The split keeps the same memory contracts but separates them by responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Storage policy and copy | Shared the broad memory gate. | `ParityWorkspaceMemorySupportGateTests.swift` owns storage policy, path/content helpers, remote mutation helpers, and transcript/error/context planners. |
+| Model orchestration | Mixed with storage and E2E placement. | `ParityWorkspaceMemoryModelGateTests.swift` owns WorkspaceModelMemory delegation and model-file exclusion checks. |
+| Integration tests | Mixed with source-boundary checks. | `ParityWorkspaceMemoryIntegrationGateTests.swift` owns focused memory integration-suite placement. |
+| Playwright memory flows | Mixed with app source boundaries. | `ParityWorkspacePlaywrightMemoryGateTests.swift` owns memory E2E spec placement. |
+| Grade | The original file was **B+** at 146 lines. | Every split memory gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceMemorySupportGateTests|ParityWorkspaceMemoryModelGateTests|ParityWorkspaceMemoryIntegrationGateTests|ParityWorkspacePlaywrightMemoryGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new memory runtime scenarios.
+- The highest remaining B+ parity hotspots start with model state, automation, command, execution-slash, interaction-target, and TrustedRouter gates.
+
 ## 2026-07-01 Workspace Model Gate Split
 
 Overall grade after this slice: **A+ workspace model parity gate files, clearer model-surface boundaries**.

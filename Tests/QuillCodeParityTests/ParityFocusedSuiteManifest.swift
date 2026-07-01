@@ -212,9 +212,16 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows",
             "testWorkspaceModelDelegatesWorktreeOpenRecords"
         ]),
-        Suite(fileName: "ParityWorkspaceMemoryGateTests.swift", testNames: [
+        Suite(fileName: "ParityWorkspaceMemorySupportGateTests.swift", testNames: [
+            "testWorkspaceMemorySupportOwnsStoragePolicyAndCopyBoundaries"
+        ]),
+        Suite(fileName: "ParityWorkspaceMemoryModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesMemoryCommandOrchestration",
-            "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows",
+        ]),
+        Suite(fileName: "ParityWorkspaceMemoryIntegrationGateTests.swift", testNames: [
+            "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightMemoryGateTests.swift", testNames: [
             "testPlaywrightMemoryFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceMCPReviewIntegrationGateTests.swift", testNames: [
