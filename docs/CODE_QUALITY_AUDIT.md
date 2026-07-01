@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 App Pane And MCP Runtime Boundary Pass
+
+Overall grade after this slice: **A+ production source modules maintained, A+ pane shells, clearer MCP runtime seams**.
+
+This pass re-graded every file and module, then addressed the next app-source files that were still carrying multiple
+responsibilities: native Browser pane rendering, native Extensions/MCP pane rendering, and MCP runtime process/tool
+execution. The refactor is behavior-preserving and keeps production module averages at **A+**.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Browser native pane | `QuillCodeBrowserPaneView.swift` owned pane composition, tab controls, navigation controls, snapshot summaries, badges, detail chips, and comments in one file. | The root pane now owns only composition and comment state. `QuillCodeBrowserPaneControls.swift`, `QuillCodeBrowserPaneSnapshot.swift`, and `QuillCodeBrowserPaneSnapshotPrimitives.swift` own controls, snapshot flow, and reusable snapshot chrome. |
+| Extensions native pane | `QuillCodeExtensionsPaneView.swift` mixed header/counts, extension cards, install/start/stop actions, MCP probe counts, tool chips, resource/prompt actions, and command construction. | The root pane now owns header and empty state. `QuillCodeExtensionsPaneCards.swift`, `QuillCodeExtensionsPaneProbeMetadata.swift`, and `QuillCodeExtensionsPaneProbeChips.swift` split card actions from MCP metadata/chip rendering. |
+| MCP runtime | `WorkspaceMCPRuntime.swift` owned process lifecycle, dynamic tool execution, probe copy, and process-handle storage. | Process lifecycle stays in `WorkspaceMCPRuntime.swift`; dynamic execution, probe notice copy, and process handles now live in focused support files with parity gates protecting the boundary. |
+| Parity gates | Source-audit tests assumed MCP routing and extension metadata stayed in the broad owner files. | Gates now assert the focused files and reject drift back into pane shells or runtime lifecycle code. |
+| File grades | Browser and Extensions pane roots were **A-** due size and repeated SwiftUI structure. | `QuillCodeBrowserPaneView.swift` and `QuillCodeExtensionsPaneView.swift` are **A+**. Most new focused support files are **A+**; remaining **A** files reflect intentionally similar SwiftUI branches where further abstraction would reduce clarity. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceMCPServerLauncherTests|WorkspaceMCPToolCatalogTests|QuillCodeMCPSupportTests|ParityMCPGateTests|ParityWorkspaceSurfaceGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- The grader still reports lower grades for broad parity/test harnesses and a few focused production files with
+  intentionally similar UI branches. The next quality frontier is splitting `QuillCodeNativeHitTargetModels.swift`,
+  `ProjectExtensionManifestLoader.swift`, and `WorkspaceTerminalEngine.swift`, then reducing the largest parity gates.
+
 ## 2026-07-01 Slash Command Catalog Polish
 
 Overall grade after this slice: **A+ slash command catalog, A+ app-source module maintained**.
