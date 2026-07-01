@@ -22,4 +22,24 @@ enum LocalEnvironmentActionMatcher {
             .lowercased()
             .filter { $0.isLetter || $0.isNumber }
     }
+
+    /// The project action that IS the verification command for the green gate — identified purely by a
+    /// naming CONVENTION on the actions the user already authored (no metadata-schema change). Precedence:
+    /// an exact id match on "verify" / "test" / "check" (in that order), then a title match in the same
+    /// order; first-wins on a tie (preserving the user's authored order). nil when nothing matches, in
+    /// which case the gate is a no-op.
+    static func verificationAction(in actions: [LocalEnvironmentAction]) -> LocalEnvironmentAction? {
+        let conventionNames = ["verify", "test", "check"]
+        for name in conventionNames {
+            if let action = actions.first(where: { normalizedActionName($0.id) == name }) {
+                return action
+            }
+        }
+        for name in conventionNames {
+            if let action = actions.first(where: { normalizedActionName($0.title) == name }) {
+                return action
+            }
+        }
+        return nil
+    }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 /// A "come back and look" notification for an agent run that finished while the user was away.
 ///
@@ -13,6 +14,13 @@ public struct AgentRunNotification: Sendable, Hashable, Identifiable {
         case needsApproval
         /// The run hit an error and stopped.
         case failed
+        /// An edit-bearing run whose verification command passed — a CHECKED green, not just a claim.
+        case verifiedGreen
+        /// An edit-bearing run whose verification command failed (or timed out).
+        case checksFailing
+        /// An edit-bearing run that was not verified (edits made, but no verification check ran) —
+        /// an honest absence of a green claim.
+        case unverified
         /// The run produced a final answer with nothing pending.
         case finished
     }
@@ -47,7 +55,10 @@ public enum AgentRunNotificationPlanner {
         didFail: Bool,
         pendingApprovalSummary: String?,
         finalAnswer: String?,
-        pendingApprovalRequestID: String? = nil
+        pendingApprovalRequestID: String? = nil,
+        didEditFiles: Bool = false,
+        hasVerificationAction: Bool = false,
+        verification: VerificationVerdict? = nil
     ) -> AgentRunNotification? {
         let title = displayTitle(rawTitle)
         if let approval = trimmedNonEmpty(pendingApprovalSummary) {
@@ -67,6 +78,18 @@ public enum AgentRunNotificationPlanner {
                 threadID: threadID
             )
         }
+        // For an edit-bearing run, "finished" should be a CHECKED fact, not a claim: report the
+        // verification verdict (green / failing), or an honest "unverified" when a verify action exists
+        // but no result is in hand. A run that made no edits — or has no verify action to run — falls
+        // through to the unchanged plain "finished".
+        if didEditFiles, let verificationNotification = verificationNotification(
+            title: title,
+            threadID: threadID,
+            hasVerificationAction: hasVerificationAction,
+            verification: verification
+        ) {
+            return verificationNotification
+        }
         if let answer = trimmedNonEmpty(finalAnswer) {
             return AgentRunNotification(
                 kind: .finished,
@@ -76,6 +99,48 @@ public enum AgentRunNotificationPlanner {
             )
         }
         return nil
+    }
+
+    private static func verificationNotification(
+        title: String,
+        threadID: UUID,
+        hasVerificationAction: Bool,
+        verification: VerificationVerdict?
+    ) -> AgentRunNotification? {
+        switch verification {
+        case .passed:
+            return AgentRunNotification(
+                kind: .verifiedGreen,
+                title: "QuillCode verified",
+                body: "\(title) — verification passed.",
+                threadID: threadID
+            )
+        case .failed(let count):
+            let checks = count.map { "\($0) check\($0 == 1 ? "" : "s")" } ?? "checks"
+            return AgentRunNotification(
+                kind: .checksFailing,
+                title: "QuillCode verification failed",
+                body: "\(title) — \(checks) failing.",
+                threadID: threadID
+            )
+        case .timedOut:
+            return AgentRunNotification(
+                kind: .checksFailing,
+                title: "QuillCode verification failed",
+                body: "\(title) — verification timed out.",
+                threadID: threadID
+            )
+        case .commandNotFound, .none:
+            // The command could not run, or none is wired yet: only surface "unverified" when the user
+            // actually configured a verify action (so a project without one is unchanged).
+            guard hasVerificationAction else { return nil }
+            return AgentRunNotification(
+                kind: .unverified,
+                title: "QuillCode finished (unverified)",
+                body: "\(title) — edits made, no verification check ran.",
+                threadID: threadID
+            )
+        }
     }
 
     private static func summaryLine(title: String, answer: String) -> String {

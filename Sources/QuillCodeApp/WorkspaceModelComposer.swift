@@ -196,7 +196,11 @@ extension QuillCodeWorkspaceModel {
         }
         guard let handler = onRunNotification,
               let thread = selectedThread,
-              let notification = WorkspaceRunNotificationBuilder.notification(thread: thread, didFail: didFail)
+              let notification = WorkspaceRunNotificationBuilder.notification(
+                thread: thread,
+                didFail: didFail,
+                localActions: selectedProject?.localActions ?? []
+              )
         else {
             return
         }
