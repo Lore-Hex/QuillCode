@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Agent Parity Gate Split
+
+Overall grade after this slice: **A+ focused agent parity gate files, tighter manifest coverage**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityAgentGateTests.swift`, a 170-line B+ gate that mixed agent
+formatting, mock planning, streaming, action contracts, tool-step execution, cancellation telemetry, and behavior-suite
+placement. The split keeps the same contracts while mapping each check to the agent subsystem it protects:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Final-answer formatting | Shared the broad agent gate. | `ParityAgentFormattingGateTests.swift` owns formatter registry and runner delegation checks. |
+| Mock planning | Shared the broad agent gate. | `ParityAgentMockPlanningGateTests.swift` owns mock LLM, download parser, and PR mock-planner boundaries. |
+| Streaming and cancellation | Shared the broad agent gate. | `ParityAgentStreamingGateTests.swift` owns streaming helper and cancellation recorder boundaries. |
+| Core runner contracts | Shared the broad agent gate. | `ParityAgentCoreRunnerGateTests.swift` owns API/action-resolution/tool-step boundaries. |
+| Behavior-suite placement | Shared the broad agent gate. | `ParityAgentBehaviorSuiteGateTests.swift` owns focused agent test-suite placement. |
+| Manifest coverage | Cancellation telemetry existed in the broad gate but was not listed. | The split manifest now lists that test under the streaming gate. |
+
+Verification:
+
+- `swift test --filter 'ParityAgent(Formatting|MockPlanning|Streaming|CoreRunner|BehaviorSuite)GateTests|ParityGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new live provider scenarios.
+- The next highest B+ parity hotspots start with workspace model, workspace memory, workspace model state, and automation gates.
+
 ## 2026-07-01 Workspace Integration Gate Split
 
 Overall grade after this slice: **A+ workspace integration parity gate files, clearer integration ownership**.

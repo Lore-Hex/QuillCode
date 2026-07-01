@@ -293,12 +293,21 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityWorkspaceTranscriptGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner"
         ]),
-        Suite(fileName: "ParityAgentGateTests.swift", testNames: [
+        Suite(fileName: "ParityAgentFormattingGateTests.swift", testNames: [
             "testAgentRunnerDelegatesFinalAnswerFormatting",
+        ]),
+        Suite(fileName: "ParityAgentMockPlanningGateTests.swift", testNames: [
             "testMockLLMClientLivesOutsideAgentRunnerFile",
+        ]),
+        Suite(fileName: "ParityAgentStreamingGateTests.swift", testNames: [
             "testAgentStreamingHelpersLiveOutsideAgentRunnerFile",
+            "testAgentCancellationTelemetryLivesInFocusedRecorder"
+        ]),
+        Suite(fileName: "ParityAgentCoreRunnerGateTests.swift", testNames: [
             "testAgentContractsAndActionResolutionLiveOutsideRunnerFile",
             "testAgentToolStepRunnerLivesOutsideAgentRunnerFile",
+        ]),
+        Suite(fileName: "ParityAgentBehaviorSuiteGateTests.swift", testNames: [
             "testAgentBehaviorTestsUseFocusedSuites"
         ]),
         Suite(fileName: "ParityTrustedRouterGateTests.swift", testNames: [
