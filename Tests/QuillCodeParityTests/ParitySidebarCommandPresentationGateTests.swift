@@ -8,7 +8,9 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let sidebarActionsText = try Self.appSourceText(named: "QuillCodeSidebarActionsView.swift")
         let sidebarUtilityText = try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
         let threadListText = try Self.appSourceText(named: "QuillCodeSidebarThreadListView.swift")
+        let threadSectionText = try Self.appSourceText(named: "QuillCodeSidebarThreadSectionView.swift")
         let threadRowText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
+        let bulkActionsText = try Self.appSourceText(named: "QuillCodeSidebarBulkActionsView.swift")
         let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
         let projectRowText = try Self.appSourceText(named: "QuillCodeProjectRowView.swift")
         let htmlSidebarText = try Self.appSourceText(named: "WorkspaceHTMLSidebarRenderer.swift")
@@ -20,13 +22,15 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
             sidebarText,
             sidebarActionsText + sidebarUtilityText,
             threadListText,
+            threadSectionText,
             threadRowText,
+            bulkActionsText,
             projectListText + projectRowText
         )
         assertSidebarCommandAdapterUsage(
             adapterText,
             sidebarText + sidebarActionsText + sidebarUtilityText,
-            threadListText,
+            threadListText + bulkActionsText,
             threadRowText
         )
         assertHTMLSidebarCommandRendering(htmlSidebarText, htmlCommandText)
@@ -86,14 +90,20 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         _ sidebarText: String,
         _ sidebarCommandText: String,
         _ threadListText: String,
+        _ threadSectionText: String,
         _ threadRowText: String,
+        _ bulkActionsText: String,
         _ projectListText: String
     ) {
         Self.assertSource(sidebarText, contains: "QuillCodeSidebarThreadListView")
         Self.assertSource(sidebarText, contains: "QuillCodeProjectListView")
         Self.assertSource(threadListText, contains: "struct QuillCodeSidebarThreadListView")
-        Self.assertSource(threadListText, contains: "QuillCodeSidebarThreadRowView")
+        Self.assertSource(threadListText, contains: "QuillCodeSidebarThreadSectionView")
+        Self.assertSource(threadSectionText, contains: "struct QuillCodeSidebarThreadSectionView")
+        Self.assertSource(threadSectionText, contains: "QuillCodeSidebarThreadRowView")
         Self.assertSource(threadRowText, contains: "struct QuillCodeSidebarThreadRowView")
+        Self.assertSource(bulkActionsText, contains: "struct QuillCodeSidebarBulkActionsView")
+        Self.assertSource(bulkActionsText, contains: "struct QuillCodeSidebarBulkActionButton")
         Self.assertSource(projectListText, contains: "struct QuillCodeProjectListView")
         Self.assertSource(projectListText, contains: "QuillCodeProjectRowView")
         Self.assertSource(sidebarCommandText, contains: "QuillCodeSidebarCommandPresentation.primaryCommandIDs")
@@ -101,6 +111,7 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         Self.assertSource(sidebarCommandText, contains: "QuillCodeSidebarCommandPresentation.displayTitle")
         Self.assertSource(sidebarCommandText, contains: "QuillCodeSidebarCommandPresentation.systemImage")
         Self.assertSource(sidebarText, excludes: "struct QuillCodeSidebarThreadRowView")
+        Self.assertSource(threadListText, excludes: "struct QuillCodeSidebarBulkActionButton")
         Self.assertSource(threadListText, excludes: "private struct QuillCodeSidebarThreadRowView")
         Self.assertSource(sidebarText, excludes: "struct QuillCodeProjectRowView")
         Self.assertSource(sidebarCommandText, excludes: "private func displayTitle")
