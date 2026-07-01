@@ -61,16 +61,26 @@ struct ParityFocusedSuiteManifest {
             "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
         ]),
         Suite(fileName: "ParityWorkspaceSurfaceGateTests.swift", testNames: [
-            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts",
+            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightFocusedSpecGateTests.swift", testNames: [
             "testPlaywrightTerminalFlowsStayInFocusedSpec",
             "testPlaywrightSearchFlowsStayInFocusedSpec",
             "testPlaywrightExtensionsFlowsStayInFocusedSpec",
             "testPlaywrightArtifactFlowsStayInFocusedSpec",
-            "testPlaywrightComposerFlowsStayInFocusedSpec",
+            "testPlaywrightComposerFlowsStayInFocusedSpec"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightChromeSpecGateTests.swift", testNames: [
             "testPlaywrightWorkspaceChromeFlowsStayInFocusedSpec",
             "testPlaywrightWorkspaceStateFlowsStayInFocusedSpec",
-            "testPlaywrightStatusFlowsStayInFocusedSpec",
+            "testPlaywrightStatusFlowsStayInFocusedSpec"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightRealWorldSpecGateTests.swift", testNames: [
             "testPlaywrightRealWorldActionFlowsStayInFocusedSpec",
+            "testDeterministicSmokeCollectsPlaywrightRealWorldActionEvidence"
+        ]),
+        Suite(fileName: "ParityWorkspacePlaywrightInteractionSpecGateTests.swift", testNames: [
+            "testPlaywrightResponsivenessBudgetsStayInFocusedSpec",
             "testPlaywrightShortcutFlowsStayInFocusedSpec",
             "testPlaywrightReviewFlowsStayInFocusedSpec"
         ]),
@@ -97,12 +107,19 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityWorkspaceModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesToolCardSurfaceTypes",
+            "testWorkspaceModelDelegatesUIStateContracts",
+            "testActionableReviewCardsStayWiredThroughSurfaces",
+            "testWorkspaceModelDelegatesExecutionContextSurfaceBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceModelActivityGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesRetryPlanning",
             "testWorkspaceActivityIntegrationTestsOwnModelActivityFlows",
             "testWorkspaceActivitySurfaceUsesFocusedBuilderAndSectionTypes",
             "testWorkspaceToolCardIntegrationTestsOwnModelToolCardFlows",
             "testWorkspaceModelTestsRemainRetired",
-            "testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport",
+            "testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport"
+        ]),
+        Suite(fileName: "ParityWorkspaceModelStateGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesStatusTextAndLabels",
             "testWorkspaceModelDelegatesContextResolving",
             "testWorkspaceModelDelegatesAgentProgressStatusCopy",
@@ -130,17 +147,40 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesComposerCancellationPlanning",
             "testWorkspaceModelDelegatesComposerSubmissionPlanning",
             "testWorkspaceModelDelegatesAgentSendSessionExecution",
+            "testWorkspaceModelDelegatesAgentSendStartPlanning",
+            "testWorkspaceModelDelegatesAgentSendThreadPreparation",
+            "testWorkspaceModelDelegatesAgentSendProgressPlanning",
+            "testWorkspaceModelDelegatesAgentSendTerminalPlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionSlashGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesSlashCommandTranscriptPlanning",
             "testWorkspaceModelDelegatesCommandActionPlanning",
-            "testWorkspaceModelDelegatesCommandPlanExecution",
+            "testWorkspaceModelDelegatesCommandPlanExecution"
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionAgentContextGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesAgentRunContextAssembly",
-            "testWorkspaceModelDelegatesAgentSendSession",
-            "testWorkspaceModelDelegatesToolEventRecording",
-            "testWorkspaceModelDelegatesToolCallExecutionRouting",
-            "testWorkspaceModelDelegatesShellToolCallPlanning",
+            "testWorkspaceModelDelegatesAgentSendSession"
+        ]),
+        Suite(fileName: "ParityWorkspaceExecutionIntegrationGateTests.swift", testNames: [
             "testWorkspaceComposerIntegrationTestsOwnModelComposerFlows",
             "testWorkspaceModelDelegatesSlashCommandDispatchPlanning",
+            "testSubagentExecutionIsRealSchedulerNotDisplayOnly"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolEventGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolEventRecording"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolRoutingGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolCallExecutionRouting",
             "testWorkspaceModelDelegatesToolExecutionOverrideCombining"
+        ]),
+        Suite(fileName: "ParityWorkspaceToolRunLifecycleGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesToolRunPreparation",
+            "testWorkspaceModelDelegatesToolRunLifecyclePlanning"
+        ]),
+        Suite(fileName: "ParityWorkspaceRuntimeToolGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesTerminalLifecyclePlanning",
+            "testWorkspaceModelDelegatesActiveWorkStopPlanning",
+            "testWorkspaceModelDelegatesShellToolCallPlanning"
         ]),
         Suite(fileName: "ParityWorkspaceProjectGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectMetadataLoading",

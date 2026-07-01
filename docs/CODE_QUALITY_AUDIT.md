@@ -28,6 +28,34 @@ Residual risk:
 - The next broad B+ hotspots are workspace execution-tool, workspace-surface, workspace-integration, agent, and
   workspace-model gates.
 
+## 2026-07-01 Workspace Execution Tool Gate Split
+
+Overall grade after this slice: **A+ workspace tool parity gate files, stricter focused-suite registry**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceExecutionToolGateTests.swift`, a 190-line B+ gate that
+mixed generic tool events, executor routing, run preparation, terminal lifecycle, active-work stop planning, shell-call
+planning, and override composition. The split keeps the same source-boundary checks but makes each failure point map to
+one execution-tool responsibility:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool event recording | Shared the broad execution-tool gate. | `ParityWorkspaceToolEventGateTests.swift` owns queued/running/completed event recording contracts. |
+| Tool routing and override order | Mixed with lifecycle and terminal checks. | `ParityWorkspaceToolRoutingGateTests.swift` owns executor routing and override precedence. |
+| Generic tool-run lifecycle | Mixed with runtime terminal/active-work behavior. | `ParityWorkspaceToolRunLifecycleGateTests.swift` owns run preparation and lifecycle planner delegation. |
+| Runtime tool surfaces | Mixed with generic tool orchestration. | `ParityWorkspaceRuntimeToolGateTests.swift` owns terminal, active-work, and shell-call planning boundaries. |
+| Manifest correctness | The focused-suite manifest could name stale files without failing. | `ParityGateTests` now verifies every listed test is defined by its registered suite file. |
+| Grade | The original file was **B+** at 190 lines. | Every split workspace tool gate now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityWorkspaceToolEventGateTests|ParityWorkspaceToolRoutingGateTests|ParityWorkspaceToolRunLifecycleGateTests|ParityWorkspaceRuntimeToolGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new execution runtime scenarios.
+- The highest remaining B+ parity hotspots start with workspace surface, workspace integration, and agent gates.
+
 ## 2026-07-01 Slash Parser Gate Split
 
 Overall grade after this slice: **A+ slash parser parity gate files, command-domain ownership**.
