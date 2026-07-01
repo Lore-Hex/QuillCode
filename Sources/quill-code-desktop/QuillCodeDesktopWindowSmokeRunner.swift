@@ -57,6 +57,14 @@ enum QuillCodeDesktopWindowSmokeRunner {
             contentView: contentView,
             nativeHitTargets: nativeHitTargets
         )
+        guard let smokeController else {
+            throw QuillCodeDesktopSmokeFailure.windowSurfaceIncomplete("smoke controller was not retained")
+        }
+        let accessibilityActivation = try await QuillCodeDesktopAccessibilityActivationSampler.validatedReport(
+            contentView: contentView,
+            controller: smokeController,
+            nativeHitTargets: nativeHitTargets
+        )
         let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
 
         return QuillCodeDesktopWindowSmokeReport(
@@ -70,6 +78,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
             image: stats.report,
             nativeHitTargets: nativeHitTargets,
             accessibilityFrameSamples: accessibilityFrameSamples,
+            accessibilityActivation: accessibilityActivation,
             surface: surface
         )
     }

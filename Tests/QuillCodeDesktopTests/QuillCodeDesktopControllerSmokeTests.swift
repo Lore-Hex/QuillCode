@@ -27,6 +27,29 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         let surface = model.surface()
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
         let surfaceReport = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: surface)
+        let accessibilityActivation = QuillCodeDesktopAccessibilityActivationReport(
+            liveAccessibilityActivation: "ax-press-sampled",
+            requiredContractIDs: ["command.settings"],
+            activatedContractIDs: ["command.settings"],
+            skippedContractIDs: [],
+            checks: [
+                QuillCodeDesktopAccessibilityActivationCheck(
+                    contractID: "command.settings",
+                    selectorKind: "command-id",
+                    selector: "settings",
+                    resolvedIdentifier: "quillcode-sidebar-command-settings",
+                    role: "AXButton",
+                    label: "Settings",
+                    activation: "AXPress",
+                    expectedOutcome: "settings sheet becomes presented",
+                    beforeValue: "false",
+                    afterValue: "true",
+                    axError: "success",
+                    validationIssue: nil
+                )
+            ],
+            validationIssues: []
+        )
         let accessibilityFrameSamples = QuillCodeDesktopAccessibilityFrameSampleReport(
             liveAccessibilitySampling: "frame-sampled",
             minimumHitTarget: 44,
@@ -88,6 +111,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
             ),
             nativeHitTargets: nativeHitTargets,
             accessibilityFrameSamples: accessibilityFrameSamples,
+            accessibilityActivation: accessibilityActivation,
             surface: surfaceReport
         )
 
@@ -98,6 +122,10 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(json.contains(#""collisionScope" : "composer:composer""#))
         XCTAssertTrue(json.contains(#""accessibilityFrameSamples""#))
         XCTAssertTrue(json.contains(#""liveAccessibilitySampling" : "frame-sampled""#))
+        XCTAssertTrue(json.contains(#""accessibilityActivation""#))
+        XCTAssertTrue(json.contains(#""liveAccessibilityActivation" : "ax-press-sampled""#))
+        XCTAssertTrue(json.contains(#""expectedOutcome" : "settings sheet becomes presented""#))
+        XCTAssertTrue(json.contains(#""activation" : "AXPress""#))
         XCTAssertTrue(json.contains(#""hitTestAvailable" : true"#))
         XCTAssertTrue(json.contains(#""hitTestMatchesTarget" : true"#))
         XCTAssertTrue(json.contains(#""requiresTactileFeedback" : true"#))

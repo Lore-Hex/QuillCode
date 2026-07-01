@@ -244,6 +244,11 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("report-ready-for-accessibility-frame-sampling"))
         XCTAssertTrue(validator.contains("write_accessibility_frames_manifest"))
         XCTAssertTrue(validator.contains("live-accessibility-frame-sampled"))
+        XCTAssertTrue(validator.contains("accessibilityActivation"))
+        XCTAssertTrue(validator.contains("liveAccessibilityActivation"))
+        XCTAssertTrue(validator.contains("\"ax-press-sampled\""))
+        XCTAssertTrue(validator.contains("REQUIRED_LIVE_ACCESSIBILITY_ACTIVATION_CONTRACT_IDS"))
+        XCTAssertTrue(validator.contains("activationCheckSummaries"))
         XCTAssertTrue(validator.contains("REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS"))
         XCTAssertTrue(validator.contains("window_command_contract_ids"))
         XCTAssertTrue(validator.contains("\"windowCommandContractIDs\""))
@@ -399,6 +404,19 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(framesObject["sampleCount"] as? Int, Self.requiredLiveAccessibilityContractIDs.count)
         XCTAssertEqual(framesObject["requiredContractIDs"] as? [String], Self.requiredLiveAccessibilityContractIDs)
         XCTAssertEqual(framesObject["sampledContractIDs"] as? [String], Self.requiredLiveAccessibilityContractIDs)
+        XCTAssertEqual(framesObject["liveAccessibilityActivation"] as? String, "ax-press-sampled")
+        XCTAssertEqual(
+            framesObject["activationRequiredContractIDs"] as? [String],
+            Self.requiredLiveAccessibilityActivationContractIDs
+        )
+        XCTAssertEqual(
+            framesObject["activatedContractIDs"] as? [String],
+            Self.requiredLiveAccessibilityActivationContractIDs
+        )
+        XCTAssertEqual(
+            framesObject["activationCheckCount"] as? Int,
+            Self.requiredLiveAccessibilityActivationContractIDs.count
+        )
 
         let blockedFramesResult = try Self.runPython(validator, arguments: [
             "frames",
@@ -563,10 +581,17 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         firstSampleHitTestMatchesTarget: Bool = true
     ) -> String {
         minimalPackagedWindowReport(
-            accessibilityFrameSamples: accessibilityFrameSamplesJSON(
+            accessibilityFrameSamples: accessibilityEvidenceJSON(
                 firstSampleHitTestMatchesTarget: firstSampleHitTestMatchesTarget
             )
         )
+    }
+
+    private static func accessibilityEvidenceJSON(firstSampleHitTestMatchesTarget: Bool) -> String {
+        """
+        \(accessibilityFrameSamplesJSON(firstSampleHitTestMatchesTarget: firstSampleHitTestMatchesTarget)),
+        \(accessibilityActivationJSON())
+        """
     }
 
     private static func accessibilityFrameSamplesJSON(firstSampleHitTestMatchesTarget: Bool) -> String {
@@ -699,6 +724,74 @@ final class ParitySmokeScriptGateTests: QuillCodeParityTestCase {
         "sidebar.tools-menu",
         "top-bar.overflow"
     ]
+
+    private static let requiredLiveAccessibilityActivationContractIDs = [
+        "command.settings",
+        "command.toggle-automations",
+        "command.toggle-extensions"
+    ]
+
+    private static func accessibilityActivationJSON() -> String {
+        let contractIDs = requiredLiveAccessibilityActivationContractIDs
+            .map { #"              "\#($0)""# }
+            .joined(separator: ",\n")
+        let checks = requiredLiveAccessibilityActivationContractIDs
+            .map(accessibilityActivationCheckJSON)
+            .joined(separator: ",\n")
+
+        return """
+          "accessibilityActivation": {
+            "ok": true,
+            "liveAccessibilityActivation": "ax-press-sampled",
+            "requiredContractIDs": [
+        \(contractIDs)
+            ],
+            "activatedContractIDs": [
+        \(contractIDs)
+            ],
+            "skippedContractIDs": [],
+            "checkCount": \(requiredLiveAccessibilityActivationContractIDs.count),
+            "checks": [
+        \(checks)
+            ],
+            "validationIssues": []
+          }
+        """
+    }
+
+    private static func accessibilityActivationCheckJSON(contractID: String) -> String {
+        let commandID = String(contractID.dropFirst("command.".count))
+        return """
+              {
+                "contractID": "\(contractID)",
+                "selectorKind": "command-id",
+                "selector": "\(commandID)",
+                "resolvedIdentifier": "quillcode-sidebar-command-\(commandID)",
+                "role": "AXButton",
+                "label": "\(commandID)",
+                "activation": "AXPress",
+                "expectedOutcome": "\(accessibilityActivationExpectedOutcome(contractID: contractID))",
+                "beforeValue": "false",
+                "afterValue": "true",
+                "axError": "success",
+                "ok": true,
+                "validationIssue": ""
+              }
+        """
+    }
+
+    private static func accessibilityActivationExpectedOutcome(contractID: String) -> String {
+        switch contractID {
+        case "command.settings":
+            return "settings sheet becomes presented"
+        case "command.toggle-automations":
+            return "automations pane visibility toggles"
+        case "command.toggle-extensions":
+            return "extensions pane visibility toggles"
+        default:
+            return "observable controller state changes"
+        }
+    }
 
     private static let expectedSamplePoints: [(name: String, x: Double, y: Double)] = [
         ("bottom-edge", 0.5, 0.92),

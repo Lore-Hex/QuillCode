@@ -98,6 +98,35 @@ Residual risk:
 - `assertions.sh` and `transcript_assertions.sh` still contain intentional shell and jq repetition. Further improvement
   should prefer behavior-focused tests before making the assertions more abstract.
 
+## 2026-07-01 Packaged AX Activation Proof
+
+Overall grade after this slice: **A+ desktop AX adapter boundary, A+ activation sampler, stronger packaged click-target release gate**.
+
+This pass re-graded the codebase, then addressed the highest-risk remaining click-target quality gap: packaged smoke
+proved live Accessibility frames and hit-test ownership, but did not yet prove that a real macOS Accessibility press
+fires the intended action. The implementation keeps the scope reviewable by sampling only safe always-visible controls
+with direct state evidence.
+
+| Area | Before | After |
+| --- | --- | --- |
+| AX traversal ownership | `QuillCodeDesktopAccessibilityFrameSampler` owned tree walking, hit testing, snapshotting, and frame validation. | `QuillCodeDesktopAccessibilityTree` owns AX traversal, hit testing, snapshots, and AXPress. Frame and activation samplers share it. |
+| Packaged click proof | `window-report.json` carried `accessibilityFrameSamples`, proving target size, sample points, hit-test ownership, and spacing. | `window-report.json` also carries `accessibilityActivation`, proving Settings, Automations, and Extensions respond to real AXPress and change expected controller state. |
+| Release validator | The `frames` command wrote a frame-only manifest. | The `frames` command now requires `ax-press-sampled` evidence and emits activation summaries in `packaged-accessibility-frames.json`. |
+| Side effects | A future click runner risked leaving panes/sheets open after smoke. | The activation sampler restores any pane or sheet state it changes before continuing. |
+
+Verification:
+
+- `python3 -m py_compile scripts/native-click-probe-contracts.py scripts/native_click_probe_contracts/*.py`
+- `swift test --filter 'QuillCodeDesktopControllerSmokeTests|ParitySmokeScriptGateTests'`
+- `swift run quill-code-desktop --native-window-smoke ...`
+- `python3 scripts/native-click-probe-contracts.py frames ... --manifest packaged-accessibility-frames.json`
+
+Residual risk:
+
+- Activation proof intentionally covers a small safe subset first. Search, model picker, composer focus/send, and menu
+  popover activation still need their own state-specific samplers because they open transient SwiftUI UI or can mutate
+  transcript/project state.
+
 ## 2026-07-01 Native Click-Probe Validator Split
 
 Overall grade after this slice: **A+ scripts module, stable CLI facade, focused validator modules**.
