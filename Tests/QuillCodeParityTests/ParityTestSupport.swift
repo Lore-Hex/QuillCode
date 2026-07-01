@@ -118,6 +118,34 @@ class QuillCodeParityTestCase: XCTestCase {
         )
     }
 
+    static func assertSource(
+        _ source: String,
+        contains expected: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(
+            source.contains(expected),
+            "Expected source to contain: \(expected)",
+            file: file,
+            line: line
+        )
+    }
+
+    static func assertSource(
+        _ source: String,
+        excludes forbidden: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertFalse(
+            source.contains(forbidden),
+            "Expected source to exclude: \(forbidden)",
+            file: file,
+            line: line
+        )
+    }
+
     static func toolsSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeTools")
