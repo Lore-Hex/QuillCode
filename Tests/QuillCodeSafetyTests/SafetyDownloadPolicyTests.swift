@@ -234,28 +234,10 @@ private extension SafetyDownloadPolicyTests {
 
     func review(command: String, userMessage: String?) async -> SafetyReview {
         let message = userMessage ?? linkedinRequest
-        return await StaticSafetyReviewer().review(.init(
-            mode: .auto,
-            userMessage: message,
-            toolCall: ToolCall(name: shellRun.name, argumentsJSON: shellArgumentsJSON(command)),
-            toolDefinition: shellRun,
-            recentMessages: [.init(role: .user, content: message)]
-        ))
-    }
-
-    func shellArgumentsJSON(_ command: String) -> String {
-        struct ShellArguments: Encodable {
-            var cmd: String
-        }
-
-        let encoder = JSONEncoder()
-        guard
-            let data = try? encoder.encode(ShellArguments(cmd: command)),
-            let string = String(data: data, encoding: .utf8)
-        else {
-            XCTFail("Failed to encode shell command arguments.")
-            return #"{"cmd":""}"#
-        }
-        return string
+        return await review(
+            shellRun,
+            argumentsJSON: shellArgumentsJSON(command),
+            userMessage: message
+        )
     }
 }
