@@ -1,5 +1,37 @@
 # Code Quality Audit
 
+## 2026-07-01 Settings Sheet Gate Split
+
+Overall grade after this slice: **A+ settings parity gate files, explicit settings/hit-target ownership**.
+
+This pass continued the parity-source quality cleanup with
+`Tests/QuillCodeParityTests/ParityWorkspaceSettingsSheetGateTests.swift`. The old file mixed workspace sheet
+presentation, settings draft/view ownership, compact native hit-target usage, primary chrome hit-target usage, search
+dialog typing state, settings surface ownership, and Playwright settings/runtime evidence in one 370-line gate. The split
+keeps the same contracts while moving them into focused classes:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Workspace sheets | Shared the broad settings sheet gate. | `ParityWorkspaceSettingsSheetGateTests.swift` owns only sheet presentation plus settings view/draft ownership. |
+| Compact hit targets | Mixed with settings and Playwright checks. | `ParityNativeCompactHitTargetGateTests.swift` owns compact/plain-control hit-target contracts. |
+| Primary chrome hit targets | Mixed with settings and search checks. | `ParityNativePrimaryChromeHitTargetGateTests.swift` owns top bar/sidebar/composer/dialog hit-target contracts. |
+| Search dialogs | Buried in the broad settings gate. | `ParitySearchDialogGateTests.swift` owns local search/palette typing state. |
+| Settings surface | Mixed with sheet and hit-target checks. | `ParityWorkspaceSettingsSurfaceGateTests.swift` owns settings surface record ownership. |
+| Playwright settings runtime | Mixed with native source checks. | `ParityPlaywrightSettingsRuntimeGateTests.swift` owns settings/runtime E2E spec ownership. |
+| Grade | The original file was **B+** at 370 lines. | Every split settings-related file now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspaceSettingsSheetGateTests|ParityNativeCompactHitTargetGateTests|ParityNativePrimaryChromeHitTargetGateTests|ParitySearchDialogGateTests|ParityWorkspaceSettingsSurfaceGateTests|ParityPlaywrightSettingsRuntimeGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves reviewability and diagnostics but does not add new
+  runtime settings interactions.
+- The next B+ parity hotspots are browser, sidebar, project, model/thread, HTML renderer delegation, top bar, and slash
+  gates.
+
 ## 2026-07-01 Desktop Parity Gate Split
 
 Overall grade after this slice: **A+ desktop parity gate files, focused desktop ownership contracts**.
