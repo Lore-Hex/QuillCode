@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Top Bar Gate Split
+
+Overall grade after this slice: **A+ top-bar parity gate files, clearer chrome/surface boundaries**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityTopBarGateTests.swift`, which mixed shared status semantics,
+native Codex-style chrome composition, runtime/auth copy, model-catalog surface construction, native model picker
+composition, and focused integration-test placement in one 205-line B+ gate. The split preserves the same contracts
+while mapping each check to the owning top-bar boundary:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Status/runtime presentation | Shared the broad top-bar gate. | `ParityTopBarPresentationGateTests.swift` owns shared status, runtime issue, auth, and runtime-path copy. |
+| Native chrome and picker composition | Mixed with surface DTO checks. | `ParityNativeTopBarChromeGateTests.swift` owns native top-bar chrome, mode picker, and model-picker row/detail placement. |
+| Surface and model catalog contracts | Mixed with native view checks. | `ParityTopBarSurfaceGateTests.swift` owns top-bar DTOs, model catalog builders, surface assembly, and integration-test placement. |
+| Grade | The original file was **B+** at 205 lines. | Every split top-bar parity file now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityGateTests|ParityTopBarPresentationGateTests|ParityNativeTopBarChromeGateTests|ParityTopBarSurfaceGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It does not add new native interaction scenarios.
+- The highest remaining B+ parity hotspots start with slash and workspace execution-tool gates.
+
 ## 2026-07-01 HTML Renderer Delegation Gate Split
 
 Overall grade after this slice: **A+ HTML renderer parity gate files, explicit renderer-family ownership**.

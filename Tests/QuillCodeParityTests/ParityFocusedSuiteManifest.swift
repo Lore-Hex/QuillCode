@@ -18,8 +18,21 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityDesktopGateTests.swift", testNames: [
             "testDesktopDefinesNativeMenuBarWidget"
         ]),
-        Suite(fileName: "ParityTopBarGateTests.swift", testNames: [
-            "testTopBarViewsDelegateStatusPresentationSemantics"
+        Suite(fileName: "ParityTopBarPresentationGateTests.swift", testNames: [
+            "testTopBarViewsDelegateStatusPresentationSemantics",
+            "testTopBarAgentStatusLabelsAreSharedByRuntimePaths",
+            "testRuntimeStatusLabelsAreSharedByAuthAndIssuePaths"
+        ]),
+        Suite(fileName: "ParityNativeTopBarChromeGateTests.swift", testNames: [
+            "testNativeTopBarKeepsCodexStyleChromeQuiet",
+            "testNativeModePickerLivesBesideComposerAccessoryChrome",
+            "testNativeModelPickerKeepsRowsAndDetailsFocused"
+        ]),
+        Suite(fileName: "ParityTopBarSurfaceGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesModelCatalogBuilding",
+            "testWorkspaceSurfaceDelegatesTopBarSurfaceContracts",
+            "testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding",
+            "testModelPickerWorkspaceIntegrationCoverageStaysFocused"
         ]),
         Suite(fileName: "ParitySlashGateTests.swift", testNames: [
             "testSlashParserDelegatesPullRequestSubcommands"
