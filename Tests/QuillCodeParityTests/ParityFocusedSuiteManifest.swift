@@ -64,12 +64,6 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityWorkspaceModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesToolCardSurfaceTypes",
-            "testWorkspaceModelDelegatesProjectContextRefresh",
-            "testWorkspaceModelDelegatesThreadSeedBuilding",
-            "testWorkspaceModelDelegatesThreadCreationRecords",
-            "testWorkspaceModelDelegatesThreadLifecycleTransitions",
-            "testWorkspaceModelDelegatesConfigurationTransitions",
-            "testWorkspaceConfigurationIntegrationTestsOwnModelConfigurationFlows",
             "testWorkspaceModelDelegatesRetryPlanning",
             "testWorkspaceActivityIntegrationTestsOwnModelActivityFlows",
             "testWorkspaceActivitySurfaceUsesFocusedBuilderAndSectionTypes",
@@ -82,6 +76,22 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesThreadNoticeMutation",
             "testWorkspaceModelDelegatesPaneVisibilityMutations",
             "testWorkspaceModelUsesExplicitAgentRunThreadUpdates"
+        ]),
+        Suite(fileName: "ParityWorkspaceContextRefreshGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesProjectContextRefresh"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadSeedGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesThreadSeedBuilding"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadCreationGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesThreadCreationRecords"
+        ]),
+        Suite(fileName: "ParityWorkspaceThreadLifecycleGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesThreadLifecycleTransitions"
+        ]),
+        Suite(fileName: "ParityWorkspaceConfigurationGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesConfigurationTransitions",
+            "testWorkspaceConfigurationIntegrationTestsOwnModelConfigurationFlows"
         ]),
         Suite(fileName: "ParityWorkspaceExecutionGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesComposerCancellationPlanning",

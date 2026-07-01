@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace Model Thread Gate Split
+
+Overall grade after this slice: **A+ thread/context/configuration parity gate files, cleaner focused-suite ownership**.
+
+This pass addressed `Tests/QuillCodeParityTests/ParityWorkspaceModelThreadGateTests.swift`, which mixed project-context
+refresh, fork/compact seed construction, thread creation records, thread lifecycle mutation, configuration transitions,
+and configuration integration-test placement in one 209-line B+ gate. The split keeps the same source contracts while
+placing each ownership family in a small, named suite:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Project context refresh | Mixed with thread lifecycle and configuration checks. | `ParityWorkspaceContextRefreshGateTests.swift` owns model delegation to `WorkspaceProjectContextRefresher` and context-preparer boundaries. |
+| Thread seed building | Shared the broad model/thread gate. | `ParityWorkspaceThreadSeedGateTests.swift` owns fork/compact seed construction and model-backed summary boundaries. |
+| Thread creation records | Mixed with lifecycle mutation checks. | `ParityWorkspaceThreadCreationGateTests.swift` owns creation-engine and draft-selection contracts. |
+| Thread lifecycle | Mixed with creation and configuration checks. | `ParityWorkspaceThreadLifecycleGateTests.swift` owns lifecycle engine, persistence, mutation, and selection delegation contracts. |
+| Configuration | Mixed with thread gates. | `ParityWorkspaceConfigurationGateTests.swift` owns configuration-engine delegation and focused integration-test placement. |
+| Grade | The original file was **B+** at 209 lines. | Every split context/thread/configuration file now grades **A+ 100**. |
+
+Verification:
+
+- `swift test --filter 'ParityWorkspace(ContextRefresh|ThreadSeed|ThreadCreation|ThreadLifecycle|Configuration)GateTests|ParityFocusedSuiteManifest'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a behavior-preserving source-inspection split. It improves diagnostics and reviewability but does not add new
+  runtime thread lifecycle scenarios.
+- The next broad B+ hotspots are HTML renderer delegation, top bar, slash, execution-tool, and workspace-surface gates.
+
 ## 2026-07-01 Browser Gate Split
 
 Overall grade after this slice: **A+ browser parity gate files, explicit browser architecture ownership**.
