@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Interaction, TrustedRouter, And Command Palette Gate Split
+
+Overall grade after this slice: **no B+ files remain in the automated grade report; all source modules stay A+**.
+
+This pass addressed the final B+ hotspots from the grade report and kept the edits behavior-preserving:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Interaction target parity | `ParityInteractionTargetGateTests.swift` mixed Playwright audit contracts, rendered harness layout, primitive contracts, registry coverage, and source scans in one 529-line B+ file. | Split into focused audit-contract, harness, primitive/source, registry, and support files. The parity module now grades A+ with no B+ files. |
+| TrustedRouter parity | `ParityTrustedRouterGateTests.swift` repeated one assertion per marker and graded B+ due to long lines. | Grouped source include/exclude assertions by parser, prompt, key resolution, safety client, parameter catalog, and adapter-test ownership. |
+| Command palette E2E | `command-palette.spec.ts` mixed core palette, worktree, pull request, and local environment flows in one 443-line B+ file. | Kept core palette behavior in `command-palette.spec.ts` and split workflow tests into worktree, pull request, and local-env specs with shared helpers. |
+| Generated report | `docs/CODE_QUALITY_FILE_GRADES.md` still reflected earlier hotspots. | Regenerated the report after the split; the lowest current files are A- maintainability targets. |
+
+Verification:
+
+- `swift test --filter ParityInteractionTarget`
+- `swift test --filter ParityTrustedRouterGateTests`
+- `npx playwright test tests/command-palette.spec.ts tests/command-palette-worktrees.spec.ts tests/command-palette-pull-requests.spec.ts tests/command-palette-local-env.spec.ts`
+- `swift test --filter ParityPlaywrightCommandPaletteGateTests`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- This is a behavior-preserving test-architecture split. It does not add new runtime functionality.
+- The next quality targets are A- files, starting with broad GitHub PR tool tests and large Playwright flow specs.
+
 ## 2026-07-01 Python Bytecode Artifact Cleanup
 
 Overall grade after this slice: **A+ repository hygiene, no generated Python bytecode in source control**.

@@ -3,10 +3,7 @@ import XCTest
 final class ParityPlaywrightCommandPaletteGateTests: QuillCodeParityTestCase {
     func testPlaywrightCommandPaletteAndGitFlowsStayInFocusedSpec() throws {
         let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
-        let commandSpecText = try String(
-            contentsOf: testRoot.appendingPathComponent("command-palette.spec.ts"),
-            encoding: .utf8
-        )
+        let commandSpecText = try Self.commandPaletteSpecText(in: testRoot)
         let coreSpecText = try String(
             contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
             encoding: .utf8
@@ -41,5 +38,21 @@ final class ParityPlaywrightCommandPaletteGateTests: QuillCodeParityTestCase {
             Self.assertSource(commandSpecText, contains: flowName)
             Self.assertSource(coreSpecText, excludes: flowName)
         }
+    }
+
+    private static func commandPaletteSpecText(in testRoot: URL) throws -> String {
+        try [
+            "command-palette.spec.ts",
+            "command-palette-worktrees.spec.ts",
+            "command-palette-pull-requests.spec.ts",
+            "command-palette-local-env.spec.ts",
+        ]
+        .map { fileName in
+            try String(
+                contentsOf: testRoot.appendingPathComponent(fileName),
+                encoding: .utf8
+            )
+        }
+        .joined(separator: "\n")
     }
 }
