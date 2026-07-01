@@ -279,7 +279,9 @@ enum WorkspacePullRequestCommandCatalog {
         systemImageByCommandID[commandID]
     }
 
-    private static func dictionary(_ value: KeyPath<WorkspacePullRequestCommandDescriptor, String?>) -> [String: String] {
+    private static func dictionary(
+        _ value: KeyPath<WorkspacePullRequestCommandDescriptor, String?>
+    ) -> [String: String] {
         Dictionary(uniqueKeysWithValues: descriptors.compactMap { descriptor in
             descriptor[keyPath: value].map { (descriptor.id, $0) }
         })

@@ -202,7 +202,8 @@ public enum TrustedRouterDefaults {
             id: modelID,
             provider: provider,
             displayName: recommendedDisplayNames[modelID] ?? (displayName.isEmpty ? Self.displayName(fromModelID: modelID) : displayName),
-            category: category.isEmpty ? Self.category(forModelID: modelID, provider: provider) : category
+            category: category.isEmpty ? Self.category(forModelID: modelID, provider: provider) : category,
+            capabilities: model.capabilities
         )
     }
 

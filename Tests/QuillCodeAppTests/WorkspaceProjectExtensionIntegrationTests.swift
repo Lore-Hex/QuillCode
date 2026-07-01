@@ -74,18 +74,33 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.last?.startCommandID, "mcp-start:mcp_server:filesystem")
         XCTAssertEqual(surface.commands.first { $0.id == "mcp-start:mcp_server:filesystem" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "mcp-stop:mcp_server:filesystem" }?.isEnabled, false)
-        XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.category, WorkspaceCommandPalette.extensionsCategory)
+        XCTAssertEqual(
+            surface.commands.first { $0.id == "toggle-extensions" }?.category,
+            WorkspaceCommandPalette.extensionsCategory
+        )
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.isEnabled, true)
     }
 
     func testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata() throws {
         let setup = try makeProjectWithPluginManifest(
-            #"{"id":"github","name":"GitHub","description":"PR workflow helpers.","version":"1.0.0","updateCommand":"printf updated > .quillcode/plugins/update.marker","updateTimeoutSeconds":30}"#
+            #"""
+            {
+              "id": "github",
+              "name": "GitHub",
+              "description": "PR workflow helpers.",
+              "version": "1.0.0",
+              "updateCommand": "printf updated > .quillcode/plugins/update.marker",
+              "updateTimeoutSeconds": 30
+            }
+            """#
         )
 
         XCTAssertTrue(setup.model.runWorkspaceCommand("extension-update:plugin:github", workspaceRoot: setup.root))
 
-        let marker = try String(contentsOf: setup.pluginDirectory.appendingPathComponent("update.marker"), encoding: .utf8)
+        let marker = try String(
+            contentsOf: setup.pluginDirectory.appendingPathComponent("update.marker"),
+            encoding: .utf8
+        )
         XCTAssertEqual(marker, "updated")
         XCTAssertEqual(setup.model.surface().extensions.items.first?.updateCommandID, "extension-update:plugin:github")
         XCTAssertTrue(setup.model.selectedThread?.events.contains { $0.summary == "Updated extension GitHub" } == true)
@@ -93,15 +108,32 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
 
     func testProjectExtensionInstallCommandRunsAndRefreshesProjectMetadata() throws {
         let setup = try makeProjectWithPluginManifest(
-            #"{"id":"github","name":"GitHub","description":"PR workflow helpers.","version":"1.0.0","installCommand":"printf installed > .quillcode/plugins/install.marker","installTimeoutSeconds":30}"#
+            #"""
+            {
+              "id": "github",
+              "name": "GitHub",
+              "description": "PR workflow helpers.",
+              "version": "1.0.0",
+              "installCommand": "printf installed > .quillcode/plugins/install.marker",
+              "installTimeoutSeconds": 30
+            }
+            """#
         )
 
         XCTAssertTrue(setup.model.runWorkspaceCommand("extension-install:plugin:github", workspaceRoot: setup.root))
 
-        let marker = try String(contentsOf: setup.pluginDirectory.appendingPathComponent("install.marker"), encoding: .utf8)
+        let marker = try String(
+            contentsOf: setup.pluginDirectory.appendingPathComponent("install.marker"),
+            encoding: .utf8
+        )
         XCTAssertEqual(marker, "installed")
-        XCTAssertEqual(setup.model.surface().extensions.items.first?.installCommandID, "extension-install:plugin:github")
-        XCTAssertTrue(setup.model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true)
+        XCTAssertEqual(
+            setup.model.surface().extensions.items.first?.installCommandID,
+            "extension-install:plugin:github"
+        )
+        XCTAssertTrue(
+            setup.model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true
+        )
     }
 
     func testProjectMarketplaceInstallRefreshesToInstalledManifest() throws {
@@ -132,7 +164,10 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertEqual(available?.id, "plugin:github")
         XCTAssertEqual(available?.statusLabel, "Available")
         XCTAssertEqual(available?.relativePath, ".quillcode/marketplace/github.json")
-        XCTAssertEqual(model.surface().commands.first { $0.id == "extension-install:plugin:github" }?.isEnabled, true)
+        XCTAssertEqual(
+            model.surface().commands.first { $0.id == "extension-install:plugin:github" }?.isEnabled,
+            true
+        )
 
         XCTAssertTrue(model.runWorkspaceCommand("extension-install:plugin:github", workspaceRoot: root))
 
@@ -141,18 +176,31 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertEqual(installed?.statusLabel, "Discovered")
         XCTAssertEqual(installed?.relativePath, ".quillcode/plugins/github.json")
         XCTAssertEqual(installed?.summary, "Installed PR workflow helpers.")
-        XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true)
+        XCTAssertTrue(
+            model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true
+        )
     }
 
     func testProjectExtensionUpdateFailureKeepsManifestAndRecordsFailureNotice() throws {
         let setup = try makeProjectWithPluginManifest(
-            #"{"id":"github","name":"GitHub","description":"PR workflow helpers.","version":"1.0.0","updateCommand":"sh -c 'exit 7'","updateTimeoutSeconds":30}"#
+            #"""
+            {
+              "id": "github",
+              "name": "GitHub",
+              "description": "PR workflow helpers.",
+              "version": "1.0.0",
+              "updateCommand": "sh -c 'exit 7'",
+              "updateTimeoutSeconds": 30
+            }
+            """#
         )
 
         XCTAssertFalse(setup.model.runWorkspaceCommand("extension-update:plugin:github", workspaceRoot: setup.root))
 
         XCTAssertEqual(setup.model.surface().extensions.items.first?.updateCommandID, "extension-update:plugin:github")
-        XCTAssertTrue(setup.model.selectedThread?.events.contains { $0.summary == "Extension update failed for GitHub" } == true)
+        XCTAssertTrue(
+            setup.model.selectedThread?.events.contains { $0.summary == "Extension update failed for GitHub" } == true
+        )
     }
 
     private func makeProjectWithPluginManifest(

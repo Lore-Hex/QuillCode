@@ -7,7 +7,10 @@ final class WorkspacePlanProgressBuilderTests: XCTestCase {
         AgentPlanItem(step: step, status: status)
     }
 
-    private func progress(_ items: [AgentPlanItem], status: String = TopBarAgentStatusLabel.running) -> WorkspacePlanProgress? {
+    private func progress(
+        _ items: [AgentPlanItem],
+        status: String = TopBarAgentStatusLabel.running
+    ) -> WorkspacePlanProgress? {
         WorkspacePlanProgressBuilder.progress(from: AgentPlanUpdate(plan: items), agentStatus: status)
     }
 
@@ -22,21 +25,24 @@ final class WorkspacePlanProgressBuilderTests: XCTestCase {
         XCTAssertNil(WorkspacePlanProgressBuilder.progress(for: thread, agentStatus: "Running"))
     }
 
-    func testThreadWithAuthoredPlanIsRead() {
+    func testThreadWithAuthoredPlanIsRead() throws {
         // Round-trips through PlanUpdateToolExecutor.latestUpdate exactly as the real event stream does.
         let update = AgentPlanUpdate(plan: [
             item("Read the code", .completed),
             item("Write the fix", .inProgress),
             item("Add tests", .pending)
         ])
-        let result = ToolResult(ok: true, stdout: try! JSONHelpers.encodePretty(update))
+        let result = ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(update))
         let event = ThreadEvent(
             kind: .toolCompleted,
             summary: "host.plan.update completed",
-            payloadJSON: try! JSONHelpers.encodePretty(result)
+            payloadJSON: try JSONHelpers.encodePretty(result)
         )
         let thread = ChatThread(title: "t", messages: [], events: [event])
-        let p = WorkspacePlanProgressBuilder.progress(for: thread, agentStatus: TopBarAgentStatusLabel.running)
+        let p = WorkspacePlanProgressBuilder.progress(
+            for: thread,
+            agentStatus: TopBarAgentStatusLabel.running
+        )
         XCTAssertEqual(p?.stepCounterLabel, "2/3")
         XCTAssertEqual(p?.currentStepTitle, "Write the fix")
         XCTAssertEqual(p?.completedCount, 1)
@@ -68,7 +74,11 @@ final class WorkspacePlanProgressBuilderTests: XCTestCase {
     }
 
     func testAllCompletedMultiStep() {
-        let p = progress([item("a", .completed), item("b", .completed), item("c", .completed)])
+        let p = progress([
+            item("a", .completed),
+            item("b", .completed),
+            item("c", .completed)
+        ])
         XCTAssertEqual(p?.currentStepIndex, 3)     // clamps to last when nothing pending/in-progress
         XCTAssertEqual(p?.isComplete, true)
         XCTAssertEqual(p?.fraction, 1.0)
@@ -91,7 +101,12 @@ final class WorkspacePlanProgressBuilderTests: XCTestCase {
 
     func testNextPendingWhenNothingInProgress() {
         // 1 completed, rest pending, none in-progress → surface first pending (index 2), no half-credit.
-        let p = progress([item("a", .completed), item("b", .pending), item("c", .pending), item("d", .pending)])
+        let p = progress([
+            item("a", .completed),
+            item("b", .pending),
+            item("c", .pending),
+            item("d", .pending)
+        ])
         XCTAssertEqual(p?.currentStepIndex, 2)
         XCTAssertEqual(p?.currentStepTitle, "b")
         XCTAssertEqual(p?.fraction, 0.25)          // 1 / 4, no in-progress bonus

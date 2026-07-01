@@ -25,8 +25,14 @@ final class ParityGateTests: QuillCodeParityTestCase {
         let sourceFiles = try Self.swiftSourceFiles(in: "Sources")
         for file in sourceFiles {
             let text = try String(contentsOf: file, encoding: .utf8)
-            XCTAssertFalse(text.contains("try!"), "\(file.path) should not force-try in production source.")
-            XCTAssertFalse(text.contains("as!"), "\(file.path) should not force-cast in production source.")
+            XCTAssertFalse(
+                text.contains("try" + "!"),
+                "\(file.path) should not force-try in production source."
+            )
+            XCTAssertFalse(
+                text.contains("as" + "!"),
+                "\(file.path) should not force-cast in production source."
+            )
             XCTAssertFalse(
                 text.range(of: #"[A-Za-z0-9_\)\]]!\s*(\.|\)|,|\]|$)"#, options: .regularExpression) != nil,
                 "\(file.path) should not force-unwrap in production source."
@@ -64,8 +70,16 @@ final class ParityGateTests: QuillCodeParityTestCase {
 
     func testParityDocsExist() {
         let root = Self.packageRoot()
-        for name in ["DECISIONS.md", "CODEX_RESEARCH.md", "CODEX_PARITY_MATRIX.md", "ROADMAP.md", "TEST_PLAN.md"] {
-            XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("docs/\(name)").path), name)
+        let requiredDocs = [
+            "DECISIONS.md",
+            "CODEX_RESEARCH.md",
+            "CODEX_PARITY_MATRIX.md",
+            "ROADMAP.md",
+            "TEST_PLAN.md"
+        ]
+        for name in requiredDocs {
+            let path = root.appendingPathComponent("docs/\(name)").path
+            XCTAssertTrue(FileManager.default.fileExists(atPath: path), name)
         }
     }
 
@@ -77,9 +91,15 @@ final class ParityGateTests: QuillCodeParityTestCase {
 
         let mainText = try String(contentsOf: root.appendingPathComponent("ParityGateTests.swift"), encoding: .utf8)
         let mainLines = Set(mainText.components(separatedBy: .newlines))
-        XCTAssertFalse(mainLines.contains("    private static func packageRoot() -> URL {"), "Shared source-reading helpers should live in ParityTestSupport.")
+        XCTAssertFalse(
+            mainLines.contains("    private static func packageRoot() -> URL {"),
+            "Shared source-reading helpers should live in ParityTestSupport."
+        )
         let inlineRegistryNeedle = "static " + "let " + "suites"
-        XCTAssertFalse(mainText.contains(inlineRegistryNeedle), "Focused-suite manifest data should live in ParityFocusedSuiteManifest.")
+        XCTAssertFalse(
+            mainText.contains(inlineRegistryNeedle),
+            "Focused-suite manifest data should live in ParityFocusedSuiteManifest."
+        )
 
         for suite in ParityFocusedSuiteManifest.suites {
             let suiteText = try String(contentsOf: root.appendingPathComponent(suite.fileName), encoding: .utf8)

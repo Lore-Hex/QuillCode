@@ -280,7 +280,10 @@ struct QuillCodeComposerView: View {
         }
         // Continue only while the recalled message is unedited.
         guard showingUneditedRecall(at: historyRecallIndex) else { return false }
-        guard let step = ComposerHistoryRecall.older(history: sentMessageHistory, currentIndex: historyRecallIndex) else {
+        guard let step = ComposerHistoryRecall.older(
+            history: sentMessageHistory,
+            currentIndex: historyRecallIndex
+        ) else {
             return false
         }
         historyRecallIndex = step.index

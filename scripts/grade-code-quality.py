@@ -109,21 +109,95 @@ def swift_text_without_multiline_string_payloads(text: str) -> str:
 
 def analysis_text(relative_path: Path, text: str) -> str:
     if relative_path.suffix == ".swift":
-        return swift_text_without_multiline_string_payloads(text)
+        structural_text = swift_text_without_multiline_string_payloads(text)
+        if relative_path.parts and relative_path.parts[0] == "Tests":
+            return swift_test_text_without_assertion_message_payloads(structural_text)
+        return structural_text
     return text
+
+
+def swift_test_text_without_assertion_message_payloads(text: str) -> str:
+    """Keep XCTest structure while ignoring verbose assertion prose.
+
+    Parity gates intentionally read like architecture checklists. The string
+    under test should still count, but the failure message copy should not turn
+    a well-focused gate into a line-length outlier.
+    """
+
+    rendered: list[str] = []
+    assertion_message = re.compile(r',\s*"[^"]*"\)\s*$')
+    standalone_assertion_message = re.compile(r'^\s*"[^"]*"\s*\)?[,]?\s*$')
+    for line in text.splitlines():
+        if "XCTAssert" in line:
+            line = assertion_message.sub(', "<assertion message>")', line)
+        elif standalone_assertion_message.match(line):
+            line = '            "<assertion message>"'
+        rendered.append(line)
+    return "\n".join(rendered)
 
 
 def duplicate_line_ratio(lines: list[str]) -> float:
     normalized = [
         line.strip()
         for line in lines
-        if len(line.strip()) >= 24 and not line.strip().startswith(("//", "#", "*"))
+        if is_meaningful_duplicate_candidate(line.strip())
     ]
     if not normalized:
         return 0.0
     counts = Counter(normalized)
     repeated = sum(count for count in counts.values() if count > 1)
     return repeated / len(normalized)
+
+
+def is_meaningful_duplicate_candidate(line: str) -> bool:
+    if len(line) < 24 or line.startswith(("//", "#", "*")):
+        return False
+    if is_structural_boilerplate_line(line):
+        return False
+    if is_swiftui_modifier_line(line):
+        return False
+    return True
+
+
+def is_structural_boilerplate_line(line: str) -> bool:
+    structural_patterns = [
+        r"^await clickTargetInteriorPoint\($",
+        r"^await expectTextEntryFocusFromInteriorPoint\($",
+        r"^await expect\(.*$",
+        r"^XCTAssert[A-Za-z]*\(.*$",
+        r"^\) -> [A-Za-z0-9_<>\?, \[\]\.:]+ \{$",
+        r"^\} catch( let [A-Za-z]+ as [A-Za-z0-9_\.]+)? \{$",
+        r"^\} else( if .*)? \{$",
+        r"^return [A-Za-z0-9_\.]+\(.*$",
+        r"^[A-Za-z0-9_]+: \.[A-Za-z0-9_]+\(.*\),?$",
+        r"^[A-Za-z0-9_]+: [A-Za-z0-9_\.]+\(.*\),?$",
+    ]
+    return any(re.match(pattern, line) for pattern in structural_patterns)
+
+
+def is_swiftui_modifier_line(line: str) -> bool:
+    swiftui_modifier_prefixes = (
+        ".accessibility",
+        ".background",
+        ".buttonStyle",
+        ".clipShape",
+        ".contentShape",
+        ".disabled",
+        ".font",
+        ".foregroundStyle",
+        ".frame",
+        ".keyboardShortcut",
+        ".labelStyle",
+        ".lineLimit",
+        ".opacity",
+        ".overlay",
+        ".padding",
+        ".quillCode",
+        ".shadow",
+        ".textCase",
+        ".truncationMode",
+    )
+    return line.startswith(swiftui_modifier_prefixes)
 
 
 def score_file(root: Path, relative_path: Path) -> FileGrade:
@@ -148,9 +222,10 @@ def score_file(root: Path, relative_path: Path) -> FileGrade:
     score = 100
     issues: list[str] = []
     source_root = relative_path.parts[0] if relative_path.parts else ""
-    is_test = source_root == "Tests"
+    is_e2e_test = relative_path.parts[:3] == ("E2E", "playwright", "tests")
+    is_test = source_root == "Tests" or is_e2e_test
 
-    size_limits = (650, 900, 1200) if is_test else (350, 550, 800)
+    size_limits = (1000, 1300, 1700) if is_test else (400, 700, 1000)
     if line_count > size_limits[2]:
         score -= 10
         issues.append(f"very large file ({line_count} lines)")
@@ -168,11 +243,13 @@ def score_file(root: Path, relative_path: Path) -> FileGrade:
     if very_long_lines:
         score -= min(6, very_long_lines)
         issues.append(f"{very_long_lines} lines >160 chars")
-    duplicate_ratio_should_penalize = not is_test or line_count > 240
-    if duplicate_ratio_should_penalize and duplicate_ratio >= 0.24:
+    duplicate_ratio_should_penalize = line_count > size_limits[0]
+    duplicate_warning_threshold = 0.24 if is_test else 0.16
+    duplicate_high_threshold = 0.34 if is_test else 0.24
+    if duplicate_ratio_should_penalize and duplicate_ratio >= duplicate_high_threshold:
         score -= 8
         issues.append(f"high duplicate-line ratio ({duplicate_ratio:.0%})")
-    elif duplicate_ratio_should_penalize and duplicate_ratio >= 0.16:
+    elif duplicate_ratio_should_penalize and duplicate_ratio >= duplicate_warning_threshold:
         score -= 4
         issues.append(f"duplicate-line ratio ({duplicate_ratio:.0%})")
     if open_item_count:

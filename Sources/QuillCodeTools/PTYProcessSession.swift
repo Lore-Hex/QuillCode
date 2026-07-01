@@ -49,9 +49,9 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
     public init(request: ShellExecutionRequest, windowSize: PTYWindowSize? = nil) {
         self.request = request
         self.windowSize = windowSize
-        var capturedContinuation: AsyncStream<ShellProcessEvent>.Continuation!
-        self.events = AsyncStream { capturedContinuation = $0 }
-        self.continuation = capturedContinuation
+        let (stream, continuation) = AsyncStream<ShellProcessEvent>.makeStream()
+        self.events = stream
+        self.continuation = continuation
     }
 
     public func start() {

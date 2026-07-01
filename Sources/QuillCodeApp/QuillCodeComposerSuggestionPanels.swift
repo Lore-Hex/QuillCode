@@ -7,18 +7,7 @@ struct QuillCodeSlashSuggestionPanel: View {
     var onSelect: (SlashCommandSuggestionSurface) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-                Text("Slash commands")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .textCase(.uppercase)
-                Spacer()
-                Text("↑↓ choose · Tab complete")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(QuillCodePalette.muted)
-            }
-
+        QuillCodeSuggestionPanel(title: "Slash commands") {
             ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
                 QuillCodeSlashSuggestionRow(
                     suggestion: suggestion,
@@ -27,13 +16,6 @@ struct QuillCodeSlashSuggestionPanel: View {
                 )
             }
         }
-        .padding(10)
-        .background(QuillCodePalette.background.opacity(0.78))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.09), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -69,22 +51,12 @@ private struct QuillCodeSlashSuggestionRow: View {
                 }
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
-                Image(systemName: "arrow.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(isSelected ? QuillCodePalette.blue : QuillCodePalette.muted.opacity(0.7))
-                    .accessibilityHidden(true)
+                QuillCodeSuggestionRowArrow(isSelected: isSelected)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .quillCodeFullRowButtonTarget(radius: 12)
-            .background(isSelected ? QuillCodePalette.blue.opacity(0.13) : Color.clear)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? QuillCodePalette.blue.opacity(0.24) : Color.clear, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .quillCodeSuggestionRowChrome(isSelected: isSelected)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
+        .quillCodeFullRowButtonTarget(radius: 12)
         .accessibilityLabel("\(suggestion.usage), \(suggestion.title)")
         .accessibilityHint(suggestion.detail)
     }
@@ -96,18 +68,7 @@ struct QuillCodeFileMentionSuggestionPanel: View {
     var onSelect: (FileMentionSuggestionSurface) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-                Text("Files")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .textCase(.uppercase)
-                Spacer()
-                Text("↑↓ choose · Tab complete")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(QuillCodePalette.muted)
-            }
-
+        QuillCodeSuggestionPanel(title: "Files", accessibilityLabel: "File mentions") {
             ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
                 QuillCodeFileMentionSuggestionRow(
                     suggestion: suggestion,
@@ -116,15 +77,6 @@ struct QuillCodeFileMentionSuggestionPanel: View {
                 )
             }
         }
-        .padding(10)
-        .background(QuillCodePalette.background.opacity(0.78))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.09), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("File mentions")
     }
 }
 
@@ -162,22 +114,12 @@ private struct QuillCodeFileMentionSuggestionRow: View {
                 }
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
-                Image(systemName: "arrow.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(isSelected ? QuillCodePalette.blue : QuillCodePalette.muted.opacity(0.7))
-                    .accessibilityHidden(true)
+                QuillCodeSuggestionRowArrow(isSelected: isSelected)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .quillCodeFullRowButtonTarget(radius: 12)
-            .background(isSelected ? QuillCodePalette.blue.opacity(0.13) : Color.clear)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? QuillCodePalette.blue.opacity(0.24) : Color.clear, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .quillCodeSuggestionRowChrome(isSelected: isSelected)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
+        .quillCodeFullRowButtonTarget(radius: 12)
         .accessibilityLabel(
             "Mention \(suggestion.path)"
                 + "\(suggestion.kind == .directory ? ", directory" : "")"
@@ -195,5 +137,70 @@ private struct QuillCodeFileMentionSuggestionRow: View {
             .padding(.vertical, 1)
             .background(Capsule().fill(QuillCodePalette.yellow.opacity(0.16)))
             .accessibilityHidden(true)
+    }
+}
+
+private struct QuillCodeSuggestionPanel<Rows: View>: View {
+    var title: String
+    var keyboardHint = "↑↓ choose · Tab complete"
+    var accessibilityLabel: String?
+    @ViewBuilder var rows: Rows
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .textCase(.uppercase)
+                Spacer()
+                Text(keyboardHint)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+            rows
+        }
+        .padding(10)
+        .background(QuillCodePalette.background.opacity(0.78))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.09), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(accessibilityLabel ?? title)
+    }
+}
+
+private struct QuillCodeSuggestionRowArrow: View {
+    var isSelected: Bool
+
+    var body: some View {
+        Image(systemName: "arrow.right")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(isSelected ? QuillCodePalette.blue : QuillCodePalette.muted.opacity(0.7))
+            .accessibilityHidden(true)
+    }
+}
+
+private struct QuillCodeSuggestionRowChrome: ViewModifier {
+    var isSelected: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(isSelected ? QuillCodePalette.blue.opacity(0.13) : Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? QuillCodePalette.blue.opacity(0.24) : Color.clear, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private extension View {
+    func quillCodeSuggestionRowChrome(isSelected: Bool) -> some View {
+        modifier(QuillCodeSuggestionRowChrome(isSelected: isSelected))
     }
 }
