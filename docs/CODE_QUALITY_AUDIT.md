@@ -12046,3 +12046,49 @@ Remaining risk:
 - The next broad B+ hotspots are still workspace project/model, HTML renderer,
   top-bar, slash-command, and execution parity gates. They should receive the
   same ownership split before claiming literal A+ across all parity coverage.
+
+## 2026-07-01 Project And Worktree Parity Gate Split
+
+Overall grade after this slice: **A+ project parity architecture, A+ worktree
+contract architecture, A whole-repo maintainability**.
+
+The repo-wide grade pass showed `ParityWorkspaceProjectGateTests.swift` as the
+next highest B+ hotspot. The file mixed project metadata loading, WorkspaceModel
+project APIs, pure loader test ownership, instruction-scope contracts, focused
+project integration ownership, remote-project integration ownership, PR
+integration ownership, and worktree contracts. This pass split those concerns
+into three focused files and added the two missing project tests to the
+focused-suite manifest.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| Project metadata/API gates | A+ | Metadata loading, project API extension ownership, loader-test ownership, and instruction scope contracts stay together. |
+| Project integration gates | A+ | Project extension, local project, remote project, and PR integration-suite ownership are isolated from source architecture checks. |
+| Worktree gates | A+ | Worktree integration placement, request models, tool-call planning, and handoff record ownership live in one focused suite. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodeParityTests/ParityWorkspaceProjectGateTests.swift` | A+ | Reduced to project metadata/API/instruction contracts. |
+| `Tests/QuillCodeParityTests/ParityWorkspaceProjectIntegrationGateTests.swift` | A+ | Integration ownership assertions are compact and grouped by project family. |
+| `Tests/QuillCodeParityTests/ParityWorkspaceWorktreeGateTests.swift` | A+ | Worktree integration and source ownership gates are focused. |
+| `Tests/QuillCodeParityTests/ParityFocusedSuiteManifest.swift` | A+ | Manifest now tracks project API and instruction-scope gates plus the split project/worktree files. |
+
+Code quality changes:
+
+- Split the broad project parity gate into project, project-integration, and
+  worktree suites.
+- Reused shared source assertion helpers to remove repeated long assertion
+  prose.
+- Added missing manifest entries for project API extension ownership and
+  instruction scope contracts.
+- Regenerated the deterministic file/module grade matrix; all split project and
+  worktree files grade A+ 100 with no automated issues.
+
+Remaining risk:
+
+- The next broad B+ hotspot is `ParityWorkspaceModelThreadGateTests.swift`,
+  followed by HTML renderer, top-bar, slash-command, and execution parity gates.
