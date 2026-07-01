@@ -3,6 +3,9 @@
 DerivedData/
 .artifacts/
 
+__pycache__/
+*.py[cod]
+
 E2E/playwright/node_modules/
 E2E/playwright/playwright-report/
 E2E/playwright/test-results/

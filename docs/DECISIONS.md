@@ -2,6 +2,9 @@
 
 ## 2026-07-01
 
+- Generated Python bytecode must not be tracked. Native click-probe validator caches are now ignored with
+  `__pycache__/` and `*.py[cod]`, so grade generation and smoke validation cannot rewrite binary artifacts in normal
+  development.
 - Slash parser parity gates should be split by command domain. Repository/project/remote parsers, terminal/mode/model parsers, thread/memory parsers, and workspace/environment/scheduling parsers now live in separate focused gates instead of one broad parser ownership file.
 - Top-bar parity gates should be split by presentation, native chrome, and surface/model-catalog ownership. `ParityTopBarPresentationGateTests.swift` owns status/runtime copy semantics, `ParityNativeTopBarChromeGateTests.swift` owns native chrome and picker composition, and `ParityTopBarSurfaceGateTests.swift` owns top-bar DTO/model-catalog construction and focused integration-test placement.
 - Browser parity gates should be grouped by browser architecture boundary. Browser state/surface ownership, snapshot extraction, visible-session sync, workflow/location routing, browser tool/rendering ownership, broad-suite exclusion, and Playwright flow placement now live in focused parity classes instead of one mixed `ParityBrowserGateTests.swift` file.
@@ -552,3 +555,4 @@
 - Workspace model-state parity gates are split by state responsibility. Status copy, context resolving, agent progress, thread mutations, and pane visibility each live in separate parity files instead of one broad model-state catch-all.
 - Automation parity gates are split by automation responsibility. Core records, state factory/reducer delegation, run planning/event-source triggers, event-source adapter coverage, surface building, and Playwright flow placement each live in separate files instead of one broad automation catch-all.
 - Workspace command parity gates are split by command responsibility. Native command planning, command surface/catalog construction, command-palette/ranker contracts, and Playwright command flows each live in separate files instead of one broad command catch-all.
+- Workspace execution-slash parity gates are split by execution responsibility. Slash transcript planning, command action planning, and command-plan execution each live in separate files instead of one broad execution-slash catch-all.
