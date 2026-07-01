@@ -1,5 +1,66 @@
 # Code Quality Audit
 
+## 2026-07-01 App Model Boundary Quality Pass
+
+Overall grade after this slice: **A+ production modules maintained, previous App A- hotspots removed from the
+module's lowest-file list, stronger browser/terminal/extension boundaries**.
+
+This pass re-graded every file and module, then addressed the App production files that were carrying the most mixed
+ownership after the previous pane/MCP work. The goal was not cosmetic churn; each split gives a distinct runtime
+contract a single owner so future Codex-parity work can land in smaller PRs without accidentally changing nearby
+behavior.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Native hit-target taxonomy | `QuillCodeNativeHitTargetModels.swift` mixed kind/action/focus vocabulary with contracts, validation, policy payloads, click probes, and audit serialization. | The taxonomy file now owns vocabulary only. Contracts, surface policies, click probes, and audit reports live in `QuillCodeNativeHitTargetContract.swift`, `QuillCodeNativeSurfaceTargetPolicy.swift`, `QuillCodeNativeHitTargetProbe.swift`, and `QuillCodeNativeHitTargetAuditReport.swift`. |
+| Browser model/surface boundary | `QuillCodeBrowserSurface.swift` owned reducer state and Codable presentation payloads in one public-heavy file. | Browser aggregate, tab, snapshot, and comment state now live in focused state files. `QuillCodeBrowserSurface.swift` owns only the presentation surface DTOs. |
+| Terminal lifecycle/history boundary | `WorkspaceTerminalEngine.swift` mixed run lifecycle, streaming events, cancellation, execution-context construction, and command-history recall. | `WorkspaceTerminalEngine.swift` keeps lifecycle and execution context work. `WorkspaceTerminalHistoryEngine.swift` owns draft/history recall behavior behind the same API. |
+| Project extension loading | Installed and marketplace extension loading repeated directory scanning, sorting, manifest limits, duplicate filtering, and bounds checks. | One shared scan path handles directory normalization, file enumeration, manifest limits, duplicate filtering, and installed-ID exclusion. `ProjectExtensionManifestPayload.swift` owns JSON payload normalization. |
+| Parity gates | Browser and hit-target gates protected broad files, but did not enforce the new focused boundaries. | Parity gates now read the focused files and reject drift back into broad taxonomy or surface files. |
+| File grades | The prior App low list included `QuillCodeNativeHitTargetModels.swift`, `ProjectExtensionManifestLoader.swift`, `WorkspaceTerminalEngine.swift`, and `QuillCodeBrowserSurface.swift`. | `QuillCodeNativeHitTargetModels.swift`, `WorkspaceTerminalEngine.swift`, `QuillCodeBrowserSurface.swift`, browser state files, and manifest payload normalization now grade **A+**; the loader is smaller and DRYer, and the App module remains **A+**. |
+
+Verification:
+
+- `swift test --filter 'ProjectExtensionManifestLoaderTests|QuillCodeBrowserSurfaceTests|WorkspaceTerminalEngineTests|QuillCodeNativeHitTargetAuditTests|ParityNativeInteractionContractGateTests|ParityBrowserGateTests|ParityWorkspaceProjectGateTests|ParityWorkspaceSurfaceGateTests'`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a boundary/refactor pass, not a new parity feature. Remaining lower grades are mostly broad parity/test
+  harnesses and intentionally repetitive SwiftUI/model projection files. The next high-value quality passes should
+  target `BrowserSessionSyncSnapshot.swift`, `WorkspaceModelBrowser.swift`, and the larger parity suites.
+
+## 2026-07-01 Native Hit-Target Model Boundary Split
+
+Overall grade after this slice: **A+ native hit-target taxonomy boundary, A+ app-source module maintained**.
+
+This pass addressed the most UX-critical remaining App production hotspot from the generated grade report:
+`QuillCodeNativeHitTargetModels.swift`. The old file mixed semantic target taxonomy, contract validation, per-surface
+policy payloads, click-probe payloads, and audit-report serialization in one model file. The refactor is
+behavior-preserving, but makes click-target parity changes easier to review because each audit concept now has a
+single owner.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Native target taxonomy | `QuillCodeNativeHitTargetModels.swift` also owned contracts, policies, probes, and report serialization. | `QuillCodeNativeHitTargetModels.swift` now stays focused on target kind/action/focus/surface-family vocabulary and kind-derived semantics. |
+| Contract validation | Contract fields, dictionary projection, collision-scope defaults, and validation rules lived beside unrelated probe/report structs. | `QuillCodeNativeHitTargetContract.swift` owns contract projection and validation, with validation split into required text, geometry, policy, and stable-selector checks. |
+| Surface policy payloads | Required/allowed kind, action, and focus policy data lived in the broad model file. | `QuillCodeNativeSurfaceTargetPolicy.swift` owns the policy value and JSON projection. |
+| Click-probe payloads | Selector kind, sample points, probe payload, and probe dictionary lived in the broad model file. | `QuillCodeNativeHitTargetProbe.swift` owns click-probe selector and sampling payloads. |
+| Audit report payload | Audit validity and JSON output were coupled to the taxonomy file. | `QuillCodeNativeHitTargetAuditReport.swift` owns report validity and serialization. |
+| Parity gate | Source-audit tests grouped all hit-target files but did not protect the model boundary. | `ParityNativeInteractionContractGateTests` now reads the focused files and rejects contracts, policies, probes, or reports drifting back into the taxonomy file. |
+| File grades | `QuillCodeNativeHitTargetModels.swift` was one of the lowest App source files at **A-**. | The hotspot is removed from the App module's lowest-file list; the next production frontier is now `ProjectExtensionManifestLoader.swift`, `WorkspaceTerminalEngine.swift`, and `QuillCodeBrowserSurface.swift`. |
+
+Verification:
+
+- `swift test --filter 'QuillCodeNativeHitTargetAuditTests|ParityNativeInteractionContractGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is an ownership split, not a new click-target feature. The next UX hardening should continue through real
+  native smoke evidence and the remaining script/parity harness hotspots, especially the large click-probe validator.
+
 ## 2026-07-01 App Pane And MCP Runtime Boundary Pass
 
 Overall grade after this slice: **A+ production source modules maintained, A+ pane shells, clearer MCP runtime seams**.
@@ -24,8 +85,8 @@ Verification:
 Residual risk:
 
 - The grader still reports lower grades for broad parity/test harnesses and a few focused production files with
-  intentionally similar UI branches. The next quality frontier is splitting `QuillCodeNativeHitTargetModels.swift`,
-  `ProjectExtensionManifestLoader.swift`, and `WorkspaceTerminalEngine.swift`, then reducing the largest parity gates.
+  intentionally similar UI branches. The next quality frontier is splitting `ProjectExtensionManifestLoader.swift`,
+  `WorkspaceTerminalEngine.swift`, and `QuillCodeBrowserSurface.swift`, then reducing the largest parity gates.
 
 ## 2026-07-01 Slash Command Catalog Polish
 

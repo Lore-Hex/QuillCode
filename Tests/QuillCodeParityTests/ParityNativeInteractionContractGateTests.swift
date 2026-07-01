@@ -160,15 +160,20 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
 
 
     func testNativeHitTargetAuditIsPartOfDesktopSmokeContract() throws {
+        let nativeModelText = try Self.appSourceText(named: "QuillCodeNativeHitTargetModels.swift")
         let auditText = [
             try Self.appSourceText(named: "QuillCodeNativeHitTargetAudit.swift"),
-            try Self.appSourceText(named: "QuillCodeNativeHitTargetModels.swift"),
+            nativeModelText,
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetContract.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetProbe.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetAuditReport.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetCatalog.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetCanonicalContracts.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetCommandContracts.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetContractFactory.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetDesignContracts.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetPaneContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeSurfaceTargetPolicy.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetPolicyCatalog.swift")
         ].joined(separator: "\n")
         let smokeSupportText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
@@ -195,6 +200,13 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
                 && auditText.contains("case fullRow")
                 && auditText.contains("case capsule"),
             "Native hit-target audit should expose every semantic target kind instead of only a generic minimum-size check."
+        )
+        XCTAssertFalse(
+            nativeModelText.contains("public struct QuillCodeNativeHitTargetContract")
+                || nativeModelText.contains("public struct QuillCodeNativeSurfaceTargetPolicy")
+                || nativeModelText.contains("public struct QuillCodeNativeHitTargetProbe")
+                || nativeModelText.contains("public struct QuillCodeNativeHitTargetAuditReport"),
+            "The native hit-target taxonomy file should stay focused; contracts, surface policy, probes, and audit reports belong in focused model-boundary files."
         )
         XCTAssertTrue(
             auditText.contains("public enum QuillCodeNativeHitTargetAction")
