@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-06-30 Workspace Automation Engine Split
+
+Overall grade after this slice: **A+ automation data engine, A+ app source module average, no automation production file below A**.
+
+This pass addressed the lowest remaining production automation hotspot from the generated report: `WorkspaceAutomationEngine.swift`. The file had grown to 427 lines and mixed four separate responsibilities: shared automation state records, automation record construction, pure state mutations, and due-run/thread-draft planning.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Automation data records | `WorkspaceAutomationEngine.swift` also owned factory, reducer, and runner logic. It graded **B+** at 427 lines. | `WorkspaceAutomationEngine.swift` now contains only `AutomationsState`, `AutomationRunReport`, `WorkspaceAutomationRunDraft`, and `WorkspaceAutomationTrigger`. It grades **A+** at 44 lines. |
+| Automation record construction | Factory methods lived beside state mutation and run planning. | `WorkspaceAutomationFactory.swift` owns thread follow-up, workspace schedule, relative schedule, and tomorrow-morning record construction. |
+| Automation state mutation | Sorting, append/create, status update, deletion, and replacement lived in the same large file. | `WorkspaceAutomationStateReducer.swift` owns typed mutation results and pure state transitions. |
+| Automation run planning | Due-trigger selection and generated follow-up/workspace/monitor thread drafts lived in the same large file. | `WorkspaceAutomationRunner.swift` owns due triggers, recurrence advancement, and run draft construction with shared event/report helpers. |
+| Architecture gates | The parity gate only required helper names somewhere in the old automation engine file. | `ParityAutomationGateTests` now requires factory/reducer/runner helpers in their focused files and rejects those helpers drifting back into `WorkspaceAutomationEngine.swift`. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceAutomation|ParityAutomationGateTests'`
+- `swift test`
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- `WorkspaceAutomationRunner.swift` and `WorkspaceAutomationStateReducer.swift` grade **A** rather than A+ because the heuristic flags repeated Swift signatures and typed mutation boilerplate. The architecture is intentionally still direct and readable; the next real seam would be request structs if call sites need to pass more schedule metadata.
+- Remaining B+ production debt is now concentrated in `QuillCodeAutomationsPaneView.swift`, `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`.
+
 ## 2026-06-30 Workspace Model Sidebar Split
 
 Overall grade after this slice: **A+ sidebar model extension, A- thread lifecycle model extension, A+ app source module average**.
@@ -20,7 +46,7 @@ Verification:
 Residual risk:
 
 - `WorkspaceModelThreads.swift` is still A- because context fork/compact, draft switching, and lifecycle operations are all thread-owned but dense. The next clean seam would be moving context continuation helpers into a focused extension if that area changes again.
-- After the native hit-target split below, remaining B+ production debt is concentrated in `WorkspaceAutomationEngine.swift`, `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`, `QuillCodeTopBarView.swift`, `Agent.swift`, and `GitHubPullRequestToolExecutor.swift`.
+- After the native hit-target and automation-engine splits, remaining B+ production debt is concentrated in `QuillCodeAutomationsPaneView.swift`, `QuillCodeTopBarView.swift`, `WorkspaceHTMLSidebarRenderer.swift`, and `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`.
 
 ## 2026-06-30 Immediate Agent Action Test Split
 
