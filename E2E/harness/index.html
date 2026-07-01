@@ -8624,6 +8624,29 @@
       return 'failed';
     }
 
+    // Mirrors WorkspaceActivityChangesSurfaceBuilder: the git-diff review files as a glanceable
+    // per-file roll-up, biggest churn first, bounded, with the same "+N · -M · K hunks" label.
+    function reviewChangeItems(files) {
+      const changeLabel = file => {
+        const parts = [`+${file.insertions || 0}`, `-${file.deletions || 0}`];
+        if ((file.hunks || 0) > 0) parts.push(countLabel(file.hunks, 'hunk'));
+        if (file.isBinary) parts.push('binary');
+        return parts.join(' · ');
+      };
+      return [...files]
+        .sort((a, b) => {
+          const churn = (b.insertions + b.deletions) - (a.insertions + a.deletions);
+          return churn !== 0 ? churn : (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+        })
+        .slice(0, 12)
+        .map(file => ({
+          id: `change:${file.path}`,
+          title: file.path,
+          detail: changeLabel(file),
+          statusLabel: file.isBinary ? 'binary' : ''
+        }));
+    }
+
     function activitySummary() {
       const messages = state.transcript.messages || [];
       const cards = state.transcript.toolCards || [];
@@ -8725,6 +8748,7 @@
           artifacts,
           finalAnswer: latestAssistant?.text || null,
           planItems,
+          changeItems: reviewChangeItems(state.review?.files || []),
           subagents: state.activity.authoredSubagents || [],
           handoffSummary: state.activity.authoredHandoff || fallbackHandoff
         })
@@ -8746,6 +8770,10 @@
         section('plan', 'Task Plan', 'activity-plan', 'No plan yet', {
           items: activity.planItems,
           countLabel: countLabel(activity.planItems.length, 'item')
+        }),
+        section('changes', 'Changes', 'activity-change', 'No file changes yet', {
+          items: activity.changeItems || [],
+          countLabel: countLabel((activity.changeItems || []).length, 'file')
         }),
         section('context', 'Context', 'activity-context', 'No context compaction yet', {
           items: activity.contextItems || [],
@@ -8786,6 +8814,7 @@
       ].filter(section => {
         if (section.id === 'instructionReview') return (section.items || []).length > 0;
         if (section.id === 'context') return (section.items || []).length > 0;
+        if (section.id === 'changes') return (section.items || []).length > 0;
         return (section.id !== 'latestAnswer' && section.id !== 'handoff') || section.bodyText;
       });
     }

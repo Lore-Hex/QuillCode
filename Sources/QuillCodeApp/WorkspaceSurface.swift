@@ -119,6 +119,13 @@ public extension QuillCodeWorkspaceModel {
             canNavigateBack: navigationHistory.canGoBack,
             canNavigateForward: navigationHistory.canGoForward
         ).surface()
+        // Compute the review (git-diff) surface once and reuse it: the review pane renders it in full,
+        // and the Activity pane's `.changes` section shows a glanceable per-file roll-up of the same delta.
+        let review = WorkspaceReviewSurfaceBuilder(
+            toolCards: toolCards,
+            events: thread?.events ?? [],
+            pullRequestReviewDraft: pullRequestReviewDraft
+        ).surface()
         return WorkspaceSurface(
             chrome: WorkspaceChromeSurface(state: chrome),
             topBar: topBar,
@@ -135,11 +142,7 @@ public extension QuillCodeWorkspaceModel {
                 ).surface()
             ),
             contextBanner: WorkspaceContextBannerBuilder(thread: thread).banner(),
-            review: WorkspaceReviewSurfaceBuilder(
-                toolCards: toolCards,
-                events: thread?.events ?? [],
-                pullRequestReviewDraft: pullRequestReviewDraft
-            ).surface(),
+            review: review,
             terminal: TerminalSurface(
                 terminal: terminal,
                 cwd: terminalCurrentDirectoryURL
@@ -163,6 +166,7 @@ public extension QuillCodeWorkspaceModel {
                 instructions: activeSources.instructions,
                 memories: activeSources.memories,
                 agentStatus: topBarState.agentStatus,
+                changeFiles: review.files,
                 collapsedSectionIDs: activity.collapsedSectionIDs,
                 dismissedInstructionDiagnosticIDs: activity.dismissedInstructionDiagnosticIDs
             ),

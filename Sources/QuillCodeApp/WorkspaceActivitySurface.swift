@@ -27,6 +27,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         taskTitle: String = "No task selected",
         taskSubtitle: String = "Start a chat to see task progress, tools, sources, and artifacts.",
         planItems: [ActivityItemSurface] = [],
+        changeItems: [ActivityItemSurface] = [],
         contextItems: [ActivityItemSurface] = [],
         recentSteps: [ActivityItemSurface] = [],
         subagents: [ActivityItemSurface] = [],
@@ -54,6 +55,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.handoffSummary = handoffSummary
         self.sections = WorkspaceActivitySurfaceBuilder.sections(
             planItems: planItems,
+            changeItems: changeItems,
             contextItems: contextItems,
             recentSteps: recentSteps,
             subagents: subagents,
@@ -73,6 +75,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         instructions: [ProjectInstruction],
         memories: [MemoryNote],
         agentStatus: String,
+        changeFiles: [WorkspaceReviewFileSurface] = [],
         collapsedSectionIDs: Set<ActivitySectionKind> = [],
         dismissedInstructionDiagnosticIDs: Set<String> = []
     ) {
@@ -113,6 +116,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             taskTitle: WorkspaceActivitySurfaceBuilder.taskTitle(for: thread),
             taskSubtitle: "\(thread.messages.count) message\(thread.messages.count == 1 ? "" : "s") - \(thread.events.count) event\(thread.events.count == 1 ? "" : "s")",
             planItems: planItems,
+            changeItems: WorkspaceActivityChangesSurfaceBuilder.items(from: changeFiles),
             contextItems: WorkspaceActivitySurfaceBuilder.contextItems(for: thread),
             recentSteps: WorkspaceActivitySurfaceBuilder.recentSteps(for: thread),
             subagents: WorkspaceActivitySurfaceBuilder.subagentItems(for: thread),

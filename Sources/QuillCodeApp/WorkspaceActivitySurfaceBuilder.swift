@@ -63,6 +63,7 @@ enum WorkspaceActivitySurfaceBuilder {
 
     static func sections(
         planItems: [ActivityItemSurface],
+        changeItems: [ActivityItemSurface] = [],
         contextItems: [ActivityItemSurface],
         recentSteps: [ActivityItemSurface],
         subagents: [ActivityItemSurface],
@@ -79,6 +80,11 @@ enum WorkspaceActivitySurfaceBuilder {
                 kind: .plan,
                 items: planItems,
                 isCollapsed: collapsedSectionIDs.contains(.plan)
+            ),
+            ActivitySectionSurface(
+                kind: .changes,
+                items: changeItems,
+                isCollapsed: collapsedSectionIDs.contains(.changes)
             ),
             ActivitySectionSurface(
                 kind: .context,
