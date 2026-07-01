@@ -40,6 +40,8 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         let extensionsText = try Self.appSourceText(named: "QuillCodeExtensionsPaneView.swift")
         let memoriesText = try Self.appSourceText(named: "QuillCodeMemoriesPaneView.swift")
         let automationsText = try Self.appSourceText(named: "QuillCodeAutomationsPaneView.swift")
+        let automationMenuText = try Self.appSourceText(named: "QuillCodeAutomationCreateMenu.swift")
+        let automationCardText = try Self.appSourceText(named: "QuillCodeAutomationWorkflowCard.swift")
 
         XCTAssertTrue(workspaceText.contains("QuillCodeWorkspaceMainPaneView"), "Workspace shell should delegate center-pane placement.")
         XCTAssertTrue(chromeText.contains("struct QuillCodePaneCountPill"), "Secondary pane count pills should remain shared native chrome.")
@@ -48,6 +50,12 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(extensionsText.contains("ProjectExtensionManifestSurface"), "MCP extension metadata display should stay with the Extensions native pane.")
         XCTAssertTrue(memoriesText.contains("struct QuillCodeMemoriesPaneView"), "Memories native UI should live in its own focused file.")
         XCTAssertTrue(automationsText.contains("struct QuillCodeAutomationsPaneView"), "Automations native UI should live in its own focused file.")
+        XCTAssertTrue(automationsText.contains("QuillCodeAutomationCreateMenu"), "Automations pane should delegate create-menu routing.")
+        XCTAssertTrue(automationsText.contains("QuillCodeAutomationWorkflowCard"), "Automations pane should delegate workflow card rendering.")
+        XCTAssertTrue(automationMenuText.contains("struct QuillCodeAutomationCreateMenu"), "Automation create menu should live in a focused view file.")
+        XCTAssertTrue(automationMenuText.contains("quillCodePlatformMenuItemTarget"), "Automation menu commands should keep platform menu hit-target contracts.")
+        XCTAssertTrue(automationCardText.contains("struct QuillCodeAutomationWorkflowCard"), "Automation workflow cards should live in a focused view file.")
+        XCTAssertTrue(automationCardText.contains("automationCommand(id:"), "Automation workflow cards should own row action command construction.")
         XCTAssertTrue(mainPaneText.contains("QuillCodeExtensionsPaneView"), "Workspace main pane should route Extensions pane placement.")
         XCTAssertTrue(mainPaneText.contains("QuillCodeMemoriesPaneView"), "Workspace main pane should route Memories pane placement.")
         XCTAssertTrue(mainPaneText.contains("QuillCodeAutomationsPaneView"), "Workspace main pane should route Automations pane placement.")
@@ -57,6 +65,9 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(chromeText.contains("struct QuillCodeExtensionsPaneView"), "Shared secondary chrome should not own Extensions pane content.")
         XCTAssertFalse(chromeText.contains("struct QuillCodeMemoriesPaneView"), "Shared secondary chrome should not own Memories pane content.")
         XCTAssertFalse(chromeText.contains("struct QuillCodeAutomationsPaneView"), "Shared secondary chrome should not own Automations pane content.")
+        XCTAssertFalse(automationsText.contains("private var createMenu"), "Automations pane shell should not own create-menu internals.")
+        XCTAssertFalse(automationsText.contains("private func automationCard"), "Automations pane shell should not own workflow card internals.")
+        XCTAssertFalse(automationsText.contains("automationCommand(id:"), "Automations pane shell should not own row action command construction.")
     }
 
     func testComposerSeparatesModelAndApprovalModeControls() throws {
