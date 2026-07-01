@@ -224,6 +224,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
         let browserPaneText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+        let browserControlsText = try Self.appSourceText(named: "QuillCodeBrowserPaneControls.swift")
         let commandCatalogText = try Self.appSourceText(named: "WorkspaceCommandStaticCatalog.swift")
         let viewCommandPlannerText = try Self.appSourceText(named: "QuillCodeWorkspaceViewCommandPlanner.swift")
 
@@ -248,7 +249,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(controllerText.contains("func openBrowserSession()"), "Desktop controller should expose a visible browser session action.")
         XCTAssertTrue(appText.contains("onOpenBrowserSession: controller.openBrowserSession"), "Desktop app should wire visible browser sessions into shared UI.")
         XCTAssertTrue(browserPaneText.contains("var onOpenSession: (() -> Void)?"), "Shared browser pane should keep visible sessions optional for non-desktop platforms.")
-        XCTAssertTrue(browserPaneText.contains(#"Button("Session", action: onOpenSession)"#), "Browser pane should expose a compact visible session action when available.")
+        XCTAssertTrue(browserControlsText.contains(#"Button("Session", action: onOpenSession)"#), "Browser pane should expose a compact visible session action when available.")
         XCTAssertTrue(commandCatalogText.contains(#"id: "open-browser-session""#), "Command palette should expose visible browser sessions.")
         XCTAssertTrue(commandCatalogText.contains("browserCanOpenSession"), "Visible browser session command should use real browser availability.")
         XCTAssertTrue(viewCommandPlannerText.contains(#"case "open-browser-session":"#), "Shared command routing should present visible sessions without falling through to text insertion.")

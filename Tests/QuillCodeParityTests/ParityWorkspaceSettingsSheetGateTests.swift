@@ -95,6 +95,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         let memoriesText = try Self.appSourceText(named: "QuillCodeMemoriesPaneView.swift")
         let worktreeChromeText = try Self.appSourceText(named: "QuillCodeWorktreeDialogChrome.swift")
         let browserText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+        let browserControlsText = try Self.appSourceText(named: "QuillCodeBrowserPaneControls.swift")
         let terminalText = try Self.appSourceText(named: "QuillCodeTerminalPaneView.swift")
         let contextBannerText = try Self.appSourceText(named: "QuillCodeContextBannerView.swift")
         let reviewActionText = try Self.appSourceText(named: "QuillCodeReviewActionButton.swift")
@@ -173,12 +174,12 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             "Activity section toggles should keep shared 0.96 press feedback."
         )
         XCTAssertTrue(
-            browserText.contains(".quillCodeIconButtonTarget()")
+            browserControlsText.contains(".quillCodeIconButtonTarget()")
                 && browserText.contains("QuillCodeActionButtonStyle(.secondary, minWidth: 92)"),
             "Browser nav and comment controls should use semantic 44 pt click targets."
         )
         XCTAssertFalse(
-            browserText.contains(".controlSize(.small)"),
+            browserControlsText.contains(".controlSize(.small)"),
             "Browser nav buttons should not wrap 44 pt labels in visually small controls."
         )
         XCTAssertTrue(
