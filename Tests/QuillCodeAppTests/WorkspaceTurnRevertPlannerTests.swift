@@ -88,4 +88,44 @@ final class WorkspaceTurnRevertPlannerTests: XCTestCase {
         let redacted = call.redactedForTranscript()
         XCTAssertEqual((try? ToolArguments(redacted.argumentsJSON))?.string("patch"), "THE-DIFF")
     }
+
+    func testFlagsPrCheckoutThatTheOldDenylistMissed() {
+        // Regression: host.git.pr.checkout (risk .append) mutates the local tree but was absent from
+        // the hand-maintained denylist, so a turn doing apply_patch + pr.checkout claimed a clean undo.
+        let u1 = userMessage("edit then checkout a PR", at: 100)
+        let thread = ChatThread(title: "T", messages: [u1], events: [
+            applyPatchEvent("PATCH-A", at: 150),
+            toolQueuedEvent(name: "host.git.pr.checkout", arguments: ["selector": "42"], at: 160)
+        ])
+        XCTAssertEqual(WorkspaceTurnRevertPlanner.plan(for: u1.id, in: thread)?.hasNonApplyPatchEdits, true)
+    }
+
+    func testReadOnlyToolDoesNotFlagRevertScope() {
+        // A read-only tool alongside apply_patch leaves the undo fully honorable — no partial warning.
+        let u1 = userMessage("edit then read a file", at: 100)
+        let thread = ChatThread(title: "T", messages: [u1], events: [
+            applyPatchEvent("PATCH-A", at: 150),
+            toolQueuedEvent(name: ToolDefinition.fileRead.name, arguments: ["path": "x.txt"], at: 160)
+        ])
+        XCTAssertEqual(WorkspaceTurnRevertPlanner.plan(for: u1.id, in: thread)?.hasNonApplyPatchEdits, false)
+    }
+
+    func testUnknownDynamicToolIsTreatedAsMutating() {
+        // A tool not in the static catalog (an MCP/dynamic tool) is conservatively mutating — better to
+        // over-warn than to under-report and lie about the undo scope.
+        XCTAssertTrue(WorkspaceTurnRevertPlanner.isMutatingNonApplyTool("mcp.some.custom.tool"))
+        XCTAssertFalse(WorkspaceTurnRevertPlanner.isMutatingNonApplyTool(ToolDefinition.applyPatch.name))
+    }
+
+    func testMutatingClassifierMatchesTheToolRiskCatalog() {
+        // Correct-by-construction: every non-read tool in the catalog (except apply_patch) is flagged,
+        // and every read-only tool is not — so a future mutating tool can never silently slip through.
+        for definition in ToolRouter.definitions {
+            let expected = definition.name != ToolDefinition.applyPatch.name && definition.risk != .read
+            XCTAssertEqual(
+                WorkspaceTurnRevertPlanner.isMutatingNonApplyTool(definition.name), expected,
+                "\(definition.name) [risk \(definition.risk.rawValue)] misclassified"
+            )
+        }
+    }
 }

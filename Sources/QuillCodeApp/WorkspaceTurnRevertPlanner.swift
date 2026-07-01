@@ -26,20 +26,26 @@ public struct TurnRevertPlan: Sendable, Hashable {
 /// attributed to the latest user message at-or-before their timestamp (the same chronology
 /// the transcript builder renders by). Pure and synchronous — no git, no side effects.
 public enum WorkspaceTurnRevertPlanner {
-    /// Tool calls (other than `apply_patch`) that can change the working tree, so a turn
-    /// containing them is flagged as having edits a reverse-patch can't undo. Listed by
-    /// `ToolDefinition` constant so the set tracks tool renames. Update this whenever a new
-    /// file-mutating tool is added — under-reporting here would make the undo's scope a lie.
-    static let mutatingNonApplyToolNames: Set<String> = [
-        ToolDefinition.fileWrite.name,
-        ToolDefinition.shellRun.name,
-        ToolDefinition.gitRestore.name,
-        ToolDefinition.gitRestoreHunk.name,
-        ToolDefinition.gitCommit.name,
-        ToolDefinition.mcpCall.name,
-        // A prior revert mutates the tree outside apply_patch too.
-        "host.git.revert_turn"
-    ]
+    /// The risk class of every statically-defined tool, so a turn's non-`apply_patch` edits are
+    /// detected by SAFETY rather than a hand-maintained name list that silently rots the moment a new
+    /// mutating tool is added (the old denylist provably omitted, e.g., `host.git.pr.checkout` and the
+    /// computer-use tools — a turn using them reported a clean full undo it could not deliver).
+    private static let toolRiskByName: [String: ToolRiskClass] = Dictionary(
+        ToolRouter.definitions.map { ($0.name, $0.risk) },
+        uniquingKeysWith: { existing, _ in existing }
+    )
+
+    /// Whether a tool call other than `apply_patch` changed state that a reverse-patch of this turn's
+    /// `apply_patch` edits cannot undo — a mutating local-tree change, or a remote/side effect the
+    /// revert won't reverse. Classified by risk (anything not read-only is mutating), so it is
+    /// correct-by-construction for every current and future tool. Unknown/dynamic tools (MCP, computer
+    /// use, a prior `host.git.revert_turn`) are treated as mutating: over-warning that the undo is
+    /// partial is safe; under-warning would make the undo's scope a lie.
+    static func isMutatingNonApplyTool(_ name: String) -> Bool {
+        guard name != ToolDefinition.applyPatch.name else { return false }
+        guard let risk = toolRiskByName[name] else { return true }
+        return risk != .read
+    }
 
     public static func plans(for thread: ChatThread) -> [TurnRevertPlan] {
         let userMessages = thread.messages
@@ -71,7 +77,7 @@ public enum WorkspaceTurnRevertPlanner {
                 else { continue }
                 if patchesByTurn[turn] == nil { turnOrder.append(turn) }
                 patchesByTurn[turn, default: []].append(patch)
-            } else if mutatingNonApplyToolNames.contains(call.name) {
+            } else if isMutatingNonApplyTool(call.name) {
                 hasNonApplyByTurn[turn] = true
             }
         }
