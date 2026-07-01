@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-07-01 Slash Command Catalog Polish
+
+Overall grade after this slice: **A+ slash command catalog, A+ app-source module maintained**.
+
+This pass addressed a production app-source hotspot from the generated grade report: `SlashCommandCatalog.swift`.
+The old catalog was behaviorally fine, but dense single-line `.init(...)` declarations made command metadata
+hard to review and generated many over-120-column lines.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Command metadata construction | Each global slash command repeated the full `SlashCommandDefinition` initializer with explicit `insertText` and `aliases`, even when defaults matched the usage or aliases were empty. | A focused `slashDefinition(...)` helper centralizes defaults for insert text and aliases, keeping each row about command intent instead of boilerplate. |
+| Readability | Long command details, scheduling examples, and alias lists lived in one-line entries. | Long details and alias lists are wrapped at the call site, making additions and review safer. |
+| Command-palette projection | Keyword construction was packed into one expression inside the `WorkspaceCommandSurface` initializer. | Keyword construction is named locally before returning the palette row. |
+| Ownership | Static command data and suggestion/palette behavior lived in one file. | `SlashCommandCatalog.swift` owns help, palette, and ranking behavior; `SlashCommandCatalogDefinitions.swift` owns the global static command table and defaulting helper. |
+| Behavior | The catalog already drove `/help`, suggestions, and command-palette insertions. | Behavior stays unchanged; focused slash/palette tests cover the same surfaces after the refactor. |
+
+Verification:
+
+- `swift test --filter 'WorkspaceCommandPaletteRankerTests|WorkspaceCommandPlanTests|WorkspaceSlashCommandActionExecutorTests|WorkspaceSlashCommandTranscriptPlannerTests|QuillCodeCommandIconCatalogTests|WorkspacePullRequestCommandCatalogTests|ParityWorkspaceExecutionSlashGateTests|ParityToolGateTests|ParityWorkspaceCommandGateTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This is a readability/DRY refactor. It does not promote slash metadata into a fully shared command descriptor
+  model for every command family; PR commands already use that pattern, and the remaining global commands can be
+  migrated gradually when there is a stronger ownership need.
+
 ## 2026-07-01 Thread Model Boundary Split
 
 Overall grade after this slice: **A+ thread creation, A+ thread selection, A+ lifecycle actions, A+ context continuation boundary**.
