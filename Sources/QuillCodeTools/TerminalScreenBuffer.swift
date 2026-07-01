@@ -28,6 +28,7 @@ struct TerminalScreenBuffer {
 
     mutating func feed(_ raw: String) {
         let scalars = Array(raw.unicodeScalars)
+        let graphemeStarts = TerminalScreenGraphemeClusters.indexed(in: raw, scalarCount: scalars.count)
         var i = 0
         while i < scalars.count {
             let scalar = scalars[i]
@@ -47,8 +48,13 @@ struct TerminalScreenBuffer {
             case "\u{07}":  // bell: non-printing
                 i += 1
             default:
-                put(Character(scalar))
-                i += 1
+                if let grapheme = graphemeStarts[i] {
+                    put(grapheme.character)
+                    i += grapheme.scalarCount
+                } else {
+                    put(Character(scalar))
+                    i += 1
+                }
             }
         }
     }
