@@ -88,4 +88,14 @@ final class FileEncodingPreservationTests: XCTestCase {
     func testNormalizeLeavesPlainText() {
         XCTAssertEqual(FileEncodingPreservation.normalizeForDisplay("a\nb\n"), "a\nb\n")
     }
+
+    func testNormalizeMapsLoneCRToLF() {
+        // Classic pre-OSX Mac endings: without this a CR-only file renders as ONE numbered line.
+        XCTAssertEqual(FileEncodingPreservation.normalizeForDisplay("a\rb\rc"), "a\nb\nc")
+    }
+
+    func testNormalizeMixedCRLFAndLoneCRDoesNotDouble() {
+        // CRLF is replaced first, so the \r inside \r\n never becomes a second newline.
+        XCTAssertEqual(FileEncodingPreservation.normalizeForDisplay("a\r\nb\rc\n"), "a\nb\nc\n")
+    }
 }

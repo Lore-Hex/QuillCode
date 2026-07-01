@@ -65,9 +65,16 @@ public enum FileEncodingPreservation {
 
     /// Strip a leading BOM and normalize CRLF→LF for on-screen rendering, so the numbered read view is
     /// not polluted by a U+FEFF on line 1 or a trailing `\r` on every line. Does not alter the file.
+    ///
+    /// Lone CR (classic pre-OSX Mac endings) is also mapped to LF — CRLF first so it never doubles —
+    /// otherwise a CR-only file renders as ONE numbered line with embedded control characters.
+    /// (Display only: `detect`/`apply` deliberately stay CRLF-vs-LF; rewriting a CR-only file
+    /// normalizes it to LF, an acceptable edge for a 25-year-dead convention.)
     public static func normalizeForDisplay(_ text: String) -> String {
         var result = text
         if result.first == "\u{FEFF}" { result.removeFirst() }
-        return result.replacingOccurrences(of: "\r\n", with: "\n")
+        return result
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
     }
 }
