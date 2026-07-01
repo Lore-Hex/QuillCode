@@ -112,3 +112,33 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Durable Memory Edit Tests');
   await expect(page.getByTestId('memory-delete')).toHaveCount(1);
 });
+
+test('mock harness surfaces memory conflicts with edit actions', async ({ page }) => {
+  await page.goto(harnessURL());
+  await clickSidebarTool(page, 'memories-button');
+
+  await projectMemoryRow(page).getByTestId('memory-edit').click();
+  await submitComposer(
+    page,
+    [
+      `/remember-edit project:${projectMemoryPath}`,
+      'Avoid focused tests, small reviewable commits, and direct status updates while work is running.'
+    ].join('\n')
+  );
+
+  await expect(page.getByTestId('memories-subtitle'))
+    .toHaveText('1 global memory · 1 project memory · 1 conflict');
+  await expect(page.getByTestId('memory-conflict')).toBeVisible();
+  await expect(page.getByTestId('memory-conflict-title'))
+    .toHaveText('Memory conflict: focused tests small reviewable commits and direct status updates while work is running');
+  await expect(page.getByTestId('memory-conflict-edit')).toHaveCount(2);
+
+  await page.getByTestId('memory-conflict-edit').first().click();
+
+  await expect(page.getByLabel('Message')).toHaveValue(
+    [
+      '/remember-edit global:memories/preferences.md',
+      'Prefer focused tests, small reviewable commits, and direct status updates while work is running.'
+    ].join('\n')
+  );
+});

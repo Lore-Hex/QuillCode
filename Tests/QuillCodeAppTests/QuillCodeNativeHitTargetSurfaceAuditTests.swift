@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeApp
 
 @MainActor
@@ -44,6 +45,40 @@ final class QuillCodeNativeHitTargetSurfaceAuditTests: QuillCodeNativeHitTargetA
             Set(report.coveredFocusTargets),
             Set(QuillCodeNativeFocusTarget.allCases.map(\.rawValue))
         )
+    }
+
+    func testAuditCoversMemoryConflictEditActionWhenVisible() {
+        var surface = representativeSurface()
+        surface.memories = WorkspaceMemoriesSurface(
+            isVisible: true,
+            notes: [
+                MemoryNote(
+                    id: "global-preferences",
+                    scope: .global,
+                    title: "Preferences",
+                    content: "Prefer SwiftUI surfaces.",
+                    relativePath: "memories/preferences.md",
+                    byteCount: 24
+                ),
+                MemoryNote(
+                    id: "project:.quillcode/memories/project.md",
+                    scope: .project,
+                    title: "Project",
+                    content: "Do not use SwiftUI surfaces.",
+                    relativePath: ".quillcode/memories/project.md",
+                    byteCount: 29
+                )
+            ],
+            canEditProjectMemories: true
+        )
+
+        let report = QuillCodeNativeHitTargetAudit.report(for: surface)
+        let contract = report.surfaceContracts.first { $0.id == "memories.conflict-edit" }
+
+        XCTAssertTrue(report.isValid)
+        XCTAssertEqual(contract?.kind, .formAction)
+        XCTAssertEqual(contract?.testID, "quillcode-memory-conflict-edit")
+        XCTAssertEqual(contract?.label, "Edit conflicting memory")
     }
 }
 

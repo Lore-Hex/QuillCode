@@ -116,6 +116,74 @@ final class QuillCodeSecondaryPaneSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.items.map(\.id), ["global-1", "project-1"])
     }
 
+    func testMemoriesSurfaceFlagsObviousGlobalProjectConflicts() {
+        let global = MemoryNote(
+            id: "global-preferences",
+            scope: .global,
+            title: "Global preferences",
+            content: "Prefer SwiftUI surfaces.",
+            relativePath: "memories/preferences.md",
+            byteCount: 24
+        )
+        let project = MemoryNote(
+            id: "project:.quillcode/memories/project.md",
+            scope: .project,
+            title: "Project memory",
+            content: "Do not use SwiftUI surfaces.",
+            relativePath: ".quillcode/memories/project.md",
+            byteCount: 29
+        )
+
+        let surface = WorkspaceMemoriesSurface(
+            isVisible: true,
+            notes: [global, project],
+            canEditProjectMemories: true
+        )
+
+        XCTAssertEqual(surface.subtitle, "1 global memory · 1 project memory · 1 conflict")
+        XCTAssertEqual(surface.conflictCount, 1)
+        XCTAssertEqual(surface.conflicts.first?.title, "Memory conflict: swiftui surfaces")
+        XCTAssertEqual(surface.conflicts.first?.global.editCommandID, "memory-edit:global-preferences")
+        XCTAssertEqual(
+            surface.conflicts.first?.project.editCommandID,
+            "memory-edit:project:.quillcode/memories/project.md"
+        )
+    }
+
+    func testMemoriesSurfaceIgnoresNonOpposingOrSameScopeNotes() {
+        let notes = [
+            MemoryNote(
+                id: "global-1",
+                scope: .global,
+                title: "Global one",
+                content: "Prefer small commits.",
+                relativePath: "memories/one.md",
+                byteCount: 21
+            ),
+            MemoryNote(
+                id: "global-2",
+                scope: .global,
+                title: "Global two",
+                content: "Do not use small commits.",
+                relativePath: "memories/two.md",
+                byteCount: 25
+            ),
+            MemoryNote(
+                id: "project-1",
+                scope: .project,
+                title: "Project",
+                content: "Use SwiftPM.",
+                relativePath: ".quillcode/memories/project.md",
+                byteCount: 12
+            )
+        ]
+
+        let surface = WorkspaceMemoriesSurface(isVisible: true, notes: notes)
+
+        XCTAssertEqual(surface.conflicts, [])
+        XCTAssertEqual(surface.subtitle, "2 global memories · 1 project memory")
+    }
+
     func testAutomationsSurfaceUsesConfiguredWorkflowsAndActions() {
         let due = Date(timeIntervalSince1970: 100)
         let active = QuillAutomation(

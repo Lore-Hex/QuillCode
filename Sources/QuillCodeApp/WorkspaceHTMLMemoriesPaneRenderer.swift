@@ -31,8 +31,45 @@ enum WorkspaceHTMLMemoriesPaneRenderer {
         }
         return """
         <div class="memories-grid" data-testid="memories-grid">
+          \(renderConflicts(memories))
           \(memories.items.map(renderMemoryItem).joined(separator: "\n"))
         </div>
+        """
+    }
+
+    private static func renderConflicts(_ memories: WorkspaceMemoriesSurface) -> String {
+        guard !memories.conflicts.isEmpty else { return "" }
+        return memories.conflicts.map(renderConflict).joined(separator: "\n")
+    }
+
+    private static func renderConflict(_ conflict: MemoryConflictSurface) -> String {
+        """
+        <article class="memory-conflict-card" data-testid="memory-conflict">
+          <header>
+            <strong data-testid="memory-conflict-title">\(escape(conflict.title))</strong>
+          </header>
+          <p data-testid="memory-conflict-summary">\(escape(conflict.summary))</p>
+          <div class="memory-conflict-sides">
+            \(renderConflictSide(conflict.global))
+            \(renderConflictSide(conflict.project))
+          </div>
+        </article>
+        """
+    }
+
+    private static func renderConflictSide(_ side: MemoryConflictSideSurface) -> String {
+        """
+        <section class="memory-conflict-side">
+          <strong>\(escape(side.scopeLabel))</strong>
+          <span>\(escape(side.title))</span>
+          <code>\(escape(side.relativePath))</code>
+          \(renderCommand(
+              "Edit \(side.scopeLabel.lowercased())",
+              testID: "memory-conflict-edit",
+              commandID: side.editCommandID,
+              classes: ["memory-conflict-edit-button"]
+          ))
+        </section>
         """
     }
 

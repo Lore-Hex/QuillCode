@@ -202,6 +202,58 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(".quillcode/memories/project.md"))
     }
 
+    func testHTMLRendererIncludesMemoryConflictReviewActions() throws {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            memories: [
+                MemoryNote(
+                    id: "project:.quillcode/memories/project.md",
+                    scope: .project,
+                    title: "Project",
+                    content: "Do not use SwiftUI surfaces.",
+                    relativePath: ".quillcode/memories/project.md",
+                    byteCount: 29
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                globalMemories: [
+                    MemoryNote(
+                        id: "global:memories/preferences.md",
+                        scope: .global,
+                        title: "Preferences",
+                        content: "Prefer SwiftUI surfaces.",
+                        relativePath: "memories/preferences.md",
+                        byteCount: 24
+                    )
+                ]
+            ),
+            memories: MemoriesState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="memory-conflict""#))
+        XCTAssertTrue(html.contains("Memory conflict: swiftui surfaces"))
+        XCTAssertTrue(html.contains("1 global memory · 1 project memory · 1 conflict"))
+        assertContainsAction(
+            html,
+            testID: "memory-conflict-edit",
+            commandID: "memory-edit:global:memories/preferences.md",
+            title: "Edit global"
+        )
+        assertContainsAction(
+            html,
+            testID: "memory-conflict-edit",
+            commandID: "memory-edit:project:.quillcode/memories/project.md",
+            title: "Edit project"
+        )
+    }
+
     func testHTMLRendererIncludesInstructionReviewActivitySection() throws {
         let thread = ChatThread(
             title: "Inspect conflicts",
