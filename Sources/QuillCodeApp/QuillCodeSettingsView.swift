@@ -40,6 +40,11 @@ struct QuillCodeSettingsView: View {
                 Text(settings.loginStatusLabel)
                     .font(.callout)
                     .foregroundStyle(QuillCodePalette.muted)
+                Text(settings.modelCatalogStatusLabel)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .help(settings.modelCatalogStatusDetail ?? settings.modelCatalogStatusLabel)
             }
             Spacer()
             Text(settings.apiKeyStatusLabel)

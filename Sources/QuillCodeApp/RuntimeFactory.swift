@@ -116,7 +116,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 baseURL: config.apiBaseURL
             ).fetch()
         } catch {
-            return TrustedRouterModelCatalog()
+            return TrustedRouterModelCatalog(status: .fallbackAfterFailure(String(describing: error)))
         }
     }
 

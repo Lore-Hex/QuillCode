@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 TrustedRouter Model Catalog Freshness Pass
+
+Overall grade after this slice: **source modules remain A+; the touched model-catalog runtime and picker surfaces are
+A+**.
+
+This pass targeted a Codex-parity gap in the TrustedRouter model picker: the app could show live model capabilities, but
+users could not tell whether those capabilities came from a fresh TrustedRouter `/models` response, the bundled fallback
+catalog, or a refresh failure. That made provider/model status claims less trustworthy during sign-in and network issues.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Catalog source state | `TrustedRouterModelCatalog` collapsed live and fallback catalogs into the same `[ModelInfo]`. | `ModelCatalogStatus` records bundled, live, and fallback-after-failure states with bounded freshness/failure copy. |
+| Runtime refresh | Fetch failures silently returned the bundled catalog. | Fetch failures still keep the UI usable, but Settings and the picker say the catalog is a fallback and why. |
+| Picker/settings UX | Model rows could show provider status, but the catalog age/source was invisible. | The picker header and Settings header share the same catalog freshness label/detail. |
+| Harness parity | Playwright could test picker search/selection, not catalog freshness copy. | The HTML harness exposes the same model-catalog status line for E2E coverage. |
+
+Verification:
+
+- `swift test --filter 'CoreModelTests|TrustedRouterModelCatalogTests|WorkspaceRuntimeFactoryTests|WorkspaceModelPickerSurfaceIntegrationTests|WorkspaceSettingsRuntimeSurfaceTests|WorkspaceTopBarSurfaceBuilderTests|QuillCodeTopBarSurfaceTests|WorkspaceHTMLChromeRendererTests'`
+- `npx playwright test tests/model-picker.spec.ts`
+- `swift test`
+- `git diff --check`
+
+Residual risk:
+
+- This is catalog-source freshness, not proactive provider-health polling. QuillCode still needs a stable TrustedRouter
+  provider-health endpoint before warning users about outages before a run or catalog refresh fails.
+
 ## 2026-07-01 Remote Project Tool Executor Ownership Pass
 
 Overall grade after this slice: **all source modules remain A+; the touched remote-project tool executor cluster is

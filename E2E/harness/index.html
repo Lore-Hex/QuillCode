@@ -487,6 +487,12 @@
     }
     .model-panel h2,
     .model-panel p { margin: 0; }
+    .model-panel .model-catalog-status {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.25;
+    }
     .model-panel input {
       width: 100%;
       padding: 10px 12px;
@@ -3435,6 +3441,8 @@
         instructionSources: ['AGENTS.md'],
         modelLabel: 'Nike 1.0',
         selectedModelID: 'trustedrouter/fast',
+        modelCatalogStatusLabel: 'Bundled catalog',
+        modelCatalogStatusDetail: "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog.",
         modelPickerOpen: false,
         expandedModelID: null,
         highlightedModelID: null,
@@ -6791,6 +6799,7 @@
           <div>
             <h2>Choose Model</h2>
             <p>Search provider, category, model, or state</p>
+            <p class="model-catalog-status" data-testid="model-catalog-status" title="${escapeHTML(state.topBar.modelCatalogStatusDetail || state.topBar.modelCatalogStatusLabel)}">${escapeHTML(state.topBar.modelCatalogStatusLabel)}</p>
           </div>
           <input class="hit-target-text-entry" data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
           <div class="model-result-summary" data-testid="model-result-summary">

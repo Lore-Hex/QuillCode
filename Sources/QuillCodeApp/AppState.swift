@@ -81,6 +81,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
     public var globalMemories: [MemoryNote]
     public var topBar: TopBarState
     public var modelCatalog: [ModelInfo]
+    public var modelCatalogStatus: ModelCatalogStatus
     public var trustedRouterAPIKeyConfigured: Bool
 
     public init(
@@ -92,6 +93,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
         globalMemories: [MemoryNote] = [],
         topBar: TopBarState = TopBarState(),
         modelCatalog: [ModelInfo] = TrustedRouterDefaults.normalizedModelCatalog([]),
+        modelCatalogStatus: ModelCatalogStatus = .bundled,
         trustedRouterAPIKeyConfigured: Bool = false
     ) {
         self.config = config
@@ -102,6 +104,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
         self.globalMemories = globalMemories
         self.topBar = topBar
         self.modelCatalog = modelCatalog
+        self.modelCatalogStatus = modelCatalogStatus
         self.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured
     }
 

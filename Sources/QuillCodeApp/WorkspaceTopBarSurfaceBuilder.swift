@@ -8,6 +8,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var instructions: [ProjectInstruction]
     var memories: [MemoryNote]
     var modelCatalog: [ModelInfo]
+    var modelCatalogStatus: ModelCatalogStatus = .bundled
     var defaultModelID: String
     var favoriteModelIDs: [String]
     var recentThreads: [ChatThread]
@@ -31,6 +32,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             modelLabel: modelCatalog.modelLabel(),
             selectedModelID: topBarState.model,
             modelCategories: modelCatalog.categories(),
+            modelCatalogStatusLabel: modelCatalogStatus.statusLabel(),
+            modelCatalogStatusDetail: modelCatalogStatus.detailLabel(),
             modeLabel: WorkspaceStatusTextBuilder.modeLabel(topBarState.mode),
             agentStatus: topBarState.agentStatus,
             runtimeIssueLabel: runtimeIssue?.title,

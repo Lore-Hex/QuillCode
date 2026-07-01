@@ -86,6 +86,8 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         let catalog = try await client.fetch()
         let model = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code" })
 
+        XCTAssertEqual(catalog.status.source, .liveTrustedRouter)
+        XCTAssertNotNil(catalog.status.fetchedAt)
         XCTAssertEqual(model.displayName, "Vision Code")
         XCTAssertEqual(model.category, "acme")
         XCTAssertEqual(model.capabilities.contextWindowTokens, 128_000)
@@ -96,6 +98,29 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         XCTAssertEqual(model.capabilities.capabilityTags, ["json mode", "tools"])
         XCTAssertEqual(model.capabilities.status, "available")
         XCTAssertEqual(model.capabilities.summary, "Vision coding model")
+    }
+
+    func testCatalogFetchEmptyResponseUsesFallbackStatus() async throws {
+        ModelCatalogURLProtocol.handler = { request in
+            (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data(#"{"data":[]}"#.utf8)
+            )
+        }
+        let client = TrustedRouterModelCatalogClient(
+            apiKey: "sk-test",
+            baseURL: "https://api.trustedrouter.test/v1",
+            urlSession: ModelCatalogURLProtocol.session()
+        )
+
+        let catalog = try await client.fetch()
+
+        XCTAssertEqual(catalog.status.source, .fallbackAfterFailure)
+        XCTAssertEqual(catalog.status.failureMessage, "TrustedRouter returned an empty model catalog.")
+        XCTAssertEqual(
+            catalog.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id),
+            TrustedRouterDefaults.recommendedModelIDs
+        )
     }
 }
 

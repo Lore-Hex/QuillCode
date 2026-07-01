@@ -32,8 +32,8 @@ struct QuillCodeDesktopSettingsCoordinator {
     }
 
     func refreshModelCatalog(on model: QuillCodeWorkspaceModel) async {
-        let models = await bootstrap.fetchModelCatalog(config: model.root.config)
-        model.setModelCatalog(models)
+        let catalog = await bootstrap.fetchModelCatalog(config: model.root.config)
+        model.setModelCatalog(catalog)
     }
 
     func saveSettings(

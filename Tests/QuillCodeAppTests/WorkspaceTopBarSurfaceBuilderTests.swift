@@ -47,6 +47,7 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
             instructions: instructions,
             memories: memories,
             modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            modelCatalogStatus: .liveTrustedRouter(fetchedAt: Date(timeIntervalSinceNow: -30)),
             defaultModelID: TrustedRouterDefaults.defaultModel,
             favoriteModelIDs: [],
             recentThreads: [thread],
@@ -61,6 +62,8 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(topBar.memoryLabel, "1 memory")
         XCTAssertEqual(topBar.memorySources, ["memories/preference.md"])
         XCTAssertEqual(topBar.modelLabel, TrustedRouterDefaults.synthModelDisplayName)
+        XCTAssertTrue(topBar.modelCatalogStatusLabel.contains("Live TrustedRouter catalog"))
+        XCTAssertTrue(topBar.modelCatalogStatusDetail?.contains("Provider, pricing, modality") == true)
         XCTAssertEqual(topBar.selectedModelID, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(topBar.modeLabel, "Review")
         XCTAssertEqual(topBar.agentStatus, TopBarAgentStatusLabel.streaming)

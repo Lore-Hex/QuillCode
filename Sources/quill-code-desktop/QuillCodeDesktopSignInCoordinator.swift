@@ -74,8 +74,8 @@ struct QuillCodeDesktopSignInCoordinator {
             }
             applySignInResult(result, to: model, settingsCoordinator: settingsCoordinator)
             refresh()
-            let models = await bootstrap.fetchModelCatalog(config: model.root.config)
-            model.setModelCatalog(models)
+            let catalog = await bootstrap.fetchModelCatalog(config: model.root.config)
+            model.setModelCatalog(catalog)
             refresh()
         } catch {
             model.setAgentStatus(

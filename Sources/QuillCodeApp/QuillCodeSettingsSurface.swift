@@ -37,6 +37,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var loginStatusLabel: String
     public var accountLabel: String?
     public var runtimeIssue: RuntimeIssueSurface?
+    public var modelCatalogStatusLabel: String
+    public var modelCatalogStatusDetail: String?
     public var computerUseStatus: ComputerUseStatus
     public var computerUseSetupCommand: WorkspaceCommandSurface
     public var computerUseScreenRecordingCommand: WorkspaceCommandSurface
@@ -54,7 +56,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         computerUseStatus: ComputerUseStatus = .permissionStatus(
             screenRecordingGranted: false,
             accessibilityGranted: false
-        )
+        ),
+        modelCatalogStatus: ModelCatalogStatus = .bundled
     ) {
         self.apiBaseURL = config.apiBaseURL
         self.authMode = config.authMode
@@ -63,6 +66,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.signInURL = TrustedRouterDefaults.loopbackCallbackURL
         self.accountLabel = config.trustedRouterAccount?.displayLabel
         self.runtimeIssue = runtimeIssue
+        self.modelCatalogStatusLabel = modelCatalogStatus.statusLabel()
+        self.modelCatalogStatusDetail = modelCatalogStatus.detailLabel()
         self.computerUseStatus = computerUseStatus
         self.computerUseSetupCommand = WorkspaceCommandSurface.computerUseSetup(isEnabled: !computerUseStatus.available)
         self.computerUseScreenRecordingCommand = WorkspaceCommandSurface.computerUseScreenRecordingSettings(
@@ -106,6 +111,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case loginStatusLabel
         case accountLabel
         case runtimeIssue
+        case modelCatalogStatusLabel
+        case modelCatalogStatusDetail
         case computerUseStatus
         case computerUseSetupCommand
         case computerUseScreenRecordingCommand
@@ -128,6 +135,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.loginStatusLabel = try container.decode(String.self, forKey: .loginStatusLabel)
         self.accountLabel = try container.decodeIfPresent(String.self, forKey: .accountLabel)
         self.runtimeIssue = try container.decodeIfPresent(RuntimeIssueSurface.self, forKey: .runtimeIssue)
+        self.modelCatalogStatusLabel = try container.decodeIfPresent(String.self, forKey: .modelCatalogStatusLabel)
+            ?? ModelCatalogStatus.bundled.statusLabel()
+        self.modelCatalogStatusDetail = try container.decodeIfPresent(String.self, forKey: .modelCatalogStatusDetail)
+            ?? ModelCatalogStatus.bundled.detailLabel()
         let decodedComputerUseStatus = try container.decodeIfPresent(
             ComputerUseStatus.self,
             forKey: .computerUseStatus

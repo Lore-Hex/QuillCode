@@ -8,9 +8,14 @@ import FoundationNetworking
 
 public struct TrustedRouterModelCatalog: Sendable {
     public var models: [QuillCodeCore.ModelInfo]
+    public var status: QuillCodeCore.ModelCatalogStatus
 
-    public init(models: [QuillCodeCore.ModelInfo] = Self.defaultModels) {
+    public init(
+        models: [QuillCodeCore.ModelInfo] = Self.defaultModels,
+        status: QuillCodeCore.ModelCatalogStatus = .bundled
+    ) {
         self.models = Self.normalized(models)
+        self.status = status
     }
 
     public var defaultModelID: String {
@@ -69,7 +74,13 @@ public struct TrustedRouterModelCatalogClient: Sendable {
                 capabilities: model.capabilities
             )
         }
-        return TrustedRouterModelCatalog(models: models.isEmpty ? TrustedRouterModelCatalog.defaultModels : models)
+        guard !models.isEmpty else {
+            return TrustedRouterModelCatalog(
+                models: TrustedRouterModelCatalog.defaultModels,
+                status: .fallbackAfterFailure("TrustedRouter returned an empty model catalog.")
+            )
+        }
+        return TrustedRouterModelCatalog(models: models, status: .liveTrustedRouter())
     }
 
     public static func provider(from modelID: String) -> String {
