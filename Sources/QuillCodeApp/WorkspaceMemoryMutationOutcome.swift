@@ -6,80 +6,40 @@ struct WorkspaceMemoryMutationOutcome: Sendable, Equatable {
     let noticeSummary: String?
     let noticeRelativePath: String?
 
-    static func saved(userText: String, note: MemoryNote) -> WorkspaceMemoryMutationOutcome {
+    static func changed(
+        _ kind: WorkspaceMemoryChangeKind,
+        userText: String,
+        note: MemoryNote
+    ) -> Self {
         changed(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memorySaved(
-                userText: userText,
-                noteTitle: note.title
-            ),
-            summary: WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary(noteTitle: note.title),
+            transcript: kind.transcript(userText: userText, noteTitle: note.title),
+            summary: kind.summary(noteTitle: note.title),
             note: note
         )
     }
 
-    static func updated(userText: String, note: MemoryNote) -> WorkspaceMemoryMutationOutcome {
-        changed(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
-                userText: userText,
-                noteTitle: note.title
-            ),
-            summary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(noteTitle: note.title),
-            note: note
-        )
-    }
-
-    static func deleted(note: MemoryNote) -> WorkspaceMemoryMutationOutcome {
-        changed(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
-                userText: "Forget memory: \(note.title)",
-                noteTitle: note.title
-            ),
-            summary: WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title),
-            note: note
-        )
-    }
-
-    static func saveFailed(userText: String, message: String) -> WorkspaceMemoryMutationOutcome {
-        failed(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
-                userText: userText,
-                message: message
-            )
-        )
-    }
-
-    static func updateFailed(userText: String, message: String) -> WorkspaceMemoryMutationOutcome {
-        failed(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated(
-                userText: userText,
-                message: message
-            )
-        )
-    }
-
-    static func deleteFailed(message: String) -> WorkspaceMemoryMutationOutcome {
-        failed(
-            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
-                userText: "Forget memory",
-                message: message
-            )
-        )
+    static func failed(
+        _ kind: WorkspaceMemoryFailureKind,
+        userText: String,
+        message: String
+    ) -> Self {
+        failed(transcript: kind.transcript(userText, message))
     }
 
     private static func changed(
         transcript: WorkspaceLocalCommandTranscript,
         summary: String,
         note: MemoryNote
-    ) -> WorkspaceMemoryMutationOutcome {
-        WorkspaceMemoryMutationOutcome(
+    ) -> Self {
+        Self(
             transcript: transcript,
             noticeSummary: summary,
             noticeRelativePath: note.relativePath
         )
     }
 
-    private static func failed(transcript: WorkspaceLocalCommandTranscript) -> WorkspaceMemoryMutationOutcome {
-        WorkspaceMemoryMutationOutcome(
+    private static func failed(transcript: WorkspaceLocalCommandTranscript) -> Self {
+        Self(
             transcript: transcript,
             noticeSummary: nil,
             noticeRelativePath: nil

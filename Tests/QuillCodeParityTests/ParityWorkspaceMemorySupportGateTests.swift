@@ -4,6 +4,10 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
     func testWorkspaceMemorySupportOwnsStoragePolicyAndCopyBoundaries() throws {
         let engineText = try Self.appSourceText(named: "WorkspaceMemoryEngine.swift")
         let mutationFactoryText = try Self.appSourceText(named: "WorkspaceMemoryMutationFactory.swift")
+        let refreshText = try Self.appSourceText(named: "WorkspaceMemoryRefresh.swift")
+        let outcomeText = try Self.appSourceText(named: "WorkspaceMemoryMutationOutcome.swift")
+        let changeKindText = try Self.appSourceText(named: "WorkspaceMemoryChangeKind.swift")
+        let failureKindText = try Self.appSourceText(named: "WorkspaceMemoryFailureKind.swift")
         let loaderText = try Self.appSourceText(named: "MemoryNoteLoader.swift")
         let contentPolicyText = try Self.appSourceText(named: "MemoryNoteContentPolicy.swift")
         let pathResolverText = try Self.appSourceText(named: "MemoryNotePathResolver.swift")
@@ -11,8 +15,6 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
         let plannerText = try Self.appSourceText(named: "WorkspaceMemoryCommandTranscriptPlanner.swift")
         let errorText = try Self.appSourceText(named: "WorkspaceMemoryErrorMessageBuilder.swift")
         let contextUpdateText = try Self.appSourceText(named: "WorkspaceMemoryContextUpdatePlanner.swift")
-        let refreshText = try Self.appSourceText(named: "WorkspaceMemoryRefresh.swift")
-        let outcomeText = try Self.appSourceText(named: "WorkspaceMemoryMutationOutcome.swift")
 
         Self.assertSource(engineText, containsAll: [
             "enum WorkspaceMemoryEngine",
@@ -23,6 +25,8 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
         Self.assertSource(mutationFactoryText, contains: "enum WorkspaceMemoryMutationFactory")
         Self.assertSource(refreshText, contains: "struct WorkspaceMemoryRefresh")
         Self.assertSource(outcomeText, contains: "struct WorkspaceMemoryMutationOutcome")
+        Self.assertSource(changeKindText, contains: "enum WorkspaceMemoryChangeKind")
+        Self.assertSource(failureKindText, contains: "enum WorkspaceMemoryFailureKind")
         Self.assertSource(contentPolicyText, contains: "enum MemoryNoteContentPolicy")
         Self.assertSource(pathResolverText, contains: "enum MemoryNotePathResolver")
         Self.assertSource(loaderText, containsAll: [
@@ -42,7 +46,7 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
         Self.assertSource(plannerText, contains: "struct WorkspaceMemoryCommandTranscriptPlanner")
         Self.assertSource(errorText, contains: "enum WorkspaceMemoryErrorMessageBuilder")
         Self.assertSource(contextUpdateText, contains: "struct WorkspaceMemoryContextUpdatePlanner")
-        Self.assertSource(outcomeText, containsAll: [
+        Self.assertSource(changeKindText + failureKindText, containsAll: [
             "WorkspaceMemoryCommandTranscriptPlanner.memorySaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved",
             "WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary",
@@ -53,9 +57,15 @@ final class ParityWorkspaceMemorySupportGateTests: QuillCodeParityTestCase {
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary"
         ])
+        Self.assertSource(outcomeText, containsAll: [
+            "WorkspaceMemoryChangeKind",
+            "WorkspaceMemoryFailureKind",
+            "noticeRelativePath"
+        ])
         Self.assertSource(mutationFactoryText, containsAll: [
-            "WorkspaceMemoryMutationOutcome.saved",
-            "WorkspaceMemoryMutationOutcome.updateFailed",
+            "typealias Outcome = WorkspaceMemoryMutationOutcome",
+            "Outcome.changed",
+            "Outcome.failed",
             "WorkspaceMemoryErrorMessageBuilder.userFacingMessage"
         ])
         Self.assertSource(engineText, contains: "WorkspaceMemoryContextUpdatePlanner.memoryChanged")

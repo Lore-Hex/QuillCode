@@ -121,7 +121,7 @@ enum WorkspaceProjectContextRefresher {
             fallbackProjectID: fallbackProjectID,
             projects: projects,
             globalMemories: globalMemories,
-            includeInstructions: true
+            scope: .instructionsAndMemories
         )
     }
 
@@ -136,7 +136,7 @@ enum WorkspaceProjectContextRefresher {
             fallbackProjectID: fallbackProjectID,
             projects: projects,
             globalMemories: globalMemories,
-            includeInstructions: false
+            scope: .memoriesOnly
         )
     }
 
@@ -163,17 +163,14 @@ enum WorkspaceProjectContextRefresher {
         fallbackProjectID: UUID?,
         projects: [ProjectRef],
         globalMemories: [MemoryNote],
-        includeInstructions: Bool
+        scope: ThreadContextSyncScope
     ) {
         let snapshot = contextSource(
             projectID: thread.projectID ?? fallbackProjectID,
             projects: projects,
             globalMemories: globalMemories
         ).snapshot()
-        if includeInstructions {
-            thread.instructions = snapshot.instructions
-        }
-        thread.memories = snapshot.memories
+        scope.apply(snapshot, to: &thread)
     }
 
     private static func contextSource(
@@ -194,6 +191,21 @@ enum WorkspaceProjectContextRefresher {
 
         var includesLocalExtensions: Bool {
             self == .local
+        }
+    }
+}
+
+private enum ThreadContextSyncScope {
+    case instructionsAndMemories
+    case memoriesOnly
+
+    func apply(_ snapshot: WorkspaceThreadContextSnapshot, to thread: inout ChatThread) {
+        switch self {
+        case .instructionsAndMemories:
+            thread.instructions = snapshot.instructions
+            thread.memories = snapshot.memories
+        case .memoriesOnly:
+            thread.memories = snapshot.memories
         }
     }
 }

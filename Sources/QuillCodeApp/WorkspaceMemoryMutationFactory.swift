@@ -1,35 +1,53 @@
 import Foundation
 import QuillCodeCore
 
+typealias MemoryMutation = WorkspaceMemoryMutation
+
 enum WorkspaceMemoryMutationFactory {
     typealias Refresh = WorkspaceMemoryRefresh
-    typealias Mutation = WorkspaceMemoryMutation
+    typealias Outcome = WorkspaceMemoryMutationOutcome
 
-    static func saved(userText: String, note: MemoryNote, refresh: Refresh) -> Mutation {
+    static func saved(
+        userText: String,
+        note: MemoryNote,
+        refresh: Refresh
+    ) -> MemoryMutation {
         mutation(
-            for: WorkspaceMemoryMutationOutcome.saved(userText: userText, note: note),
+            for: Outcome.changed(.saved, userText: userText, note: note),
             refresh: refresh
         )
     }
 
-    static func updated(userText: String, note: MemoryNote, refresh: Refresh) -> Mutation {
+    static func updated(
+        userText: String,
+        note: MemoryNote,
+        refresh: Refresh
+    ) -> MemoryMutation {
         mutation(
-            for: WorkspaceMemoryMutationOutcome.updated(userText: userText, note: note),
+            for: Outcome.changed(.updated, userText: userText, note: note),
             refresh: refresh
         )
     }
 
-    static func deleted(note: MemoryNote, refresh: Refresh) -> Mutation {
-        mutation(for: WorkspaceMemoryMutationOutcome.deleted(note: note), refresh: refresh)
+    static func deleted(note: MemoryNote, refresh: Refresh) -> MemoryMutation {
+        mutation(
+            for: Outcome.changed(
+                .deleted,
+                userText: "Forget memory: \(note.title)",
+                note: note
+            ),
+            refresh: refresh
+        )
     }
 
     static func saveFailed(
         userText: String,
         error: any Error,
         refresh: Refresh
-    ) -> Mutation {
+    ) -> MemoryMutation {
         mutation(
-            for: WorkspaceMemoryMutationOutcome.saveFailed(
+            for: Outcome.failed(
+                .save,
                 userText: userText,
                 message: errorMessage(for: error)
             ),
@@ -41,9 +59,10 @@ enum WorkspaceMemoryMutationFactory {
         userText: String,
         error: any Error,
         refresh: Refresh
-    ) -> Mutation {
+    ) -> MemoryMutation {
         mutation(
-            for: WorkspaceMemoryMutationOutcome.updateFailed(
+            for: Outcome.failed(
+                .update,
                 userText: userText,
                 message: errorMessage(for: error)
             ),
@@ -51,17 +70,21 @@ enum WorkspaceMemoryMutationFactory {
         )
     }
 
-    static func deleteFailed(error: any Error, refresh: Refresh) -> Mutation {
+    static func deleteFailed(error: any Error, refresh: Refresh) -> MemoryMutation {
         mutation(
-            for: WorkspaceMemoryMutationOutcome.deleteFailed(message: errorMessage(for: error)),
+            for: Outcome.failed(
+                .delete,
+                userText: "Forget memory",
+                message: errorMessage(for: error)
+            ),
             refresh: refresh
         )
     }
 
     private static func mutation(
-        for outcome: WorkspaceMemoryMutationOutcome,
+        for outcome: Outcome,
         refresh: Refresh
-    ) -> Mutation {
+    ) -> MemoryMutation {
         WorkspaceMemoryMutation(
             transcript: outcome.transcript,
             updatedGlobalMemories: refresh.global,
