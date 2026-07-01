@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-07-01 Automations Pane View Split
+
+Overall grade after this slice: **A+ automations pane cluster, A+ app source module average, no automations pane file below A+**.
+
+This pass addressed the lowest production app-source file from the generated report: `QuillCodeAutomationsPaneView.swift`. The old file mixed pane shell layout, create-menu command routing, workflow card rendering, row actions, and automation command construction.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Pane shell | `QuillCodeAutomationsPaneView.swift` owned header, empty state, grid layout, menu, cards, and actions. It graded **B+**. | `QuillCodeAutomationsPaneView.swift` is now a 67-line **A+** composition root that owns only pane layout and delegates subregions. |
+| Create menu | Create-thread, create-workspace, relative schedule, and recurring schedule commands repeated menu-item hit-target modifiers inline. | `QuillCodeAutomationCreateMenu.swift` owns create-menu visibility, grouping, platform menu hit-target contracts, and grades **A+**. |
+| Workflow cards | Schedule/status labels, detail text, run/pause/resume/delete actions, and command construction lived in the pane root. | `QuillCodeAutomationWorkflowCard.swift` owns workflow card rendering and row action command construction, keeps explicit QuillCode button styles visible to audits, and grades **A+**. |
+| Architecture gates | The secondary-pane parity gate only required the automations pane file to exist. | `ParityWorkspaceSurfaceGateTests` now requires the pane to delegate to the create menu and workflow card, and rejects menu/card/action construction drifting back into the pane shell. |
+
+Verification:
+
+- `swift test --filter 'ParityNativeInteractionContractGateTests|ParityWorkspaceSurfaceGateTests|WorkspaceAutomationSurfaceIntegrationTests|QuillCodeNativeHitTargetAuditTests'`
+- `swift test` (1967 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This slice preserves the current automation UI behavior. Richer scheduling UX, inline editing, and automation-history previews should remain separate feature work.
+- The lowest production app-source files are now `QuillCodeComposerView.swift`, `WorkspaceHTMLSecondaryPaneRenderer.swift`, and `WorkspaceModelThreads.swift`.
+
 ## 2026-07-01 HTML Sidebar Renderer Split
 
 Overall grade after this slice: **A+ HTML sidebar renderer cluster, A+ app source module average, no sidebar renderer file below A+**.
