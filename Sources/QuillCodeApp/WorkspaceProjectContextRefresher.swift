@@ -15,11 +15,11 @@ enum WorkspaceProjectContextRefresher {
         }
 
         let rootURL = URL(fileURLWithPath: projects[index].path)
-        WorkspaceProjectEngine.applyMetadata(
+        applyMetadata(
             WorkspaceProjectMetadataLoader.loadLocal(from: rootURL),
             to: projectID,
             projects: &projects,
-            includeLocalExtensions: true
+            source: .local
         )
     }
 
@@ -38,12 +38,7 @@ enum WorkspaceProjectContextRefresher {
             connection: projects[index].connection,
             executor: executor
         )
-        WorkspaceProjectEngine.applyMetadata(
-            metadata,
-            to: projectID,
-            projects: &projects,
-            includeLocalExtensions: false
-        )
+        applyMetadata(metadata, to: projectID, projects: &projects, source: .remote)
         return true
     }
 
@@ -52,11 +47,11 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadContextSnapshot {
-        WorkspaceThreadContextBuilder.snapshot(
+        contextSource(
             projectID: projectID,
             projects: projects,
             globalMemories: globalMemories
-        )
+        ).snapshot()
     }
 
     static func threadCreationContext(
@@ -66,13 +61,11 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadCreationContext {
-        WorkspaceThreadContextBuilder.threadCreationContext(
+        contextSource(
             projectID: projectID,
-            mode: mode,
-            model: model,
             projects: projects,
             globalMemories: globalMemories
-        )
+        ).threadCreation(mode: mode, model: model)
     }
 
     static func worktreeOpenContext(
@@ -83,14 +76,16 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
-        WorkspaceThreadContextBuilder.worktreeOpenContext(
+        contextSource(
+            projectID: projectID,
+            projects: projects,
+            globalMemories: globalMemories
+        ).worktreeOpen(
             path: request.path,
             branch: request.branch,
             projectID: projectID,
             mode: mode,
-            model: model,
-            projects: projects,
-            globalMemories: globalMemories
+            model: model
         )
     }
 
@@ -102,14 +97,16 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
-        WorkspaceThreadContextBuilder.worktreeOpenContext(
+        contextSource(
+            projectID: projectID,
+            projects: projects,
+            globalMemories: globalMemories
+        ).worktreeOpen(
             path: request.path,
             branch: "",
             projectID: projectID,
             mode: mode,
-            model: model,
-            projects: projects,
-            globalMemories: globalMemories
+            model: model
         )
     }
 
@@ -119,9 +116,13 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) {
-        let snapshot = snapshot(for: thread, fallbackProjectID: fallbackProjectID, projects: projects, globalMemories: globalMemories)
-        thread.instructions = snapshot.instructions
-        thread.memories = snapshot.memories
+        syncThread(
+            &thread,
+            fallbackProjectID: fallbackProjectID,
+            projects: projects,
+            globalMemories: globalMemories,
+            includeInstructions: true
+        )
     }
 
     static func syncThreadMemories(
@@ -130,24 +131,69 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) {
-        let snapshot = snapshot(for: thread, fallbackProjectID: fallbackProjectID, projects: projects, globalMemories: globalMemories)
-        thread.memories = snapshot.memories
+        syncThread(
+            &thread,
+            fallbackProjectID: fallbackProjectID,
+            projects: projects,
+            globalMemories: globalMemories,
+            includeInstructions: false
+        )
     }
 
     static func globalMemories(directory: URL?) -> [MemoryNote] {
         WorkspaceMemoryEngine.loadGlobal(from: directory)
     }
 
-    private static func snapshot(
-        for thread: ChatThread,
+    private static func applyMetadata(
+        _ metadata: WorkspaceProjectMetadata,
+        to projectID: UUID,
+        projects: inout [ProjectRef],
+        source: ProjectMetadataSource
+    ) {
+        WorkspaceProjectEngine.applyMetadata(
+            metadata,
+            to: projectID,
+            projects: &projects,
+            includeLocalExtensions: source.includesLocalExtensions
+        )
+    }
+
+    private static func syncThread(
+        _ thread: inout ChatThread,
         fallbackProjectID: UUID?,
         projects: [ProjectRef],
-        globalMemories: [MemoryNote]
-    ) -> WorkspaceThreadContextSnapshot {
-        threadContext(
+        globalMemories: [MemoryNote],
+        includeInstructions: Bool
+    ) {
+        let snapshot = contextSource(
             projectID: thread.projectID ?? fallbackProjectID,
             projects: projects,
             globalMemories: globalMemories
+        ).snapshot()
+        if includeInstructions {
+            thread.instructions = snapshot.instructions
+        }
+        thread.memories = snapshot.memories
+    }
+
+    private static func contextSource(
+        projectID: UUID?,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote]
+    ) -> WorkspaceThreadContextSource {
+        WorkspaceThreadContextSource(
+            projectID: projectID,
+            projects: projects,
+            globalMemories: globalMemories
         )
+    }
+
+    private enum ProjectMetadataSource {
+        case local
+        case remote
+
+        var includesLocalExtensions: Bool {
+            self == .local
+        }
     }
 }
