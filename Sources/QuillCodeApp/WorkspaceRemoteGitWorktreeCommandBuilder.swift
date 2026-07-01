@@ -95,13 +95,13 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
         if let base = GitInputValidator.trimmedNonEmpty(base) {
             arguments.append(try GitInputValidator.safeName(base))
         }
-        return shellCommand(arguments)
+        return WorkspaceRemoteShellCommandFormatter.command(arguments)
     }
 
     private static func removeCommand(worktreePath: String, force: Bool) -> String {
         let forceFlag = force ? " --force" : ""
         return [
-            "worktree=\(WorkspaceTerminalSessionAdapter.shellSingleQuoted(worktreePath))",
+            "worktree=\(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(worktreePath))",
             registeredWorktreeCheckCommand(),
             "git worktree remove\(forceFlag) -- \"$worktree\""
         ].joined(separator: " && ")
@@ -115,12 +115,12 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
         if verbose {
             arguments.append("--verbose")
         }
-        return shellCommand(arguments)
+        return WorkspaceRemoteShellCommandFormatter.command(arguments)
     }
 
     private static func openCommand(worktreePath: String) -> String {
         [
-            "worktree=\(WorkspaceTerminalSessionAdapter.shellSingleQuoted(worktreePath))",
+            "worktree=\(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(worktreePath))",
             registeredWorktreeCheckCommand(),
             "printf 'worktree %s\\n' \"$worktree\""
         ].joined(separator: " && ")
@@ -131,9 +131,5 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
             "worktree_real=$(cd \"$worktree\" 2>/dev/null && pwd -P || printf '%s' \"$worktree\")",
             "git worktree list --porcelain | awk -v wanted=\"$worktree\" -v wanted_real=\"$worktree_real\" '$0 == \"worktree \" wanted || $0 == \"worktree \" wanted_real { found=1 } END { exit found ? 0 : 1 }' || { printf 'Git worktree is not registered: %s\\n' \"$worktree\" >&2; exit 1; }"
         ].joined(separator: " && ")
-    }
-
-    private static func shellCommand(_ arguments: [String]) -> String {
-        arguments.map(WorkspaceTerminalSessionAdapter.shellSingleQuoted).joined(separator: " ")
     }
 }
