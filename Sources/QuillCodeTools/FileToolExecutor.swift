@@ -161,8 +161,7 @@ public struct FileToolExecutor: Sendable {
     private func missingFileMessage(for url: URL) -> String {
         let relative = pathResolver.relativePath(for: url)
         let parent = url.deletingLastPathComponent()
-        let siblings = (try? FileManager.default.contentsOfDirectory(atPath: parent.path)) ?? []
-        let matches = FilePathSuggester.suggest(missing: url.lastPathComponent, candidates: siblings)
+        let matches = FilePathSuggester.suggest(missingFileAt: url)
         guard !matches.isEmpty else {
             return "File not found: \(relative)"
         }

@@ -8,6 +8,14 @@ public enum FilePathSuggester {
     /// At most this many candidate names are scored; a pathological directory shouldn't stall a read.
     public static let maxCandidates = 2000
 
+    /// The closest siblings of a missing file URL, best first. The parent-directory read lives HERE
+    /// (suggestions are this type's concern) — the executor facade must not own directory enumeration.
+    public static func suggest(missingFileAt url: URL, limit: Int = 3) -> [String] {
+        let parent = url.deletingLastPathComponent()
+        let siblings = (try? FileManager.default.contentsOfDirectory(atPath: parent.path)) ?? []
+        return suggest(missing: url.lastPathComponent, candidates: siblings, limit: limit)
+    }
+
     /// The closest sibling names to `missing`, best first. Empty when nothing is plausibly close.
     public static func suggest(missing: String, candidates: [String], limit: Int = 3) -> [String] {
         let target = missing.lowercased()
