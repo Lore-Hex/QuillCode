@@ -12801,3 +12801,59 @@ Remaining risk:
 - The tools test module is A+ and no longer has broad A- PR/PTY files. The next
   repo-wide quality targets remain broad Playwright specs and a few A- app/parity
   files with long lines or intentionally repetitive source-audit checks.
+
+## 2026-07-01 Persistence And Safety Test Quality Pass
+
+Overall grade after this slice: **A+ persistence tests, A+ safety tests, A+
+shared safety review helpers**.
+
+This pass targets the lowest remaining module grades after the tools-test split:
+`test:QuillCodePersistenceTests` was a single broad A- bucket and
+`test:QuillCodeSafetyTests` was an A module with repeated review construction
+inside policy scenarios.
+
+Module grades:
+
+| Module | Before | After | Notes |
+| --- | --- | --- | --- |
+| `test:QuillCodePersistenceTests` | A- | A+ | Split by store type; each file now owns one persistence contract. |
+| `test:QuillCodeSafetyTests` | A | A+ | Shared reviewer/tool-call helpers remove repeated safety-context construction. |
+
+Individual file grades:
+
+| File | Grade | Notes |
+| --- | --- | --- |
+| `Tests/QuillCodePersistenceTests/ConfigStoreTests.swift` | A+ | Config round-trip, auth-mode, account, favorites, and legacy override behavior. |
+| `Tests/QuillCodePersistenceTests/JSONThreadStoreTests.swift` | A+ | Focused thread-store round-trip coverage. |
+| `Tests/QuillCodePersistenceTests/JSONProjectStoreTests.swift` | A+ | Project sorting, SSH connection, diagnostics, and legacy local decode coverage. |
+| `Tests/QuillCodePersistenceTests/JSONAutomationStoreTests.swift` | A+ | Automation sorting, recurrence, event source, and missing-file behavior. |
+| `Tests/QuillCodePersistenceTests/FileSecretStoreTests.swift` | A+ | Secret round-trip, permissions, and key sanitization behavior. |
+| `Tests/QuillCodePersistenceTests/PersistenceTestSupport.swift` | A+ | Shared temp-directory and POSIX-permission helpers. |
+| `Tests/QuillCodeSafetyTests/SafetyPolicyTestCase.swift` | A+ | Shared review, verdict, non-verdict, and shell-argument helpers. |
+| `Tests/QuillCodeSafetyTests/SafetyGeneralPolicyTests.swift` | A+ | General policy scenarios now read as policy assertions instead of setup code. |
+
+Code quality changes:
+
+- Replaced the single mixed `PersistenceTests.swift` file with focused
+  store-specific suites.
+- Moved temp-directory and POSIX-permission helpers into
+  `PersistenceTestSupport.swift`.
+- Added reusable safety review helpers to `SafetyPolicyTestCase`.
+- Rewrote general safety policy tests around concise policy assertions.
+- Removed the local shell-command JSON encoder from download policy tests so
+  every safety test uses the same argument encoding path.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; persistence and safety test
+  modules now both report A+.
+
+Validation:
+
+- `swift test --filter 'QuillCodePersistenceTests|SafetyGeneralPolicyTests|SafetyDownloadPolicyTests|SafetyGitPullRequestPolicyTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Remaining risk:
+
+- `SafetyGitPullRequestPolicyTests.swift` and `SafetyDownloadPolicyTests.swift`
+  still contain intentionally explicit scenario tables that grade A-, but the
+  safety module now grades A+. The next A+ train should target the broad
+  Playwright/app/parity files still listed at the top of
+  `docs/CODE_QUALITY_FILE_GRADES.md`.
