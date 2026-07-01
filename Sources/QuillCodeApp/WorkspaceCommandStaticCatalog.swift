@@ -2,13 +2,15 @@ import Foundation
 import QuillComputerUseKit
 
 enum WorkspaceCommandStaticCatalog {
-    static func retryCommands(canRetryLastUserTurn: Bool) -> [WorkspaceCommandSurface] {
-        [
-            WorkspaceCommandSurface(
-                id: "retry-last-turn",
-                title: "Retry last turn",
-                shortcut: WorkspaceShortcutRegistry.label(for: "retry-last-turn"),
-                category: WorkspaceCommandPalette.controlCategory,
+    typealias Command = WorkspaceCommandSurface
+
+    static func retryCommands(canRetryLastUserTurn: Bool) -> [Command] {
+        let control = Category.control
+        return [
+            shortcut(
+                "retry-last-turn",
+                "Retry last turn",
+                category: control,
                 keywords: ["retry", "rerun", "again", "failed"],
                 isEnabled: canRetryLastUserTurn
             )
@@ -19,41 +21,40 @@ enum WorkspaceCommandStaticCatalog {
         hasSelectedThread: Bool,
         canNavigateBack: Bool,
         canNavigateForward: Bool
-    ) -> [WorkspaceCommandSurface] {
-        [
-            WorkspaceCommandSurface(
-                id: "workspace-back",
-                title: "Back",
-                category: WorkspaceCommandPalette.navigationCategory,
+    ) -> [Command] {
+        let navigation = Category.navigation
+        return [
+            command(
+                "workspace-back",
+                "Back",
+                category: navigation,
                 keywords: ["history", "previous", "navigation", "thread", "project"],
                 isEnabled: canNavigateBack
             ),
-            WorkspaceCommandSurface(
-                id: "workspace-forward",
-                title: "Forward",
-                category: WorkspaceCommandPalette.navigationCategory,
+            command(
+                "workspace-forward",
+                "Forward",
+                category: navigation,
                 keywords: ["history", "next", "navigation", "thread", "project"],
                 isEnabled: canNavigateForward
             ),
-            WorkspaceCommandSurface(
-                id: "search",
-                title: "Search",
-                shortcut: WorkspaceShortcutRegistry.label(for: "search"),
-                category: WorkspaceCommandPalette.navigationCategory,
+            shortcut(
+                "search",
+                "Search",
+                category: navigation,
                 keywords: ["find", "threads", "chat"]
             ),
-            WorkspaceCommandSurface(
-                id: "find-in-chat",
-                title: "Find in chat",
-                shortcut: WorkspaceShortcutRegistry.label(for: "find-in-chat"),
-                category: WorkspaceCommandPalette.navigationCategory,
+            shortcut(
+                "find-in-chat",
+                "Find in chat",
+                category: navigation,
                 keywords: ["find", "current", "transcript", "message"],
                 isEnabled: hasSelectedThread
             ),
-            WorkspaceCommandSurface(
-                id: "copy-conversation",
-                title: "Copy conversation",
-                category: WorkspaceCommandPalette.navigationCategory,
+            command(
+                "copy-conversation",
+                "Copy conversation",
+                category: navigation,
                 keywords: ["export", "transcript", "markdown", "copy all", "share"],
                 isEnabled: hasSelectedThread
             )
@@ -68,141 +69,113 @@ enum WorkspaceCommandStaticCatalog {
         browserCanGoForward: Bool,
         browserCanReload: Bool,
         browserCanOpenSession: Bool
-    ) -> [WorkspaceCommandSurface] {
-        [
-            WorkspaceCommandSurface(
-                id: "cycle-mode",
-                title: "Cycle approval mode",
-                shortcut: WorkspaceShortcutRegistry.label(for: "cycle-mode"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+    ) -> [Command] {
+        let navigation = Category.navigation
+        return [
+            shortcut(
+                "cycle-mode",
+                "Cycle approval mode",
                 keywords: ["mode", "approval", "auto", "plan", "review", "read-only", "safety", "cycle"]
             ),
-            WorkspaceCommandSurface(
-                id: "focus-composer",
-                title: "Focus message input",
-                shortcut: WorkspaceShortcutRegistry.label(for: "focus-composer"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "focus-composer",
+                "Focus message input",
                 keywords: ["focus", "composer", "message", "input", "prompt", "type"]
             ),
-            WorkspaceCommandSurface(
-                id: "toggle-sidebar",
-                title: "Toggle sidebar",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-sidebar"),
-                category: WorkspaceCommandPalette.navigationCategory,
+            shortcut(
+                "toggle-sidebar",
+                "Toggle sidebar",
+                category: navigation,
                 keywords: ["sidebar", "navigation", "hide", "show", "chats", "projects"]
             ),
-            WorkspaceCommandSurface(
-                id: "add-project",
-                title: "Open project",
-                shortcut: WorkspaceShortcutRegistry.label(for: "add-project"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "add-project",
+                "Open project",
                 keywords: ["folder", "workspace", "repo"]
             ),
-            WorkspaceCommandSurface(
-                id: "add-ssh-project",
-                title: "Project: Add SSH Remote...",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "add-ssh-project",
+                "Project: Add SSH Remote...",
                 keywords: ["remote", "ssh", "server", "workspace", "/ssh user@host:/path"]
             ),
-            WorkspaceCommandSurface(
-                id: "project-new-chat",
-                title: "New chat in project",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "project-new-chat",
+                "New chat in project",
                 keywords: ["project", "workspace", "thread", "chat"],
                 isEnabled: hasSelectedProject
             ),
-            WorkspaceCommandSurface(
-                id: "project-refresh-context",
-                title: "Refresh project context",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "project-refresh-context",
+                "Refresh project context",
                 keywords: ["project", "workspace", "instructions", "memory", "reload"],
                 isEnabled: hasSelectedProject
             ),
-            WorkspaceCommandSurface(
-                id: "project-init",
-                title: "Initialize AGENTS.md",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "project-init",
+                "Initialize AGENTS.md",
                 keywords: ["init", "agents", "scaffold", "instructions", "rules", "generate"],
                 isEnabled: hasSelectedProject
             ),
-            WorkspaceCommandSurface(
-                id: "project-rename",
-                title: "Rename project",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "project-rename",
+                "Rename project",
                 keywords: ["project", "workspace", "title", "name"],
                 isEnabled: hasSelectedProject
             ),
-            WorkspaceCommandSurface(
-                id: "project-remove",
-                title: "Remove project from list",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "project-remove",
+                "Remove project from list",
                 keywords: ["project", "workspace", "forget", "remove"],
                 isEnabled: hasSelectedProject
             ),
-            WorkspaceCommandSurface(
-                id: "toggle-terminal",
-                title: "Terminal",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-terminal"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "toggle-terminal",
+                "Terminal",
                 keywords: ["shell", "command", "pty"]
             ),
-            WorkspaceCommandSurface(
-                id: "terminal-clear",
-                title: "Terminal: Clear history",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "terminal-clear",
+                "Terminal: Clear history",
                 keywords: ["shell", "command", "clear", "history"],
                 isEnabled: terminalHasEntries && !terminalIsRunning
             ),
-            WorkspaceCommandSurface(
-                id: "toggle-browser",
-                title: "Browser",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "toggle-browser",
+                "Browser",
                 keywords: ["preview", "web", "localhost"]
             ),
-            WorkspaceCommandSurface(
-                id: "browser-back",
-                title: "Browser: Back",
-                shortcut: WorkspaceShortcutRegistry.label(for: "browser-back"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "browser-back",
+                "Browser: Back",
                 keywords: ["preview", "web", "history", "back"],
                 isEnabled: browserCanGoBack
             ),
-            WorkspaceCommandSurface(
-                id: "browser-forward",
-                title: "Browser: Forward",
-                shortcut: WorkspaceShortcutRegistry.label(for: "browser-forward"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "browser-forward",
+                "Browser: Forward",
                 keywords: ["preview", "web", "history", "forward"],
                 isEnabled: browserCanGoForward
             ),
-            WorkspaceCommandSurface(
-                id: "browser-reload",
-                title: "Browser: Reload",
-                shortcut: WorkspaceShortcutRegistry.label(for: "browser-reload"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "browser-reload",
+                "Browser: Reload",
                 keywords: ["preview", "web", "refresh", "reload"],
                 isEnabled: browserCanReload
             ),
-            WorkspaceCommandSurface(
-                id: "open-browser-session",
-                title: "Browser: Open session",
-                category: WorkspaceCommandPalette.workspaceCategory,
+            command(
+                "open-browser-session",
+                "Browser: Open session",
                 keywords: ["preview", "web", "session", "login", "cookies", "sign in"],
                 isEnabled: browserCanOpenSession
             ),
-            WorkspaceCommandSurface(
-                id: "toggle-activity",
-                title: "Activity",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-activity"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "toggle-activity",
+                "Activity",
                 keywords: ["task", "summary", "sources", "artifacts", "tools"]
             ),
-            WorkspaceCommandSurface(
-                id: "toggle-automations",
-                title: "Automations",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-automations"),
-                category: WorkspaceCommandPalette.workspaceCategory,
+            shortcut(
+                "toggle-automations",
+                "Automations",
                 keywords: ["automation", "schedule", "recurring", "monitor", "follow-up", "heartbeat"]
             )
         ]
@@ -211,42 +184,41 @@ enum WorkspaceCommandStaticCatalog {
     static func automationCommands(
         hasSelectedThread: Bool,
         hasSelectedProject: Bool
-    ) -> [WorkspaceCommandSurface] {
+    ) -> [Command] {
         [
             .automationCreateThreadFollowUp(isEnabled: hasSelectedThread),
             .automationCreateWorkspaceSchedule(isEnabled: hasSelectedProject)
-        ] + WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
+        ] + Command.automationScheduleThreadFollowUpCommands(
             isEnabled: hasSelectedThread
-        ) + WorkspaceCommandSurface.automationScheduleWorkspaceScheduleCommands(
+        ) + Command.automationScheduleWorkspaceScheduleCommands(
             isEnabled: hasSelectedProject
         )
     }
 
-    static func memoryCommands() -> [WorkspaceCommandSurface] {
-        [
-            WorkspaceCommandSurface(
-                id: "toggle-memories",
-                title: "Memories",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-memories"),
-                category: WorkspaceCommandPalette.memoriesCategory,
+    static func memoryCommands() -> [Command] {
+        let memories = Category.memories
+        return [
+            shortcut(
+                "toggle-memories",
+                "Memories",
+                category: memories,
                 keywords: ["memory", "context", "preferences", "facts"]
             ),
-            WorkspaceCommandSurface(
-                id: "memory-add",
-                title: "Add memory",
-                category: WorkspaceCommandPalette.memoriesCategory,
+            command(
+                "memory-add",
+                "Add memory",
+                category: memories,
                 keywords: ["remember", "save", "preference", "fact"]
             )
         ]
     }
 
-    static func extensionToggleCommands(hasActiveWorkspaceRoot: Bool) -> [WorkspaceCommandSurface] {
+    static func extensionToggleCommands(hasActiveWorkspaceRoot: Bool) -> [Command] {
         [
-            WorkspaceCommandSurface(
-                id: "toggle-extensions",
-                title: "Extensions",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-extensions"),
-                category: WorkspaceCommandPalette.extensionsCategory,
+            shortcut(
+                "toggle-extensions",
+                "Extensions",
+                category: Category.extensions,
                 keywords: ["plugins", "skills", "mcp", "manifest"],
                 isEnabled: hasActiveWorkspaceRoot
             )
@@ -258,53 +230,94 @@ enum WorkspaceCommandStaticCatalog {
         terminalIsRunning: Bool,
         hasActiveMCPServer: Bool,
         hasSelectedRemoteProject: Bool
-    ) -> [WorkspaceCommandSurface] {
-        [
-            WorkspaceCommandSurface(
-                id: "stop-all",
-                title: "Stop all",
-                shortcut: WorkspaceShortcutRegistry.label(for: "stop-all"),
-                category: WorkspaceCommandPalette.controlCategory,
+    ) -> [Command] {
+        let control = Category.control
+        let navigation = Category.navigation
+        return [
+            shortcut(
+                "stop-all",
+                "Stop all",
+                category: control,
                 keywords: ["cancel", "abort", "halt"],
                 isEnabled: composerIsSending || terminalIsRunning || hasActiveMCPServer
             ),
-            WorkspaceCommandSurface(
-                id: "disconnect-all",
-                title: "Disconnect all",
-                category: WorkspaceCommandPalette.controlCategory,
+            command(
+                "disconnect-all",
+                "Disconnect all",
+                category: control,
                 keywords: ["disconnect", "remote", "mcp", "server", "connection"],
                 isEnabled: hasSelectedRemoteProject || hasActiveMCPServer
             ),
-            WorkspaceCommandSurface(
-                id: "settings",
-                title: "Settings",
-                shortcut: WorkspaceShortcutRegistry.label(for: "settings"),
-                category: WorkspaceCommandPalette.navigationCategory,
+            shortcut(
+                "settings",
+                "Settings",
+                category: navigation,
                 keywords: ["preferences", "trustedrouter", "auth"]
             ),
-            WorkspaceCommandSurface(
-                id: "command-palette",
-                title: "Command palette",
-                shortcut: WorkspaceShortcutRegistry.label(for: "command-palette"),
-                category: WorkspaceCommandPalette.navigationCategory,
+            shortcut(
+                "command-palette",
+                "Command palette",
+                category: navigation,
                 keywords: ["commands", "actions"]
             ),
-            WorkspaceCommandSurface(
-                id: "keyboard-shortcuts",
-                title: "Keyboard shortcuts",
-                shortcut: WorkspaceShortcutRegistry.label(for: "keyboard-shortcuts"),
-                category: WorkspaceCommandPalette.navigationCategory,
+            shortcut(
+                "keyboard-shortcuts",
+                "Keyboard shortcuts",
+                category: navigation,
                 keywords: ["keyboard", "shortcuts", "help", "commands"]
             )
         ]
     }
 
-    static func computerUseCommands(computerUseStatus: ComputerUseStatus) -> [WorkspaceCommandSurface] {
+    static func computerUseCommands(computerUseStatus: ComputerUseStatus) -> [Command] {
         [
             .computerUseSetup(isEnabled: !computerUseStatus.available),
             .computerUseScreenRecordingSettings(isEnabled: !computerUseStatus.screenRecordingGranted),
             .computerUseAccessibilitySettings(isEnabled: !computerUseStatus.accessibilityGranted),
             .computerUseRefresh
         ]
+    }
+
+    private enum Category {
+        static let control = WorkspaceCommandPalette.controlCategory
+        static let extensions = WorkspaceCommandPalette.extensionsCategory
+        static let memories = WorkspaceCommandPalette.memoriesCategory
+        static let navigation = WorkspaceCommandPalette.navigationCategory
+        static let workspace = WorkspaceCommandPalette.workspaceCategory
+    }
+
+    private static func shortcut(
+        _ id: String,
+        _ title: String,
+        category: String = Category.workspace,
+        keywords: [String],
+        isEnabled: Bool = true
+    ) -> Command {
+        command(
+            id,
+            title,
+            shortcut: WorkspaceShortcutRegistry.label(for: id),
+            category: category,
+            keywords: keywords,
+            isEnabled: isEnabled
+        )
+    }
+
+    private static func command(
+        _ id: String,
+        _ title: String,
+        shortcut: String? = nil,
+        category: String = Category.workspace,
+        keywords: [String],
+        isEnabled: Bool = true
+    ) -> Command {
+        Command(
+            id: id,
+            title: title,
+            shortcut: shortcut,
+            category: category,
+            keywords: keywords,
+            isEnabled: isEnabled
+        )
     }
 }
