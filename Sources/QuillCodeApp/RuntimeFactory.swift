@@ -93,10 +93,19 @@ public struct QuillCodeRuntimeFactory: Sendable {
             apiKeyOverride: apiKey,
             baseURL: config.apiBaseURL
         )
+        // host.web.search routes through the same TrustedRouter credentials as the run loop, so the
+        // gateway selects the search provider (issue #861).
+        let webSearch = TrustedRouterWebSearchClient(
+            sessionStore: sessionStore,
+            apiKeyOverride: apiKey,
+            model: config.defaultModel,
+            baseURL: config.apiBaseURL
+        )
         return QuillCodeRuntime(
             runner: AgentRunner(
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safetyClient),
+                webSearch: webSearch,
                 enablesImmediateActionPreflight: true
             ),
             contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator(llm: summaryLLM),

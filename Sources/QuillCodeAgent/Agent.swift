@@ -13,6 +13,11 @@ public struct AgentRunner: Sendable {
     public var baseToolDefinitions: [ToolDefinition]
     public var additionalToolDefinitions: [ToolDefinition]
     public var toolExecutionOverride: AgentToolExecutionOverride?
+    /// Backend for `host.web.search`. Injected (with TrustedRouter credentials) by the live
+    /// runtime; nil in mock/test runs, where the tool reports that search is unavailable. Kept as
+    /// a first-class runner dependency — rather than folded into `toolExecutionOverride` — so both
+    /// the CLI and desktop wire it through one place and `configuredRunner(from:)` preserves it.
+    public var webSearch: (any WebSearchClient)?
     public var maxToolSteps: Int
     public var enablesImmediateActionPreflight: Bool
     /// Computes an opaque signature of the workspace state, sampled around tool steps to feed the
@@ -26,6 +31,7 @@ public struct AgentRunner: Sendable {
         baseToolDefinitions: [ToolDefinition] = ToolRouter.definitions,
         additionalToolDefinitions: [ToolDefinition] = [],
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
+        webSearch: (any WebSearchClient)? = nil,
         maxToolSteps: Int = AgentRunner.defaultMaxToolSteps,
         enablesImmediateActionPreflight: Bool = false,
         workspaceStateSignature: (@Sendable (URL) -> String)? = nil
@@ -35,6 +41,7 @@ public struct AgentRunner: Sendable {
         self.baseToolDefinitions = baseToolDefinitions
         self.additionalToolDefinitions = additionalToolDefinitions
         self.toolExecutionOverride = toolExecutionOverride
+        self.webSearch = webSearch
         self.maxToolSteps = maxToolSteps
         self.enablesImmediateActionPreflight = enablesImmediateActionPreflight
         self.workspaceStateSignature = workspaceStateSignature

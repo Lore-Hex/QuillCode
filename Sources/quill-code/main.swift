@@ -93,9 +93,18 @@ struct QuillCodeCLI {
                 apiKeyOverride: key,
                 baseURL: baseURL
             )
+            // host.web.search routes through the same TrustedRouter credentials (gateway-side
+            // provider selection, issue #861).
+            let webSearch = TrustedRouterWebSearchClient(
+                sessionStore: sessionStore,
+                apiKeyOverride: key,
+                model: model,
+                baseURL: baseURL
+            )
             runner = AgentRunner(
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safetyClient),
+                webSearch: webSearch,
                 enablesImmediateActionPreflight: true
             )
             thread.model = model
