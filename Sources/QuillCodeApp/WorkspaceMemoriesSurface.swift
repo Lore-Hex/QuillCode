@@ -63,7 +63,10 @@ public struct WorkspaceMemoriesSurface: Codable, Sendable, Hashable {
             ?? "No global or project memories are attached to this thread"
         items = try container.decodeIfPresent([MemoryNoteSurface].self, forKey: .items) ?? []
         conflicts = try container.decodeIfPresent([MemoryConflictSurface].self, forKey: .conflicts) ?? []
-        redactionReviews = try container.decodeIfPresent([MemoryRedactionReviewSurface].self, forKey: .redactionReviews) ?? []
+        redactionReviews = try container.decodeIfPresent(
+            [MemoryRedactionReviewSurface].self,
+            forKey: .redactionReviews
+        ) ?? []
         emptyTitle = try container.decodeIfPresent(String.self, forKey: .emptyTitle) ?? "No memories loaded"
         emptySubtitle = try container.decodeIfPresent(String.self, forKey: .emptySubtitle)
             ?? "Add Markdown, text, or JSON notes under ~/.quillcode/memories or .quillcode/memories."

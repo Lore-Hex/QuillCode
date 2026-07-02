@@ -61,8 +61,14 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             contextWindowTokens: try container.decodeIfPresent(Int.self, forKey: .contextWindowTokens),
-            inputPricePerMillionTokens: try container.decodeIfPresent(Double.self, forKey: .inputPricePerMillionTokens),
-            outputPricePerMillionTokens: try container.decodeIfPresent(Double.self, forKey: .outputPricePerMillionTokens),
+            inputPricePerMillionTokens: try container.decodeIfPresent(
+                Double.self,
+                forKey: .inputPricePerMillionTokens
+            ),
+            outputPricePerMillionTokens: try container.decodeIfPresent(
+                Double.self,
+                forKey: .outputPricePerMillionTokens
+            ),
             inputModalities: try container.decodeIfPresent([String].self, forKey: .inputModalities) ?? [],
             outputModalities: try container.decodeIfPresent([String].self, forKey: .outputModalities) ?? [],
             capabilityTags: try container.decodeIfPresent([String].self, forKey: .capabilityTags) ?? [],
