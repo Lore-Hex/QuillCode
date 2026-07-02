@@ -14447,14 +14447,22 @@
         }
       } else if (text.toLowerCase().includes('screenshot')) {
         const path = '/mock/QuillCode/screenshots/screenshot.png';
+        const foregroundApplication = state.settings.computerUseForegroundApplication;
         addToolCard({
           title: 'host.computer.screenshot',
           subtitle: 'Completed',
           status: 'done',
           inputJSON: '{}',
-          outputJSON: JSON.stringify({ ok: true, stdout: '{"width":1280,"height":720}', artifacts: [path] }, null, 2)
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: JSON.stringify({ width: 1280, height: 720, foregroundApplication }),
+            artifacts: [path]
+          }, null, 2)
         });
-        addMessage('assistant', 'Captured a screenshot (1280 x 720).');
+        const appLabel = foregroundApplication?.name || foregroundApplication?.bundleIdentifier;
+        addMessage('assistant', appLabel
+          ? `Captured a screenshot of ${appLabel} (1280 x 720).`
+          : 'Captured a screenshot (1280 x 720).');
       } else if (text.toLowerCase().includes('apply patch') || text.toLowerCase().includes('edit file')) {
         const { diff, review } = mockReviewDiff();
         state.review = review;

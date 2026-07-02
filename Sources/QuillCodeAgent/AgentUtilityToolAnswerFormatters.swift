@@ -196,7 +196,11 @@ enum AgentUtilityToolAnswerFormatters {
         else {
             return nil
         }
-        return "Captured a screenshot (\(screenshot.width) x \(screenshot.height))."
+        let size = "\(screenshot.width) x \(screenshot.height)"
+        guard let foregroundApplication = screenshot.foregroundApplication else {
+            return "Captured a screenshot (\(size))."
+        }
+        return "Captured a screenshot of \(foregroundApplication.displayLabel) (\(size))."
     }
 
     static func computerUseActionAnswer(

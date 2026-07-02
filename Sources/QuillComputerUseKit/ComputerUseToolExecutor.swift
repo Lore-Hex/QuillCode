@@ -56,15 +56,22 @@ public struct ComputerUseToolExecutor: Sendable {
         let output = ComputerScreenshotToolOutput(
             width: screenshot.width,
             height: screenshot.height,
-            path: path
+            path: path,
+            foregroundApplication: await currentForegroundApplication()
         )
         return ToolResult(
             ok: true,
-            stdout: (try? JSONHelpers.encodePretty(output)) ?? """
-            {"width":\(screenshot.width),"height":\(screenshot.height)}
-            """,
+            stdout: try JSONHelpers.encodePretty(output),
             artifacts: path.map { [$0] } ?? []
         )
+    }
+
+    private func currentForegroundApplication() async -> ComputerUseApplication? {
+        await foregroundApplicationProvider()?.foregroundApplication()
+    }
+
+    private func foregroundApplicationProvider() -> (any ComputerUseForegroundApplicationProviding)? {
+        backend as? any ComputerUseForegroundApplicationProviding
     }
 
     private func executeClick(_ args: ToolArguments) async throws -> ToolResult {
@@ -132,7 +139,7 @@ public struct ComputerUseToolExecutor: Sendable {
 
     private func appApprovalPreflightFailure(for toolName: String) async -> ToolResult? {
         guard !appApprovalPolicy.isUnrestricted else { return nil }
-        guard let foregroundProvider = backend as? any ComputerUseForegroundApplicationProviding else {
+        guard let foregroundProvider = foregroundApplicationProvider() else {
             return ToolResult(
                 ok: false,
                 error: "Computer Use \(Self.toolDisplayName(for: toolName)) needs app approval, "

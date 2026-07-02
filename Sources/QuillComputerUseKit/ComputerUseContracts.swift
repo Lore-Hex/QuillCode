@@ -14,11 +14,18 @@ public struct ComputerScreenshotToolOutput: Codable, Sendable, Hashable {
     public var width: Int
     public var height: Int
     public var path: String?
+    public var foregroundApplication: ComputerUseApplication?
 
-    public init(width: Int, height: Int, path: String?) {
+    public init(
+        width: Int,
+        height: Int,
+        path: String?,
+        foregroundApplication: ComputerUseApplication? = nil
+    ) {
         self.width = width
         self.height = height
         self.path = path
+        self.foregroundApplication = foregroundApplication
     }
 }
 

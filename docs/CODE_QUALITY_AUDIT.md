@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-02 Computer Use Screenshot Context A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
+grades A+ in the regenerated repo-wide report**.
+
+This pass started with the repo-wide grade report, reviewed the Computer Use contract/executor/final-answer path, and
+tightened one repeated ownership boundary instead of making mechanical churn across already A+ files.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Screenshot feedback | `host.computer.screenshot` returned width/height plus an artifact path, so the user could not tell which focused app was captured from the final answer. | Screenshot tool output now includes the foreground app when the backend can identify it, and final answers name the app while preserving the artifact path. |
+| Foreground-app ownership | Screenshot context and app-approval preflight risked separate backend-casting paths. | `ComputerUseToolExecutor` owns one typed foreground-app provider lookup used by both screenshot metadata and approval preflight. |
+| Transcript performance | Screenshot stdout already avoided raw base64 but still had a defensive ad hoc JSON fallback. | Structured output is encoded through the shared JSON helper, keeping transcript payloads metadata-only and schema-owned. |
+| Regression coverage | App approval tests covered foreground lookup, but screenshot context was not pinned through the agent answer path. | Executor, final-answer, workspace integration, and Playwright artifact tests now assert foreground-app screenshot feedback. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`.
+- All modules grade **A+**.
+- Every individual source, test, script, and Playwright file grades **A+**.
+- The touched Computer Use production and test files remain **A+**.
+
+Validation:
+
+- `swift test --filter 'ComputerUseToolExecutorTests|AgentFinalAnswerBuilderTests|WorkspaceComposerIntegrationTests|QuillCodeNativeHitTargetSourceAuditTests|QuillCodeNativeHitTargetSurfaceAuditTests'`
+- `npm test -- tests/artifacts.spec.ts tests/interaction-audit-edge-controls.spec.ts tests/visual-polish.spec.ts`
+- `python3 scripts/grade-code-quality.py --root .`
+
 ## 2026-07-02 Cross-Module Maintainability A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
