@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-07-02 Current Main A+ Grade Refresh
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
+grades A+ in the regenerated repo-wide report**.
+
+This pass reconciled the merged PR train after the web-fetch quality refactor and context-compaction work landed on
+`main`. The code architecture was reviewed at the module level before changing anything: the latest `main` already has
+the stronger structure, with HTML conversion split by writer/block/inline/policy responsibilities, permission-rule
+persistence models split out of the store, and compaction logic isolated in focused agent modules. The remaining action
+was to refresh the deterministic grade report so the docs cover the new files instead of the previous pre-compaction
+snapshot.
+
+Validation:
+
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `rg -n "\| A \|| A- \|| B" docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+- `swift test`
+
+Residual risk:
+
+- The current weakest files are still A+ but include broad parity gates and large integration tests. Future quality
+  passes should keep splitting by ownership boundaries only when a feature or test slice naturally touches that area.
+
 ## 2026-07-02 Native Hit Target Contract Registry A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
