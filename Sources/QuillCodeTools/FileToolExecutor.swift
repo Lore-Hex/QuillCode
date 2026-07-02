@@ -161,6 +161,12 @@ public struct FileToolExecutor: Sendable {
     private func missingFileMessage(for url: URL) -> String {
         let relative = pathResolver.relativePath(for: url)
         let parent = url.deletingLastPathComponent()
+        // Suggestions enumerate the parent directory, so the parent itself must be inside the
+        // workspace. When the missing path IS the workspace root (deleted or misconfigured), its
+        // parent lies outside the boundary and sibling names there must not leak into the error.
+        guard WorkspaceBoundary.isWithin(parent, root: workspaceRoot) else {
+            return "File not found: \(relative)"
+        }
         let matches = FilePathSuggester.suggest(missingFileAt: url)
         guard !matches.isEmpty else {
             return "File not found: \(relative)"

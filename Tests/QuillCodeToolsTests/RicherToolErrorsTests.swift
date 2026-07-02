@@ -23,6 +23,22 @@ final class FilePathSuggesterTests: XCTestCase {
         XCTAssertEqual(FilePathSuggester.suggest(missing: "readme.md", candidates: ["README.md"]), ["README.md"])
     }
 
+    func testNormalizationOnlyDifferenceIsSuggested() {
+        // NFC request vs NFD sibling: Swift `==` calls them equal, but on a byte-sensitive filesystem
+        // (Linux ext4 = CI) they are different names and the NFD sibling IS the intended file. Assert
+        // on bytes — an XCTAssertEqual on the strings would pass for either normalization form.
+        let nfc = "caf\u{E9}.md"          // é precomposed
+        let nfd = "cafe\u{301}.md"        // e + combining acute accent
+        let matches = FilePathSuggester.suggest(missing: nfc, candidates: [nfd])
+        XCTAssertEqual(matches.count, 1)
+        XCTAssertTrue(matches[0].utf8.elementsEqual(nfd.utf8), "should suggest the on-disk (NFD) byte form")
+    }
+
+    func testByteIdenticalCandidateIsExcluded() {
+        // The exact same bytes means the file exists; suggesting it back would be noise.
+        XCTAssertTrue(FilePathSuggester.suggest(missing: "App.swift", candidates: ["App.swift"]).isEmpty)
+    }
+
     func testNoSuggestionWhenNothingIsClose() {
         XCTAssertTrue(FilePathSuggester.suggest(missing: "App.swift", candidates: ["zebra.txt", "Makefile"]).isEmpty)
     }
@@ -112,6 +128,30 @@ final class RicherToolErrorsFunctionalTests: XCTestCase {
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.error!.contains("File not found"), result.error!)
         XCTAssertFalse(result.error!.contains("Did you mean"), result.error!)
+    }
+
+    func testMissingWorkspaceRootDoesNotLeakParentSiblings() throws {
+        // When the workspace root itself is missing (deleted or misconfigured), the missing path's
+        // parent is OUTSIDE the workspace — sibling directory names there must not leak into the
+        // model-facing error.
+        let parent = try makeWorkspace()
+        let root = parent.appendingPathComponent("app-v2")
+        try FileManager.default.createDirectory(
+            at: parent.appendingPathComponent("app-v1"),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: parent.appendingPathComponent("app-v3"),
+            withIntermediateDirectories: true
+        )
+
+        let files = FileToolExecutor(workspaceRoot: root)
+        let result = files.read(path: ".")
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error!.contains("File not found"), result.error!)
+        XCTAssertFalse(result.error!.contains("Did you mean"), result.error!)
+        XCTAssertFalse(result.error!.contains("app-v1"), result.error!)
+        XCTAssertFalse(result.error!.contains("app-v3"), result.error!)
     }
 
     func testReadOfDirectoryPointsAtList() throws {

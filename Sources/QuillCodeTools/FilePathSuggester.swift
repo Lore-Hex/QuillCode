@@ -28,10 +28,14 @@ public enum FilePathSuggester {
         let scored: [(name: String, distance: Int, extensionMatches: Bool)] = candidates
             .prefix(maxCandidates)
             .compactMap { candidate in
-                guard candidate != missing else { return nil }   // byte-identical → exists; not a typo
+                // Byte-identical → exists; not a typo. This must compare UTF-8 bytes, not Swift `==`
+                // (Unicode canonical equivalence): a sibling stored as NFD when NFC was requested is
+                // canonically equal but byte-different, and on a byte-sensitive filesystem (Linux ext4
+                // = CI) that sibling IS the intended file — it must survive to be suggested.
+                guard !candidate.utf8.elementsEqual(missing.utf8) else { return nil }
                 let name = candidate.lowercased()
-                // A case-only difference is the best possible match (it IS the file on a case-sensitive
-                // filesystem like Linux CI).
+                // A case-only (or normalization-only) difference is the best possible match (it IS the
+                // file on a byte-sensitive filesystem like Linux CI).
                 if name == target {
                     return (candidate, 0, true)
                 }
