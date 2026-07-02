@@ -156,6 +156,11 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: root.topBar.agentStatus)
     }
 
+    public func setComputerUseForegroundApplication(_ application: ComputerUseApplication?) {
+        root.topBar.computerUseForegroundApplication = application
+        refreshTopBar(agentStatus: root.topBar.agentStatus)
+    }
+
     /// Records the latest git branch/ahead-behind status for a project, surfaced as
     /// a top-bar chip. Tagged with the project it came from so `refreshTopBar` drops
     /// it once a different project is selected (no stale branch after a switch). The

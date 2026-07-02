@@ -3,6 +3,7 @@ import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
 import QuillCodePersistence
+import QuillComputerUseKit
 @testable import quill_code_desktop
 
 @MainActor
@@ -132,6 +133,22 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(json.contains(#""allowsTextSelection" : false"#))
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
+    }
+
+    func testComputerUseCoordinatorRefreshesForegroundApplication() async throws {
+        let application = ComputerUseApplication(
+            name: "Terminal",
+            bundleIdentifier: "com.apple.Terminal"
+        )
+        let backend = StubComputerUseBackend(foregroundApplication: application)
+        let model = QuillCodeWorkspaceModel()
+        let coordinator = QuillCodeDesktopComputerUseCoordinator(backend: backend)
+
+        coordinator.install(on: model)
+
+        try await waitUntil(timeoutSeconds: 1) {
+            model.surface().settings.computerUseForegroundApplication == application
+        }
     }
 
     func testWindowAccessibilityFrameSamplerRequiresPrimarySidebarActions() {

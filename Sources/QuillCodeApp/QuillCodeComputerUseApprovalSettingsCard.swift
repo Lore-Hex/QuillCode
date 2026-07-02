@@ -1,4 +1,5 @@
 import SwiftUI
+import QuillComputerUseKit
 
 struct QuillCodeComputerUseApprovalSettingsCard: View {
     var settings: WorkspaceSettingsSurface
@@ -8,6 +9,7 @@ struct QuillCodeComputerUseApprovalSettingsCard: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             explanation
+            detectedAppRow
             approvalField(
                 title: "Bundle identifiers",
                 placeholder: "com.apple.Terminal\ncom.google.Chrome",
@@ -73,6 +75,61 @@ struct QuillCodeComputerUseApprovalSettingsCard: View {
     private static let explanationText = """
     Leave both lists empty for unrestricted Computer Use. Add bundle IDs for precise macOS approval, or app names for cross-platform fallback.
     """
+
+    @ViewBuilder
+    private var detectedAppRow: some View {
+        if let application = settings.computerUseForegroundApplication {
+            let alreadyApproved = draft.hasComputerUseApproval(for: application)
+            HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Detected foreground app")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    Text(application.displayLabel)
+                        .font(.callout.weight(.semibold))
+                    Text(Self.approvalTargetDescription(for: application))
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(2)
+                }
+                .layoutPriority(1)
+                Spacer(minLength: 0)
+                Button(alreadyApproved ? "Already allowed" : "Allow Current App") {
+                    draft.addComputerUseApproval(for: application)
+                }
+                .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 152))
+                .quillCodeFormActionTarget(minWidth: 152)
+                .disabled(alreadyApproved)
+                .accessibilityIdentifier("quillcode-computer-use-allow-current-app")
+            }
+            .padding(10)
+            .background(QuillCodePalette.background.opacity(0.48))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.04), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        } else {
+            Text("No foreground app detected yet. Focus an app, then refresh Computer Use status.")
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(QuillCodePalette.background.opacity(0.36))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    private static func approvalTargetDescription(for application: ComputerUseApplication) -> String {
+        if let bundleIdentifier = application.bundleIdentifier {
+            return "Will save bundle ID: \(bundleIdentifier)"
+        }
+        if let name = application.name {
+            return "Will save app name: \(name)"
+        }
+        return "No stable app identifier available"
+    }
 
     private var approvalTint: Color {
         settings.computerUseApprovedBundleIdentifiers.isEmpty && settings.computerUseApprovedAppNames.isEmpty

@@ -78,7 +78,6 @@ public extension QuillCodeWorkspaceModel {
     func surface() -> WorkspaceSurface {
         let thread = selectedThread
         let topBarState = root.topBar
-        let computerUse = topBarState.computerUseStatus
         let toolCards = currentToolCards
         let runtimeIssue = runtimeIssueSurface()
         let transcriptMessages = thread.map {
@@ -203,7 +202,7 @@ public extension QuillCodeWorkspaceModel {
                 config: root.config,
                 hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
                 runtimeIssue: runtimeIssue,
-                computerUseStatus: computerUse,
+                computerUseRuntime: ComputerUseSettingsRuntime(topBarState: topBarState),
                 modelCatalogStatus: root.modelCatalogStatus,
                 modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog)
             ),

@@ -24,10 +24,12 @@ struct QuillCodeDesktopComputerUseCoordinator {
 
     func install(on model: QuillCodeWorkspaceModel) {
         model.setComputerUseBackend(backend)
+        refreshForegroundApplication(on: model)
     }
 
     func refreshStatus(on model: QuillCodeWorkspaceModel) {
         model.setComputerUseStatus(backend.status)
+        refreshForegroundApplication(on: model)
     }
 
     @discardableResult
@@ -38,5 +40,18 @@ struct QuillCodeDesktopComputerUseCoordinator {
         let didOpen = systemSettingsOpener.open(destination)
         refreshStatus(on: model)
         return didOpen
+    }
+
+    private func refreshForegroundApplication(on model: QuillCodeWorkspaceModel) {
+        guard let provider = backend as? any ComputerUseForegroundApplicationProviding else {
+            model.setComputerUseForegroundApplication(nil)
+            return
+        }
+        Task {
+            let application = await provider.foregroundApplication()
+            await MainActor.run {
+                model.setComputerUseForegroundApplication(application)
+            }
+        }
     }
 }

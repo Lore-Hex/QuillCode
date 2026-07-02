@@ -9,6 +9,7 @@ final class ParityWorkspaceSettingsSurfaceGateTests: QuillCodeParityTestCase {
 
         for expected in [
             "public struct WorkspaceSettingsSurface",
+            "computerUseForegroundApplication",
             "computerUseApprovedBundleIdentifiers",
             "computerUseApprovalSummary",
             "TrustedRouterDefaults.loopbackCallbackURL"
