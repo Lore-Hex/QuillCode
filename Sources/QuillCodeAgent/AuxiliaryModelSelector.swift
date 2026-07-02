@@ -103,12 +103,12 @@ public enum AuxiliaryModelSelector {
     }
 
     /// Auxiliary calls are prompt-heavy and reply short, so weight input cost 3:1.
-    /// nil when either price is missing, non-finite, or the pair sums to zero.
+    /// nil when either price is missing, non-finite, zero, or negative.
     private static func blendedCost(_ capabilities: ModelCapabilities) -> Double? {
         guard let input = capabilities.inputPricePerMillionTokens,
               let output = capabilities.outputPricePerMillionTokens,
               input.isFinite, output.isFinite,
-              input + output > 0
+              input > 0, output > 0
         else { return nil }
         return (3 * input + output) / 4
     }

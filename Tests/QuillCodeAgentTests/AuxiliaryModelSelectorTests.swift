@@ -172,6 +172,21 @@ final class AuxiliaryModelSelectorTests: XCTestCase {
         XCTAssertEqual(onlyPoisoned.source, .sessionModelFallback)
     }
 
+    func testZeroOrNegativePriceComponentsAreRejected() {
+        let partialZeroInput = pricedModel(id: "acme/zero-input-nano", input: 0, output: 0.1)
+        let partialZeroOutput = pricedModel(id: "acme/zero-output-nano", input: 0.1, output: 0)
+        let negativeInput = pricedModel(id: "acme/negative-input-nano", input: -0.1, output: 1)
+        let negativeOutput = pricedModel(id: "acme/negative-output-nano", input: 1, output: -0.1)
+        let priced = pricedModel(id: "acme/priced", input: 0.4, output: 1.2)
+
+        let selection = AuxiliaryModelSelector.selection(
+            models: [partialZeroInput, partialZeroOutput, negativeInput, negativeOutput, priced],
+            sessionModelID: "acme/flagship"
+        )
+
+        XCTAssertEqual(selection.modelID, "acme/priced")
+    }
+
     func testFallsBackToSessionModelWhenCatalogHasNoPrices() {
         let selection = AuxiliaryModelSelector.selection(
             models: TrustedRouterModelCatalog.defaultModels,
