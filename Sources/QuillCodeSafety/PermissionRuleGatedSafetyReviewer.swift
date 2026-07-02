@@ -95,7 +95,8 @@ public struct PermissionRuleGatedSafetyReviewer: SafetyReviewer {
             // Fail safe: never auto-approve — force the human gate.
             return await forceAsk(
                 context,
-                rationale: "The saved permission rules could not be read; asking for confirmation to be safe."
+                rationale: "The saved permission rules could not be read; asking for confirmation to be safe.",
+                fallbackReason: .permissionRulesUnavailable
             )
         }
 
@@ -115,7 +116,7 @@ public struct PermissionRuleGatedSafetyReviewer: SafetyReviewer {
             return SafetyReview(
                 verdict: .deny,
                 rationale: "A saved permission rule blocks \(context.toolCall.name) for this target."
-            )
+            ).withRuleTelemetry(.permissionRuleDenied)
         case .allow:
             guard context.mode == .auto || context.mode == .review else {
                 return await base.review(context)
@@ -125,16 +126,18 @@ public struct PermissionRuleGatedSafetyReviewer: SafetyReviewer {
             // padded spelling like `rm -rf  /` cannot slip an allow past the floor.
             if let hardDenyReason = floor.hardDenyReason(context) {
                 return SafetyReview(verdict: .deny, rationale: hardDenyReason)
+                    .withReviewTelemetry(.init(source: .staticPolicy, fallbackReason: .staticDenied))
             }
             return SafetyReview(
                 verdict: .approve,
                 rationale: "A saved permission rule allows this action.",
                 userIntentMatched: true
-            )
+            ).withRuleTelemetry(.permissionRuleAllowed)
         case .ask:
             return await forceAsk(
                 context,
-                rationale: "A saved permission rule asks for confirmation before running \(context.toolCall.name)."
+                rationale: "A saved permission rule asks for confirmation before running \(context.toolCall.name).",
+                fallbackReason: .permissionRuleAsked
             )
         case nil:
             return await base.review(context)
@@ -144,7 +147,11 @@ public struct PermissionRuleGatedSafetyReviewer: SafetyReviewer {
     /// Force a human gate: run the base review first so a base DENY (e.g. the hard-deny floor, or a
     /// read-only/plan mode block) still stands, but downgrade a base `approve` to `clarify` so the
     /// operation is asked about rather than auto-run.
-    private func forceAsk(_ context: SafetyContext, rationale: String) async -> SafetyReview {
+    private func forceAsk(
+        _ context: SafetyContext,
+        rationale: String,
+        fallbackReason: ApprovalReviewFallbackReason
+    ) async -> SafetyReview {
         let baseReview = await base.review(context)
         guard baseReview.verdict == .approve else {
             return baseReview
@@ -152,7 +159,23 @@ public struct PermissionRuleGatedSafetyReviewer: SafetyReviewer {
         return SafetyReview(
             verdict: .clarify,
             rationale: rationale,
+            reviewerModel: baseReview.reviewerModel,
             userIntentMatched: baseReview.userIntentMatched
-        )
+        ).withRuleTelemetry(fallbackReason, base: baseReview.reviewTelemetry)
+    }
+}
+
+private extension SafetyReview {
+    func withRuleTelemetry(
+        _ fallbackReason: ApprovalReviewFallbackReason,
+        base: ApprovalReviewTelemetry? = nil
+    ) -> SafetyReview {
+        withReviewTelemetry(.init(
+            source: .permissionRule,
+            reviewerModel: reviewerModel ?? base?.reviewerModel,
+            attemptedModels: base?.attemptedModels ?? [],
+            fallbackReason: fallbackReason,
+            errorSummary: base?.errorSummary
+        ))
     }
 }

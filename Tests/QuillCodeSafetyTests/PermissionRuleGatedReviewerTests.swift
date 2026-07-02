@@ -92,6 +92,8 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
         ))
 
         XCTAssertEqual(review.verdict, .deny)
+        XCTAssertEqual(review.reviewTelemetry?.source, .permissionRule)
+        XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .permissionRuleDenied)
         XCTAssertEqual(base.reviewCount, 0, "a deny rule must not be overridable by the base review")
     }
 
@@ -130,6 +132,8 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
                 workspaceRoot: root
             ))
             XCTAssertEqual(review.verdict, .approve, "allow rule did not skip the ask in mode \(mode)")
+            XCTAssertEqual(review.reviewTelemetry?.source, .permissionRule)
+            XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .permissionRuleAllowed)
             XCTAssertEqual(base.reviewCount, 0)
         }
     }
@@ -150,6 +154,8 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
                 workspaceRoot: root
             ))
             XCTAssertEqual(review.verdict, .deny, "allow rule bypassed the safety floor for: \(hostile)")
+            XCTAssertEqual(review.reviewTelemetry?.source, .staticPolicy)
+            XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .staticDenied)
         }
     }
 
@@ -188,7 +194,45 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
             workspaceRoot: root
         ))
         XCTAssertEqual(review.verdict, .clarify)
+        XCTAssertEqual(review.reviewTelemetry?.source, .permissionRule)
+        XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .permissionRuleAsked)
         XCTAssertEqual(base.reviewCount, 1)
+    }
+
+    func testAskRulePreservesBaseReviewerTelemetry() async throws {
+        let root = try makeWorkspace()
+        let baseTelemetry = ApprovalReviewTelemetry(
+            source: .fallbackModel,
+            reviewerModel: "kimi-k2.6",
+            attemptedModels: ["glm-5.2", "kimi-k2.6"],
+            fallbackReason: .primaryModelFailed,
+            errorSummary: "primary unavailable"
+        )
+        let base = RecordingBaseReviewer(SafetyReview(
+            verdict: .approve,
+            rationale: "intent matched",
+            reviewerModel: "kimi-k2.6",
+            userIntentMatched: true,
+            reviewTelemetry: baseTelemetry
+        ))
+        let gated = reviewer(
+            rules: [PermissionRule(action: "host.git.push", resource: "**", decision: .ask)],
+            base: base
+        )
+        let review = await gated.review(context(
+            mode: .auto,
+            call: ToolCall(name: "host.git.push", argumentsJSON: "{}"),
+            definition: shellRun,
+            workspaceRoot: root
+        ))
+
+        XCTAssertEqual(review.verdict, .clarify)
+        XCTAssertEqual(review.reviewerModel, "kimi-k2.6")
+        XCTAssertEqual(review.reviewTelemetry?.source, .permissionRule)
+        XCTAssertEqual(review.reviewTelemetry?.reviewerModel, "kimi-k2.6")
+        XCTAssertEqual(review.reviewTelemetry?.attemptedModels, ["glm-5.2", "kimi-k2.6"])
+        XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .permissionRuleAsked)
+        XCTAssertEqual(review.reviewTelemetry?.errorSummary, "primary unavailable")
     }
 
     func testAskRuleKeepsBaseDeny() async throws {

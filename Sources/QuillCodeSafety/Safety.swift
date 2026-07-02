@@ -34,17 +34,31 @@ public struct SafetyReview: Codable, Sendable, Hashable {
     public var rationale: String
     public var reviewerModel: String?
     public var userIntentMatched: Bool
+    public var reviewTelemetry: ApprovalReviewTelemetry?
 
     public init(
         verdict: ApprovalVerdict,
         rationale: String,
         reviewerModel: String? = nil,
-        userIntentMatched: Bool = false
+        userIntentMatched: Bool = false,
+        reviewTelemetry: ApprovalReviewTelemetry? = nil
     ) {
         self.verdict = verdict
         self.rationale = rationale
         self.reviewerModel = reviewerModel
         self.userIntentMatched = userIntentMatched
+        self.reviewTelemetry = reviewTelemetry
+    }
+}
+
+public extension SafetyReview {
+    func withReviewTelemetry(_ telemetry: ApprovalReviewTelemetry) -> SafetyReview {
+        var copy = self
+        copy.reviewTelemetry = telemetry
+        if copy.reviewerModel == nil {
+            copy.reviewerModel = telemetry.reviewerModel
+        }
+        return copy
     }
 }
 
@@ -62,24 +76,26 @@ public struct StaticSafetyReviewer: SafetyReviewer {
     public init() {}
 
     public func review(_ context: SafetyContext) async -> SafetyReview {
-        switch context.mode {
+        let review: SafetyReview = switch context.mode {
         case .readOnly:
             if context.toolDefinition?.risk == .read {
-                return lowRiskReview(context)
+                lowRiskReview(context)
+            } else {
+                SafetyReview(
+                    verdict: .deny,
+                    rationale: "Read-only mode blocks file writes, shell mutations, and destructive tools."
+                )
             }
-            return SafetyReview(
-                verdict: .deny,
-                rationale: "Read-only mode blocks file writes, shell mutations, and destructive tools."
-            )
         case .review:
             if context.toolDefinition?.risk == .read {
-                return lowRiskReview(context)
+                lowRiskReview(context)
+            } else {
+                SafetyReview(
+                    verdict: .clarify,
+                    rationale: "Review mode requires explicit approval before this tool runs.",
+                    userIntentMatched: userIntentMatches(context)
+                )
             }
-            return SafetyReview(
-                verdict: .clarify,
-                rationale: "Review mode requires explicit approval before this tool runs.",
-                userIntentMatched: userIntentMatches(context)
-            )
         case .plan:
             // Plan mode investigates read-only and proposes a plan; every mutating tool is
             // blocked until the user approves it (which applies that step and starts executing).
@@ -87,25 +103,27 @@ public struct StaticSafetyReviewer: SafetyReviewer {
             // verdict either way, but `.deny` is the hard "no approval possible" signal (e.g.
             // `rm -rf /`) that suppresses the approve button — a plan block must stay approvable.
             if context.toolDefinition?.risk == .read {
-                return lowRiskReview(context)
+                lowRiskReview(context)
+            } else {
+                SafetyReview(
+                    verdict: .clarify,
+                    rationale: "Planning — approve the proposed change to apply it and start executing.",
+                    userIntentMatched: userIntentMatches(context)
+                )
             }
-            return SafetyReview(
-                verdict: .clarify,
-                rationale: "Planning — approve the proposed change to apply it and start executing.",
-                userIntentMatched: userIntentMatches(context)
-            )
         case .auto:
             if let hardDeny = hardDenyReason(context) {
-                return SafetyReview(verdict: .deny, rationale: hardDeny)
+                SafetyReview(verdict: .deny, rationale: hardDeny)
+            } else if context.toolDefinition?.risk == .read || userIntentMatches(context) {
+                lowRiskReview(context)
+            } else {
+                SafetyReview(
+                    verdict: .clarify,
+                    rationale: "The requested tool action does not clearly match the latest user message."
+                )
             }
-            if context.toolDefinition?.risk == .read || userIntentMatches(context) {
-                return lowRiskReview(context)
-            }
-            return SafetyReview(
-                verdict: .clarify,
-                rationale: "The requested tool action does not clearly match the latest user message."
-            )
         }
+        return review.withReviewTelemetry(.init(source: .staticPolicy))
     }
 
     public func hardDenyReason(_ context: SafetyContext) -> String? {
@@ -146,23 +164,53 @@ public struct AutoSafetyReviewer: SafetyReviewer {
     public func review(_ context: SafetyContext) async -> SafetyReview {
         let baseline = await staticReviewer.review(context)
         guard context.mode == .auto else {
-            return baseline
+            return baseline.withReviewTelemetry(.init(
+                source: .staticPolicy,
+                fallbackReason: .nonAutoMode
+            ))
         }
         if baseline.verdict == .deny {
-            return baseline
+            return baseline.withReviewTelemetry(.init(
+                source: .staticPolicy,
+                fallbackReason: .staticDenied
+            ))
         }
         guard let client else {
-            return baseline
+            return baseline.withReviewTelemetry(.init(
+                source: .staticPolicy,
+                fallbackReason: .missingReviewerClient
+            ))
         }
 
         let prompt = Self.prompt(for: context)
         do {
-            return try parse(try await client.review(prompt: prompt, model: primaryModel), model: primaryModel)
-        } catch {
+            return try parse(
+                try await client.review(prompt: prompt, model: primaryModel),
+                model: primaryModel
+            ).withReviewTelemetry(.init(
+                source: .primaryModel,
+                reviewerModel: primaryModel,
+                attemptedModels: [primaryModel]
+            ))
+        } catch let primaryError {
             do {
-                return try parse(try await client.review(prompt: prompt, model: fallbackModel), model: fallbackModel)
-            } catch {
-                return baseline
+                return try parse(
+                    try await client.review(prompt: prompt, model: fallbackModel),
+                    model: fallbackModel
+                ).withReviewTelemetry(.init(
+                    source: .fallbackModel,
+                    reviewerModel: fallbackModel,
+                    attemptedModels: [primaryModel, fallbackModel],
+                    fallbackReason: .primaryModelFailed,
+                    errorSummary: Self.errorSummary(primaryError)
+                ))
+            } catch let fallbackError {
+                return baseline.withReviewTelemetry(.init(
+                    source: .staticPolicy,
+                    attemptedModels: [primaryModel, fallbackModel],
+                    fallbackReason: .allModelsFailed,
+                    errorSummary: Self.combinedErrorSummary(primary: primaryError, fallback: fallbackError)
+                ))
             }
         }
     }
@@ -207,5 +255,17 @@ public struct AutoSafetyReviewer: SafetyReviewer {
             reviewerModel: model,
             userIntentMatched: decoded.userIntentMatched
         )
+    }
+
+    private static func combinedErrorSummary(primary: Error, fallback: Error) -> String {
+        "primary: \(errorSummary(primary)); fallback: \(errorSummary(fallback))"
+    }
+
+    private static func errorSummary(_ error: Error) -> String {
+        let singleLine = String(describing: error)
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(singleLine.prefix(180))
     }
 }
