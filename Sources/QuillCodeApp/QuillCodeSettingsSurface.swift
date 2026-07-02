@@ -50,6 +50,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var computerUseSetupSummary: String
     public var computerUseNextAction: String
     public var computerUseRequirements: [ComputerUseRequirementSurface]
+    public var computerUseApprovedBundleIdentifiers: [String]
+    public var computerUseApprovedAppNames: [String]
+    public var computerUseApprovalStatusLabel: String
+    public var computerUseApprovalSummary: String
 
     public init(
         config: AppConfig,
@@ -90,6 +94,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             screenRecordingCommand: computerUseScreenRecordingCommand,
             accessibilityCommand: computerUseAccessibilityCommand
         )
+        self.computerUseApprovedBundleIdentifiers = config.computerUseApprovedBundleIdentifiers
+        self.computerUseApprovedAppNames = config.computerUseApprovedAppNames
+        self.computerUseApprovalStatusLabel = Self.computerUseApprovalStatusLabel(config)
+        self.computerUseApprovalSummary = Self.computerUseApprovalSummary(config)
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -129,6 +137,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case computerUseSetupSummary
         case computerUseNextAction
         case computerUseRequirements
+        case computerUseApprovedBundleIdentifiers
+        case computerUseApprovedAppNames
+        case computerUseApprovalStatusLabel
+        case computerUseApprovalSummary
     }
 
     public init(from decoder: Decoder) throws {
@@ -183,6 +195,28 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             screenRecordingCommand: computerUseScreenRecordingCommand,
             accessibilityCommand: computerUseAccessibilityCommand
         )
+        let decodedBundleIdentifiers = try container.decodeIfPresent(
+            [String].self,
+            forKey: .computerUseApprovedBundleIdentifiers
+        ) ?? []
+        let decodedAppNames = try container.decodeIfPresent(
+            [String].self,
+            forKey: .computerUseApprovedAppNames
+        ) ?? []
+        let approvalConfig = AppConfig(
+            computerUseApprovedBundleIdentifiers: decodedBundleIdentifiers,
+            computerUseApprovedAppNames: decodedAppNames
+        )
+        self.computerUseApprovedBundleIdentifiers = approvalConfig.computerUseApprovedBundleIdentifiers
+        self.computerUseApprovedAppNames = approvalConfig.computerUseApprovedAppNames
+        self.computerUseApprovalStatusLabel = try container.decodeIfPresent(
+            String.self,
+            forKey: .computerUseApprovalStatusLabel
+        ) ?? Self.computerUseApprovalStatusLabel(approvalConfig)
+        self.computerUseApprovalSummary = try container.decodeIfPresent(
+            String.self,
+            forKey: .computerUseApprovalSummary
+        ) ?? Self.computerUseApprovalSummary(approvalConfig)
     }
 
     private static func computerUseStatusLabel(_ status: ComputerUseStatus) -> String {
@@ -254,6 +288,23 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             )
         ]
     }
+
+    private static func computerUseApprovalStatusLabel(_ config: AppConfig) -> String {
+        let count = config.computerUseApprovedBundleIdentifiers.count + config.computerUseApprovedAppNames.count
+        guard count > 0 else { return "Unrestricted" }
+        return "\(count) approved"
+    }
+
+    private static func computerUseApprovalSummary(_ config: AppConfig) -> String {
+        let bundleCount = config.computerUseApprovedBundleIdentifiers.count
+        let appNameCount = config.computerUseApprovedAppNames.count
+        guard bundleCount + appNameCount > 0 else {
+            return "Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps."
+        }
+        let bundlePart = bundleCount == 1 ? "1 bundle ID" : "\(bundleCount) bundle IDs"
+        let appPart = appNameCount == 1 ? "1 app name" : "\(appNameCount) app names"
+        return "Computer Use is restricted to \(bundlePart) and \(appPart)."
+    }
 }
 
 public struct WorkspaceSettingsUpdate: Sendable, Hashable {
@@ -262,18 +313,28 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var developerOverrideEnabled: Bool
     public var replacementAPIKey: String?
     public var shouldClearAPIKey: Bool
+    public var computerUseApprovedBundleIdentifiers: [String]
+    public var computerUseApprovedAppNames: [String]
 
     public init(
         apiBaseURL: String,
         authMode: TrustedRouterAuthMode = .oauth,
         developerOverrideEnabled: Bool,
         replacementAPIKey: String? = nil,
-        shouldClearAPIKey: Bool = false
+        shouldClearAPIKey: Bool = false,
+        computerUseApprovedBundleIdentifiers: [String] = [],
+        computerUseApprovedAppNames: [String] = []
     ) {
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
         self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
         self.replacementAPIKey = replacementAPIKey
         self.shouldClearAPIKey = shouldClearAPIKey
+        let approvalConfig = AppConfig(
+            computerUseApprovedBundleIdentifiers: computerUseApprovedBundleIdentifiers,
+            computerUseApprovedAppNames: computerUseApprovedAppNames
+        )
+        self.computerUseApprovedBundleIdentifiers = approvalConfig.computerUseApprovedBundleIdentifiers
+        self.computerUseApprovedAppNames = approvalConfig.computerUseApprovedAppNames
     }
 }

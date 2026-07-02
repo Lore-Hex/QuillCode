@@ -34,6 +34,13 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Required", "Required"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.isGranted), [false, false])
         XCTAssertEqual(settings.computerUseRequirements.first?.command.id, "computer-use-open-screen-recording")
+        XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, [])
+        XCTAssertEqual(settings.computerUseApprovedAppNames, [])
+        XCTAssertEqual(settings.computerUseApprovalStatusLabel, "Unrestricted")
+        XCTAssertEqual(
+            settings.computerUseApprovalSummary,
+            "Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps."
+        )
     }
 
     func testSettingsSurfaceShowsTrustedRouterAccount() {
@@ -92,6 +99,26 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertTrue(settings.modelProviderHealthDetail?.contains("acme: degraded") == true)
     }
 
+    func testSettingsSurfaceShowsComputerUseApprovalSummary() {
+        let config = AppConfig(
+            computerUseApprovedBundleIdentifiers: ["com.apple.Terminal", "com.google.Chrome"],
+            computerUseApprovedAppNames: ["Terminal"]
+        )
+
+        let settings = WorkspaceSettingsSurface(config: config, hasStoredAPIKey: true)
+
+        XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, [
+            "com.apple.Terminal",
+            "com.google.Chrome"
+        ])
+        XCTAssertEqual(settings.computerUseApprovedAppNames, ["Terminal"])
+        XCTAssertEqual(settings.computerUseApprovalStatusLabel, "3 approved")
+        XCTAssertEqual(
+            settings.computerUseApprovalSummary,
+            "Computer Use is restricted to 2 bundle IDs and 1 app name."
+        )
+    }
+
     func testSettingsSurfaceDecodesOlderComputerUsePayload() throws {
         let data = """
         {
@@ -127,7 +154,15 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             "id": "computer-use-refresh",
             "title": "Refresh Computer Use status",
             "isEnabled": true
-          }
+          },
+          "computerUseApprovedBundleIdentifiers": [
+            " com.apple.Terminal ",
+            "com.apple.Terminal"
+          ],
+          "computerUseApprovedAppNames": [
+            "Terminal",
+            "terminal"
+          ]
         }
         """.data(using: .utf8)!
 
@@ -143,6 +178,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Granted", "Required"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.command.isEnabled), [false, true])
+        XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
+        XCTAssertEqual(settings.computerUseApprovedAppNames, ["Terminal"])
+        XCTAssertEqual(settings.computerUseApprovalStatusLabel, "2 approved")
     }
 
     func testSettingsSurfaceUsesUnavailableComputerUseReasonWithoutPermissionRows() {

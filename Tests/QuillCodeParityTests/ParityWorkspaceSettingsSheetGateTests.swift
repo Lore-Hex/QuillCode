@@ -82,19 +82,28 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
     func testNativeSettingsDelegatesFocusedViewsAndDraftState() throws {
         let settingsText = try Self.appSourceText(named: "QuillCodeSettingsView.swift")
         let computerUseText = try Self.appSourceText(named: "QuillCodeComputerUseSettingsCard.swift")
+        let computerUseApprovalsText = try Self.appSourceText(
+            named: "QuillCodeComputerUseApprovalSettingsCard.swift"
+        )
         let runtimeIssueText = try Self.appSourceText(named: "QuillCodeRuntimeIssueView.swift")
         let draftText = try Self.appSourceText(named: "QuillCodeSettingsDraft.swift")
 
         Self.assertSource(settingsText, contains: "struct QuillCodeSettingsView")
         Self.assertSource(settingsText, contains: "QuillCodeComputerUseSettingsCard(")
+        Self.assertSource(settingsText, contains: "QuillCodeComputerUseApprovalSettingsCard(")
         Self.assertSource(settingsText, contains: "QuillCodeRuntimeIssueView(")
         Self.assertSource(computerUseText, contains: "struct QuillCodeComputerUseSettingsCard")
         Self.assertSource(computerUseText, contains: "struct QuillCodePermissionRow")
+        Self.assertSource(computerUseApprovalsText, contains: "struct QuillCodeComputerUseApprovalSettingsCard")
+        Self.assertSource(computerUseApprovalsText, contains: "draft.clearComputerUseApprovals()")
+        Self.assertSource(computerUseApprovalsText, contains: ".quillCodeTextEntryTarget")
+        Self.assertSource(computerUseApprovalsText, contains: ".quillCodeFormActionTarget")
         Self.assertSource(runtimeIssueText, contains: "struct QuillCodeRuntimeIssueView")
         Self.assertSource(draftText, contains: "struct QuillCodeSettingsDraft")
         Self.assertSource(draftText, contains: "var update: WorkspaceSettingsUpdate")
         Self.assertSource(settingsText, excludes: "struct QuillCodeComputerUseSettingsCard")
         Self.assertSource(settingsText, excludes: "struct QuillCodePermissionRow")
+        Self.assertSource(settingsText, excludes: "struct QuillCodeComputerUseApprovalSettingsCard")
         Self.assertSource(settingsText, excludes: "struct QuillCodeRuntimeIssueView")
         Self.assertSource(settingsText, excludes: "struct QuillCodeSettingsDraft")
     }

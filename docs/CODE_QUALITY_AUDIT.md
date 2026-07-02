@@ -1,5 +1,24 @@
 # Code Quality Audit
 
+## 2026-07-01 Computer Use Approval Settings A+ Pass
+
+Overall grade target for this slice: keep Computer Use app approval enforcement, settings state, persistence, and
+native UI on one normalized config path while moving another concrete Codex-parity control out of hidden config files.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Approval management | The executor enforced optional foreground-app approvals, but users had to edit config keys manually. | Settings now shows an Approved Apps card with bundle-ID and app-name editors plus a reset action. |
+| State ownership | Approval state risked becoming a UI-only toggle separate from execution. | `WorkspaceSettingsSurface`, `QuillCodeSettingsDraft`, `WorkspaceSettingsUpdate`, `AppConfig`, `ConfigStore`, and `ComputerUseToolExecutor` share the same normalized arrays. |
+| Input quality | Bundle IDs/app names could be duplicated or pasted in inconsistent formats. | The settings draft accepts comma or newline input; `WorkspaceSettingsUpdate` and `AppConfig` trim, drop blanks, and dedupe case-insensitively. |
+| UI architecture | Adding the card directly to the settings sheet would make the sheet harder to audit. | `QuillCodeComputerUseApprovalSettingsCard` owns the focused SwiftUI surface and parity gates keep it out of the main settings view. |
+| Interaction contracts | New text fields/buttons could regress the "click targets everywhere" work. | The new fields use `quillCodeTextEntryTarget` with stable accessibility identifiers, and the reset button uses the shared form-action target. |
+
+Validation:
+
+- `swift test --filter 'WorkspaceConfigurationEngineTests|QuillCodeSettingsDraftTests|WorkspaceSettingsRuntimeSurfaceTests|ParityWorkspaceSettingsSheetGateTests|ParityWorkspaceSettingsSurfaceGateTests|QuillCodeNativeHitTargetSourceAuditTests'`
+- `swift test`
+- `npm test -- settings.spec.ts` from `E2E/playwright`
+
 ## 2026-07-01 TrustedRouter Retry Backoff A+ Pass
 
 Overall grade after this slice: **all source, test, script, and E2E modules grade A+; the touched

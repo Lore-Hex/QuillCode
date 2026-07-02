@@ -18,6 +18,8 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertTrue(draft.developerOverrideEnabled)
         XCTAssertEqual(draft.replacementAPIKey, "")
         XCTAssertFalse(draft.shouldClearAPIKey)
+        XCTAssertEqual(draft.computerUseApprovedBundleIdentifiersText, "")
+        XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
     }
 
     func testUpdateTrimsBaseURLAndReplacementKey() {
@@ -55,5 +57,49 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
 
         XCTAssertFalse(draft.canSave)
         XCTAssertEqual(draft.update.apiBaseURL, "")
+    }
+
+    func testComputerUseApprovalsInitializeFromSettingsSurface() {
+        let config = AppConfig(
+            computerUseApprovedBundleIdentifiers: ["com.apple.Terminal", "com.google.Chrome"],
+            computerUseApprovedAppNames: ["Terminal", "Google Chrome"]
+        )
+        let surface = WorkspaceSettingsSurface(config: config, hasStoredAPIKey: false)
+
+        let draft = QuillCodeSettingsDraft(settings: surface)
+
+        XCTAssertEqual(
+            draft.computerUseApprovedBundleIdentifiersText,
+            "com.apple.Terminal\ncom.google.Chrome"
+        )
+        XCTAssertEqual(draft.computerUseApprovedAppNamesText, "Terminal\nGoogle Chrome")
+    }
+
+    func testComputerUseApprovalUpdateAcceptsCommaAndNewlineInput() {
+        var draft = QuillCodeSettingsDraft()
+        draft.apiBaseURL = "https://api.trustedrouter.test/v1"
+        draft.computerUseApprovedBundleIdentifiersText = " com.apple.Terminal, com.apple.Terminal\ncom.google.Chrome "
+        draft.computerUseApprovedAppNamesText = " Terminal,\nterminal\nGoogle Chrome "
+
+        let update = draft.update
+
+        XCTAssertEqual(update.computerUseApprovedBundleIdentifiers, [
+            "com.apple.Terminal",
+            "com.google.Chrome"
+        ])
+        XCTAssertEqual(update.computerUseApprovedAppNames, ["Terminal", "Google Chrome"])
+    }
+
+    func testClearsComputerUseApprovals() {
+        var draft = QuillCodeSettingsDraft()
+        draft.computerUseApprovedBundleIdentifiersText = "com.apple.Terminal"
+        draft.computerUseApprovedAppNamesText = "Terminal"
+
+        draft.clearComputerUseApprovals()
+
+        XCTAssertEqual(draft.computerUseApprovedBundleIdentifiersText, "")
+        XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
+        XCTAssertEqual(draft.update.computerUseApprovedBundleIdentifiers, [])
+        XCTAssertEqual(draft.update.computerUseApprovedAppNames, [])
     }
 }

@@ -14,6 +14,7 @@ struct QuillCodeSettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 settingsHeader
                 QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
+                QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
 
                 Divider()
 

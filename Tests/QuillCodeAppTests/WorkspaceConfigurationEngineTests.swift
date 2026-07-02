@@ -92,7 +92,9 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
             defaultModel: "/synth",
             mode: .readOnly,
             apiBaseURL: "https://api.trustedrouter.test/v1",
-            developerOverrideEnabled: true
+            developerOverrideEnabled: true,
+            computerUseApprovedBundleIdentifiers: ["com.apple.Terminal"],
+            computerUseApprovedAppNames: ["Terminal"]
         )
 
         WorkspaceConfigurationEngine.applySettings(
@@ -104,6 +106,8 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         WorkspaceConfigurationEngine.syncThread(&root.threads[selectedIndex], to: root.config)
 
         XCTAssertEqual(root.config, config)
+        XCTAssertEqual(root.config.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
+        XCTAssertEqual(root.config.computerUseApprovedAppNames, ["Terminal"])
         XCTAssertTrue(root.trustedRouterAPIKeyConfigured)
         XCTAssertEqual(root.threads[selectedIndex].mode, .readOnly)
         XCTAssertEqual(root.threads[selectedIndex].model, TrustedRouterDefaults.synthModel)
