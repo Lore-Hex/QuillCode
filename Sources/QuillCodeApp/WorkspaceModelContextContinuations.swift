@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeAgent
 import QuillCodeCore
 
 private enum ContextContinuationAction {
@@ -126,21 +127,29 @@ extension QuillCodeWorkspaceModel {
         for source: ChatThread,
         purpose: WorkspaceContextSummaryPurpose
     ) async -> WorkspaceContextSummaryOutcome {
+        // Summaries/compaction are auxiliary housekeeping: route them to a cheap catalog model
+        // instead of the thread's flagship model. The thread's own model is never touched here.
+        let selection = contextSummaryGenerator.isModelBacked
+            ? AuxiliaryModelSelector.selection(models: root.modelCatalog, sessionModelID: source.model)
+            : nil
         let request = WorkspaceContextSummaryRequest(
             sourceTitle: source.title,
             context: WorkspaceThreadSeedBuilder.summaryContext(from: source),
-            purpose: purpose
+            purpose: purpose,
+            modelID: selection?.modelID
         )
         do {
             return WorkspaceContextSummaryOutcome(
                 summaryOverride: try await contextSummaryGenerator.summary(for: request),
-                source: .model
+                source: .model,
+                modelSelection: selection
             )
         } catch {
             return WorkspaceContextSummaryOutcome(
                 summaryOverride: nil,
                 source: .deterministicFallback,
-                errorDescription: WorkspaceContextSummarySanitizer.diagnostic(from: error.localizedDescription)
+                errorDescription: WorkspaceContextSummarySanitizer.diagnostic(from: error.localizedDescription),
+                modelSelection: selection
             )
         }
     }

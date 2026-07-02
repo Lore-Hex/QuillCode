@@ -65,12 +65,23 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
                       "id": "acme/vision-code",
                       "display_name": "Vision Code",
                       "context_window": "128,000",
+                      "created": 1747008000,
                       "pricing": { "prompt": "0.00000025", "completion": 0.00000125 },
                       "input_modalities": ["text", "image"],
                       "output_modalities": "text",
                       "supported_parameters": { "tools": true, "json_mode": true, "legacy": false },
                       "status": "available",
                       "description": "Vision coding model"
+                    },
+                    {
+                      "id": "acme/vision-code-ms",
+                      "created": 1747008000000,
+                      "pricing": { "prompt": "0.00000025", "completion": 0.00000125 }
+                    },
+                    {
+                      "id": "acme/vision-code-dated",
+                      "release_date": "2025-05-12",
+                      "pricing": { "prompt": "0.00000025", "completion": 0.00000125 }
                     }
                   ]
                 }
@@ -98,6 +109,13 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         XCTAssertEqual(model.capabilities.capabilityTags, ["json mode", "tools"])
         XCTAssertEqual(model.capabilities.status, "available")
         XCTAssertEqual(model.capabilities.summary, "Vision coding model")
+        XCTAssertEqual(model.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
+
+        // 2025-05-12T00:00:00Z — the same instant expressed as a millisecond epoch and a date string.
+        let millisecondModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code-ms" })
+        XCTAssertEqual(millisecondModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
+        let datedModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code-dated" })
+        XCTAssertEqual(datedModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
     }
 
     func testCatalogFetchEmptyResponseUsesFallbackStatus() async throws {

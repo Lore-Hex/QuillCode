@@ -30,7 +30,8 @@ struct TrustedRouterCatalogModel: Decodable {
             outputModalities: container.firstStringList(for: ["output_modalities", "outputModalities"]),
             capabilityTags: Self.capabilityTags(in: container),
             status: container.firstNonEmptyString(for: ["status", "availability"]),
-            summary: container.firstNonEmptyString(for: ["description", "summary"])
+            summary: container.firstNonEmptyString(for: ["description", "summary"]),
+            releaseDate: Self.releaseDate(in: container)
         )
     }
 
@@ -64,6 +65,38 @@ struct TrustedRouterCatalogModel: Decodable {
     private static func capabilityTags(in container: KeyedDecodingContainer<FlexibleCodingKey>) throws -> [String] {
         try container.firstStringList(for: ["capabilities", "features"])
             + container.firstStringList(for: ["supported_parameters", "supportedParameters"])
+    }
+
+    private static let releaseDateKeys = [
+        "created",
+        "created_at",
+        "createdAt",
+        "release_date",
+        "releaseDate"
+    ]
+
+    /// Catalogs report the model's release moment either as a unix epoch (seconds or milliseconds,
+    /// OpenRouter-style `created`) or as an ISO-8601 / `yyyy-MM-dd` string. The auxiliary-model
+    /// selector uses this for its recency score, so decode is best-effort: unparseable values are nil.
+    private static func releaseDate(in container: KeyedDecodingContainer<FlexibleCodingKey>) -> Date? {
+        if let epoch = try? container.firstDouble(for: releaseDateKeys), epoch > 0 {
+            // Values beyond the year ~33658 in seconds are clearly millisecond epochs.
+            return Date(timeIntervalSince1970: epoch > 1_000_000_000_000 ? epoch / 1000 : epoch)
+        }
+        guard let raw = try? container.firstNonEmptyString(for: releaseDateKeys) else { return nil }
+        return parseDateString(raw)
+    }
+
+    private static func parseDateString(_ raw: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        if let date = iso.date(from: raw) { return date }
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: raw) { return date }
+        let dayFormatter = DateFormatter()
+        dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dayFormatter.timeZone = TimeZone(identifier: "UTC")
+        dayFormatter.dateFormat = "yyyy-MM-dd"
+        return dayFormatter.date(from: raw)
     }
 
     private static func price(

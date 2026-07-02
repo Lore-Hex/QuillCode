@@ -69,7 +69,9 @@ struct WorkspaceContextSummaryTelemetryPlanner {
             source: outcome.source,
             sourceTitle: sourceTitle,
             summaryCharacterCount: outcome.summaryOverride?.count,
-            errorDescription: outcome.errorDescription
+            errorDescription: outcome.errorDescription,
+            modelID: outcome.modelSelection?.modelID,
+            modelSelectionSource: outcome.modelSelection?.source
         ))
     }
 }
