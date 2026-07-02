@@ -14409,3 +14409,41 @@ Validation:
 - Post-merge focused validation including Linux notification adapter tests (80 tests, 0 failures)
 - `swift test --quiet` after merging `origin/main` (2,719 tests, 2 skipped, 0 failures)
 - `git diff --check`
+
+## 2026-07-02 LSP Schema And Client A+ Pass
+
+Overall grade after this slice: **A+ across every source and test module** on
+the current mainline. The pass keeps the LSP feature behavior unchanged while
+making tool-schema and client request code easier for other agents to extend
+safely.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `ToolParameterSchema.swift` | A+ | Shared JSON-schema encoder replaces Git-only schema construction so new tool families do not reintroduce hand-written JSON strings. |
+| `GitToolParameterSchema.swift` | A+ | Git keeps a compatibility wrapper and selector helpers while delegating encoding to the generic builder. |
+| `LSPToolDefinitions.swift` | A+ | LSP schemas are named, generated, and shared between definition/hover instead of being duplicated as long raw strings. |
+| `LSPClient.swift` / `LSPClientRequests.swift` | A+ | Request methods now live beside each other in a focused extension, keeping the core client file responsible for transport, state, diagnostics, and framing. |
+| `LSPToolRouterTests.swift` | A+ | LSP tool definitions now have explicit JSON-object schema validation. |
+
+Code quality changes:
+
+- Extracted generic `ToolParameterSchema` / `ToolParameterProperty` from the
+  Git-only implementation while preserving existing Git call sites.
+- Replaced all `host.lsp.*` hand-written parameter JSON with shared schema
+  builder calls.
+- Split `LSPClient` request methods into `LSPClientRequests.swift` to remove the
+  only A- file introduced by the LSP merge and keep file responsibilities
+  narrower.
+- Updated the Git parity gate so it checks both the Git compatibility wrapper
+  and the new generic schema builder.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; every module and every
+  lowest-scored file row is A+.
+
+Validation:
+
+- `swift test --filter 'LSPClientTests|LSPToolRouterTests|ParityGitPullRequestToolGateTests'` (36 tests, 0 failures)
+- `swift test --quiet` (2,864 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`

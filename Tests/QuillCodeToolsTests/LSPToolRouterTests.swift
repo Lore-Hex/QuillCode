@@ -39,6 +39,19 @@ final class LSPToolRouterTests: XCTestCase {
         XCTAssertTrue(names.contains("host.lsp.workspace_symbol"))
     }
 
+    func testLSPToolSchemasAreValidJSONObjects() throws {
+        let definitions = ToolRouter.definitions.filter { $0.name.hasPrefix("host.lsp.") }
+        XCTAssertEqual(definitions.count, 5)
+
+        for definition in definitions {
+            let data = try XCTUnwrap(definition.parametersJSON.data(using: .utf8))
+            XCTAssertTrue(
+                try JSONSerialization.jsonObject(with: data) is [String: Any],
+                "\(definition.name) parametersJSON should be a JSON object schema."
+            )
+        }
+    }
+
     func testFileWriteWithoutLSPBehavesUnchanged() {
         // No coordinator injected -> existing write behavior, no diagnostics text.
         let router = ToolRouter(workspaceRoot: workspace, editGuard: FileEditSessionGuard())
