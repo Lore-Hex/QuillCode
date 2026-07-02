@@ -180,7 +180,10 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
             try Self.appSourceText(named: "QuillCodeNativeHitTargetCommandContracts.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetContractFactory.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetDesignContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetExtensionContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetNavigationContracts.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetPaneContracts.swift"),
+            try Self.appSourceText(named: "QuillCodeNativeHitTargetWorkspacePaneContracts.swift"),
             try Self.appSourceText(named: "QuillCodeNativeSurfaceTargetPolicy.swift"),
             try Self.appSourceText(named: "QuillCodeNativeHitTargetPolicyCatalog.swift")
         ].joined(separator: "\n")

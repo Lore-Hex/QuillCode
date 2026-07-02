@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-02 Native Hit Target Contract Registry A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
+grades A+ in the regenerated repo-wide report**.
+
+This pass started from the repo-wide grade report, then applied a human architecture review to the lowest production
+source entries. The native hit-target canonical registry still graded A+, but it had become a single growing file that
+mixed persistent chrome, navigation, workspace pane, and extension contracts.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Native hit-target registry shape | `QuillCodeNativeHitTargetCanonicalContracts.swift` owned every canonical transient surface list and had grown to 465 lines. | The canonical file is now a 95-line aggregator, while navigation/transcript/search, workspace pane, and extension/automation contracts live in focused files. |
+| Surface-family ownership | Adding a new pane or extension target required editing a catch-all registry, increasing merge conflict risk for UI agents. | New targets have obvious homes by surface family, while `canonicalTransientSurfaceContracts()` preserves the exact audit ordering. |
+| Grade trail | The grade report still treated the old registry as A+, masking the human readability issue. | `docs/CODE_QUALITY_FILE_GRADES.md` is regenerated; the split files all grade A+ with no automated issues. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeNativeHitTarget|ParitySwiftInteractionTargetAuditSupport|QuillCodeDesktopRenderedSmokeTests'`
+- `python3 scripts/grade-code-quality.py --root .`
+
+Residual risk:
+
+- The desktop controller remains one of the largest production files by line count. It is coordinator-only and still
+  tested, but a future behavior-changing desktop slice should continue extracting cohesive controller extensions rather
+  than mechanically widening coordinator property visibility.
+
 ## 2026-07-02 Native Smoke And Model Picker Tail A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
