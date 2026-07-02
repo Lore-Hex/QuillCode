@@ -167,7 +167,10 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
 
     func testSubmitComposerCapturesComputerUseScreenshotThroughBackend() async throws {
         let root = try makeTempDirectory()
-        let backend = StubComputerUseBackend()
+        let backend = StubComputerUseBackend(foregroundApplication: ComputerUseApplication(
+            name: "Terminal",
+            bundleIdentifier: "com.apple.Terminal"
+        ))
         let call = ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")
         let model = QuillCodeWorkspaceModel(
             runner: AgentRunner(llm: FixedToolLLMClient(call: call)),
@@ -186,6 +189,9 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
         XCTAssertTrue(result.stdout.contains(#""width" : 1"#))
         XCTAssertFalse(result.stdout.contains("pngBase64"))
+        let screenshotOutput = try JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout)
+        XCTAssertEqual(screenshotOutput.foregroundApplication?.name, "Terminal")
+        XCTAssertEqual(screenshotOutput.foregroundApplication?.bundleIdentifier, "com.apple.Terminal")
         let screenshotArtifact = try XCTUnwrap(result.artifacts.first)
         defer {
             try? FileManager.default.removeItem(atPath: screenshotArtifact)
@@ -197,7 +203,7 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertEqual(artifact.previewURL, URL(fileURLWithPath: screenshotArtifact).absoluteString)
         XCTAssertEqual(
             model.selectedThread?.messages.last?.content,
-            "Captured a screenshot (1 x 1)."
+            "Captured a screenshot of Terminal (1 x 1)."
         )
     }
 

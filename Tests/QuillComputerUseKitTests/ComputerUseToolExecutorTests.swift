@@ -33,6 +33,26 @@ final class ComputerUseToolExecutorTests: XCTestCase {
         XCTAssertEqual(actions, expectedRecordedActions())
     }
 
+    func testScreenshotOutputIncludesForegroundApplicationWhenAvailable() async throws {
+        let backend = StubComputerUseBackend(foregroundApplication: ComputerUseApplication(
+            name: "Terminal",
+            bundleIdentifier: "com.apple.Terminal"
+        ))
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            artifactDirectory: temporaryArtifactDirectory()
+        )
+
+        let result = try await assertScreenshotSucceeds(executor)
+        let output = try JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout)
+
+        XCTAssertEqual(output.width, 1)
+        XCTAssertEqual(output.height, 1)
+        XCTAssertEqual(output.foregroundApplication?.name, "Terminal")
+        XCTAssertEqual(output.foregroundApplication?.bundleIdentifier, "com.apple.Terminal")
+        XCTAssertFalse(result.stdout.contains("pngBase64"))
+    }
+
     func testAppApprovalAllowsApprovedForegroundBundle() async throws {
         let backend = StubComputerUseBackend(foregroundApplication: ComputerUseApplication(
             name: "Terminal",

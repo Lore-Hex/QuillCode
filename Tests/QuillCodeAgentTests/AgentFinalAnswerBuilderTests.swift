@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeCore
 import QuillCodeTools
+import QuillComputerUseKit
 @testable import QuillCodeAgent
 
 final class AgentFinalAnswerBuilderTests: XCTestCase {
@@ -146,6 +147,28 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(answer, "Git status is clean.")
+    }
+
+    func testComputerScreenshotFinalAnswerIncludesForegroundApplication() throws {
+        let output = ComputerScreenshotToolOutput(
+            width: 1440,
+            height: 900,
+            path: "/tmp/screenshot.png",
+            foregroundApplication: ComputerUseApplication(
+                name: "Safari",
+                bundleIdentifier: "com.apple.Safari"
+            )
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.computerScreenshot.name,
+                argumentsJSON: "{}"
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertEqual(answer, "Captured a screenshot of Safari (1440 x 900).")
     }
 
     func testGitStatusFinalAnswerIncludesOutput() {

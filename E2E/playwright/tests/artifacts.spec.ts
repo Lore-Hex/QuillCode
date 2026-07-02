@@ -108,7 +108,7 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
   expect(imageSurface.imageOutlineColor).toBe('rgba(255, 255, 255, 0.1)');
   expect(imageSurface.imageOutlineWidth).toBe('1px');
   expect(imageSurface.imageOutlineOffset).toBe('-1px');
-  await expect(page.getByText('Captured a screenshot (1280 x 720).')).toBeVisible();
+  await expect(page.getByText('Captured a screenshot of Terminal (1280 x 720).')).toBeVisible();
 });
 
 test('mock harness renders document artifact previews from tool cards', async ({ page }) => {
