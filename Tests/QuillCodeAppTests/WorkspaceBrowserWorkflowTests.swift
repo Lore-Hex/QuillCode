@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeApp
 
 final class WorkspaceBrowserWorkflowTests: XCTestCase {
@@ -126,5 +127,89 @@ final class WorkspaceBrowserWorkflowTests: XCTestCase {
         XCTAssertTrue(WorkspaceBrowserWorkflow.addComment("  Check layout  ", browser: &browser))
         XCTAssertEqual(browser.comments.map(\.text), ["Check layout"])
         XCTAssertNil(lastError)
+    }
+
+    func testOpenPreviewRejectsBlockedDomainWithoutReplacingCurrentPage() throws {
+        var browser = BrowserState()
+        var lastError: String?
+        XCTAssertTrue(WorkspaceBrowserWorkflow.openPreview(
+            "https://trustedrouter.com",
+            workspaceRoot: nil,
+            browser: &browser,
+            lastError: &lastError,
+            domainPolicy: BrowserDomainPolicy(blockedDomains: ["example.com"])
+        ))
+
+        XCTAssertFalse(WorkspaceBrowserWorkflow.openPreview(
+            "https://docs.example.com",
+            workspaceRoot: nil,
+            browser: &browser,
+            lastError: &lastError,
+            domainPolicy: BrowserDomainPolicy(blockedDomains: ["example.com"])
+        ))
+
+        XCTAssertEqual(browser.currentURL, "https://trustedrouter.com")
+        XCTAssertEqual(browser.status, "Blocked by browser policy")
+        XCTAssertEqual(lastError, "Blocked by browser policy: docs.example.com matches blocked domain example.com.")
+    }
+
+    func testSnapshotRedirectToBlockedDomainDoesNotReplaceCurrentPage() throws {
+        var browser = BrowserState()
+        var lastError: String?
+        WorkspaceBrowserEngine.openPage(
+            try XCTUnwrap(URL(string: "https://trustedrouter.com")),
+            state: &browser,
+            updateHistory: true
+        )
+        let request = try XCTUnwrap(WorkspaceBrowserWorkflow.beginSnapshotFetch(browser: &browser))
+
+        XCTAssertTrue(WorkspaceBrowserWorkflow.applySnapshotFetchSuccess(
+            BrowserFetchedPage(
+                finalURL: try XCTUnwrap(URL(string: "https://blocked.example.com")),
+                html: "<html><head><title>Blocked</title></head><body></body></html>"
+            ),
+            request: request,
+            browser: &browser,
+            lastError: &lastError,
+            domainPolicy: BrowserDomainPolicy(blockedDomains: ["example.com"])
+        ))
+
+        XCTAssertEqual(browser.currentURL, "https://trustedrouter.com")
+        XCTAssertEqual(browser.title, "trustedrouter.com")
+        XCTAssertEqual(browser.status, "Blocked by browser policy")
+        XCTAssertEqual(lastError, "Blocked by browser policy: blocked.example.com matches blocked domain example.com.")
+    }
+
+    func testSessionUpdateFiltersBlockedDomains() throws {
+        var browser = BrowserState()
+        let allowedID = UUID()
+        let blockedID = UUID()
+
+        XCTAssertTrue(WorkspaceBrowserWorkflow.applySessionUpdate(
+            BrowserSessionUpdate(
+                tabs: [
+                    BrowserSessionTabUpdate(
+                        id: allowedID,
+                        title: "TrustedRouter",
+                        url: try XCTUnwrap(URL(string: "https://trustedrouter.com")),
+                        isActive: false
+                    ),
+                    BrowserSessionTabUpdate(
+                        id: blockedID,
+                        title: "Blocked",
+                        url: try XCTUnwrap(URL(string: "https://blocked.example.com")),
+                        isActive: true
+                    )
+                ],
+                activeTabID: blockedID
+            ),
+            browser: &browser,
+            domainPolicy: BrowserDomainPolicy(blockedDomains: ["example.com"])
+        ))
+
+        XCTAssertTrue(browser.tabs.contains { $0.id == allowedID })
+        XCTAssertFalse(browser.tabs.contains { $0.id == blockedID })
+        XCTAssertEqual(browser.currentURL, "https://trustedrouter.com")
+        XCTAssertEqual(browser.status, "Blocked browser session domain")
     }
 }

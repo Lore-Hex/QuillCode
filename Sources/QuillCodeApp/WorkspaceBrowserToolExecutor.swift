@@ -8,13 +8,20 @@ struct WorkspaceBrowserToolExecutor: Sendable {
         _ call: ToolCall,
         workspaceRoot: URL?,
         browser: inout BrowserState,
-        lastError: inout String?
+        lastError: inout String?,
+        domainPolicy: BrowserDomainPolicy = .unrestricted
     ) -> ToolResult? {
         switch call.name {
         case ToolDefinition.browserInspect.name:
             return BrowserInspector.toolResult(from: browser)
         case ToolDefinition.browserOpen.name:
-            return open(call, workspaceRoot: workspaceRoot, browser: &browser, lastError: &lastError)
+            return open(
+                call,
+                workspaceRoot: workspaceRoot,
+                browser: &browser,
+                lastError: &lastError,
+                domainPolicy: domainPolicy
+            )
         default:
             return nil
         }
@@ -24,7 +31,8 @@ struct WorkspaceBrowserToolExecutor: Sendable {
         _ call: ToolCall,
         workspaceRoot: URL?,
         browser: inout BrowserState,
-        lastError: inout String?
+        lastError: inout String?,
+        domainPolicy: BrowserDomainPolicy
     ) -> ToolResult {
         guard let target = browserOpenTarget(from: call) else {
             return ToolResult(ok: false, error: "No browser URL was specified.")
@@ -33,7 +41,8 @@ struct WorkspaceBrowserToolExecutor: Sendable {
             target,
             workspaceRoot: workspaceRoot,
             browser: &browser,
-            lastError: &lastError
+            lastError: &lastError,
+            domainPolicy: domainPolicy
         ) else {
             return ToolResult(ok: false, error: lastError ?? WorkspaceBrowserWorkflow.invalidAddressError)
         }

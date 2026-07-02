@@ -69,9 +69,10 @@ struct QuillCodeDesktopBrowserCoordinator {
             return
         }
 
-        if model.browser.currentURL != url.absoluteString {
-            model.setBrowserAddressDraft(url.absoluteString)
-            _ = model.openBrowserPreview(workspaceRoot: root)
+        model.setBrowserAddressDraft(url.absoluteString)
+        guard model.openBrowserPreview(workspaceRoot: root) else {
+            refresh()
+            return
         }
         let snapshot = BrowserSessionSyncSnapshot(browser: model.browser)
         guard !snapshot.isEmpty else {

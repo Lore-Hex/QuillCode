@@ -15,6 +15,7 @@ struct QuillCodeSettingsView: View {
                 settingsHeader
                 QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
                 QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
+                QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)
 
                 Divider()
 

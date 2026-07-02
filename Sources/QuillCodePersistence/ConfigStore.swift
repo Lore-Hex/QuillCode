@@ -31,6 +31,8 @@ public struct ConfigStore: Sendable {
         var favoriteModels: [String] = []
         var computerUseApprovedBundleIdentifiers: [String] = []
         var computerUseApprovedAppNames: [String] = []
+        var browserAllowedDomains: [String] = []
+        var browserBlockedDomains: [String] = []
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -65,6 +67,10 @@ public struct ConfigStore: Sendable {
                 computerUseApprovedBundleIdentifiers.append(value)
             case "computer_use_approved_app_name":
                 computerUseApprovedAppNames.append(value)
+            case "browser_allowed_domain":
+                browserAllowedDomains.append(value)
+            case "browser_blocked_domain":
+                browserBlockedDomains.append(value)
             default:
                 continue
             }
@@ -90,6 +96,12 @@ public struct ConfigStore: Sendable {
         config.computerUseApprovedAppNames = AppConfig(
             computerUseApprovedAppNames: computerUseApprovedAppNames
         ).computerUseApprovedAppNames
+        let browserPolicy = BrowserDomainPolicy(
+            allowedDomains: browserAllowedDomains,
+            blockedDomains: browserBlockedDomains
+        )
+        config.browserAllowedDomains = browserPolicy.allowedDomains
+        config.browserBlockedDomains = browserPolicy.blockedDomains
         return config
     }
 
@@ -105,15 +117,19 @@ public struct ConfigStore: Sendable {
             "auth_mode = \(Self.quote(config.authMode.rawValue))",
             "developer_override_enabled = \(config.developerOverrideEnabled ? "true" : "false")"
         ]
-        for model in config.favoriteModels {
-            lines.append("favorite_model = \(Self.quote(model))")
-        }
-        for bundleIdentifier in config.computerUseApprovedBundleIdentifiers {
-            lines.append("computer_use_approved_bundle_identifier = \(Self.quote(bundleIdentifier))")
-        }
-        for appName in config.computerUseApprovedAppNames {
-            lines.append("computer_use_approved_app_name = \(Self.quote(appName))")
-        }
+        Self.appendRepeatedValues(config.favoriteModels, key: "favorite_model", to: &lines)
+        Self.appendRepeatedValues(
+            config.computerUseApprovedBundleIdentifiers,
+            key: "computer_use_approved_bundle_identifier",
+            to: &lines
+        )
+        Self.appendRepeatedValues(
+            config.computerUseApprovedAppNames,
+            key: "computer_use_approved_app_name",
+            to: &lines
+        )
+        Self.appendRepeatedValues(config.browserAllowedDomains, key: "browser_allowed_domain", to: &lines)
+        Self.appendRepeatedValues(config.browserBlockedDomains, key: "browser_blocked_domain", to: &lines)
         if let account = config.trustedRouterAccount {
             if let userID = account.userID {
                 lines.append("trustedrouter_user_id = \(Self.quote(userID))")
@@ -130,6 +146,12 @@ public struct ConfigStore: Sendable {
         }
         let body = lines.joined(separator: "\n")
         try body.write(to: fileURL, atomically: true, encoding: .utf8)
+    }
+
+    private static func appendRepeatedValues(_ values: [String], key: String, to lines: inout [String]) {
+        for value in values {
+            lines.append("\(key) = \(quote(value))")
+        }
     }
 
     private static func quote(_ value: String) -> String {

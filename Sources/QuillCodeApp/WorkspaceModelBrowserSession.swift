@@ -11,7 +11,11 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func applyBrowserSessionUpdate(_ update: BrowserSessionUpdate) -> Bool {
         applyBrowserSessionMutation {
-            WorkspaceBrowserWorkflow.applySessionUpdate(update, browser: &$0)
+            WorkspaceBrowserWorkflow.applySessionUpdate(
+                update,
+                browser: &$0,
+                domainPolicy: root.config.browserDomainPolicy
+            )
         }
     }
 

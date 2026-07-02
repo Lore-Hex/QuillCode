@@ -54,6 +54,7 @@ final class WorkspaceReviewActionRunnerTests: XCTestCase {
             executor: WorkspaceToolCallExecutor(
                 selectedProject: nil,
                 browser: BrowserState(),
+                browserDomainPolicy: .unrestricted,
                 router: ToolRouter(workspaceRoot: workspaceRoot),
                 sshRemoteShellExecutor: SSHRemoteShellExecutor()
             )

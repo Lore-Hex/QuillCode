@@ -29,6 +29,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var computerUseApprovedAppNames: [String]
     public var computerUseApprovalStatusLabel: String
     public var computerUseApprovalSummary: String
+    public var browserAllowedDomains: [String]
+    public var browserBlockedDomains: [String]
+    public var browserDomainPolicyStatusLabel: String
+    public var browserDomainPolicySummary: String
 
     public init(
         config: AppConfig,
@@ -73,6 +77,11 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.computerUseApprovedAppNames = config.computerUseApprovedAppNames
         self.computerUseApprovalStatusLabel = ComputerUseSettingsProjection.approvalStatusLabel(config)
         self.computerUseApprovalSummary = ComputerUseSettingsProjection.approvalSummary(config)
+        let browserPolicy = config.browserDomainPolicy
+        self.browserAllowedDomains = browserPolicy.allowedDomains
+        self.browserBlockedDomains = browserPolicy.blockedDomains
+        self.browserDomainPolicyStatusLabel = browserPolicy.statusLabel
+        self.browserDomainPolicySummary = browserPolicy.summary
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -116,6 +125,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case computerUseApprovedAppNames
         case computerUseApprovalStatusLabel
         case computerUseApprovalSummary
+        case browserAllowedDomains
+        case browserBlockedDomains
+        case browserDomainPolicyStatusLabel
+        case browserDomainPolicySummary
     }
 
     public init(from decoder: Decoder) throws {
@@ -192,5 +205,19 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             String.self,
             forKey: .computerUseApprovalSummary
         ) ?? ComputerUseSettingsProjection.approvalSummary(approvalConfig)
+        let browserPolicy = BrowserDomainPolicy(
+            allowedDomains: try container.decodeIfPresent([String].self, forKey: .browserAllowedDomains) ?? [],
+            blockedDomains: try container.decodeIfPresent([String].self, forKey: .browserBlockedDomains) ?? []
+        )
+        self.browserAllowedDomains = browserPolicy.allowedDomains
+        self.browserBlockedDomains = browserPolicy.blockedDomains
+        self.browserDomainPolicyStatusLabel = try container.decodeIfPresent(
+            String.self,
+            forKey: .browserDomainPolicyStatusLabel
+        ) ?? browserPolicy.statusLabel
+        self.browserDomainPolicySummary = try container.decodeIfPresent(
+            String.self,
+            forKey: .browserDomainPolicySummary
+        ) ?? browserPolicy.summary
     }
 }

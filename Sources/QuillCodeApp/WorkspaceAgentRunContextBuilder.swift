@@ -88,7 +88,8 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
                 call,
                 workspaceRoot: nil,
                 browser: &browser,
-                lastError: &lastError
+                lastError: &lastError,
+                domainPolicy: config.browserDomainPolicy
             )
         }
     }

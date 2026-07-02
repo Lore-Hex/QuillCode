@@ -15,7 +15,10 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func refreshBrowserSnapshot(pageFetcher: any BrowserPageFetching) async -> Bool {
         let request = mutateBrowserState { browser, _ in
-            WorkspaceBrowserWorkflow.beginSnapshotFetch(browser: &browser)
+            WorkspaceBrowserWorkflow.beginSnapshotFetch(
+                browser: &browser,
+                domainPolicy: root.config.browserDomainPolicy
+            )
         }
         guard let request else { return false }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -31,7 +34,10 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func refreshRenderedBrowserSnapshot(capturer: any BrowserLiveDOMCapturing) async -> Bool {
         let request = mutateBrowserState { browser, _ in
-            WorkspaceBrowserWorkflow.beginLiveDOMCapture(browser: &browser)
+            WorkspaceBrowserWorkflow.beginLiveDOMCapture(
+                browser: &browser,
+                domainPolicy: root.config.browserDomainPolicy
+            )
         }
         guard let request else { return false }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -53,7 +59,8 @@ extension QuillCodeWorkspaceModel {
                 fetchedPage,
                 request: request,
                 browser: &$0,
-                lastError: &$1
+                lastError: &$1,
+                domainPolicy: root.config.browserDomainPolicy
             )
         }
     }
@@ -81,7 +88,8 @@ extension QuillCodeWorkspaceModel {
                 snapshot,
                 request: request,
                 browser: &$0,
-                lastError: &$1
+                lastError: &$1,
+                domainPolicy: root.config.browserDomainPolicy
             )
         }
     }
