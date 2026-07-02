@@ -104,7 +104,10 @@ public struct PermissionRuleTable: Sendable, Equatable {
     public private(set) var rules: [PermissionRule]
 
     public init(rules: [PermissionRule] = []) {
-        self.rules = Array(rules.prefix(Self.maxRuleCount))
+        // Keep the NEWEST rules when over the cap, matching `append` and the last-match-wins
+        // priority: the highest-priority (latest) rules — including hand-authored deny overrides at
+        // the tail of an oversized file — must be the ones that survive, never silently dropped.
+        self.rules = Array(rules.suffix(Self.maxRuleCount))
     }
 
     public var isEmpty: Bool { rules.isEmpty }
@@ -119,7 +122,10 @@ public struct PermissionRuleTable: Sendable, Equatable {
         }
     }
 
-    /// Evaluates the table for a normalized (action, resource) subject. Nil = no opinion (ask as
+    /// Evaluates the table for a normalized subject. `resource` is what DENY and ASK rules match
+    /// against (broadening a block is safe, so it always has a resource). `allowResource` is what
+    /// ALLOW rules match against — pass nil for a call that is not allow-scopable, and no allow
+    /// rule will match (evaluation degrades to deny/ask only). Nil result = no opinion (ask as
     /// before).
     ///
     /// Oversized resources (longer than `PermissionWildcardPattern.maxCandidateScalarCount`) are
@@ -128,15 +134,35 @@ public struct PermissionRuleTable: Sendable, Equatable {
     /// otherwise action-matching rule degrades to the conservative answer: keep an exact deny if
     /// one matched, otherwise force `.ask`. Exact rules always compare (string equality is linear
     /// and safe at any length).
-    public func decision(action: String, resource: String) -> PermissionRuleDecision? {
-        let resourceOversized = resource.unicodeScalars.count > PermissionWildcardPattern.maxCandidateScalarCount
+    public func decision(
+        action: String,
+        resource: String,
+        allowResource: String?
+    ) -> PermissionRuleDecision? {
+        let denyAskOversized = resource.unicodeScalars.count > PermissionWildcardPattern.maxCandidateScalarCount
+        let allowOversized = (allowResource?.unicodeScalars.count ?? 0) > PermissionWildcardPattern.maxCandidateScalarCount
         var lastMatch: PermissionRuleDecision?
         var skippedWildcardRule = false
 
         for rule in rules {
+            // An allow rule may only match a call that is allow-scopable, against its allowResource;
+            // deny/ask rules match the always-present resource.
+            let candidate: String?
+            let candidateOversized: Bool
+            if rule.decision == .allow {
+                candidate = allowResource
+                candidateOversized = allowOversized
+            } else {
+                candidate = resource
+                candidateOversized = denyAskOversized
+            }
+            guard let candidate else {
+                continue
+            }
+
             switch rule.match {
             case .exact:
-                if rule.action == action, rule.resource == resource {
+                if rule.action == action, rule.resource == candidate {
                     lastMatch = rule.decision
                 }
             case .pattern:
@@ -145,12 +171,16 @@ public struct PermissionRuleTable: Sendable, Equatable {
                 else {
                     continue
                 }
-                if resourceOversized {
-                    skippedWildcardRule = true
+                if candidateOversized {
+                    // Only a skipped DENY/ASK wildcard forces the conservative degrade; a skipped
+                    // ALLOW wildcard simply does not match (missing an allow is already safe).
+                    if rule.decision != .allow {
+                        skippedWildcardRule = true
+                    }
                     continue
                 }
                 guard let resourcePattern = PermissionWildcardPattern(rule.resource),
-                      resourcePattern.matches(resource)
+                      resourcePattern.matches(candidate)
                 else {
                     continue
                 }
@@ -162,6 +192,12 @@ public struct PermissionRuleTable: Sendable, Equatable {
             return lastMatch == .deny ? .deny : .ask
         }
         return lastMatch
+    }
+
+    /// Convenience for callers that treat allow and deny/ask resources identically (the tests and
+    /// hand-authored table checks). Production paths pass the subject's `allowMatchResource`.
+    public func decision(action: String, resource: String) -> PermissionRuleDecision? {
+        decision(action: action, resource: resource, allowResource: resource)
     }
 }
 

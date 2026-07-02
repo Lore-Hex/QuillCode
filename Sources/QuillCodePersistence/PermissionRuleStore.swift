@@ -5,12 +5,24 @@ import QuillCodeSafety
 /// Result of loading a per-project permission rule file. Loading NEVER throws and never crashes on
 /// a bad file: a corrupt or newer-versioned file degrades to an empty table plus human-readable
 /// diagnostics the caller can surface.
+///
+/// `degraded` is the fail-safe signal for the review path: an existing file that could not be read
+/// as intended (unreadable / corrupt / newer version) sets it. An empty table alone is ambiguous
+/// (it could mean "no rules" or "couldn't read the rules"), and treating "couldn't read" as "no
+/// rules" would turn a persisted always-DENY into an auto-run. The reviewer forces an approval gate
+/// when `degraded` is true.
 public struct PermissionRuleLoadResult: Sendable {
     public var table: PermissionRuleTable
+    public var degraded: Bool
     public var diagnostics: [String]
 
-    public init(table: PermissionRuleTable = PermissionRuleTable(), diagnostics: [String] = []) {
+    public init(
+        table: PermissionRuleTable = PermissionRuleTable(),
+        degraded: Bool = false,
+        diagnostics: [String] = []
+    ) {
         self.table = table
+        self.degraded = degraded
         self.diagnostics = diagnostics
     }
 }
@@ -58,8 +70,9 @@ public struct PermissionRuleFileStore: Sendable {
         do {
             data = try Data(contentsOf: fileURL)
         } catch {
-            return PermissionRuleLoadResult(diagnostics: [
-                "Could not read permission rules file \(fileURL.lastPathComponent): \(error.localizedDescription). Using no saved rules."
+            // The file exists but is unreadable: fail safe (degraded), do NOT report "no rules".
+            return PermissionRuleLoadResult(degraded: true, diagnostics: [
+                "Could not read permission rules file \(fileURL.lastPathComponent): \(error.localizedDescription). Asking for confirmation until it is readable."
             ])
         }
         return Self.decode(data, fileName: fileURL.lastPathComponent).result
@@ -132,17 +145,20 @@ public struct PermissionRuleFileStore: Sendable {
         do {
             payload = try JSONDecoder().decode(LenientPayload.self, from: data)
         } catch {
+            // Not valid JSON: fail safe (degraded). We cannot know what a prior rule said.
             return LoadOutcome(
-                result: PermissionRuleLoadResult(diagnostics: [
-                    "Permission rules file \(fileName) is not valid JSON; using no saved rules."
+                result: PermissionRuleLoadResult(degraded: true, diagnostics: [
+                    "Permission rules file \(fileName) is not valid JSON; asking for confirmation until it is repaired."
                 ]),
                 wasCorrupt: true
             )
         }
         guard payload.version <= currentVersion else {
+            // Newer format: fail safe (degraded). A rule this build cannot represent might be a
+            // deny; do not auto-approve past it.
             return LoadOutcome(
-                result: PermissionRuleLoadResult(diagnostics: [
-                    "Permission rules file \(fileName) uses newer format version \(payload.version); using no saved rules."
+                result: PermissionRuleLoadResult(degraded: true, diagnostics: [
+                    "Permission rules file \(fileName) uses newer format version \(payload.version); asking for confirmation until this build is updated."
                 ]),
                 wasCorrupt: false
             )
@@ -163,12 +179,24 @@ public struct PermissionRuleFileStore: Sendable {
             }
             rules.append(rule)
         }
+        // A single malformed rule is skipped tolerantly (the rest still load) — this is a partial
+        // read, not an unreadable file, so it is NOT degraded. But if EVERY rule was malformed the
+        // file is effectively corrupt: fail safe.
         if droppedRules > 0 {
             diagnostics.append("Skipped \(droppedRules) malformed rule\(droppedRules == 1 ? "" : "s") in \(fileName).")
         }
+        let allRulesMalformed = !payload.rules.isEmpty && rules.isEmpty
+        if allRulesMalformed {
+            return LoadOutcome(
+                result: PermissionRuleLoadResult(degraded: true, diagnostics: diagnostics + [
+                    "Every rule in \(fileName) was malformed; asking for confirmation until it is repaired."
+                ]),
+                wasCorrupt: true
+            )
+        }
         if rules.count > PermissionRuleTable.maxRuleCount {
             diagnostics.append(
-                "Permission rules file \(fileName) has \(rules.count) rules; only the first \(PermissionRuleTable.maxRuleCount) are used."
+                "Permission rules file \(fileName) has \(rules.count) rules; only the last \(PermissionRuleTable.maxRuleCount) (highest priority) are used."
             )
         }
         return LoadOutcome(
@@ -225,8 +253,14 @@ public struct PermissionRuleFileStore: Sendable {
 extension PermissionRuleFileStore: PermissionRulesProviding {
     /// Review-time reads go straight to disk (rule tables are tiny; a tool step already spans LLM
     /// round-trips), so a rule saved a moment ago — possibly by another window — always applies to
-    /// the next gate. Diagnostics are dropped here; the save path surfaces them.
-    public func ruleTable(forWorkspaceRoot root: URL) -> PermissionRuleTable {
-        load(forWorkspaceRoot: root).table
+    /// the next gate. The `degraded` flag is propagated so a broken rules file fails safe (the
+    /// reviewer forces an approval gate) rather than silently reading as "no rules".
+    public func loadRuleOutcome(forWorkspaceRoot root: URL) -> PermissionRuleLoadOutcome {
+        let result = load(forWorkspaceRoot: root)
+        return PermissionRuleLoadOutcome(
+            table: result.table,
+            degraded: result.degraded,
+            diagnostics: result.diagnostics
+        )
     }
 }

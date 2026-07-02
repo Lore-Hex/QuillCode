@@ -57,7 +57,38 @@ struct StaticSafetyPolicy: Sendable {
         // runs decoded arguments, so the hard-deny list should inspect the same value.
         let arguments = Self.decodedArgumentText(context.toolCall.argumentsJSON)
             ?? context.toolCall.argumentsJSON.replacingOccurrences(of: "\\/", with: "/")
-        return "\(context.toolCall.name) \(arguments)".lowercased()
+        // Collapse runs of horizontal whitespace (spaces/tabs) to a single space before the
+        // substring checks, so a padded spelling like `rm -rf  /` or `rm\t-rf /` cannot dodge the
+        // floor — AND so the floor matches the SAME normalized command the permission rule table
+        // matched (see PermissionRuleSubject.normalizedCommand). Newlines are preserved as-is;
+        // the floor's `contains` checks are single-token and unaffected by line boundaries.
+        return Self.collapseHorizontalWhitespace("\(context.toolCall.name) \(arguments)").lowercased()
+    }
+
+    static func collapseHorizontalWhitespace(_ text: String) -> String {
+        var output = ""
+        output.reserveCapacity(text.count)
+        var pendingSpace = false
+        var sawNonSpace = false
+        for scalar in text.unicodeScalars {
+            if scalar == "\n" || scalar == "\r" {
+                pendingSpace = false
+                output.unicodeScalars.append(scalar)
+                sawNonSpace = false
+                continue
+            }
+            if scalar == " " || scalar == "\t" {
+                pendingSpace = true
+                continue
+            }
+            if pendingSpace && sawNonSpace {
+                output.unicodeScalars.append(" ")
+            }
+            pendingSpace = false
+            sawNonSpace = true
+            output.unicodeScalars.append(scalar)
+        }
+        return output
     }
 
     private static func decodedArgumentText(_ json: String) -> String? {

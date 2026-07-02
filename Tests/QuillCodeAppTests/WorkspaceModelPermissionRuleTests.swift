@@ -229,4 +229,122 @@ final class WorkspaceModelPermissionRuleTests: XCTestCase {
             [.approve, .approveAlways, .edit, .deny, .denyAlways]
         )
     }
+
+    // MARK: - Security-review regressions
+
+    /// #3: an unscopable tool (apply_patch) must NOT offer "Always run" — teaching one patch must
+    /// never authorize every future patch.
+    func testApprovalCardWithholdsAlwaysRunForUnscopableTool() throws {
+        let request = ApprovalRequest(
+            id: "card-patch",
+            toolCall: ToolCall(name: "host.apply_patch", argumentsJSON: ToolArguments.json(["patch": "diff"])),
+            toolDefinition: nil,
+            reason: "review required",
+            recommendedVerdict: .clarify
+        )
+        let event = ThreadEvent(
+            kind: .approvalRequested,
+            summary: "clarify",
+            payloadJSON: try JSONHelpers.encodePretty(request)
+        )
+        let card = WorkspaceToolCardProjection.approvalReviewCard(for: event)
+        XCTAssertEqual(
+            card.actions.map(\.kind),
+            [.approve, .edit, .deny, .denyAlways],
+            "an unscopable tool must not offer Always run"
+        )
+    }
+
+    /// #3: even if 'Always run' is somehow driven for an unscopable tool, no allow rule is
+    /// persisted — the request is approved just once.
+    @MainActor
+    func testAlwaysAllowOnUnscopableToolPersistsNoRule() throws {
+        let patch = ApprovalRequest(
+            id: "patch-a",
+            toolCall: ToolCall(name: "host.apply_patch", argumentsJSON: ToolArguments.json(["patch": "diff"])),
+            toolDefinition: nil,
+            reason: "review required",
+            recommendedVerdict: .clarify
+        )
+        let (model, store, root) = try makeModelWithPendingApprovals([patch])
+
+        _ = model.runToolCardAction(
+            ToolCardActionSurface(title: "Always run", kind: .approveAlways, requestID: "patch-a", style: .secondary),
+            workspaceRoot: root
+        )
+
+        XCTAssertTrue(store.load(forWorkspaceRoot: root).table.isEmpty, "no allow rule may persist for an unscopable tool")
+        XCTAssertNotNil(model.lastError, "the user should be told it was approved only once")
+    }
+
+    /// #4: an always-allow taught from a bare command must NOT backfill a pending call that carries
+    /// an environment override.
+    @MainActor
+    func testBackfillDoesNotAutoRunEnvInjectedPendingCall() throws {
+        let taught = shellApproval(id: "env-taught", cmd: "swift test")
+        let injected = ApprovalRequest(
+            id: "env-injected",
+            toolCall: ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "swift test", "environment": ["PATH": "/tmp/evil"]])
+            ),
+            toolDefinition: .shellRun,
+            reason: "review required",
+            recommendedVerdict: .clarify
+        )
+        let (model, _, root) = try makeModelWithPendingApprovals([taught, injected])
+
+        _ = model.runToolCardAction(
+            ToolCardActionSurface(title: "Always run", kind: .approveAlways, requestID: "env-taught", style: .secondary),
+            workspaceRoot: root
+        )
+
+        let decided = decidedRequestIDs(in: model)
+        XCTAssertTrue(decided.contains("env-taught"))
+        XCTAssertFalse(
+            decided.contains("env-injected"),
+            "a bare-command allow must not backfill a call carrying an env override"
+        )
+    }
+
+    /// #6: backfill only resolves CURRENT-TURN pending requests, never ones the user abandoned by
+    /// sending a new message.
+    @MainActor
+    func testBackfillIgnoresStaleRequestsFromAnEarlierTurn() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let store = PermissionRuleFileStore(directory: root.appendingPathComponent(".permissions-store"))
+        let model = QuillCodeWorkspaceModel(permissionRuleStore: store)
+        _ = model.addProject(path: root, name: "Demo")
+        _ = model.newChat()
+
+        let stale = shellApproval(id: "stale", cmd: "echo taught")
+        let current = shellApproval(id: "current", cmd: "echo taught")
+        model.mutateSelectedThread { thread in
+            // Turn 1: an approval the user never answered, then a NEW user message (they redirected).
+            thread.events.append(ThreadEvent(
+                kind: .approvalRequested, summary: "clarify",
+                payloadJSON: try? JSONHelpers.encodePretty(stale)
+            ))
+            let secondTurn = "please do the second thing"
+            thread.messages.append(ChatMessage(role: .user, content: secondTurn))
+            thread.events.append(ThreadEvent(kind: .message, summary: secondTurn))
+            // Turn 2: the current pending approval the user is now acting on.
+            thread.events.append(ThreadEvent(
+                kind: .approvalRequested, summary: "clarify",
+                payloadJSON: try? JSONHelpers.encodePretty(current)
+            ))
+        }
+
+        _ = model.runToolCardAction(
+            ToolCardActionSurface(title: "Always run", kind: .approveAlways, requestID: "current", style: .secondary),
+            workspaceRoot: root
+        )
+
+        let decided = decidedRequestIDs(in: model)
+        XCTAssertTrue(decided.contains("current"))
+        XCTAssertFalse(
+            decided.contains("stale"),
+            "a request from an earlier abandoned turn must not be backfilled"
+        )
+    }
 }

@@ -12,11 +12,22 @@ extension QuillCodeWorkspaceModel {
         decision: PermissionRuleDecision,
         workspaceRoot: URL
     ) {
-        let rule = PermissionRuleDerivation.rule(
+        // Derivation refuses to build an allow rule for a call that has no bounding resource
+        // (apply_patch, git.*, a shell call carrying an env/cwd override): teaching one such call
+        // must never silently authorize every future call of that tool. In that case nothing is
+        // persisted and nothing is backfilled — the single request was already run/skipped.
+        guard let rule = PermissionRuleDerivation.rule(
             for: request,
             decision: decision,
             workspaceRoot: workspaceRoot
-        )
+        ) else {
+            if decision == .allow {
+                setLastError(
+                    "\(request.toolCall.name) can't be saved as an always-allow rule (it has no bounded target), so it was approved just this once."
+                )
+            }
+            return
+        }
 
         if let permissionRuleStore {
             do {
@@ -34,10 +45,15 @@ extension QuillCodeWorkspaceModel {
         backfillPendingApprovals(matching: rule, decidedRequestID: request.id, workspaceRoot: workspaceRoot)
     }
 
-    /// Resolves every still-pending approval request the new rule matches, exactly as if the user
-    /// had answered each one: allow rules run the held tool, deny rules skip it. Hard-blocked
-    /// requests (recommended verdict `.deny` — the static safety floor) are never backfilled; a
-    /// persisted allow skips the ASK, not the safety floor.
+    /// Resolves the still-pending, current-turn approval requests the new rule matches, exactly as
+    /// if the user had answered each one: allow rules run the held tool, deny rules skip it.
+    ///
+    /// Guards that keep backfill honest:
+    /// - only current-turn requests (see `undecidedRequests`), never ones the user abandoned;
+    /// - hard-blocked requests (recommended verdict `.deny` — the static safety floor) are never
+    ///   backfilled: a persisted allow skips the ASK, not the floor;
+    /// - an ALLOW rule only matches an allow-scopable call (its `allowMatchResource`), so a
+    ///   pending call carrying an env/cwd override is never auto-run by a bare-command allow.
     private func backfillPendingApprovals(
         matching rule: PermissionRule,
         decidedRequestID: String,
@@ -54,7 +70,12 @@ extension QuillCodeWorkspaceModel {
                 toolCall: request.toolCall,
                 workspaceRoot: workspaceRoot
             )
-            guard rule.matches(action: subject.action, resource: subject.resource) else { continue }
+            let candidateResource = rule.decision == .allow ? subject.allowMatchResource : subject.resource
+            guard let candidateResource,
+                  rule.matches(action: subject.action, resource: candidateResource)
+            else {
+                continue
+            }
             let action = ToolCardActionSurface(
                 title: rule.decision == .deny ? "Skip" : "Run",
                 kind: rule.decision == .deny ? .deny : .approve,

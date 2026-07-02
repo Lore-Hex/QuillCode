@@ -129,16 +129,19 @@ final class PermissionRuleTableTests: XCTestCase {
 
     func testOversizedResourceDegradesConservatively() {
         let oversized = "rm " + String(repeating: "a", count: PermissionWildcardPattern.maxCandidateScalarCount + 10)
+
+        // Padding a command past the cap must never earn a silent allow. A skipped ALLOW wildcard
+        // simply does not match (missing an allow is already safe) — nil, not an allow.
         let allowTable = PermissionRuleTable(rules: [
             PermissionRule(action: "host.shell.run", resource: "rm **", decision: .allow)
         ])
-        // Padding a command past the cap must never earn a silent allow…
-        XCTAssertEqual(allowTable.decision(action: "host.shell.run", resource: oversized), .ask)
+        XCTAssertNil(allowTable.decision(action: "host.shell.run", resource: oversized))
 
+        // A DENY wildcard skipped for being oversized must NOT dodge into a nil (run) verdict —
+        // it degrades to the conservative `.ask`.
         let denyTable = PermissionRuleTable(rules: [
             PermissionRule(action: "host.shell.run", resource: "rm **", decision: .deny)
         ])
-        // …and must never dodge a deny into a nil (existing-behavior) verdict either.
         XCTAssertEqual(denyTable.decision(action: "host.shell.run", resource: oversized), .ask)
 
         let exactDeny = PermissionRuleTable(rules: [
@@ -169,6 +172,59 @@ final class PermissionRuleTableTests: XCTestCase {
             appended.decision(action: "host.shell.run", resource: "fresh"),
             .deny,
             "a freshly taught rule must never be dropped in favor of an old one"
+        )
+    }
+
+    func testLoadAndAppendAgreeOnKeepingTheNewestRules() {
+        // #8 regression: an oversized hand-edited file with a high-priority DENY at the TAIL must
+        // keep that tail (last-match-wins = highest priority), not the head. load() (suffix) and
+        // append() (removeFirst) must both keep the newest.
+        var rules = (0..<PermissionRuleTable.maxRuleCount).map { index in
+            PermissionRule(action: "host.shell.run", resource: "old-\(index)", match: .exact, decision: .allow)
+        }
+        // The very last rule is the critical deny override the user hand-authored.
+        rules.append(PermissionRule(action: "host.shell.run", resource: "rm -rf .", match: .exact, decision: .deny))
+
+        let table = PermissionRuleTable(rules: rules)
+        XCTAssertEqual(table.rules.count, PermissionRuleTable.maxRuleCount)
+        XCTAssertEqual(
+            table.decision(action: "host.shell.run", resource: "rm -rf ."),
+            .deny,
+            "loading an oversized file must keep the NEWEST (tail) rules, so a tail deny override survives"
+        )
+        // And the oldest rule (head) is the one dropped.
+        XCTAssertNil(table.decision(action: "host.shell.run", resource: "old-0"))
+
+        // A re-save round-trips the kept set identically (never re-truncates the surviving tail).
+        XCTAssertEqual(PermissionRuleTable(rules: table.rules).rules, table.rules)
+    }
+
+    // MARK: - Allow scoping (#3 / #4)
+
+    func testAllowRuleOnlyMatchesAllowScopableCall() {
+        let table = PermissionRuleTable(rules: [
+            PermissionRule(action: "host.shell.run", resource: "swift test", match: .exact, decision: .allow)
+        ])
+        // Scopable call (nil allowResource means "not allow-scopable").
+        XCTAssertEqual(
+            table.decision(action: "host.shell.run", resource: "swift test", allowResource: "swift test"),
+            .allow
+        )
+        // The same command but the call is NOT allow-scopable (e.g. it carried an env override):
+        // the allow rule must miss.
+        XCTAssertNil(
+            table.decision(action: "host.shell.run", resource: "swift test", allowResource: nil)
+        )
+    }
+
+    func testDenyRuleMatchesEvenWhenCallIsNotAllowScopable() {
+        let table = PermissionRuleTable(rules: [
+            PermissionRule(action: "host.shell.run", resource: "swift test", match: .exact, decision: .deny)
+        ])
+        // A deny still bites on a not-allow-scopable call (broadening a block is safe).
+        XCTAssertEqual(
+            table.decision(action: "host.shell.run", resource: "swift test", allowResource: nil),
+            .deny
         )
     }
 

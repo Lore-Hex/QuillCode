@@ -95,6 +95,8 @@ final class PermissionRuleStoreTests: XCTestCase {
 
         let loaded = store.load(forWorkspaceRoot: root)
         XCTAssertTrue(loaded.table.isEmpty)
+        // #5: a corrupt file must be flagged DEGRADED (fail safe), not silently "no rules".
+        XCTAssertTrue(loaded.degraded, "a corrupt file must fail safe (degraded), not read as empty")
         XCTAssertEqual(loaded.diagnostics.count, 1)
         XCTAssertTrue(try XCTUnwrap(loaded.diagnostics.first).contains("not valid JSON"))
         // A plain load must not mutate the file.
@@ -163,6 +165,9 @@ final class PermissionRuleStoreTests: XCTestCase {
 
         let loaded = store.load(forWorkspaceRoot: root)
         XCTAssertTrue(loaded.table.isEmpty, "rules from a newer format must not half-apply")
+        // #5: a newer-version file must be DEGRADED (fail safe): a rule this build can't represent
+        // could be a deny, so the reviewer forces ask rather than treating the table as empty.
+        XCTAssertTrue(loaded.degraded)
         XCTAssertEqual(loaded.diagnostics.count, 1)
 
         XCTAssertThrowsError(try store.append(
@@ -171,6 +176,45 @@ final class PermissionRuleStoreTests: XCTestCase {
         ))
         // The newer file must be untouched by the refused append.
         XCTAssertEqual(try Data(contentsOf: fileURL), Data(newer.utf8))
+    }
+
+    func testUnreadableFileFailsSafeAsDegraded() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        // A directory where the rules FILE is expected: reading it as data throws → degraded.
+        try FileManager.default.createDirectory(at: fileURL, withIntermediateDirectories: true)
+
+        let loaded = store.load(forWorkspaceRoot: root)
+        XCTAssertTrue(loaded.degraded, "an unreadable rules file must fail safe (degraded)")
+        XCTAssertTrue(loaded.table.isEmpty)
+    }
+
+    func testAllRulesMalformedIsDegraded() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        // Valid JSON envelope but every rule is unparseable → effectively corrupt → degraded.
+        let json = #"{"version":1,"rules":[{"nope":true},{"also":"bad"}]}"#
+        try Data(json.utf8).write(to: fileURL)
+
+        let loaded = store.load(forWorkspaceRoot: root)
+        XCTAssertTrue(loaded.table.isEmpty)
+        XCTAssertTrue(loaded.degraded, "a file whose every rule is malformed must fail safe (degraded)")
+    }
+
+    func testMissingFileIsNotDegraded() throws {
+        let (store, root) = try makeStoreAndRoot()
+        // No file at all is the legitimate "no rules yet" state — NOT degraded (existing behavior).
+        let loaded = store.load(forWorkspaceRoot: root)
+        XCTAssertFalse(loaded.degraded)
+        XCTAssertTrue(loaded.table.isEmpty)
     }
 
     func testProviderConformanceReadsFreshTablePerCall() throws {

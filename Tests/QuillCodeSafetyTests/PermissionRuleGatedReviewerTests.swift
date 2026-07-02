@@ -246,7 +246,9 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
 
     func testDotDotSpellingCannotDodgeADenyRule() async throws {
         let root = try makeWorkspace()
-        let secret = root.appendingPathComponent("secret.txt").path
+        // Build the deny rule the way derivation would — through the same path normalization the
+        // subject uses (so this asserts the gate, not the test's own spelling).
+        let secret = PermissionRuleSubject.normalizedPath("secret.txt", workspaceRoot: root)
         let base = RecordingBaseReviewer(SafetyReview(verdict: .approve, rationale: "auto approved"))
         let gated = reviewer(
             rules: [PermissionRule(action: "host.file.write", resource: secret, match: .exact, decision: .deny)],
@@ -276,8 +278,11 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: protected)
 
         let base = RecordingBaseReviewer(SafetyReview(verdict: .approve, rationale: "auto approved"))
+        // Case-fold the pattern the same way the subject folds resolved paths, so the rule matches
+        // on both case-sensitive and case-insensitive volumes.
+        let protectedResource = PermissionRuleSubject.caseFoldedIfNeeded(protected.path)
         let gated = reviewer(
-            rules: [PermissionRule(action: "host.file.write", resource: "\(protected.path)/**", decision: .deny)],
+            rules: [PermissionRule(action: "host.file.write", resource: "\(protectedResource)/**", decision: .deny)],
             base: base
         )
 
@@ -311,7 +316,7 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
 
     // MARK: - Subject derivation
 
-    func testDerivedRuleUsesExactNormalizedSubject() {
+    func testDerivedRuleUsesExactNormalizedSubject() throws {
         let root = URL(fileURLWithPath: "/tmp/example-project")
         let request = ApprovalRequest(
             toolCall: ToolCall(
@@ -321,7 +326,7 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
             toolDefinition: shellRun,
             reason: "review required"
         )
-        let rule = PermissionRuleDerivation.rule(for: request, decision: .allow, workspaceRoot: root)
+        let rule = try XCTUnwrap(PermissionRuleDerivation.rule(for: request, decision: .allow, workspaceRoot: root))
         XCTAssertEqual(rule.action, "host.shell.run")
         XCTAssertEqual(rule.resource, "swift test")
         XCTAssertEqual(rule.match, .exact)
@@ -338,7 +343,7 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
             workspaceRoot: root
         )
         XCTAssertEqual(subject.action, "host.file.write")
-        XCTAssertEqual(subject.resource, root.appendingPathComponent("b.txt").path)
+        XCTAssertEqual(subject.resource, PermissionRuleSubject.caseFoldedIfNeeded(root.appendingPathComponent("b.txt").path))
     }
 
     func testSubjectForMCPCallScopesServerAndTool() {
