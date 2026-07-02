@@ -1,5 +1,40 @@
 # Code Quality Audit
 
+## 2026-07-01 Read-Before-Edit Guard Quality Pass
+
+Overall grade after this slice: **all source, test, script, and E2E modules grade A+; the touched edit-safety path
+grades A+ and keeps model context, UI actions, and thread sessions cleanly separated**.
+
+This pass regenerated the full repo file/module grade report, then tightened the read-before-write/read-before-patch
+architecture after the safety-critical edit guard landed.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Model edit safety | Existing-file writes and patches could be protected, but a process-wide read-set would have allowed one thread or UI action to accidentally grant another thread edit rights. | `FileEditSessionGuard.session(for:)` scopes model edit knowledge by chat thread, and the desktop model owns a separate UI edit session for review-pane and command-initiated tool runs. |
+| User-commanded writes | The immediate-action planner could turn explicit user requests into file writes, but those writes needed a narrow way to avoid being treated as model blind overwrites. | `AgentImmediateActionWriteReadMarker` marks only preflight-parsed user-authored file-write targets as known to that same thread; model-authored writes still must read existing files first. |
+| Patch path parsing | Guarding patch targets depended on simple diff metadata parsing that did not fully cover C-quoted paths, renames, copies, spaces, or binary-patch `diff --git` headers. | `DiffHeaderPathParser` centralizes diff path extraction for guard locking and unsafe-path checks, including quoted paths, octal escapes, rename/copy headers, and binary patch fallbacks. |
+| False read grants | Binary reads and offset-past-end reads could count as read knowledge even though the model saw no file content. | `FileToolExecutor` only marks reads when text content is actually shown in the requested window. |
+| Concurrency | File edits needed to be serialized per target without risking deadlocks for multi-file patches. | Per-file locks are acquired by normalized sorted keys, so same-file edits serialize and opposing multi-file patch orders do not deadlock. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`; every module grades **A+**.
+- New/touched core files `AgentImmediateActionWriteReadMarker.swift`, `DiffHeaderPathParser.swift`, and
+  `FileEditSessionGuard.swift` each grade **A+ 100**.
+- Touched routing/executor files in `QuillCodeAgent`, `QuillCodeApp`, and `QuillCodeTools` remain **A+**.
+
+Validation:
+
+- `swift test --filter 'FileEditSessionGuard|AgentToolLoopTests|WorkspaceReviewIntegrationTests|WorkspaceToolCallExecutorTests|FileEncoding|FileToolExecutorTests|PatchToolExecutorTests'`
+- `swift test` (2,245 tests, 1 skipped, 0 failures)
+- GitHub required checks on PR #891: `linux-swift`, `playwright`, `smoke`, and `swift`
+- `git diff --check`
+
+Residual risk:
+
+- The deterministic grade report is a maintainability heuristic. It complements, but does not replace, real-world
+  agent/tool UX tests for future Codex-parity edit flows.
+
 ## 2026-07-01 Workspace History Shortcut Quality Pass
 
 Overall grade target for this slice: keep the command, shortcut, desktop menu, and rendered harness layers aligned while
