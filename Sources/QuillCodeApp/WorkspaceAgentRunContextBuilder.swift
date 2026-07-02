@@ -6,6 +6,7 @@ import QuillComputerUseKit
 
 struct WorkspaceAgentRunContextBuilder: Sendable {
     var selectedProject: ProjectRef?
+    var config: AppConfig = AppConfig()
     var browser: BrowserState
     var browserToolOverride: AgentToolExecutionOverride? = nil
     var computerUseBackend: (any ComputerUseBackend)?
@@ -94,7 +95,13 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
 
     private var computerUseToolExecutionOverride: AgentToolExecutionOverride? {
         guard let computerUseBackend else { return nil }
-        let executor = ComputerUseToolExecutor(backend: computerUseBackend)
+        let executor = ComputerUseToolExecutor(
+            backend: computerUseBackend,
+            appApprovalPolicy: ComputerUseAppApprovalPolicy(
+                approvedBundleIdentifiers: config.computerUseApprovedBundleIdentifiers,
+                approvedAppNames: config.computerUseApprovedAppNames
+            )
+        )
         return { call, _ in
             await executor.execute(call)
         }

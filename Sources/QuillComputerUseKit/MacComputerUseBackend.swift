@@ -4,7 +4,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-public struct MacComputerUseBackend: ComputerUseBackend {
+public struct MacComputerUseBackend: ComputerUseBackend, ComputerUseForegroundApplicationProviding {
     public init() {}
 
     public var status: ComputerUseStatus {
@@ -94,6 +94,14 @@ public struct MacComputerUseBackend: ComputerUseBackend {
             throw ComputerUseError.unavailable("Unsupported key: \(key).")
         }
         try postKey(keyCode)
+    }
+
+    public func foregroundApplication() async -> ComputerUseApplication? {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        return ComputerUseApplication(
+            name: app.localizedName,
+            bundleIdentifier: app.bundleIdentifier
+        )
     }
 
     private func requireScreenRecording() throws {

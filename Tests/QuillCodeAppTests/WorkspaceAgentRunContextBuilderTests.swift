@@ -155,6 +155,39 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertEqual(memoryResult?.artifacts.first?.hasPrefix("memories/"), true)
     }
 
+    func testComputerUseOverrideHonorsConfiguredAppApprovals() async throws {
+        let runner = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            config: AppConfig(computerUseApprovedAppNames: ["Terminal"]),
+            browser: BrowserState(),
+            computerUseBackend: StubComputerUseBackend(
+                foregroundApplication: ComputerUseApplication(
+                    name: "Passwords",
+                    bundleIdentifier: "com.apple.Passwords"
+                )
+            ),
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ).configuredRunner(from: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []))
+        let override = try XCTUnwrap(runner.toolExecutionOverride)
+
+        let result = await override(
+            ToolCall(
+                name: ToolDefinition.computerType.name,
+                argumentsJSON: ToolArguments.json(["text": "secret"])
+            ),
+            try makeQuillCodeTestDirectory()
+        )
+
+        XCTAssertEqual(result?.ok, false)
+        XCTAssertEqual(
+            result?.error,
+            "Computer Use is not approved for Passwords. Add this app to Computer Use approvals before controlling it."
+        )
+    }
+
     func testMemoryRememberExecutorDetectsCompletedMemoryToolEvents() throws {
         let result = ToolResult(ok: true, artifacts: ["memories/use-concise-status-updates.md"])
         var thread = ChatThread(title: "Memory")
@@ -168,7 +201,13 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
     }
 }
 
-private struct StubComputerUseBackend: ComputerUseBackend {
+private struct StubComputerUseBackend: ComputerUseBackend, ComputerUseForegroundApplicationProviding {
+    var foregroundApplicationValue: ComputerUseApplication?
+
+    init(foregroundApplication: ComputerUseApplication? = nil) {
+        self.foregroundApplicationValue = foregroundApplication
+    }
+
     var status: ComputerUseStatus {
         .permissionStatus(screenRecordingGranted: true, accessibilityGranted: true)
     }
@@ -186,4 +225,8 @@ private struct StubComputerUseBackend: ComputerUseBackend {
     func moveCursor(x: Int, y: Int) async throws {}
 
     func pressKey(_ key: String) async throws {}
+
+    func foregroundApplication() async -> ComputerUseApplication? {
+        foregroundApplicationValue
+    }
 }

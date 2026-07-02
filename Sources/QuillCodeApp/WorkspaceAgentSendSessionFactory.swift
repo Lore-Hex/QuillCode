@@ -7,6 +7,7 @@ import QuillComputerUseKit
 struct WorkspaceAgentSendSessionFactory: Sendable {
     private let baseRunner: AgentRunner
     private let selectedProject: ProjectRef?
+    private let config: AppConfig
     private let browser: BrowserState
     private let browserToolOverride: AgentToolExecutionOverride?
     private let computerUseBackend: (any ComputerUseBackend)?
@@ -19,6 +20,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     init(
         baseRunner: AgentRunner,
         selectedProject: ProjectRef?,
+        config: AppConfig,
         browser: BrowserState,
         browserToolOverride: AgentToolExecutionOverride?,
         computerUseBackend: (any ComputerUseBackend)?,
@@ -30,6 +32,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     ) {
         self.baseRunner = baseRunner
         self.selectedProject = selectedProject
+        self.config = config
         self.browser = browser
         self.browserToolOverride = browserToolOverride
         self.computerUseBackend = computerUseBackend
@@ -57,6 +60,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private var configuredRunner: AgentRunner {
         WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
+            config: config,
             browser: browser,
             browserToolOverride: browserToolOverride,
             computerUseBackend: computerUseBackend,

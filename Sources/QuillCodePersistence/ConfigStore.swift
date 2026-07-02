@@ -29,6 +29,8 @@ public struct ConfigStore: Sendable {
         var legacyDeveloperOverrideEnabled: Bool?
         var account = TrustedRouterAccountProfile()
         var favoriteModels: [String] = []
+        var computerUseApprovedBundleIdentifiers: [String] = []
+        var computerUseApprovedAppNames: [String] = []
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -59,6 +61,10 @@ public struct ConfigStore: Sendable {
                 account.walletAddress = value
             case "favorite_model":
                 favoriteModels.append(value)
+            case "computer_use_approved_bundle_identifier":
+                computerUseApprovedBundleIdentifiers.append(value)
+            case "computer_use_approved_app_name":
+                computerUseApprovedAppNames.append(value)
             default:
                 continue
             }
@@ -78,6 +84,12 @@ public struct ConfigStore: Sendable {
         )
         config.trustedRouterAccount = normalizedAccount.isEmpty ? nil : normalizedAccount
         config.favoriteModels = AppConfig(favoriteModels: favoriteModels).favoriteModels
+        config.computerUseApprovedBundleIdentifiers = AppConfig(
+            computerUseApprovedBundleIdentifiers: computerUseApprovedBundleIdentifiers
+        ).computerUseApprovedBundleIdentifiers
+        config.computerUseApprovedAppNames = AppConfig(
+            computerUseApprovedAppNames: computerUseApprovedAppNames
+        ).computerUseApprovedAppNames
         return config
     }
 
@@ -95,6 +107,12 @@ public struct ConfigStore: Sendable {
         ]
         for model in config.favoriteModels {
             lines.append("favorite_model = \(Self.quote(model))")
+        }
+        for bundleIdentifier in config.computerUseApprovedBundleIdentifiers {
+            lines.append("computer_use_approved_bundle_identifier = \(Self.quote(bundleIdentifier))")
+        }
+        for appName in config.computerUseApprovedAppNames {
+            lines.append("computer_use_approved_app_name = \(Self.quote(appName))")
         }
         if let account = config.trustedRouterAccount {
             if let userID = account.userID {

@@ -68,6 +68,34 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertTrue(stored.contains(#"favorite_model = "moonshotai/kimi-k2.6""#))
     }
 
+    func testConfigRoundTripsComputerUseAppApprovals() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(
+            computerUseApprovedBundleIdentifiers: [
+                " com.apple.Terminal ",
+                "com.apple.Terminal",
+                "com.google.Chrome"
+            ],
+            computerUseApprovedAppNames: [
+                "Terminal",
+                "terminal",
+                "Google Chrome"
+            ]
+        )
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.computerUseApprovedBundleIdentifiers, [
+            "com.apple.Terminal",
+            "com.google.Chrome"
+        ])
+        XCTAssertEqual(loaded.computerUseApprovedAppNames, ["Terminal", "Google Chrome"])
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"computer_use_approved_bundle_identifier = "com.apple.Terminal""#))
+        XCTAssertTrue(stored.contains(#"computer_use_approved_app_name = "Terminal""#))
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """

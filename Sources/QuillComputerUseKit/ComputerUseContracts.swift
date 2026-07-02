@@ -22,6 +22,28 @@ public struct ComputerScreenshotToolOutput: Codable, Sendable, Hashable {
     }
 }
 
+public struct ComputerUseApplication: Codable, Sendable, Hashable {
+    public var name: String?
+    public var bundleIdentifier: String?
+
+    public init(name: String? = nil, bundleIdentifier: String? = nil) {
+        self.name = Self.trimmed(name)
+        self.bundleIdentifier = Self.trimmed(bundleIdentifier)
+    }
+
+    public var displayLabel: String {
+        if let name, !name.isEmpty { return name }
+        if let bundleIdentifier, !bundleIdentifier.isEmpty { return bundleIdentifier }
+        return "Unknown application"
+    }
+
+    private static func trimmed(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
 public enum ComputerUseError: Error, CustomStringConvertible, Sendable {
     case permissionDenied(String)
     case unsupportedPlatform(String)
@@ -47,4 +69,8 @@ public protocol ComputerUseBackend: Sendable {
     func scroll(dx: Int, dy: Int) async throws
     func moveCursor(x: Int, y: Int) async throws
     func pressKey(_ key: String) async throws
+}
+
+public protocol ComputerUseForegroundApplicationProviding: Sendable {
+    func foregroundApplication() async -> ComputerUseApplication?
 }
