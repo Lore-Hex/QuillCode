@@ -71,6 +71,8 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.developerOverrideEnabled = update.developerOverrideEnabled || update.authMode == .developerOverride
         config.computerUseApprovedBundleIdentifiers = update.computerUseApprovedBundleIdentifiers
         config.computerUseApprovedAppNames = update.computerUseApprovedAppNames
+        config.browserAllowedDomains = update.browserAllowedDomains
+        config.browserBlockedDomains = update.browserBlockedDomains
 
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()

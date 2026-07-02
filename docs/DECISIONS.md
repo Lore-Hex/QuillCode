@@ -2,6 +2,12 @@
 
 ## 2026-07-01
 
+- Browser domain policy is a persisted runtime policy, not a renderer-only guard. `AppConfig` stores normalized allowed
+  and blocked domain lists, and `WorkspaceBrowserWorkflow` applies them after URL resolution and before manual opens,
+  model-authored `host.browser.open`, snapshot fetches, live-DOM capture, redirect final URLs, and visible browser-session
+  updates. Blocked domains win over allowed domains and match subdomains; local file previews remain governed by the
+  existing workspace/file resolver rather than domain matching. This keeps Codex-style browser safety and developer
+  workflow control in one reusable policy seam.
 - Computer Use approval management belongs in Settings as an editable draft over the same `AppConfig` keys that the
   executor enforces. Empty bundle/app-name lists remain the explicit unrestricted policy; non-empty lists form the
   foreground-app allowlist. The settings sheet keeps the approval UI in `QuillCodeComputerUseApprovalSettingsCard`,

@@ -16,6 +16,8 @@ final class AppConfigCompatibilityTests: XCTestCase {
 
         XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(config.favoriteModels, [])
+        XCTAssertEqual(config.browserAllowedDomains, [])
+        XCTAssertEqual(config.browserBlockedDomains, [])
     }
 
     func testAppConfigNormalizesComputerUseApprovals() {
@@ -34,6 +36,17 @@ final class AppConfigCompatibilityTests: XCTestCase {
 
         XCTAssertEqual(config.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
         XCTAssertEqual(config.computerUseApprovedAppNames, ["Terminal", "Google Chrome"])
+    }
+
+    func testAppConfigNormalizesBrowserDomainPolicy() {
+        let config = AppConfig(
+            browserAllowedDomains: [" https://TrustedRouter.com/app ", "*.Example.com"],
+            browserBlockedDomains: ["blocked.example.com", "https://BLOCKED.example.com/path"]
+        )
+
+        XCTAssertEqual(config.browserAllowedDomains, ["trustedrouter.com", "example.com"])
+        XCTAssertEqual(config.browserBlockedDomains, ["blocked.example.com"])
+        XCTAssertEqual(config.browserDomainPolicy.statusLabel, "Allowlist + blocklist")
     }
 
     func testProjectAndThreadDecodeOlderStateWithoutInstructions() throws {

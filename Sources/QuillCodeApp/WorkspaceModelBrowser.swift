@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 extension QuillCodeWorkspaceModel {
     public func setBrowserAddressDraft(_ draft: String) {
@@ -20,7 +21,8 @@ extension QuillCodeWorkspaceModel {
                 input,
                 workspaceRoot: workspaceRoot,
                 browser: &browser,
-                lastError: &lastError
+                lastError: &lastError,
+                domainPolicy: root.config.browserDomainPolicy
             )
         }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)

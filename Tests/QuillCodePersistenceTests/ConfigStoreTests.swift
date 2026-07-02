@@ -96,6 +96,30 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertTrue(stored.contains(#"computer_use_approved_app_name = "Terminal""#))
     }
 
+    func testConfigRoundTripsBrowserDomainPolicy() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(
+            browserAllowedDomains: [
+                " https://TrustedRouter.com/models ",
+                "*.quillos.cloud",
+                "trustedrouter.com"
+            ],
+            browserBlockedDomains: [
+                "ads.example.com",
+                "HTTPS://Tracker.Example/path"
+            ]
+        )
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.browserAllowedDomains, ["trustedrouter.com", "quillos.cloud"])
+        XCTAssertEqual(loaded.browserBlockedDomains, ["ads.example.com", "tracker.example"])
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"browser_allowed_domain = "trustedrouter.com""#))
+        XCTAssertTrue(stored.contains(#"browser_blocked_domain = "tracker.example""#))
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """

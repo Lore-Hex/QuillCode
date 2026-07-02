@@ -9,6 +9,8 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var shouldClearAPIKey: Bool
     public var computerUseApprovedBundleIdentifiers: [String]
     public var computerUseApprovedAppNames: [String]
+    public var browserAllowedDomains: [String]
+    public var browserBlockedDomains: [String]
 
     public init(
         apiBaseURL: String,
@@ -17,7 +19,9 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         replacementAPIKey: String? = nil,
         shouldClearAPIKey: Bool = false,
         computerUseApprovedBundleIdentifiers: [String] = [],
-        computerUseApprovedAppNames: [String] = []
+        computerUseApprovedAppNames: [String] = [],
+        browserAllowedDomains: [String] = [],
+        browserBlockedDomains: [String] = []
     ) {
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
@@ -31,5 +35,11 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         )
         self.computerUseApprovedBundleIdentifiers = approvalConfig.computerUseApprovedBundleIdentifiers
         self.computerUseApprovedAppNames = approvalConfig.computerUseApprovedAppNames
+        let browserPolicy = BrowserDomainPolicy(
+            allowedDomains: browserAllowedDomains,
+            blockedDomains: browserBlockedDomains
+        )
+        self.browserAllowedDomains = browserPolicy.allowedDomains
+        self.browserBlockedDomains = browserPolicy.blockedDomains
     }
 }

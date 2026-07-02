@@ -52,6 +52,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var favoriteModels: [String]
     public var computerUseApprovedBundleIdentifiers: [String]
     public var computerUseApprovedAppNames: [String]
+    public var browserAllowedDomains: [String]
+    public var browserBlockedDomains: [String]
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -63,6 +65,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case favoriteModels
         case computerUseApprovedBundleIdentifiers
         case computerUseApprovedAppNames
+        case browserAllowedDomains
+        case browserBlockedDomains
     }
 
     public init(
@@ -74,7 +78,9 @@ public struct AppConfig: Codable, Sendable, Hashable {
         trustedRouterAccount: TrustedRouterAccountProfile? = nil,
         favoriteModels: [String] = [],
         computerUseApprovedBundleIdentifiers: [String] = [],
-        computerUseApprovedAppNames: [String] = []
+        computerUseApprovedAppNames: [String] = [],
+        browserAllowedDomains: [String] = [],
+        browserBlockedDomains: [String] = []
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -87,6 +93,45 @@ public struct AppConfig: Codable, Sendable, Hashable {
             computerUseApprovedBundleIdentifiers
         )
         self.computerUseApprovedAppNames = Self.normalizedComputerUseApprovals(computerUseApprovedAppNames)
+        let browserPolicy = BrowserDomainPolicy(
+            allowedDomains: browserAllowedDomains,
+            blockedDomains: browserBlockedDomains
+        )
+        self.browserAllowedDomains = browserPolicy.allowedDomains
+        self.browserBlockedDomains = browserPolicy.blockedDomains
+    }
+
+    public init(
+        defaultModel: String,
+        mode: AgentMode,
+        apiBaseURL: String,
+        authMode: TrustedRouterAuthMode,
+        developerOverrideEnabled: Bool,
+        trustedRouterAccount: TrustedRouterAccountProfile?,
+        favoriteModels: [String],
+        computerUseApprovedBundleIdentifiers: [String],
+        computerUseApprovedAppNames: [String]
+    ) {
+        self.init(
+            defaultModel: defaultModel,
+            mode: mode,
+            apiBaseURL: apiBaseURL,
+            authMode: authMode,
+            developerOverrideEnabled: developerOverrideEnabled,
+            trustedRouterAccount: trustedRouterAccount,
+            favoriteModels: favoriteModels,
+            computerUseApprovedBundleIdentifiers: computerUseApprovedBundleIdentifiers,
+            computerUseApprovedAppNames: computerUseApprovedAppNames,
+            browserAllowedDomains: [],
+            browserBlockedDomains: []
+        )
+    }
+
+    public var browserDomainPolicy: BrowserDomainPolicy {
+        BrowserDomainPolicy(
+            allowedDomains: browserAllowedDomains,
+            blockedDomains: browserBlockedDomains
+        )
     }
 
     public init(
@@ -104,7 +149,9 @@ public struct AppConfig: Codable, Sendable, Hashable {
             trustedRouterAccount: nil,
             favoriteModels: [],
             computerUseApprovedBundleIdentifiers: [],
-            computerUseApprovedAppNames: []
+            computerUseApprovedAppNames: [],
+            browserAllowedDomains: [],
+            browserBlockedDomains: []
         )
     }
 
@@ -137,6 +184,14 @@ public struct AppConfig: Codable, Sendable, Hashable {
             computerUseApprovedAppNames: try container.decodeIfPresent(
                 [String].self,
                 forKey: .computerUseApprovedAppNames
+            ) ?? [],
+            browserAllowedDomains: try container.decodeIfPresent(
+                [String].self,
+                forKey: .browserAllowedDomains
+            ) ?? [],
+            browserBlockedDomains: try container.decodeIfPresent(
+                [String].self,
+                forKey: .browserBlockedDomains
             ) ?? []
         )
     }

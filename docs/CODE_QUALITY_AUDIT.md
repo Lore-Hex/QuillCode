@@ -14063,3 +14063,44 @@ Validation:
 - `swift test` (2,333 tests, 1 skipped, 0 failures)
 - `git diff --check`
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Browser Domain Policy A+ Pass
+
+Overall architecture grade after this pass: **A+ for the browser policy
+slice**. The implementation adds browser allowed-domain/blocklist parity as a
+single normalized `BrowserDomainPolicy` in core and routes every browser entry
+point through `WorkspaceBrowserWorkflow` instead of scattering string checks
+through SwiftUI, WebKit, or tool-card renderers.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `BrowserDomainPolicy.swift` | A+ | Pure, Codable, deterministic normalization; blocklist precedence; exact/subdomain matching; non-network URLs stay outside domain policy. |
+| `AppConfig.swift` | A+ | Backwards-compatible decode defaults plus a compatibility initializer preserve older config/test clients while adding persisted policy fields. |
+| `WorkspaceBrowserWorkflow.swift` | A+ | Central enforcement for manual opens, `host.browser.open`, snapshot/live-DOM fetch start, successful final URLs, and visible browser-session updates. |
+| `QuillCodeBrowserDomainSettingsCard.swift` | A+ | Mirrors the existing approval-list card pattern with normalized allow/block text fields, explicit reset state, and stable UI targets. |
+| `ConfigStore.swift` | A+ | Persists the complete browser policy and reuses one repeated-value writer for favorite models, Computer Use approvals, and domain lists. |
+| Browser/settings tests | A+ | Core policy, config compatibility, workflow blocking, redirect blocking, session filtering, tool execution, and settings draft/surface coverage are focused. |
+
+Code quality changes:
+
+- Added persisted `browserAllowedDomains` and `browserBlockedDomains` fields to
+  `AppConfig`, with older payloads defaulting to unrestricted browser behavior.
+- Added Settings UI for browser allow/block lists and wired save/apply through
+  `WorkspaceSettingsUpdate` and the desktop settings coordinator.
+- Hardened `ConfigStore` so browser policy survives app restart and repeated
+  config values use one writer path instead of copy-pasted loops.
+- Enforced the same policy for manual browser opens, model-authored
+  `host.browser.open`, snapshot fetch requests, live-DOM capture requests,
+  redirect/final URL application, and visible WebKit session updates.
+- Preserved local file preview behavior under the existing browser resolver
+  rather than pretending file paths are domains.
+
+Validation:
+
+- `swift test --filter 'BrowserDomainPolicyTests|AppConfigCompatibilityTests|WorkspaceBrowserWorkflowTests|WorkspaceToolCallExecutorTests|QuillCodeSettingsDraftTests|WorkspaceSettingsRuntimeSurfaceTests|WorkspaceReviewActionRunnerTests'` (43 tests, 0 failures)
+- `swift test --filter ConfigStoreTests` (7 tests, 0 failures)
+- `swift test` (2,344 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

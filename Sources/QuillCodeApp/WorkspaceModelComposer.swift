@@ -229,7 +229,8 @@ extension QuillCodeWorkspaceModel {
                 call,
                 workspaceRoot: workspaceRoot,
                 browser: &browser,
-                lastError: &lastError
+                lastError: &lastError,
+                domainPolicy: root.config.browserDomainPolicy
             )
         }
         refreshTopBar(agentStatus: root.topBar.agentStatus)

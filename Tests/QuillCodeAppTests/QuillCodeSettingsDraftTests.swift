@@ -21,6 +21,8 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertFalse(draft.shouldClearAPIKey)
         XCTAssertEqual(draft.computerUseApprovedBundleIdentifiersText, "")
         XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
+        XCTAssertEqual(draft.browserAllowedDomainsText, "")
+        XCTAssertEqual(draft.browserBlockedDomainsText, "")
     }
 
     func testUpdateTrimsBaseURLAndReplacementKey() {
@@ -63,7 +65,9 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
     func testComputerUseApprovalsInitializeFromSettingsSurface() {
         let config = AppConfig(
             computerUseApprovedBundleIdentifiers: ["com.apple.Terminal", "com.google.Chrome"],
-            computerUseApprovedAppNames: ["Terminal", "Google Chrome"]
+            computerUseApprovedAppNames: ["Terminal", "Google Chrome"],
+            browserAllowedDomains: ["trustedrouter.com", "localhost"],
+            browserBlockedDomains: ["example.com"]
         )
         let surface = WorkspaceSettingsSurface(config: config, hasStoredAPIKey: false)
 
@@ -74,6 +78,8 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
             "com.apple.Terminal\ncom.google.Chrome"
         )
         XCTAssertEqual(draft.computerUseApprovedAppNamesText, "Terminal\nGoogle Chrome")
+        XCTAssertEqual(draft.browserAllowedDomainsText, "trustedrouter.com\nlocalhost")
+        XCTAssertEqual(draft.browserBlockedDomainsText, "example.com")
     }
 
     func testComputerUseApprovalUpdateAcceptsCommaAndNewlineInput() {
@@ -91,6 +97,18 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(update.computerUseApprovedAppNames, ["Terminal", "Google Chrome"])
     }
 
+    func testBrowserDomainPolicyUpdateAcceptsCommaAndNewlineInput() {
+        var draft = QuillCodeSettingsDraft()
+        draft.apiBaseURL = "https://api.trustedrouter.test/v1"
+        draft.browserAllowedDomainsText = " HTTPS://TrustedRouter.com/app, trustedrouter.com\n*.example.com "
+        draft.browserBlockedDomainsText = " blocked.example.com,\nhttps://blocked.example.com/path "
+
+        let update = draft.update
+
+        XCTAssertEqual(update.browserAllowedDomains, ["trustedrouter.com", "example.com"])
+        XCTAssertEqual(update.browserBlockedDomains, ["blocked.example.com"])
+    }
+
     func testClearsComputerUseApprovals() {
         var draft = QuillCodeSettingsDraft()
         draft.computerUseApprovedBundleIdentifiersText = "com.apple.Terminal"
@@ -102,6 +120,19 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
         XCTAssertEqual(draft.update.computerUseApprovedBundleIdentifiers, [])
         XCTAssertEqual(draft.update.computerUseApprovedAppNames, [])
+    }
+
+    func testClearsBrowserDomainPolicy() {
+        var draft = QuillCodeSettingsDraft()
+        draft.browserAllowedDomainsText = "trustedrouter.com"
+        draft.browserBlockedDomainsText = "example.com"
+
+        draft.clearBrowserDomainPolicy()
+
+        XCTAssertEqual(draft.browserAllowedDomainsText, "")
+        XCTAssertEqual(draft.browserBlockedDomainsText, "")
+        XCTAssertEqual(draft.update.browserAllowedDomains, [])
+        XCTAssertEqual(draft.update.browserBlockedDomains, [])
     }
 
     func testAddsDetectedComputerUseAppByBundleIdentifier() {

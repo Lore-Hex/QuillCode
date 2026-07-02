@@ -19,6 +19,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
                     outline: ["Example"]
                 )
             ),
+            browserDomainPolicy: .unrestricted,
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )
@@ -38,6 +39,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         let executor = WorkspaceToolCallExecutor(
             selectedProject: nil,
             browser: browser,
+            browserDomainPolicy: .unrestricted,
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )
@@ -61,6 +63,34 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         XCTAssertTrue(execution.followUps.isEmpty)
     }
 
+    func testBrowserOpenRejectsBlockedDomainThroughToolExecutor() throws {
+        let root = try makeQuillCodeTestDirectory()
+        var browser = BrowserState()
+        var lastError: String?
+        let executor = WorkspaceToolCallExecutor(
+            selectedProject: nil,
+            browser: browser,
+            browserDomainPolicy: BrowserDomainPolicy(blockedDomains: ["example.com"]),
+            router: ToolRouter(workspaceRoot: root),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+
+        let execution = executor.execute(
+            ToolCall(
+                name: ToolDefinition.browserOpen.name,
+                argumentsJSON: ToolArguments.json(["url": "https://example.com"])
+            ),
+            browser: &browser,
+            lastError: &lastError
+        )
+
+        XCTAssertFalse(execution.ok)
+        XCTAssertEqual(browser.currentURL, nil)
+        XCTAssertEqual(browser.status, "Blocked by browser policy")
+        XCTAssertEqual(lastError, "Blocked by browser policy: example.com matches blocked domain example.com.")
+        XCTAssertEqual(execution.primary.result.error, lastError)
+    }
+
     func testPlanUpdateRoutesBeforeLocalRouter() throws {
         let root = try makeQuillCodeTestDirectory()
         let update = AgentPlanUpdate(plan: [
@@ -70,6 +100,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         let executor = WorkspaceToolCallExecutor(
             selectedProject: nil,
             browser: BrowserState(),
+            browserDomainPolicy: .unrestricted,
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )
@@ -94,6 +125,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         let executor = WorkspaceToolCallExecutor(
             selectedProject: nil,
             browser: BrowserState(),
+            browserDomainPolicy: .unrestricted,
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )
@@ -118,6 +150,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         let executor = WorkspaceToolCallExecutor(
             selectedProject: nil,
             browser: BrowserState(),
+            browserDomainPolicy: .unrestricted,
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )
@@ -139,6 +172,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         let executor = WorkspaceToolCallExecutor(
             selectedProject: nil,
             browser: BrowserState(),
+            browserDomainPolicy: .unrestricted,
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )
@@ -178,6 +212,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         let executor = WorkspaceToolCallExecutor(
             selectedProject: project,
             browser: BrowserState(),
+            browserDomainPolicy: .unrestricted,
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )

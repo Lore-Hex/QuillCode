@@ -19,6 +19,7 @@ struct WorkspaceToolCallExecution: Sendable, Hashable {
 struct WorkspaceToolCallExecutor: Sendable {
     let selectedProject: ProjectRef?
     let browser: BrowserState
+    let browserDomainPolicy: BrowserDomainPolicy
     let router: ToolRouter
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
 
@@ -58,7 +59,8 @@ struct WorkspaceToolCallExecutor: Sendable {
             call,
             workspaceRoot: router.workspaceRoot,
             browser: &browser,
-            lastError: &lastError
+            lastError: &lastError,
+            domainPolicy: browserDomainPolicy
         ) {
             return result
         }

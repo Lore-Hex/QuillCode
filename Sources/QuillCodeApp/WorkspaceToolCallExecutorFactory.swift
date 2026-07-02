@@ -10,6 +10,7 @@ enum WorkspaceToolCallExecutorFactory {
         WorkspaceToolCallExecutor(
             selectedProject: model.selectedProject,
             browser: model.browser,
+            browserDomainPolicy: model.root.config.browserDomainPolicy,
             router: router,
             sshRemoteShellExecutor: model.sshRemoteShellExecutor
         )

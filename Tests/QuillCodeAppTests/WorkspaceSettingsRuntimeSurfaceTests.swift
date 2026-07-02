@@ -37,9 +37,16 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, [])
         XCTAssertEqual(settings.computerUseApprovedAppNames, [])
         XCTAssertEqual(settings.computerUseApprovalStatusLabel, "Unrestricted")
+        XCTAssertEqual(settings.browserAllowedDomains, [])
+        XCTAssertEqual(settings.browserBlockedDomains, [])
+        XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Unrestricted")
         XCTAssertEqual(
             settings.computerUseApprovalSummary,
             "Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps."
+        )
+        XCTAssertEqual(
+            settings.browserDomainPolicySummary,
+            "Browser can open any http or https domain. Local files still stay workspace-scoped by the browser resolver."
         )
     }
 
@@ -102,7 +109,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
     func testSettingsSurfaceShowsComputerUseApprovalSummary() {
         let config = AppConfig(
             computerUseApprovedBundleIdentifiers: ["com.apple.Terminal", "com.google.Chrome"],
-            computerUseApprovedAppNames: ["Terminal"]
+            computerUseApprovedAppNames: ["Terminal"],
+            browserAllowedDomains: ["trustedrouter.com", "localhost"],
+            browserBlockedDomains: ["example.com"]
         )
 
         let settings = WorkspaceSettingsSurface(config: config, hasStoredAPIKey: true)
@@ -117,6 +126,10 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             settings.computerUseApprovalSummary,
             "Computer Use is restricted to 2 bundle IDs and 1 app name."
         )
+        XCTAssertEqual(settings.browserAllowedDomains, ["trustedrouter.com", "localhost"])
+        XCTAssertEqual(settings.browserBlockedDomains, ["example.com"])
+        XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Allowlist + blocklist")
+        XCTAssertEqual(settings.browserDomainPolicySummary, "Allowed: trustedrouter.com, localhost. Blocked: example.com")
     }
 
     func testSettingsSurfaceDecodesOlderComputerUsePayload() throws {
@@ -182,6 +195,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
         XCTAssertEqual(settings.computerUseApprovedAppNames, ["Terminal"])
         XCTAssertEqual(settings.computerUseApprovalStatusLabel, "2 approved")
+        XCTAssertEqual(settings.browserAllowedDomains, [])
+        XCTAssertEqual(settings.browserBlockedDomains, [])
+        XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Unrestricted")
     }
 
     func testSettingsSurfaceCarriesDetectedForegroundApplication() {

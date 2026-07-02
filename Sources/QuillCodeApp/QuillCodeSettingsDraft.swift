@@ -10,6 +10,8 @@ struct QuillCodeSettingsDraft: Equatable {
     var shouldClearAPIKey: Bool = false
     var computerUseApprovedBundleIdentifiersText: String = ""
     var computerUseApprovedAppNamesText: String = ""
+    var browserAllowedDomainsText: String = ""
+    var browserBlockedDomainsText: String = ""
 
     init() {}
 
@@ -21,6 +23,8 @@ struct QuillCodeSettingsDraft: Equatable {
             settings.computerUseApprovedBundleIdentifiers
         )
         self.computerUseApprovedAppNamesText = Self.joinedApprovals(settings.computerUseApprovedAppNames)
+        self.browserAllowedDomainsText = Self.joinedApprovals(settings.browserAllowedDomains)
+        self.browserBlockedDomainsText = Self.joinedApprovals(settings.browserBlockedDomains)
     }
 
     var canSave: Bool {
@@ -36,13 +40,20 @@ struct QuillCodeSettingsDraft: Equatable {
             replacementAPIKey: trimmedReplacementAPIKey.isEmpty ? nil : trimmedReplacementAPIKey,
             shouldClearAPIKey: shouldClearAPIKey,
             computerUseApprovedBundleIdentifiers: Self.approvals(from: computerUseApprovedBundleIdentifiersText),
-            computerUseApprovedAppNames: Self.approvals(from: computerUseApprovedAppNamesText)
+            computerUseApprovedAppNames: Self.approvals(from: computerUseApprovedAppNamesText),
+            browserAllowedDomains: Self.approvals(from: browserAllowedDomainsText),
+            browserBlockedDomains: Self.approvals(from: browserBlockedDomainsText)
         )
     }
 
     mutating func clearComputerUseApprovals() {
         computerUseApprovedBundleIdentifiersText = ""
         computerUseApprovedAppNamesText = ""
+    }
+
+    mutating func clearBrowserDomainPolicy() {
+        browserAllowedDomainsText = ""
+        browserBlockedDomainsText = ""
     }
 
     mutating func addComputerUseApproval(for application: ComputerUseApplication) {
