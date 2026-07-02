@@ -58,10 +58,18 @@ public struct HTTPRateLimitDetails: Sendable, Hashable {
         }
 
         let remaining = remainingByBucket.values.min()
-        let exhaustedResets = remainingByBucket
-            .filter { $0.value == 0 }
-            .compactMap { resetByBucket[$0.key] }
-        let resetSeconds = exhaustedResets.max() ?? resetByBucket.values.min()
+        let exhaustedBuckets = remainingByBucket.filter { $0.value == 0 }.keys
+        let resetSeconds: Double?
+        if exhaustedBuckets.isEmpty {
+            // No bucket is known-exhausted: the soonest advertised reset, informational only
+            // (`mandatedDelay` ignores it because remaining != 0).
+            resetSeconds = resetByBucket.values.min()
+        } else {
+            // Only an exhausted bucket's OWN reset is mandate-eligible — a healthy bucket's reset
+            // must not stall the retry. When no exhausted bucket advertised a usable reset, leave
+            // resetAfter nil so the backoff falls back to plain exponential.
+            resetSeconds = exhaustedBuckets.compactMap { resetByBucket[$0] }.max()
+        }
 
         let details = HTTPRateLimitDetails(
             retryAfter: retryAfter,
@@ -92,33 +100,48 @@ public struct HTTPRateLimitDetails: Sendable, Hashable {
         return String(key.dropFirst(prefix.count).dropLast(suffix.count))
     }
 
-    // MARK: - Value parsing (all normalized to non-negative delta seconds from `now`)
+    // MARK: - Value parsing (all normalized to bounded, non-negative delta seconds from `now`)
+
+    /// The ceiling on any parsed wait: no server legitimately mandates more than a year; anything
+    /// beyond is a buggy or hostile header and is clamped here.
+    private static let maxDelaySeconds: Double = 86_400 * 366
+
+    /// Bounds a parsed wait before it may reach `Duration`. These values are SERVER-CONTROLLED, and
+    /// `Duration.seconds(Double)` traps UNCATCHABLY on non-finite input and on finite magnitudes
+    /// past ~1.7e20 (Int128 attoseconds overflow) — while `Double("…")` happily parses "inf", "nan",
+    /// and hex floats like "0x1p200". Every seconds value MUST pass through here: non-finite parses
+    /// are rejected, finite ones clamped into 0...maxDelaySeconds.
+    private static func boundedDelaySeconds(_ seconds: Double) -> Double? {
+        guard seconds.isFinite else { return nil }
+        return min(max(0, seconds), maxDelaySeconds)
+    }
 
     /// `Retry-After` arrives as delta-seconds ("120") or an HTTP-date
     /// ("Wed, 21 Oct 2015 07:28:00 GMT"). A date already in the past normalizes to 0.
     private static func parseRetryAfter(_ value: String, now: Date) -> Double? {
-        if let seconds = Double(value) { return max(0, seconds) }
-        if let date = httpDate(value) { return max(0, date.timeIntervalSince(now)) }
+        if let seconds = Double(value) { return boundedDelaySeconds(seconds) }
+        if let date = httpDate(value) { return boundedDelaySeconds(date.timeIntervalSince(now)) }
         return nil
     }
 
     /// A reset header arrives as an RFC3339 date (Anthropic), a delta ("30", "30s", "250ms"), or a
-    /// unix epoch in seconds/milliseconds — the numeric forms disambiguated by magnitude (an epoch
-    /// is over 1e9; no one asks a client to wait 30+ years).
+    /// unix epoch in seconds/milliseconds (OpenRouter's `X-RateLimit-Reset` is epoch millis) — the
+    /// numeric forms disambiguated by magnitude (an epoch is over 1e9; no one asks a client to wait
+    /// 30+ years).
     private static func parseReset(_ value: String, now: Date) -> Double? {
         if let date = rfc3339Date(value) ?? httpDate(value) {
-            return max(0, date.timeIntervalSince(now))
+            return boundedDelaySeconds(date.timeIntervalSince(now))
         }
         if value.hasSuffix("ms"), let millis = Double(value.dropLast(2)) {
-            return max(0, millis / 1000)
+            return boundedDelaySeconds(millis / 1000)
         }
         if value.hasSuffix("s"), let seconds = Double(value.dropLast()) {
-            return max(0, seconds)
+            return boundedDelaySeconds(seconds)
         }
         guard let number = Double(value) else { return nil }
-        if number >= 1e12 { return max(0, number / 1000 - now.timeIntervalSince1970) } // epoch millis
-        if number >= 1e9 { return max(0, number - now.timeIntervalSince1970) } // epoch seconds
-        return max(0, number) // delta seconds
+        if number >= 1e12 { return boundedDelaySeconds(number / 1000 - now.timeIntervalSince1970) } // epoch millis
+        if number >= 1e9 { return boundedDelaySeconds(number - now.timeIntervalSince1970) } // epoch seconds
+        return boundedDelaySeconds(number) // delta seconds
     }
 
     private static func rfc3339Date(_ value: String) -> Date? {
