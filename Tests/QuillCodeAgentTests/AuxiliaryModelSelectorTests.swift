@@ -172,6 +172,30 @@ final class AuxiliaryModelSelectorTests: XCTestCase {
         XCTAssertEqual(onlyPoisoned.source, .sessionModelFallback)
     }
 
+    func testFinitePricesWhoseBlendOverflowsCannotPoisonSelection() {
+        // (3 * input + output) / 4 overflows to +inf for finite prices above ~6e307/Mtok. If such
+        // blends became candidates, cheapestCost/cost = inf/inf = NaN would poison the scores,
+        // break the comparator's strict weak ordering, and make the winner catalog-order-dependent.
+        let junkA = pricedModel(id: "acme/junk-a", input: 7e307, output: 7e307)
+        let junkB = pricedModel(id: "acme/junk-b", input: 1e308, output: 1e308)
+
+        // Overflowing blends are not candidates at all: with nothing else in the catalog, both
+        // orders fall back to the (unpriced) session model instead of picking order-dependent junk.
+        for models in [[junkA, junkB], [junkB, junkA]] {
+            let selection = AuxiliaryModelSelector.selection(models: models, sessionModelID: "acme/flagship")
+            XCTAssertEqual(selection.modelID, "acme/flagship")
+            XCTAssertEqual(selection.source, .sessionModelFallback)
+        }
+
+        // And a legitimately priced model beats the junk in either order.
+        let sane = pricedModel(id: "acme/sane", input: 0.5, output: 2)
+        for models in [[junkA, junkB, sane], [sane, junkB, junkA]] {
+            let selection = AuxiliaryModelSelector.selection(models: models, sessionModelID: "acme/flagship")
+            XCTAssertEqual(selection.modelID, "acme/sane")
+            XCTAssertEqual(selection.source, .catalogHeuristic)
+        }
+    }
+
     func testZeroOrNegativePriceComponentsAreRejected() {
         let partialZeroInput = pricedModel(id: "acme/zero-input-nano", input: 0, output: 0.1)
         let partialZeroOutput = pricedModel(id: "acme/zero-output-nano", input: 0.1, output: 0)
