@@ -56,10 +56,9 @@ public enum RetryClassifier {
     /// The server's rate-limit guidance riding on the error, when the HTTP layer captured response
     /// headers. Nil for transport blips and any failure that never saw a response.
     public static func rateLimitDetails(_ error: any Error) -> HTTPRateLimitDetails? {
-        guard case .streamingHTTPError(_, _, let rateLimit)? = error as? TrustedRouterAgentError else {
-            return nil
-        }
-        return rateLimit
+        guard let routerError = error as? TrustedRouterAgentError else { return nil }
+        if case .streamingHTTPError(_, _, let rateLimit) = routerError { return rateLimit }
+        return nil
     }
 
     private static let transientPOSIXCodes: Set<Int> = Set([

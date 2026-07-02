@@ -1,5 +1,40 @@
 # Code Quality Audit
 
+## 2026-07-01 TrustedRouter Retry Backoff A+ Pass
+
+Overall grade after this slice: **all source, test, script, and E2E modules grade A+; the touched
+TrustedRouter retry/rate-limit path remains A+ and has stronger hostile-header and misconfiguration
+coverage**.
+
+This pass regenerated the full repo file/module grade report, then reviewed the active TrustedRouter
+retry PR at the architecture boundary between HTTP transport, retry classification, backoff policy,
+and the retrying client decorator.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Header parsing | Server guidance was parsed safely, but header key/value normalization and bucket-key construction were open-coded in the main parse loop. | `HTTPRateLimitDetails` now centralizes header normalization, trims whitespace/newlines, and centralizes bucket-key construction so parser branches stay symmetrical and DRY. |
+| Retry floor config | Hostile server values were bounded, but a bad local `retryAfterCap` could make the floor logic harder to reason about. | `RetryBackoffPolicy` clamps the configured server-wait cap to a non-negative value before applying it as a floor. |
+| Error extraction | Rate-limit extraction used a compact optional pattern that was correct but dense. | `RetryClassifier.rateLimitDetails(_:)` now uses a straightforward router-error guard plus enum case match, making the retry boundary easier to audit. |
+| Regression coverage | Tests covered provider dialects, hostile values, and retry floor behavior. | Added coverage for header whitespace/newlines and negative retry-after cap behavior. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`; every module grades **A+**.
+- Touched production files `HTTPRateLimitDetails.swift`, `RetryBackoffPolicy.swift`, and `RetryClassifier.swift` grade **A+ 100**.
+- `RetryingLLMClient.swift` and `TrustedRouterLLMClient.swift` remain **A+ 99**, with only compact long-line notes.
+- Touched test files `HTTPRateLimitDetailsTests.swift` and `RetryingLLMClientTests.swift` remain **A+ 99**.
+
+Validation:
+
+- `swift test --filter HTTPRateLimitDetailsTests`
+- `swift test --filter RetryingLLMClientTests`
+- `python3 scripts/grade-code-quality.py --root .`
+
+Residual risk:
+
+- This pass is focused on the active retry/rate-limit PR. Broader real-world model/provider stress
+  testing should run after the PR lands because live 429/quota behavior depends on upstream gateways.
+
 ## 2026-07-01 Read-Before-Edit Guard Quality Pass
 
 Overall grade after this slice: **all source, test, script, and E2E modules grade A+; the touched edit-safety path

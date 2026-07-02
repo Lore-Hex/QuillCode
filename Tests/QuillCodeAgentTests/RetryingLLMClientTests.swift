@@ -142,6 +142,12 @@ final class RetryingLLMClientTests: XCTestCase {
         XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: hostile).inSeconds, 60.0, accuracy: 1e-9)
     }
 
+    func testNegativeRetryAfterCapDisablesServerMandatedFloor() {
+        let policy = RetryBackoffPolicy(retryAfterCap: .seconds(-1))
+        let guidance = HTTPRateLimitDetails(retryAfter: .seconds(30))
+        XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: guidance).inSeconds, 0.0, accuracy: 1e-9)
+    }
+
     func testExhaustedQuotaResetActsAsMandateOnlyWhenRemainingIsZero() {
         let policy = RetryBackoffPolicy()
         // remaining == 0 with a reset time: authoritative — floors the delay.

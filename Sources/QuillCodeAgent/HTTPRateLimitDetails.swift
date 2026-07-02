@@ -42,18 +42,18 @@ public struct HTTPRateLimitDetails: Sendable, Hashable {
         var resetByBucket: [String: Double] = [:]
 
         for (name, rawValue) in headers {
-            let key = name.lowercased()
-            let value = rawValue.trimmingCharacters(in: .whitespaces)
+            let key = normalizedHeaderName(name)
+            let value = normalizedHeaderValue(rawValue)
             if key == "retry-after" {
                 if let seconds = parseRetryAfter(value, now: now) { retryAfter = .seconds(seconds) }
             } else if let bucket = bucket(of: key, afterPrefix: "x-ratelimit-remaining") {
-                if let count = Int(value) { remainingByBucket["x/\(bucket)"] = count }
+                if let count = Int(value) { remainingByBucket[bucketKey("x", bucket)] = count }
             } else if let bucket = bucket(of: key, afterPrefix: "x-ratelimit-reset") {
-                if let seconds = parseReset(value, now: now) { resetByBucket["x/\(bucket)"] = seconds }
+                if let seconds = parseReset(value, now: now) { resetByBucket[bucketKey("x", bucket)] = seconds }
             } else if let bucket = anthropicBucket(of: key, beforeSuffix: "-remaining") {
-                if let count = Int(value) { remainingByBucket["anthropic/\(bucket)"] = count }
+                if let count = Int(value) { remainingByBucket[bucketKey("anthropic", bucket)] = count }
             } else if let bucket = anthropicBucket(of: key, beforeSuffix: "-reset") {
-                if let seconds = parseReset(value, now: now) { resetByBucket["anthropic/\(bucket)"] = seconds }
+                if let seconds = parseReset(value, now: now) { resetByBucket[bucketKey("anthropic", bucket)] = seconds }
             }
         }
 
@@ -80,6 +80,18 @@ public struct HTTPRateLimitDetails: Sendable, Hashable {
     }
 
     // MARK: - Header-name recognition
+
+    private static func normalizedHeaderName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func normalizedHeaderValue(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func bucketKey(_ family: String, _ bucket: String) -> String {
+        "\(family)/\(bucket)"
+    }
 
     /// `x-ratelimit-remaining-tokens` (prefix `x-ratelimit-remaining`) -> "tokens"; the bare
     /// `x-ratelimit-remaining` -> "". Nil when the key is not this header family.

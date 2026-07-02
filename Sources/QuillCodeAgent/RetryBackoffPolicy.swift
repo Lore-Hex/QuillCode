@@ -50,7 +50,8 @@ public struct RetryBackoffPolicy: Sendable, Hashable {
     public func delay(forAttempt attempt: Int, jitter: Double, rateLimit: HTTPRateLimitDetails?) -> Duration {
         let jittered = delay(forAttempt: attempt, jitter: jitter)
         guard let mandated = rateLimit?.mandatedDelay else { return jittered }
-        let floor = min(retryAfterCap.inSeconds, max(0, mandated.inSeconds))
+        let configuredCap = max(0, retryAfterCap.inSeconds)
+        let floor = min(configuredCap, max(0, mandated.inSeconds))
         return .seconds(max(jittered.inSeconds, floor))
     }
 }

@@ -44,6 +44,14 @@ final class HTTPRateLimitDetailsTests: XCTestCase {
         XCTAssertEqual(details?.remaining, 0)
     }
 
+    func testHeaderWhitespaceAndNewlinesAreTrimmed() throws {
+        let details = try XCTUnwrap(HTTPRateLimitDetails.parse(
+            headers: [" Retry-After\n": "\t42\n"],
+            now: now
+        ))
+        XCTAssertEqual(details.retryAfter, .seconds(42))
+    }
+
     // MARK: - Anthropic-style headers
 
     func testAnthropicExhaustedQuotaWithRFC3339Reset() throws {
