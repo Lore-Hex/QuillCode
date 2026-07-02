@@ -32,7 +32,11 @@ struct QuillCodeDesktopAutomationCoordinator {
         let reports = model.runDueAutomationReports()
         guard !reports.isEmpty else { return }
 
-        reports.forEach(notifier.deliver)
+        if DesktopNotificationPolicy.shouldDeliverAutomationReport(
+            preferences: model.root.config.notificationPreferences
+        ) {
+            reports.forEach(notifier.deliver)
+        }
         refresh()
     }
 }

@@ -120,6 +120,26 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertTrue(stored.contains(#"browser_blocked_domain = "tracker.example""#))
     }
 
+    func testConfigRoundTripsNotificationPreferences() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(
+            notificationPreferences: QuillCodeNotificationPreferences(
+                agentRunNotificationsEnabled: false,
+                agentRunNotificationsOnlyWhenInactive: false,
+                automationNotificationsEnabled: true
+            )
+        )
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.notificationPreferences, config.notificationPreferences)
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains("agent_run_notifications_enabled = false"))
+        XCTAssertTrue(stored.contains("agent_run_notifications_only_when_inactive = false"))
+        XCTAssertTrue(stored.contains("automation_notifications_enabled = true"))
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """

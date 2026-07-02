@@ -18,6 +18,7 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.favoriteModels, [])
         XCTAssertEqual(config.browserAllowedDomains, [])
         XCTAssertEqual(config.browserBlockedDomains, [])
+        XCTAssertEqual(config.notificationPreferences, QuillCodeNotificationPreferences())
     }
 
     func testAppConfigNormalizesComputerUseApprovals() {
@@ -47,6 +48,18 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.browserAllowedDomains, ["trustedrouter.com", "example.com"])
         XCTAssertEqual(config.browserBlockedDomains, ["blocked.example.com"])
         XCTAssertEqual(config.browserDomainPolicy.statusLabel, "Allowlist + blocklist")
+    }
+
+    func testAppConfigCarriesNotificationPreferences() {
+        let preferences = QuillCodeNotificationPreferences(
+            agentRunNotificationsEnabled: false,
+            agentRunNotificationsOnlyWhenInactive: false,
+            automationNotificationsEnabled: true
+        )
+
+        let config = AppConfig(notificationPreferences: preferences)
+
+        XCTAssertEqual(config.notificationPreferences, preferences)
     }
 
     func testProjectAndThreadDecodeOlderStateWithoutInstructions() throws {

@@ -52,7 +52,7 @@ public struct URLSessionMCPHTTPClient: MCPHTTPClient {
             delegate.cancel()
             throw error
         }
-        guard delegate.statusCode != nil else {
+        guard delegate.hasHTTPResponse else {
             delegate.cancel()
             throw MCPHTTPClientError.notHTTP
         }
@@ -221,6 +221,11 @@ private final class StreamingDelegate: NSObject, MCPHTTPStream, URLSessionDataDe
     var statusCode: Int {
         lock.lock(); defer { lock.unlock() }
         return _statusCode ?? 0
+    }
+
+    var hasHTTPResponse: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _statusCode != nil
     }
 
     var headerFields: [String: String] {

@@ -12,6 +12,9 @@ struct QuillCodeSettingsDraft: Equatable {
     var computerUseApprovedAppNamesText: String = ""
     var browserAllowedDomainsText: String = ""
     var browserBlockedDomainsText: String = ""
+    var agentRunNotificationsEnabled: Bool = true
+    var agentRunNotificationsOnlyWhenInactive: Bool = true
+    var automationNotificationsEnabled: Bool = true
 
     init() {}
 
@@ -25,6 +28,11 @@ struct QuillCodeSettingsDraft: Equatable {
         self.computerUseApprovedAppNamesText = Self.joinedApprovals(settings.computerUseApprovedAppNames)
         self.browserAllowedDomainsText = Self.joinedApprovals(settings.browserAllowedDomains)
         self.browserBlockedDomainsText = Self.joinedApprovals(settings.browserBlockedDomains)
+        self.agentRunNotificationsEnabled = settings.notificationPreferences.agentRunNotificationsEnabled
+        self.agentRunNotificationsOnlyWhenInactive = settings
+            .notificationPreferences
+            .agentRunNotificationsOnlyWhenInactive
+        self.automationNotificationsEnabled = settings.notificationPreferences.automationNotificationsEnabled
     }
 
     var canSave: Bool {
@@ -42,7 +50,12 @@ struct QuillCodeSettingsDraft: Equatable {
             computerUseApprovedBundleIdentifiers: Self.approvals(from: computerUseApprovedBundleIdentifiersText),
             computerUseApprovedAppNames: Self.approvals(from: computerUseApprovedAppNamesText),
             browserAllowedDomains: Self.approvals(from: browserAllowedDomainsText),
-            browserBlockedDomains: Self.approvals(from: browserBlockedDomainsText)
+            browserBlockedDomains: Self.approvals(from: browserBlockedDomainsText),
+            notificationPreferences: QuillCodeNotificationPreferences(
+                agentRunNotificationsEnabled: agentRunNotificationsEnabled,
+                agentRunNotificationsOnlyWhenInactive: agentRunNotificationsOnlyWhenInactive,
+                automationNotificationsEnabled: automationNotificationsEnabled
+            )
         )
     }
 

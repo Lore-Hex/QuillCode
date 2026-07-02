@@ -54,6 +54,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var computerUseApprovedAppNames: [String]
     public var browserAllowedDomains: [String]
     public var browserBlockedDomains: [String]
+    public var notificationPreferences: QuillCodeNotificationPreferences
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -67,6 +68,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case computerUseApprovedAppNames
         case browserAllowedDomains
         case browserBlockedDomains
+        case notificationPreferences
     }
 
     public init(
@@ -80,7 +82,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         computerUseApprovedBundleIdentifiers: [String] = [],
         computerUseApprovedAppNames: [String] = [],
         browserAllowedDomains: [String] = [],
-        browserBlockedDomains: [String] = []
+        browserBlockedDomains: [String] = [],
+        notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences()
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -99,6 +102,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         )
         self.browserAllowedDomains = browserPolicy.allowedDomains
         self.browserBlockedDomains = browserPolicy.blockedDomains
+        self.notificationPreferences = notificationPreferences
     }
 
     public init(
@@ -123,7 +127,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
             computerUseApprovedBundleIdentifiers: computerUseApprovedBundleIdentifiers,
             computerUseApprovedAppNames: computerUseApprovedAppNames,
             browserAllowedDomains: [],
-            browserBlockedDomains: []
+            browserBlockedDomains: [],
+            notificationPreferences: QuillCodeNotificationPreferences()
         )
     }
 
@@ -151,7 +156,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
             computerUseApprovedBundleIdentifiers: [],
             computerUseApprovedAppNames: [],
             browserAllowedDomains: [],
-            browserBlockedDomains: []
+            browserBlockedDomains: [],
+            notificationPreferences: QuillCodeNotificationPreferences()
         )
     }
 
@@ -192,7 +198,11 @@ public struct AppConfig: Codable, Sendable, Hashable {
             browserBlockedDomains: try container.decodeIfPresent(
                 [String].self,
                 forKey: .browserBlockedDomains
-            ) ?? []
+            ) ?? [],
+            notificationPreferences: try container.decodeIfPresent(
+                QuillCodeNotificationPreferences.self,
+                forKey: .notificationPreferences
+            ) ?? QuillCodeNotificationPreferences()
         )
     }
 

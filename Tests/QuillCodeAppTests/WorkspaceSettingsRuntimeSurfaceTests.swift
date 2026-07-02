@@ -40,6 +40,8 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.browserAllowedDomains, [])
         XCTAssertEqual(settings.browserBlockedDomains, [])
         XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Unrestricted")
+        XCTAssertEqual(settings.notificationPreferences, QuillCodeNotificationPreferences())
+        XCTAssertEqual(settings.notificationStatusLabel, "Smart")
         XCTAssertEqual(
             settings.computerUseApprovalSummary,
             "Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps."
@@ -47,6 +49,10 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(
             settings.browserDomainPolicySummary,
             "Browser can open any http or https domain. Local files still stay workspace-scoped by the browser resolver."
+        )
+        XCTAssertEqual(
+            settings.notificationSummary,
+            "Agent runs notify only when QuillCode is in the background. Automation runs post completion alerts."
         )
     }
 
@@ -130,6 +136,21 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.browserBlockedDomains, ["example.com"])
         XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Allowlist + blocklist")
         XCTAssertEqual(settings.browserDomainPolicySummary, "Allowed: trustedrouter.com, localhost. Blocked: example.com")
+    }
+
+    func testSettingsSurfaceShowsNotificationSummary() {
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(
+                notificationPreferences: QuillCodeNotificationPreferences(
+                    agentRunNotificationsEnabled: false,
+                    automationNotificationsEnabled: true
+                )
+            ),
+            hasStoredAPIKey: true
+        )
+
+        XCTAssertEqual(settings.notificationStatusLabel, "Automations")
+        XCTAssertEqual(settings.notificationSummary, "Automation runs post completion alerts.")
     }
 
     func testSettingsSurfaceDecodesOlderComputerUsePayload() throws {
