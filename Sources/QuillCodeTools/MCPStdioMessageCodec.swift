@@ -4,11 +4,16 @@ public enum MCPStdioMessageCodec {
     public static let maxMessageBytes = 5_000_000
 
     public static func encodeJSONObject(_ object: [String: Any]) throws -> Data {
-        let body = try JSONSerialization.data(withJSONObject: object, options: [])
-        let header = "Content-Length: \(body.count)\r\n\r\n"
+        let header = "Content-Length: \(try jsonBody(object).count)\r\n\r\n"
         var data = Data(header.utf8)
-        data.append(body)
+        data.append(try jsonBody(object))
         return data
+    }
+
+    /// Serialize a JSON-RPC message to bare JSON bytes, WITHOUT the stdio `Content-Length`
+    /// framing header. Used by the HTTP transport, whose framing is HTTP itself.
+    public static func jsonBody(_ object: [String: Any]) throws -> Data {
+        try JSONSerialization.data(withJSONObject: object, options: [])
     }
 
     public static func nextMessageData(from buffer: inout Data) throws -> Data? {

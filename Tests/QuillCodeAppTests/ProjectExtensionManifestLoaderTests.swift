@@ -165,4 +165,34 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         XCTAssertEqual(manifests.map(\.kind), [.skill])
         XCTAssertEqual(manifests.map(\.relativePath), [".quillcode/marketplace/review.json"])
     }
+
+    func testLoadsRemoteHTTPMCPServerWithURLAndHeaders() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+
+        // A URL with no explicit transport infers `http`; headers and oauth_client_id come through.
+        try #"{"id":"remote","name":"Remote MCP","url":"https://mcp.example.com/mcp","headers":{"X-Api-Key":"secret"},"oauth_client_id":"client-123"}"#.write(
+            to: mcpDirectory.appendingPathComponent("remote.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        // An explicit sse transport is preserved.
+        try #"{"id":"legacy","name":"Legacy MCP","transport":"sse","url":"https://mcp.example.com/sse"}"#.write(
+            to: mcpDirectory.appendingPathComponent("legacy.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let manifests = ProjectExtensionManifestLoader.load(from: root)
+        let remote = try XCTUnwrap(manifests.first { $0.id == "mcp_server:remote" })
+        XCTAssertEqual(remote.transport, .http)
+        XCTAssertEqual(remote.serverURL, "https://mcp.example.com/mcp")
+        XCTAssertEqual(remote.headers, ["X-Api-Key": "secret"])
+        XCTAssertEqual(remote.oauthClientID, "client-123")
+
+        let legacy = try XCTUnwrap(manifests.first { $0.id == "mcp_server:legacy" })
+        XCTAssertEqual(legacy.transport, .sse)
+        XCTAssertEqual(legacy.serverURL, "https://mcp.example.com/sse")
+    }
 }

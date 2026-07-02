@@ -14,6 +14,10 @@ struct ProjectExtensionManifestPayload: Decodable {
     var command: String?
     var args: [String]?
     var transport: String?
+    var url: String?
+    var headers: [String: String]?
+    var oauthClientID: String?
+    var oauth_client_id: String?
     var installCommand: String?
     var installTimeoutSeconds: Int?
     var updateCommand: String?
@@ -95,11 +99,45 @@ struct ProjectExtensionManifestPayload: Decodable {
     }
 
     func transportKind(for kind: ProjectExtensionKind) -> ProjectExtensionTransport? {
-        if let transport = normalizedOptional(transport, maxLength: 80)?.lowercased(),
-           let parsed = ProjectExtensionTransport(rawValue: transport) {
-            return parsed
+        if let transport = normalizedOptional(transport, maxLength: 80)?.lowercased() {
+            // Accept the modern StreamableHTTP aliases as the `http` transport.
+            switch transport {
+            case "streamablehttp", "streamable_http", "streamable-http", "http-stream":
+                return .http
+            default:
+                if let parsed = ProjectExtensionTransport(rawValue: transport) {
+                    return parsed
+                }
+            }
+        }
+        // Infer from shape when transport is unspecified: a URL implies http, a command stdio.
+        if kind == .mcpServer, serverURL != nil {
+            return .http
         }
         return kind == .mcpServer && launchCommand != nil ? .stdio : nil
+    }
+
+    /// The remote endpoint URL for http/sse transports.
+    var serverURL: String? {
+        normalizedOptional(url, maxLength: 2_000)
+    }
+
+    /// Extra request headers for a remote server (values trimmed; empty keys/values dropped).
+    var serverHeaders: [String: String]? {
+        guard let headers, !headers.isEmpty else { return nil }
+        var result: [String: String] = [:]
+        for (key, value) in headers {
+            let trimmedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedKey.isEmpty, !trimmedValue.isEmpty,
+                  trimmedKey.count <= 200, trimmedValue.count <= 4_000 else { continue }
+            result[trimmedKey] = trimmedValue
+        }
+        return result.isEmpty ? nil : result
+    }
+
+    var oauthClientIDText: String? {
+        normalizedOptional(oauthClientID ?? oauth_client_id, maxLength: 500)
     }
 
     private var normalizedArgs: [String] {

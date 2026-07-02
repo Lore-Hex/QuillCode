@@ -97,7 +97,8 @@ public final class QuillCodeWorkspaceModel {
         permissionRuleStore: PermissionRuleFileStore? = nil,
         globalMemoryDirectory: URL? = nil,
         computerUseBackend: (any ComputerUseBackend)? = nil,
-        sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
+        sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor(),
+        mcpSecretStore: (any MCPSecretStore)? = nil
     ) {
         self.root = root
         self.chrome = chrome
@@ -137,7 +138,9 @@ public final class QuillCodeWorkspaceModel {
         self.globalMemoryDirectory = globalMemoryDirectory
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
-        self.mcpRuntime = WorkspaceMCPRuntime()
+        self.mcpRuntime = WorkspaceMCPRuntime(
+            launcher: DefaultWorkspaceMCPServerLauncher(secretStore: mcpSecretStore)
+        )
         if let computerUseBackend {
             self.root.topBar.computerUseStatus = computerUseBackend.status
         }

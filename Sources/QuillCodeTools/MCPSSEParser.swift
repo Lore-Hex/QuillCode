@@ -1,0 +1,209 @@
+import Foundation
+
+/// A single decoded Server-Sent Event.
+public struct MCPSSEEvent: Sendable, Hashable {
+    /// The `event:` field, or "message" when unset (per the SSE spec default).
+    public var event: String
+    /// The concatenated `data:` field values (multiple `data:` lines joined by "\n").
+    public var data: String
+    /// The `id:` field, if present. Used as the `Last-Event-ID` on reconnect.
+    public var id: String?
+
+    public init(event: String = "message", data: String, id: String? = nil) {
+        self.event = event
+        self.data = data
+        self.id = id
+    }
+}
+
+/// Incremental parser for the `text/event-stream` wire format (WHATWG SSE), hardened against
+/// hostile input. All bytes fed in are untrusted:
+///
+/// - Frames are split on blank lines (LF or CRLF). A frame that never terminates is capped by
+///   `maxEventBytes`; exceeding it throws rather than buffering without bound.
+/// - Partial frames are retained across `append` calls until a terminator arrives.
+/// - Non-UTF-8 bytes in a completed frame are lossily decoded (never crash).
+/// - Comment lines (`:`-prefixed) and unknown fields are ignored per spec.
+///
+/// The parser only accumulates the current in-flight frame; completed events are returned and
+/// dropped, so steady-state memory is bounded by `maxEventBytes` regardless of stream length.
+public struct MCPSSEParser: Sendable {
+    /// Maximum size of a single unterminated frame before the stream is rejected. Guards against
+    /// a server that streams megabytes without ever emitting a blank line.
+    public let maxEventBytes: Int
+
+    private var buffer = Data()
+
+    public init(maxEventBytes: Int = 8 * 1024 * 1024) {
+        self.maxEventBytes = max(1, maxEventBytes)
+    }
+
+    /// Feed the next chunk of bytes and return any events that completed. Throws
+    /// `MCPProbeError.invalidMessage` if a single frame grows past `maxEventBytes`.
+    public mutating func append(_ chunk: Data) throws -> [MCPSSEEvent] {
+        buffer.append(chunk)
+        var events: [MCPSSEEvent] = []
+        while let frame = try nextFrame() {
+            if let event = Self.decodeFrame(frame) {
+                events.append(event)
+            }
+        }
+        return events
+    }
+
+    /// Extract the leading complete frame (up to and including its blank-line terminator) from
+    /// the buffer, if one is present. Returns the frame bytes WITHOUT the terminator.
+    private mutating func nextFrame() throws -> Data? {
+        // A frame ends at the first blank line: "\n\n", "\r\n\r\n", or "\r\r".
+        if let range = Self.firstFrameTerminator(in: buffer) {
+            let frame = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
+            buffer.removeSubrange(buffer.startIndex..<range.upperBound)
+            return frame
+        }
+        // No terminator yet — enforce the size cap on the pending frame.
+        guard buffer.count <= maxEventBytes else {
+            throw MCPProbeError.invalidMessage("MCP SSE frame exceeded \(maxEventBytes) bytes.")
+        }
+        return nil
+    }
+
+    /// Find the byte range of the first blank-line terminator in `data`: a line break
+    /// immediately followed by another line break, where EACH break is independently LF (`\n`),
+    /// CRLF (`\r\n`), or lone CR (`\r`). All 3×3 combinations are recognized so the
+    /// frame-boundary detector uses the exact same line model as `splitLines`, and a
+    /// mixed-newline server cannot desync the two (e.g. `\n\r`, `\r\n\r`).
+    private static func firstFrameTerminator(in data: Data) -> Range<Data.Index>? {
+        let bytes = [UInt8](data)
+        let base = data.startIndex
+        var index = 0
+        while index < bytes.count {
+            guard let firstBreak = lineBreakLength(in: bytes, at: index) else {
+                index += 1
+                continue
+            }
+            let secondStart = index + firstBreak
+            guard let secondBreak = lineBreakLength(in: bytes, at: secondStart) else {
+                // The first break is real but is not immediately followed by another break;
+                // advance past it (not just one byte) so we don't rescan its interior.
+                index += firstBreak
+                continue
+            }
+            let terminatorEnd = secondStart + secondBreak
+            return base.advanced(by: index)..<base.advanced(by: terminatorEnd)
+        }
+        return nil
+    }
+
+    /// The length in bytes of the line break starting at `index`, or nil if there is none there.
+    /// CRLF is 2 bytes; lone CR and lone LF are each 1 — matching `splitLines`' scalar rules.
+    private static func lineBreakLength(in bytes: [UInt8], at index: Int) -> Int? {
+        guard index < bytes.count else { return nil }
+        switch bytes[index] {
+        case 0x0A: // LF
+            return 1
+        case 0x0D: // CR, possibly CRLF
+            if index + 1 < bytes.count, bytes[index + 1] == 0x0A {
+                return 2
+            }
+            return 1
+        default:
+            return nil
+        }
+    }
+
+    /// Decode one frame's field lines into an event. Returns nil for a frame that carried no
+    /// `data:` field (e.g. a keep-alive comment or a bare `id:` line).
+    static func decodeFrame(_ frame: Data) -> MCPSSEEvent? {
+        // Lossy decode: never trap on a malformed UTF-8 sequence from a hostile server.
+        let text = String(decoding: frame, as: UTF8.self)
+        var eventName: String?
+        var dataLines: [String] = []
+        var id: String?
+
+        for line in Self.splitLines(text) {
+            if line.isEmpty || line.hasPrefix(":") {
+                continue // blank line or comment
+            }
+            let (field, value) = Self.splitField(line)
+            switch field {
+            case "event":
+                eventName = value
+            case "data":
+                dataLines.append(value)
+            case "id":
+                // The spec forbids a NUL in the id; ignore such an id rather than storing it.
+                if !value.contains("\u{0}") {
+                    id = value
+                }
+            default:
+                break // "retry" and unknown fields are ignored
+            }
+        }
+
+        guard !dataLines.isEmpty else { return nil }
+        return MCPSSEEvent(
+            event: eventName?.isEmpty == false ? eventName! : "message",
+            data: dataLines.joined(separator: "\n"),
+            id: id
+        )
+    }
+
+    /// Split a frame into field lines at the Unicode-scalar level, treating LF (`\n`), CRLF
+    /// (`\r\n`), and lone CR (`\r`) each as a single line break per the WHATWG SSE spec.
+    ///
+    /// This deliberately does NOT use `String.split(whereSeparator:)`, which iterates
+    /// `Character`s: Swift treats `"\r\n"` as ONE extended grapheme cluster that equals neither
+    /// `"\n"` nor `"\r"`, so a CRLF between fields would collapse the whole frame into a single
+    /// line and the `data:` field would never be parsed.
+    static func splitLines(_ text: String) -> [String] {
+        var lines: [String] = []
+        var current = String.UnicodeScalarView()
+        var iterator = text.unicodeScalars.makeIterator()
+        var pushback: Unicode.Scalar?
+
+        func flush() {
+            lines.append(String(current))
+            current = String.UnicodeScalarView()
+        }
+
+        while true {
+            let scalar: Unicode.Scalar?
+            if let held = pushback {
+                pushback = nil
+                scalar = held
+            } else {
+                scalar = iterator.next()
+            }
+            guard let scalar else { break }
+
+            if scalar == "\n" {
+                flush()
+            } else if scalar == "\r" {
+                // Consume an immediately following LF so CRLF is a single break; otherwise the
+                // next scalar belongs to the following line.
+                if let next = iterator.next(), next != "\n" {
+                    pushback = next
+                }
+                flush()
+            } else {
+                current.append(scalar)
+            }
+        }
+        flush() // trailing partial line (no terminator)
+        return lines
+    }
+
+    /// Split an SSE field line into (name, value). Per spec, the value has a single leading
+    /// space stripped after the colon; a line with no colon is a field with an empty value.
+    private static func splitField(_ line: String) -> (field: String, value: String) {
+        guard let colon = line.firstIndex(of: ":") else {
+            return (line, "")
+        }
+        let field = String(line[line.startIndex..<colon])
+        var value = String(line[line.index(after: colon)...])
+        if value.hasPrefix(" ") {
+            value.removeFirst()
+        }
+        return (field, value)
+    }
+}
