@@ -103,14 +103,18 @@ public enum AuxiliaryModelSelector {
     }
 
     /// Auxiliary calls are prompt-heavy and reply short, so weight input cost 3:1.
-    /// nil when either price is missing, non-finite, zero, or negative.
+    /// nil when either price is missing, non-finite, zero, or negative — or when the blend itself
+    /// overflows to infinity (finite prices above ~6e307 do; an infinite blend would put NaN into
+    /// the cost-ratio scores and break the comparator's strict weak ordering).
     private static func blendedCost(_ capabilities: ModelCapabilities) -> Double? {
         guard let input = capabilities.inputPricePerMillionTokens,
               let output = capabilities.outputPricePerMillionTokens,
               input.isFinite, output.isFinite,
               input > 0, output > 0
         else { return nil }
-        return (3 * input + output) / 4
+        let blended = (3 * input + output) / 4
+        guard blended.isFinite else { return nil }
+        return blended
     }
 
     private static func blendedCost(ofCanonicalModelID modelID: String, in models: [ModelInfo]) -> Double? {
