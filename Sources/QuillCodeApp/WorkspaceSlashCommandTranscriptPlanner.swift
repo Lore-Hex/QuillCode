@@ -108,6 +108,26 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func environmentScheduleScheduled(
+        userText: String,
+        actionTitle: String,
+        scheduleDescription: String
+    ) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: "Scheduled \(actionTitle) for \(scheduleDescription).",
+            title: "Schedule local environment action"
+        )
+    }
+
+    static func environmentScheduleFailed(userText: String, message: String?) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: message ?? "Could not schedule this local environment action. Try `/env schedule Build in 30 minutes`.",
+            title: "Schedule local environment action"
+        )
+    }
+
     static func workspaceCommandFailed(userText: String) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,

@@ -119,6 +119,42 @@ enum WorkspaceAutomationRunner {
         )
     }
 
+    static func localEnvironmentActionDraft(
+        automation: QuillAutomation,
+        project: ProjectRef,
+        action: LocalEnvironmentAction,
+        mode: AgentMode,
+        model: String,
+        instructions: [ProjectInstruction],
+        memories: [MemoryNote],
+        now: Date
+    ) -> WorkspaceAutomationRunDraft {
+        let thread = ChatThread(
+            title: "Scheduled action: \(action.title)",
+            projectID: project.id,
+            mode: mode,
+            model: model,
+            messages: [
+                .init(
+                    role: .user,
+                    content: localEnvironmentActionMessage(for: project, action: action)
+                )
+            ],
+            events: [
+                automationRanEvent(for: automation)
+            ],
+            instructions: instructions,
+            memories: memories
+        )
+        return runDraft(
+            automation: updatedAfterRun(automation, now: now),
+            thread: thread,
+            selectedProjectID: project.id,
+            title: "QuillCode local action ready",
+            body: "\(action.title) was started for \(project.name)."
+        )
+    }
+
     static func monitorDraft(
         automation: QuillAutomation,
         project: ProjectRef?,
@@ -205,6 +241,16 @@ enum WorkspaceAutomationRunner {
         """
         Run the scheduled workspace check for \(project.name). Start with project status, recent changes, \
         local actions, and anything needing attention.
+        """
+    }
+
+    private static func localEnvironmentActionMessage(
+        for project: ProjectRef,
+        action: LocalEnvironmentAction
+    ) -> String {
+        """
+        Run the scheduled local environment action "\(action.title)" for \(project.name).
+        Action path: \(action.relativePath)
         """
     }
 

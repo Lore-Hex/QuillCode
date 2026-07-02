@@ -63,6 +63,8 @@ extension QuillCodeWorkspaceModel {
             _ = runToolCall(call, workspaceRoot: workspaceRoot)
         case .environmentAction(let query, let userText):
             runEnvironmentSlashCommand(query, originalPrompt: userText, workspaceRoot: workspaceRoot)
+        case .environmentSchedule(let scheduleText, let userText):
+            runEnvironmentScheduleSlashCommand(scheduleText, originalPrompt: userText)
         }
     }
 

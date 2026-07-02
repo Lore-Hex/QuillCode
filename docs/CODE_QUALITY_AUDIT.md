@@ -14017,3 +14017,49 @@ Validation:
 - `git diff --check`
 - `swift test` (2,327 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Local Environment Scheduling A+ Pass
+
+Overall architecture grade after this pass: **A+ for the touched slice** and
+**A+ by automated file/module heuristics across the repo**. The local
+environment scheduling feature now follows the existing Codex-parity automation
+architecture instead of adding a parallel scheduler: command parsing stays in
+slash parsers, natural-language action/schedule matching is a pure planner,
+automation record construction stays in the factory/reducer, and due execution
+uses the same refreshed project metadata plus `host.shell.run` tool-call path as
+manual local environment actions.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | Scheduling is split across focused parser, planner, reducer, runner, and workspace-model extension files. |
+| `source:QuillCodeCore` | A+ | `QuillAutomation` adds a local-environment action kind and optional action ID without pulling app execution policy into core. |
+| `test:QuillCodeAppTests` | A+ | Parser, planner, dispatch, and integration coverage prove `/env schedule` creates and runs real due automations. |
+| `test:QuillCodeParityTests` | A+ | Source gates now protect environment-command delegation and scheduled local-env dispatch wiring. |
+| `WorkspaceEnvironmentSchedulePlanner.swift` | A+ | Pure, deterministic planner; longest action candidate wins; prefix matching requires a real whitespace boundary. |
+| `SlashEnvironmentCommandParser.swift` | A+ | Tokenized subcommand parsing accepts flexible whitespace/case and keeps immediate `/env` actions separate from schedules. |
+| `WorkspaceModelAutomationRuns.swift` | A+ | Due local-env runs reject missing/remote dependencies, refresh metadata before execution, and route through canonical shell tool planning. |
+
+Code quality changes:
+
+- Added `local_environment_action` as a first-class automation kind, with
+  `QuillAutomation` keeping a single source-compatible initializer by defaulting
+  `localEnvironmentActionID` to `nil`.
+- Added `/env schedule Action name in 30 minutes` routing without overloading
+  immediate `/env [name]` execution semantics.
+- Hardened action/schedule parsing so `Build` does not accidentally match
+  `Buildkite in 30 minutes`, and so tab/multiple-space command input is handled
+  consistently.
+- Kept local-env tool arguments structured and redacted through the existing
+  `WorkspaceShellToolCallPlanner.localEnvironmentAction` path.
+- Regenerated the full deterministic per-file/module grade report in
+  `docs/CODE_QUALITY_FILE_GRADES.md`.
+
+Validation:
+
+- `swift test --filter 'SlashEnvironmentCommandParserTests|WorkspaceEnvironmentSchedulePlannerTests|WorkspaceSlashCommandDispatchPlannerTests|WorkspaceLocalEnvironmentIntegrationTests|WorkspaceAutomationEngineTests|WorkspaceAutomationRunIntegrationTests|ParitySlashWorkspaceParserGateTests|ParityWorkspaceExecutionIntegrationGateTests'` (54 tests, 0 failures)
+- `swift package clean && swift test --filter 'JSONAutomationStoreTests|WorkspaceAutomationEngineTests|WorkspaceLocalEnvironmentIntegrationTests'` (31 tests, 0 failures)
+- `swift test` (2,333 tests, 1 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

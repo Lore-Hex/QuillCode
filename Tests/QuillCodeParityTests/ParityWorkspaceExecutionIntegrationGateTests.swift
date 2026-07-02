@@ -29,7 +29,8 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
             "struct WorkspaceSlashCommandDispatchPlanner",
             "static func action(",
             "case .help:",
-            "case .environmentAction(let query):"
+            "case .environmentAction(let query):",
+            "case .environmentSchedule(let scheduleText):"
         ])
         Self.assertSource(actionExecutorText, containsAll: [
             "extension QuillCodeWorkspaceModel",

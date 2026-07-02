@@ -3,6 +3,7 @@ import Foundation
 public enum QuillAutomationKind: String, Codable, Sendable, Hashable, CaseIterable {
     case threadFollowUp = "thread_follow_up"
     case workspaceSchedule = "workspace_schedule"
+    case localEnvironmentAction = "local_environment_action"
     case monitor
 
     public var label: String {
@@ -11,6 +12,8 @@ public enum QuillAutomationKind: String, Codable, Sendable, Hashable, CaseIterab
             return "Thread follow-up"
         case .workspaceSchedule:
             return "Workspace schedule"
+        case .localEnvironmentAction:
+            return "Local environment action"
         case .monitor:
             return "Monitor"
         }
@@ -285,6 +288,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
     public var scheduleDescription: String
     public var projectID: UUID?
     public var threadID: UUID?
+    public var localEnvironmentActionID: String?
     public var eventSource: QuillAutomationEventSource?
     public var createdAt: Date
     public var updatedAt: Date
@@ -302,6 +306,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         scheduleDescription: String,
         projectID: UUID? = nil,
         threadID: UUID? = nil,
+        localEnvironmentActionID: String? = nil,
         eventSource: QuillAutomationEventSource? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
@@ -318,6 +323,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         self.scheduleDescription = scheduleDescription
         self.projectID = projectID
         self.threadID = threadID
+        self.localEnvironmentActionID = localEnvironmentActionID
         self.eventSource = eventSource
         self.createdAt = createdAt
         self.updatedAt = updatedAt

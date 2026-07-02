@@ -202,6 +202,13 @@ extension SlashCommandCatalog {
             aliases: ["environment", "local-env"]
         ),
         slashDefinition(
+            "/env schedule name when",
+            "Schedule local environment action",
+            "Run a project-local environment script later or on a recurrence.",
+            insert: "/env schedule ",
+            aliases: ["environment schedule", "local-env schedule"]
+        ),
+        slashDefinition(
             "/mode auto|plan|review|read-only",
             "Set approval mode",
             "Switch between Auto, Plan, Review, and Read-only behavior.",

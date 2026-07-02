@@ -50,11 +50,15 @@ final class ParitySlashWorkspaceParserGateTests: QuillCodeParityTestCase {
         [
             "enum SlashEnvironmentCommandParser",
             #""env", "environment", "local-env""#,
-            ".environmentAction(value.isEmpty ? nil : value)"
+            "value.firstTokenSplit",
+            ".environmentSchedule(trimmed)",
+            ".environmentAction(nil)",
+            ".environmentAction(value)"
         ].forEach { Self.assertSource(parserText, contains: $0) }
         [
             "testEmptyEnvironmentArgumentListsActions",
-            "testEnvironmentActionQueryIsTrimmed"
+            "testEnvironmentActionQueryIsTrimmed",
+            "testEnvironmentScheduleIsParsedSeparatelyFromImmediateAction"
         ].forEach { Self.assertSource(parserTests, contains: $0) }
         [
             #"case "env", "environment", "local-env""#,
