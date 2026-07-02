@@ -67,35 +67,48 @@ public struct MCPSSEParser: Sendable {
         return nil
     }
 
-    /// Find the byte range of the first blank-line terminator in `data`. Recognizes LF, CRLF,
-    /// and lone-CR line endings so a mixed-newline server cannot desync the parser.
+    /// Find the byte range of the first blank-line terminator in `data`: a line break
+    /// immediately followed by another line break, where EACH break is independently LF (`\n`),
+    /// CRLF (`\r\n`), or lone CR (`\r`). All 3×3 combinations are recognized so the
+    /// frame-boundary detector uses the exact same line model as `splitLines`, and a
+    /// mixed-newline server cannot desync the two (e.g. `\n\r`, `\r\n\r`).
     private static func firstFrameTerminator(in data: Data) -> Range<Data.Index>? {
         let bytes = [UInt8](data)
         let base = data.startIndex
         var index = 0
         while index < bytes.count {
-            let byte = bytes[index]
-            if byte == 0x0A { // LF
-                if index + 1 < bytes.count, bytes[index + 1] == 0x0A {
-                    return base.advanced(by: index)..<base.advanced(by: index + 2)
-                }
-                if index + 2 < bytes.count, bytes[index + 1] == 0x0D, bytes[index + 2] == 0x0A {
-                    return base.advanced(by: index)..<base.advanced(by: index + 3)
-                }
-            } else if byte == 0x0D { // CR
-                if index + 1 < bytes.count, bytes[index + 1] == 0x0D {
-                    return base.advanced(by: index)..<base.advanced(by: index + 2)
-                }
-                if index + 3 < bytes.count,
-                   bytes[index + 1] == 0x0A,
-                   bytes[index + 2] == 0x0D,
-                   bytes[index + 3] == 0x0A {
-                    return base.advanced(by: index)..<base.advanced(by: index + 4)
-                }
+            guard let firstBreak = lineBreakLength(in: bytes, at: index) else {
+                index += 1
+                continue
             }
-            index += 1
+            let secondStart = index + firstBreak
+            guard let secondBreak = lineBreakLength(in: bytes, at: secondStart) else {
+                // The first break is real but is not immediately followed by another break;
+                // advance past it (not just one byte) so we don't rescan its interior.
+                index += firstBreak
+                continue
+            }
+            let terminatorEnd = secondStart + secondBreak
+            return base.advanced(by: index)..<base.advanced(by: terminatorEnd)
         }
         return nil
+    }
+
+    /// The length in bytes of the line break starting at `index`, or nil if there is none there.
+    /// CRLF is 2 bytes; lone CR and lone LF are each 1 — matching `splitLines`' scalar rules.
+    private static func lineBreakLength(in bytes: [UInt8], at index: Int) -> Int? {
+        guard index < bytes.count else { return nil }
+        switch bytes[index] {
+        case 0x0A: // LF
+            return 1
+        case 0x0D: // CR, possibly CRLF
+            if index + 1 < bytes.count, bytes[index + 1] == 0x0A {
+                return 2
+            }
+            return 1
+        default:
+            return nil
+        }
     }
 
     /// Decode one frame's field lines into an event. Returns nil for a frame that carried no

@@ -67,6 +67,37 @@ final class MCPSSEParserTests: XCTestCase {
         XCTAssertEqual(MCPSSEParser.splitLines("a\r\nb\nc\rd"), ["a", "b", "c", "d"])
     }
 
+    // Regression: the frame-boundary detector must use the SAME line model as splitLines, so a
+    // blank line whose two breaks mix newline styles (LF then lone-CR, CRLF then lone-CR, etc.)
+    // is recognized as a terminator — otherwise two events merge or the stream stalls.
+    func testFrameTerminatorHandlesMixedNewlineBlankLine_LFthenCR() throws {
+        var parser = MCPSSEParser()
+        let events = try parser.append(Data("data: FIRST\n\rdata: SECOND\n\n".utf8))
+        XCTAssertEqual(events.map(\.data), ["FIRST", "SECOND"])
+    }
+
+    func testFrameTerminatorHandlesMixedNewlineBlankLine_CRLFthenCR() throws {
+        var parser = MCPSSEParser()
+        let events = try parser.append(Data("data: A\r\n\rdata: B\r\n\r\n".utf8))
+        XCTAssertEqual(events.map(\.data), ["A", "B"])
+    }
+
+    func testFrameTerminatorHandlesMixedNewlineBlankLine_LFthenCRLF() throws {
+        // First break LF, second break CRLF → still one blank-line terminator between frames.
+        var parser = MCPSSEParser()
+        let events = try parser.append(Data("data: A\n\r\ndata: B\n\n".utf8))
+        XCTAssertEqual(events.map(\.data), ["A", "B"])
+    }
+
+    // Consistent-newline framing still works after the terminator rewrite.
+    func testFrameTerminatorConsistentNewlineStylesStillWork() throws {
+        for terminator in ["\n\n", "\r\n\r\n", "\r\r"] {
+            var parser = MCPSSEParser()
+            let events = try parser.append(Data("data: only\(terminator)".utf8))
+            XCTAssertEqual(events.map(\.data), ["only"], "terminator \(terminator.debugDescription) failed")
+        }
+    }
+
     func testIgnoresCommentsAndKeepAlives() throws {
         var parser = MCPSSEParser()
         let events = try parser.append(Data(": keep-alive\n\ndata: real\n\n".utf8))
