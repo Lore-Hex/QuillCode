@@ -14370,5 +14370,6 @@ Validation:
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (0 non-A+ rows)
 - `swift test --filter 'QuillCodeRuntimeSurfaceTests|QuillCodeRuntimeIssueRecoveryPlannerTests|WorkspaceRuntimeIssueBuilderTests|WorkspaceRuntimeIssueIntegrationTests|WorkspaceHTMLChromeRendererTests|WorkspaceSettingsRuntimeSurfaceTests|ComposerPlanProgressStripTests'` (60 tests, 0 failures)
 - `swift test --filter 'ParityHTMLSourceInteractionTargetGateTests|ParityInteractionTargetPrimitiveGateTests|ComposerPlanProgressStripTests|WorkspaceHTMLChromeRendererTests'` (26 tests, 0 failures)
-- `swift test --quiet` (2,708 tests, 2 skipped, 0 failures)
+- Post-merge focused validation including Linux notification adapter tests (80 tests, 0 failures)
+- `swift test --quiet` after merging `origin/main` (2,719 tests, 2 skipped, 0 failures)
 - `git diff --check`
