@@ -65,7 +65,7 @@ enum WorkspaceToolCardSubtitleBuilder {
             return "handoff"
         case ToolDefinition.subagentsUpdate.name:
             return "subagents"
-        case ToolDefinition.browserOpen.name:
+        case ToolDefinition.browserOpen.name, ToolDefinition.webFetch.name:
             return sanitized(arguments.string("url"))
         case ToolDefinition.memoryRemember.name:
             return sanitized(arguments.string("content"))

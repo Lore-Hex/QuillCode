@@ -103,6 +103,10 @@ enum AgentToolArgumentNormalizationRules {
             stringArguments: [.init(canonicalKey: "url", aliases: ["address", "href", "target", "page"])]
         ),
         .init(
+            toolNames: [ToolDefinition.webFetch.name],
+            stringArguments: [.init(canonicalKey: "url", aliases: ["address", "href", "link", "target", "page", "uri"])]
+        ),
+        .init(
             toolNames: [ToolDefinition.gitPullRequestCreate.name],
             stringArguments: [.init(canonicalKey: "title", aliases: ["name", "subject"])]
         ),
