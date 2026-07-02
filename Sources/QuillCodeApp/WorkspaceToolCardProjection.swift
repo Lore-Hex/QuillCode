@@ -109,6 +109,13 @@ enum WorkspaceToolCardProjection {
                 systemImage: "play.fill"
             ),
             ToolCardActionSurface(
+                title: "Always run",
+                kind: .approveAlways,
+                requestID: request.id,
+                style: .secondary,
+                systemImage: "repeat"
+            ),
+            ToolCardActionSurface(
                 title: "Edit",
                 kind: .edit,
                 requestID: request.id,
@@ -121,6 +128,13 @@ enum WorkspaceToolCardProjection {
                 requestID: request.id,
                 style: .secondary,
                 systemImage: "xmark"
+            ),
+            ToolCardActionSurface(
+                title: "Never",
+                kind: .denyAlways,
+                requestID: request.id,
+                style: .destructive,
+                systemImage: "nosign"
             )
         ]
     }

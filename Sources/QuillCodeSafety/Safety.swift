@@ -7,19 +7,25 @@ public struct SafetyContext: Sendable {
     public var toolCall: ToolCall
     public var toolDefinition: ToolDefinition?
     public var recentMessages: [ChatMessage]
+    /// The workspace the tool call will run in. Persisted permission rules are per-workspace, so
+    /// the rule-gated reviewer needs it to load the right table and to normalize path resources.
+    /// Nil (the default) means "no workspace known" and disables rule evaluation only.
+    public var workspaceRoot: URL?
 
     public init(
         mode: AgentMode,
         userMessage: String,
         toolCall: ToolCall,
         toolDefinition: ToolDefinition?,
-        recentMessages: [ChatMessage]
+        recentMessages: [ChatMessage],
+        workspaceRoot: URL? = nil
     ) {
         self.mode = mode
         self.userMessage = userMessage
         self.toolCall = toolCall
         self.toolDefinition = toolDefinition
         self.recentMessages = recentMessages
+        self.workspaceRoot = workspaceRoot
     }
 }
 

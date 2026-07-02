@@ -217,8 +217,11 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(timelineCards[0].reviewState, .ready)
         XCTAssertFalse(timelineCards[0].isExpanded)
         XCTAssertEqual(timelineCards[0].density, .peek)
-        XCTAssertEqual(timelineCards[0].actions.map(\.title), ["Run", "Edit", "Skip"])
-        XCTAssertEqual(timelineCards[0].actions.map(\.requestID), ["approval-1", "approval-1", "approval-1"])
+        XCTAssertEqual(timelineCards[0].actions.map(\.title), ["Run", "Always run", "Edit", "Skip", "Never"])
+        XCTAssertEqual(
+            timelineCards[0].actions.map(\.requestID),
+            Array(repeating: "approval-1", count: 5)
+        )
         XCTAssertEqual(timelineCards[1].title, "Tool")
         XCTAssertEqual(timelineCards[1].status, .failed)
         XCTAssertEqual(timelineCards[1].subtitle, "Failed")

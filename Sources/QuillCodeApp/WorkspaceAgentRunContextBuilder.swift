@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeSafety
 import QuillCodeTools
 import QuillComputerUseKit
 
@@ -14,12 +15,21 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     var mcpToolDefinitions: [ToolDefinition]
     var mcpToolExecutionOverride: AgentToolExecutionOverride?
     var sshRemoteShellExecutor: SSHRemoteShellExecutor
+    /// Per-project persisted permission rules. When present, the run's safety reviewer is wrapped
+    /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
+    var permissionRules: (any PermissionRulesProviding)? = nil
 
     func configuredRunner(from runner: AgentRunner) -> AgentRunner {
         var activeRunner = runner
         activeRunner.baseToolDefinitions = baseToolDefinitions
         activeRunner.additionalToolDefinitions = additionalToolDefinitions
         activeRunner.toolExecutionOverride = toolExecutionOverride
+        if let permissionRules {
+            activeRunner.safety = PermissionRuleGatedSafetyReviewer(
+                base: runner.safety,
+                rules: permissionRules
+            )
+        }
         return activeRunner
     }
 

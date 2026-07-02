@@ -52,7 +52,7 @@ final class WorkspaceToolCardIntegrationTests: XCTestCase {
         XCTAssertEqual(cards[0].density, .peek)
         XCTAssertEqual(cards[0].reviewState, .ready)
         XCTAssertEqual(cards[0].inputJSON, ToolArguments.json(["cmd": "whoami"]))
-        XCTAssertEqual(cards[0].actions.map(\.title), ["Run", "Edit", "Skip"])
+        XCTAssertEqual(cards[0].actions.map(\.title), ["Run", "Always run", "Edit", "Skip", "Never"])
     }
 
     func testToolCardApprovalActionRecordsDecisionAndRunsTool() throws {

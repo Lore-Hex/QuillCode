@@ -18,6 +18,17 @@ public enum ToolCardActionKind: String, Codable, Sendable, Hashable {
     case approve
     case edit
     case deny
+    /// Approve AND save a persisted always-allow permission rule for this exact action + resource.
+    case approveAlways
+    /// Skip AND save a persisted always-deny permission rule for this exact action + resource.
+    case denyAlways
+
+    /// Kinds that run the held tool when acted on (and afterwards resume a Plan-mode run) — the
+    /// approve family. Routing (desktop send-slot gating, resume-after-approval) keys off this so
+    /// "Always allow" behaves exactly like "Run" plus the saved rule.
+    public var approvesHeldTool: Bool {
+        self == .approve || self == .approveAlways
+    }
 }
 
 public enum ToolCardActionStyle: String, Codable, Sendable, Hashable {

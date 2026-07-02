@@ -57,7 +57,8 @@ extension AgentRunner {
             userMessage: userMessage,
             toolCall: call,
             toolDefinition: definition,
-            recentMessages: thread.messages
+            recentMessages: thread.messages,
+            workspaceRoot: workspaceRoot
         ))
         try Task.checkCancellation()
 

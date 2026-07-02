@@ -18,8 +18,8 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         refresh: @escaping @MainActor () -> Void
     ) {
         let workspaceRoot = activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
-        guard action.kind == .approve else {
-            // Skip / edit are immediate, local, and unaffected by any in-flight send.
+        guard action.kind.approvesHeldTool else {
+            // Skip / edit / never are immediate, local, and unaffected by any in-flight send.
             _ = model.runToolCardAction(action, workspaceRoot: workspaceRoot)
             return
         }
