@@ -10,6 +10,7 @@ final class ParityGitPullRequestToolGateTests: QuillCodeParityTestCase {
         let pullRequestMergeText = try Self.toolsSourceText(named: "GitPullRequestMergeToolDefinitions.swift")
         let worktreeDefinitionsText = try Self.toolsSourceText(named: "GitWorktreeToolDefinitions.swift")
         let schemaText = try Self.toolsSourceText(named: "GitToolParameterSchema.swift")
+        let genericSchemaText = try Self.toolsSourceText(named: "ToolParameterSchema.swift")
         let definitionFactoryText = try Self.toolsSourceText(named: "GitToolDefinitionFactory.swift")
         let pullRequestFactoryText = try Self.toolsSourceText(named: "GitPullRequestDefinitionFactory.swift")
         let definitionTexts = [
@@ -48,7 +49,8 @@ final class ParityGitPullRequestToolGateTests: QuillCodeParityTestCase {
             "Worktree cleanup definitions should remain available from the worktree catalog."
         )
         Self.assertSource(schemaText, contains: "enum GitToolParameterSchema")
-        Self.assertSource(schemaText, contains: "JSONEncoder()")
+        Self.assertSource(genericSchemaText, contains: "enum ToolParameterSchema")
+        Self.assertSource(genericSchemaText, contains: "JSONEncoder()")
         XCTAssertTrue(
             definitionFactoryText.contains("enum GitToolDefinitionFactory"),
             "Shared local-host ToolDefinition construction should live in a focused factory."

@@ -103,63 +103,6 @@ public final class LSPClient: @unchecked Sendable {
         ])
     }
 
-    // MARK: Requests
-
-    /// `textDocument/definition`.
-    public func definition(path: String, line: Int, character: Int, timeout: TimeInterval = 5.0) throws -> [LSPLocation] {
-        let result = try request(
-            method: "textDocument/definition",
-            params: positionParams(path: path, line: line, character: character),
-            timeout: timeout
-        )
-        return LSPLocation.parseList(result)
-    }
-
-    /// `textDocument/references`.
-    public func references(path: String, line: Int, character: Int, includeDeclaration: Bool = true, timeout: TimeInterval = 5.0) throws -> [LSPLocation] {
-        var params = positionParams(path: path, line: line, character: character)
-        params["context"] = ["includeDeclaration": includeDeclaration]
-        let result = try request(method: "textDocument/references", params: params, timeout: timeout)
-        return LSPLocation.parseList(result)
-    }
-
-    /// `textDocument/hover`, flattened to plain text.
-    public func hover(path: String, line: Int, character: Int, timeout: TimeInterval = 5.0) throws -> String? {
-        let result = try request(
-            method: "textDocument/hover",
-            params: positionParams(path: path, line: line, character: character),
-            timeout: timeout
-        )
-        return LSPHoverText.extract(from: result)
-    }
-
-    /// `textDocument/documentSymbol` — the symbols defined in one file.
-    public func documentSymbols(path: String, timeout: TimeInterval = 5.0) throws -> [LSPSymbol] {
-        let result = try request(
-            method: "textDocument/documentSymbol",
-            params: ["textDocument": ["uri": LSPURI.from(path: path)]],
-            timeout: timeout
-        )
-        return LSPSymbolParser.documentSymbols(from: result, uri: LSPURI.from(path: path))
-    }
-
-    /// `workspace/symbol` — project-wide symbol search by name.
-    public func workspaceSymbols(query: String, timeout: TimeInterval = 5.0) throws -> [LSPSymbol] {
-        let result = try request(method: "workspace/symbol", params: ["query": query], timeout: timeout)
-        return LSPSymbolParser.workspaceSymbols(from: result)
-    }
-
-    /// `textDocument/formatting`. Returns the ordered text edits the server would apply, or an empty
-    /// array when the file is already formatted. `nil` capability check is the caller's job via
-    /// `supportsFormatting`.
-    public func formatting(path: String, tabSize: Int = 4, insertSpaces: Bool = true, timeout: TimeInterval = 5.0) throws -> [LSPTextEdit] {
-        let result = try request(method: "textDocument/formatting", params: [
-            "textDocument": ["uri": LSPURI.from(path: path)],
-            "options": ["tabSize": tabSize, "insertSpaces": insertSpaces]
-        ], timeout: timeout)
-        return LSPTextEdit.parseList(result)
-    }
-
     /// The most recent diagnostics the server published for a file, draining any pending
     /// notifications up to `waitFor` first so freshly-computed diagnostics after a save are captured.
     ///
@@ -227,7 +170,7 @@ public final class LSPClient: @unchecked Sendable {
 
     // MARK: Core request/response
 
-    private func request(method: String, params: [String: Any], timeout: TimeInterval) throws -> Any? {
+    func request(method: String, params: [String: Any], timeout: TimeInterval) throws -> Any? {
         lock.lock()
         defer { lock.unlock() }
         let deadline = Date().addingTimeInterval(timeout)
@@ -361,7 +304,7 @@ public final class LSPClient: @unchecked Sendable {
         return current != baseline
     }
 
-    private func positionParams(path: String, line: Int, character: Int) -> [String: Any] {
+    func positionParams(path: String, line: Int, character: Int) -> [String: Any] {
         [
             "textDocument": ["uri": LSPURI.from(path: path)],
             "position": LSPPosition(line: line, character: character).wire
