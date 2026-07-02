@@ -13730,9 +13730,15 @@ Code quality changes:
 
 - Added `WorkspaceModelCatalogRefreshPolicy` so catalog freshness rules are
   deterministic and independently tested.
+- Hardened catalog freshness thresholds so non-finite or negative configuration
+  values cannot accidentally disable future refreshes, while clock-skewed future
+  fetch timestamps still avoid immediate churn.
 - Added `QuillCodeDesktopModelCatalogRefreshCoordinator` so the desktop app
   refreshes the keyed TrustedRouter catalog at startup and on a bounded ticker
   without mixing networking policy into the controller.
+- Made ticker cancellation explicit and covered the no-key path so desktop
+  startup cannot perform live catalog fetches when the runtime is intentionally
+  unconfigured.
 - Shared TrustedRouter key detection through `QuillCodeRuntimeFactory`, so
   env-provided keys and stored keys both enable live runtime and proactive
   catalog refresh.
@@ -13742,5 +13748,5 @@ Code quality changes:
 Validation:
 
 - `swift test --filter 'WorkspaceConfigurationIntegrationTests|WorkspaceRuntimeFactoryTests|WorkspaceModelCatalogRefreshPolicyTests|QuillCodeDesktopModelCatalogRefreshCoordinatorTests'`
-- `swift test` (2,280 tests, 1 skipped, 0 failures)
+- `swift test` (2,283 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

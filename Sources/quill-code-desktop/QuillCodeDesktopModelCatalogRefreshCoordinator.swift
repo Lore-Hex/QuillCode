@@ -23,7 +23,11 @@ struct QuillCodeDesktopModelCatalogRefreshCoordinator {
     ) {
         tasks.replace(.modelCatalogRefreshTicker) {
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: tickIntervalNanoseconds)
+                do {
+                    try await Task.sleep(nanoseconds: tickIntervalNanoseconds)
+                } catch {
+                    return
+                }
                 guard !Task.isCancelled else { return }
                 triggerRefresh()
             }

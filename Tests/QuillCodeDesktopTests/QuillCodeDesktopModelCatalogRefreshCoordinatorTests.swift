@@ -46,6 +46,32 @@ final class QuillCodeDesktopModelCatalogRefreshCoordinatorTests: XCTestCase {
         XCTAssertEqual(refreshCount, 1)
     }
 
+    func testRefreshDoesNotFetchWithoutTrustedRouterKey() async throws {
+        let paths = QuillCodePaths(home: try makeTempDirectory())
+        try paths.ensure()
+        let recorder = CatalogFetchRecorder()
+        let bootstrap = QuillCodeWorkspaceBootstrap(
+            paths: paths,
+            runtimeFactory: QuillCodeRuntimeFactory(paths: paths, environment: [:]),
+            modelCatalogFetcher: { config in
+                await recorder.fetch(config: config)
+            }
+        )
+        let coordinator = QuillCodeDesktopModelCatalogRefreshCoordinator(
+            bootstrap: bootstrap,
+            policy: WorkspaceModelCatalogRefreshPolicy(staleAfter: 0, retryAfterFailure: 0)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(modelCatalogStatus: .bundled))
+        var refreshCount = 0
+
+        await coordinator.refreshIfNeeded(on: model, refresh: { refreshCount += 1 })
+
+        let fetchCount = await recorder.fetchCount()
+        XCTAssertEqual(fetchCount, 0)
+        XCTAssertEqual(refreshCount, 0)
+        XCTAssertEqual(model.root.modelCatalogStatus.source, .bundled)
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("QuillCodeDesktopCatalogTests-\(UUID().uuidString)", isDirectory: true)
