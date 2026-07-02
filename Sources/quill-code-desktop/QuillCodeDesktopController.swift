@@ -36,6 +36,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let paneCoordinator: QuillCodeDesktopPaneCoordinator
     private let workspaceActionCoordinator: QuillCodeDesktopWorkspaceActionCoordinator
     private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
+    private let transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator
     private let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
     private let tasks = QuillCodeDesktopTaskCoordinator()
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until the window installs it.
@@ -47,6 +48,8 @@ final class QuillCodeDesktopController: ObservableObject {
         browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
         browserSessionPresenter: any DesktopBrowserSessionPresenting = DesktopBrowserSessionPresenter(),
         automationNotifier: any QuillCodeAutomationNotifying = MacAutomationNotifier(),
+        transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
+            QuillCodeDesktopTranscriptExportCoordinator(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
         self.bootstrap = bootstrap
@@ -71,6 +74,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.paneCoordinator = QuillCodeDesktopPaneCoordinator()
         self.workspaceActionCoordinator = QuillCodeDesktopWorkspaceActionCoordinator()
         self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
+        self.transcriptExportCoordinator = transcriptExportCoordinator
         self.worktreeCoordinator = QuillCodeDesktopWorktreeCoordinator()
         do {
             self.model = try bootstrap.makeModel()
@@ -510,6 +514,25 @@ final class QuillCodeDesktopController: ObservableObject {
                     self?.copiedTranscriptItemID = nil
                 }
             }
+        }
+    }
+
+    func exportCurrentConversationMarkdown() {
+        guard let markdown = TranscriptMarkdownExporter.exportableMarkdown(for: surface.transcript) else {
+            return
+        }
+        exportConversationMarkdown(title: surface.topBar.primaryTitle, markdown: markdown)
+    }
+
+    func exportConversationMarkdown(title: String, markdown: String) {
+        do {
+            _ = try transcriptExportCoordinator.exportConversation(title: title, markdown: markdown)
+        } catch {
+            model.setAgentStatus(
+                TopBarAgentStatusLabel.failed,
+                lastError: "Could not export conversation: \(error.localizedDescription)"
+            )
+            refresh()
         }
     }
 

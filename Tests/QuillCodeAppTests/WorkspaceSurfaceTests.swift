@@ -92,6 +92,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "search",
             "find-in-chat",
             "copy-conversation",
+            "export-conversation-markdown",
             "cycle-mode",
             "focus-composer",
             "toggle-sidebar",

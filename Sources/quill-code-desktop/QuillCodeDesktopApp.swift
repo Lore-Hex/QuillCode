@@ -118,6 +118,7 @@ struct QuillCodeDesktopRootView: View {
             onPreviewWorktreePrune: controller.worktreePrunePreview,
             onPruneWorktrees: controller.pruneWorktrees,
             onCopyTranscriptItem: controller.copyTranscriptItem,
+            onExportConversationMarkdown: controller.exportConversationMarkdown,
             onRevertTurn: controller.runTurnRevert,
             onMessageFeedback: controller.setMessageFeedback,
             onSaveSidebarSavedSearch: controller.saveSidebarSavedSearch,
@@ -159,7 +160,8 @@ private struct QuillCodeDesktopCommandNotifications: ViewModifier {
             observe(.quillCodeKeyboardShortcuts) { $0.openKeyboardShortcuts() },
             observe(.quillCodeOpenSettings) { $0.openSettings() },
             observe(.quillCodeStopAll) { $0.stopAll() },
-            observe(.quillCodeRetryLastTurn) { $0.retryLastTurn() }
+            observe(.quillCodeRetryLastTurn) { $0.retryLastTurn() },
+            observe(.quillCodeExportConversationMarkdown) { $0.exportCurrentConversationMarkdown() }
         ]
     }
 

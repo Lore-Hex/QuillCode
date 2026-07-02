@@ -14132,3 +14132,38 @@ Validation:
 - `swift test` (2,344 tests, 1 skipped, 0 failures)
 - `git diff --check`
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-02 Transcript Markdown File Export A+ Pass
+
+Overall grade after this slice: **A+ for transcript-export architecture**.
+The pass upgrades the earlier clipboard-only Markdown export into a reusable
+export boundary without duplicating transcript formatting, command routing, or
+desktop save behavior.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `TranscriptMarkdownExporter.swift` | A+ | Exposes `exportableMarkdown(for:)` as the non-empty export guard while keeping clipboard callers as a thin alias. The role/tool-card serializer remains single-source. |
+| `WorkspaceCommandStaticCatalog.swift` / `QuillCodeWorkspaceViewCommandPlanner.swift` | A+ | Adds `export-conversation-markdown` as a typed view-local action beside copy, enabled only when a thread exists. |
+| `WorkspaceSwiftUIView.swift` | A+ | Reuses the pure exporter and delegates file export through an injected closure, keeping SwiftUI free of AppKit save-panel logic. |
+| `QuillCodeDesktopTranscriptExportCoordinator.swift` | A+ | Injectable destination, native `NSSavePanel` writer, deterministic filename sanitizer, blank/cancel/no-op semantics, and failure propagation. |
+| `E2E/harness/index.html` / `core.spec.ts` | A+ | Harness mirrors the command and records a virtual exported file so Playwright proves copy/export byte parity without flaky downloads. |
+
+Code quality changes:
+
+- Added a native `Export Conversation as Markdown...` app-menu command and a
+  command-palette entry that route through the same Markdown source as Copy
+  conversation.
+- Added a desktop export coordinator with a tiny `QuillCodeMarkdownExportDestination`
+  seam so save-panel behavior is unit-testable without AppKit UI.
+- Normalized suggested `.md` filenames from thread titles with fallback to
+  `Conversation.md`, preserving explicit `.md` names and trimming invalid
+  separators.
+- Kept cancellation as a no-op and write failures on the existing top-bar
+  runtime issue path instead of adding a second error UI surface.
+
+Validation:
+
+- `swift test --filter 'TranscriptMarkdownExporterTests|QuillCodeWorkspaceViewCommandPlannerTests|QuillCodeDesktopTranscriptExportCoordinatorTests|ParityDesktopGateTests|WorkspaceRenderedCommandRoutingParityTests'` (24 tests, 0 failures)
+- `npx playwright test tests/core.spec.ts -g "copies the whole conversation"` (1 test, 0 failures)

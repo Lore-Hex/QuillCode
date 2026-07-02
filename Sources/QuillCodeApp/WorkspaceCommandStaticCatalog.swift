@@ -57,6 +57,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: navigation,
                 keywords: ["export", "transcript", "markdown", "copy all", "share"],
                 isEnabled: hasSelectedThread
+            ),
+            command(
+                "export-conversation-markdown",
+                "Export conversation as Markdown...",
+                category: navigation,
+                keywords: ["export", "transcript", "markdown", "file", "save", "share"],
+                isEnabled: hasSelectedThread
             )
         ]
     }

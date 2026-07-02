@@ -102,9 +102,14 @@ final class TranscriptMarkdownExporterTests: XCTestCase {
         XCTAssertNil(TranscriptMarkdownExporter.clipboardMarkdown(for: transcript([])))
         let blank = MessageSurface(message: ChatMessage(role: .user, content: "   "))
         XCTAssertNil(TranscriptMarkdownExporter.clipboardMarkdown(for: transcript([.message(blank)])))
+        XCTAssertNil(TranscriptMarkdownExporter.exportableMarkdown(for: transcript([.message(blank)])))
         let real = MessageSurface(message: ChatMessage(role: .assistant, content: "answer"))
         XCTAssertEqual(
             TranscriptMarkdownExporter.clipboardMarkdown(for: transcript([.message(real)])),
+            "## Assistant\n\nanswer"
+        )
+        XCTAssertEqual(
+            TranscriptMarkdownExporter.exportableMarkdown(for: transcript([.message(real)])),
             "## Assistant\n\nanswer"
         )
     }
