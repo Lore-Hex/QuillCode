@@ -29,6 +29,9 @@ final class ParityWorkspaceSettingsSurfaceGateTests: QuillCodeParityTestCase {
 
         Self.assertSource(settingsUpdateText, contains: "public struct WorkspaceSettingsUpdate")
         Self.assertSource(settingsUpdateText, contains: "computerUseApprovedBundleIdentifiers")
+        Self.assertSource(settingsUpdateText, contains: "AppConfig(")
         Self.assertSource(surfaceText, excludes: "public struct WorkspaceSettingsUpdate")
+        Self.assertSource(settingsText, excludes: "public struct WorkspaceSettingsUpdate")
+        Self.assertSource(settingsText, excludes: "public struct ComputerUseRequirementSurface")
     }
 }
