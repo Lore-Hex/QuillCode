@@ -13909,3 +13909,39 @@ Validation:
 - `swift test --filter 'FilePathSuggesterTests|RicherToolErrorsFunctionalTests|RicherToolErrorsRouterIntegrationTests|PatchHunkFailureSummaryTests|TrustedRouterErrorBodyFormatterTests|ToolRouterTests|FileToolExecutorTests|PatchToolExecutorTests|TrustedRouterStreamingActionTests'` (72 tests, 0 failures)
 - `swift test` (2,317 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Core Test And OAuth Boundary A+ Pass
+
+Overall architecture grade after this pass: **A+**. This pass re-ran the
+file/module/architecture grader, then tightened the lowest-scoring A+ ownership
+boundaries instead of leaving broad buckets in place. Every source, test, E2E,
+and script module still grades **A+** in the regenerated report.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `test:QuillCodeCoreTests` | A+ | The old 653-line `CoreModelTests.swift` bucket is split into focused domain suites. |
+| `source:QuillCodeAgent` | A+ | OAuth flow code no longer owns the pure Swift SHA-256 fallback implementation. |
+| `TrustedRouterOAuth.swift` | A+ | Improved from score 96 to 97 by keeping OAuth/PKCE flow separate from fallback hashing. |
+| `SHA256Pure.swift` | A+ | Owns the no-CryptoKit hashing fallback behind the agent module boundary. |
+
+Code quality changes:
+
+- Split the broad Core model test file into focused tests for model catalog,
+  automation recurrence, tool schemas/arguments, browser inspection, app config
+  compatibility, and project instructions.
+- Preserved behavior and test names at the assertion level while giving future
+  agents smaller files with one reason to change.
+- Extracted the pure Swift SHA-256 fallback from the TrustedRouter OAuth client,
+  keeping cross-platform PKCE support without mixing crypto implementation into
+  OAuth request/response code.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md` so every individual file and
+  module has current deterministic grade output.
+
+Validation:
+
+- `swift test --filter 'ModelCatalogCoreTests|AutomationRecurrenceCoreTests|ToolSchemaCoreTests|BrowserInspectionCoreTests|AppConfigCompatibilityTests|ProjectInstructionCoreTests|ModelTokenUsageTests|VerificationResultParserTests'`
+- `swift test --filter 'TrustedRouterOAuthTests|ModelCatalogCoreTests|AutomationRecurrenceCoreTests|ToolSchemaCoreTests|BrowserInspectionCoreTests|AppConfigCompatibilityTests|ProjectInstructionCoreTests'`
+- `swift test` (2,327 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
