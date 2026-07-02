@@ -23,6 +23,12 @@ public struct FileToolExecutor: Sendable {
     public func read(path: String, offset: Int? = nil, limit: Int? = nil) -> ToolResult {
         do {
             let url = try resolve(path)
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                return ToolResult(
+                    ok: false,
+                    error: FilePathSuggester.missingFileMessage(requestedPath: path, resolvedURL: url)
+                )
+            }
             let data = try Data(contentsOf: url)
             // Refuse binary/image content gracefully instead of erroring or dumping garbage into context.
             if FileReadRenderer.isProbablyBinary(data) {
@@ -42,7 +48,7 @@ public struct FileToolExecutor: Sendable {
                 artifacts: [url.path]
             )
         } catch {
-            return ToolResult(ok: false, error: String(describing: error))
+            return ToolResult(ok: false, error: ToolErrorMessage.describe(error))
         }
     }
 
@@ -60,7 +66,7 @@ public struct FileToolExecutor: Sendable {
             try data.write(to: url, options: .atomic)
             return ToolResult(ok: true, stdout: "Wrote \(url.path)\n", artifacts: [url.path])
         } catch {
-            return ToolResult(ok: false, error: String(describing: error))
+            return ToolResult(ok: false, error: ToolErrorMessage.describe(error))
         }
     }
 
@@ -77,7 +83,7 @@ public struct FileToolExecutor: Sendable {
                 artifacts: result.artifacts
             )
         } catch {
-            return ToolResult(ok: false, error: String(describing: error))
+            return ToolResult(ok: false, error: ToolErrorMessage.describe(error))
         }
     }
 
@@ -90,7 +96,7 @@ public struct FileToolExecutor: Sendable {
                 artifacts: result.artifacts
             )
         } catch {
-            return ToolResult(ok: false, error: String(describing: error))
+            return ToolResult(ok: false, error: ToolErrorMessage.describe(error))
         }
     }
 

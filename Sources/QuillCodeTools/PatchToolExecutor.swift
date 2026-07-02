@@ -58,7 +58,9 @@ public struct PatchToolExecutor: Sendable {
                 stdout: check.stdout,
                 stderr: check.stderr,
                 exitCode: check.exitCode,
-                error: check.error ?? "Patch check failed."
+                error: PatchFailureExplainer.explain(stderr: check.stderr, patch: normalizedPatch, workspaceRoot: workspaceRoot)
+                    ?? check.error
+                    ?? "Patch check failed."
             )
         }
         let apply = shell.run(.init(command: "git apply \(quoted)", cwd: workspaceRoot, timeoutSeconds: 20))
@@ -70,7 +72,10 @@ public struct PatchToolExecutor: Sendable {
                 exitCode: apply.exitCode
             )
         }
-        return apply
+        var failed = apply
+        failed.error = PatchFailureExplainer.explain(stderr: apply.stderr, patch: normalizedPatch, workspaceRoot: workspaceRoot)
+            ?? failed.error
+        return failed
     }
 
     public static func unsafePath(in patch: String) -> String? {

@@ -23,7 +23,7 @@ enum WorkspaceRemoteProjectFileToolExecutor {
                 )
                 : remoteFileResult(result, connection: context.connection, path: relativePath)
         } catch {
-            return ToolResult(ok: false, error: String(describing: error))
+            return ToolResult(ok: false, error: ToolErrorMessage.describe(error))
         }
     }
 

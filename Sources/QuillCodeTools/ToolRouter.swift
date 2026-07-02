@@ -73,7 +73,7 @@ public struct ToolRouter: Sendable {
                 return ToolResult(ok: false, error: "Unknown tool: \(call.name)")
             }
         } catch {
-            return ToolResult(ok: false, error: String(describing: error))
+            return ToolResult(ok: false, error: ToolErrorMessage.describe(error))
         }
     }
 }
