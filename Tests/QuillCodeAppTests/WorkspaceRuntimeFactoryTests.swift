@@ -18,6 +18,18 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         XCTAssertTrue(runtime.contextSummaryGenerator.isModelBacked)
     }
 
+    func testEnvironmentKeyCountsAsTrustedRouterCatalogCredential() throws {
+        let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
+        try paths.ensure()
+
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["TRUSTEDROUTER_API_KEY": "sk-test"]
+        )
+
+        XCTAssertTrue(runtimeFactory.hasTrustedRouterAPIKey())
+    }
+
     func testUsesTrustedRouterWhenSecretExists() throws {
         let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
         try paths.ensure()
@@ -31,6 +43,7 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
 
         XCTAssertEqual(runtime.mode, .trustedRouter)
         XCTAssertTrue(runtime.contextSummaryGenerator.isModelBacked)
+        XCTAssertTrue(QuillCodeRuntimeFactory(paths: paths, environment: [:]).hasTrustedRouterAPIKey())
     }
 
     func testCanForceMockForDeterministicRuns() throws {

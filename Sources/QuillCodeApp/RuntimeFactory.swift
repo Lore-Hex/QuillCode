@@ -120,6 +120,12 @@ public struct QuillCodeRuntimeFactory: Sendable {
         }
     }
 
+    public func hasTrustedRouterAPIKey() -> Bool {
+        guard !forcedMock else { return false }
+        if configuredAPIKey() != nil { return true }
+        return sessionStore().hasAPIKey
+    }
+
     private var forcedMock: Bool {
         let value = environment["QUILLCODE_USE_MOCK_LLM"]?.lowercased()
         return value == "1" || value == "true" || value == "yes"

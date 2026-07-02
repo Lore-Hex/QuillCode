@@ -13709,3 +13709,38 @@ Validation:
 - `swift test --filter 'WorkspaceModelVerificationGateTests|ParityWorkspaceExecutionGateTests'`
 - `swift test` (2,225 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Proactive Model Catalog Refresh A+ Pass
+
+Overall architecture grade after this pass: **A+**. The regenerated file-grade
+report lists every source, test, script, and Playwright module as **A+**. The
+new refresh policy/coordinator files each grade **A+ 100** with no automated
+issues.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | Catalog refresh timing is a pure policy in the app layer, separate from desktop scheduling. |
+| `source:quill-code-desktop` | A+ | Desktop startup/ticker orchestration lives in a focused coordinator and task slots. |
+| `WorkspaceModelCatalogRefreshPolicy.swift` | A+ 100 | Owns keyed startup, stale-live, and failed-refresh backoff decisions. |
+| `QuillCodeDesktopModelCatalogRefreshCoordinator.swift` | A+ 100 | Applies catalog refresh only when the policy says the catalog is stale. |
+
+Code quality changes:
+
+- Added `WorkspaceModelCatalogRefreshPolicy` so catalog freshness rules are
+  deterministic and independently tested.
+- Added `QuillCodeDesktopModelCatalogRefreshCoordinator` so the desktop app
+  refreshes the keyed TrustedRouter catalog at startup and on a bounded ticker
+  without mixing networking policy into the controller.
+- Shared TrustedRouter key detection through `QuillCodeRuntimeFactory`, so
+  env-provided keys and stored keys both enable live runtime and proactive
+  catalog refresh.
+- Added an injectable bootstrap catalog fetcher for tests, avoiding live
+  network coupling in desktop coordinator coverage.
+
+Validation:
+
+- `swift test --filter 'WorkspaceConfigurationIntegrationTests|WorkspaceRuntimeFactoryTests|WorkspaceModelCatalogRefreshPolicyTests|QuillCodeDesktopModelCatalogRefreshCoordinatorTests'`
+- `swift test` (2,280 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

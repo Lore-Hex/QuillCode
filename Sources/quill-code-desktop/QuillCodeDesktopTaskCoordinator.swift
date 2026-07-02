@@ -8,6 +8,8 @@ final class QuillCodeDesktopTaskCoordinator {
         case terminal
         case browserPreview
         case automationTicker
+        case modelCatalogRefresh
+        case modelCatalogRefreshTicker
     }
 
     private let coordinator = QuillCodeTaskCoordinator<Slot>()

@@ -4,15 +4,20 @@ import QuillCodeCore
 import QuillCodePersistence
 
 public struct QuillCodeWorkspaceBootstrap: Sendable {
+    public typealias ModelCatalogFetcher = @Sendable (AppConfig) async -> TrustedRouterModelCatalog
+
     public var paths: QuillCodePaths
     public var runtimeFactory: QuillCodeRuntimeFactory
+    public var modelCatalogFetcher: ModelCatalogFetcher?
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
-        runtimeFactory: QuillCodeRuntimeFactory? = nil
+        runtimeFactory: QuillCodeRuntimeFactory? = nil,
+        modelCatalogFetcher: ModelCatalogFetcher? = nil
     ) {
         self.paths = paths
         self.runtimeFactory = runtimeFactory ?? QuillCodeRuntimeFactory(paths: paths)
+        self.modelCatalogFetcher = modelCatalogFetcher
     }
 
     @MainActor
@@ -23,7 +28,6 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
-        let secretStore = FileSecretStore(directory: paths.secretsDirectory)
         let projects = try projectStore.load()
         let threads = try threadStore.list()
         let automations = try automationStore.load()
@@ -50,7 +54,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                     } ?? config.mode,
                     agentStatus: runtime.statusLabel
                 ),
-                trustedRouterAPIKeyConfigured: Self.hasTrustedRouterAPIKey(secretStore: secretStore)
+                trustedRouterAPIKeyConfigured: runtimeFactory.hasTrustedRouterAPIKey()
             ),
             automations: AutomationsState(items: automations),
             sidebarSavedSearches: sidebarSavedSearches,
@@ -76,7 +80,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
     }
 
     public func hasTrustedRouterAPIKey() -> Bool {
-        Self.hasTrustedRouterAPIKey(secretStore: FileSecretStore(directory: paths.secretsDirectory))
+        runtimeFactory.hasTrustedRouterAPIKey()
     }
 
     public func saveTrustedRouterAPIKey(_ apiKey: String) throws {
@@ -94,12 +98,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
     }
 
     public func fetchModelCatalog(config: AppConfig) async -> TrustedRouterModelCatalog {
-        await runtimeFactory.fetchModelCatalog(config: config)
-    }
-
-    private static func hasTrustedRouterAPIKey(secretStore: FileSecretStore) -> Bool {
-        let value = try? secretStore.read(QuillSecretKeys.trustedRouterAPIKey)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return value?.isEmpty == false
+        if let modelCatalogFetcher {
+            return await modelCatalogFetcher(config)
+        }
+        return await runtimeFactory.fetchModelCatalog(config: config)
     }
 }
