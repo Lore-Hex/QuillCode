@@ -25,7 +25,8 @@ public extension QuillCodeWorkspaceModel {
         setLastError(nil)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
-        let router = ToolRouter(workspaceRoot: workspaceRoot)
+        // UI-initiated review actions run in the model's UI edit session, not any chat thread's.
+        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: uiEditSessionGuard)
         let runPlan = WorkspaceReviewActionToolCallPlanner.runPlan(for: action)
         let result = WorkspaceReviewActionRunner(
             plan: runPlan,
@@ -49,7 +50,8 @@ public extension QuillCodeWorkspaceModel {
         setLastError(nil)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
-        let router = ToolRouter(workspaceRoot: workspaceRoot)
+        // UI-initiated review actions run in the model's UI edit session, not any chat thread's.
+        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: uiEditSessionGuard)
         let runPlan = WorkspacePullRequestReviewThreadActionToolCallPlanner.runPlan(for: action)
         let result = WorkspacePullRequestReviewThreadActionRunner(
             plan: runPlan,
@@ -73,7 +75,8 @@ public extension QuillCodeWorkspaceModel {
         setLastError(nil)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
-        let router = ToolRouter(workspaceRoot: workspaceRoot)
+        // UI-initiated review actions run in the model's UI edit session, not any chat thread's.
+        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: uiEditSessionGuard)
         let runPlan = WorkspacePullRequestReviewThreadReplyToolCallPlanner.runPlan(for: request)
         let result = WorkspacePullRequestReviewThreadReplyRunner(
             plan: runPlan,

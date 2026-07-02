@@ -18,6 +18,9 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         """
         let model = QuillCodeWorkspaceModel()
 
+        // Workspace tool runs use the model's UI edit session, which refuses to patch an
+        // existing file that session never read — record the fixture file as read there.
+        model.uiEditSessionGuard.markRead(fileURL)
         model.runToolCall(
             ToolCall(
                 name: ToolDefinition.applyPatch.name,

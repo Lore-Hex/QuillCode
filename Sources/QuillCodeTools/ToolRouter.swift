@@ -11,13 +11,14 @@ public struct ToolRouter: Sendable {
     public init(
         workspaceRoot: URL,
         shell: ShellToolExecutor = ShellToolExecutor(),
-        git: GitToolExecutor = GitToolExecutor()
+        git: GitToolExecutor = GitToolExecutor(),
+        editGuard: FileEditSessionGuard = .shared
     ) {
         self.workspaceRoot = workspaceRoot
         self.shell = shell
-        self.files = FileToolExecutor(workspaceRoot: workspaceRoot)
+        self.files = FileToolExecutor(workspaceRoot: workspaceRoot, editGuard: editGuard)
         self.git = git
-        self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell)
+        self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell, editGuard: editGuard)
     }
 
     public static let definitions: [ToolDefinition] = ShellToolCallDispatcher.definitions + [

@@ -27,7 +27,9 @@ struct WorkspaceToolRunCoordinator {
         model.setLastError(startPlan.lastError)
         model.refreshTopBar(agentStatus: startPlan.agentStatus)
 
-        let router = ToolRouter(workspaceRoot: workspaceRoot)
+        // App/UI-initiated tool runs use the model's UI edit session — never a chat thread's —
+        // so a UI read grants no model thread write rights (and vice versa).
+        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: model.uiEditSessionGuard)
         let executor = WorkspaceToolCallExecutorFactory.executor(model: model, router: router)
         let execution = model.mutateBrowserState { browser, lastError in
             executor.execute(call, browser: &browser, lastError: &lastError)

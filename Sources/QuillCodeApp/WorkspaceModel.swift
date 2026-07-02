@@ -48,6 +48,11 @@ public final class QuillCodeWorkspaceModel {
     let mcpRuntime: WorkspaceMCPRuntime
     var activeTerminalSession: (any ShellInteractiveSession)?
     var subagentScheduler = WorkspaceSubagentScheduler()
+    /// The edit session for app/UI-initiated tool runs (`runToolCall`): review-pane opens,
+    /// slash commands, diagnostic applies. Deliberately SEPARATE from every chat thread's
+    /// `FileEditSessionGuard.session(for:)`, so a file the user merely opened in the UI never
+    /// becomes writable to a model thread that has not read it.
+    let uiEditSessionGuard = FileEditSessionGuard()
     /// Bounded, cached index of the selected local project's files, used to power
     /// composer `@` file mentions. Empty for remote or unselected projects.
     public internal(set) var fileMentionIndex = WorkspaceFileIndex()

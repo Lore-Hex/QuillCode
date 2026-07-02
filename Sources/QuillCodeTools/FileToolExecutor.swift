@@ -3,6 +3,11 @@ import QuillCodeCore
 
 public struct FileToolExecutor: Sendable {
     public var workspaceRoot: URL
+    /// When set, `write` refuses to overwrite an existing file the session never read, rejects
+    /// no-op writes, and serializes concurrent writes to the same file; `read` records the file
+    /// in the session's read-set. When nil (the default), reads and writes are unguarded —
+    /// direct programmatic use such as test fixtures. `ToolRouter` always injects a guard.
+    public var editGuard: FileEditSessionGuard?
 
     private var pathResolver: FileWorkspacePathResolver {
         FileWorkspacePathResolver(workspaceRoot: workspaceRoot)
@@ -16,15 +21,18 @@ public struct FileToolExecutor: Sendable {
         FileSearchScanner(pathResolver: pathResolver)
     }
 
-    public init(workspaceRoot: URL) {
+    public init(workspaceRoot: URL, editGuard: FileEditSessionGuard? = nil) {
         self.workspaceRoot = workspaceRoot.standardizedFileURL
+        self.editGuard = editGuard
     }
 
     public func read(path: String, offset: Int? = nil, limit: Int? = nil) -> ToolResult {
         do {
             let url = try resolve(path)
             let data = try Data(contentsOf: url)
-            // Refuse binary/image content gracefully instead of erroring or dumping garbage into context.
+            // Refuse binary/image content gracefully instead of erroring or dumping garbage into
+            // context. The refusal must NOT count as a read: the session was never shown the
+            // content, so it earns no write/patch rights over it.
             if FileReadRenderer.isProbablyBinary(data) {
                 return ToolResult(
                     ok: true,
@@ -36,6 +44,11 @@ public struct FileToolExecutor: Sendable {
             // Strip a leading BOM and normalize CRLF→LF so the numbered view is not polluted by a
             // U+FEFF on line 1 or a trailing `\r` on every line. The file on disk is untouched.
             let display = FileEncodingPreservation.normalizeForDisplay(text)
+            // A partial (offset/limit) read counts as reading the file, but a window past the end
+            // shows no content at all, so it must not mark either.
+            if Self.windowShowsContent(display: display, offset: offset) {
+                editGuard?.markRead(url)
+            }
             return ToolResult(
                 ok: true,
                 stdout: FileReadRenderer.render(display, offset: offset, limit: limit),
@@ -46,22 +59,57 @@ public struct FileToolExecutor: Sendable {
         }
     }
 
+    /// Whether a `[offset, …)` read window intersects the file at all — mirrors
+    /// `FileReadRenderer.render`'s "offset is past the end" case.
+    private static func windowShowsContent(display: String, offset: Int?) -> Bool {
+        let start = max(1, offset ?? 1)
+        guard start > 1 else { return true }
+        var lines = display.isEmpty ? [] : display.components(separatedBy: "\n")
+        if display.hasSuffix("\n"), lines.last == "" { lines.removeLast() }
+        return start <= lines.count
+    }
+
     public func write(path: String, content: String) -> ToolResult {
         do {
             let url = try resolve(path)
-            try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            // Preserve the existing file's BOM + line-ending style so a content edit doesn't silently
-            // rewrite every line. A new file gets the default (bare UTF-8, LF, no BOM).
-            let style = (try? Data(contentsOf: url)).map(FileEncodingPreservation.detect) ?? .default
-            let data = FileEncodingPreservation.apply(content, style: style)
-            try data.write(to: url, options: .atomic)
-            return ToolResult(ok: true, stdout: "Wrote \(url.path)\n", artifacts: [url.path])
+            guard let editGuard else {
+                return try performWrite(content, to: url)
+            }
+            // The existence check, no-op check, and write happen under the per-file lock so a
+            // concurrent edit to the same file cannot interleave with (or invalidate) them.
+            return try editGuard.withExclusiveAccess(to: [url]) {
+                let existing = try? Data(contentsOf: url)
+                if FileManager.default.fileExists(atPath: url.path), !editGuard.hasRead(url) {
+                    throw FileEditGuardError.writeWithoutRead(path)
+                }
+                if let existing, existing == encodedData(for: content, existing: existing) {
+                    throw FileEditGuardError.noOpWrite(path)
+                }
+                let result = try performWrite(content, to: url, existing: existing)
+                // The session wrote this exact content, so it now knows the file.
+                editGuard.markRead(url)
+                return result
+            }
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private func performWrite(_ content: String, to url: URL, existing: Data? = nil) throws -> ToolResult {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let data = encodedData(for: content, existing: existing ?? (try? Data(contentsOf: url)))
+        try data.write(to: url, options: .atomic)
+        return ToolResult(ok: true, stdout: "Wrote \(url.path)\n", artifacts: [url.path])
+    }
+
+    /// Preserve the existing file's BOM + line-ending style so a content edit doesn't silently
+    /// rewrite every line. A new file gets the default (bare UTF-8, LF, no BOM).
+    private func encodedData(for content: String, existing: Data?) -> Data {
+        let style = existing.map(FileEncodingPreservation.detect) ?? .default
+        return FileEncodingPreservation.apply(content, style: style)
     }
 
     public func list(path: String = ".", includeHidden: Bool = false, maxEntries: Int? = nil) -> ToolResult {
