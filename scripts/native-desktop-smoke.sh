@@ -14,6 +14,14 @@ DESKTOP_EXECUTABLE="${QUILLCODE_DESKTOP_EXECUTABLE:-}"
 DESKTOP_APP_BUNDLE="${QUILLCODE_DESKTOP_APP_BUNDLE:-}"
 ARTIFACT_DIR="${QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR:-}"
 KEEP_ARTIFACTS="${QUILLCODE_NATIVE_DESKTOP_SMOKE_KEEP_ARTIFACTS:-}"
+SMOKE_ARTIFACT_PATHS=(
+  "$REPORT_PATH"
+  "$RENDER_PATH"
+  "$RESULT_RENDER_PATH"
+  "$CHROME_RENDER_PATH"
+  "$HTML_PATH"
+  "$STDOUT_PATH"
+)
 
 cleanup() {
   local status=$?
@@ -21,7 +29,7 @@ cleanup() {
 
   if [[ -n "$ARTIFACT_DIR" ]]; then
     mkdir -p "$ARTIFACT_DIR"
-    for artifact_path in "$REPORT_PATH" "$RENDER_PATH" "$RESULT_RENDER_PATH" "$CHROME_RENDER_PATH" "$HTML_PATH" "$STDOUT_PATH"; do
+    for artifact_path in "${SMOKE_ARTIFACT_PATHS[@]}"; do
       if [[ -e "$artifact_path" ]]; then
         cp "$artifact_path" "$ARTIFACT_DIR/$(basename "$artifact_path")"
       fi
@@ -153,100 +161,180 @@ report_path = sys.argv[1]
 with open(report_path, "r", encoding="utf-8") as report_file:
     report = json.load(report_file)
 
+SMOKE_PREFIX = "quill-code-desktop native smoke"
+
+
+def fail(message):
+    raise SystemExit(f"{SMOKE_PREFIX} {message}")
+
+
+def require_non_empty_string(value, field, context):
+    if not isinstance(value, str) or not value.strip():
+        fail(f"reported native hit target with empty {field}: {context}")
+
+
+def require_bool(context, field):
+    if not isinstance(context.get(field), bool):
+        fail(f"reported native hit target with malformed {field}: {context}")
+
+
+def require_string_list(context, field):
+    value = context.get(field)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        fail(f"reported surface policy with malformed {field}: {context}")
+    return value
+
+
+def require_policy_coverage(policy_by_family, family, required_values, field):
+    covered_values = policy_by_family.get(family, {}).get(field, set())
+    missing_values = sorted(required_values - covered_values)
+    if missing_values:
+        fail(f"surface policy for {family} is missing {field}: {', '.join(missing_values)}")
+
+
 native_targets = report.get("nativeHitTargets")
 if not isinstance(native_targets, dict):
-    raise SystemExit("quill-code-desktop native smoke did not include native hit target contracts")
+    fail("did not include native hit target contracts")
 
 if native_targets.get("isValid") is not True:
-    raise SystemExit("quill-code-desktop native smoke did not validate native hit target contracts")
+    fail("did not validate native hit target contracts")
 
 duplicate_ids = native_targets.get("duplicateContractIDs")
 if duplicate_ids != []:
-    raise SystemExit(f"quill-code-desktop native smoke reported duplicate native hit target IDs: {duplicate_ids}")
+    fail(f"reported duplicate native hit target IDs: {duplicate_ids}")
 
 if native_targets.get("minimumHitTarget") != 44:
-    raise SystemExit("quill-code-desktop native smoke reported unexpected native minimum hit target")
+    fail("reported unexpected native minimum hit target")
 
 press_scale = native_targets.get("pressScale")
-if not isinstance(press_scale, (int, float)) or not math.isclose(press_scale, 0.96, rel_tol=0.0, abs_tol=1e-9):
-    raise SystemExit("quill-code-desktop native smoke reported unexpected native press scale")
+has_expected_press_scale = (
+    isinstance(press_scale, (int, float))
+    and math.isclose(press_scale, 0.96, rel_tol=0.0, abs_tol=1e-9)
+)
+if not has_expected_press_scale:
+    fail("reported unexpected native press scale")
 
 contracts = native_targets.get("designSystemContracts", []) + native_targets.get("surfaceContracts", [])
+required_contract_fields = ("id", "label", "source", "surface", "collisionScope")
+optional_contract_fields = ("testID", "commandID")
+required_boolean_fields = (
+    "allowsNestedInteractiveChildren",
+    "requiresUnblockedInterior",
+    "requiresTactileFeedback",
+    "allowsTextSelection",
+)
 for contract in contracts:
     if not isinstance(contract, dict):
-        raise SystemExit("quill-code-desktop native smoke reported malformed native hit target contract")
-    for field in ("id", "label", "source", "surface", "collisionScope"):
-        value = contract.get(field)
-        if not isinstance(value, str) or not value.strip():
-            raise SystemExit(f"quill-code-desktop native smoke reported native hit target with empty {field}: {contract}")
-    for optional_field in ("testID", "commandID"):
+        fail("reported malformed native hit target contract")
+    for field in required_contract_fields:
+        require_non_empty_string(contract.get(field), field, contract)
+    for optional_field in optional_contract_fields:
         value = contract.get(optional_field)
         if value is not None and (not isinstance(value, str) or not value.strip()):
-            raise SystemExit(f"quill-code-desktop native smoke reported native hit target with empty {optional_field}: {contract}")
-    for boolean_field in ("allowsNestedInteractiveChildren", "requiresUnblockedInterior", "requiresTactileFeedback", "allowsTextSelection"):
-        if not isinstance(contract.get(boolean_field), bool):
-            raise SystemExit(f"quill-code-desktop native smoke reported native hit target with malformed {boolean_field}: {contract}")
-    if contract.get("family") != "design-system" and not any(contract.get(field) for field in ("focusTarget", "testID", "commandID")):
-        raise SystemExit(f"quill-code-desktop native smoke reported unaddressable native hit target: {contract}")
+            require_non_empty_string(value, optional_field, contract)
+    for boolean_field in required_boolean_fields:
+        require_bool(contract, boolean_field)
+    is_design_system_contract = contract.get("family") == "design-system"
+    is_addressable_contract = any(contract.get(field) for field in optional_contract_fields + ("focusTarget",))
+    if not is_design_system_contract and not is_addressable_contract:
+        fail(f"reported unaddressable native hit target: {contract}")
 
 surface_contracts = native_targets.get("surfaceContracts", [])
-surface_test_ids = {contract.get("testID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("testID")}
-surface_command_ids = {contract.get("commandID") for contract in surface_contracts if isinstance(contract, dict) and contract.get("commandID")}
+surface_test_ids = {
+    contract.get("testID")
+    for contract in surface_contracts
+    if isinstance(contract, dict) and contract.get("testID")
+}
+surface_command_ids = {
+    contract.get("commandID")
+    for contract in surface_contracts
+    if isinstance(contract, dict) and contract.get("commandID")
+}
 required_test_ids = {
-    "quillcode-send-button", "quillcode-model-picker-button", "quillcode-mode-picker-button",
-    "quillcode-top-bar-overflow", "quillcode-sidebar-tools-button", "quillcode-command-palette-input",
-    "quillcode-search-input", "quillcode-browser-address", "quillcode-browser-action",
-    "quillcode-terminal-action", "quillcode-automation-create"
+    "quillcode-send-button",
+    "quillcode-model-picker-button",
+    "quillcode-mode-picker-button",
+    "quillcode-top-bar-overflow",
+    "quillcode-sidebar-tools-button",
+    "quillcode-command-palette-input",
+    "quillcode-search-input",
+    "quillcode-browser-address",
+    "quillcode-browser-action",
+    "quillcode-terminal-action",
+    "quillcode-automation-create",
 }
 missing_test_ids = sorted(required_test_ids - surface_test_ids)
 if missing_test_ids:
-    raise SystemExit(f"quill-code-desktop native smoke did not include stable native test IDs: {', '.join(missing_test_ids)}")
+    fail(f"did not include stable native test IDs: {', '.join(missing_test_ids)}")
 
 required_command_contract_ids = {"new-chat", "search", "toggle-terminal", "toggle-browser", "settings"}
 missing_command_contract_ids = sorted(required_command_contract_ids - surface_command_ids)
 if missing_command_contract_ids:
-    raise SystemExit(f"quill-code-desktop native smoke did not include native command IDs: {', '.join(missing_command_contract_ids)}")
+    fail(f"did not include native command IDs: {', '.join(missing_command_contract_ids)}")
 
 contract_kinds = {contract.get("kind") for contract in contracts if isinstance(contract, dict)}
-required_kinds = {"icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule"}
+required_kinds = {
+    "icon",
+    "textButton",
+    "formAction",
+    "link",
+    "textEntry",
+    "segmentedControl",
+    "adjustableControl",
+    "switchRow",
+    "ownedGesture",
+    "fullRow",
+    "capsule",
+}
 missing_kinds = sorted(required_kinds - contract_kinds)
 if missing_kinds:
-    raise SystemExit(f"quill-code-desktop native smoke did not include native target kinds: {', '.join(missing_kinds)}")
+    fail(f"did not include native target kinds: {', '.join(missing_kinds)}")
 
 contract_families = {contract.get("family") for contract in contracts if isinstance(contract, dict)}
 required_families = {
-    "design-system", "workspace-chrome", "sidebar", "sidebar-thread-list", "top-bar",
-    "composer", "transcript", "tool-card", "context-banner", "command-palette",
-    "search", "settings", "model-picker", "review", "secondary-pane", "terminal",
-    "browser", "extensions", "memories", "automations", "menu-bar"
+    "design-system",
+    "workspace-chrome",
+    "sidebar",
+    "sidebar-thread-list",
+    "top-bar",
+    "composer",
+    "transcript",
+    "tool-card",
+    "context-banner",
+    "command-palette",
+    "search",
+    "settings",
+    "model-picker",
+    "review",
+    "secondary-pane",
+    "terminal",
+    "browser",
+    "extensions",
+    "memories",
+    "automations",
+    "menu-bar",
 }
 missing_families = sorted(required_families - contract_families)
 if missing_families:
-    raise SystemExit(f"quill-code-desktop native smoke did not include native target surface families: {', '.join(missing_families)}")
+    fail(f"did not include native target surface families: {', '.join(missing_families)}")
 
 missing_surface_kinds = native_targets.get("missingRequiredSurfaceKinds")
 if missing_surface_kinds != []:
-    raise SystemExit(f"quill-code-desktop native smoke reported incomplete surface target policies: {missing_surface_kinds}")
+    fail(f"reported incomplete surface target policies: {missing_surface_kinds}")
 
 surface_policies = native_targets.get("surfacePolicies")
 if not isinstance(surface_policies, list) or not surface_policies:
-    raise SystemExit("quill-code-desktop native smoke did not include surface target policies")
+    fail("did not include surface target policies")
 policy_by_family = {}
 for policy in surface_policies:
     if not isinstance(policy, dict):
-        raise SystemExit(f"quill-code-desktop native smoke reported malformed surface target policy: {policy}")
+        fail(f"reported malformed surface target policy: {policy}")
     family = policy.get("family")
-    required_kinds = policy.get("requiredKinds")
-    required_actions = policy.get("requiredActions")
-    required_focus_targets = policy.get("requiredFocusTargets")
     if not isinstance(family, str) or not family:
-        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with missing family: {policy}")
-    if not isinstance(required_kinds, list) or not all(isinstance(kind, str) for kind in required_kinds):
-        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with malformed requiredKinds: {policy}")
-    if not isinstance(required_actions, list) or not all(isinstance(action, str) for action in required_actions):
-        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with malformed requiredActions: {policy}")
-    if not isinstance(required_focus_targets, list) or not all(isinstance(target, str) for target in required_focus_targets):
-        raise SystemExit(f"quill-code-desktop native smoke reported surface policy with malformed requiredFocusTargets: {policy}")
+        fail(f"reported surface policy with missing family: {policy}")
+    required_kinds = require_string_list(policy, "requiredKinds")
+    required_actions = require_string_list(policy, "requiredActions")
+    required_focus_targets = require_string_list(policy, "requiredFocusTargets")
     policy_by_family[family] = {
         "kinds": set(required_kinds),
         "actions": set(required_actions),
@@ -264,10 +352,7 @@ expected_policy_kinds = {
     "memories": {"formAction", "icon"},
 }
 for family, required_policy_kinds in expected_policy_kinds.items():
-    covered_kinds = policy_by_family.get(family, {}).get("kinds", set())
-    if not required_policy_kinds.issubset(covered_kinds):
-        missing_policy_kinds = sorted(required_policy_kinds - covered_kinds)
-        raise SystemExit(f"quill-code-desktop native smoke surface policy for {family} is missing: {', '.join(missing_policy_kinds)}")
+    require_policy_coverage(policy_by_family, family, required_policy_kinds, "kinds")
 
 expected_policy_actions = {
     "composer": {"text-input", "press"},
@@ -278,10 +363,7 @@ expected_policy_actions = {
     "browser": {"text-input", "press"},
 }
 for family, required_policy_actions in expected_policy_actions.items():
-    covered_actions = policy_by_family.get(family, {}).get("actions", set())
-    if not required_policy_actions.issubset(covered_actions):
-        missing_policy_actions = sorted(required_policy_actions - covered_actions)
-        raise SystemExit(f"quill-code-desktop native smoke surface policy for {family} is missing actions: {', '.join(missing_policy_actions)}")
+    require_policy_coverage(policy_by_family, family, required_policy_actions, "actions")
 
 expected_policy_focus_targets = {
     "composer": {"composer.message"},
@@ -292,24 +374,28 @@ expected_policy_focus_targets = {
     "browser": {"browser.address", "browser.comment"},
 }
 for family, required_policy_focus_targets in expected_policy_focus_targets.items():
-    covered_focus_targets = policy_by_family.get(family, {}).get("focusTargets", set())
-    if not required_policy_focus_targets.issubset(covered_focus_targets):
-        missing_policy_focus_targets = sorted(required_policy_focus_targets - covered_focus_targets)
-        raise SystemExit(f"quill-code-desktop native smoke surface policy for {family} is missing focus targets: {', '.join(missing_policy_focus_targets)}")
+    require_policy_coverage(policy_by_family, family, required_policy_focus_targets, "focusTargets")
 
 for field in ("missingRequiredSurfaceKinds", "missingRequiredSurfaceActions", "missingRequiredSurfaceFocusTargets"):
     if native_targets.get(field) != []:
-        raise SystemExit(f"quill-code-desktop native smoke reported incomplete surface target policy field {field}: {native_targets.get(field)}")
+        fail(f"reported incomplete surface target policy field {field}: {native_targets.get(field)}")
 
 covered_focus_targets = set(native_targets.get("coveredFocusTargets", []))
 required_focus_targets = {
-    "browser.address", "browser.comment", "command-palette.search", "composer.message",
-    "model-picker.search", "review.body", "review.thread-reply", "search.chats",
-    "settings.trustedrouter-base-url", "terminal.command"
+    "browser.address",
+    "browser.comment",
+    "command-palette.search",
+    "composer.message",
+    "model-picker.search",
+    "review.body",
+    "review.thread-reply",
+    "search.chats",
+    "settings.trustedrouter-base-url",
+    "terminal.command",
 }
 missing_focus_targets = sorted(required_focus_targets - covered_focus_targets)
 if missing_focus_targets:
-    raise SystemExit(f"quill-code-desktop native smoke did not include native focus targets: {', '.join(missing_focus_targets)}")
+    fail(f"did not include native focus targets: {', '.join(missing_focus_targets)}")
 PY
 "$ROOT_DIR/scripts/native-click-probe-contracts.py" validate "$REPORT_PATH"
 
