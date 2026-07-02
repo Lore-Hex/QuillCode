@@ -36,5 +36,14 @@ final class ParityLinuxNotificationAdapterGateTests: QuillCodeParityTestCase {
             "-c"
         ])
         Self.assertSource(desktopNotifierText, excludes: "notify-send")
+        Self.assertSource(desktopNotifierText, containsAll: [
+            "DesktopAutomationNotifierFactory",
+            "#if canImport(UserNotifications)",
+            "LinuxAutomationNotifier()",
+            "MacAutomationNotifier()",
+            "LinuxNotificationCommandRunner",
+            "deliverAgentNotification",
+            "deliverAutomationReport"
+        ])
     }
 }

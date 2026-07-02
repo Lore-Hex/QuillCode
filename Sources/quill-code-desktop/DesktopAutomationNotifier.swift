@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(UserNotifications)
 import UserNotifications
+#endif
 import QuillCodeApp
 
 protocol QuillCodeAutomationNotifying: Sendable {
@@ -13,6 +15,17 @@ extension QuillCodeAutomationNotifying {
     func deliver(_ notification: AgentRunNotification) {}
 }
 
+enum DesktopAutomationNotifierFactory {
+    static func platformDefault() -> any QuillCodeAutomationNotifying {
+        #if canImport(UserNotifications)
+        MacAutomationNotifier()
+        #else
+        LinuxAutomationNotifier()
+        #endif
+    }
+}
+
+#if canImport(UserNotifications)
 struct MacAutomationNotifier: QuillCodeAutomationNotifying {
     func deliver(_ notification: AgentRunNotification) {
         Task {
@@ -80,5 +93,41 @@ struct MacAutomationNotifier: QuillCodeAutomationNotifying {
 
     private func automationIdentifier(for report: AutomationRunReport) -> String {
         "quillcode-automation-\(report.automationID.uuidString)-\(report.followUpThreadID.uuidString)"
+    }
+}
+#endif
+
+struct LinuxAutomationNotifier: QuillCodeAutomationNotifying {
+    typealias AgentDelivery = @Sendable (AgentRunNotification) async -> SystemNotificationDeliveryResult
+    typealias AutomationDelivery = @Sendable (AutomationRunReport) async -> SystemNotificationDeliveryResult
+
+    private let deliverAgentNotification: AgentDelivery
+    private let deliverAutomationReport: AutomationDelivery
+
+    init(runner: LinuxNotificationCommandRunner = LinuxNotificationCommandRunner()) {
+        self.init(
+            deliverAgentNotification: { await runner.deliver($0) },
+            deliverAutomationReport: { await runner.deliver($0) }
+        )
+    }
+
+    init(
+        deliverAgentNotification: @escaping AgentDelivery,
+        deliverAutomationReport: @escaping AutomationDelivery
+    ) {
+        self.deliverAgentNotification = deliverAgentNotification
+        self.deliverAutomationReport = deliverAutomationReport
+    }
+
+    func deliver(_ notification: AgentRunNotification) {
+        Task {
+            _ = await deliverAgentNotification(notification)
+        }
+    }
+
+    func deliver(_ report: AutomationRunReport) {
+        Task {
+            _ = await deliverAutomationReport(report)
+        }
     }
 }
