@@ -28,6 +28,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let commandCoordinator: QuillCodeDesktopCommandCoordinator
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
     private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
+    private let modelCatalogRefreshCoordinator: QuillCodeDesktopModelCatalogRefreshCoordinator
     private let composerCoordinator: QuillCodeDesktopComposerCoordinator
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
@@ -62,6 +63,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.commandCoordinator = QuillCodeDesktopCommandCoordinator()
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
+        self.modelCatalogRefreshCoordinator = QuillCodeDesktopModelCatalogRefreshCoordinator(bootstrap: bootstrap)
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
@@ -104,6 +106,10 @@ final class QuillCodeDesktopController: ObservableObject {
             notifier: automationNotifier,
             refresh: { [weak self] in self?.refresh() }
         )
+        scheduleModelCatalogRefreshIfNeeded()
+        modelCatalogRefreshCoordinator.startTicker(tasks: tasks) { [weak self] in
+            self?.scheduleModelCatalogRefreshIfNeeded()
+        }
     }
 
     /// Registers the Approve/Skip notification category and the delegate that routes a tapped action
@@ -231,6 +237,16 @@ final class QuillCodeDesktopController: ObservableObject {
     func refreshModelCatalog() async {
         await settingsCoordinator.refreshModelCatalog(on: model)
         refresh()
+    }
+
+    private func scheduleModelCatalogRefreshIfNeeded() {
+        tasks.startIfIdle(.modelCatalogRefresh) { [weak self] in
+            guard let self else { return }
+            await modelCatalogRefreshCoordinator.refreshIfNeeded(
+                on: model,
+                refresh: { [weak self] in self?.refresh() }
+            )
+        }
     }
 
     func saveSettings(_ update: WorkspaceSettingsUpdate) {
