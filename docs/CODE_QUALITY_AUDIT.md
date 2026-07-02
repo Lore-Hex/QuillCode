@@ -13945,3 +13945,40 @@ Validation:
 - `swift test --filter 'TrustedRouterOAuthTests|ModelCatalogCoreTests|AutomationRecurrenceCoreTests|ToolSchemaCoreTests|BrowserInspectionCoreTests|AppConfigCompatibilityTests|ProjectInstructionCoreTests'`
 - `swift test` (2,327 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Parity Smoke Gate Ownership A+ Pass
+
+Overall architecture grade after this pass: **A+**. This pass re-ran the
+file/module/architecture grader and tightened the largest remaining parity-test
+ownership bucket. Every source, test, script, and Playwright module remains
+**A+** in the regenerated report.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `test:QuillCodeParityTests` | A+ | The old 912-line smoke gate is split into focused live-smoke, packaged-click-probe, process, and fixture files. |
+| `ParityLiveSmokeScriptGateTests.swift` | A+ | Owns live TrustedRouter, real-world, deterministic smoke, and workflow evidence assertions. |
+| `ParityPackagedClickProbeSmokeGateTests.swift` | A+ | Owns packaged direct-vs-Launch-Services click probe and manifest CLI assertions. |
+| `ParitySmokeScriptProcessSupport.swift` | A+ | Owns script loading and subprocess execution helpers only. |
+| `ParityClickProbeFixtureSupport.swift` | A+ | Owns reusable click-probe contract fixtures and sample points. |
+| `ParityPackagedWindowFixtureSupport.swift` | A+ | Owns packaged-window and Accessibility evidence fixture construction. |
+
+Code quality changes:
+
+- Replaced the broad `ParitySmokeScriptGateTests.swift` bucket with two
+  behavior-focused test classes and three reusable support files.
+- Preserved all smoke, secret-free, deterministic evidence, direct/Launch
+  Services comparison, Accessibility frame sampling, and AXPress activation
+  assertions.
+- Kept test fixtures modular by separating process helpers, click-probe
+  contracts, and packaged-window Accessibility JSON construction.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md` so individual file grades
+  reflect the new boundaries.
+
+Validation:
+
+- `swift test --filter 'ParityLiveSmokeScriptGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `git diff --check`
+- `swift test` (2,327 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
