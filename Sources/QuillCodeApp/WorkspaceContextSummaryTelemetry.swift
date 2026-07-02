@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeAgent
 
 public struct WorkspaceContextSummaryTelemetry: Codable, Sendable, Hashable {
     public var purpose: WorkspaceContextSummaryPurpose
@@ -6,18 +7,24 @@ public struct WorkspaceContextSummaryTelemetry: Codable, Sendable, Hashable {
     public var sourceTitle: String
     public var summaryCharacterCount: Int?
     public var errorDescription: String?
+    public var modelID: String?
+    public var modelSelectionSource: AuxiliaryModelSelectionSource?
 
     public init(
         purpose: WorkspaceContextSummaryPurpose,
         source: WorkspaceContextSummaryOutcomeSource,
         sourceTitle: String,
         summaryCharacterCount: Int? = nil,
-        errorDescription: String? = nil
+        errorDescription: String? = nil,
+        modelID: String? = nil,
+        modelSelectionSource: AuxiliaryModelSelectionSource? = nil
     ) {
         self.purpose = purpose
         self.source = source
         self.sourceTitle = sourceTitle
         self.summaryCharacterCount = summaryCharacterCount
         self.errorDescription = errorDescription
+        self.modelID = modelID
+        self.modelSelectionSource = modelSelectionSource
     }
 }
