@@ -60,6 +60,15 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         self.promptCachingPolicy = promptCachingPolicy
     }
 
+    /// A copy of this client that never adds prompt-cache breakpoints. Use it for one-shot
+    /// auxiliary calls (context summaries, compaction) whose unique prompts are never re-sent,
+    /// where a breakpoint could only ever be a cache write with no read.
+    public func disablingPromptCaching() -> TrustedRouterLLMClient {
+        var copy = self
+        copy.promptCachingPolicy = .disabled
+        return copy
+    }
+
     public func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         let stream = try await actionTextStream(thread: thread, userMessage: userMessage, tools: tools)
         return try await Self.collectAction(from: stream)
@@ -98,15 +107,16 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
     ) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
         let apiKey = try configuredAPIKey()
         let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL))
-        let messages = promptBuilder.messages(thread: thread, userMessage: userMessage, tools: tools)
+        let assembled = promptBuilder.assembled(thread: thread, userMessage: userMessage, tools: tools)
         let (bytes, response) = try await client.rawStreamRequest(
             method: "POST",
             path: "/chat/completions",
             headers: ["accept": "text/event-stream"],
             body: try Self.chatCompletionBody(
                 model: model,
-                messages: messages,
-                promptCachingPolicy: promptCachingPolicy
+                messages: assembled.messages,
+                promptCachingPolicy: promptCachingPolicy,
+                historyPrefixStable: assembled.historyPrefixStable
             )
         )
         if response.statusCode >= 400 {
@@ -155,18 +165,25 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
     }
 
     /// Internal (not private) so tests can assert over the exact serialized request JSON —
-    /// cache breakpoints present or absent per policy and provider family.
+    /// cache breakpoints present or absent per policy, provider family, and prefix stability.
+    ///
+    /// `historyPrefixStable` defaults to `false` — the SAFE default. A caller that cannot prove
+    /// the request's post-system prefix is byte-stable turn-over-turn (see
+    /// `TrustedRouterPromptBuilder.assembled`) gets no annotation, because a moving prefix turns
+    /// caching into a pure cache-WRITE premium.
     static func chatCompletionBody(
         model: String,
         messages: [[String: Any]],
-        promptCachingPolicy: TrustedRouterPromptCachingPolicy = .automatic
+        promptCachingPolicy: TrustedRouterPromptCachingPolicy = .automatic,
+        historyPrefixStable: Bool = false
     ) throws -> Data {
         var body = TrustedRouterChatParameters.jsonObjectResponse
         body["model"] = model
         body["messages"] = TrustedRouterPromptCaching.annotatedMessages(
             messages,
             modelID: model,
-            policy: promptCachingPolicy
+            policy: promptCachingPolicy,
+            historyPrefixStable: historyPrefixStable
         )
         body["stream"] = true
         body["stream_options"] = ["include_usage": true]

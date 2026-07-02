@@ -79,10 +79,15 @@ public struct QuillCodeRuntimeFactory: Sendable {
             base: baseClient,
             onRetry: { attempt, kind, _ in retryChannel.record(attempt: attempt, kind: kind) }
         )
-        // Context-summary calls also retry transient blips, but SILENTLY: a background summary self-heal
-        // is not a run event and must not record to the run channel (that would misattribute it onto the
-        // next run's thread). So it gets its own wrapper with no onRetry.
-        let summaryLLM = RetryingLLMClient(base: baseClient)
+        // Context-summary/compaction calls are one-shot auxiliary housekeeping: each prompt is
+        // unique and never re-sent, so a prompt-cache breakpoint on it could only ever be a cache
+        // WRITE (billed at 1.25x) with no possible read. The auxiliary-model selector can pick an
+        // Anthropic model (it bonus-scores haiku), so we must explicitly opt this path OUT of
+        // caching — the run loop keeps it on. Its own retry wrapper carries no onRetry: SILENTLY,
+        // because a background summary self-heal is not a run event and must not record to the run
+        // channel (that would misattribute it onto the next run's thread).
+        let summaryBaseClient = baseClient.disablingPromptCaching()
+        let summaryLLM = RetryingLLMClient(base: summaryBaseClient)
         let safetyClient = TrustedRouterSafetyModelClient(
             sessionStore: sessionStore,
             apiKeyOverride: apiKey,

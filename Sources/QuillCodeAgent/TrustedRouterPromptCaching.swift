@@ -14,22 +14,33 @@ public enum TrustedRouterPromptCachingPolicy: Sendable, Equatable {
 
 /// Places Anthropic prompt-cache breakpoints on an OpenAI-format `messages` array.
 ///
-/// TrustedRouter's Anthropic adapter forwards user/assistant message `content` verbatim into
-/// the Anthropic Messages payload, so a `cache_control` marker inside an array-shaped content
-/// block reaches api.anthropic.com and turns the entire request prefix — system prompt, tool
-/// definitions (serialized into the system prompt), and conversation history up to the marked
-/// block — into a 5-minute cache entry. Re-sent prefixes then bill at the cached-read rate
-/// (~10% of the input price) instead of full price, which is the dominant recurring cost of
-/// the unattended agent loop.
+/// A `cache_control` marker inside an array-shaped content block is Anthropic's request to turn
+/// the request prefix up to that block into a 5-minute ephemeral cache entry, so re-sent
+/// prefixes bill at the cached-read rate (~10% of input) instead of full price — the dominant
+/// recurring cost of the unattended agent loop.
 ///
-/// Two hard constraints shape the placement rules:
-/// - The gateway concatenates SYSTEM message content with `str()` into Anthropic's top-level
-///   `system` string. Array-shaped system content would therefore be corrupted into a Python
-///   repr, so system messages are never annotated. This costs nothing: a breakpoint on a later
-///   message already caches the system prefix.
+/// GATEWAY STATE (live-verified 2026-07-01, api.trustedrouter.com): the deployed gateway
+/// forwards `cache_control` verbatim on the Anthropic-native `/v1/messages` path
+/// (`cache_creation_input_tokens` then `cache_read_input_tokens` observed on identical calls)
+/// but currently DROPS it on the OpenAI-format `/chat/completions` path that QuillCode uses (a
+/// six-marker request returned 200 there while `/v1/messages` returned Anthropic's own
+/// four-marker 400). So today these breakpoints are a safe no-op on the chat path; they become
+/// the intended win once the gateway forwards them on that path (tracked as a gateway follow-up).
+///
+/// Three constraints shape the placement rules:
+/// - Prefix stability. A breakpoint only pays off when the bytes BEFORE it repeat unchanged on
+///   the next request; otherwise every call is a cache WRITE (billed at 1.25x) with no read — a
+///   net cost INCREASE. `TrustedRouterPromptBuilder` sends a sliding history window, so once it
+///   saturates the post-system prefix diverges each turn. Annotation is gated on
+///   `historyPrefixStable`; when false the request is sent unannotated (durable long-loop
+///   caching needs the builder to pin the window edges — see the gateway/builder follow-up).
+/// - System messages are never annotated: the gateway concatenates SYSTEM content with `str()`
+///   into Anthropic's top-level `system` string, so array-shaped system content would be
+///   corrupted into a Python repr. A breakpoint on a later message already caches the system
+///   prefix, so this costs nothing.
 /// - Non-Anthropic upstreams receive the `messages` array verbatim, and strict providers can
-///   reject unknown fields inside content parts. Annotation is therefore gated to model IDs
-///   whose provider family is Anthropic; every other route's request bytes are unchanged.
+///   reject unknown fields inside content parts. Annotation is gated to model IDs whose provider
+///   family is Anthropic; every other route's request bytes are unchanged.
 public enum TrustedRouterPromptCaching {
     /// Anthropic's default ephemeral cache entry (5-minute TTL).
     static let ephemeralCacheControl = ["type": "ephemeral"]
@@ -46,12 +57,22 @@ public enum TrustedRouterPromptCaching {
 
     /// The messages to send for `modelID` under `policy`: either the input untouched, or the
     /// input with cache breakpoints placed per `breakpointIndexes`.
+    ///
+    /// `historyPrefixStable` must be true for annotation to occur: it asserts the caller has
+    /// proven the request's post-system prefix repeats byte-for-byte on the next turn (the
+    /// sliding history window has not dropped its oldest message). When false, the request is
+    /// returned untouched — a moving prefix would make every breakpoint a cache write with no
+    /// possible read, i.e. a net cost increase in exactly the long-loop regime this targets.
     public static func annotatedMessages(
         _ messages: [[String: Any]],
         modelID: String,
-        policy: TrustedRouterPromptCachingPolicy
+        policy: TrustedRouterPromptCachingPolicy,
+        historyPrefixStable: Bool
     ) -> [[String: Any]] {
-        guard policy == .automatic, supportsCacheBreakpoints(modelID: modelID) else {
+        guard policy == .automatic,
+              historyPrefixStable,
+              supportsCacheBreakpoints(modelID: modelID)
+        else {
             return messages
         }
         return annotated(messages)

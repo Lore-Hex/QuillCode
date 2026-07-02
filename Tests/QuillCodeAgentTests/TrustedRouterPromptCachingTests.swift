@@ -16,12 +16,14 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
     private func serializedBody(
         model: String,
         messages: [[String: Any]],
-        policy: TrustedRouterPromptCachingPolicy = .automatic
+        policy: TrustedRouterPromptCachingPolicy = .automatic,
+        historyPrefixStable: Bool = true
     ) throws -> [String: Any] {
         let data = try TrustedRouterLLMClient.chatCompletionBody(
             model: model,
             messages: messages,
-            promptCachingPolicy: policy
+            promptCachingPolicy: policy,
+            historyPrefixStable: historyPrefixStable
         )
         let object = try JSONSerialization.jsonObject(with: data)
         return try XCTUnwrap(object as? [String: Any])
@@ -208,15 +210,19 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
             "z-ai/glm-5.2",
             "gemini/gemini-2.5-pro"
         ] {
+            // historyPrefixStable: true isolates the provider-family gate — even with a stable
+            // prefix, a non-Anthropic route must still see no cache_control.
             let automatic = try TrustedRouterLLMClient.chatCompletionBody(
                 model: modelID,
                 messages: messages,
-                promptCachingPolicy: .automatic
+                promptCachingPolicy: .automatic,
+                historyPrefixStable: true
             )
             let disabled = try TrustedRouterLLMClient.chatCompletionBody(
                 model: modelID,
                 messages: messages,
-                promptCachingPolicy: .disabled
+                promptCachingPolicy: .disabled,
+                historyPrefixStable: true
             )
             let automaticObject = try XCTUnwrap(try JSONSerialization.jsonObject(with: automatic) as? NSDictionary)
             let disabledObject = try XCTUnwrap(try JSONSerialization.jsonObject(with: disabled) as? NSDictionary)
@@ -290,5 +296,112 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
             .automatic,
             "retargeting the model must keep the caching policy"
         )
+    }
+
+    // MARK: - Prefix-stability gate (the feature-inverting regime)
+
+    /// The core guard: once the sliding history window is saturated the post-system prefix
+    /// diverges every turn, so a positional breakpoint would only ever WRITE the cache (1.25x)
+    /// and never read it — a net cost increase. An unstable prefix must therefore produce a
+    /// byte-identical, un-annotated request even on an Anthropic route. FAILS on revert of the
+    /// stability gate.
+    func testUnstableHistoryPrefixIsSentUnannotatedOnAnthropicRoute() throws {
+        let messages = [
+            message("system", "base system prompt"),
+            message("user", "run the tests"),
+            message("assistant", "Tool output: ok")
+        ]
+
+        let stable = try TrustedRouterLLMClient.chatCompletionBody(
+            model: anthropicModel,
+            messages: messages,
+            promptCachingPolicy: .automatic,
+            historyPrefixStable: true
+        )
+        let unstable = try TrustedRouterLLMClient.chatCompletionBody(
+            model: anthropicModel,
+            messages: messages,
+            promptCachingPolicy: .automatic,
+            historyPrefixStable: false
+        )
+
+        XCTAssertTrue(
+            String(decoding: stable, as: UTF8.self).contains("cache_control"),
+            "sanity: a stable prefix on the anthropic route is annotated"
+        )
+        XCTAssertFalse(
+            String(decoding: unstable, as: UTF8.self).contains("cache_control"),
+            "an unstable (saturated-window) prefix must never carry cache_control"
+        )
+        let unstableMessages = try bodyMessages(
+            try XCTUnwrap(try JSONSerialization.jsonObject(with: unstable) as? [String: Any])
+        )
+        XCTAssertEqual(breakpointIndexes(in: unstableMessages), [])
+        // And the un-annotated request equals what .disabled would have sent, byte-for-byte.
+        let disabled = try TrustedRouterLLMClient.chatCompletionBody(
+            model: anthropicModel,
+            messages: messages,
+            promptCachingPolicy: .disabled,
+            historyPrefixStable: true
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(try JSONSerialization.jsonObject(with: unstable) as? NSDictionary),
+            try XCTUnwrap(try JSONSerialization.jsonObject(with: disabled) as? NSDictionary)
+        )
+    }
+
+    /// `historyPrefixStable` defaults to false at the annotation seam — the safe default. A
+    /// caller that forgets to prove stability gets no annotation rather than a possible cost
+    /// increase.
+    func testAnnotationSeamDefaultsToNotStableAndSkips() {
+        let annotated = TrustedRouterPromptCaching.annotatedMessages(
+            [message("system", "s"), message("user", "u")],
+            modelID: anthropicModel,
+            policy: .automatic,
+            historyPrefixStable: false
+        )
+        XCTAssertEqual(breakpointIndexes(in: annotated), [])
+    }
+
+    // MARK: - Prompt builder stability signal
+
+    /// The builder reports the prefix stable only while the whole thread fits in the history
+    /// window; once `thread.messages.count` exceeds `historyLimit`, `suffix` drops the oldest
+    /// message and the prefix is no longer append-stable.
+    func testPromptBuilderReportsPrefixUnstableOnceHistoryWindowSaturates() {
+        let builder = TrustedRouterPromptBuilder(historyLimit: 4)
+        func thread(messageCount: Int) -> ChatThread {
+            ChatThread(messages: (0..<messageCount).map { .init(role: .user, content: "m\($0)") })
+        }
+
+        XCTAssertTrue(
+            builder.assembled(thread: thread(messageCount: 4), userMessage: "next", tools: [.shellRun]).historyPrefixStable,
+            "count == historyLimit is still stable (nothing dropped yet)"
+        )
+        XCTAssertFalse(
+            builder.assembled(thread: thread(messageCount: 5), userMessage: "next", tools: [.shellRun]).historyPrefixStable,
+            "count > historyLimit drops the oldest message; prefix is no longer stable"
+        )
+    }
+
+    /// End-to-end through the builder + client: a short thread caches, a saturated thread does
+    /// not. This is the regression that would FAIL if positional annotation were reinstated
+    /// without the stability gate.
+    func testSaturatedThreadThroughBuilderAndClientEmitsNoCacheControl() throws {
+        let builder = TrustedRouterPromptBuilder(historyLimit: 4)
+        func body(messageCount: Int) throws -> String {
+            let thread = ChatThread(messages: (0..<messageCount).map { .init(role: .user, content: "m\($0)") })
+            let assembled = builder.assembled(thread: thread, userMessage: "next", tools: [.shellRun])
+            let data = try TrustedRouterLLMClient.chatCompletionBody(
+                model: anthropicModel,
+                messages: assembled.messages,
+                promptCachingPolicy: .automatic,
+                historyPrefixStable: assembled.historyPrefixStable
+            )
+            return String(decoding: data, as: UTF8.self)
+        }
+
+        XCTAssertTrue(try body(messageCount: 3).contains("cache_control"), "short thread caches")
+        XCTAssertFalse(try body(messageCount: 20).contains("cache_control"), "saturated thread must not cache")
     }
 }

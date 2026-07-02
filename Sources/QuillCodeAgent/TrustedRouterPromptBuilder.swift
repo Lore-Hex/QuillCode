@@ -12,6 +12,20 @@ public struct TrustedRouterPromptBuilder: Sendable {
         userMessage: String,
         tools: [ToolDefinition]
     ) -> [[String: Any]] {
+        assembled(thread: thread, userMessage: userMessage, tools: tools).messages
+    }
+
+    /// The assembled request messages plus whether the sliding history window is append-stable
+    /// this turn — i.e. `historyLimit` has not yet forced `suffix(historyLimit)` to DROP the
+    /// oldest message. Prompt-cache breakpoints are only safe while it is: once the window
+    /// saturates, the first history block differs turn-over-turn, the whole post-system prefix
+    /// diverges, and a positional breakpoint would write-without-ever-reading (a net cost
+    /// increase). The caller uses this flag to gate annotation. See `TrustedRouterPromptCaching`.
+    func assembled(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) -> (messages: [[String: Any]], historyPrefixStable: Bool) {
         var messages: [[String: Any]] = [
             Self.chatMessage(role: "system", content: Self.systemPrompt(tools: tools))
         ]
@@ -22,7 +36,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         appendRecentHistory(from: thread, to: &messages)
         appendCurrentUserMessageIfNeeded(thread: thread, userMessage: userMessage, to: &messages)
 
-        return messages
+        return (messages, thread.messages.count <= historyLimit)
     }
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
