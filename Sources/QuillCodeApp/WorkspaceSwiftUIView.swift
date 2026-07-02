@@ -48,6 +48,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onPreviewWorktreePrune: () async -> WorkspaceWorktreePrunePreview
     public var onPruneWorktrees: (WorkspaceWorktreePruneRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
+    public var onExportConversationMarkdown: (String, String) -> Void
     public var onRevertTurn: (UUID) -> Void = { _ in }
     public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
     public var onSaveSidebarSavedSearch: (String, String) -> Void
@@ -115,6 +116,7 @@ public struct QuillCodeWorkspaceView: View {
         },
         onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void = { _ in },
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
+        onExportConversationMarkdown: @escaping (String, String) -> Void = { _, _ in },
         onRevertTurn: @escaping (UUID) -> Void = { _ in },
         onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
@@ -165,6 +167,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onPreviewWorktreePrune = onPreviewWorktreePrune
         self.onPruneWorktrees = onPruneWorktrees
         self.onCopyTranscriptItem = onCopyTranscriptItem
+        self.onExportConversationMarkdown = onExportConversationMarkdown
         self.onRevertTurn = onRevertTurn
         self.onMessageFeedback = onMessageFeedback
         self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
@@ -352,6 +355,10 @@ public struct QuillCodeWorkspaceView: View {
             // so the whole-conversation export shares the same copy path and feedback.
             if let markdown = TranscriptMarkdownExporter.clipboardMarkdown(for: surface.transcript) {
                 onCopyTranscriptItem("conversation", markdown)
+            }
+        case .exportConversationMarkdown:
+            if let markdown = TranscriptMarkdownExporter.exportableMarkdown(for: surface.transcript) {
+                onExportConversationMarkdown(surface.topBar.primaryTitle, markdown)
             }
         case let .dispatch(command, focusesComposer):
             onCommand(command)

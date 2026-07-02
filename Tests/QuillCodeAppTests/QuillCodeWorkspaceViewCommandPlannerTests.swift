@@ -20,6 +20,10 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         XCTAssertEqual(planner.action(for: command("git-worktree-prune")), .presentPruneWorktrees)
         XCTAssertEqual(planner.action(for: command("open-browser-session")), .openBrowserSession)
         XCTAssertEqual(planner.action(for: command("copy-conversation")), .copyConversation)
+        XCTAssertEqual(
+            planner.action(for: command("export-conversation-markdown")),
+            .exportConversationMarkdown
+        )
     }
 
     func testRenameCommandsUseSelectedItems() throws {

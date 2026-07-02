@@ -171,6 +171,22 @@ test('mock harness copies the whole conversation as Markdown from the command pa
     '{\n  "ok": true,\n  "stdout": "ran: the tests\\n",\n  "stderr": "",\n  "exitCode": 0\n}\n' +
     '```\n\n## Assistant\n\nOutput:\nran: the tests'
   );
+
+  // Run the file export command. The harness records the suggested file instead of opening
+  // a native save panel; this pins the UI routing and Markdown bytes without test flakiness.
+  await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('export conversation');
+  await page.locator(
+    '[data-testid="command-palette-result"][data-command-id="export-conversation-markdown"]'
+  ).click();
+  await expect(page.getByTestId('conversation-exported-toast')).toBeVisible();
+  const exported = await page.evaluate(() => (
+    window as Window & {
+      __lastConversationMarkdownExport?: { fileName: string; markdown: string }
+    }
+  ).__lastConversationMarkdownExport);
+  expect(exported?.fileName).toMatch(/\.md$/);
+  expect(exported?.markdown).toBe(markdown);
 });
 
 test('mock harness enters Plan mode via /plan and the mode pill reflects it', async ({ page }) => {

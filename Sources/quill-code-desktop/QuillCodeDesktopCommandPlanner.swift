@@ -18,6 +18,7 @@ enum QuillCodeDesktopCommandAction {
     case stopAll
     case disconnectAll
     case retryLastTurn
+    case exportConversationMarkdown
     case workspaceCommand(String)
 }
 
@@ -60,6 +61,8 @@ enum QuillCodeDesktopCommandPlanner {
             return .disconnectAll
         case "retry-last-turn":
             return .retryLastTurn
+        case "export-conversation-markdown":
+            return .exportConversationMarkdown
         default:
             guard WorkspaceCommandRoutingCatalog.canRunInWorkspaceModel(command.id) else {
                 return nil

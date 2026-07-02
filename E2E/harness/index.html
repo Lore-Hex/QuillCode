@@ -3866,6 +3866,7 @@
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
         { id: 'copy-conversation', title: 'Copy conversation', shortcut: '', category: 'Navigation', keywords: ['export', 'transcript', 'markdown', 'copy all', 'share'], isEnabled: false },
+        { id: 'export-conversation-markdown', title: 'Export conversation as Markdown...', shortcut: '', category: 'Navigation', keywords: ['export', 'transcript', 'markdown', 'file', 'save', 'share'], isEnabled: false },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
         { id: 'add-ssh-project', title: 'Project: Add SSH Remote...', shortcut: '', category: 'Workspace', keywords: ['remote', 'ssh', 'server', 'workspace', '/ssh user@host:/path'], isEnabled: true },
         { id: 'project-new-chat', title: 'New chat in project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'thread', 'chat'], isEnabled: true },
@@ -5924,6 +5925,7 @@
         command.id === 'workspace-forward' ? { ...command, isEnabled: canNavigateWorkspaceForward() } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
         command.id === 'copy-conversation' ? { ...command, isEnabled: hasThread } :
+        command.id === 'export-conversation-markdown' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-workspace-schedule' ? { ...command, isEnabled: hasProject } :
         command.id?.startsWith('automation-create-thread-follow-up-after:') ? { ...command, isEnabled: hasThread } :
@@ -7136,6 +7138,7 @@
           ${state.search.isOpen ? renderSearchPanel() : ''}
           ${state.commandPalette.isOpen ? renderCommandPalette() : ''}
           ${state.copiedTranscriptItemID === 'conversation' ? '<div class="copy-toast" data-testid="conversation-copied-toast" role="status">Conversation copied</div>' : ''}
+          ${state.copiedTranscriptItemID === 'conversation-export' ? '<div class="copy-toast" data-testid="conversation-exported-toast" role="status">Conversation exported</div>' : ''}
           ${state.shortcuts.isOpen ? renderKeyboardShortcutsPanel() : ''}
           ${state.worktreeDialog.mode ? renderWorktreeDialog() : ''}
           ${renderSidebarSavedSearchDialog()}
@@ -8740,6 +8743,34 @@
       render();
       setTimeout(() => {
         if (state.copiedTranscriptItemID === 'conversation') {
+          state.copiedTranscriptItemID = null;
+          render();
+        }
+      }, 1500);
+    }
+
+    function conversationExportFileName() {
+      const allowed = /[A-Za-z0-9 ._-]/;
+      const stem = Array.from(state.topBar.primaryTitle || '')
+        .map(character => allowed.test(character) ? character : '-')
+        .join('')
+        .replace(/\s+/g, ' ')
+        .replace(/-{2,}/g, '-')
+        .replace(/^[ ._-]+|[ ._-]+$/g, '') || 'Conversation';
+      return stem.endsWith('.md') ? stem : `${stem}.md`;
+    }
+
+    function exportConversationMarkdown() {
+      const markdown = transcriptMarkdown();
+      if (!markdown.trim()) return;
+      window.__lastConversationMarkdownExport = {
+        fileName: conversationExportFileName(),
+        markdown
+      };
+      state.copiedTranscriptItemID = 'conversation-export';
+      render();
+      setTimeout(() => {
+        if (state.copiedTranscriptItemID === 'conversation-export') {
           state.copiedTranscriptItemID = null;
           render();
         }
@@ -11158,6 +11189,7 @@
       'disconnect-all',
       'find-in-chat',
       'copy-conversation',
+      'export-conversation-markdown',
       'fork-from-last',
       'fork-full-context',
       'fork-with-summary',
@@ -11543,6 +11575,10 @@
       }
       if (commandID === 'copy-conversation') {
         copyConversation();
+        return;
+      }
+      if (commandID === 'export-conversation-markdown') {
+        exportConversationMarkdown();
         return;
       }
       if (commandID === 'add-project') {

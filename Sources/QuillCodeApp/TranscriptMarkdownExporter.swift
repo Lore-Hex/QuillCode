@@ -25,11 +25,15 @@ public enum TranscriptMarkdownExporter {
         return blocks.joined(separator: "\n\n")
     }
 
-    /// The Markdown to put on the clipboard, or `nil` when there is nothing copyable — the
-    /// single guard both the native command and (mirrored) the harness use.
-    public static func clipboardMarkdown(for transcript: TranscriptSurface) -> String? {
+    /// The Markdown to export, or `nil` when there is nothing user-visible to export.
+    public static func exportableMarkdown(for transcript: TranscriptSurface) -> String? {
         let markdown = markdown(for: transcript)
         return markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : markdown
+    }
+
+    /// The Markdown to put on the clipboard, retained as the clipboard-specific call site.
+    public static func clipboardMarkdown(for transcript: TranscriptSurface) -> String? {
+        exportableMarkdown(for: transcript)
     }
 
     /// Only user/assistant turns belong in a shared conversation. `.tool` turns are already

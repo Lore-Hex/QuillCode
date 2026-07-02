@@ -16,6 +16,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case presentPruneWorktrees
     case openBrowserSession
     case copyConversation
+    case exportConversationMarkdown
     case dispatch(command: WorkspaceCommandSurface, focusesComposer: Bool)
 }
 
@@ -55,6 +56,8 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
             return .openBrowserSession
         case "copy-conversation":
             return .copyConversation
+        case "export-conversation-markdown":
+            return .exportConversationMarkdown
         default:
             guard WorkspaceCommandRoutingCatalog.isDispatchable(command.id) else {
                 return nil

@@ -29,6 +29,9 @@ struct QuillCodeDesktopCommands: Commands {
                 NotificationCenter.default.post(name: .quillCodeOpenProject, object: nil)
             }
             .quillCodeShortcut("add-project")
+            Button("Export Conversation as Markdown...") {
+                NotificationCenter.default.post(name: .quillCodeExportConversationMarkdown, object: nil)
+            }
             Button("Toggle Terminal") {
                 NotificationCenter.default.post(name: .quillCodeToggleTerminal, object: nil)
             }
@@ -110,6 +113,7 @@ extension Notification.Name {
     static let quillCodeOpenSettings = Notification.Name("QuillCodeOpenSettings")
     static let quillCodeStopAll = Notification.Name("QuillCodeStopAll")
     static let quillCodeRetryLastTurn = Notification.Name("QuillCodeRetryLastTurn")
+    static let quillCodeExportConversationMarkdown = Notification.Name("QuillCodeExportConversationMarkdown")
 }
 
 extension View {

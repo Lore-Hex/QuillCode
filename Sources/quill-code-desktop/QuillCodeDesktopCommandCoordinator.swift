@@ -19,6 +19,7 @@ protocol QuillCodeDesktopCommandPerforming: AnyObject {
     func stopAll()
     func disconnectAll()
     func retryLastTurn()
+    func exportCurrentConversationMarkdown()
     func runWorkspaceCommand(_ commandID: String)
 }
 
@@ -63,6 +64,8 @@ struct QuillCodeDesktopCommandCoordinator {
             performer.disconnectAll()
         case .retryLastTurn:
             performer.retryLastTurn()
+        case .exportConversationMarkdown:
+            performer.exportCurrentConversationMarkdown()
         case .workspaceCommand(let commandID):
             performer.runWorkspaceCommand(commandID)
         }
