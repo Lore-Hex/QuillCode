@@ -39,7 +39,7 @@ public struct WebFetchToolExecutor: Sendable {
 
     public func fetch(urlString: String) -> ToolResult {
         guard let url = Self.normalizedRequestURL(urlString) else {
-            return Self.failure("`\(urlString)` is not a valid absolute http(s) URL. Pass a full URL like https://example.com/docs.")
+            return Self.failure(Self.invalidURLMessage(urlString))
         }
 
         let firstAttempt = performAttempt(startingAt: url, headers: Self.defaultHeaders)
@@ -109,7 +109,9 @@ public struct WebFetchToolExecutor: Sendable {
             } catch let error as WebFetchHTTPClientError {
                 return .failure(AttemptFailure("Fetching \(currentURL.absoluteString) failed: \(error.description)."))
             } catch {
-                return .failure(AttemptFailure("Fetching \(currentURL.absoluteString) failed: \(error.localizedDescription)"))
+                return .failure(AttemptFailure(
+                    "Fetching \(currentURL.absoluteString) failed: \(error.localizedDescription)"
+                ))
             }
 
             guard Self.isRedirect(response.statusCode) else {
@@ -120,13 +122,20 @@ public struct WebFetchToolExecutor: Sendable {
                 ))
             }
             guard redirectCount < maxRedirects else {
-                return .failure(AttemptFailure("Gave up after \(maxRedirects) redirects fetching \(url.absoluteString); the last hop was \(currentURL.absoluteString)."))
+                return .failure(AttemptFailure(Self.redirectLimitMessage(
+                    maxRedirects: maxRedirects,
+                    requestedURL: url,
+                    currentURL: currentURL
+                )))
             }
             guard let location = response.header("location")?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !location.isEmpty,
                   let nextURL = URL(string: location, relativeTo: currentURL)?.absoluteURL
             else {
-                return .failure(AttemptFailure("\(currentURL.absoluteString) answered HTTP \(response.statusCode) with a missing or unparseable Location header."))
+                return .failure(AttemptFailure(Self.missingLocationHeaderMessage(
+                    url: currentURL,
+                    statusCode: response.statusCode
+                )))
             }
             currentURL = nextURL
             redirectCount += 1
@@ -194,12 +203,12 @@ public struct WebFetchToolExecutor: Sendable {
             renderNote = "textual content returned as-is"
         case .refused(let reportedType):
             // Already handled above; kept for exhaustiveness.
-            return Self.failure("\(finalURL.absoluteString) returned \(reportedType), which host.web.fetch cannot render as text.")
+            return Self.failure(Self.refusedContentMessage(url: finalURL, reportedType: reportedType))
         }
 
         var truncationNotes: [String] = []
         if response.bodyExceededMaxBytes {
-            truncationNotes.append("response body exceeded the \(Self.formatBytes(maxBodyBytes)) cap; only the first \(Self.formatBytes(response.body.count)) were fetched")
+            truncationNotes.append(Self.responseCapNote(maxBodyBytes: maxBodyBytes, fetchedBytes: response.body.count))
         }
         let capped = WebFetchMarkdownCapper.cap(content, maxLines: outputMaxLines, maxBytes: outputMaxBytes)
         content = capped.text
@@ -208,12 +217,17 @@ public struct WebFetchToolExecutor: Sendable {
         }
 
         if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            content = "[the page had no readable text content — it likely renders via JavaScript; try host.browser.open with the same URL]"
+            content = Self.emptyReadableContentPlaceholder
         }
 
-        var summary = "Fetched \(finalURL.absoluteString) (HTTP \(response.statusCode), \(contentType.map(WebFetchResponseDecoder.mimeType) ?? "no content type"), \(Self.formatBytes(response.body.count)) fetched, \(renderNote))."
+        var summary = Self.fetchSummary(
+            finalURL: finalURL,
+            response: response,
+            contentType: contentType,
+            renderNote: renderNote
+        )
         if outcome.redirectCount > 0 {
-            summary += " Followed \(outcome.redirectCount) redirect\(outcome.redirectCount == 1 ? "" : "s") from \(requestedURL.absoluteString)."
+            summary += Self.redirectSummary(count: outcome.redirectCount, requestedURL: requestedURL)
         }
         for note in truncationNotes {
             summary += " Note: \(note)."
@@ -241,6 +255,10 @@ public struct WebFetchToolExecutor: Sendable {
     }
 
     // MARK: - Helpers
+
+    private static func invalidURLMessage(_ rawURL: String) -> String {
+        "`\(rawURL)` is not a valid absolute http(s) URL. Pass a full URL like https://example.com/docs."
+    }
 
     private static func normalizedRequestURL(_ raw: String) -> URL? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -279,6 +297,41 @@ public struct WebFetchToolExecutor: Sendable {
         return message
     }
 
+    private static func redirectLimitMessage(maxRedirects: Int, requestedURL: URL, currentURL: URL) -> String {
+        "Gave up after \(maxRedirects) redirects fetching \(requestedURL.absoluteString); " +
+            "the last hop was \(currentURL.absoluteString)."
+    }
+
+    private static func missingLocationHeaderMessage(url: URL, statusCode: Int) -> String {
+        "\(url.absoluteString) answered HTTP \(statusCode) with a missing or unparseable Location header."
+    }
+
+    private static func refusedContentMessage(url: URL, reportedType: String) -> String {
+        "\(url.absoluteString) returned \(reportedType), which host.web.fetch cannot render as text."
+    }
+
+    private static func responseCapNote(maxBodyBytes: Int, fetchedBytes: Int) -> String {
+        "response body exceeded the \(formatBytes(maxBodyBytes)) cap; " +
+            "only the first \(formatBytes(fetchedBytes)) were fetched"
+    }
+
+    private static func fetchSummary(
+        finalURL: URL,
+        response: WebFetchHTTPResponse,
+        contentType: String?,
+        renderNote: String
+    ) -> String {
+        let mimeType = contentType.map(WebFetchResponseDecoder.mimeType) ?? "no content type"
+        return """
+        Fetched \(finalURL.absoluteString) (HTTP \(response.statusCode), \(mimeType), \
+        \(formatBytes(response.body.count)) fetched, \(renderNote)).
+        """
+    }
+
+    private static func redirectSummary(count: Int, requestedURL: URL) -> String {
+        " Followed \(count) redirect\(count == 1 ? "" : "s") from \(requestedURL.absoluteString)."
+    }
+
     private static func failure(_ message: String) -> ToolResult {
         ToolResult(ok: false, error: message)
     }
@@ -294,6 +347,11 @@ public struct WebFetchToolExecutor: Sendable {
         return "\(count) bytes"
     }
 
+    private static let emptyReadableContentPlaceholder = """
+    [the page had no readable text content — it likely renders via JavaScript; \
+    try host.browser.open with the same URL]
+    """
+
     private static let defaultHeaders: [String: String] = [
         "Accept": "text/html, application/xhtml+xml;q=0.9, text/markdown;q=0.8, text/plain;q=0.7, */*;q=0.1",
         "Accept-Language": "en-US,en;q=0.9",
@@ -303,6 +361,7 @@ public struct WebFetchToolExecutor: Sendable {
     private static let browserLikeHeaders: [String: String] = [
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     ]
 }

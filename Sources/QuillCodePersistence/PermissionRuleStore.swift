@@ -2,50 +2,6 @@ import Foundation
 import QuillCodeCore
 import QuillCodeSafety
 
-/// Result of loading a per-project permission rule file. Loading NEVER throws and never crashes on
-/// a bad file: a corrupt or newer-versioned file degrades to an empty table plus human-readable
-/// diagnostics the caller can surface.
-///
-/// `degraded` is the fail-safe signal for the review path: an existing file that could not be read
-/// as intended (unreadable / corrupt / newer version) sets it. An empty table alone is ambiguous
-/// (it could mean "no rules" or "couldn't read the rules"), and treating "couldn't read" as "no
-/// rules" would turn a persisted always-DENY into an auto-run. The reviewer forces an approval gate
-/// when `degraded` is true.
-public struct PermissionRuleLoadResult: Sendable {
-    public var table: PermissionRuleTable
-    public var degraded: Bool
-    public var diagnostics: [String]
-
-    public init(
-        table: PermissionRuleTable = PermissionRuleTable(),
-        degraded: Bool = false,
-        diagnostics: [String] = []
-    ) {
-        self.table = table
-        self.degraded = degraded
-        self.diagnostics = diagnostics
-    }
-}
-
-public enum PermissionRuleStoreError: Error, CustomStringConvertible {
-    /// The on-disk file was written by a NEWER QuillCode. Appending would rewrite (and downgrade)
-    /// it, so the save is refused instead of destroying rules this build cannot represent.
-    case newerFileVersion(found: Int, supported: Int)
-    /// The on-disk file contains rules with an unknown `match`/`decision` value (a real but
-    /// unrepresentable rule — possibly a deny). Rewriting the file on append would silently drop
-    /// those rules, so the save is refused instead.
-    case unrepresentableRules(count: Int)
-
-    public var description: String {
-        switch self {
-        case .newerFileVersion(let found, let supported):
-            return "Permission rules file uses newer format version \(found) (this build supports \(supported)); not overwriting it."
-        case .unrepresentableRules(let count):
-            return "Permission rules file has \(count) rule(s) this build can't represent (unknown match/decision); not overwriting it. Update this build or repair the file first."
-        }
-    }
-}
-
 /// Per-project JSON persistence for permission rule tables, following the shape of the other
 /// QuillCode JSON stores (atomic writes, ISO-friendly stable formatting, one file per subject).
 /// Files live in one directory keyed by the canonical (symlink-resolved) workspace root so every
@@ -78,7 +34,7 @@ public struct PermissionRuleFileStore: Sendable {
         } catch {
             // The file exists but is unreadable: fail safe (degraded), do NOT report "no rules".
             return PermissionRuleLoadResult(degraded: true, diagnostics: [
-                "Could not read permission rules file \(fileURL.lastPathComponent): \(error.localizedDescription). Asking for confirmation until it is readable."
+                Self.unreadableFileDiagnostic(fileName: fileURL.lastPathComponent, error: error)
             ])
         }
         return Self.decode(data, fileName: fileURL.lastPathComponent).result
@@ -210,7 +166,7 @@ public struct PermissionRuleFileStore: Sendable {
             // deny; do not auto-approve past it.
             return LoadOutcome(
                 result: PermissionRuleLoadResult(degraded: true, diagnostics: [
-                    "Permission rules file \(fileName) uses newer format version \(payload.version); asking for confirmation until this build is updated."
+                    Self.newerVersionDiagnostic(fileName: fileName, version: payload.version)
                 ]),
                 wasCorrupt: false
             )
@@ -224,9 +180,7 @@ public struct PermissionRuleFileStore: Sendable {
             switch lenient {
             case .parsed(let rule):
                 if rule.match == .pattern, patternExceedsCap(rule) {
-                    diagnostics.append(
-                        "Ignoring an oversized wildcard pattern in \(fileName) (patterns are capped at \(PermissionWildcardPattern.maxPatternScalarCount) characters)."
-                    )
+                    diagnostics.append(Self.oversizedPatternDiagnostic(fileName: fileName))
                 }
                 rules.append(rule)
             case .malformed:
@@ -248,7 +202,7 @@ public struct PermissionRuleFileStore: Sendable {
                     table: PermissionRuleTable(rules: rules),
                     degraded: true,
                     diagnostics: diagnostics + [
-                        "\(unrepresentableRules) rule\(unrepresentableRules == 1 ? "" : "s") in \(fileName) use an unknown match/decision this build can't represent; asking for confirmation until this build is updated or the file is repaired."
+                        Self.unrepresentableRulesDiagnostic(count: unrepresentableRules, fileName: fileName)
                     ]
                 ),
                 wasCorrupt: false,
@@ -268,9 +222,7 @@ public struct PermissionRuleFileStore: Sendable {
             )
         }
         if rules.count > PermissionRuleTable.maxRuleCount {
-            diagnostics.append(
-                "Permission rules file \(fileName) has \(rules.count) rules; only the last \(PermissionRuleTable.maxRuleCount) (highest priority) are used."
-            )
+            diagnostics.append(Self.ruleCountCapDiagnostic(count: rules.count, fileName: fileName))
         }
         return LoadOutcome(
             result: PermissionRuleLoadResult(table: PermissionRuleTable(rules: rules), diagnostics: diagnostics),
@@ -297,6 +249,32 @@ public struct PermissionRuleFileStore: Sendable {
     private static func patternExceedsCap(_ rule: PermissionRule) -> Bool {
         rule.action.unicodeScalars.count > PermissionWildcardPattern.maxPatternScalarCount
             || rule.resource.unicodeScalars.count > PermissionWildcardPattern.maxPatternScalarCount
+    }
+
+    private static func unreadableFileDiagnostic(fileName: String, error: Error) -> String {
+        "Could not read permission rules file \(fileName): \(error.localizedDescription). " +
+            "Asking for confirmation until it is readable."
+    }
+
+    private static func newerVersionDiagnostic(fileName: String, version: Int) -> String {
+        "Permission rules file \(fileName) uses newer format version \(version); " +
+            "asking for confirmation until this build is updated."
+    }
+
+    private static func oversizedPatternDiagnostic(fileName: String) -> String {
+        "Ignoring an oversized wildcard pattern in \(fileName) " +
+            "(patterns are capped at \(PermissionWildcardPattern.maxPatternScalarCount) characters)."
+    }
+
+    private static func unrepresentableRulesDiagnostic(count: Int, fileName: String) -> String {
+        "\(count) rule\(count == 1 ? "" : "s") in \(fileName) use an unknown match/decision " +
+            "this build can't represent; asking for confirmation until this build is updated " +
+            "or the file is repaired."
+    }
+
+    private static func ruleCountCapDiagnostic(count: Int, fileName: String) -> String {
+        "Permission rules file \(fileName) has \(count) rules; only the last " +
+            "\(PermissionRuleTable.maxRuleCount) (highest priority) are used."
     }
 
     private static func backupURL(for fileURL: URL) -> URL {

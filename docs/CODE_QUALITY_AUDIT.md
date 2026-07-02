@@ -14233,3 +14233,44 @@ Validation:
 
 - `swift test --filter 'TranscriptMarkdownExporterTests|QuillCodeWorkspaceViewCommandPlannerTests|QuillCodeDesktopTranscriptExportCoordinatorTests|ParityDesktopGateTests|WorkspaceRenderedCommandRoutingParityTests'` (24 tests, 0 failures)
 - `npx playwright test tests/core.spec.ts -g "copies the whole conversation"` (1 test, 0 failures)
+
+## 2026-07-02 Web Fetch And Permission Rule A+ Refactor
+
+Overall grade after this slice: **A+ for web-fetch and permission-rule
+maintainability**. The pass targeted the only source files that the generated
+audit still scored as `A` on current `main`, then split responsibilities without
+changing the tool contract, SSRF gate, converter behavior, or fail-safe rule
+persistence semantics.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `HTMLToMarkdownConverter.swift` | A+ | Reduced to public API plus parser coordination, with inline/media, block/table, and element-policy responsibilities moved into focused extension files. |
+| `HTMLToMarkdownConverterInline.swift` | A+ | Owns link, inline-code, image, blocked-scheme, and markdown-destination escaping behavior. |
+| `HTMLToMarkdownConverterBlocks.swift` | A+ | Owns preformatted blocks, fence sizing, and bounded table capture/rendering. |
+| `WebFetchToolExecutor.swift` | A+ | Keeps transport/result flow compact by moving repeated long diagnostics and summaries behind named helpers. |
+| `PermissionRuleStore.swift` | A+ | Keeps disk IO and tolerant decode separate from public DTO/error models; repeated safety diagnostics now have one construction path. |
+| `PermissionRuleStoreModels.swift` | A+ | Public load-result and store-error types are isolated from persistence internals. |
+
+Code quality changes:
+
+- Split the 773-line HTML converter into cohesive files by responsibility while
+  preserving the `HTMLToMarkdown.convert` public API and all bounded-buffer
+  behavior.
+- Kept converter state in one small coordinator so parsing remains iterative and
+  non-recursive, while link/media/pre/table details are easier to review.
+- Extracted web-fetch failure/summary strings into named helpers, making the
+  redirect, content-type, Cloudflare, body-cap, and empty-page branches clearer.
+- Moved permission-rule public models into their own file and centralized
+  diagnostics for unreadable, newer-version, oversized-pattern,
+  unrepresentable-rule, and rule-cap cases.
+- Regenerated the file-grade report; source modules now grade A+ and the prior
+  `A` files are no longer below the A+ threshold.
+
+Validation:
+
+- `swift test --filter 'HTMLToMarkdownConverterTests|WebFetchToolExecutorTests|WebFetchToolRouterTests|PermissionRuleStoreTests|WorkspaceModelPermissionRuleTests|PermissionRuleGatedReviewerTests|PermissionRuleSecurityRegressionTests'` (140 tests, 1 skipped, 0 failures)
+- `swift test` (2,576 tests, 2 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
