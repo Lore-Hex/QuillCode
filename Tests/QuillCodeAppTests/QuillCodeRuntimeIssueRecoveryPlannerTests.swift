@@ -42,6 +42,62 @@ final class QuillCodeRuntimeIssueRecoveryPlannerTests: XCTestCase {
         XCTAssertEqual(planner.action(for: issue(actionLabel: "Switch model")), .presentModelPicker)
     }
 
+    func testTypedRecoveryRoutesToCommandWithoutDependingOnActionLabel() {
+        let settings = command(id: "settings")
+        let planner = RuntimeIssueRecoveryPlanner(commands: [settings])
+        let issue = issue(
+            actionLabel: "Re-authenticate",
+            recovery: RuntimeRecoveryTelemetry(
+                route: .settings,
+                reason: .trustedRouterKeyRejected,
+                commandID: "settings"
+            )
+        )
+
+        XCTAssertEqual(planner.action(for: issue), .command(settings))
+    }
+
+    func testTypedRecoveryPrefersRouteOverStaleActionLabel() {
+        let retry = command(id: "retry-last-turn")
+        let planner = RuntimeIssueRecoveryPlanner(commands: [retry])
+        let issue = issue(
+            actionLabel: "Open Settings",
+            recovery: RuntimeRecoveryTelemetry(
+                route: .retryLastTurn,
+                reason: .networkUnreachable,
+                commandID: "retry-last-turn"
+            )
+        )
+
+        XCTAssertEqual(planner.action(for: issue), .command(retry))
+    }
+
+    func testTypedModelPickerRecoveryDoesNotNeedActionLabel() {
+        let planner = RuntimeIssueRecoveryPlanner(commands: [])
+        let issue = issue(
+            actionLabel: nil,
+            recovery: RuntimeRecoveryTelemetry(route: .modelPicker, reason: .providerUnavailable)
+        )
+
+        XCTAssertEqual(planner.action(for: issue), .presentModelPicker)
+    }
+
+    func testTypedCommandRecoveryStillRequiresEnabledCommand() {
+        let planner = RuntimeIssueRecoveryPlanner(commands: [
+            command(id: "retry-last-turn", isEnabled: false)
+        ])
+        let issue = issue(
+            actionLabel: "Retry",
+            recovery: RuntimeRecoveryTelemetry(
+                route: .retryLastTurn,
+                reason: .runFailed,
+                commandID: "retry-last-turn"
+            )
+        )
+
+        XCTAssertNil(planner.action(for: issue))
+    }
+
     func testMissingOrUnknownLabelsHaveNoRecoveryAction() {
         let planner = RuntimeIssueRecoveryPlanner(commands: [
             command(id: "settings"),
@@ -62,12 +118,16 @@ final class QuillCodeRuntimeIssueRecoveryPlannerTests: XCTestCase {
         )
     }
 
-    private func issue(actionLabel: String?) -> RuntimeIssueSurface {
+    private func issue(
+        actionLabel: String?,
+        recovery: RuntimeRecoveryTelemetry? = nil
+    ) -> RuntimeIssueSurface {
         RuntimeIssueSurface(
             severity: .warning,
             title: "Runtime issue",
             message: "Needs recovery.",
-            actionLabel: actionLabel
+            actionLabel: actionLabel,
+            recovery: recovery
         )
     }
 }

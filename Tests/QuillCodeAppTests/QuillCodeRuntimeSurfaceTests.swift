@@ -59,7 +59,34 @@ final class QuillCodeRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(issue.title, "Old issue")
         XCTAssertEqual(issue.message, "Older renderer payload")
         XCTAssertEqual(issue.actionLabel, "Retry")
+        XCTAssertNil(issue.recovery)
         XCTAssertTrue(issue.diagnostics.isEmpty)
+    }
+
+    func testRuntimeIssueEncodesAndDecodesRecoveryTelemetry() throws {
+        let issue = RuntimeIssueSurface(
+            severity: .warning,
+            title: "TrustedRouter sign-in needed",
+            message: "Sign in first.",
+            actionLabel: "Open Settings",
+            recovery: RuntimeRecoveryTelemetry(
+                route: .settings,
+                reason: .trustedRouterSignInRequired,
+                commandID: "settings"
+            )
+        )
+
+        let decoded = try JSONDecoder().decode(
+            RuntimeIssueSurface.self,
+            from: try JSONEncoder().encode(issue)
+        )
+
+        XCTAssertEqual(decoded.recovery, issue.recovery)
+        XCTAssertEqual(decoded.allDiagnostics, [
+            RuntimeDiagnosticSurface(label: "Recovery route", value: "settings"),
+            RuntimeDiagnosticSurface(label: "Recovery reason", value: "trustedrouter-sign-in-required"),
+            RuntimeDiagnosticSurface(label: "Recovery command", value: "settings")
+        ])
     }
 
     func testRuntimeIssueCopiesDiagnosticsWithoutMutatingOriginal() {
@@ -74,5 +101,6 @@ final class QuillCodeRuntimeSurfaceTests: XCTestCase {
 
         XCTAssertTrue(original.diagnostics.isEmpty)
         XCTAssertEqual(enriched.diagnostics, [diagnostic])
+        XCTAssertEqual(enriched.allDiagnostics, [diagnostic])
     }
 }

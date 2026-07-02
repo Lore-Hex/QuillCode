@@ -33,8 +33,10 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "TrustedRouter sign-in needed",
-                message: "Sign in with TrustedRouter to use live models. Mock mode stays available for deterministic local testing.",
+                message: "Sign in with TrustedRouter to use live models. " +
+                    "Mock mode stays available for deterministic local testing.",
                 actionLabel: "Open Settings",
+                recovery: .settings(reason: .trustedRouterSignInRequired),
                 diagnostics: diagnostics()
             )
         case QuillCodeRuntimeStatusLabel.developerKeyNeeded:
@@ -43,6 +45,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
                 title: "Developer key needed",
                 message: "Developer override is enabled, but no TrustedRouter API key is saved.",
                 actionLabel: "Add key",
+                recovery: .settings(reason: .developerKeyMissing),
                 diagnostics: diagnostics()
             )
         default:
@@ -62,7 +65,10 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
         if let lastError {
             diagnostics.append(contentsOf: Self.rateLimitDiagnostics(from: lastError))
             diagnostics.append(contentsOf: Self.providerOutageDiagnostics(from: lastError))
-            diagnostics.append(RuntimeDiagnosticSurface(label: "Last error", value: Self.redactedDiagnosticError(lastError)))
+            diagnostics.append(RuntimeDiagnosticSurface(
+                label: "Last error",
+                value: Self.redactedDiagnosticError(lastError)
+            ))
         }
         return diagnostics
     }
@@ -81,23 +87,28 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
                 severity: .warning,
                 title: "TrustedRouter sign-in needed",
                 message: "Sign in with TrustedRouter or switch to developer override with a valid key.",
-                actionLabel: "Open Settings"
+                actionLabel: "Open Settings",
+                recovery: .settings(reason: .trustedRouterSignInRequired)
             )
         }
         if normalized.contains("401") || normalized.contains("invalid api key") || normalized.contains("unauthorized") {
             return RuntimeIssueSurface(
                 severity: .error,
                 title: "TrustedRouter key rejected",
-                message: "The saved key was rejected by \(config.apiBaseURL). Sign in again or replace the developer key.",
-                actionLabel: "Fix key"
+                message: "The saved key was rejected by \(config.apiBaseURL). " +
+                    "Sign in again or replace the developer key.",
+                actionLabel: "Fix key",
+                recovery: .settings(reason: .trustedRouterKeyRejected)
             )
         }
         if isRateLimitError(normalized) {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "TrustedRouter rate limit reached",
-                message: "TrustedRouter or the selected provider is rate limiting this request. Wait for reset, retry later, or switch models.",
-                actionLabel: "Switch model"
+                message: "TrustedRouter or the selected provider is rate limiting this request. " +
+                    "Wait for reset, retry later, or switch models.",
+                actionLabel: "Switch model",
+                recovery: .modelPicker(reason: .rateLimited)
             )
         }
         if isProviderOutageError(trimmed) {
@@ -106,8 +117,10 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "TrustedRouter provider unavailable",
-                message: "\(provider) is not completing requests for \(modelName). Retry later or switch models while the provider recovers.",
-                actionLabel: "Switch model"
+                message: "\(provider) is not completing requests for \(modelName). " +
+                    "Retry later or switch models while the provider recovers.",
+                actionLabel: "Switch model",
+                recovery: .modelPicker(reason: .providerUnavailable)
             )
         }
         if normalized.contains("timed out") ||
@@ -119,8 +132,10 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             return RuntimeIssueSurface(
                 severity: .error,
                 title: "TrustedRouter network issue",
-                message: "QuillCode could not reach \(config.apiBaseURL). Check the network or API base URL, then retry.",
-                actionLabel: "Retry"
+                message: "QuillCode could not reach \(config.apiBaseURL). " +
+                    "Check the network or API base URL, then retry.",
+                actionLabel: "Retry",
+                recovery: .retry(reason: .networkUnreachable)
             )
         }
         if normalized.contains("empty response") {
@@ -128,22 +143,27 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
                 severity: .warning,
                 title: "TrustedRouter returned no content",
                 message: "Retry the turn or switch models. If it repeats, check provider status.",
-                actionLabel: "Retry"
+                actionLabel: "Retry",
+                recovery: .retry(reason: .emptyResponse)
             )
         }
         if normalized.contains("valid quillcode action json") || normalized.contains("empty argument object") {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Model response was malformed",
-                message: "The selected model did not follow QuillCode's action schema. Try \(TrustedRouterDefaults.fastModelDisplayName), \(TrustedRouterDefaults.synthModelDisplayName), or another coding model.",
-                actionLabel: "Switch model"
+                message: "The selected model did not follow QuillCode's action schema. " +
+                    "Try \(TrustedRouterDefaults.fastModelDisplayName), " +
+                    "\(TrustedRouterDefaults.synthModelDisplayName), or another coding model.",
+                actionLabel: "Switch model",
+                recovery: .modelPicker(reason: .malformedModelAction)
             )
         }
         return RuntimeIssueSurface(
             severity: .error,
             title: "Run failed",
             message: String(trimmed.prefix(260)),
-            actionLabel: "Retry"
+            actionLabel: "Retry",
+            recovery: .retry(reason: .runFailed)
         )
     }
 
@@ -228,7 +248,8 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
     private static func httpStatusCode(from error: String) -> String? {
         firstCapture(
             in: error,
-            pattern: #"(?i)\b(?:http(?:\s+status)?|status(?:\s*code)?|response|server)\s*[:=]?\s*((?:50[0-4])|(?:5\d\d))\b"#
+            pattern: #"(?i)\b(?:http(?:\s+status)?|status(?:\s*code)?|response|server)"# +
+                #"\s*[:=]?\s*((?:50[0-4])|(?:5\d\d))\b"#
         )
     }
 
@@ -261,5 +282,19 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             normalized.contains("upstream") ||
             normalized.contains("overloaded") ||
             normalized.contains("temporarily unavailable")
+    }
+}
+
+private extension RuntimeRecoveryTelemetry {
+    static func settings(reason: RuntimeRecoveryReason) -> RuntimeRecoveryTelemetry {
+        RuntimeRecoveryTelemetry(route: .settings, reason: reason, commandID: "settings")
+    }
+
+    static func retry(reason: RuntimeRecoveryReason) -> RuntimeRecoveryTelemetry {
+        RuntimeRecoveryTelemetry(route: .retryLastTurn, reason: reason, commandID: "retry-last-turn")
+    }
+
+    static func modelPicker(reason: RuntimeRecoveryReason) -> RuntimeRecoveryTelemetry {
+        RuntimeRecoveryTelemetry(route: .modelPicker, reason: reason)
     }
 }

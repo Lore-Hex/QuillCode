@@ -5,6 +5,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Unit Tests
 
 - Config parsing, model catalog, auth state, secret store.
+- Runtime issue surfaces, backward-compatible issue decoding, typed recovery route/reason telemetry, route-first recovery planning, and rendered diagnostic rows for recovery evidence.
 - Project connection parsing, typed local/SSH Remote persistence, legacy project decoding, and remote display labels.
 - Thread reducers, tool schemas, shell/file/path/search safety, and SSH Remote command request quoting/validation.
 - Workspace activity reduction from thread events, tool cards, instructions, memories, artifacts, latest assistant answers, deterministic task plans, deterministic handoff summaries, and collapsible shared section state.

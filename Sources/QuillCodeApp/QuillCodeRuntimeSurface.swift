@@ -6,6 +6,40 @@ public enum RuntimeIssueSeverity: String, Codable, Sendable, Hashable {
     case error
 }
 
+public enum RuntimeRecoveryRoute: String, Codable, Sendable, Hashable {
+    case settings
+    case retryLastTurn = "retry-last-turn"
+    case modelPicker = "model-picker"
+}
+
+public enum RuntimeRecoveryReason: String, Codable, Sendable, Hashable {
+    case trustedRouterSignInRequired = "trustedrouter-sign-in-required"
+    case developerKeyMissing = "developer-key-missing"
+    case trustedRouterKeyRejected = "trustedrouter-key-rejected"
+    case rateLimited = "rate-limited"
+    case providerUnavailable = "provider-unavailable"
+    case networkUnreachable = "network-unreachable"
+    case emptyResponse = "empty-response"
+    case malformedModelAction = "malformed-model-action"
+    case runFailed = "run-failed"
+}
+
+public struct RuntimeRecoveryTelemetry: Codable, Sendable, Hashable {
+    public var route: RuntimeRecoveryRoute
+    public var reason: RuntimeRecoveryReason
+    public var commandID: String?
+
+    public init(
+        route: RuntimeRecoveryRoute,
+        reason: RuntimeRecoveryReason,
+        commandID: String? = nil
+    ) {
+        self.route = route
+        self.reason = reason
+        self.commandID = commandID
+    }
+}
+
 public enum ExecutionContextKind: String, Codable, Sendable, Hashable {
     case local
     case sshRemote = "ssh-remote"
@@ -56,6 +90,7 @@ public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
     public var title: String
     public var message: String
     public var actionLabel: String?
+    public var recovery: RuntimeRecoveryTelemetry?
     public var diagnostics: [RuntimeDiagnosticSurface]
 
     public init(
@@ -63,12 +98,14 @@ public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
         title: String,
         message: String,
         actionLabel: String? = nil,
+        recovery: RuntimeRecoveryTelemetry? = nil,
         diagnostics: [RuntimeDiagnosticSurface] = []
     ) {
         self.severity = severity
         self.title = title
         self.message = message
         self.actionLabel = actionLabel
+        self.recovery = recovery
         self.diagnostics = diagnostics
     }
 
@@ -77,6 +114,7 @@ public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
         case title
         case message
         case actionLabel
+        case recovery
         case diagnostics
     }
 
@@ -86,6 +124,7 @@ public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
         self.title = try container.decode(String.self, forKey: .title)
         self.message = try container.decode(String.self, forKey: .message)
         self.actionLabel = try container.decodeIfPresent(String.self, forKey: .actionLabel)
+        self.recovery = try container.decodeIfPresent(RuntimeRecoveryTelemetry.self, forKey: .recovery)
         self.diagnostics = try container.decodeIfPresent([RuntimeDiagnosticSurface].self, forKey: .diagnostics) ?? []
     }
 
@@ -93,6 +132,22 @@ public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
         var copy = self
         copy.diagnostics = diagnostics
         return copy
+    }
+
+    var allDiagnostics: [RuntimeDiagnosticSurface] {
+        diagnostics + recoveryDiagnostics
+    }
+
+    private var recoveryDiagnostics: [RuntimeDiagnosticSurface] {
+        guard let recovery else { return [] }
+        var diagnostics = [
+            RuntimeDiagnosticSurface(label: "Recovery route", value: recovery.route.rawValue),
+            RuntimeDiagnosticSurface(label: "Recovery reason", value: recovery.reason.rawValue)
+        ]
+        if let commandID = recovery.commandID {
+            diagnostics.append(RuntimeDiagnosticSurface(label: "Recovery command", value: commandID))
+        }
+        return diagnostics
     }
 }
 

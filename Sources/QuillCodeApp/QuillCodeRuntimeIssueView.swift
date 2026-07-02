@@ -29,14 +29,14 @@ struct QuillCodeRuntimeIssueView: View {
                             .foregroundStyle(tint)
                     }
                 }
-                if showsDiagnostics && !issue.diagnostics.isEmpty {
+                if showsDiagnostics && !issue.allDiagnostics.isEmpty {
                     Divider()
                         .padding(.vertical, 4)
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Diagnostics")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(QuillCodePalette.muted)
-                        ForEach(issue.diagnostics) { diagnostic in
+                        ForEach(issue.allDiagnostics) { diagnostic in
                             HStack(alignment: .firstTextBaseline, spacing: QuillCodeMetrics.controlClusterSpacing) {
                                 Text(diagnostic.label)
                                     .font(.caption2.weight(.semibold))

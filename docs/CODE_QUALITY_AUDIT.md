@@ -14334,3 +14334,42 @@ Validation:
 - `swift test` (2,646 tests, 2 skipped, 0 failures)
 - `git diff --check`
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-02 Runtime Recovery Telemetry A+ Pass
+
+Overall grade after this slice: **A+ for runtime recovery observability**. The
+pass keeps existing runtime issue copy and actions stable while replacing
+label-parsing as the primary recovery contract.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `QuillCodeRuntimeSurface.swift` | A+ | `RuntimeRecoveryTelemetry` is a backward-compatible optional payload beside runtime issue diagnostics. |
+| `WorkspaceRuntimeIssueBuilder.swift` | A+ | Every TrustedRouter/runtime issue classification now records a route and reason for recovery. |
+| `QuillCodeRuntimeIssueRecoveryPlanner.swift` | A+ | Recovery planning prefers typed routes and keeps action-label matching only for older payloads. |
+| `WorkspaceHTMLTranscriptRenderer.swift` | A+ | Runtime diagnostics render recovery route/reason/command evidence through one shared diagnostic accessor and source-audited hit-target primitives. |
+
+Code quality changes:
+
+- Added `RuntimeRecoveryRoute`, `RuntimeRecoveryReason`, and
+  `RuntimeRecoveryTelemetry` with Codable defaults that preserve older payloads.
+- Recorded recovery telemetry for missing sign-in, missing developer key,
+  rejected key, rate limit, provider outage, network issue, empty response,
+  malformed model action, and generic run failure.
+- Appended typed recovery rows to SwiftUI and static HTML diagnostics so support
+  can see what action the app will take.
+- Decoupled recovery routing from localized button labels while preserving the
+  legacy fallback path.
+- Consolidated rendered diagnostics through `RuntimeIssueSurface.allDiagnostics`
+  and tightened the transcript renderer so the touched file has no automated
+  grade warnings.
+
+Validation:
+
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (0 non-A+ rows)
+- `swift test --filter 'QuillCodeRuntimeSurfaceTests|QuillCodeRuntimeIssueRecoveryPlannerTests|WorkspaceRuntimeIssueBuilderTests|WorkspaceRuntimeIssueIntegrationTests|WorkspaceHTMLChromeRendererTests|WorkspaceSettingsRuntimeSurfaceTests|ComposerPlanProgressStripTests'` (60 tests, 0 failures)
+- `swift test --filter 'ParityHTMLSourceInteractionTargetGateTests|ParityInteractionTargetPrimitiveGateTests|ComposerPlanProgressStripTests|WorkspaceHTMLChromeRendererTests'` (26 tests, 0 failures)
+- Post-merge focused validation including Linux notification adapter tests (80 tests, 0 failures)
+- `swift test --quiet` after merging `origin/main` (2,719 tests, 2 skipped, 0 failures)
+- `git diff --check`
