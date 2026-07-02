@@ -33,7 +33,16 @@ protocol WorkspaceMCPProcessControlling: AnyObject, Sendable {
 }
 
 struct WorkspaceMCPLaunchRequest: Sendable, Hashable {
+    /// The two connection shapes a server can take: a spawned stdio child process, or a remote
+    /// HTTP/SSE endpoint. `command`/`arguments` are populated only for `.stdio`.
+    enum Transport: Sendable, Hashable {
+        case stdio
+        /// `http` uses StreamableHTTP with SSE failover; `sse` forces the legacy HTTP+SSE transport.
+        case remote(url: URL, headers: [String: String], preferSSE: Bool, oauthClientID: String?)
+    }
+
     var serverID: String
+    var transport: Transport
     var command: String
     var arguments: [String]
     var workspaceRoot: URL
@@ -45,23 +54,58 @@ struct WorkspaceMCPLaunchRequest: Sendable, Hashable {
         guard manifest.isEnabled else {
             throw WorkspaceMCPLaunchRequestError.disabled(name: manifest.name)
         }
-        guard let command = manifest.launchExecutable,
-              !command.isEmpty
-        else {
-            throw WorkspaceMCPLaunchRequestError.missingCommand(name: manifest.name)
+
+        switch manifest.transport {
+        case .http, .sse:
+            guard let rawURL = manifest.serverURL, !rawURL.isEmpty else {
+                throw WorkspaceMCPLaunchRequestError.missingURL(name: manifest.name)
+            }
+            guard let url = URL(string: rawURL),
+                  let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  let host = url.host, !host.isEmpty
+            else {
+                throw WorkspaceMCPLaunchRequestError.invalidURL(name: manifest.name, url: rawURL)
+            }
+            // Embedded credentials in the URL are a parser-differential/leak risk — refuse them;
+            // auth belongs in headers or the OAuth flow.
+            guard (url.user ?? "").isEmpty, url.password == nil else {
+                throw WorkspaceMCPLaunchRequestError.invalidURL(name: manifest.name, url: rawURL)
+            }
+            return WorkspaceMCPLaunchRequest(
+                serverID: manifest.id,
+                transport: .remote(
+                    url: url,
+                    headers: manifest.headers ?? [:],
+                    preferSSE: manifest.transport == .sse,
+                    oauthClientID: manifest.oauthClientID
+                ),
+                command: "",
+                arguments: [],
+                workspaceRoot: workspaceRoot
+            )
+        case .stdio, .none:
+            guard let command = manifest.launchExecutable,
+                  !command.isEmpty
+            else {
+                throw WorkspaceMCPLaunchRequestError.missingCommand(name: manifest.name)
+            }
+            return WorkspaceMCPLaunchRequest(
+                serverID: manifest.id,
+                transport: .stdio,
+                command: command,
+                arguments: manifest.launchArguments ?? [],
+                workspaceRoot: workspaceRoot
+            )
         }
-        return WorkspaceMCPLaunchRequest(
-            serverID: manifest.id,
-            command: command,
-            arguments: manifest.launchArguments ?? [],
-            workspaceRoot: workspaceRoot
-        )
     }
 }
 
 enum WorkspaceMCPLaunchRequestError: Error, LocalizedError, Equatable {
     case disabled(name: String)
     case missingCommand(name: String)
+    case missingURL(name: String)
+    case invalidURL(name: String, url: String)
 
     var errorDescription: String? {
         switch self {
@@ -69,6 +113,10 @@ enum WorkspaceMCPLaunchRequestError: Error, LocalizedError, Equatable {
             return "\(name) is disabled."
         case .missingCommand(let name):
             return "\(name) does not define a launch command."
+        case .missingURL(let name):
+            return "\(name) does not define a server URL for its HTTP transport."
+        case .invalidURL(let name, let url):
+            return "\(name) has an invalid server URL: \(url)"
         }
     }
 }
@@ -112,7 +160,39 @@ struct WorkspaceMCPProcessLaunchConfiguration: Sendable, Hashable {
 }
 
 struct DefaultWorkspaceMCPServerLauncher: WorkspaceMCPServerLaunching {
+    /// Secret store used to resolve stored OAuth tokens for remote servers. Nil disables auth
+    /// (open servers still connect; servers requiring auth surface a 401 at probe time).
+    var secretStore: (any MCPSecretStore)?
+    /// HTTP transport for remote servers. Defaults to the real `URLSession` client.
+    var httpClient: any MCPHTTPClient
+
+    init(
+        secretStore: (any MCPSecretStore)? = nil,
+        httpClient: any MCPHTTPClient = URLSessionMCPHTTPClient()
+    ) {
+        self.secretStore = secretStore
+        self.httpClient = httpClient
+    }
+
     func launch(
+        request: WorkspaceMCPLaunchRequest,
+        onTermination: @escaping @MainActor @Sendable (_ id: String, _ terminationStatus: Int32) -> Void
+    ) throws -> WorkspaceMCPLaunchedServer {
+        switch request.transport {
+        case .stdio:
+            return try launchStdio(request: request, onTermination: onTermination)
+        case let .remote(url, headers, preferSSE, oauthClientID):
+            return launchRemote(
+                request: request,
+                url: url,
+                headers: headers,
+                preferSSE: preferSSE,
+                oauthClientID: oauthClientID
+            )
+        }
+    }
+
+    private func launchStdio(
         request: WorkspaceMCPLaunchRequest,
         onTermination: @escaping @MainActor @Sendable (_ id: String, _ terminationStatus: Int32) -> Void
     ) throws -> WorkspaceMCPLaunchedServer {
@@ -155,6 +235,35 @@ struct DefaultWorkspaceMCPServerLauncher: WorkspaceMCPServerLaunching {
             standardOutput: standardOutput.fileHandleForReading
         )
         return WorkspaceMCPLaunchedServer(process: controller, session: session)
+    }
+
+    private func launchRemote(
+        request: WorkspaceMCPLaunchRequest,
+        url: URL,
+        headers: [String: String],
+        preferSSE: Bool,
+        oauthClientID: String?
+    ) -> WorkspaceMCPLaunchedServer {
+        let authorization = WorkspaceMCPRemoteAuthResolver.authorization(
+            serverID: request.serverID,
+            serverURL: url,
+            oauthClientID: oauthClientID,
+            secretStore: secretStore,
+            httpClient: httpClient
+        )
+        let prober = MCPHTTPProber(
+            endpoint: url,
+            httpClient: httpClient,
+            authorization: authorization,
+            extraHeaders: headers,
+            mode: preferSSE ? .httpSSE : .automatic
+        )
+        // A remote connection owns no OS process — it stays "running" until torn down. There is
+        // nothing to await, so the termination callback is never invoked from here.
+        return WorkspaceMCPLaunchedServer(
+            process: WorkspaceMCPRemoteConnectionController(),
+            session: WorkspaceMCPRemoteSession(prober: prober)
+        )
     }
 }
 

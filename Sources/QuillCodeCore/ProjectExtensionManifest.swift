@@ -33,6 +33,12 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
     public var relativePath: String
     public var isEnabled: Bool
     public var transport: ProjectExtensionTransport?
+    /// The remote endpoint URL for `http`/`sse` transports (nil for stdio servers).
+    public var serverURL: String?
+    /// Extra HTTP headers to send on every request to a remote server (e.g. a static API key).
+    public var headers: [String: String]?
+    /// A static OAuth client ID to use instead of dynamic registration, when the server requires one.
+    public var oauthClientID: String?
     public var launchExecutable: String?
     public var launchCommand: String?
     public var launchArguments: [String]?
@@ -51,6 +57,9 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         relativePath: String,
         isEnabled: Bool = true,
         transport: ProjectExtensionTransport? = nil,
+        serverURL: String? = nil,
+        headers: [String: String]? = nil,
+        oauthClientID: String? = nil,
         launchExecutable: String? = nil,
         launchCommand: String? = nil,
         launchArguments: [String]? = nil,
@@ -68,6 +77,9 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         self.relativePath = relativePath
         self.isEnabled = isEnabled
         self.transport = transport
+        self.serverURL = serverURL
+        self.headers = headers
+        self.oauthClientID = oauthClientID
         self.launchExecutable = launchExecutable
         self.launchCommand = launchCommand
         self.launchArguments = launchArguments

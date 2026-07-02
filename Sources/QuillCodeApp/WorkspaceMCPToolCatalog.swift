@@ -62,7 +62,7 @@ struct WorkspaceMCPToolCatalog: Sendable, Hashable {
 
         var definition = ToolDefinition.mcpCall
         definition.description = """
-        Call a tool on a verified project-local MCP stdio server. Use only these Ready MCP tools:
+        Call a tool on a verified project MCP server (stdio or remote). Use only these Ready MCP tools:
         \(readyTools.joined(separator: "\n"))
         """
         return definition
@@ -74,7 +74,7 @@ struct WorkspaceMCPToolCatalog: Sendable, Hashable {
 
         var definition = ToolDefinition.mcpReadResource
         definition.description = """
-        Read a resource from a verified project-local MCP stdio server. Use only these Ready MCP resources:
+        Read a resource from a verified project MCP server (stdio or remote). Use only these Ready MCP resources:
         \(readyResources.joined(separator: "\n"))
         """
         return definition
@@ -86,7 +86,7 @@ struct WorkspaceMCPToolCatalog: Sendable, Hashable {
 
         var definition = ToolDefinition.mcpGetPrompt
         definition.description = """
-        Get a prompt from a verified project-local MCP stdio server. Use only these Ready MCP prompts:
+        Get a prompt from a verified project MCP server (stdio or remote). Use only these Ready MCP prompts:
         \(readyPrompts.joined(separator: "\n"))
         """
         return definition
