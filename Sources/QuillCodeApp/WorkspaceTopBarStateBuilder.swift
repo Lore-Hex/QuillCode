@@ -26,6 +26,7 @@ enum WorkspaceTopBarStateBuilder {
             mode: thread?.mode ?? root.config.mode,
             agentStatus: agentStatus ?? root.topBar.agentStatus,
             computerUseStatus: root.topBar.computerUseStatus,
+            computerUseForegroundApplication: root.topBar.computerUseForegroundApplication,
             branchStatus: branchStatus,
             branchStatusProjectID: branchStatusProjectID
         )

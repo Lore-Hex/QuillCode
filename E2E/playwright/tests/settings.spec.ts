@@ -55,6 +55,27 @@ test('mock harness edits Computer Use approved apps in settings', async ({ page 
   await expect(settingsPanel.getByTestId('computer-use-approved-app-names')).toHaveValue('');
 });
 
+test('mock harness quick-adds the current Computer Use app in settings', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await openSettings(page);
+  let settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('computer-use-current-app')).toContainText('Terminal');
+  await expect(settingsPanel.getByTestId('computer-use-current-app-target')).toHaveText(
+    'Will save bundle ID: com.apple.Terminal'
+  );
+
+  await settingsPanel.getByTestId('computer-use-allow-current-app').click();
+  await expect(settingsPanel.getByTestId('computer-use-allow-current-app')).toBeDisabled();
+  await expect(settingsPanel.getByTestId('computer-use-approved-bundles')).toHaveValue('com.apple.Terminal');
+  await settingsPanel.getByTestId('settings-save').click();
+
+  await openSettings(page);
+  settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('computer-use-approval-status')).toHaveText('1 approved');
+  await expect(settingsPanel.getByTestId('computer-use-approved-bundles')).toHaveValue('com.apple.Terminal');
+});
+
 test('mock harness shows actionable TrustedRouter runtime issue', async ({ page }) => {
   await page.goto(harnessURL());
 

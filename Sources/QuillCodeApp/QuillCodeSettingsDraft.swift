@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillComputerUseKit
 
 struct QuillCodeSettingsDraft: Equatable {
     var apiBaseURL: String = ""
@@ -55,8 +56,42 @@ struct QuillCodeSettingsDraft: Equatable {
         browserBlockedDomainsText = ""
     }
 
+    mutating func addComputerUseApproval(for application: ComputerUseApplication) {
+        if let bundleIdentifier = application.bundleIdentifier {
+            computerUseApprovedBundleIdentifiersText = Self.textAddingApproval(
+                bundleIdentifier,
+                to: computerUseApprovedBundleIdentifiersText
+            )
+        } else if let name = application.name {
+            computerUseApprovedAppNamesText = Self.textAddingApproval(
+                name,
+                to: computerUseApprovedAppNamesText
+            )
+        }
+    }
+
+    func hasComputerUseApproval(for application: ComputerUseApplication) -> Bool {
+        if let bundleIdentifier = application.bundleIdentifier {
+            return Self.approvals(from: computerUseApprovedBundleIdentifiersText)
+                .contains { $0.caseInsensitiveCompare(bundleIdentifier) == .orderedSame }
+        }
+        if let name = application.name {
+            return Self.approvals(from: computerUseApprovedAppNamesText)
+                .contains { $0.caseInsensitiveCompare(name) == .orderedSame }
+        }
+        return false
+    }
+
     private static func joinedApprovals(_ approvals: [String]) -> String {
         approvals.joined(separator: "\n")
+    }
+
+    private static func textAddingApproval(_ approval: String, to text: String) -> String {
+        let existing = approvals(from: text)
+        guard !existing.contains(where: { $0.caseInsensitiveCompare(approval) == .orderedSame }) else {
+            return joinedApprovals(existing)
+        }
+        return joinedApprovals(existing + [approval])
     }
 
     private static func approvals(from text: String) -> [String] {

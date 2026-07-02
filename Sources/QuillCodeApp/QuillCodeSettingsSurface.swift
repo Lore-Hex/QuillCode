@@ -2,6 +2,27 @@ import Foundation
 import QuillCodeCore
 import QuillComputerUseKit
 
+public struct ComputerUseSettingsRuntime: Sendable, Hashable {
+    public var status: ComputerUseStatus
+    public var foregroundApplication: ComputerUseApplication?
+
+    public init(
+        status: ComputerUseStatus = .permissionStatus(
+            screenRecordingGranted: false,
+            accessibilityGranted: false
+        ),
+        foregroundApplication: ComputerUseApplication? = nil
+    ) {
+        self.status = status
+        self.foregroundApplication = foregroundApplication
+    }
+
+    public init(topBarState: TopBarState) {
+        self.status = topBarState.computerUseStatus
+        self.foregroundApplication = topBarState.computerUseForegroundApplication
+    }
+}
+
 public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var apiBaseURL: String
     public var authMode: TrustedRouterAuthMode
@@ -25,6 +46,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var computerUseSetupSummary: String
     public var computerUseNextAction: String
     public var computerUseRequirements: [ComputerUseRequirementSurface]
+    public var computerUseForegroundApplication: ComputerUseApplication?
     public var computerUseApprovedBundleIdentifiers: [String]
     public var computerUseApprovedAppNames: [String]
     public var computerUseApprovalStatusLabel: String
@@ -38,10 +60,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         config: AppConfig,
         hasStoredAPIKey: Bool,
         runtimeIssue: RuntimeIssueSurface? = nil,
-        computerUseStatus: ComputerUseStatus = .permissionStatus(
-            screenRecordingGranted: false,
-            accessibilityGranted: false
-        ),
+        computerUseRuntime: ComputerUseSettingsRuntime = ComputerUseSettingsRuntime(),
         modelCatalogStatus: ModelCatalogStatus = .bundled,
         modelProviderHealthSummary: ModelProviderHealthSummary = .summarize([])
     ) {
@@ -56,23 +75,26 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.modelCatalogStatusDetail = modelCatalogStatus.detailLabel()
         self.modelProviderHealthLabel = modelProviderHealthSummary.label
         self.modelProviderHealthDetail = modelProviderHealthSummary.detail
-        self.computerUseStatus = computerUseStatus
-        self.computerUseSetupCommand = WorkspaceCommandSurface.computerUseSetup(isEnabled: !computerUseStatus.available)
+        self.computerUseStatus = computerUseRuntime.status
+        self.computerUseSetupCommand = WorkspaceCommandSurface.computerUseSetup(
+            isEnabled: !computerUseRuntime.status.available
+        )
         self.computerUseScreenRecordingCommand = WorkspaceCommandSurface.computerUseScreenRecordingSettings(
-            isEnabled: !computerUseStatus.screenRecordingGranted
+            isEnabled: !computerUseRuntime.status.screenRecordingGranted
         )
         self.computerUseAccessibilityCommand = WorkspaceCommandSurface.computerUseAccessibilitySettings(
-            isEnabled: !computerUseStatus.accessibilityGranted
+            isEnabled: !computerUseRuntime.status.accessibilityGranted
         )
         self.computerUseRefreshCommand = WorkspaceCommandSurface.computerUseRefresh
-        self.computerUseStatusLabel = ComputerUseSettingsProjection.statusLabel(computerUseStatus)
-        self.computerUseSetupSummary = ComputerUseSettingsProjection.setupSummary(computerUseStatus)
-        self.computerUseNextAction = ComputerUseSettingsProjection.nextAction(computerUseStatus)
+        self.computerUseStatusLabel = ComputerUseSettingsProjection.statusLabel(computerUseRuntime.status)
+        self.computerUseSetupSummary = ComputerUseSettingsProjection.setupSummary(computerUseRuntime.status)
+        self.computerUseNextAction = ComputerUseSettingsProjection.nextAction(computerUseRuntime.status)
         self.computerUseRequirements = ComputerUseSettingsProjection.requirements(
-            status: computerUseStatus,
+            status: computerUseRuntime.status,
             screenRecordingCommand: computerUseScreenRecordingCommand,
             accessibilityCommand: computerUseAccessibilityCommand
         )
+        self.computerUseForegroundApplication = computerUseRuntime.foregroundApplication
         self.computerUseApprovedBundleIdentifiers = config.computerUseApprovedBundleIdentifiers
         self.computerUseApprovedAppNames = config.computerUseApprovedAppNames
         self.computerUseApprovalStatusLabel = ComputerUseSettingsProjection.approvalStatusLabel(config)
@@ -121,6 +143,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case computerUseSetupSummary
         case computerUseNextAction
         case computerUseRequirements
+        case computerUseForegroundApplication
         case computerUseApprovedBundleIdentifiers
         case computerUseApprovedAppNames
         case computerUseApprovalStatusLabel
@@ -182,6 +205,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             status: decodedComputerUseStatus,
             screenRecordingCommand: computerUseScreenRecordingCommand,
             accessibilityCommand: computerUseAccessibilityCommand
+        )
+        self.computerUseForegroundApplication = try container.decodeIfPresent(
+            ComputerUseApplication.self,
+            forKey: .computerUseForegroundApplication
         )
         let decodedBundleIdentifiers = try container.decodeIfPresent(
             [String].self,
