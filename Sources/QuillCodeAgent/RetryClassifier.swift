@@ -26,7 +26,7 @@ public enum RetryClassifier {
 
         if let routerError = error as? TrustedRouterAgentError {
             switch routerError {
-            case .streamingHTTPError(let statusCode, _):
+            case .streamingHTTPError(let statusCode, _, _):
                 return classify(statusCode: statusCode)
             case .emptyResponse:
                 // The stream ended without producing an action before any content — a transient blip
@@ -51,6 +51,15 @@ public enum RetryClassifier {
         }
 
         return .none
+    }
+
+    /// The server's rate-limit guidance riding on the error, when the HTTP layer captured response
+    /// headers. Nil for transport blips and any failure that never saw a response.
+    public static func rateLimitDetails(_ error: any Error) -> HTTPRateLimitDetails? {
+        guard case .streamingHTTPError(_, _, let rateLimit)? = error as? TrustedRouterAgentError else {
+            return nil
+        }
+        return rateLimit
     }
 
     private static let transientPOSIXCodes: Set<Int> = Set([

@@ -1,13 +1,18 @@
 import Foundation
 import QuillCodeCore
 import TrustedRouter
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public enum TrustedRouterAgentError: Error, CustomStringConvertible {
     case missingAPIKey
     case emptyResponse
     case invalidActionJSON(String)
     case emptyToolArguments(String)
-    case streamingHTTPError(statusCode: Int, body: String)
+    /// `rateLimit` carries the server's parsed rate-limit guidance (Retry-After / quota headers)
+    /// when the response advertised any, so the retry backoff can honor the mandated wait.
+    case streamingHTTPError(statusCode: Int, body: String, rateLimit: HTTPRateLimitDetails?)
 
     public var description: String {
         switch self {
@@ -19,7 +24,7 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
             return "Model did not return a valid QuillCode action JSON object: \(text)"
         case .emptyToolArguments(let toolName):
             return "Model returned an empty argument object for \(toolName)."
-        case .streamingHTTPError(let statusCode, let body):
+        case .streamingHTTPError(let statusCode, let body, _):
             return TrustedRouterErrorBodyFormatter.streamingMessage(
                 statusCode: statusCode,
                 body: body
@@ -97,7 +102,8 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         if response.statusCode >= 400 {
             throw TrustedRouterAgentError.streamingHTTPError(
                 statusCode: response.statusCode,
-                body: try await Self.drain(bytes)
+                body: try await Self.drain(bytes),
+                rateLimit: HTTPRateLimitDetails.parse(headers: Self.headerMap(response))
             )
         }
 
@@ -145,6 +151,17 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         body["stream"] = true
         body["stream_options"] = ["include_usage": true]
         return try JSONSerialization.data(withJSONObject: body)
+    }
+
+    /// The response headers as plain strings (`allHeaderFields` is `[AnyHashable: Any]`), for the
+    /// rate-limit parser. Header-name case is preserved; the parser matches case-insensitively.
+    private static func headerMap(_ response: HTTPURLResponse) -> [String: String] {
+        var headers: [String: String] = [:]
+        for (name, value) in response.allHeaderFields {
+            guard let name = name as? String else { continue }
+            headers[name] = "\(value)"
+        }
+        return headers
     }
 
     private static func drain(_ bytes: TrustedRouterByteStream) async throws -> String {
