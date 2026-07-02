@@ -17,6 +17,14 @@ struct QuillCodeDesktopCommands: Commands {
                 NotificationCenter.default.post(name: .quillCodeFocusComposer, object: nil)
             }
             .quillCodeShortcut("focus-composer")
+            Button("Workspace Back") {
+                NotificationCenter.default.post(name: .quillCodeWorkspaceBack, object: nil)
+            }
+            .quillCodeShortcut("workspace-back")
+            Button("Workspace Forward") {
+                NotificationCenter.default.post(name: .quillCodeWorkspaceForward, object: nil)
+            }
+            .quillCodeShortcut("workspace-forward")
             Button("Open Project...") {
                 NotificationCenter.default.post(name: .quillCodeOpenProject, object: nil)
             }
@@ -85,6 +93,8 @@ extension Notification.Name {
     static let quillCodeNewChat = Notification.Name("QuillCodeNewChat")
     static let quillCodeCycleMode = Notification.Name("QuillCodeCycleMode")
     static let quillCodeFocusComposer = Notification.Name("QuillCodeFocusComposer")
+    static let quillCodeWorkspaceBack = Notification.Name("QuillCodeWorkspaceBack")
+    static let quillCodeWorkspaceForward = Notification.Name("QuillCodeWorkspaceForward")
     static let quillCodeOpenProject = Notification.Name("QuillCodeOpenProject")
     static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
     static let quillCodeKeyboardShortcuts = Notification.Name("QuillCodeKeyboardShortcuts")
@@ -120,6 +130,10 @@ private extension WorkspaceShortcut {
             return .escape
         case "tab":
             return .tab
+        case "arrowLeft":
+            return .leftArrow
+        case "arrowRight":
+            return .rightArrow
         case "`":
             return "`"
         case ",":

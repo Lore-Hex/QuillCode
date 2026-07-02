@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-07-01 Workspace History Shortcut Quality Pass
+
+Overall grade target for this slice: keep the command, shortcut, desktop menu, and rendered harness layers aligned while
+adding one concrete Codex-parity interaction.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Keyboard parity | Visible Back/Forward controls had command IDs and routing but no keyboard shortcut or Keyboard Shortcuts row. | Workspace history now has `Cmd+Option+←` / `Cmd+Option+→`, separate from browser `Cmd+[` / `Cmd+]`. |
+| Registry ownership | Adding history shortcuts could have become a one-off native menu binding. | `WorkspaceShortcutRegistry` owns the labels and arrow-key bindings for SwiftUI, command surfaces, menus, and tests. |
+| Command palette search | Arrow shortcuts were not discoverable from typed shortcut words. | Shortcut ranking normalizes arrow glyphs so `cmd option left/right` finds workspace Back/Forward. |
+| Harness parity | The Playwright harness did not dispatch workspace-history keyboard navigation or restore transcript state when navigating back to a thread. | The harness normalizes arrow glyph labels to `ArrowLeft`/`ArrowRight` events, snapshots selected-thread transcript state, and tests back/forward round-trips that restore the full chat surface. |
+
+Validation:
+
+- `swift test --filter 'WorkspaceShortcutRegistryTests|WorkspaceCommandSurfaceBuilderTests|WorkspaceCommandPaletteRankerTests|WorkspaceNavigationHistoryTests|WorkspaceCommandPlanExecutorTests|ParityDesktopGateTests|ParityWorkspacePlaywrightInteractionSpecGateTests'`
+- `npx playwright test tests/shortcuts.spec.ts tests/command-palette-core.spec.ts`
+
 ## 2026-07-01 NavigationLink Hit-Target Quality Pass
 
 Overall grade after this slice: **all modules remain A+; the touched native source-audit files grade A+**.

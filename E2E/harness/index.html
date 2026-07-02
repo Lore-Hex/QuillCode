@@ -3855,8 +3855,8 @@
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'sidebar-saved-search-create', title: 'Create sidebar search', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter'], isEnabled: true },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: 'Cmd+Shift+R', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
-        { id: 'workspace-back', title: 'Back', shortcut: '', category: 'Navigation', keywords: ['history', 'previous', 'navigation', 'thread', 'project'], isEnabled: false },
-        { id: 'workspace-forward', title: 'Forward', shortcut: '', category: 'Navigation', keywords: ['history', 'next', 'navigation', 'thread', 'project'], isEnabled: false },
+        { id: 'workspace-back', title: 'Back', shortcut: 'Cmd+Option+←', category: 'Navigation', keywords: ['history', 'previous', 'navigation', 'thread', 'project'], isEnabled: false },
+        { id: 'workspace-forward', title: 'Forward', shortcut: 'Cmd+Option+→', category: 'Navigation', keywords: ['history', 'next', 'navigation', 'thread', 'project'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
         { id: 'copy-conversation', title: 'Copy conversation', shortcut: '', category: 'Navigation', keywords: ['export', 'transcript', 'markdown', 'copy all', 'share'], isEnabled: false },
@@ -4883,6 +4883,7 @@
         kind: 'message',
         message
       });
+      saveSelectedThreadSnapshot();
       return message;
     }
 
@@ -5160,6 +5161,7 @@
         kind: 'toolCard',
         toolCard
       });
+      saveSelectedThreadSnapshot();
       return toolCard;
     }
 
@@ -5762,12 +5764,35 @@
         selectThread(location.threadID, { recordsNavigation: false });
         return true;
       }
+      if (location && location.threadID === null && location.projectID) {
+        return applyWorkspaceProjectOnlyLocation(location.projectID);
+      }
       if (location?.projectID && state.projects.items.some(item => item.id === location.projectID)) {
         selectProject(location.projectID, { recordsNavigation: false });
         return true;
       }
       pruneWorkspaceNavigation();
       return false;
+    }
+
+    function applyWorkspaceProjectOnlyLocation(projectID) {
+      const project = state.projects.items.find(item => item.id === projectID);
+      if (!project) {
+        pruneWorkspaceNavigation();
+        return false;
+      }
+      state.projects.selectedProjectID = projectID;
+      state.projects.items = state.projects.items.map(item => ({
+        ...item,
+        isSelected: item.id === projectID
+      }));
+      state.sidebar.selectedThreadID = null;
+      state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: false }));
+      state.topBar.primaryTitle = 'QuillCode';
+      state.topBar.subtitle = `${project.name} - Not started`;
+      state.topBar.usageStatusLabel = null;
+      emptyTranscriptSurface();
+      return true;
     }
 
     function navigateWorkspaceBack() {
@@ -9860,6 +9885,8 @@
     }
 
     function newChat() {
+      const previousLocation = currentWorkspaceLocation();
+      saveSelectedThreadSnapshot();
       clearSidebarSelection();
       stashComposerDraft(state.sidebar.selectedThreadID);
       state.sidebar.selectedThreadID = null;
@@ -9888,6 +9915,7 @@
       state.topBar.usageStatusLabel = null;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - Not started`;
+      recordWorkspaceNavigation(previousLocation);
       render();
     }
 
@@ -13450,6 +13478,63 @@
       }
     }
 
+    function clonedPlainObject(value, fallback) {
+      if (value === undefined || value === null) return fallback;
+      try {
+        return JSON.parse(JSON.stringify(value));
+      } catch {
+        return fallback;
+      }
+    }
+
+    function emptyReviewSurface() {
+      return {
+        title: 'Review changes',
+        subtitle: 'Latest git diff',
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        files: [],
+        pullRequestThreads: []
+      };
+    }
+
+    function emptyTranscriptSurface() {
+      state.transcript.messages = [];
+      state.transcript.toolCards = [];
+      state.transcript.timelineItems = [];
+      state.review = emptyReviewSurface();
+    }
+
+    function selectedThreadSnapshot() {
+      return {
+        messages: clonedPlainObject(state.transcript.messages, []),
+        toolCards: clonedPlainObject(state.transcript.toolCards, []),
+        timelineItems: clonedPlainObject(state.transcript.timelineItems, []),
+        review: clonedPlainObject(state.review, emptyReviewSurface())
+      };
+    }
+
+    function saveSelectedThreadSnapshot(threadID = state.sidebar.selectedThreadID) {
+      if (!threadID) return;
+      const snapshot = selectedThreadSnapshot();
+      state.sidebar.items = state.sidebar.items.map(item => (
+        item.id === threadID ? { ...item, snapshot } : item
+      ));
+    }
+
+    function restoreSelectedThreadSnapshot(threadID) {
+      const selected = state.sidebar.items.find(item => item.id === threadID);
+      if (!selected?.snapshot) {
+        emptyTranscriptSurface();
+        return;
+      }
+      state.transcript.messages = clonedPlainObject(selected.snapshot.messages, []);
+      state.transcript.toolCards = clonedPlainObject(selected.snapshot.toolCards, []);
+      state.transcript.timelineItems = clonedPlainObject(selected.snapshot.timelineItems, []);
+      state.review = clonedPlainObject(selected.snapshot.review, emptyReviewSurface());
+    }
+
     function restoreComposerDraft(incomingID) {
       if (!state.threadDrafts) state.threadDrafts = {};
       state.composer.draft = (incomingID && state.threadDrafts[incomingID]) || '';
@@ -13465,8 +13550,10 @@
       const previousLocation = currentWorkspaceLocation();
       const outgoing = state.sidebar.selectedThreadID;
       if (outgoing !== threadID) {
+        saveSelectedThreadSnapshot(outgoing);
         stashComposerDraft(outgoing);
         restoreComposerDraft(threadID);
+        restoreSelectedThreadSnapshot(threadID);
       }
       state.sidebar.selectedThreadID = threadID;
       state.sidebar.items = state.sidebar.items.map(item => ({
@@ -14502,17 +14589,32 @@
     function shortcutMatches(event, shortcut) {
       if (!shortcut) return false;
       const parts = shortcut.split('+').map(part => part.trim().toLowerCase()).filter(Boolean);
-      const key = parts.at(-1);
+      const key = normalizedShortcutKey(parts.at(-1));
       const requiresCmd = parts.includes('cmd');
       const requiresCtrl = parts.includes('ctrl');
       const requiresShift = parts.includes('shift');
       const requiresOption = parts.includes('option');
-      const eventKey = event.key === 'Escape' ? 'esc' : event.key.toLowerCase();
+      const eventKey = normalizedShortcutKey(event.key === 'Escape' ? 'esc' : event.key);
       return event.metaKey === requiresCmd
         && event.ctrlKey === requiresCtrl
         && event.shiftKey === requiresShift
         && event.altKey === requiresOption
         && eventKey === key;
+    }
+
+    function normalizedShortcutKey(key) {
+      switch (String(key || '').trim().toLowerCase()) {
+      case '←':
+      case 'left':
+      case 'arrowleft':
+        return 'arrowleft';
+      case '→':
+      case 'right':
+      case 'arrowright':
+        return 'arrowright';
+      default:
+        return String(key || '').trim().toLowerCase();
+      }
     }
 
     document.addEventListener('keydown', event => {
