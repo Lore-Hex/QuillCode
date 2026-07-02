@@ -96,6 +96,36 @@ final class LSPSessionManagerTests: XCTestCase {
         XCTAssertTrue(box.server?.transportClosed ?? false, "shutdown must close each server's transport")
     }
 
+    func testPoisonedClientIsEvictedAndRelaunched() throws {
+        // Track every launched stub server so we can corrupt the first one's stream and assert the
+        // manager hands back a fresh, healthy client on the next request.
+        final class Box: @unchecked Sendable { var servers: [StubLanguageServer] = [] }
+        let box = Box()
+        let launcher = StubLSPServerLauncher {
+            let server = StubLanguageServer()
+            server.initializeResult = ["capabilities": [:]]
+            box.servers.append(server)
+            return server
+        }
+        let manager = LSPSessionManager(workspaceRoot: workspace, registry: registry(available: true), launcher: launcher)
+
+        let first = try XCTUnwrap(manager.client(forPath: "/tmp/quillcode-lsp-sm/A.swift"))
+        XCTAssertTrue(first.isHealthy)
+        // Make the server leak a malformed frame on the next request, then make that request so the
+        // client poisons itself.
+        box.servers[0].corruptNextResponse = true
+        XCTAssertThrowsError(try first.definition(path: "/tmp/quillcode-lsp-sm/A.swift", line: 1, character: 0))
+        XCTAssertFalse(first.isHealthy)
+
+        // The manager must NOT hand back the poisoned client; it evicts + relaunches and returns a new,
+        // healthy one — nav recovers rather than being permanently broken.
+        let second = try XCTUnwrap(manager.client(forPath: "/tmp/quillcode-lsp-sm/A.swift"))
+        XCTAssertTrue(second.isHealthy)
+        XCTAssertFalse(second === first, "a fresh client must replace the poisoned one")
+        XCTAssertEqual(box.servers.count, 2, "the server was relaunched")
+        XCTAssertTrue(box.servers[0].transportClosed, "the poisoned session's transport must be closed")
+    }
+
     func testRepeatedCrashesDisableAfterMaxRestarts() {
         let launcher = handshakeLauncher()
         let manager = LSPSessionManager(workspaceRoot: workspace, registry: registry(available: true), launcher: launcher)

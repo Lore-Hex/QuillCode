@@ -165,6 +165,26 @@ final class LSPClientTests: XCTestCase {
         }
     }
 
+    func testMalformedFramePoisonsClient() throws {
+        let transport = ScriptedLSPTransport()
+        transport.enqueueResponse(id: 1, result: ["capabilities": [:]])
+        let client = LSPClient(transport: transport)
+        try client.initialize(workspaceRoot: workspace)
+        XCTAssertTrue(client.isHealthy)
+
+        // The server leaks a non-protocol line to stdout (a bad Content-Length). The bytes stay at the
+        // front of the buffer, so the request throws — and the client must mark itself poisoned so the
+        // session is dropped rather than replaying the corrupt prefix on every future request.
+        transport.enqueueRaw(Data("Content-Length: not-a-number\r\n\r\n".utf8))
+        XCTAssertThrowsError(try client.definition(path: "/tmp/quillcode-lsp-test/x.swift", line: 1, character: 0))
+        XCTAssertFalse(client.isHealthy, "a codec error must poison the client so the manager relaunches it")
+
+        // Even a subsequently-queued valid response is unreachable — the client is dead until relaunch.
+        transport.enqueueResponse(id: 3, result: [])
+        XCTAssertThrowsError(try client.definition(path: "/tmp/quillcode-lsp-test/x.swift", line: 1, character: 0))
+        XCTAssertFalse(client.isHealthy)
+    }
+
     func testServerRequestWithCollidingIdIsNotMistakenForResponse() throws {
         let transport = ScriptedLSPTransport()
         transport.enqueueResponse(id: 1, result: ["capabilities": [:]])

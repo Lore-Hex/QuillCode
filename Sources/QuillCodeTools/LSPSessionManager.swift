@@ -71,13 +71,16 @@ public final class LSPSessionManager: @unchecked Sendable {
 
         if disabledCommands.contains(key) { return nil }
 
-        // Reuse a live session; relaunch a crashed one within the restart budget.
+        // Reuse a live session; relaunch a crashed OR poisoned one within the restart budget. A client
+        // whose read stream desynced on a malformed frame (`isHealthy == false`) is as unusable as a
+        // dead process — reusing it would replay the corrupt buffer on every request — so it is torn
+        // down and relaunched the same way.
         if let existing = sessions[key] {
-            if existing.process.isRunning {
+            if existing.process.isRunning && existing.client.isHealthy {
                 return existing.client
             }
-            // The process died. Reap it AND close the transport so its stdin/stdout fds are not leaked
-            // across the relaunch.
+            // The process died or the stream is corrupt. Reap it AND close the transport so its
+            // stdin/stdout fds are not leaked across the relaunch.
             existing.process.terminate()
             existing.client.closeTransport()
             sessions[key] = nil

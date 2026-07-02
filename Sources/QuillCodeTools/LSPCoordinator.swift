@@ -129,13 +129,18 @@ public final class LSPCoordinator: @unchecked Sendable {
             return nil // server error/timeout: keep original
         }
         guard !edits.isEmpty,
-              let formatted = LSPEditApplier.apply(edits, to: original),
-              !formatted.isEmpty,
-              formatted != original
+              let formattedRaw = LSPEditApplier.apply(edits, to: original),
+              !formattedRaw.isEmpty,
+              formattedRaw != original
         else { return nil }
 
         // Preserve the file's existing BOM + line-ending style so formatting a CRLF/BOM file does not
         // silently rewrite every line to bare UTF-8/LF — the same guarantee host.file.write gives.
+        // `String(data:encoding:.utf8)` decodes a leading BOM into a U+FEFF scalar that survives into
+        // the formatted text; strip it so `apply` re-adds exactly ONE BOM per the detected style rather
+        // than doubling it (which would compound on every subsequent format-on-save).
+        var formatted = formattedRaw
+        if formatted.first == "\u{FEFF}" { formatted.removeFirst() }
         let style = FileEncodingPreservation.detect(originalData)
         let encoded = FileEncodingPreservation.apply(formatted, style: style)
         // A no-op after re-encoding (formatting only changed the LF style we just restored) is not a

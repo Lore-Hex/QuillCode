@@ -150,6 +150,38 @@ final class LSPCoordinatorTests: XCTestCase {
         XCTAssertEqual(text, "let x = 1\r\n")
     }
 
+    func testFormatOnSaveDoesNotDoubleBOMAndIsIdempotent() throws {
+        // A UTF-8 BOM-prefixed file, formatted, must end with EXACTLY ONE BOM — not a doubled one —
+        // and a second format-on-save pass must be a byte-for-byte no-op.
+        let bom: [UInt8] = [0xEF, 0xBB, 0xBF]
+        let url = workspace.appendingPathComponent("BOM.swift")
+        try Data(bom + Array("let  x=1\n".utf8)).write(to: url)
+
+        let server = StubLanguageServer()
+        server.initializeResult = ["capabilities": ["documentFormattingProvider": true]]
+        // The server sees the decoded text (with a leading U+FEFF scalar) and returns the formatted
+        // document, preserving that scalar the way a real server round-trips the file's leading BOM.
+        server.resultsByMethod["textDocument/formatting"] = [[
+            "range": ["start": ["line": 0, "character": 0], "end": ["line": 1, "character": 0]],
+            "newText": "\u{FEFF}let x = 1\n"
+        ]]
+        let coordinator = makeCoordinator(server: server, formatOnSave: true)
+
+        let feedback = coordinator.afterWrite(paths: [url])
+        XCTAssertTrue(feedback.didFormat)
+        let onDisk = [UInt8](try Data(contentsOf: url))
+        // Exactly one BOM at the front, and no second BOM immediately after it.
+        XCTAssertEqual(Array(onDisk.prefix(3)), bom, "must start with a single BOM")
+        XCTAssertNotEqual(Array(onDisk.dropFirst(3).prefix(3)), bom, "the BOM must not be doubled")
+        XCTAssertEqual(onDisk, bom + Array("let x = 1\n".utf8))
+
+        // Idempotence: a second pass over the already-formatted BOM file must not change any bytes.
+        let before = try Data(contentsOf: url)
+        let second = coordinator.afterWrite(paths: [url])
+        XCTAssertFalse(second.didFormat, "re-formatting an already-formatted BOM file must be a no-op")
+        XCTAssertEqual(try Data(contentsOf: url), before, "second pass must be byte-for-byte identical")
+    }
+
     func testFormatOffByDefaultLeavesFileUntouched() throws {
         let original = "let  x=1\n"
         let file = try writeFile("NoFormat.swift", original)

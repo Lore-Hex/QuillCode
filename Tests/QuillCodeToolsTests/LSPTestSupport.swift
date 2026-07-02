@@ -91,6 +91,9 @@ final class StubLanguageServer: LSPTransport, @unchecked Sendable {
     var resultsByMethod: [String: Any] = [:]
     /// Diagnostics to publish for a URI right after `didSave` for it.
     var diagnosticsOnSave: [String: [[String: Any]]] = [:]
+    /// When true, the NEXT id-bearing request is answered with a malformed frame (a bad Content-Length)
+    /// instead of a valid response — simulating a server that leaks a non-protocol line to stdout.
+    var corruptNextResponse = false
 
     func send(_ data: Data) throws {
         lock.lock()
@@ -123,6 +126,11 @@ final class StubLanguageServer: LSPTransport, @unchecked Sendable {
     private func handle(_ object: [String: Any]) {
         let method = object["method"] as? String
         if let id = LSPJSON.int(object["id"]), let method {
+            if corruptNextResponse, method != "initialize" {
+                corruptNextResponse = false
+                inbound.append(Data("Content-Length: not-a-number\r\n\r\n".utf8))
+                return
+            }
             let result: Any
             if method == "initialize" {
                 result = initializeResult

@@ -20,12 +20,24 @@ public final class LSPClient: @unchecked Sendable {
     private var nextID = 1
     private var initialized = false
     private var latestDiagnostics: [String: [LSPDiagnostic]] = [:]
+    /// Set once a codec/decode error is hit on the read stream: the framing is desynced and the corrupt
+    /// bytes cannot be safely resynced, so the whole client is dead. The session manager checks this
+    /// (via `isHealthy`) and relaunches, rather than reusing a permanently-wedged client.
+    private var poisoned = false
     /// Capabilities the server advertised at initialize, so we can skip requests it does not support
     /// (e.g. formatting) instead of paying a round trip for a guaranteed "method not found".
     private(set) var serverCapabilities: [String: Any] = [:]
 
     public init(transport: LSPTransport) {
         self.transport = transport
+    }
+
+    /// Whether the client's read stream is still in sync. Once a malformed frame corrupts the framing
+    /// this is `false` forever — the caller must drop and relaunch the session.
+    public var isHealthy: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !poisoned
     }
 
     // MARK: Handshake
@@ -259,8 +271,17 @@ public final class LSPClient: @unchecked Sendable {
     }
 
     private func nextBufferedMessage() throws -> [String: Any]? {
-        guard let data = try LSPMessageCodec.nextMessage(from: &buffer) else { return nil }
-        return try LSPMessageCodec.decode(data)
+        do {
+            guard let data = try LSPMessageCodec.nextMessage(from: &buffer) else { return nil }
+            return try LSPMessageCodec.decode(data)
+        } catch {
+            // A codec/decode failure means the framing is out of sync — the corrupt bytes are still at
+            // the front of the buffer and every future read would re-hit them, permanently wedging the
+            // session. Per LSPMessageCodec's contract, treat the stream as corrupt: mark this client
+            // poisoned so the session manager evicts + relaunches it, and stop parsing.
+            poisoned = true
+            throw error
+        }
     }
 
     /// Reads more bytes into the buffer, honoring the deadline. Returns `false` on EOF, `true`
