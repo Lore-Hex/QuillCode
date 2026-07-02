@@ -1,5 +1,6 @@
-public actor StubComputerUseBackend: ComputerUseBackend {
+public actor StubComputerUseBackend: ComputerUseBackend, ComputerUseForegroundApplicationProviding {
     public private(set) var actions: [String] = []
+    private let application: ComputerUseApplication?
 
     public nonisolated var status: ComputerUseStatus {
         .permissionStatus(
@@ -8,7 +9,9 @@ public actor StubComputerUseBackend: ComputerUseBackend {
         )
     }
 
-    public init() {}
+    public init(foregroundApplication: ComputerUseApplication? = nil) {
+        self.application = foregroundApplication
+    }
 
     public func recordedActions() -> [String] {
         actions
@@ -37,5 +40,9 @@ public actor StubComputerUseBackend: ComputerUseBackend {
 
     public func pressKey(_ key: String) async throws {
         actions.append("key:\(key)")
+    }
+
+    public func foregroundApplication() async -> ComputerUseApplication? {
+        application
     }
 }

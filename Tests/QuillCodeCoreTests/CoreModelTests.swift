@@ -461,6 +461,24 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(config.favoriteModels, [])
     }
 
+    func testAppConfigNormalizesComputerUseApprovals() {
+        let config = AppConfig(
+            computerUseApprovedBundleIdentifiers: [
+                " com.apple.Terminal ",
+                "com.apple.terminal",
+                ""
+            ],
+            computerUseApprovedAppNames: [
+                "Terminal",
+                " terminal ",
+                "Google Chrome"
+            ]
+        )
+
+        XCTAssertEqual(config.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
+        XCTAssertEqual(config.computerUseApprovedAppNames, ["Terminal", "Google Chrome"])
+    }
+
     func testProjectAndThreadDecodeOlderStateWithoutInstructions() throws {
         let projectID = UUID()
         let date = ISO8601DateFormatter().string(from: Date())

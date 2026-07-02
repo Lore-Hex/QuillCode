@@ -18,6 +18,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         let session = WorkspaceAgentSendSessionFactory(
             baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
             selectedProject: nil,
+            config: AppConfig(),
             browser: BrowserState(),
             browserToolOverride: nil,
             computerUseBackend: nil,
@@ -51,6 +52,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         let session = WorkspaceAgentSendSessionFactory(
             baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
             selectedProject: project,
+            config: AppConfig(),
             browser: BrowserState(),
             browserToolOverride: nil,
             computerUseBackend: nil,
@@ -72,6 +74,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         let session = WorkspaceAgentSendSessionFactory(
             baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
             selectedProject: nil,
+            config: AppConfig(),
             browser: BrowserState(),
             browserToolOverride: { call, _ in
                 guard call.name == ToolDefinition.browserInspect.name else { return nil }

@@ -50,6 +50,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var developerOverrideEnabled: Bool
     public var trustedRouterAccount: TrustedRouterAccountProfile?
     public var favoriteModels: [String]
+    public var computerUseApprovedBundleIdentifiers: [String]
+    public var computerUseApprovedAppNames: [String]
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -59,6 +61,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case developerOverrideEnabled
         case trustedRouterAccount
         case favoriteModels
+        case computerUseApprovedBundleIdentifiers
+        case computerUseApprovedAppNames
     }
 
     public init(
@@ -68,7 +72,9 @@ public struct AppConfig: Codable, Sendable, Hashable {
         authMode: TrustedRouterAuthMode = .oauth,
         developerOverrideEnabled: Bool = false,
         trustedRouterAccount: TrustedRouterAccountProfile? = nil,
-        favoriteModels: [String] = []
+        favoriteModels: [String] = [],
+        computerUseApprovedBundleIdentifiers: [String] = [],
+        computerUseApprovedAppNames: [String] = []
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -77,6 +83,10 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
         self.trustedRouterAccount = trustedRouterAccount?.isEmpty == true ? nil : trustedRouterAccount
         self.favoriteModels = Self.normalizedModelIDs(favoriteModels)
+        self.computerUseApprovedBundleIdentifiers = Self.normalizedComputerUseApprovals(
+            computerUseApprovedBundleIdentifiers
+        )
+        self.computerUseApprovedAppNames = Self.normalizedComputerUseApprovals(computerUseApprovedAppNames)
     }
 
     public init(
@@ -92,7 +102,9 @@ public struct AppConfig: Codable, Sendable, Hashable {
             authMode: developerOverrideEnabled ? .developerOverride : .oauth,
             developerOverrideEnabled: developerOverrideEnabled,
             trustedRouterAccount: nil,
-            favoriteModels: []
+            favoriteModels: [],
+            computerUseApprovedBundleIdentifiers: [],
+            computerUseApprovedAppNames: []
         )
     }
 
@@ -105,7 +117,15 @@ public struct AppConfig: Codable, Sendable, Hashable {
             authMode: try container.decodeIfPresent(TrustedRouterAuthMode.self, forKey: .authMode) ?? .oauth,
             developerOverrideEnabled: try container.decodeIfPresent(Bool.self, forKey: .developerOverrideEnabled) ?? false,
             trustedRouterAccount: try container.decodeIfPresent(TrustedRouterAccountProfile.self, forKey: .trustedRouterAccount),
-            favoriteModels: try container.decodeIfPresent([String].self, forKey: .favoriteModels) ?? []
+            favoriteModels: try container.decodeIfPresent([String].self, forKey: .favoriteModels) ?? [],
+            computerUseApprovedBundleIdentifiers: try container.decodeIfPresent(
+                [String].self,
+                forKey: .computerUseApprovedBundleIdentifiers
+            ) ?? [],
+            computerUseApprovedAppNames: try container.decodeIfPresent(
+                [String].self,
+                forKey: .computerUseApprovedAppNames
+            ) ?? []
         )
     }
 
@@ -117,6 +137,19 @@ public struct AppConfig: Codable, Sendable, Hashable {
             let modelID = TrustedRouterDefaults.canonicalModelID(trimmed)
             guard !modelID.isEmpty, seen.insert(modelID).inserted else { continue }
             normalized.append(modelID)
+        }
+        return normalized
+    }
+
+    private static func normalizedComputerUseApprovals(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        var normalized: [String] = []
+        for value in values {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            normalized.append(trimmed)
         }
         return normalized
     }

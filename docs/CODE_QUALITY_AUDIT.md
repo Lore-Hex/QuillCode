@@ -13750,3 +13750,37 @@ Validation:
 - `swift test --filter 'WorkspaceConfigurationIntegrationTests|WorkspaceRuntimeFactoryTests|WorkspaceModelCatalogRefreshPolicyTests|QuillCodeDesktopModelCatalogRefreshCoordinatorTests'`
 - `swift test` (2,283 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Computer Use App Approval A+ Pass
+
+Overall architecture grade after this pass: **A+**. Computer Use foreground
+app approval is now a focused policy in `QuillComputerUseKit`, persisted as
+plain config in `QuillCodeCore`/`QuillCodePersistence`, and wired through the
+existing per-run app context builder instead of being bolted onto UI code.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillComputerUseKit` | A+ | App approval policy, foreground-app protocol, and executor preflight stay inside the kit. |
+| `source:QuillCodeCore` | A+ | `AppConfig` owns normalized approval fields with existing Codable defaults. |
+| `source:QuillCodePersistence` | A+ | Config persistence round-trips repeated approval keys deterministically. |
+| `source:QuillCodeApp` | A+ | Workspace agent wiring passes config into the run-context builder without UI branching. |
+
+Code quality changes:
+
+- Added `ComputerUseAppApprovalPolicy` as a small, normalized, testable policy
+  object instead of scattering allowlist checks through the app.
+- Added `ComputerUseForegroundApplicationProviding` so macOS can report the
+  focused app while unsupported/test backends have an explicit capability
+  boundary.
+- Kept default behavior unrestricted when no approvals are configured, avoiding
+  a surprise behavior change for existing users.
+- Routed persisted approval config through `WorkspaceAgentRunContextBuilder`
+  so all Computer Use tools share the same preflight before backend calls.
+
+Validation:
+
+- `swift test --filter 'CoreModelTests|ComputerUseToolExecutorTests|ConfigStoreTests|WorkspaceAgentRunContextBuilderTests|WorkspaceAgentSendSessionFactoryTests'`
+- `swift test` (2,290 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

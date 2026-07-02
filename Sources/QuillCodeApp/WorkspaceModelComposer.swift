@@ -128,6 +128,7 @@ extension QuillCodeWorkspaceModel {
         WorkspaceAgentSendSessionFactory(
             baseRunner: runner,
             selectedProject: selectedProject,
+            config: root.config,
             browser: browser,
             browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
                 guard let self else { return nil }

@@ -4,19 +4,22 @@ import QuillCodeCore
 public struct ComputerUseToolExecutor: Sendable {
     private let backend: any ComputerUseBackend
     private let artifactDirectory: URL
+    private let appApprovalPolicy: ComputerUseAppApprovalPolicy
 
     public init(
         backend: any ComputerUseBackend,
+        appApprovalPolicy: ComputerUseAppApprovalPolicy = .unrestricted,
         artifactDirectory: URL = FileManager.default.temporaryDirectory
             .appendingPathComponent("QuillCode", isDirectory: true)
             .appendingPathComponent("screenshots", isDirectory: true)
     ) {
         self.backend = backend
+        self.appApprovalPolicy = appApprovalPolicy
         self.artifactDirectory = artifactDirectory
     }
 
     public func execute(_ call: ToolCall) async -> ToolResult? {
-        if let failure = preflightFailure(for: call.name) {
+        if let failure = await preflightFailure(for: call.name) {
             return failure
         }
 
@@ -97,7 +100,7 @@ public struct ComputerUseToolExecutor: Sendable {
         return ToolResult(ok: true, stdout: "Pressed \(key).")
     }
 
-    private func preflightFailure(for toolName: String) -> ToolResult? {
+    private func preflightFailure(for toolName: String) async -> ToolResult? {
         guard Self.isComputerUseTool(toolName) else {
             return nil
         }
@@ -115,7 +118,7 @@ public struct ComputerUseToolExecutor: Sendable {
 
         let missingPermissions = Self.missingPermissions(for: toolName, status: status)
         guard !missingPermissions.isEmpty else {
-            return nil
+            return await appApprovalPreflightFailure(for: toolName)
         }
 
         return ToolResult(
@@ -125,6 +128,22 @@ public struct ComputerUseToolExecutor: Sendable {
                 toolName: toolName
             )
         )
+    }
+
+    private func appApprovalPreflightFailure(for toolName: String) async -> ToolResult? {
+        guard !appApprovalPolicy.isUnrestricted else { return nil }
+        guard let foregroundProvider = backend as? any ComputerUseForegroundApplicationProviding else {
+            return ToolResult(
+                ok: false,
+                error: "Computer Use \(Self.toolDisplayName(for: toolName)) needs app approval, "
+                    + "but this backend cannot identify the focused application."
+            )
+        }
+        let application = await foregroundProvider.foregroundApplication()
+        guard let failureMessage = appApprovalPolicy.failureMessage(for: application) else {
+            return nil
+        }
+        return ToolResult(ok: false, error: failureMessage)
     }
 
     private static func isComputerUseTool(_ toolName: String) -> Bool {

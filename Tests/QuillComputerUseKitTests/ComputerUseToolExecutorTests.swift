@@ -33,6 +33,101 @@ final class ComputerUseToolExecutorTests: XCTestCase {
         XCTAssertEqual(actions, expectedRecordedActions())
     }
 
+    func testAppApprovalAllowsApprovedForegroundBundle() async throws {
+        let backend = StubComputerUseBackend(foregroundApplication: ComputerUseApplication(
+            name: "Terminal",
+            bundleIdentifier: "com.apple.Terminal"
+        ))
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            appApprovalPolicy: ComputerUseAppApprovalPolicy(
+                approvedBundleIdentifiers: [" com.apple.terminal "]
+            )
+        )
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerClick.name,
+            argumentsJSON: #"{"x":10,"y":20}"#
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(actions, ["leftClick:10,20"])
+    }
+
+    func testAppApprovalAllowsApprovedForegroundName() async throws {
+        let backend = StubComputerUseBackend(foregroundApplication: ComputerUseApplication(
+            name: "Google Chrome",
+            bundleIdentifier: "com.google.Chrome"
+        ))
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            appApprovalPolicy: ComputerUseAppApprovalPolicy(approvedAppNames: ["google chrome"])
+        )
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerKey.name,
+            argumentsJSON: #"{"key":"return"}"#
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(actions, ["key:return"])
+    }
+
+    func testAppApprovalBlocksUnapprovedForegroundApp() async throws {
+        let backend = StubComputerUseBackend(foregroundApplication: ComputerUseApplication(
+            name: "Passwords",
+            bundleIdentifier: "com.apple.Passwords"
+        ))
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            appApprovalPolicy: ComputerUseAppApprovalPolicy(
+                approvedBundleIdentifiers: ["com.apple.Terminal"]
+            )
+        )
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerType.name,
+            argumentsJSON: #"{"text":"secret"}"#
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(
+            result.error,
+            "Computer Use is not approved for Passwords. Add this app to Computer Use approvals before controlling it."
+        )
+        XCTAssertEqual(actions, [])
+    }
+
+    func testAppApprovalRequiresForegroundAppProviderWhenConfigured() async throws {
+        let backend = PermissionRecordingComputerUseBackend(
+            status: .permissionStatus(screenRecordingGranted: true, accessibilityGranted: true)
+        )
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            appApprovalPolicy: ComputerUseAppApprovalPolicy(approvedAppNames: ["Terminal"])
+        )
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerScroll.name,
+            argumentsJSON: #"{"dy":120}"#
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(
+            result.error,
+            "Computer Use scroll needs app approval, but this backend cannot identify the focused application."
+        )
+        XCTAssertEqual(actions, [])
+    }
+
     func testComputerUseToolExecutorRejectsMissingCoordinates() async throws {
         let executor = ComputerUseToolExecutor(backend: StubComputerUseBackend())
 
