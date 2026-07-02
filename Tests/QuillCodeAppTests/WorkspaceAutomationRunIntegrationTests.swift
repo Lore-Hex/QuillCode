@@ -204,6 +204,37 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
         XCTAssertEqual(workspace.model.root.threads.filter { $0.title == "Scheduled check: QuillCode" }.count, 1)
     }
 
+    func testCalendarRecurringAutomationAdvancesToNextMatchingWallClockRun() throws {
+        let calendar = makeUTCCalendar()
+        let runAt = try XCTUnwrap(makeUTCDate(day: 6, hour: 18, minute: 0))
+        let nextRun = try XCTUnwrap(makeUTCDate(day: 7, hour: 18, minute: 0))
+        let recurrence = QuillAutomationRecurrence(
+            interval: 1,
+            unit: .weeks,
+            weekdays: [2, 3, 4, 5, 6],
+            hour: 18,
+            minute: 0
+        )
+        let automation = QuillAutomation(
+            title: "Weekday check",
+            detail: "Check workspace.",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: recurrence.scheduleDescription,
+            nextRunAt: runAt,
+            recurrence: recurrence
+        )
+
+        let updated = WorkspaceAutomationRunner.updatedAfterRun(
+            automation,
+            now: runAt,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(updated.lastRunAt, runAt)
+        XCTAssertEqual(updated.nextRunAt, nextRun)
+    }
+
     func testRunDueAutomationReportsRunsFileChangeMonitorEventSource() throws {
         let workspace = try makeProjectAutomationWorkspace()
         let project = try XCTUnwrap(workspace.model.selectedProject)

@@ -108,10 +108,23 @@ public enum QuillAutomationRecurrenceUnit: String, Codable, Sendable, Hashable, 
 public struct QuillAutomationRecurrence: Codable, Sendable, Hashable {
     public var interval: Int
     public var unit: QuillAutomationRecurrenceUnit
+    public var weekdays: [Int]?
+    public var hour: Int?
+    public var minute: Int?
 
-    public init(interval: Int, unit: QuillAutomationRecurrenceUnit) {
+    public init(
+        interval: Int,
+        unit: QuillAutomationRecurrenceUnit,
+        weekdays: [Int]? = nil,
+        hour: Int? = nil,
+        minute: Int? = nil
+    ) {
         self.interval = max(1, interval)
         self.unit = unit
+        self.weekdays = Self.normalizedWeekdays(weekdays)
+        let clock = Self.normalizedClock(hour: hour, minute: minute)
+        self.hour = clock?.hour
+        self.minute = clock?.minute
     }
 
     public var intervalSeconds: TimeInterval {
@@ -119,6 +132,9 @@ public struct QuillAutomationRecurrence: Codable, Sendable, Hashable {
     }
 
     public var scheduleDescription: String {
+        if let description = calendarScheduleDescription {
+            return description
+        }
         if interval == 1 {
             return "Every \(unit.label(count: 1))"
         }
@@ -126,8 +142,137 @@ public struct QuillAutomationRecurrence: Codable, Sendable, Hashable {
     }
 
     public func nextRun(after date: Date) -> Date {
-        date.addingTimeInterval(intervalSeconds)
+        nextRun(after: date, calendar: .current)
     }
+
+    public func nextRun(after date: Date, calendar: Calendar) -> Date {
+        guard let clock = Self.normalizedClock(hour: hour, minute: minute) else {
+            return date.addingTimeInterval(intervalSeconds)
+        }
+        if let weekdays, !weekdays.isEmpty {
+            return nextMatchingWeekday(
+                after: date,
+                weekdays: weekdays,
+                clock: clock,
+                calendar: calendar
+            ) ?? date.addingTimeInterval(intervalSeconds)
+        }
+        guard unit == .days, interval == 1 else {
+            return date.addingTimeInterval(intervalSeconds)
+        }
+        return nextMatchingClock(after: date, clock: clock, calendar: calendar)
+            ?? date.addingTimeInterval(intervalSeconds)
+    }
+
+    private var calendarScheduleDescription: String? {
+        guard let clock = Self.normalizedClock(hour: hour, minute: minute) else {
+            return nil
+        }
+        let clockText = Self.clockDescription(hour: clock.hour, minute: clock.minute)
+        if let weekdays, !weekdays.isEmpty {
+            if weekdays == [2, 3, 4, 5, 6] {
+                return "Every weekday at \(clockText)"
+            }
+            if weekdays == [1, 7] {
+                return "Every weekend at \(clockText)"
+            }
+            if weekdays.count == 1, let weekday = weekdays.first {
+                return "Every \(Self.weekdayDescription(weekday)) at \(clockText)"
+            }
+            if weekdays == [1, 2, 3, 4, 5, 6, 7] {
+                return "Every day at \(clockText)"
+            }
+        }
+        guard unit == .days, interval == 1 else { return nil }
+        return "Every day at \(clockText)"
+    }
+
+    private func nextMatchingWeekday(
+        after date: Date,
+        weekdays: [Int],
+        clock: (hour: Int, minute: Int),
+        calendar: Calendar
+    ) -> Date? {
+        weekdays
+            .compactMap { weekday in
+                calendar.nextDate(
+                    after: date,
+                    matching: DateComponents(
+                        calendar: calendar,
+                        timeZone: calendar.timeZone,
+                        hour: clock.hour,
+                        minute: clock.minute,
+                        second: 0,
+                        weekday: weekday
+                    ),
+                    matchingPolicy: .nextTime,
+                    repeatedTimePolicy: .first,
+                    direction: .forward
+                )
+            }
+            .min()
+    }
+
+    private func nextMatchingClock(
+        after date: Date,
+        clock: (hour: Int, minute: Int),
+        calendar: Calendar
+    ) -> Date? {
+        calendar.nextDate(
+            after: date,
+            matching: DateComponents(
+                calendar: calendar,
+                timeZone: calendar.timeZone,
+                hour: clock.hour,
+                minute: clock.minute,
+                second: 0
+            ),
+            matchingPolicy: .nextTime,
+            repeatedTimePolicy: .first,
+            direction: .forward
+        )
+    }
+
+    private static func normalizedWeekdays(_ weekdays: [Int]?) -> [Int]? {
+        guard let weekdays else { return nil }
+        let normalized = Array(Set(weekdays.filter { (1...7).contains($0) })).sorted()
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    private static func normalizedClock(hour: Int?, minute: Int?) -> (hour: Int, minute: Int)? {
+        guard let hour, (0...23).contains(hour) else { return nil }
+        let minute = minute ?? 0
+        guard (0...59).contains(minute) else { return nil }
+        return (hour, minute)
+    }
+
+    private static func weekdayDescription(_ weekday: Int) -> String {
+        switch weekday {
+        case 1:
+            return "Sunday"
+        case 2:
+            return "Monday"
+        case 3:
+            return "Tuesday"
+        case 4:
+            return "Wednesday"
+        case 5:
+            return "Thursday"
+        case 6:
+            return "Friday"
+        case 7:
+            return "Saturday"
+        default:
+            return "day"
+        }
+    }
+
+    private static func clockDescription(hour: Int, minute: Int) -> String {
+        let hour12 = hour % 12 == 0 ? 12 : hour % 12
+        let meridiem = hour < 12 ? "AM" : "PM"
+        return "\(hour12):\(String(format: "%02d", minute)) \(meridiem)"
+    }
+
 }
 
 public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
