@@ -84,6 +84,11 @@ final class FileEncodingRouterIntegrationTests: XCTestCase {
         try (bom + Data("old\r\n".utf8)).write(to: url)
 
         let router = ToolRouter(workspaceRoot: root)
+        // Overwriting an existing file requires the session to have read it first.
+        XCTAssertTrue(router.execute(ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: #"{"path":"windows.txt"}"#
+        )).ok)
         let call = ToolCall(
             name: ToolDefinition.fileWrite.name,
             argumentsJSON: #"{"path":"windows.txt","content":"changed\n"}"#

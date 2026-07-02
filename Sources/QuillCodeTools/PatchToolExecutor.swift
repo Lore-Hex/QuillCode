@@ -20,11 +20,20 @@ public enum PatchToolError: Error, CustomStringConvertible {
 
 public struct PatchToolExecutor: Sendable {
     public var workspaceRoot: URL
+    /// When set, `apply` refuses to patch an existing file the session never read and serializes
+    /// concurrent edits to the patched files. When nil (the default), patching is unguarded —
+    /// direct programmatic use such as test fixtures. `ToolRouter` always injects a guard.
+    public var editGuard: FileEditSessionGuard?
     private let shell: ShellToolExecutor
 
-    public init(workspaceRoot: URL, shell: ShellToolExecutor = ShellToolExecutor()) {
+    public init(
+        workspaceRoot: URL,
+        shell: ShellToolExecutor = ShellToolExecutor(),
+        editGuard: FileEditSessionGuard? = nil
+    ) {
         self.workspaceRoot = workspaceRoot.standardizedFileURL
         self.shell = shell
+        self.editGuard = editGuard
     }
 
     public func apply(unifiedDiff patch: String) -> ToolResult {
@@ -41,6 +50,34 @@ public struct PatchToolExecutor: Sendable {
             normalizedPatch.append("\n")
         }
 
+        guard let editGuard else {
+            return performApply(normalizedPatch)
+        }
+        let targets = Self.targetPaths(in: patch)
+            .map { (path: $0, url: workspaceRoot.appendingPathComponent($0).standardizedFileURL) }
+        // The read-set check, git apply, and read-set update happen under the per-file locks so
+        // a concurrent edit to any of the patched files cannot interleave with them.
+        return editGuard.withExclusiveAccess(to: targets.map(\.url)) {
+            for target in targets
+            where FileManager.default.fileExists(atPath: target.url.path) && !editGuard.hasRead(target.url) {
+                return ToolResult(
+                    ok: false,
+                    error: String(describing: FileEditGuardError.patchWithoutRead(target.path))
+                )
+            }
+            let result = performApply(normalizedPatch)
+            if result.ok {
+                // The session knows each surviving file's content now: old content it read (or
+                // /dev/null for a created file) plus the delta it just applied.
+                for target in targets where FileManager.default.fileExists(atPath: target.url.path) {
+                    editGuard.markRead(target.url)
+                }
+            }
+            return result
+        }
+    }
+
+    private func performApply(_ normalizedPatch: String) -> ToolResult {
         let patchURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-\(UUID().uuidString).patch")
         do {
@@ -75,6 +112,28 @@ public struct PatchToolExecutor: Sendable {
 
     public static func unsafePath(in patch: String) -> String? {
         unsafePath(in: patch, workspaceRoot: nil)
+    }
+
+    /// The workspace-relative file paths a unified diff touches (old and new sides, `/dev/null`
+    /// excluded), deduplicated in order of first appearance.
+    public static func targetPaths(in patch: String) -> [String] {
+        var seen = Set<String>()
+        var paths: [String] = []
+        for line in patch.components(separatedBy: .newlines) {
+            guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
+                continue
+            }
+            for rawPath in pathsInDiffMetadataLine(line) where rawPath != "/dev/null" {
+                var path = rawPath
+                if path.hasPrefix("a/") || path.hasPrefix("b/") {
+                    path.removeFirst(2)
+                }
+                if seen.insert(path).inserted {
+                    paths.append(path)
+                }
+            }
+        }
+        return paths
     }
 
     /// Scans a unified diff for any target path that escapes the workspace. When `workspaceRoot` is
