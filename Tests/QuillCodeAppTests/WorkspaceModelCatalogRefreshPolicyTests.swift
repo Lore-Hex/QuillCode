@@ -74,4 +74,32 @@ final class WorkspaceModelCatalogRefreshPolicyTests: XCTestCase {
             now: now
         ))
     }
+
+    func testInvalidThresholdsRefreshInsteadOfDisablingCatalogUpdates() {
+        XCTAssertTrue(WorkspaceModelCatalogRefreshPolicy(staleAfter: -Double.infinity).shouldRefresh(
+            status: .liveTrustedRouter(fetchedAt: now),
+            hasTrustedRouterAPIKey: true,
+            now: now
+        ))
+        XCTAssertTrue(WorkspaceModelCatalogRefreshPolicy(retryAfterFailure: Double.nan).shouldRefresh(
+            status: .fallbackAfterFailure("timeout", fetchedAt: now),
+            hasTrustedRouterAPIKey: true,
+            now: now
+        ))
+    }
+
+    func testFutureFetchTimeDoesNotImmediatelyRefresh() {
+        let policy = WorkspaceModelCatalogRefreshPolicy(staleAfter: -1, retryAfterFailure: -1)
+
+        XCTAssertFalse(policy.shouldRefresh(
+            status: .liveTrustedRouter(fetchedAt: now.addingTimeInterval(1)),
+            hasTrustedRouterAPIKey: true,
+            now: now
+        ))
+        XCTAssertFalse(policy.shouldRefresh(
+            status: .fallbackAfterFailure("timeout", fetchedAt: now.addingTimeInterval(1)),
+            hasTrustedRouterAPIKey: true,
+            now: now
+        ))
+    }
 }

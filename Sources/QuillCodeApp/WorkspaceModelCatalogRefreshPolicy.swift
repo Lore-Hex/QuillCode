@@ -31,6 +31,11 @@ public struct WorkspaceModelCatalogRefreshPolicy: Sendable, Hashable {
 
     private func isStale(_ fetchedAt: Date?, now: Date, threshold: TimeInterval) -> Bool {
         guard let fetchedAt else { return true }
-        return now.timeIntervalSince(fetchedAt) >= threshold
+        return now.timeIntervalSince(fetchedAt) >= normalizedThreshold(threshold)
+    }
+
+    private func normalizedThreshold(_ threshold: TimeInterval) -> TimeInterval {
+        guard threshold.isFinite else { return 0 }
+        return max(0, threshold)
     }
 }
