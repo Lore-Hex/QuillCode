@@ -142,3 +142,22 @@ test('mock harness surfaces memory conflicts with edit actions', async ({ page }
     ].join('\n')
   );
 });
+
+test('mock harness redacts blocked memory attempts and offers a safe retry', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await submitComposer(page, '/remember api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE');
+  await clickSidebarTool(page, 'memories-button');
+
+  await expect(page.getByTestId('memories-subtitle'))
+    .toHaveText('1 global memory · 1 project memory · 1 blocked attempt');
+  await expect(page.getByTestId('memory-redaction-review')).toBeVisible();
+  await expect(page.getByTestId('memory-redaction-title')).toHaveText('Memory redaction blocked');
+  await expect(page.getByTestId('memory-redaction-input'))
+    .toContainText('<redacted memory content>');
+  await expect(page.locator('body')).not.toContainText('SYNTHETIC_TEST_SECRET_DO_NOT_USE');
+
+  await page.getByTestId('memory-redaction-add').click();
+
+  await expect(page.getByLabel('Message')).toHaveValue('/remember ');
+});

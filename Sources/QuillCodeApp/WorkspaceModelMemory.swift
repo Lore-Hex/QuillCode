@@ -70,6 +70,7 @@ extension QuillCodeWorkspaceModel {
         if let updatedGlobalMemories = mutation.updatedGlobalMemories {
             root.globalMemories = updatedGlobalMemories
         }
+        appendMemoryReviewEvent(mutation)
         applyMemoryContextNotice(mutation)
     }
 
@@ -80,7 +81,15 @@ extension QuillCodeWorkspaceModel {
            let index = root.projects.firstIndex(where: { $0.id == projectID }) {
             root.projects[index].memories = updatedProjectMemories
         }
+        appendMemoryReviewEvent(mutation)
         applyMemoryContextNotice(mutation)
+    }
+
+    private func appendMemoryReviewEvent(_ mutation: WorkspaceMemoryMutation) {
+        guard let event = mutation.reviewEvent else { return }
+        mutateSelectedThread { thread in
+            thread.events.append(event)
+        }
     }
 
     private func applyMemoryContextNotice(_ mutation: WorkspaceMemoryMutation) {

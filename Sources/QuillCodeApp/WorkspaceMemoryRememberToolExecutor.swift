@@ -37,7 +37,7 @@ enum WorkspaceMemoryRememberToolExecutor {
         let output = MemoryRememberToolOutput(
             title: note.title,
             relativePath: note.relativePath,
-            content: note.content
+            content: ToolCall.redactedMemoryContentValue
         )
         return (note, output)
     }

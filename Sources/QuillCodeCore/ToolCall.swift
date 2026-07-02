@@ -14,16 +14,17 @@ public struct ToolCall: Codable, Sendable, Hashable, Identifiable {
 
 public extension ToolCall {
     static let redactedEnvironmentValue = "<redacted>"
+    static let redactedMemoryContentValue = "<redacted memory content>"
 
     func redactedForTranscript() -> ToolCall {
-        let redactedArguments = Self.redactedArgumentsJSON(argumentsJSON)
+        let redactedArguments = Self.redactedArgumentsJSON(argumentsJSON, toolName: name)
         guard redactedArguments != argumentsJSON else {
             return self
         }
         return ToolCall(id: id, name: name, argumentsJSON: redactedArguments)
     }
 
-    static func redactedArgumentsJSON(_ argumentsJSON: String) -> String {
+    static func redactedArgumentsJSON(_ argumentsJSON: String, toolName: String? = nil) -> String {
         guard let data = argumentsJSON.data(using: .utf8),
               var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         else {
@@ -34,6 +35,12 @@ public extension ToolCall {
         for key in ["environment", "env"] where object[key] != nil {
             object[key] = redactedEnvironmentPayload(object[key])
             didRedact = true
+        }
+        if toolName == ToolDefinition.memoryRemember.name {
+            for key in ["content", "reason"] where object[key] != nil {
+                object[key] = redactedMemoryContentValue
+                didRedact = true
+            }
         }
         guard didRedact,
               JSONSerialization.isValidJSONObject(object),

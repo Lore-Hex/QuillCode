@@ -254,6 +254,35 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         )
     }
 
+    func testHTMLRendererIncludesMemoryRedactionReviewActions() throws {
+        let event = try XCTUnwrap(MemoryRedactionReviewSurface.event(
+            action: .save,
+            userText: "/remember api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE"
+        ))
+        let thread = ChatThread(
+            title: "Rejected memory",
+            messages: [.init(role: .user, content: "/remember \(ToolCall.redactedMemoryContentValue)")],
+            events: [event]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            memories: MemoriesState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="memory-redaction-review""#))
+        XCTAssertTrue(html.contains("0 memories · 1 blocked attempt"))
+        XCTAssertTrue(html.contains("&lt;redacted memory content&gt;"))
+        XCTAssertFalse(html.contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE"))
+        assertContainsAction(
+            html,
+            testID: "memory-redaction-add",
+            commandID: "memory-add",
+            title: "Add safe memory"
+        )
+    }
+
     func testHTMLRendererIncludesInstructionReviewActivitySection() throws {
         let thread = ChatThread(
             title: "Inspect conflicts",

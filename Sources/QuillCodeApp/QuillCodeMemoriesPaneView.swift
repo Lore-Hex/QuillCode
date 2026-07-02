@@ -8,16 +8,21 @@ struct QuillCodeMemoriesPaneView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            if memories.items.isEmpty {
+            if memories.items.isEmpty && memories.redactionReviews.isEmpty {
                 QuillCodePaneEmptyStateView(
                     title: memories.emptyTitle,
                     subtitle: memories.emptySubtitle
                 )
             } else {
+                if !memories.redactionReviews.isEmpty {
+                    memoryRedactionReviews
+                }
                 if !memories.conflicts.isEmpty {
                     memoryConflicts
                 }
-                memoryCards
+                if !memories.items.isEmpty {
+                    memoryCards
+                }
             }
         }
         .padding(14)
@@ -26,8 +31,12 @@ struct QuillCodeMemoriesPaneView: View {
     }
 
     private var paneHeight: CGFloat {
-        if memories.items.isEmpty { return 170 }
-        return memories.conflicts.isEmpty ? 220 : 312
+        if memories.items.isEmpty && memories.redactionReviews.isEmpty { return 170 }
+        let reviewRows = [
+            !memories.redactionReviews.isEmpty,
+            !memories.conflicts.isEmpty
+        ].filter { $0 }.count
+        return 220 + CGFloat(reviewRows) * 92
     }
 
     private var header: some View {
@@ -74,6 +83,57 @@ struct QuillCodeMemoriesPaneView: View {
                 }
             }
         }
+    }
+
+    private var memoryRedactionReviews: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                ForEach(memories.redactionReviews) { review in
+                    memoryRedactionReviewCard(review)
+                }
+            }
+        }
+    }
+
+    private func memoryRedactionReviewCard(_ review: MemoryRedactionReviewSurface) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Image(systemName: "lock.shield.fill")
+                    .foregroundStyle(QuillCodePalette.green)
+                Text(review.title)
+                    .font(.caption.weight(.bold))
+                    .lineLimit(1)
+                Spacer()
+                Button {
+                    onCommand(review.addCommandID)
+                } label: {
+                    Label("Add safe memory", systemImage: "plus")
+                }
+                .buttonStyle(QuillCodeActionButtonStyle(.secondary))
+                .quillCodeFormActionTarget()
+                .help("Start a new memory without sensitive content")
+            }
+            Text(review.summary)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(2)
+            Text(review.redactedInput)
+                .font(.caption.monospaced())
+                .foregroundStyle(QuillCodePalette.green)
+                .lineLimit(2)
+            Text(review.guidance)
+                .font(.caption2)
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(2)
+        }
+        .padding(12)
+        .frame(width: 420, alignment: .topLeading)
+        .background(QuillCodePalette.green.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(QuillCodePalette.green.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func memoryConflictCard(_ conflict: MemoryConflictSurface) -> some View {

@@ -1810,6 +1810,7 @@
     .memory-edit-button,
     .memory-delete-button,
     .memory-conflict-edit-button,
+    .memory-redaction-add-button,
     .extension-card [data-testid="extension-kind"],
     .extension-card [data-testid="extension-status"],
     .memory-card [data-testid="memory-scope"],
@@ -1832,7 +1833,8 @@
     .memories-add-button,
     .memory-edit-button,
     .memory-delete-button,
-    .memory-conflict-edit-button {
+    .memory-conflict-edit-button,
+    .memory-redaction-add-button {
       min-width: var(--hit-target);
       min-height: var(--hit-target);
       flex-shrink: 0;
@@ -1873,6 +1875,27 @@
       color: #ffe0a3;
       background: rgba(248,184,78,.12);
       border-color: rgba(248,184,78,.20);
+    }
+    .memory-redaction-card {
+      grid-column: 1 / -1;
+      background: rgba(82,210,115,.08);
+      border-color: rgba(82,210,115,.28);
+    }
+    .memory-redaction-card p,
+    .memory-redaction-card small {
+      margin: 0;
+      color: var(--muted);
+    }
+    .memory-redaction-card code {
+      display: block;
+      overflow-wrap: anywhere;
+      color: var(--green);
+    }
+    .memory-redaction-add-button {
+      margin-left: auto;
+      color: var(--green);
+      background: rgba(82,210,115,.12);
+      border-color: rgba(82,210,115,.20);
     }
     .extension-card [data-testid="extension-status"] {
       color: var(--green);
@@ -3675,6 +3698,7 @@
         emptyTitle: 'No memories loaded',
         emptySubtitle: 'Add Markdown, text, or JSON notes under ~/.quillcode/memories or .quillcode/memories.',
         conflicts: [],
+        redactionReviews: [],
         items: [
           {
             id: 'global:memories/preferences.md',
@@ -4891,9 +4915,13 @@
       state.memories.projectCount = projectCount;
       state.memories.conflicts = memoryConflicts();
       const conflictCount = state.memories.conflicts.length;
+      const redactionCount = (state.memories.redactionReviews || []).length;
       const conflictSuffix = conflictCount ? ` · ${countLabel(conflictCount, 'conflict')}` : '';
-      state.memories.subtitle = `${countLabel(globalCount, 'global memory')} · ${countLabel(projectCount, 'project memory')}${conflictSuffix}`;
       const total = globalCount + projectCount;
+      const redactionSuffix = redactionCount ? ` · ${countLabel(redactionCount, 'blocked attempt')}` : '';
+      state.memories.subtitle = total
+        ? `${countLabel(globalCount, 'global memory')} · ${countLabel(projectCount, 'project memory')}${conflictSuffix}${redactionSuffix}`
+        : `0 memories${redactionSuffix}`;
       state.topBar.memoryLabel = total === 1 ? '1 memory' : `${total} memories`;
       state.topBar.memorySources = state.memories.items.map(item => item.relativePath);
     }
@@ -4971,15 +4999,63 @@
       return String(value).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).join('-');
     }
 
+    function memoryLooksSensitive(content) {
+      const value = String(content);
+      return /\b(password|passwd|passphrase|api[_ -]?key|secret|token|credential)\s*[:=]/i.test(value)
+          || /\b(sk|pk|rk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_=\-]{16,}/i.test(value)
+          || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(value);
+    }
+
+    function redactedMemoryInput(action, userText) {
+      if (action === 'update') {
+        const firstLine = String(userText).trim().split(/\n/)[0] || '/remember-edit';
+        return `${firstLine}\n<redacted memory content>`;
+      }
+      return String(userText).trim().startsWith('/')
+        ? '/remember <redacted memory content>'
+        : 'Memory request <redacted memory content>';
+    }
+
+    function initialThreadTitleForPrompt(text) {
+      const trimmed = String(text).trim();
+      if (/^\/remember-edit\b/i.test(trimmed) && memoryLooksSensitive(trimmed)) {
+        return redactedMemoryInput('update', trimmed).split(/\s+/).slice(0, 6).join(' ');
+      }
+      if (/^\/remember\b/i.test(trimmed) && memoryLooksSensitive(trimmed)) {
+        return redactedMemoryInput('save', trimmed).split(/\s+/).slice(0, 6).join(' ');
+      }
+      return trimmed.split(/\s+/).slice(0, 6).join(' ');
+    }
+
+    function redactLatestUserMemoryMessage(action) {
+      const latest = [...state.transcript.messages].reverse().find(message => message.role === 'user');
+      if (latest) latest.text = redactedMemoryInput(action, latest.text);
+    }
+
+    function addMemoryRedactionReview(action, userText) {
+      redactLatestUserMemoryMessage(action);
+      state.memories.redactionReviews = [
+        {
+          id: `memory-redaction-${Date.now()}-${state.memories.redactionReviews.length + 1}`,
+          title: 'Memory redaction blocked',
+          summary: 'The attempted memory looked like a credential, token, password, or private key.',
+          redactedInput: redactedMemoryInput(action, userText),
+          guidance: 'Store secrets in a password manager or secret store. Save only durable preferences or facts.',
+          addCommandID: 'memory-add'
+        },
+        ...(state.memories.redactionReviews || [])
+      ].slice(0, 4);
+      refreshMemorySummary();
+    }
+
     function saveMemory(content) {
       const trimmed = String(content).trim();
       if (!trimmed) {
         addMessage('assistant', 'Nothing to remember. Use `/remember a durable preference or fact`.');
         return null;
       }
-      if (/\b(password|passwd|passphrase|api[_ -]?key|secret|token|credential)\s*[:=]/i.test(trimmed)
-          || /\b(sk|pk|rk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_=\-]{16,}/i.test(trimmed)
-          || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(trimmed)) {
+      if (memoryLooksSensitive(trimmed)) {
+        addMemoryRedactionReview('save', `/remember ${trimmed}`);
         addMessage('assistant', 'Memory was not saved because it looks like it contains a credential, token, password, or private key.');
         return null;
       }
@@ -5027,9 +5103,8 @@
         addMessage('assistant', 'Memory cannot be empty.');
         return false;
       }
-      if (/\b(password|passwd|passphrase|api[_ -]?key|secret|token|credential)\s*[:=]/i.test(trimmed)
-          || /\b(sk|pk|rk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_=\-]{16,}/i.test(trimmed)
-          || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(trimmed)) {
+      if (memoryLooksSensitive(trimmed)) {
+        addMemoryRedactionReview('update', `/remember-edit ${id}\n${trimmed}`);
         addMessage('assistant', 'Memory was not updated because it looks like it contains a credential, token, password, or private key.');
         return false;
       }
@@ -9398,6 +9473,16 @@
       const counts = `
         <span data-testid="memories-count">${countLabel(state.memories.globalCount, 'global memory')}</span>
         <span data-testid="memories-count">${countLabel(state.memories.projectCount, 'project memory')}</span>`;
+      const redactions = (state.memories.redactionReviews || []).map(review => `
+            <article class="memory-redaction-card" data-testid="memory-redaction-review">
+              <header>
+                <strong data-testid="memory-redaction-title">${escapeHTML(review.title)}</strong>
+                <button class="memory-redaction-add-button hit-target-form-action" type="button" data-testid="memory-redaction-add" data-command-id="${escapeHTML(review.addCommandID)}">Add safe memory</button>
+              </header>
+              <p data-testid="memory-redaction-summary">${escapeHTML(review.summary)}</p>
+              <code data-testid="memory-redaction-input">${escapeHTML(review.redactedInput)}</code>
+              <small data-testid="memory-redaction-guidance">${escapeHTML(review.guidance)}</small>
+            </article>`).join('');
       const conflicts = (state.memories.conflicts || []).map(conflict => `
             <article class="memory-conflict-card" data-testid="memory-conflict">
               <header>
@@ -9414,8 +9499,10 @@
                   </section>`).join('')}
               </div>
             </article>`).join('');
-      const content = state.memories.items.length ? `
+      const hasMemoryContent = state.memories.items.length || redactions || conflicts;
+      const content = hasMemoryContent ? `
         <div class="memories-grid" data-testid="memories-grid">
+          ${redactions}
           ${conflicts}
           ${state.memories.items.map(item => `
             <article class="memory-card" data-testid="memory-item" data-scope="${escapeHTML(item.scope)}">
@@ -13644,7 +13731,7 @@
     function sendMessage(value) {
       const text = String(value).trim();
       if (!text) return;
-      ensureThread(text.split(/\s+/).slice(0, 6).join(' '));
+      ensureThread(initialThreadTitleForPrompt(text));
       if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
       state.composer.draft = '';
       state.composer.canSend = false;

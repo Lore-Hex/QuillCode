@@ -163,6 +163,7 @@ public extension QuillCodeWorkspaceModel {
             memories: WorkspaceMemoriesSurface(
                 isVisible: memories.isVisible,
                 notes: activeSources.memories,
+                events: thread?.events ?? [],
                 canEditProjectMemories: canEditProjectMemories
             ),
             activity: WorkspaceActivitySurface(
