@@ -27,13 +27,12 @@ struct QuillCodeSettingsDraft: Equatable {
     }
 
     var update: WorkspaceSettingsUpdate {
-        WorkspaceSettingsUpdate(
+        let trimmedReplacementAPIKey = replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        return WorkspaceSettingsUpdate(
             apiBaseURL: apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines),
             authMode: authMode,
             developerOverrideEnabled: developerOverrideEnabled,
-            replacementAPIKey: replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? nil
-                : replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines),
+            replacementAPIKey: trimmedReplacementAPIKey.isEmpty ? nil : trimmedReplacementAPIKey,
             shouldClearAPIKey: shouldClearAPIKey,
             computerUseApprovedBundleIdentifiers: Self.approvals(from: computerUseApprovedBundleIdentifiersText),
             computerUseApprovedAppNames: Self.approvals(from: computerUseApprovedAppNamesText)
