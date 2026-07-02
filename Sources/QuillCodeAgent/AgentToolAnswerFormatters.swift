@@ -20,6 +20,7 @@ enum AgentToolAnswerFormatters {
             AgentUtilityToolAnswerFormatters.memoryRememberAnswer,
             AgentShellToolAnswerFormatters.shellRunAnswer,
             AgentWebToolAnswerFormatters.webFetchAnswer,
+            AgentSkillToolAnswerFormatters.skillLoadAnswer,
             AgentBrowserToolAnswerFormatters.browserInspectAnswer,
             AgentBrowserToolAnswerFormatters.browserOpenAnswer,
             AgentUtilityToolAnswerFormatters.mcpReadResourceAnswer,
