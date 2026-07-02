@@ -105,12 +105,12 @@ public struct LSPCommandLocator: LSPCommandLocating {
         }
 
         // Drain both pipes concurrently so the child never blocks writing to a full, unread pipe.
-        let collected = NSMutableData()
+        let outputBuffer = LSPCommandOutputBuffer()
         let readerGroup = DispatchGroup()
         readerGroup.enter()
         DispatchQueue.global(qos: .utility).async {
             defer { readerGroup.leave() }
-            collected.append(output.fileHandleForReading.readDataToEndOfFile())
+            outputBuffer.append(output.fileHandleForReading.readDataToEndOfFile())
         }
         readerGroup.enter()
         DispatchQueue.global(qos: .utility).async {
@@ -128,7 +128,7 @@ public struct LSPCommandLocator: LSPCommandLocating {
         // The readers finish at EOF, which the child produces on exit.
         _ = readerGroup.wait(timeout: .now() + 1)
         guard process.terminationStatus == 0 else { return nil }
-        let path = String(decoding: collected as Data, as: UTF8.self)
+        let path = String(decoding: outputBuffer.snapshot(), as: UTF8.self)
             .split(separator: "\n").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
         guard !path.isEmpty, FileManager.default.isExecutableFile(atPath: path) else { return nil }
         return path
@@ -136,5 +136,22 @@ public struct LSPCommandLocator: LSPCommandLocating {
 
     private func shellQuote(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+}
+
+private final class LSPCommandOutputBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage = Data()
+
+    func append(_ data: Data) {
+        lock.lock()
+        defer { lock.unlock() }
+        storage.append(data)
+    }
+
+    func snapshot() -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
     }
 }
