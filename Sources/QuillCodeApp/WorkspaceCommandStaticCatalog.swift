@@ -24,14 +24,14 @@ enum WorkspaceCommandStaticCatalog {
     ) -> [Command] {
         let navigation = Category.navigation
         return [
-            command(
+            shortcut(
                 "workspace-back",
                 "Back",
                 category: navigation,
                 keywords: ["history", "previous", "navigation", "thread", "project"],
                 isEnabled: canNavigateBack
             ),
-            command(
+            shortcut(
                 "workspace-forward",
                 "Forward",
                 category: navigation,

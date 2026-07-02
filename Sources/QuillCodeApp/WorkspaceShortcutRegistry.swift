@@ -16,6 +16,10 @@ public struct WorkspaceShortcut: Codable, Sendable, Hashable, Identifiable {
     public var displayLabel: String {
         let keyLabel: String
         switch key {
+        case "arrowLeft":
+            keyLabel = "←"
+        case "arrowRight":
+            keyLabel = "→"
         case "escape":
             keyLabel = "Esc"
         case "tab":
@@ -45,6 +49,8 @@ public enum WorkspaceShortcutRegistry {
         WorkspaceShortcut(commandID: "retry-last-turn", key: "r", modifiers: [.command, .shift]),
         WorkspaceShortcut(commandID: "focus-composer", key: "l", modifiers: [.command]),
         WorkspaceShortcut(commandID: "toggle-sidebar", key: "b", modifiers: [.command]),
+        WorkspaceShortcut(commandID: "workspace-back", key: "arrowLeft", modifiers: [.command, .option]),
+        WorkspaceShortcut(commandID: "workspace-forward", key: "arrowRight", modifiers: [.command, .option]),
         WorkspaceShortcut(commandID: "search", key: "k", modifiers: [.command]),
         WorkspaceShortcut(commandID: "find-in-chat", key: "f", modifiers: [.command]),
         WorkspaceShortcut(commandID: "add-project", key: "o", modifiers: [.command]),

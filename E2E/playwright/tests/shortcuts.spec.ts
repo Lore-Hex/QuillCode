@@ -15,6 +15,8 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
   await page.keyboard.press('Meta+/');
   await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Keyboard shortcuts' })).toContainText('Cmd+/');
+  await expect(page.locator('[data-testid="keyboard-shortcut-row"][data-command-id="workspace-back"]')).toContainText('Cmd+Option+←');
+  await expect(page.locator('[data-testid="keyboard-shortcut-row"][data-command-id="workspace-forward"]')).toContainText('Cmd+Option+→');
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Browser: Back' })).toContainText('Cmd+[');
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Browser: Forward' })).toContainText('Cmd+]');
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Browser: Reload' })).toContainText('Cmd+R');
@@ -64,5 +66,11 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
 
   await page.keyboard.press('Meta+N');
 
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+
+  await page.keyboard.press('Meta+Alt+ArrowLeft');
+  await expect(page.getByTestId('message').filter({ hasText: 'run whoami' })).toBeVisible();
+
+  await page.keyboard.press('Meta+Alt+ArrowRight');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
 });

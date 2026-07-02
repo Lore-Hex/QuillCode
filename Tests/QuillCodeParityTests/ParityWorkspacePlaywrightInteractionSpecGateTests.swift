@@ -54,6 +54,14 @@ final class ParityWorkspacePlaywrightInteractionSpecGateTests: QuillCodeParityTe
         XCTAssertTrue(shortcutSpecText.contains("Control+Backquote"), "Focused shortcut flows should cover terminal shortcut dispatch.")
         XCTAssertTrue(shortcutSpecText.contains("Meta+F"), "Focused shortcut flows should cover transcript find dispatch.")
         XCTAssertTrue(shortcutSpecText.contains("Meta+N"), "Focused shortcut flows should cover new-chat shortcut dispatch.")
+        XCTAssertTrue(
+            shortcutSpecText.contains("Meta+Alt+ArrowLeft"),
+            "Focused shortcut flows should cover workspace back shortcut dispatch."
+        )
+        XCTAssertTrue(
+            shortcutSpecText.contains("Meta+Alt+ArrowRight"),
+            "Focused shortcut flows should cover workspace forward shortcut dispatch."
+        )
         XCTAssertTrue(shortcutSpecText.contains(shortcutFlowName), "\(shortcutFlowName) should live in shortcuts.spec.ts.")
         XCTAssertFalse(coreSpecText.contains(shortcutFlowName), "\(shortcutFlowName) should not drift back into core.spec.ts.")
     }

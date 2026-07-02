@@ -143,6 +143,8 @@ private struct QuillCodeDesktopCommandNotifications: ViewModifier {
             observe(.quillCodeNewChat) { $0.newChat() },
             observe(.quillCodeCycleMode) { $0.runWorkspaceCommand("cycle-mode") },
             observe(.quillCodeFocusComposer) { $0.runWorkspaceCommand("focus-composer") },
+            observe(.quillCodeWorkspaceBack) { $0.runWorkspaceCommand("workspace-back") },
+            observe(.quillCodeWorkspaceForward) { $0.runWorkspaceCommand("workspace-forward") },
             observe(.quillCodeToggleTerminal) { $0.toggleTerminal() },
             observe(.quillCodeToggleBrowser) { $0.toggleBrowser() },
             observe(.quillCodeBrowserBack) { $0.runWorkspaceCommand("browser-back") },

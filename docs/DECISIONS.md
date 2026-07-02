@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+- Workspace history uses `Cmd+Option+←` and `Cmd+Option+→`, leaving `Cmd+[` and `Cmd+]` for browser-tab history.
+  The shortcut registry remains the single source for SwiftUI menus, command-palette labels, Keyboard Shortcuts, and the
+  rendered Playwright harness, and the harness normalizes arrow glyphs back to keyboard event names so shortcut dispatch
+  is tested through the same user-facing labels.
 - Native `NavigationLink` controls are in-app press targets, not external links. Source audits now reject
   `NavigationLink` without a shared QuillCode hit-target helper, reject `quillCodeLinkTarget` on in-app navigation,
   and require explicit press/action styling. Future Codex-style navigation rows should use row/text/capsule/form press

@@ -11,7 +11,15 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Open Browser Session", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
             Self.assertSource(text, contains: label)
         }
-        for commandID in ["browser-back", "browser-forward", "browser-reload", "cycle-mode", "focus-composer"] {
+        for commandID in [
+            "workspace-back",
+            "workspace-forward",
+            "browser-back",
+            "browser-forward",
+            "browser-reload",
+            "cycle-mode",
+            "focus-composer"
+        ] {
             Self.assertSource(commandsText, contains: ".quillCodeShortcut(\"\(commandID)\")")
             Self.assertSource(appText, contains: "$0.runWorkspaceCommand(\"\(commandID)\")")
         }

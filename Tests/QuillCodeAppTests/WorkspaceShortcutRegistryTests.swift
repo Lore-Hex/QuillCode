@@ -26,6 +26,8 @@ final class WorkspaceShortcutRegistryTests: XCTestCase {
     func testPrimaryChromeAndPaneCommandsHaveKeyboardShortcuts() {
         let chromeAndPaneCommandIDs = [
             "toggle-sidebar",
+            "workspace-back",
+            "workspace-forward",
             "toggle-terminal",
             "toggle-browser",
             "toggle-activity",
@@ -46,5 +48,18 @@ final class WorkspaceShortcutRegistryTests: XCTestCase {
         let shortcut = WorkspaceShortcutRegistry.shortcut(for: "toggle-sidebar")
 
         XCTAssertEqual(shortcut?.displayLabel, "Cmd+B")
+    }
+
+    func testWorkspaceHistoryShortcutsAvoidBrowserHistoryBindings() {
+        XCTAssertEqual(
+            WorkspaceShortcutRegistry.shortcut(for: "workspace-back")?.displayLabel,
+            "Cmd+Option+←"
+        )
+        XCTAssertEqual(
+            WorkspaceShortcutRegistry.shortcut(for: "workspace-forward")?.displayLabel,
+            "Cmd+Option+→"
+        )
+        XCTAssertEqual(WorkspaceShortcutRegistry.shortcut(for: "browser-back")?.displayLabel, "Cmd+[")
+        XCTAssertEqual(WorkspaceShortcutRegistry.shortcut(for: "browser-forward")?.displayLabel, "Cmd+]")
     }
 }

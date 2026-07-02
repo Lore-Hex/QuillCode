@@ -10,6 +10,14 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "cmd+k").first?.id, "search")
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "cmd+f").first?.id, "find-in-chat")
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "cmd+/").first?.id, "keyboard-shortcuts")
+        XCTAssertEqual(
+            WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "cmd option left").first?.id,
+            "workspace-back"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "cmd option right").first?.id,
+            "workspace-forward"
+        )
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "shortcuts").first?.id, "keyboard-shortcuts")
     }
 

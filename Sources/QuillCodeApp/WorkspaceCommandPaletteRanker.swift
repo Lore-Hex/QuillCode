@@ -54,7 +54,7 @@ enum WorkspaceCommandPaletteRanker {
 
         let title = normalize(command.title)
         let compactTitle = compact(title)
-        let shortcut = compact(normalize(command.shortcut ?? ""))
+        let shortcut = shortcutSearchText(command.shortcut)
         let id = normalize(command.id.replacingOccurrences(of: "-", with: " "))
         let category = normalize(command.category)
         let keywords = command.keywords.map(normalize)
@@ -107,6 +107,14 @@ enum WorkspaceCommandPaletteRanker {
         ([title, id, category] + keywords)
             .joined(separator: " ")
             .split(whereSeparator: \.isWhitespace)
+    }
+
+    private static func shortcutSearchText(_ shortcut: String?) -> String {
+        compact(
+            normalize(shortcut ?? "")
+                .replacingOccurrences(of: "←", with: " left arrowleft")
+                .replacingOccurrences(of: "→", with: " right arrowright")
+        )
     }
 
     private struct QueryRequest {
