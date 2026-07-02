@@ -79,23 +79,38 @@ struct StaticSafetyPolicy: Sendable {
         collapseWhitespace(text, foldNewlines: false)
     }
 
-    /// Collapses runs of whitespace to a single space. When `foldNewlines` is false, newlines and
-    /// carriage returns are preserved verbatim (only spaces/tabs collapse); when true, they too are
-    /// treated as whitespace and folded.
+    /// Collapses runs of whitespace to a single ASCII space, so no whitespace re-spelling can dodge
+    /// a hard-deny pattern. EVERY horizontal whitespace scalar folds — not just space/tab but exotic
+    /// Unicode whitespace (NBSP U+00A0, thin space U+2009, ideographic space U+3000, …) — and
+    /// zero-width scalars (U+200B/C/D, U+FEFF) are stripped outright, so `rm -rf<NBSP>/` or
+    /// `rm<ZWSP> -rf /` normalize to the same haystack a plain-space spelling would.
+    ///
+    /// Newline-like scalars (LF/CR and the vertical whitespace class — form-feed, vertical-tab, line/
+    /// paragraph separator; see `WhitespaceFolding.isNewlineLike`) are the ONLY scalars whose handling
+    /// depends on `foldNewlines`: when false they are preserved verbatim (only horizontal whitespace
+    /// collapses); when true they too fold to a space, so a token split across a newline can't dodge
+    /// the floor. Folding every `isWhitespace` scalar here (a strict superset of the exact
+    /// space/tab/newline set the shell word-splits on) keeps the floor a strict SUPERSET of
+    /// `PermissionRuleSubject.normalizedCommand`: any spelling that could match a wildcard allow is
+    /// first folded to a form the floor also sees.
     static func collapseWhitespace(_ text: String, foldNewlines: Bool) -> String {
         var output = ""
         output.reserveCapacity(text.count)
         var pendingSpace = false
         var sawNonSpace = false
         for scalar in text.unicodeScalars {
-            let isNewline = scalar == "\n" || scalar == "\r"
+            if WhitespaceFolding.isZeroWidth(scalar) {
+                // Zero-width: drop it entirely, joining the tokens on either side without a space.
+                continue
+            }
+            let isNewline = WhitespaceFolding.isNewlineLike(scalar)
             if isNewline && !foldNewlines {
                 pendingSpace = false
                 output.unicodeScalars.append(scalar)
                 sawNonSpace = false
                 continue
             }
-            if scalar == " " || scalar == "\t" || isNewline {
+            if isNewline || WhitespaceFolding.isFoldableHorizontal(scalar) {
                 pendingSpace = true
                 continue
             }
