@@ -43,6 +43,11 @@ private final class RetryRecorder: @unchecked Sendable {
     func record(_ attempt: Int, _ kind: TransientFailureClass) { events.append((attempt, kind)) }
 }
 
+/// Shorthand for the streaming HTTP error — most tests here do not care about rate-limit headers.
+private func httpError(_ statusCode: Int, body: String = "", rateLimit: HTTPRateLimitDetails? = nil) -> TrustedRouterAgentError {
+    .streamingHTTPError(statusCode: statusCode, body: body, rateLimit: rateLimit)
+}
+
 final class RetryingLLMClientTests: XCTestCase {
     private let thread = ChatThread(title: "t", messages: [], events: [])
 
@@ -64,12 +69,12 @@ final class RetryingLLMClientTests: XCTestCase {
     // MARK: - Classifier
 
     func testClassifierTaxonomy() {
-        XCTAssertEqual(RetryClassifier.classify(TrustedRouterAgentError.streamingHTTPError(statusCode: 429, body: "")), .rateLimited)
+        XCTAssertEqual(RetryClassifier.classify(httpError(429)), .rateLimited)
         for code in [500, 502, 503, 504, 408, 529] {
-            XCTAssertEqual(RetryClassifier.classify(TrustedRouterAgentError.streamingHTTPError(statusCode: code, body: "")), .serverOverloaded, "\(code)")
+            XCTAssertEqual(RetryClassifier.classify(httpError(code)), .serverOverloaded, "\(code)")
         }
         for code in [400, 401, 403, 404, 422, 501, 505] {
-            XCTAssertEqual(RetryClassifier.classify(TrustedRouterAgentError.streamingHTTPError(statusCode: code, body: "")), .none, "\(code)")
+            XCTAssertEqual(RetryClassifier.classify(httpError(code)), .none, "\(code)")
         }
         XCTAssertEqual(RetryClassifier.classify(TrustedRouterAgentError.emptyResponse), .transport)
         XCTAssertEqual(RetryClassifier.classify(TrustedRouterAgentError.missingAPIKey), .none)
@@ -107,11 +112,63 @@ final class RetryingLLMClientTests: XCTestCase {
         XCTAssertEqual(policy.delay(forAttempt: 2, jitter: 0.5).inSeconds, 1.0, accuracy: 1e-9) // (0.5*4)=2, *0.5=1
     }
 
+    // MARK: - Backoff with rate-limit guidance
+
+    func testBackoffWithoutRateLimitGuidanceIsUnchanged() {
+        let policy = RetryBackoffPolicy()
+        for attempt in 0..<4 {
+            for jitter in [0.0, 0.3, 1.0] {
+                XCTAssertEqual(
+                    policy.delay(forAttempt: attempt, jitter: jitter, rateLimit: nil),
+                    policy.delay(forAttempt: attempt, jitter: jitter),
+                    "attempt \(attempt) jitter \(jitter)"
+                )
+            }
+        }
+    }
+
+    func testRetryAfterFloorsTheJitteredExponential() {
+        let policy = RetryBackoffPolicy(base: .milliseconds(500), cap: .seconds(20))
+        let guidance = HTTPRateLimitDetails(retryAfter: .seconds(5))
+        // Exponential would be 0 (zero jitter) — the server's mandate wins.
+        XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: guidance).inSeconds, 5.0, accuracy: 1e-9)
+        // Exponential (0.5 * 2^5 = 16s) exceeds the 5s mandate — the exponential wins (a floor, not a ceiling).
+        XCTAssertEqual(policy.delay(forAttempt: 5, jitter: 1.0, rateLimit: guidance).inSeconds, 16.0, accuracy: 1e-9)
+    }
+
+    func testRetryAfterIsCappedByRetryAfterCap() {
+        let policy = RetryBackoffPolicy(retryAfterCap: .seconds(60))
+        let hostile = HTTPRateLimitDetails(retryAfter: .seconds(3600))
+        XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: hostile).inSeconds, 60.0, accuracy: 1e-9)
+    }
+
+    func testNegativeRetryAfterCapDisablesServerMandatedFloor() {
+        let policy = RetryBackoffPolicy(retryAfterCap: .seconds(-1))
+        let guidance = HTTPRateLimitDetails(retryAfter: .seconds(30))
+        XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: guidance).inSeconds, 0.0, accuracy: 1e-9)
+    }
+
+    func testExhaustedQuotaResetActsAsMandateOnlyWhenRemainingIsZero() {
+        let policy = RetryBackoffPolicy()
+        // remaining == 0 with a reset time: authoritative — floors the delay.
+        let exhausted = HTTPRateLimitDetails(remaining: 0, resetAfter: .seconds(12))
+        XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: exhausted).inSeconds, 12.0, accuracy: 1e-9)
+        // Quota left: the reset time is informational, not a mandate — plain exponential applies.
+        let healthy = HTTPRateLimitDetails(remaining: 40, resetAfter: .seconds(12))
+        XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: healthy).inSeconds, 0.0, accuracy: 1e-9)
+    }
+
+    func testExplicitRetryAfterTakesPrecedenceOverQuotaReset() {
+        let policy = RetryBackoffPolicy()
+        let guidance = HTTPRateLimitDetails(retryAfter: .seconds(7), remaining: 0, resetAfter: .seconds(30))
+        XCTAssertEqual(policy.delay(forAttempt: 0, jitter: 0.0, rateLimit: guidance).inSeconds, 7.0, accuracy: 1e-9)
+    }
+
     // MARK: - Decorator behavior
 
     func testRetriesTransientThenSucceeds() async throws {
         let flaky = FlakyClient(failures: [
-            TrustedRouterAgentError.streamingHTTPError(statusCode: 429, body: ""),
+            httpError(429),
             URLError(.networkConnectionLost),
         ])
         let sleeper = RecordingSleeper()
@@ -127,7 +184,7 @@ final class RetryingLLMClientTests: XCTestCase {
     }
 
     func testExhaustsAndRethrowsLastError() async {
-        let flaky = FlakyClient(failures: Array(repeating: TrustedRouterAgentError.streamingHTTPError(statusCode: 503, body: ""), count: 9))
+        let flaky = FlakyClient(failures: Array(repeating: httpError(503), count: 9))
         let sleeper = RecordingSleeper()
         let client = makeClient(flaky, sleeper: sleeper, policy: RetryBackoffPolicy(maxAttempts: 4))
         do {
@@ -141,7 +198,7 @@ final class RetryingLLMClientTests: XCTestCase {
     }
 
     func testNonTransientFailsFastWithoutRetry() async {
-        let flaky = FlakyClient(failures: [TrustedRouterAgentError.streamingHTTPError(statusCode: 400, body: "bad")])
+        let flaky = FlakyClient(failures: [httpError(400, body: "bad")])
         let sleeper = RecordingSleeper()
         let client = makeClient(flaky, sleeper: sleeper)
         do {
@@ -166,9 +223,28 @@ final class RetryingLLMClientTests: XCTestCase {
         XCTAssertTrue(sleeper.slept.isEmpty)
     }
 
+    func testDecoratorSleepsTheServerMandatedWaitOn429() async throws {
+        // A 429 carrying Retry-After: 5 must sleep at least 5s even though the jittered
+        // exponential (zero jitter here) would be 0 — the crux of honoring the header.
+        let flaky = FlakyClient(failures: [
+            httpError(429, rateLimit: HTTPRateLimitDetails(retryAfter: .seconds(5))),
+        ])
+        let sleeper = RecordingSleeper()
+        let client = RetryingLLMClient(
+            base: flaky,
+            policy: RetryBackoffPolicy(),
+            sleeper: sleeper,
+            jitter: { 0.0 },
+            onRetry: { _, _, _ in }
+        )
+        let action = try await client.nextAction(thread: thread, userMessage: "hi", tools: [])
+        XCTAssertEqual(action, .say("ok"))
+        XCTAssertEqual(sleeper.slept, [.seconds(5)])
+    }
+
     func testStreamObtainIsRetried() async throws {
         // The production path: a 429 on obtaining the event stream is retried before any token.
-        let flaky = FlakyClient(failures: [TrustedRouterAgentError.streamingHTTPError(statusCode: 429, body: "")])
+        let flaky = FlakyClient(failures: [httpError(429)])
         let client = makeClient(flaky)
         let stream = try await client.actionEventStream(thread: thread, userMessage: "hi", tools: [])
         var events: [AgentTextStreamEvent] = []
