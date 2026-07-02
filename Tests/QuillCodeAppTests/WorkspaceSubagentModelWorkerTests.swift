@@ -117,6 +117,25 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             // Expected: scheduler turns a thrown worker error into a failed subagent.
         }
     }
+
+    // MARK: - Prompt caching opt-out (one-shot aux class)
+
+    /// The opt-out the WorkspaceModel applies to the subagent worker: it disables caching on a
+    /// caching-capable client (threading through the production retry-wrapped TrustedRouter shape)
+    /// and returns a non-caching client (the mock) unchanged. A subagent worker issues a single
+    /// tool-free nextAction on a FRESH, unique-prompt thread that is never re-sent, so a
+    /// breakpoint there could only ever be a cache write with no read — this opt-out prevents it.
+    /// Fails on revert of disablingPromptCachingIfSupported / its conformances.
+    func testDisablingPromptCachingIfSupportedActsOnCachingClientsOnly() throws {
+        let retryWrapped = RetryingLLMClient(base: TrustedRouterLLMClient(promptCachingPolicy: .automatic))
+        let disabled = disablingPromptCachingIfSupported(retryWrapped)
+        let disabledClient = try XCTUnwrap(disabled as? RetryingLLMClient<TrustedRouterLLMClient>)
+        XCTAssertEqual(disabledClient.base.promptCachingPolicy, .disabled)
+
+        // A client that does not support the control is returned unchanged (not wrapped/altered).
+        let mock = SubagentStubSayLLMClient(text: "ok")
+        XCTAssertTrue(disablingPromptCachingIfSupported(mock) is SubagentStubSayLLMClient)
+    }
 }
 
 private struct SubagentStubSayLLMClient: LLMClient {

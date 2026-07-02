@@ -112,8 +112,16 @@ public final class QuillCodeWorkspaceModel {
             : nil
         self.sidebarSelection = sidebarSelection
         self.runner = runner
+        // Subagent-worker calls are one-shot auxiliary housekeeping: LLMWorkspaceSubagentWorker.run
+        // issues a single tool-free nextAction on a fresh, unique-prompt ChatThread that is never
+        // re-sent, so a prompt-cache breakpoint on it could only ever be a cache WRITE with no read
+        // (a pure cost premium) — the same class as the context-summary path RuntimeFactory
+        // disables. Opt this path out too; a non-caching client (e.g. the mock) is passed through
+        // untouched.
         self.subagentScheduler = WorkspaceSubagentScheduler(
-            worker: LLMWorkspaceSubagentWorker.scheduledWorker(llm: runner.llm)
+            worker: LLMWorkspaceSubagentWorker.scheduledWorker(
+                llm: disablingPromptCachingIfSupported(runner.llm)
+            )
         )
         self.contextSummaryGenerator = contextSummaryGenerator
         self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)

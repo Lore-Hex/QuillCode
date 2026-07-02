@@ -23,4 +23,37 @@ final class RuntimeFactoryRetryWiringTests: XCTestCase {
         XCTAssertEqual(runtime.mode, .mock)
         XCTAssertFalse(runtime.runner.llm is RetryingLLMClient<TrustedRouterLLMClient>)
     }
+
+    /// The run-loop client keeps prompt caching ON (its prefix repeats across turns), but the
+    /// one-shot context-summary/compaction client must be OFF: each summary prompt is unique and
+    /// never re-sent, so a breakpoint there could only ever be a cache write with no read — and
+    /// the auxiliary-model selector can steer it onto an Anthropic model. Asserts the two clients
+    /// carry opposite caching policies. FAILS on revert of the aux-disable wiring.
+    func testSummaryClientDisablesPromptCachingWhileRunLoopKeepsItOn() throws {
+        let factory = QuillCodeRuntimeFactory(environment: ["QUILLCODE_API_KEY": "test-key"])
+        let runtime = factory.makeRuntime(config: AppConfig())
+
+        let runLoop = try XCTUnwrap(runtime.runner.llm as? RetryingLLMClient<TrustedRouterLLMClient>)
+        XCTAssertEqual(
+            runLoop.base.promptCachingPolicy, .automatic,
+            "the run-loop client must keep prompt caching enabled"
+        )
+
+        let summaryGenerator = try XCTUnwrap(
+            runtime.contextSummaryGenerator as? LLMWorkspaceContextSummaryGenerator
+        )
+        let summaryClient = try XCTUnwrap(
+            summaryGenerator.llm as? RetryingLLMClient<TrustedRouterLLMClient>
+        )
+        XCTAssertEqual(
+            summaryClient.base.promptCachingPolicy, .disabled,
+            "one-shot summary/compaction calls must never carry a prompt-cache breakpoint"
+        )
+
+        // And retargeting the summary client at an Anthropic aux model must not re-enable it.
+        XCTAssertEqual(
+            summaryClient.base.overridingModel("anthropic/claude-haiku-4.5").promptCachingPolicy,
+            .disabled
+        )
+    }
 }
