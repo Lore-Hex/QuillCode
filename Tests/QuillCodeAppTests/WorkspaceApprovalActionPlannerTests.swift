@@ -11,7 +11,14 @@ final class WorkspaceApprovalActionPlannerTests: XCTestCase {
         )
         let latestRequest = approvalRequest(
             id: "approval-1",
-            call: ToolCall(name: ToolDefinition.shellRun.name, argumentsJSON: ToolArguments.json(["cmd": "whoami"]))
+            call: ToolCall(name: ToolDefinition.shellRun.name, argumentsJSON: ToolArguments.json(["cmd": "whoami"])),
+            reviewTelemetry: ApprovalReviewTelemetry(
+                source: .fallbackModel,
+                reviewerModel: "kimi-k2.6",
+                attemptedModels: ["glm-5.2", "kimi-k2.6"],
+                fallbackReason: .primaryModelFailed,
+                errorSummary: "primary unavailable"
+            )
         )
         let thread = ChatThread(events: [
             try approvalRequestedEvent(oldRequest),
@@ -37,6 +44,7 @@ final class WorkspaceApprovalActionPlannerTests: XCTestCase {
         XCTAssertEqual(decision.requestID, "approval-1")
         XCTAssertEqual(decision.verdict, .approve)
         XCTAssertEqual(decision.rationale, "Approved from the tool card.")
+        XCTAssertEqual(decision.reviewTelemetry, latestRequest.reviewTelemetry)
     }
 
     func testDenyPlanBuildsSkipNoticeAndDenyDecision() throws {
@@ -117,12 +125,17 @@ final class WorkspaceApprovalActionPlannerTests: XCTestCase {
         XCTAssertNil(WorkspaceApprovalActionPlanner.plan(action: action, thread: invalidThread))
     }
 
-    private func approvalRequest(id: String, call: ToolCall) -> ApprovalRequest {
+    private func approvalRequest(
+        id: String,
+        call: ToolCall,
+        reviewTelemetry: ApprovalReviewTelemetry? = nil
+    ) -> ApprovalRequest {
         ApprovalRequest(
             id: id,
             toolCall: call,
             toolDefinition: ToolDefinition.shellRun,
-            reason: "review required"
+            reason: "review required",
+            reviewTelemetry: reviewTelemetry
         )
     }
 

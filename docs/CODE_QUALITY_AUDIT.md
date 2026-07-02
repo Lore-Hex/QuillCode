@@ -14298,3 +14298,39 @@ Validation:
 - `swift test` (2,576 tests, 2 skipped, 0 failures)
 - `git diff --check`
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-02 Auto Safety Reviewer Telemetry A+ Pass
+
+Overall grade after this slice: **A+ for Auto safety observability and
+approval-payload architecture**. The pass keeps safety decisions behaviorally
+unchanged while making reviewer routing auditable in durable thread events.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeCore` | A+ | `ApprovalReviewTelemetry` lives beside approval request/decision payloads so transcripts can persist reviewer route evidence without app/safety coupling. |
+| `source:QuillCodeSafety` | A+ | Static, primary-model, fallback-model, all-model-failed, and permission-rule routes are filled by the safety layer with bounded single-line failure summaries. |
+| `source:QuillCodeAgent` | A+ | `AgentToolStepRunner` forwards review telemetry into approval requests without changing tool execution or redaction flow. |
+| `source:QuillCodeApp` | A+ | `WorkspaceApprovalActionPlanner` preserves telemetry when a user resolves a tool-card approval, keeping approval decisions auditable. |
+| `SafetyReviewerTelemetryTests.swift` | A+ | New focused suite proves primary, fallback, static fallback, and missing-client telemetry. |
+
+Code quality changes:
+
+- Added optional `reviewTelemetry` to approval requests and decisions with
+  backwards-compatible Codable defaults.
+- Added structured source and fallback-reason enums instead of ad hoc strings.
+- Kept provider/model failures bounded and single-line so diagnostics are
+  useful but safe to persist.
+- Preserved base reviewer attempted-model metadata when a permission rule forces
+  an ask, while labeling rule allow/deny/ask decisions explicitly.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; touched source modules remain
+  A+ (`QuillCodeCore` 99, `QuillCodeSafety` 99, `QuillCodeAgent` 100,
+  `QuillCodeApp` 100), and the new telemetry test file grades A+ 100.
+
+Validation:
+
+- `swift test --filter 'SafetyReviewerTelemetryTests|PermissionRuleGatedReviewerTests|WorkspaceApprovalActionPlannerTests'` (26 tests, 0 failures)
+- `swift test` (2,646 tests, 2 skipped, 0 failures)
+- `git diff --check`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

@@ -229,7 +229,8 @@ extension AgentRunner {
             toolCall: call.redactedForTranscript(),
             toolDefinition: definition,
             reason: review.rationale,
-            recommendedVerdict: review.verdict
+            recommendedVerdict: review.verdict,
+            reviewTelemetry: review.reviewTelemetry
         )
         let requestJSON = try? JSONHelpers.encodePretty(request)
         switch review.verdict {

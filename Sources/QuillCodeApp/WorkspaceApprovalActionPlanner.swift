@@ -164,7 +164,8 @@ enum WorkspaceApprovalActionPlanner {
         let decision = ApprovalDecision(
             requestID: request.id,
             verdict: verdict,
-            rationale: rationale
+            rationale: rationale,
+            reviewTelemetry: request.reviewTelemetry
         )
         return WorkspaceApprovalActionPlan(
             request: request,
