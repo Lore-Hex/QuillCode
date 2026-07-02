@@ -67,6 +67,111 @@ final class AuxiliaryModelSelectorTests: XCTestCase {
         XCTAssertEqual(selection.modelID, "acme/base-mini")
     }
 
+    func testNameBiasMatchesTokensNotSubstrings() {
+        // "gemini" and "minimax" contain "mini" as a raw substring; neither is a small model, so
+        // neither may collect the bonus. Layout mirrors the absorb test above: if the bonus applied,
+        // the fractionally pricier model would win.
+        for impostor in ["acme/gemini-3-pro", "acme/minimax-x1"] {
+            let selection = AuxiliaryModelSelector.selection(
+                models: [
+                    pricedModel(id: "acme/base", input: 0.5, output: 1.5),
+                    pricedModel(id: impostor, input: 0.55, output: 1.65)
+                ],
+                sessionModelID: "acme/flagship"
+            )
+            XCTAssertEqual(selection.modelID, "acme/base")
+        }
+    }
+
+    func testGeminiUltraFlagshipNeverWinsViaAccidentalMiniSubstring() {
+        // Regression: with substring matching, gemini-3-ultra (the priciest model here) collected
+        // the "mini" bonus and was selected as the "cheap" auxiliary model.
+        let selection = AuxiliaryModelSelector.selection(
+            models: [
+                pricedModel(id: "google/gemini-3-ultra", input: 20, output: 80),
+                pricedModel(id: "anthropic/claude-4-opus", input: 15, output: 75)
+            ],
+            sessionModelID: "anthropic/claude-4-opus"
+        )
+
+        XCTAssertEqual(selection.modelID, "anthropic/claude-4-opus")
+    }
+
+    func testFlashTokenInsideRealModelNameStillGetsBonus() {
+        // Token matching must not lose true positives: gemini-2.5-flash carries a real "flash" token.
+        let selection = AuxiliaryModelSelector.selection(
+            models: [
+                pricedModel(id: "acme/standard", input: 0.5, output: 1.5),
+                pricedModel(id: "google/gemini-2.5-flash", input: 0.55, output: 1.65)
+            ],
+            sessionModelID: "acme/flagship"
+        )
+
+        XCTAssertEqual(selection.modelID, "google/gemini-2.5-flash")
+    }
+
+    func testExpensiveOutlierCannotDiluteRealCostGaps() {
+        // spendy-flash costs 62x the cheapest model. With range-based cost normalization the huge
+        // outlier compressed that gap to ~0.01, letting recency + name bonus override it; the
+        // ratio-to-cheapest score must keep the 62x gap dominant regardless of the outlier.
+        let selection = AuxiliaryModelSelector.selection(
+            models: [
+                pricedModel(id: "acme/cheap", input: 0.05, output: 0.2, released: days(10)),
+                pricedModel(id: "acme/spendy-flash", input: 3.1, output: 12.4, released: days(900)),
+                pricedModel(id: "acme/mega", input: 500, output: 1500, released: days(500))
+            ],
+            sessionModelID: "acme/flagship"
+        )
+
+        XCTAssertEqual(selection.modelID, "acme/cheap")
+    }
+
+    func testNeverPicksModelPricierThanPricedSessionModel() {
+        // zippy-mini wins the heuristic (name bonus absorbs its small premium) but is strictly
+        // pricier than the session model — the aux call must never cost more than doing nothing.
+        let models = [
+            pricedModel(id: "acme/session-base", input: 1, output: 1),
+            pricedModel(id: "acme/zippy-mini", input: 1.1, output: 1.1)
+        ]
+
+        let guarded = AuxiliaryModelSelector.selection(models: models, sessionModelID: "acme/session-base")
+        XCTAssertEqual(guarded.modelID, "acme/session-base")
+        XCTAssertEqual(guarded.source, .sessionModelCheaper)
+
+        // Sanity: the ceiling only binds when the session model is priced in the catalog.
+        let unguarded = AuxiliaryModelSelector.selection(models: models, sessionModelID: "acme/unpriced")
+        XCTAssertEqual(unguarded.modelID, "acme/zippy-mini")
+        XCTAssertEqual(unguarded.source, .catalogHeuristic)
+    }
+
+    func testNonFinitePricesAndDatesCannotPoisonSelection() {
+        let infinitePrice = pricedModel(id: "acme/free-lunch-nano", input: .infinity, output: 0.1)
+        let infiniteDate = pricedModel(
+            id: "acme/undated",
+            input: 0.2,
+            output: 0.8,
+            released: Date(timeIntervalSince1970: .infinity)
+        )
+        let sane = pricedModel(id: "acme/sane", input: 0.5, output: 2, released: days(100))
+        let models = [infinitePrice, infiniteDate, sane]
+
+        // The infinite price is not a candidate; the infinite date is ignored (neutral recency), so
+        // the genuinely cheapest model wins and the result is order-independent (no NaN scores).
+        let selection = AuxiliaryModelSelector.selection(models: models, sessionModelID: "acme/flagship")
+        XCTAssertEqual(selection.modelID, "acme/undated")
+        XCTAssertEqual(
+            AuxiliaryModelSelector.selection(models: models.reversed(), sessionModelID: "acme/flagship").modelID,
+            "acme/undated"
+        )
+
+        let onlyPoisoned = AuxiliaryModelSelector.selection(
+            models: [infinitePrice],
+            sessionModelID: "acme/flagship"
+        )
+        XCTAssertEqual(onlyPoisoned.modelID, "acme/flagship")
+        XCTAssertEqual(onlyPoisoned.source, .sessionModelFallback)
+    }
+
     func testFallsBackToSessionModelWhenCatalogHasNoPrices() {
         let selection = AuxiliaryModelSelector.selection(
             models: TrustedRouterModelCatalog.defaultModels,

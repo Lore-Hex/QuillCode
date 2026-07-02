@@ -78,6 +78,75 @@ final class WorkspaceAuxiliaryModelSelectionTests: XCTestCase {
         XCTAssertEqual(telemetry.modelSelectionSource, .sessionModelFallback)
     }
 
+    func testLiveCatalogPricesCanonicalModelsThroughProductionNormalization() async throws {
+        // Production path: setModelCatalog normalizes the LIVE catalog, where curated bundled
+        // entries (unpriced) dedup-shadow same-canonical-ID live rows. The backfilled prices must
+        // reach the selector — a live-priced trustedrouter/fast session with a cheaper live nano
+        // must route the summary to the nano model.
+        let source = sourceThread(model: TrustedRouterDefaults.fastModel)
+        let generator = RecordingContextSummaryGenerator()
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            contextSummaryGenerator: generator
+        )
+        model.setModelCatalog(TrustedRouterModelCatalog(
+            models: [
+                liveModel(id: TrustedRouterDefaults.fastModel, input: 3, output: 15),
+                liveModel(id: "acme/pico-nano", input: 0.05, output: 0.2)
+            ],
+            status: .liveTrustedRouter()
+        ))
+
+        let compactCandidate = await model.compactContextWithConfiguredSummary(sourceID: source.id)
+        _ = try XCTUnwrap(compactCandidate)
+
+        let recordedRequest = await generator.lastRequest
+        let request = try XCTUnwrap(recordedRequest)
+        XCTAssertEqual(request.modelID, "acme/pico-nano")
+    }
+
+    func testLiveCatalogKeepsSessionModelWhenHeuristicWinnerIsPricier() async throws {
+        // Same production path: the name bonus lifts zippy-mini above the session model, but it is
+        // strictly pricier, so the cost ceiling keeps the (live-priced) session model.
+        let source = sourceThread(model: TrustedRouterDefaults.fastModel)
+        let generator = RecordingContextSummaryGenerator()
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            contextSummaryGenerator: generator
+        )
+        model.setModelCatalog(TrustedRouterModelCatalog(
+            models: [
+                liveModel(id: TrustedRouterDefaults.fastModel, input: 1, output: 1),
+                liveModel(id: "acme/zippy-mini", input: 1.1, output: 1.1)
+            ],
+            status: .liveTrustedRouter()
+        ))
+
+        let compactCandidate = await model.compactContextWithConfiguredSummary(sourceID: source.id)
+        let compactID = try XCTUnwrap(compactCandidate)
+        let compacted = try XCTUnwrap(model.root.threads.first { $0.id == compactID })
+
+        let recordedRequest = await generator.lastRequest
+        let request = try XCTUnwrap(recordedRequest)
+        XCTAssertEqual(request.modelID, TrustedRouterDefaults.fastModel)
+        let telemetry = try XCTUnwrap(decodeTelemetry(from: compacted))
+        XCTAssertEqual(telemetry.modelSelectionSource, .sessionModelCheaper)
+    }
+
+    private func liveModel(id: String, input: Double, output: Double) -> ModelInfo {
+        ModelInfo(
+            id: id,
+            provider: TrustedRouterDefaults.provider(fromModelID: id),
+            displayName: String(id.split(separator: "/").last ?? "model"),
+            category: TrustedRouterDefaults.provider(fromModelID: id),
+            capabilities: ModelCapabilities(
+                inputPricePerMillionTokens: input,
+                outputPricePerMillionTokens: output,
+                outputModalities: ["text"]
+            )
+        )
+    }
+
     private func decodeTelemetry(from thread: ChatThread) throws -> WorkspaceContextSummaryTelemetry? {
         guard let payload = thread.events.last?.payloadJSON else { return nil }
         return try JSONDecoder().decode(WorkspaceContextSummaryTelemetry.self, from: Data(payload.utf8))

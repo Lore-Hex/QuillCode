@@ -208,11 +208,22 @@ public enum TrustedRouterDefaults {
     }
 
     public static func normalizedModelCatalog(_ models: [ModelInfo]) -> [ModelInfo] {
-        var seen = Set<String>()
+        var indexByID: [String: Int] = [:]
         var catalog: [ModelInfo] = []
         for model in bundledModelCatalog + models {
             let normalized = normalizedModelInfo(model)
-            guard seen.insert(normalized.id).inserted else { continue }
+            if let index = indexByID[normalized.id] {
+                // The first occurrence (usually a curated bundled entry) keeps its identity, but a
+                // later duplicate — typically the LIVE catalog row for the same canonical model —
+                // backfills the capabilities the curated entry lacks. Without this, bundled entries
+                // would shadow live prices/metadata for exactly the recommended models, starving
+                // pricing-aware features like the auxiliary-model selector.
+                if catalog[index].capabilities.isEmpty, !normalized.capabilities.isEmpty {
+                    catalog[index].capabilities = normalized.capabilities
+                }
+                continue
+            }
+            indexByID[normalized.id] = catalog.count
             catalog.append(normalized)
         }
         return catalog.sorted(by: compareModels)

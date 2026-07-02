@@ -79,7 +79,9 @@ struct TrustedRouterCatalogModel: Decodable {
     /// OpenRouter-style `created`) or as an ISO-8601 / `yyyy-MM-dd` string. The auxiliary-model
     /// selector uses this for its recency score, so decode is best-effort: unparseable values are nil.
     private static func releaseDate(in container: KeyedDecodingContainer<FlexibleCodingKey>) -> Date? {
-        if let epoch = try? container.firstDouble(for: releaseDateKeys), epoch > 0 {
+        // isFinite matters: `Double("inf")`/`Double("1e999")` parse to +infinity, and a non-finite
+        // Date would poison the auxiliary-model selector's recency normalization downstream.
+        if let epoch = try? container.firstDouble(for: releaseDateKeys), epoch.isFinite, epoch > 0 {
             // Values beyond the year ~33658 in seconds are clearly millisecond epochs.
             return Date(timeIntervalSince1970: epoch > 1_000_000_000_000 ? epoch / 1000 : epoch)
         }
@@ -104,14 +106,16 @@ struct TrustedRouterCatalogModel: Decodable {
         directKeys: [String],
         pricingKeys: [String]
     ) throws -> Double? {
-        if let direct = try container.firstDouble(for: directKeys) {
+        // Treat non-finite prices (string "inf"/"1e999" parses to +infinity) as absent: they carry
+        // no information and would otherwise leak into pricing displays and model scoring.
+        if let direct = try container.firstDouble(for: directKeys), direct.isFinite {
             return direct
         }
         guard let pricing = try container.decodeIfPresent(FlexibleJSONObject.self, forKey: "pricing") else {
             return nil
         }
         for key in pricingKeys {
-            guard let value = pricing.doubleValue(for: key) else { continue }
+            guard let value = pricing.doubleValue(for: key), value.isFinite else { continue }
             return value < 1 ? value * 1_000_000 : value
         }
         return nil

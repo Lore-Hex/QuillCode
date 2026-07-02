@@ -82,6 +82,11 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
                       "id": "acme/vision-code-dated",
                       "release_date": "2025-05-12",
                       "pricing": { "prompt": "0.00000025", "completion": 0.00000125 }
+                    },
+                    {
+                      "id": "acme/broken-metadata",
+                      "created": "1e999",
+                      "pricing": { "prompt": "inf", "completion": "1e999" }
                     }
                   ]
                 }
@@ -116,6 +121,41 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         XCTAssertEqual(millisecondModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
         let datedModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code-dated" })
         XCTAssertEqual(datedModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
+
+        // Non-finite metadata ("inf"/"1e999" parse to +infinity via Double(String)) decodes as
+        // absent, never as an infinite price or date that could poison downstream scoring.
+        let brokenModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/broken-metadata" })
+        XCTAssertNil(brokenModel.capabilities.inputPricePerMillionTokens)
+        XCTAssertNil(brokenModel.capabilities.outputPricePerMillionTokens)
+        XCTAssertNil(brokenModel.capabilities.releaseDate)
+    }
+
+    func testNormalizedCatalogBackfillsLiveCapabilitiesIntoBundledEntries() throws {
+        // The bundled curated entries (empty capabilities) dedup-shadow same-canonical-ID live rows.
+        // The live row's capabilities must be backfilled, or canonical models — including the default
+        // session model — would never look priced to pricing-aware features like the aux selector.
+        let liveFast = ModelInfo(
+            id: TrustedRouterDefaults.fastModel,
+            provider: "trustedrouter",
+            displayName: "Live Fast Row",
+            category: "trustedrouter",
+            capabilities: ModelCapabilities(
+                contextWindowTokens: 200_000,
+                inputPricePerMillionTokens: 3,
+                outputPricePerMillionTokens: 15
+            )
+        )
+
+        let catalog = TrustedRouterModelCatalog(models: [liveFast])
+        let fast = try XCTUnwrap(catalog.models.first { $0.id == TrustedRouterDefaults.fastModel })
+
+        XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
+        // Curated identity wins; live capabilities fill the gaps.
+        XCTAssertEqual(fast.displayName, TrustedRouterDefaults.fastModelDisplayName)
+        XCTAssertEqual(fast.category, TrustedRouterDefaults.recommendedCategory)
+        XCTAssertEqual(fast.capabilities.inputPricePerMillionTokens, 3)
+        XCTAssertEqual(fast.capabilities.outputPricePerMillionTokens, 15)
+        XCTAssertEqual(fast.capabilities.contextWindowTokens, 200_000)
     }
 
     func testCatalogFetchEmptyResponseUsesFallbackStatus() async throws {
