@@ -1,6 +1,12 @@
 import Foundation
 import QuillCodeCore
 
+// The default client is URLSession-backed, whose networking types live in FoundationNetworking
+// on Linux (swift-corelibs-foundation) rather than Foundation.
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 /// Executes `host.web.fetch`: SSRF-gate the URL, GET it (following a bounded number of
 /// redirects, re-gating every hop), retry once with browser-like headers when Cloudflare's
 /// bot protection interferes, then decode and convert the body to markdown.

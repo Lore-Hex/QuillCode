@@ -1,5 +1,11 @@
 import Foundation
 
+// URLSession and its request/response/delegate types live in FoundationNetworking on Linux
+// (swift-corelibs-foundation), not Foundation — the same split the TrustedRouter clients guard.
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 /// URLSession-backed `WebFetchHTTPClient`. Blocking by design — it is called from
 /// `ToolRouter.execute`, which is synchronous (the same way `ShellToolExecutor` blocks while
 /// a process runs). Redirects are refused at the delegate so every 3xx surfaces to the
