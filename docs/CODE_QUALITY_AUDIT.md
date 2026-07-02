@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-01 Memory Conflict Review Quality Pass
+
+Overall grade after this slice: **all source and test modules grade A+; the touched Memories pane conflict-review path
+grades A+**.
+
+This pass started with a fresh full-repo grade report, then targeted a remaining memory-parity gap that also had an
+architecture smell: the Memories pane listed global/project notes, but it did not synthesize obvious contradictions for
+review. The new shape keeps mutation/loading workflows unchanged and adds a pure, deterministic review layer.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Conflict ownership | Memory review had no dedicated model, so future conflict UI would have been pushed into the pane or workflow coordinator. | `MemoryConflictDetector` owns conservative global-vs-project contradiction detection, while `MemoryConflictSurface` owns the review-row projection. |
+| Scope safety | Conflict handling could have grown into hidden memory mutation. | The detector is read-only and only flags explicit opposing preference/use statements across global and project scopes; repair still goes through existing `memory-edit:` commands. |
+| UI parity | SwiftUI, static HTML, and the Playwright harness could drift on memory-review behavior. | The shared `WorkspaceMemoriesSurface` exposes conflicts to SwiftUI and HTML, the harness mirrors the same contract, and Playwright creates a conflict through normal memory edit flow. |
+| Interaction quality | New conflict actions risked bypassing click-target and command-routing contracts. | Native hit-target audit includes `memories.conflict-edit`, and the harness now routes all Memories-pane `data-command-id` controls uniformly instead of binding only hard-coded test IDs. |
+
+Verification:
+
+- `swift test --filter 'QuillCodeSecondaryPaneSurfaceTests|WorkspaceHTMLSecondaryPaneRendererTests|QuillCodeNativeHitTargetSurfaceAuditTests'`
+- `npx playwright test tests/memories.spec.ts`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- Conflict detection is intentionally conservative. It does not infer subtle contradictions or rewrite memories
+  automatically; richer Chronicle/redaction review and autonomous memory inference remain separate feature work.
+
 ## 2026-07-01 GitHub Pull Request List Parity Quality Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; the touched GitHub PR

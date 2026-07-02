@@ -1809,6 +1809,7 @@
     .memories-add-button,
     .memory-edit-button,
     .memory-delete-button,
+    .memory-conflict-edit-button,
     .extension-card [data-testid="extension-kind"],
     .extension-card [data-testid="extension-status"],
     .memory-card [data-testid="memory-scope"],
@@ -1830,7 +1831,8 @@
     }
     .memories-add-button,
     .memory-edit-button,
-    .memory-delete-button {
+    .memory-delete-button,
+    .memory-conflict-edit-button {
       min-width: var(--hit-target);
       min-height: var(--hit-target);
       flex-shrink: 0;
@@ -1844,6 +1846,33 @@
       color: #ffb7b7;
       background: rgba(255,82,82,.1);
       border-color: rgba(255,82,82,.16);
+    }
+    .memory-conflict-card {
+      grid-column: 1 / -1;
+      background: rgba(248,184,78,.09);
+      border-color: rgba(248,184,78,.28);
+    }
+    .memory-conflict-card p { margin: 0; color: var(--muted); }
+    .memory-conflict-sides {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+    }
+    .memory-conflict-side {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .memory-conflict-side code {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .memory-conflict-edit-button {
+      justify-self: start;
+      color: #ffe0a3;
+      background: rgba(248,184,78,.12);
+      border-color: rgba(248,184,78,.20);
     }
     .extension-card [data-testid="extension-status"] {
       color: var(--green);
@@ -3645,6 +3674,7 @@
         projectCount: 1,
         emptyTitle: 'No memories loaded',
         emptySubtitle: 'Add Markdown, text, or JSON notes under ~/.quillcode/memories or .quillcode/memories.',
+        conflicts: [],
         items: [
           {
             id: 'global:memories/preferences.md',
@@ -4859,10 +4889,86 @@
       const projectCount = state.memories.items.filter(item => item.scope === 'project').length;
       state.memories.globalCount = globalCount;
       state.memories.projectCount = projectCount;
-      state.memories.subtitle = `${countLabel(globalCount, 'global memory')} · ${countLabel(projectCount, 'project memory')}`;
+      state.memories.conflicts = memoryConflicts();
+      const conflictCount = state.memories.conflicts.length;
+      const conflictSuffix = conflictCount ? ` · ${countLabel(conflictCount, 'conflict')}` : '';
+      state.memories.subtitle = `${countLabel(globalCount, 'global memory')} · ${countLabel(projectCount, 'project memory')}${conflictSuffix}`;
       const total = globalCount + projectCount;
       state.topBar.memoryLabel = total === 1 ? '1 memory' : `${total} memories`;
       state.topBar.memorySources = state.memories.items.map(item => item.relativePath);
+    }
+
+    function memoryConflicts() {
+      const globals = state.memories.items.filter(item => item.scope === 'global').flatMap(memoryConflictCandidates);
+      const projects = state.memories.items.filter(item => item.scope === 'project').flatMap(memoryConflictCandidates);
+      const seen = new Set();
+      const conflicts = [];
+      for (const global of globals) {
+        for (const project of projects) {
+          if (global.key !== project.key || global.polarity === project.polarity) continue;
+          const id = `memory-conflict:${global.item.id}:${project.item.id}:${slug(global.key)}`;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          conflicts.push({
+            id,
+            title: `Memory conflict: ${global.display}`,
+            summary: `Global and project memories disagree about ${global.display}. Review which note should guide this project.`,
+            global: memoryConflictSide(global.item),
+            project: memoryConflictSide(project.item)
+          });
+          if (conflicts.length === 6) return conflicts;
+        }
+      }
+      return conflicts;
+    }
+
+    function memoryConflictCandidates(item) {
+      return String(item.preview || '')
+        .split(/[\n.!?;]+/)
+        .map(value => value.trim().replace(/^[-*•]\s*/, ''))
+        .filter(Boolean)
+        .map(statement => memoryConflictCandidate(item, statement))
+        .filter(Boolean);
+    }
+
+    function memoryConflictCandidate(item, statement) {
+      const patterns = [
+        ['should not use ', 'negative'], ['should not ', 'negative'],
+        ['must not use ', 'negative'], ['must not ', 'negative'],
+        ['do not use ', 'negative'], ['do not ', 'negative'],
+        ["don't use ", 'negative'], ["don't ", 'negative'],
+        ['never use ', 'negative'], ['never ', 'negative'],
+        ['avoid using ', 'negative'], ['avoid ', 'negative'],
+        ['always use ', 'affirmative'], ['should use ', 'affirmative'],
+        ['must use ', 'affirmative'], ['prefer using ', 'affirmative'],
+        ['prefer ', 'affirmative'], ['use ', 'affirmative'],
+        ['keep using ', 'affirmative'], ['keep ', 'affirmative']
+      ];
+      const lower = statement.toLowerCase();
+      const match = patterns.find(([prefix]) => lower.startsWith(prefix));
+      if (!match) return null;
+      const subject = statement.slice(match[0].length).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      if (!subject.length) return null;
+      return {
+        item,
+        polarity: match[1],
+        key: subject.join(' '),
+        display: subject.join(' ')
+      };
+    }
+
+    function memoryConflictSide(item) {
+      return {
+        id: item.id,
+        scopeLabel: item.scopeLabel,
+        title: item.title,
+        relativePath: item.relativePath,
+        editCommandID: item.editCommandID
+      };
+    }
+
+    function slug(value) {
+      return String(value).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).join('-');
     }
 
     function saveMemory(content) {
@@ -7219,15 +7325,7 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
-      document.querySelector('[data-testid="memories-add"]')?.addEventListener('click', event => {
-        runCommand(event.currentTarget.getAttribute('data-command-id'));
-      });
-      document.querySelectorAll('[data-testid="memory-edit"]').forEach(button => {
-        button.addEventListener('click', event => {
-          runCommand(event.currentTarget.getAttribute('data-command-id'));
-        });
-      });
-      document.querySelectorAll('[data-testid="memory-delete"]').forEach(button => {
+      document.querySelectorAll('[data-testid="memories-pane"] [data-command-id]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -9300,8 +9398,25 @@
       const counts = `
         <span data-testid="memories-count">${countLabel(state.memories.globalCount, 'global memory')}</span>
         <span data-testid="memories-count">${countLabel(state.memories.projectCount, 'project memory')}</span>`;
+      const conflicts = (state.memories.conflicts || []).map(conflict => `
+            <article class="memory-conflict-card" data-testid="memory-conflict">
+              <header>
+                <strong data-testid="memory-conflict-title">${escapeHTML(conflict.title)}</strong>
+              </header>
+              <p data-testid="memory-conflict-summary">${escapeHTML(conflict.summary)}</p>
+              <div class="memory-conflict-sides">
+                ${[conflict.global, conflict.project].map(side => `
+                  <section class="memory-conflict-side">
+                    <strong>${escapeHTML(side.scopeLabel)}</strong>
+                    <span>${escapeHTML(side.title)}</span>
+                    <code>${escapeHTML(side.relativePath)}</code>
+                    ${side.editCommandID ? `<button class="memory-conflict-edit-button hit-target-form-action" type="button" data-testid="memory-conflict-edit" data-command-id="${escapeHTML(side.editCommandID)}">Edit ${escapeHTML(side.scopeLabel.toLowerCase())}</button>` : ''}
+                  </section>`).join('')}
+              </div>
+            </article>`).join('');
       const content = state.memories.items.length ? `
         <div class="memories-grid" data-testid="memories-grid">
+          ${conflicts}
           ${state.memories.items.map(item => `
             <article class="memory-card" data-testid="memory-item" data-scope="${escapeHTML(item.scope)}">
               <header>
