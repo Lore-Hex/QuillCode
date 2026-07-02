@@ -32,7 +32,7 @@ public struct LLMWorkspaceContextSummaryGenerator: WorkspaceContextSummaryGenera
 
     public func summary(for request: WorkspaceContextSummaryRequest) async throws -> String {
         let prompt = WorkspaceContextSummaryPromptBuilder.prompt(for: request)
-        let action = try await llm.nextAction(
+        let action = try await client(for: request).nextAction(
             thread: ChatThread(title: "Context summary"),
             userMessage: prompt,
             tools: []
@@ -43,6 +43,16 @@ public struct LLMWorkspaceContextSummaryGenerator: WorkspaceContextSummaryGenera
             throw WorkspaceContextSummaryError.invalidModelSummary
         }
         return summary
+    }
+
+    /// Retargets the call at the request's auxiliary model when the client supports it. Best effort
+    /// by design: a summary must never fail because the cheap-model override could not be applied,
+    /// so a missing model ID or a non-overridable client just uses the configured client as-is.
+    private func client(for request: WorkspaceContextSummaryRequest) -> any LLMClient {
+        guard let modelID = request.modelID,
+              let overridable = llm as? any ModelOverridingLLMClient
+        else { return llm }
+        return overridable.overridingModel(modelID)
     }
 }
 
