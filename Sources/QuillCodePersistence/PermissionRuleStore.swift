@@ -27,25 +27,6 @@ public struct PermissionRuleLoadResult: Sendable {
     }
 }
 
-public enum PermissionRuleStoreError: Error, CustomStringConvertible {
-    /// The on-disk file was written by a NEWER QuillCode. Appending would rewrite (and downgrade)
-    /// it, so the save is refused instead of destroying rules this build cannot represent.
-    case newerFileVersion(found: Int, supported: Int)
-    /// The on-disk file contains rules with an unknown `match`/`decision` value (a real but
-    /// unrepresentable rule — possibly a deny). Rewriting the file on append would silently drop
-    /// those rules, so the save is refused instead.
-    case unrepresentableRules(count: Int)
-
-    public var description: String {
-        switch self {
-        case .newerFileVersion(let found, let supported):
-            return "Permission rules file uses newer format version \(found) (this build supports \(supported)); not overwriting it."
-        case .unrepresentableRules(let count):
-            return "Permission rules file has \(count) rule(s) this build can't represent (unknown match/decision); not overwriting it. Update this build or repair the file first."
-        }
-    }
-}
-
 /// Per-project JSON persistence for permission rule tables, following the shape of the other
 /// QuillCode JSON stores (atomic writes, ISO-friendly stable formatting, one file per subject).
 /// Files live in one directory keyed by the canonical (symlink-resolved) workspace root so every
@@ -78,7 +59,10 @@ public struct PermissionRuleFileStore: Sendable {
         } catch {
             // The file exists but is unreadable: fail safe (degraded), do NOT report "no rules".
             return PermissionRuleLoadResult(degraded: true, diagnostics: [
-                "Could not read permission rules file \(fileURL.lastPathComponent): \(error.localizedDescription). Asking for confirmation until it is readable."
+                PermissionRuleStoreDiagnostics.unreadableFile(
+                    fileURL.lastPathComponent,
+                    error: error
+                )
             ])
         }
         return Self.decode(data, fileName: fileURL.lastPathComponent).result
@@ -200,7 +184,7 @@ public struct PermissionRuleFileStore: Sendable {
             // Not valid JSON: fail safe (degraded). We cannot know what a prior rule said.
             return LoadOutcome(
                 result: PermissionRuleLoadResult(degraded: true, diagnostics: [
-                    "Permission rules file \(fileName) is not valid JSON; asking for confirmation until it is repaired."
+                    PermissionRuleStoreDiagnostics.invalidJSON(fileName)
                 ]),
                 wasCorrupt: true
             )
@@ -210,7 +194,10 @@ public struct PermissionRuleFileStore: Sendable {
             // deny; do not auto-approve past it.
             return LoadOutcome(
                 result: PermissionRuleLoadResult(degraded: true, diagnostics: [
-                    "Permission rules file \(fileName) uses newer format version \(payload.version); asking for confirmation until this build is updated."
+                    PermissionRuleStoreDiagnostics.newerFormatOnLoad(
+                        fileName,
+                        version: payload.version
+                    )
                 ]),
                 wasCorrupt: false
             )
@@ -225,7 +212,7 @@ public struct PermissionRuleFileStore: Sendable {
             case .parsed(let rule):
                 if rule.match == .pattern, patternExceedsCap(rule) {
                     diagnostics.append(
-                        "Ignoring an oversized wildcard pattern in \(fileName) (patterns are capped at \(PermissionWildcardPattern.maxPatternScalarCount) characters)."
+                        PermissionRuleStoreDiagnostics.oversizedPattern(fileName)
                     )
                 }
                 rules.append(rule)
@@ -236,7 +223,9 @@ public struct PermissionRuleFileStore: Sendable {
             }
         }
         if droppedRules > 0 {
-            diagnostics.append("Skipped \(droppedRules) malformed rule\(droppedRules == 1 ? "" : "s") in \(fileName).")
+            diagnostics.append(
+                PermissionRuleStoreDiagnostics.malformedRules(droppedRules, fileName: fileName)
+            )
         }
         // A rule with a well-formed structure but an unknown `match`/`decision` value could be a
         // DENY this build cannot represent. Silently dropping it while reporting a healthy load
@@ -248,7 +237,10 @@ public struct PermissionRuleFileStore: Sendable {
                     table: PermissionRuleTable(rules: rules),
                     degraded: true,
                     diagnostics: diagnostics + [
-                        "\(unrepresentableRules) rule\(unrepresentableRules == 1 ? "" : "s") in \(fileName) use an unknown match/decision this build can't represent; asking for confirmation until this build is updated or the file is repaired."
+                        PermissionRuleStoreDiagnostics.unrepresentableRules(
+                            unrepresentableRules,
+                            fileName: fileName
+                        )
                     ]
                 ),
                 wasCorrupt: false,
@@ -269,7 +261,10 @@ public struct PermissionRuleFileStore: Sendable {
         }
         if rules.count > PermissionRuleTable.maxRuleCount {
             diagnostics.append(
-                "Permission rules file \(fileName) has \(rules.count) rules; only the last \(PermissionRuleTable.maxRuleCount) (highest priority) are used."
+                PermissionRuleStoreDiagnostics.tooManyRules(
+                    rules.count,
+                    fileName: fileName
+                )
             )
         }
         return LoadOutcome(

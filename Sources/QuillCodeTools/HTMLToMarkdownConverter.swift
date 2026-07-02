@@ -34,9 +34,12 @@ public enum HTMLToMarkdown {
     // MARK: - Converter
 
     private struct Converter {
+        private typealias Policy = HTMLMarkdownElementPolicy
+
         private var tokenizer: HTMLTokenizer
         private let options: HTMLToMarkdownOptions
         private let writer: HTMLMarkdownWriter
+        private let links: HTMLMarkdownLinkFormatter
 
         private var elementDepth = 0
         private var emphasisStack: [String] = []
@@ -81,6 +84,7 @@ public enum HTMLToMarkdown {
             self.tokenizer = HTMLTokenizer(html)
             self.options = options
             self.writer = HTMLMarkdownWriter(maxOutputBytes: max(1024, options.maxOutputBytes))
+            self.links = HTMLMarkdownLinkFormatter(baseURL: options.baseURL)
         }
 
         mutating func run() -> (markdown: String, truncated: Bool) {
@@ -129,17 +133,17 @@ public enum HTMLToMarkdown {
                 handleOpenTagWhileSkipping(name, selfClosing: selfClosing)
                 return
             }
-            if Self.rawTextElements.contains(name) {
+            if Policy.rawTextElements.contains(name) {
                 if !selfClosing {
                     _ = tokenizer.consumeRawText(until: name)
                 }
                 return
             }
-            if Self.skippedSubtreeElements.contains(name), !selfClosing {
+            if Policy.skippedSubtreeElements.contains(name), !selfClosing {
                 skip = SkipContext(name: name, depth: 1)
                 return
             }
-            let isVoid = Self.voidElements.contains(name)
+            let isVoid = Policy.voidElements.contains(name)
             if !isVoid, !selfClosing {
                 elementDepth += 1
             }
@@ -148,7 +152,7 @@ public enum HTMLToMarkdown {
             // Between a table's cells only table structure matters; letting markers (emphasis,
             // headings, list bullets) through would strand markdown syntax in the output while
             // the corresponding text is being dropped.
-            if isBetweenTableCells, !Self.tableStructureElements.contains(name) {
+            if isBetweenTableCells, !Policy.tableStructureElements.contains(name) {
                 return
             }
 
@@ -159,7 +163,7 @@ public enum HTMLToMarkdown {
                 if name == "br" {
                     writer.writeText("\n")
                 } else if name == "code", let context = preContext, context.language.isEmpty {
-                    preContext = PreContext(language: Self.codeLanguage(fromClass: attributes["class"]))
+                    preContext = PreContext(language: Policy.codeLanguage(fromClass: attributes["class"]))
                 }
                 return
             }
@@ -168,7 +172,7 @@ public enum HTMLToMarkdown {
             // browsers auto-close an unclosed <a> or <code> at a block boundary — otherwise a
             // page missing one </a> would swallow everything after it into the link's
             // (bounded) capture buffer.
-            if Self.blockBoundaryElements.contains(name) {
+            if Policy.blockBoundaryElements.contains(name) {
                 flushInlineCaptures()
             }
 
@@ -186,7 +190,7 @@ public enum HTMLToMarkdown {
                 let level = Int(name.dropFirst()) ?? 1
                 writer.writeMarker(String(repeating: "#", count: min(max(level, 1), 6)) + " ", flushingSpace: true)
             case "ul", "ol":
-                guard structural, listStack.count < Self.maxListDepth else {
+                guard structural, listStack.count < Policy.maxListDepth else {
                     break
                 }
                 if listStack.isEmpty {
@@ -196,7 +200,7 @@ public enum HTMLToMarkdown {
             case "li":
                 startListItem()
             case "blockquote":
-                guard structural, quoteDepth < Self.maxQuoteDepth else {
+                guard structural, quoteDepth < Policy.maxQuoteDepth else {
                     break
                 }
                 requestBlockBreak()
@@ -212,7 +216,7 @@ public enum HTMLToMarkdown {
                 guard structural, preContext == nil else {
                     break
                 }
-                if writer.pushCapture(byteLimit: Self.inlineCodeByteLimit) {
+                if writer.pushCapture(byteLimit: Policy.inlineCodeByteLimit) {
                     inlineCaptures.append(.code)
                 }
             case "strong", "b":
@@ -225,7 +229,7 @@ public enum HTMLToMarkdown {
                 guard structural else {
                     break
                 }
-                if writer.pushCapture(byteLimit: Self.linkTextByteLimit) {
+                if writer.pushCapture(byteLimit: Policy.linkTextByteLimit) {
                     inlineCaptures.append(.link(href: attributes["href"] ?? ""))
                 }
             case "img":
@@ -251,13 +255,13 @@ public enum HTMLToMarkdown {
             }
             // A raw-text element inside a skipped subtree must still be consumed as raw text —
             // otherwise a literal "</head>" inside an inline script would end the skip early.
-            if Self.rawTextElements.contains(name) {
+            if Policy.rawTextElements.contains(name) {
                 if !selfClosing {
                     _ = tokenizer.consumeRawText(until: name)
                 }
                 return
             }
-            if name == context.name, !selfClosing, !Self.voidElements.contains(name) {
+            if name == context.name, !selfClosing, !Policy.voidElements.contains(name) {
                 context.depth += 1
                 skip = context
             }
@@ -278,13 +282,13 @@ public enum HTMLToMarkdown {
                 }
                 return
             }
-            if Self.skippedSubtreeElements.contains(name) || Self.rawTextElements.contains(name) {
+            if Policy.skippedSubtreeElements.contains(name) || Policy.rawTextElements.contains(name) {
                 return // Stray close without a tracked open.
             }
-            if !Self.voidElements.contains(name) {
+            if !Policy.voidElements.contains(name) {
                 elementDepth = max(0, elementDepth - 1)
             }
-            if isBetweenTableCells, !Self.tableStructureElements.contains(name) {
+            if isBetweenTableCells, !Policy.tableStructureElements.contains(name) {
                 return
             }
             if preContext != nil {
@@ -294,7 +298,7 @@ public enum HTMLToMarkdown {
                 return
             }
 
-            if Self.blockBoundaryElements.contains(name) {
+            if Policy.blockBoundaryElements.contains(name) {
                 flushInlineCaptures()
             }
 
@@ -378,7 +382,7 @@ public enum HTMLToMarkdown {
         // MARK: - Emphasis
 
         private mutating func openEmphasis(_ marker: String) {
-            guard preContext == nil, emphasisStack.count < Self.maxEmphasisDepth else {
+            guard preContext == nil, emphasisStack.count < Policy.maxEmphasisDepth else {
                 return
             }
             emphasisStack.append(marker)
@@ -428,8 +432,10 @@ public enum HTMLToMarkdown {
         }
 
         private mutating func emitLink(href: String, text: String) {
-            let label = escapedLinkLabel(text.trimmingCharacters(in: .whitespacesAndNewlines))
-            guard let destination = resolvedLinkDestination(href) else {
+            let label = HTMLMarkdownLinkFormatter.escapedLabel(
+                text.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            guard let destination = links.resolvedDestination(href) else {
                 writer.writeMarker(label, flushingSpace: true)
                 return
             }
@@ -462,68 +468,36 @@ public enum HTMLToMarkdown {
             if source.lowercased().hasPrefix("data:") {
                 // Inline base64 images: keep small ones (they render fine in markdown), and
                 // summarize big ones instead of flooding the context with base64.
-                if source.utf8.count <= Self.maxInlineDataURIBytes {
-                    writer.writeMarker("![\(escapedLinkLabel(alt))](\(source))", flushingSpace: true)
+                if source.utf8.count <= Policy.maxInlineDataURIBytes {
+                    let label = HTMLMarkdownLinkFormatter.escapedLabel(alt)
+                    writer.writeMarker("![\(label)](\(source))", flushingSpace: true)
                 } else {
-                    let kilobytes = source.utf8.count / 1024
-                    writer.writeText("[inline image\(alt.isEmpty ? "" : " \"\(alt)\"") omitted — \(kilobytes) KB data URI]")
+                    writer.writeText(
+                        HTMLMarkdownLinkFormatter.omittedInlineImageText(
+                            alt: alt,
+                            byteCount: source.utf8.count
+                        )
+                    )
                 }
                 return
             }
-            guard let destination = resolvedLinkDestination(source) else {
+            guard let destination = links.resolvedDestination(source) else {
                 if !alt.isEmpty {
                     writer.writeText(alt)
                 }
                 return
             }
-            writer.writeMarker("![\(escapedLinkLabel(alt))](\(destination))", flushingSpace: true)
-        }
-
-        /// Resolves a href/src against the page URL and sanitizes it for a markdown
-        /// destination. Returns nil for empty, scripting, or unresolvable targets — the caller
-        /// then falls back to plain text.
-        private func resolvedLinkDestination(_ raw: String) -> String? {
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else {
-                return nil
-            }
-            let lowered = trimmed.lowercased()
-            for scheme in ["javascript:", "vbscript:", "data:", "blob:", "about:"] where lowered.hasPrefix(scheme) {
-                return nil
-            }
-            let resolved = URL(string: trimmed, relativeTo: options.baseURL)?.absoluteString ?? trimmed
-            // Parentheses, spaces, and control characters break the (…) destination syntax.
-            var sanitized = ""
-            for scalar in resolved.unicodeScalars {
-                switch scalar {
-                case "(":
-                    sanitized += "%28"
-                case ")":
-                    sanitized += "%29"
-                case " ":
-                    sanitized += "%20"
-                default:
-                    if scalar.value >= 0x20, scalar.value != 0x7F {
-                        sanitized.unicodeScalars.append(scalar)
-                    }
-                }
-            }
-            return sanitized.isEmpty ? nil : sanitized
-        }
-
-        private func escapedLinkLabel(_ label: String) -> String {
-            label
-                .replacingOccurrences(of: "[", with: "\\[")
-                .replacingOccurrences(of: "]", with: "\\]")
+            let label = HTMLMarkdownLinkFormatter.escapedLabel(alt)
+            writer.writeMarker("![\(label)](\(destination))", flushingSpace: true)
         }
 
         // MARK: - Preformatted blocks
 
         private mutating func startPre(attributes: [String: String]) {
-            guard writer.pushCapture(byteLimit: Self.preByteLimit, preservesWhitespace: true) else {
+            guard writer.pushCapture(byteLimit: Policy.preByteLimit, preservesWhitespace: true) else {
                 return
             }
-            preContext = PreContext(language: Self.codeLanguage(fromClass: attributes["class"]))
+            preContext = PreContext(language: Policy.codeLanguage(fromClass: attributes["class"]))
         }
 
         private mutating func finishPre() {
@@ -550,23 +524,11 @@ public enum HTMLToMarkdown {
                 currentRun = character == "`" ? currentRun + 1 : 0
                 longestRun = max(longestRun, currentRun)
             }
-            let fence = String(repeating: "`", count: min(max(3, longestRun + 1), Self.maxCodeFenceLength))
+            let fence = String(
+                repeating: "`",
+                count: min(max(3, longestRun + 1), Policy.maxCodeFenceLength)
+            )
             writer.writeBlockLines([fence + context.language] + body.components(separatedBy: "\n") + [fence])
-        }
-
-        private static func codeLanguage(fromClass classAttribute: String?) -> String {
-            guard let classAttribute else {
-                return ""
-            }
-            for token in classAttribute.split(separator: " ") {
-                for prefix in ["language-", "lang-"] where token.hasPrefix(prefix) {
-                    let language = token.dropFirst(prefix.count).prefix(24)
-                    if !language.isEmpty, language.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "+" || $0 == "-" || $0 == "#" }) {
-                        return String(language)
-                    }
-                }
-            }
-            return ""
         }
 
         // MARK: - Tables
@@ -618,7 +580,7 @@ public enum HTMLToMarkdown {
             if context.currentRow == nil {
                 context.currentRow = []
             }
-            context.cellOpen = writer.pushCapture(byteLimit: Self.tableCellByteLimit)
+            context.cellOpen = writer.pushCapture(byteLimit: Policy.tableCellByteLimit)
             table = context
         }
 
@@ -633,7 +595,7 @@ public enum HTMLToMarkdown {
             context.cellOpen = false
             let text = writer.popCapture() ?? ""
             if var row = context.currentRow {
-                if row.count < Self.maxTableColumns {
+                if row.count < Policy.maxTableColumns {
                     row.append(text.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 context.currentRow = row
@@ -646,7 +608,7 @@ public enum HTMLToMarkdown {
                 return
             }
             context.currentRow = nil
-            if !row.isEmpty, context.rows.count < Self.maxTableRows {
+            if !row.isEmpty, context.rows.count < Policy.maxTableRows {
                 context.rows.append(row)
             }
             table = context
@@ -656,7 +618,7 @@ public enum HTMLToMarkdown {
             guard var context = table, context.nestedTables == 0, !context.captionOpen else {
                 return
             }
-            context.captionOpen = writer.pushCapture(byteLimit: Self.tableCellByteLimit)
+            context.captionOpen = writer.pushCapture(byteLimit: Policy.tableCellByteLimit)
             table = context
         }
 
@@ -681,7 +643,7 @@ public enum HTMLToMarkdown {
                 }
                 return
             }
-            let columnCount = min(rows.map(\.count).max() ?? 0, Self.maxTableColumns)
+            let columnCount = min(rows.map(\.count).max() ?? 0, Policy.maxTableColumns)
             guard columnCount > 0 else {
                 return
             }
@@ -726,48 +688,5 @@ public enum HTMLToMarkdown {
             }
         }
 
-        // MARK: - Element sets and bounds
-
-        private static let voidElements: Set<String> = [
-            "area", "base", "br", "col", "embed", "hr", "img", "input",
-            "link", "meta", "param", "source", "track", "wbr"
-        ]
-
-        private static let rawTextElements: Set<String> = [
-            "script", "style", "textarea", "title", "xmp", "noscript"
-        ]
-
-        private static let skippedSubtreeElements: Set<String> = [
-            "head", "nav", "aside", "template", "svg", "math", "iframe",
-            "object", "canvas", "select", "audio", "video"
-        ]
-
-        private static let tableStructureElements: Set<String> = [
-            "table", "thead", "tbody", "tfoot", "colgroup", "tr", "td", "th", "caption"
-        ]
-
-        /// Elements whose start or end auto-closes open inline captures (browser-style
-        /// implicit termination). Trade-off: an HTML5 block-wrapping anchor (`<a><div>…`)
-        /// loses its href but keeps ALL of its text; without this, one unclosed `<a>` would
-        /// cap the rest of the page at the link buffer's limit.
-        private static let blockBoundaryElements: Set<String> = [
-            "p", "div", "section", "article", "main", "header", "footer", "figure",
-            "figcaption", "fieldset", "form", "details", "address", "dl", "dt", "dd",
-            "center", "summary", "h1", "h2", "h3", "h4", "h5", "h6",
-            "ul", "ol", "li", "blockquote", "pre", "hr",
-            "table", "thead", "tbody", "tfoot", "tr", "td", "th", "caption"
-        ]
-
-        private static let maxListDepth = 16
-        private static let maxQuoteDepth = 8
-        private static let maxEmphasisDepth = 16
-        private static let inlineCodeByteLimit = 2048
-        private static let linkTextByteLimit = 2048
-        private static let preByteLimit = 32_768
-        private static let tableCellByteLimit = 1024
-        private static let maxTableColumns = 16
-        private static let maxTableRows = 200
-        private static let maxInlineDataURIBytes = 2048
-        private static let maxCodeFenceLength = 16
     }
 }

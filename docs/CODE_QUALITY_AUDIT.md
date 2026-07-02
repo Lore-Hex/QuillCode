@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-07-02 Persistence And Web Tools A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
+grades A+ in the regenerated repo-wide report**.
+
+This pass started from the deterministic repo-wide grade report and targeted the only remaining production files below
+A+. The changes keep public behavior stable while moving dense formatting, diagnostics, and policy ownership out of
+large coordinator files.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Permission rule persistence | `PermissionRuleStore.swift` mixed storage, load-result models, thrown error copy, and long fail-safe diagnostics. | `PermissionRuleStoreDiagnostics.swift` owns the user-facing diagnostic copy; the store file now focuses on disk IO and tolerant decoding. |
+| HTML-to-markdown conversion | `HTMLToMarkdownConverter.swift` had grown past the production-size threshold with converter state, element policy, URL sanitation, and image formatting together. | `HTMLMarkdownElementPolicy.swift` owns tag sets and bounds, while `HTMLMarkdownLinkFormatter.swift` owns URL/label/image formatting. |
+| Web fetch executor | `WebFetchToolExecutor.swift` repeated long failure, redirect, truncation, and summary strings inline with transport control flow. | Named helpers own web-fetch copy and summary formatting, leaving redirect and result-building logic easier to audit. |
+| Grade trail | The grade report still had three A-grade production hotspots. | `docs/CODE_QUALITY_FILE_GRADES.md` is regenerated and reports every individual file as A+. |
+
+Validation:
+
+- `swift test --filter 'HTMLToMarkdownConverterTests|WebFetchToolExecutorTests|WebFetchToolRouterTests|PermissionRuleStoreTests|WorkspaceModelPermissionRuleTests|PermissionRuleGatedReviewerTests|PermissionRuleSecurityRegressionTests'`
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+Residual risk:
+
+- `HTMLToMarkdownConverter.swift` remains a large but focused state machine at 692 lines. The next meaningful split
+  should extract table rendering or block handling when behavior changes there, rather than mechanically fragmenting
+  the already-covered parser path.
+
 ## 2026-07-02 Native Hit Target Contract Registry A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
