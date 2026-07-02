@@ -178,9 +178,25 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Granted", "Required"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.command.isEnabled), [false, true])
+        XCTAssertNil(settings.computerUseForegroundApplication)
         XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
         XCTAssertEqual(settings.computerUseApprovedAppNames, ["Terminal"])
         XCTAssertEqual(settings.computerUseApprovalStatusLabel, "2 approved")
+    }
+
+    func testSettingsSurfaceCarriesDetectedForegroundApplication() {
+        let application = ComputerUseApplication(
+            name: "Terminal",
+            bundleIdentifier: "com.apple.Terminal"
+        )
+
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(),
+            hasStoredAPIKey: true,
+            computerUseRuntime: ComputerUseSettingsRuntime(foregroundApplication: application)
+        )
+
+        XCTAssertEqual(settings.computerUseForegroundApplication, application)
     }
 
     func testSettingsSurfaceUsesUnavailableComputerUseReasonWithoutPermissionRows() {
@@ -190,7 +206,7 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         let settings = WorkspaceSettingsSurface(
             config: AppConfig(),
             hasStoredAPIKey: false,
-            computerUseStatus: status
+            computerUseRuntime: ComputerUseSettingsRuntime(status: status)
         )
 
         XCTAssertEqual(settings.computerUseStatusLabel, "Unavailable")

@@ -3769,6 +3769,10 @@
         computerUseStatusLabel: 'Setup needed',
         computerUseSetupSummary: 'Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop.',
         computerUseNextAction: 'Open Screen Recording first, enable QuillCode, then open Accessibility.',
+        computerUseForegroundApplication: {
+          name: 'Terminal',
+          bundleIdentifier: 'com.apple.Terminal'
+        },
         computerUseApprovedBundleIdentifiers: [],
         computerUseApprovedAppNames: [],
         computerUseRequirements: [
@@ -7730,6 +7734,16 @@
         state.settings.computerUseApprovedAppNames = [];
         render();
       });
+      document.querySelector('[data-testid="computer-use-allow-current-app"]')?.addEventListener('click', () => {
+        const target = computerUseForegroundApprovalTarget();
+        if (!target || hasComputerUseForegroundApproval()) return;
+        if (target.kind === 'bundle') {
+          state.settings.computerUseApprovedBundleIdentifiers.push(target.key);
+        } else {
+          state.settings.computerUseApprovedAppNames.push(target.key);
+        }
+        render();
+      });
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -8420,6 +8434,7 @@
             <span class="permission-status-pill" data-testid="computer-use-approval-status" data-available="${hasComputerUseApprovals()}">${escapeHTML(computerUseApprovalStatusLabel())}</span>
           </header>
           <p class="permission-footnote">Leave both lists empty for unrestricted Computer Use. Bundle IDs are precise on macOS; app names are the cross-platform fallback.</p>
+          ${renderComputerUseForegroundApprovalRow()}
           <label>
             Bundle identifiers
             <textarea class="hit-target-text-entry" name="computerUseApprovedBundleIdentifiers" data-testid="computer-use-approved-bundles" aria-label="Computer Use approved bundle identifiers" rows="3" placeholder="com.apple.Terminal&#10;com.google.Chrome">${escapeHTML(state.settings.computerUseApprovedBundleIdentifiers.join('\n'))}</textarea>
@@ -8432,6 +8447,52 @@
             <button class="hit-target-text" type="button" data-testid="computer-use-approvals-reset">Reset to unrestricted</button>
           </div>
         </section>`;
+    }
+
+    function renderComputerUseForegroundApprovalRow() {
+      const application = state.settings.computerUseForegroundApplication;
+      const target = computerUseForegroundApprovalTarget();
+      if (!application || !target) {
+        return `<p class="permission-footnote" data-testid="computer-use-current-app">No foreground app detected yet. Focus an app, then refresh Computer Use status.</p>`;
+      }
+      const alreadyApproved = hasComputerUseForegroundApproval();
+      return `
+        <div class="permission-row" data-testid="computer-use-current-app">
+          <div>
+            <strong>${escapeHTML(application.name || application.bundleIdentifier || 'Unknown application')}</strong>
+            <span data-testid="computer-use-current-app-target">${escapeHTML(target.label)}</span>
+          </div>
+          <button class="hit-target-text" type="button" data-testid="computer-use-allow-current-app" ${alreadyApproved ? 'disabled' : ''}>${alreadyApproved ? 'Already allowed' : 'Allow Current App'}</button>
+        </div>`;
+    }
+
+    function computerUseForegroundApprovalTarget() {
+      const application = state.settings.computerUseForegroundApplication;
+      if (!application) return null;
+      if (application.bundleIdentifier) {
+        return {
+          key: application.bundleIdentifier,
+          kind: 'bundle',
+          label: `Will save bundle ID: ${application.bundleIdentifier}`
+        };
+      }
+      if (application.name) {
+        return {
+          key: application.name,
+          kind: 'name',
+          label: `Will save app name: ${application.name}`
+        };
+      }
+      return null;
+    }
+
+    function hasComputerUseForegroundApproval() {
+      const target = computerUseForegroundApprovalTarget();
+      if (!target) return false;
+      const values = target.kind === 'bundle'
+        ? state.settings.computerUseApprovedBundleIdentifiers
+        : state.settings.computerUseApprovedAppNames;
+      return values.some(value => value.toLocaleLowerCase() === target.key.toLocaleLowerCase());
     }
 
     function normalizedApprovalValues(text) {

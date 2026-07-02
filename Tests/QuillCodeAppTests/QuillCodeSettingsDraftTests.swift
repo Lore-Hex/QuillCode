@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 final class QuillCodeSettingsDraftTests: XCTestCase {
@@ -101,5 +102,34 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
         XCTAssertEqual(draft.update.computerUseApprovedBundleIdentifiers, [])
         XCTAssertEqual(draft.update.computerUseApprovedAppNames, [])
+    }
+
+    func testAddsDetectedComputerUseAppByBundleIdentifier() {
+        var draft = QuillCodeSettingsDraft()
+        let application = ComputerUseApplication(
+            name: "Terminal",
+            bundleIdentifier: "com.apple.Terminal"
+        )
+
+        draft.addComputerUseApproval(for: application)
+        draft.addComputerUseApproval(for: application)
+
+        XCTAssertTrue(draft.hasComputerUseApproval(for: application))
+        XCTAssertEqual(draft.computerUseApprovedBundleIdentifiersText, "com.apple.Terminal")
+        XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
+        XCTAssertEqual(draft.update.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
+        XCTAssertEqual(draft.update.computerUseApprovedAppNames, [])
+    }
+
+    func testAddsDetectedComputerUseAppByNameWhenBundleIdentifierIsMissing() {
+        var draft = QuillCodeSettingsDraft()
+        let application = ComputerUseApplication(name: "Linux Terminal")
+
+        draft.addComputerUseApproval(for: application)
+
+        XCTAssertTrue(draft.hasComputerUseApproval(for: application))
+        XCTAssertEqual(draft.computerUseApprovedBundleIdentifiersText, "")
+        XCTAssertEqual(draft.computerUseApprovedAppNamesText, "Linux Terminal")
+        XCTAssertEqual(draft.update.computerUseApprovedAppNames, ["Linux Terminal"])
     }
 }

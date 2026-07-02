@@ -36,6 +36,7 @@ public struct TopBarState: Sendable, Hashable {
     public var mode: AgentMode
     public var agentStatus: String
     public var computerUseStatus: ComputerUseStatus
+    public var computerUseForegroundApplication: ComputerUseApplication?
     /// Branch + ahead/behind for the selected local/SSH project (or worktree),
     /// parsed from the latest `host.git.status` run. Nil until a status runs.
     public var branchStatus: GitBranchStatus?
@@ -57,6 +58,7 @@ public struct TopBarState: Sendable, Hashable {
             accessibilityGranted: false,
             message: "Needs Screen Recording + Accessibility"
         ),
+        computerUseForegroundApplication: ComputerUseApplication? = nil,
         branchStatus: GitBranchStatus? = nil,
         branchStatusProjectID: UUID? = nil
     ) {
@@ -67,6 +69,7 @@ public struct TopBarState: Sendable, Hashable {
         self.mode = mode
         self.agentStatus = agentStatus
         self.computerUseStatus = computerUseStatus
+        self.computerUseForegroundApplication = computerUseForegroundApplication
         self.branchStatus = branchStatus
         self.branchStatusProjectID = branchStatusProjectID
     }
