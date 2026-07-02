@@ -29,6 +29,17 @@ public struct FileToolExecutor: Sendable {
     public func read(path: String, offset: Int? = nil, limit: Int? = nil) -> ToolResult {
         do {
             let url = try resolve(path)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+                return ToolResult(ok: false, error: missingFileMessage(for: url))
+            }
+            if isDirectory.boolValue {
+                return ToolResult(
+                    ok: false,
+                    error: "\(pathResolver.relativePath(for: url)) is a directory, not a file. "
+                        + "Use host.file.list to see its contents."
+                )
+            }
             let data = try Data(contentsOf: url)
             // Refuse binary/image content gracefully instead of erroring or dumping garbage into
             // context. The refusal must NOT count as a read: the session was never shown the
@@ -144,6 +155,36 @@ public struct FileToolExecutor: Sendable {
 
     public func resolve(_ path: String) throws -> URL {
         try pathResolver.resolve(path)
+    }
+
+    /// A missing-file error the model can act on in one glance: the workspace-relative path plus
+    /// "did you mean" siblings when the name looks like a typo of something that exists.
+    private func missingFileMessage(for url: URL) -> String {
+        let relative = Self.displayPath(pathResolver.relativePath(for: url))
+        let parent = url.deletingLastPathComponent()
+        // Suggestions enumerate the parent directory, so the parent itself must be inside the
+        // workspace. When the missing path IS the workspace root (deleted or misconfigured), its
+        // parent lies outside the boundary and sibling names there must not leak into the error.
+        guard WorkspaceBoundary.isWithin(parent, root: workspaceRoot) else {
+            return "File not found: \(relative)"
+        }
+        let matches = FilePathSuggester.suggest(missingFileAt: url)
+        guard !matches.isEmpty else {
+            return "File not found: \(relative)"
+        }
+        let parentRelative = Self.displayPath(pathResolver.relativePath(for: parent))
+        let prefix = parentRelative == "." ? "" : "\(parentRelative)/"
+        let hints = matches.map { Self.displayPath("\(prefix)\($0)") }.joined(separator: ", ")
+        return "File not found: \(relative). Did you mean: \(hints)?"
+    }
+
+    private static func displayPath(_ path: String) -> String {
+        let sanitized = path.unicodeScalars
+            .map { CharacterSet.controlCharacters.contains($0) ? " " : String($0) }
+            .joined()
+        guard sanitized.count > 240 else { return sanitized }
+        let end = sanitized.index(sanitized.startIndex, offsetBy: 240)
+        return String(sanitized[..<end]) + "..."
     }
 
     private func encode<T: Encodable>(_ output: T) -> String {
