@@ -101,12 +101,25 @@ public struct QuillCodeRuntimeFactory: Sendable {
             model: config.defaultModel,
             baseURL: config.apiBaseURL
         )
+        // Compaction (issue #862): when a model call overflows the context window, the run loop folds
+        // the thread's older turns into a summary and resumes instead of failing. It reuses the same
+        // caching-disabled auxiliary client as context summaries; the aux MODEL is chosen per-compaction
+        // from the live catalog inside the runner. The runner is built once and long before the catalog
+        // is fetched, so it is seeded with the session model as the fallback and picks a cheaper catalog
+        // model whenever one is available at compaction time. Reactive-only by default here (no
+        // proactive threshold) so a healthy run pays nothing until the wall is actually hit.
+        let compactor = ThreadCompactor.llmBacked(
+            llm: summaryLLM,
+            catalog: [],
+            sessionModelID: config.defaultModel
+        )
         return QuillCodeRuntime(
             runner: AgentRunner(
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safetyClient),
                 webSearch: webSearch,
-                enablesImmediateActionPreflight: true
+                enablesImmediateActionPreflight: true,
+                compaction: AgentCompactionPolicy(compactor: compactor)
             ),
             contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator(llm: summaryLLM),
             mode: .trustedRouter,
