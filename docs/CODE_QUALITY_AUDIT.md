@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-07-02 Settings Surface Architecture A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; the touched settings
+architecture files are A+ and the new focused files grade A+ 100**.
+
+This pass regenerated the repo-wide file/module grade report, then targeted the weakest production source hotspot that
+had a real ownership issue instead of churnable formatting: Settings surface state mixed the aggregate settings contract,
+Computer Use permission/approval projection, and settings mutation payload in one file.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Settings surface ownership | `QuillCodeSettingsSurface.swift` carried the aggregate `WorkspaceSettingsSurface`, Computer Use requirement rows, Computer Use copy/projection helpers, and `WorkspaceSettingsUpdate`. | `QuillCodeSettingsSurface.swift` now owns only the aggregate settings contract and compatibility decoding. |
+| Computer Use projection | Permission labels, requirement rows, and approval summaries were private helpers inside the broad settings file. | `QuillCodeComputerUseSettingsSurface.swift` owns `ComputerUseRequirementSurface` and `ComputerUseSettingsProjection`. |
+| Settings mutation payload | `WorkspaceSettingsUpdate` lived at the bottom of the settings surface file, making persistence updates easier to miss during review. | `QuillCodeSettingsUpdate.swift` owns the mutation payload and approval normalization boundary. |
+| Parity gates | The gate pinned all settings contracts to one file. | The gate now protects the split boundaries and keeps `WorkspaceSurface.swift` thin. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`; every module grades **A+**.
+- `Sources/QuillCodeApp/QuillCodeSettingsSurface.swift` improved from **A+ 96 / 340 lines / 42 public declarations** to **A+ 97 / 196 lines / 27 public declarations**.
+- New `Sources/QuillCodeApp/QuillCodeComputerUseSettingsSurface.swift` grades **A+ 100**.
+- New `Sources/QuillCodeApp/QuillCodeSettingsUpdate.swift` grades **A+ 100**.
+- Updated `Tests/QuillCodeParityTests/ParityWorkspaceSettingsSurfaceGateTests.swift` grades **A+ 100**.
+
+Validation:
+
+- `swift test --filter 'WorkspaceSettingsRuntimeSurfaceTests|QuillCodeSettingsDraftTests|WorkspaceConfigurationEngineTests|ParityWorkspaceSettingsSurfaceGateTests|ParityWorkspaceSettingsSheetGateTests|QuillCodeNativeHitTargetSourceAuditTests'`
+- `swift test --filter 'WorkspaceSettingsRuntimeSurfaceTests|ParityWorkspaceSettingsSurfaceGateTests'`
+- `swift test`
+
 ## 2026-07-01 Calendar Automation Recurrence A+ Pass
 
 Overall grade after this slice: **all source, test, script, and E2E modules grade A+; the touched

@@ -2,31 +2,6 @@ import Foundation
 import QuillCodeCore
 import QuillComputerUseKit
 
-public struct ComputerUseRequirementSurface: Codable, Sendable, Hashable, Identifiable {
-    public var id: String
-    public var title: String
-    public var detail: String
-    public var statusLabel: String
-    public var isGranted: Bool
-    public var command: WorkspaceCommandSurface
-
-    public init(
-        id: String,
-        title: String,
-        detail: String,
-        statusLabel: String,
-        isGranted: Bool,
-        command: WorkspaceCommandSurface
-    ) {
-        self.id = id
-        self.title = title
-        self.detail = detail
-        self.statusLabel = statusLabel
-        self.isGranted = isGranted
-        self.command = command
-    }
-}
-
 public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var apiBaseURL: String
     public var authMode: TrustedRouterAuthMode
@@ -86,18 +61,18 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             isEnabled: !computerUseStatus.accessibilityGranted
         )
         self.computerUseRefreshCommand = WorkspaceCommandSurface.computerUseRefresh
-        self.computerUseStatusLabel = Self.computerUseStatusLabel(computerUseStatus)
-        self.computerUseSetupSummary = Self.computerUseSetupSummary(computerUseStatus)
-        self.computerUseNextAction = Self.computerUseNextAction(computerUseStatus)
-        self.computerUseRequirements = Self.computerUseRequirements(
+        self.computerUseStatusLabel = ComputerUseSettingsProjection.statusLabel(computerUseStatus)
+        self.computerUseSetupSummary = ComputerUseSettingsProjection.setupSummary(computerUseStatus)
+        self.computerUseNextAction = ComputerUseSettingsProjection.nextAction(computerUseStatus)
+        self.computerUseRequirements = ComputerUseSettingsProjection.requirements(
             status: computerUseStatus,
             screenRecordingCommand: computerUseScreenRecordingCommand,
             accessibilityCommand: computerUseAccessibilityCommand
         )
         self.computerUseApprovedBundleIdentifiers = config.computerUseApprovedBundleIdentifiers
         self.computerUseApprovedAppNames = config.computerUseApprovedAppNames
-        self.computerUseApprovalStatusLabel = Self.computerUseApprovalStatusLabel(config)
-        self.computerUseApprovalSummary = Self.computerUseApprovalSummary(config)
+        self.computerUseApprovalStatusLabel = ComputerUseSettingsProjection.approvalStatusLabel(config)
+        self.computerUseApprovalSummary = ComputerUseSettingsProjection.approvalSummary(config)
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -163,7 +138,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         let decodedComputerUseStatus = try container.decodeIfPresent(
             ComputerUseStatus.self,
             forKey: .computerUseStatus
-        ) ?? .permissionStatus(screenRecordingGranted: false, accessibilityGranted: false)
+        ) ?? ComputerUseSettingsProjection.defaultStatus()
         self.computerUseStatus = decodedComputerUseStatus
         self.computerUseSetupCommand = try container.decodeIfPresent(
             WorkspaceCommandSurface.self,
@@ -182,15 +157,15 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             forKey: .computerUseRefreshCommand
         ) ?? .computerUseRefresh
         self.computerUseStatusLabel = try container.decodeIfPresent(String.self, forKey: .computerUseStatusLabel)
-            ?? Self.computerUseStatusLabel(decodedComputerUseStatus)
+            ?? ComputerUseSettingsProjection.statusLabel(decodedComputerUseStatus)
         self.computerUseSetupSummary = try container.decodeIfPresent(String.self, forKey: .computerUseSetupSummary)
-            ?? Self.computerUseSetupSummary(decodedComputerUseStatus)
+            ?? ComputerUseSettingsProjection.setupSummary(decodedComputerUseStatus)
         self.computerUseNextAction = try container.decodeIfPresent(String.self, forKey: .computerUseNextAction)
-            ?? Self.computerUseNextAction(decodedComputerUseStatus)
+            ?? ComputerUseSettingsProjection.nextAction(decodedComputerUseStatus)
         self.computerUseRequirements = try container.decodeIfPresent(
             [ComputerUseRequirementSurface].self,
             forKey: .computerUseRequirements
-        ) ?? Self.computerUseRequirements(
+        ) ?? ComputerUseSettingsProjection.requirements(
             status: decodedComputerUseStatus,
             screenRecordingCommand: computerUseScreenRecordingCommand,
             accessibilityCommand: computerUseAccessibilityCommand
@@ -212,129 +187,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.computerUseApprovalStatusLabel = try container.decodeIfPresent(
             String.self,
             forKey: .computerUseApprovalStatusLabel
-        ) ?? Self.computerUseApprovalStatusLabel(approvalConfig)
+        ) ?? ComputerUseSettingsProjection.approvalStatusLabel(approvalConfig)
         self.computerUseApprovalSummary = try container.decodeIfPresent(
             String.self,
             forKey: .computerUseApprovalSummary
-        ) ?? Self.computerUseApprovalSummary(approvalConfig)
-    }
-
-    private static func computerUseStatusLabel(_ status: ComputerUseStatus) -> String {
-        if status.available {
-            return "Ready"
-        }
-        if status.unavailableReason != nil {
-            return "Unavailable"
-        }
-        if !status.screenRecordingGranted && !status.accessibilityGranted {
-            return "Setup needed"
-        }
-        if !status.screenRecordingGranted {
-            return "Screen Recording needed"
-        }
-        return "Accessibility needed"
-    }
-
-    private static func computerUseSetupSummary(_ status: ComputerUseStatus) -> String {
-        if status.available {
-            return "Ready for screenshots, clicks, typing, scrolling, and keyboard shortcuts."
-        }
-        if let unavailableReason = status.unavailableReason {
-            return unavailableReason
-        }
-        return "Computer Use needs desktop permissions before QuillCode can inspect or control the screen."
-    }
-
-    private static func computerUseNextAction(_ status: ComputerUseStatus) -> String {
-        if status.available {
-            return "Computer Use is enabled. Ask QuillCode to inspect the screen or operate an app."
-        }
-        if status.unavailableReason != nil {
-            return "Install or enable the required desktop backend, then refresh status."
-        }
-        if !status.screenRecordingGranted && !status.accessibilityGranted {
-            return "Open Screen Recording first, enable QuillCode, then open Accessibility."
-        }
-        if !status.screenRecordingGranted {
-            return "Open Screen Recording, enable QuillCode, then refresh status."
-        }
-        return "Open Accessibility, enable QuillCode, then refresh status."
-    }
-
-    private static func computerUseRequirements(
-        status: ComputerUseStatus,
-        screenRecordingCommand: WorkspaceCommandSurface,
-        accessibilityCommand: WorkspaceCommandSurface
-    ) -> [ComputerUseRequirementSurface] {
-        guard status.unavailableReason == nil else {
-            return []
-        }
-        return [
-            ComputerUseRequirementSurface(
-                id: "screen-recording",
-                title: "Screen Recording",
-                detail: "Required for screenshots and visual inspection.",
-                statusLabel: status.screenRecordingGranted ? "Granted" : "Required",
-                isGranted: status.screenRecordingGranted,
-                command: screenRecordingCommand
-            ),
-            ComputerUseRequirementSurface(
-                id: "accessibility",
-                title: "Accessibility",
-                detail: "Required for clicks, typing, scrolling, cursor moves, and keyboard shortcuts.",
-                statusLabel: status.accessibilityGranted ? "Granted" : "Required",
-                isGranted: status.accessibilityGranted,
-                command: accessibilityCommand
-            )
-        ]
-    }
-
-    private static func computerUseApprovalStatusLabel(_ config: AppConfig) -> String {
-        let count = config.computerUseApprovedBundleIdentifiers.count + config.computerUseApprovedAppNames.count
-        guard count > 0 else { return "Unrestricted" }
-        return "\(count) approved"
-    }
-
-    private static func computerUseApprovalSummary(_ config: AppConfig) -> String {
-        let bundleCount = config.computerUseApprovedBundleIdentifiers.count
-        let appNameCount = config.computerUseApprovedAppNames.count
-        guard bundleCount + appNameCount > 0 else {
-            return "Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps."
-        }
-        let bundlePart = bundleCount == 1 ? "1 bundle ID" : "\(bundleCount) bundle IDs"
-        let appPart = appNameCount == 1 ? "1 app name" : "\(appNameCount) app names"
-        return "Computer Use is restricted to \(bundlePart) and \(appPart)."
-    }
-}
-
-public struct WorkspaceSettingsUpdate: Sendable, Hashable {
-    public var apiBaseURL: String
-    public var authMode: TrustedRouterAuthMode
-    public var developerOverrideEnabled: Bool
-    public var replacementAPIKey: String?
-    public var shouldClearAPIKey: Bool
-    public var computerUseApprovedBundleIdentifiers: [String]
-    public var computerUseApprovedAppNames: [String]
-
-    public init(
-        apiBaseURL: String,
-        authMode: TrustedRouterAuthMode = .oauth,
-        developerOverrideEnabled: Bool,
-        replacementAPIKey: String? = nil,
-        shouldClearAPIKey: Bool = false,
-        computerUseApprovedBundleIdentifiers: [String] = [],
-        computerUseApprovedAppNames: [String] = []
-    ) {
-        self.apiBaseURL = apiBaseURL
-        self.authMode = developerOverrideEnabled ? .developerOverride : authMode
-        self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
-        self.replacementAPIKey = replacementAPIKey
-        self.shouldClearAPIKey = shouldClearAPIKey
-        let approvalConfig = AppConfig(
-            computerUseApprovedBundleIdentifiers: computerUseApprovedBundleIdentifiers,
-            computerUseApprovedAppNames: computerUseApprovedAppNames
-        )
-        self.computerUseApprovedBundleIdentifiers = approvalConfig.computerUseApprovedBundleIdentifiers
-        self.computerUseApprovedAppNames = approvalConfig.computerUseApprovedAppNames
+        ) ?? ComputerUseSettingsProjection.approvalSummary(approvalConfig)
     }
 }
