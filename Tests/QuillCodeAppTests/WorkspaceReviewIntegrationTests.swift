@@ -18,6 +18,9 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         """
         let model = QuillCodeWorkspaceModel()
 
+        // The workspace's per-call routers share FileEditSessionGuard.shared, which refuses to
+        // patch an existing file the session never read — record the fixture file as read.
+        FileEditSessionGuard.shared.markRead(fileURL)
         model.runToolCall(
             ToolCall(
                 name: ToolDefinition.applyPatch.name,

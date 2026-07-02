@@ -286,6 +286,9 @@ final class AgentToolLoopTests: XCTestCase {
         try initializeGitRepo(at: root)
         try "old\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
         XCTAssertTrue(ShellToolExecutor().run(.init(command: "git add hello.txt && git commit -m initial", cwd: root)).ok)
+        // The agent's per-call routers share FileEditSessionGuard.shared, which refuses to patch
+        // an existing file the session never read — record the fixture file as read.
+        FileEditSessionGuard.shared.markRead(root.appendingPathComponent("hello.txt"))
         let patch = """
         diff --git a/hello.txt b/hello.txt
         --- a/hello.txt
