@@ -13607,3 +13607,35 @@ Validation:
 - `swift test --filter 'ProjectInitScaffolderTests|ProjectInstructionDiagnosticPatchPlannerTests|ProjectInstructionDiagnosticsBuilderTests|WorkspaceCommandPlanTests|WorkspaceCommandPlanExecutorTests|WorkspaceActivityInstructionIntegrationTests|WorkspaceHTMLSecondaryPaneRendererTests'`
 - `swift test` (2,170 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Run Notification Boundary A+ Pass
+
+Overall architecture grade after this pass: **A+**. The regenerated file-grade
+report still lists every source, test, script, and Playwright file as **A+**,
+and `source:QuillCodeApp` remains **A+** while the composer boundary is smaller.
+
+Module and file grade highlights:
+
+| Area | Before | After |
+| --- | --- | --- |
+| `source:QuillCodeApp` | A+ | A+ |
+| `WorkspaceModelComposer.swift` | A+ 96, 431 lines, mixed send and notification logic | A+ 99, 346 lines, focused on composer/send orchestration |
+| `WorkspaceModelRunNotifications.swift` | n/a | A+ 100, owns post-run notifications and verification dispatch |
+
+Code quality changes:
+
+- Moved run-finished notification planning and verification-command execution
+  out of `WorkspaceModelComposer.swift` into
+  `WorkspaceModelRunNotifications.swift`.
+- Kept `finishAgentSend` in the composer extension so send terminal handling
+  remains near submit/resume orchestration.
+- Added a single `verificationNotificationPlan` helper so the verify action and
+  workspace root are resolved once, avoiding duplicated gate logic.
+- Removed the unused `QuillCodeTools` import from `WorkspaceModelComposer.swift`;
+  shell verification dependencies now live only in the notification extension.
+
+Validation:
+
+- `swift test --filter 'WorkspaceModelVerificationGateTests|ParityWorkspaceExecutionGateTests'`
+- `swift test` (2,225 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
