@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-07-01 GitHub Pull Request Lifecycle Quality Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; the touched PR lifecycle
+tool path is A+ and keeps the focused GitHub PR architecture boundaries intact**.
+
+This pass started with a repo-wide file/module grade report, then targeted the next concrete GitHub PR parity gap:
+closing and reopening pull requests without asking the model to invent raw `gh` shell commands. The work also fixed a
+semantic quality issue in argument normalization: lifecycle calls are no longer grouped with PR comment/review body
+normalization, and required-argument checking now validates the actual required key.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool coverage | QuillCode could list, view, comment, review, label, and merge PRs, but close/reopen required raw shell. | `host.git.pr.lifecycle` maps to `gh pr close` or `gh pr reopen`, available locally and through SSH Remote projects. |
+| Argument safety | Minimum-argument checks treated any non-empty argument dictionary as sufficient for most tools. | `AgentToolArgumentNormalizer` now has a required-string-key policy, so lifecycle requires `action` instead of accepting a stray selector/body. |
+| DRY boundaries | Lifecycle initially risked being coupled to PR comment body aliasing. | Selector/action aliasing, input validation, local execution, remote command planning, slash parsing, prompt guidance, and mock planning all reuse the existing focused PR collaborators. |
+| UX/audit detail | Lifecycle tool cards would have shown only an optional selector. | Tool-card subtitles now show the lifecycle action, e.g. `reopen 42`, so transcript history remains inspectable. |
+| Harness parity | The command palette harness did not know about close/reopen. | Swift command catalog, slash catalog, static harness, and Playwright palette coverage all expose the same lifecycle command. |
+
+Verification:
+
+- `swift test --filter 'AgentToolArgumentNormalizerTests|MockLLMClientPullRequestTests|GitHubPullRequestEditToolExecutorTests|GitHubPullRequestToolRouterTests|GitToolRouterTests|WorkspacePullRequestCommandCatalogTests|SlashPullRequestCommandParserTests|WorkspaceRemoteProjectToolExecutorTests|WorkspaceTranscriptSurfaceBuilderTests'`
+- `cd E2E/playwright && npm test -- tests/command-palette-pull-requests.spec.ts`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
+Residual risk:
+
+- This adds the lifecycle primitive and command surfaces, not a richer PR status table with inline close/reopen buttons.
+  That UI can now be built on the structured tool without shell fallbacks.
+
 ## 2026-07-01 Memory Conflict Review Quality Pass
 
 Overall grade after this slice: **all source and test modules grade A+; the touched Memories pane conflict-review path

@@ -2,6 +2,7 @@
 
 ## 2026-07-01
 
+- GitHub pull request lifecycle belongs in the structured PR tool family, not in ad hoc shell recipes. `host.git.pr.lifecycle` accepts a validated `action` of `close` or `reopen`, shares the same selector validation as other PR tools, runs through local or SSH Remote `gh pr close|reopen`, and is exposed through slash commands plus the command palette. The agent argument normalizer treats lifecycle as selector/action-only, not a body-bearing PR comment/review tool.
 - Instruction diagnostic apply actions must stay deterministic. Semantic conflicts may remove the opposite known line only
   when source excerpts still match, and duplicate-scope diagnostics may clear a selected source only when another
   same-scope instruction file has identical normalized content. Non-identical duplicate-scope and nested-override

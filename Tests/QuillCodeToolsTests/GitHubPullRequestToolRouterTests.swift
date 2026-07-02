@@ -80,6 +80,13 @@ final class GitHubPullRequestToolRouterTests: XCTestCase {
         ))
         assertGitHubToolResultOK(comment)
         try assertGitHubArguments(fixture, ["pr", "comment", "123", "--body", "Ready for review."])
+
+        let lifecycle = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestLifecycle.name,
+            argumentsJSON: #"{"selector":"123","action":"reopen"}"#
+        ))
+        assertGitHubToolResultOK(lifecycle)
+        try assertGitHubArguments(fixture, ["pr", "reopen", "123"])
     }
 
     func testToolRouterRoutesPullRequestReviewTools() throws {

@@ -16,6 +16,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(names.contains(ToolDefinition.gitStatus.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestList.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestLifecycle.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewComment.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewReply.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewThreads.name))
@@ -231,6 +232,12 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
     }
 
     func testRemoteGitHubPullRequestBuilderBuildsReviewAndMergeCommands() throws {
+        let lifecycleCommand = try remotePullRequestCommand(
+            name: ToolDefinition.gitPullRequestLifecycle.name,
+            arguments: ["selector": "42", "action": "close"]
+        )
+        XCTAssertEqual(lifecycleCommand, "'gh' 'pr' 'close' '42'")
+
         let reviewCommand = try remotePullRequestCommand(
             name: ToolDefinition.gitPullRequestReview.name,
             arguments: [

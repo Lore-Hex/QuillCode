@@ -77,10 +77,14 @@ enum SlashPullRequestCommandParser {
             return parseReviewers(rest)
         case "labels", "label":
             return parseLabels(rest)
+        case "close", "closed":
+            return parseLifecycle(rest, action: "close")
+        case "reopen", "re_open", "open_pr":
+            return parseLifecycle(rest, action: "reopen")
         case "merge", "automerge", "auto_merge":
             return parseMerge(rest, autoByDefault: subcommand != "merge")
         default:
-            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, fill, list, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, fill, list, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, close, reopen, or merge.")
         }
     }
 }

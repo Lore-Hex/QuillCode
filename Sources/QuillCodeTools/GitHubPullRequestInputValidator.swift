@@ -193,6 +193,19 @@ public enum GitHubPullRequestInputValidator {
         return value
     }
 
+    public static func safeLifecycleAction(_ value: String) throws -> String {
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "-", with: "_") {
+        case "close", "closed":
+            return "close"
+        case "reopen", "re_open", "open":
+            return "reopen"
+        default:
+            throw GitToolError.invalidPullRequestLifecycleAction(value)
+        }
+    }
+
     private static func isSafeGitHubReviewerComponent(_ value: String) -> Bool {
         guard !value.isEmpty, value.count <= 39,
               value.range(of: githubReviewerComponentPattern, options: .regularExpression) != nil

@@ -107,6 +107,22 @@ extension SlashPullRequestCommandParser {
         .toolCall(ToolCall(name: definition.name, argumentsJSON: ToolArguments.json(arguments)))
     }
 
+    static func parseLifecycle(_ argument: String, action: String) -> SlashCommand {
+        do {
+            let selector = argument.trimmingCharacters(in: .whitespacesAndNewlines)
+            _ = try GitHubPullRequestInputValidator.safeSelector(selector)
+            return pullRequestTool(
+                .gitPullRequestLifecycle,
+                arguments: compact([
+                    "selector": selector,
+                    "action": try GitHubPullRequestInputValidator.safeLifecycleAction(action)
+                ])
+            )
+        } catch {
+            return .invalid("Usage: /pr close|reopen [selector]")
+        }
+    }
+
     static func compact(_ values: [String: Any?]) -> [String: Any] {
         values.compactMapValues { value in
             if let string = value as? String {

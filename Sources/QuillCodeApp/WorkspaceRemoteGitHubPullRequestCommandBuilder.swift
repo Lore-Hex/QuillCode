@@ -17,6 +17,7 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         ToolDefinition.gitPullRequestReviewers.name,
         ToolDefinition.gitPullRequestLabels.name,
         ToolDefinition.gitPullRequestComment.name,
+        ToolDefinition.gitPullRequestLifecycle.name,
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestReviewComment.name,
         ToolDefinition.gitPullRequestReviewReply.name,

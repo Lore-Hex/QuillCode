@@ -73,6 +73,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         host.git.pr.labels with "add" and/or "remove" arrays.
         - If the user asks to add, leave, post, or reply with a top-level pull request/PR comment, use \
         host.git.pr.comment with a non-empty "body".
+        - If the user asks to close or reopen a pull request/PR, use host.git.pr.lifecycle with "action" \
+        equal to "close" or "reopen".
         - If the user asks to approve, request changes, or submit a pull request/PR review, use \
         host.git.pr.review with "action" equal to "approve", "comment", or "request_changes".
         - If the user asks to leave an inline pull request/PR review comment on a changed file line, \
@@ -88,10 +90,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - host.git.pr.list may include optional "state" ("open", "closed", "merged", or "all") and \
         optional "limit".
         - host.git.pr.view, host.git.pr.checks, host.git.pr.diff, host.git.pr.checkout, \
-        host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.review, \
-        host.git.pr.review_comment, host.git.pr.review_reply, host.git.pr.review_threads, and \
-        host.git.pr.merge may omit "selector" for the current branch, or include a PR number, URL, \
-        or branch as "selector".
+        host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.lifecycle, \
+        host.git.pr.review, host.git.pr.review_comment, host.git.pr.review_reply, \
+        host.git.pr.review_threads, and host.git.pr.merge may omit "selector" for the current branch, \
+        or include a PR number, URL, or branch as "selector".
         - If an action can be taken now, do not answer in future tense; return the tool action first, \
         then summarize after the tool result.
         - Do not say "I'll do it", "I will do it", "I'll run ...", "I will run ...", "I'll check ...", \

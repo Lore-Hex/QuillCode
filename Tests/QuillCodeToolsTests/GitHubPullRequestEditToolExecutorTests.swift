@@ -90,4 +90,28 @@ final class GitHubPullRequestEditToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("comment body is required") == true, result.error ?? "")
         assertNoGitHubInvocation(fixture)
     }
+
+    func testPullRequestLifecycleUsesGitHubCLIArguments() throws {
+        let fixture = try makeGitHubPullRequestFixture()
+
+        let closeResult = fixture.git.updatePullRequestLifecycle(cwd: fixture.root, selector: "123", action: "close")
+
+        assertGitHubToolResultOK(closeResult)
+        XCTAssertEqual(closeResult.artifacts, ["https://github.com/example/repo/pull/123"])
+        try assertGitHubArguments(fixture, ["pr", "close", "123"])
+
+        try FileManager.default.removeItem(at: fixture.argumentsFile)
+        let reopenResult = fixture.git.updatePullRequestLifecycle(cwd: fixture.root, action: "re-open")
+
+        assertGitHubToolResultOK(reopenResult)
+        try assertGitHubArguments(fixture, ["pr", "reopen"])
+    }
+
+    func testPullRequestLifecycleValidatesActionAndSelector() throws {
+        let fixture = try makeGitHubPullRequestFixture()
+
+        XCTAssertFalse(fixture.git.updatePullRequestLifecycle(cwd: fixture.root, selector: "123", action: "delete").ok)
+        XCTAssertFalse(fixture.git.updatePullRequestLifecycle(cwd: fixture.root, selector: "--json", action: "close").ok)
+        assertNoGitHubInvocation(fixture)
+    }
 }

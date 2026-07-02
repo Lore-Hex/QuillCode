@@ -6,7 +6,8 @@ enum WorkspaceRemoteGitHubPullRequestEditCommandBuilder {
     static let toolNames: Set<String> = [
         ToolDefinition.gitPullRequestReviewers.name,
         ToolDefinition.gitPullRequestLabels.name,
-        ToolDefinition.gitPullRequestComment.name
+        ToolDefinition.gitPullRequestComment.name,
+        ToolDefinition.gitPullRequestLifecycle.name
     ]
 
     static func command(for call: ToolCall, arguments args: ToolArguments) throws -> String {
@@ -25,6 +26,8 @@ enum WorkspaceRemoteGitHubPullRequestEditCommandBuilder {
             )
         case ToolDefinition.gitPullRequestComment.name:
             return try comment(selector: args.string("selector"), body: try args.requiredString("body"))
+        case ToolDefinition.gitPullRequestLifecycle.name:
+            return try lifecycle(selector: args.string("selector"), action: try args.requiredString("action"))
         default:
             throw WorkspaceRemoteGitToolRequestPlannerError.unsupportedTool(call.name)
         }
@@ -78,6 +81,13 @@ enum WorkspaceRemoteGitHubPullRequestEditCommandBuilder {
         var arguments = ["gh", "pr", "comment"]
         try WorkspaceRemoteGitHubPullRequestCommandSupport.appendSelector(to: &arguments, selector: selector)
         arguments += ["--body", body]
+        return WorkspaceRemoteGitHubPullRequestCommandSupport.command(arguments)
+    }
+
+    static func lifecycle(selector: String?, action: String) throws -> String {
+        let safeAction = try GitHubPullRequestInputValidator.safeLifecycleAction(action)
+        var arguments = ["gh", "pr", safeAction]
+        try WorkspaceRemoteGitHubPullRequestCommandSupport.appendSelector(to: &arguments, selector: selector)
         return WorkspaceRemoteGitHubPullRequestCommandSupport.command(arguments)
     }
 

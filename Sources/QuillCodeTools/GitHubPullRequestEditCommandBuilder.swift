@@ -55,4 +55,11 @@ enum GitHubPullRequestEditCommandBuilder {
         arguments += ["--body", body]
         return arguments
     }
+
+    static func lifecycle(selector: String?, action: String) throws -> [String] {
+        let safeAction = try GitHubPullRequestInputValidator.safeLifecycleAction(action)
+        var arguments = ["pr", safeAction]
+        try GitHubPullRequestCommandSupport.appendSelector(to: &arguments, selector: selector)
+        return arguments
+    }
 }

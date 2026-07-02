@@ -170,6 +170,26 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(arguments["state"])
     }
 
+    func testCanonicalArgumentsNormalizePullRequestLifecycleAliasesWithoutBodyCoupling() {
+        let arguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.gitPullRequestLifecycle.name,
+            in: [
+                "arguments": [
+                    "pr": "42",
+                    "state": "re-open",
+                    "message": "This must not become a body argument."
+                ]
+            ],
+            sourceText: ""
+        )
+
+        XCTAssertEqual(arguments["selector"] as? String, "42")
+        XCTAssertEqual(arguments["action"] as? String, "re-open")
+        XCTAssertNil(arguments["body"])
+        XCTAssertNil(arguments["pr"])
+        XCTAssertNil(arguments["state"])
+    }
+
     func testShellCommandRecoveryRepairsEmptyArguments() {
         let arguments = AgentToolArgumentNormalizer.canonicalArguments(
             for: ToolDefinition.shellRun.name,
@@ -221,6 +241,18 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
             AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
                 for: ToolDefinition.gitPullRequestReviewThreads.name,
                 arguments: [:]
+            )
+        )
+        XCTAssertFalse(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.gitPullRequestLifecycle.name,
+                arguments: ["selector": "42"]
+            )
+        )
+        XCTAssertTrue(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.gitPullRequestLifecycle.name,
+                arguments: ["action": "close"]
             )
         )
     }
