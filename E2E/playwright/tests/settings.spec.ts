@@ -20,6 +20,41 @@ test('mock harness shows actionable Computer Use setup in settings', async ({ pa
   await expect(page.getByTestId('computer-use-status')).toHaveText('Needs Screen Recording + Accessibility');
 });
 
+test('mock harness edits Computer Use approved apps in settings', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await openSettings(page);
+  let settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('computer-use-approval-settings')).toBeVisible();
+  await expect(settingsPanel.getByTestId('computer-use-approval-status')).toHaveText('Unrestricted');
+  await expect(settingsPanel.getByTestId('computer-use-approval-summary')).toContainText('may operate whichever app');
+
+  await settingsPanel.getByTestId('computer-use-approved-bundles').fill(
+    ' com.apple.Terminal, com.apple.Terminal\ncom.google.Chrome '
+  );
+  await settingsPanel.getByTestId('computer-use-approved-app-names').fill(' Terminal,\nterminal\nGoogle Chrome ');
+  await settingsPanel.getByTestId('settings-save').click();
+  await expect(settingsPanel).toBeHidden();
+
+  await openSettings(page);
+  settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('computer-use-approval-status')).toHaveText('4 approved');
+  await expect(settingsPanel.getByTestId('computer-use-approval-summary')).toContainText(
+    '2 bundle IDs and 2 app names'
+  );
+  await expect(settingsPanel.getByTestId('computer-use-approved-bundles')).toHaveValue(
+    'com.apple.Terminal\ncom.google.Chrome'
+  );
+  await expect(settingsPanel.getByTestId('computer-use-approved-app-names')).toHaveValue(
+    'Terminal\nGoogle Chrome'
+  );
+
+  await settingsPanel.getByTestId('computer-use-approvals-reset').click();
+  await expect(settingsPanel.getByTestId('computer-use-approval-status')).toHaveText('Unrestricted');
+  await expect(settingsPanel.getByTestId('computer-use-approved-bundles')).toHaveValue('');
+  await expect(settingsPanel.getByTestId('computer-use-approved-app-names')).toHaveValue('');
+});
+
 test('mock harness shows actionable TrustedRouter runtime issue', async ({ page }) => {
   await page.goto(harnessURL());
 

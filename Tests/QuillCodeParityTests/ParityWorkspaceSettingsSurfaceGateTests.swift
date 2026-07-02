@@ -9,6 +9,8 @@ final class ParityWorkspaceSettingsSurfaceGateTests: QuillCodeParityTestCase {
             "public struct WorkspaceSettingsSurface",
             "public struct WorkspaceSettingsUpdate",
             "public struct ComputerUseRequirementSurface",
+            "computerUseApprovedBundleIdentifiers",
+            "computerUseApprovalSummary",
             "private static func computerUseStatusLabel",
             "TrustedRouterDefaults.loopbackCallbackURL"
         ] {

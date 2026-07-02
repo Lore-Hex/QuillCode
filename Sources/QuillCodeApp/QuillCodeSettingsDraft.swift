@@ -7,6 +7,8 @@ struct QuillCodeSettingsDraft: Equatable {
     var developerOverrideEnabled: Bool = false
     var replacementAPIKey: String = ""
     var shouldClearAPIKey: Bool = false
+    var computerUseApprovedBundleIdentifiersText: String = ""
+    var computerUseApprovedAppNamesText: String = ""
 
     init() {}
 
@@ -14,6 +16,10 @@ struct QuillCodeSettingsDraft: Equatable {
         self.apiBaseURL = settings.apiBaseURL
         self.authMode = settings.authMode
         self.developerOverrideEnabled = settings.developerOverrideEnabled
+        self.computerUseApprovedBundleIdentifiersText = Self.joinedApprovals(
+            settings.computerUseApprovedBundleIdentifiers
+        )
+        self.computerUseApprovedAppNamesText = Self.joinedApprovals(settings.computerUseApprovedAppNames)
     }
 
     var canSave: Bool {
@@ -28,7 +34,26 @@ struct QuillCodeSettingsDraft: Equatable {
             replacementAPIKey: replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? nil
                 : replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            shouldClearAPIKey: shouldClearAPIKey
+            shouldClearAPIKey: shouldClearAPIKey,
+            computerUseApprovedBundleIdentifiers: Self.approvals(from: computerUseApprovedBundleIdentifiersText),
+            computerUseApprovedAppNames: Self.approvals(from: computerUseApprovedAppNamesText)
         )
+    }
+
+    mutating func clearComputerUseApprovals() {
+        computerUseApprovedBundleIdentifiersText = ""
+        computerUseApprovedAppNamesText = ""
+    }
+
+    private static func joinedApprovals(_ approvals: [String]) -> String {
+        approvals.joined(separator: "\n")
+    }
+
+    private static func approvals(from text: String) -> [String] {
+        text
+            .replacingOccurrences(of: ",", with: "\n")
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 }

@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+- Computer Use approval management belongs in Settings as an editable draft over the same `AppConfig` keys that the
+  executor enforces. Empty bundle/app-name lists remain the explicit unrestricted policy; non-empty lists form the
+  foreground-app allowlist. The settings sheet keeps the approval UI in `QuillCodeComputerUseApprovalSettingsCard`,
+  while `WorkspaceSettingsSurface`, `QuillCodeSettingsDraft`, and `WorkspaceSettingsUpdate` carry normalized values
+  through the existing save path. This prevents a UI-only approval state from drifting away from agent execution.
 - Workspace history uses `Cmd+Option+←` and `Cmd+Option+→`, leaving `Cmd+[` and `Cmd+]` for browser-tab history.
   The shortcut registry remains the single source for SwiftUI menus, command-palette labels, Keyboard Shortcuts, and the
   rendered Playwright harness, and the harness normalizes arrow glyphs back to keyboard event names so shortcut dispatch

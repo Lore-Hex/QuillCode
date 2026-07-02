@@ -3769,6 +3769,8 @@
         computerUseStatusLabel: 'Setup needed',
         computerUseSetupSummary: 'Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop.',
         computerUseNextAction: 'Open Screen Recording first, enable QuillCode, then open Accessibility.',
+        computerUseApprovedBundleIdentifiers: [],
+        computerUseApprovedAppNames: [],
         computerUseRequirements: [
           {
             id: 'screen-recording',
@@ -7723,12 +7725,23 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
+      document.querySelector('[data-testid="computer-use-approvals-reset"]')?.addEventListener('click', () => {
+        state.settings.computerUseApprovedBundleIdentifiers = [];
+        state.settings.computerUseApprovedAppNames = [];
+        render();
+      });
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
         state.settings.apiBaseURL = form.elements.namedItem('apiBaseURL').value.trim();
         state.settings.authMode = form.elements.namedItem('authMode').value;
         state.settings.developerOverrideEnabled = state.settings.authMode === 'developer-override';
+        state.settings.computerUseApprovedBundleIdentifiers = normalizedApprovalValues(
+          form.elements.namedItem('computerUseApprovedBundleIdentifiers')?.value || ''
+        );
+        state.settings.computerUseApprovedAppNames = normalizedApprovalValues(
+          form.elements.namedItem('computerUseApprovedAppNames')?.value || ''
+        );
         const replacementAPIKey = form.elements.namedItem('replacementAPIKey')?.value.trim() || '';
         if (replacementAPIKey) {
           state.settings.hasStoredAPIKey = true;
@@ -8327,6 +8340,7 @@
             ${state.settings.modelProviderHealthLabel ? `<p data-testid="settings-provider-health" title="${escapeHTML(state.settings.modelProviderHealthDetail || state.settings.modelProviderHealthLabel)}">${escapeHTML(state.settings.modelProviderHealthLabel)}</p>` : ''}
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
             ${renderComputerUseSettingsCard()}
+            ${renderComputerUseApprovalSettingsCard()}
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
             <label>
               TrustedRouter API base URL
@@ -8393,6 +8407,67 @@
             ? `<strong data-testid="computer-use-permission-status">${escapeHTML(requirement.statusLabel)}</strong>`
             : `<button class="hit-target-text" type="button" data-testid="computer-use-permission-open" data-command-id="${requirement.command.id}" ${requirement.command.isEnabled ? '' : 'disabled'}>Open</button>`}
         </div>`;
+    }
+
+    function renderComputerUseApprovalSettingsCard() {
+      return `
+        <section class="permission-card" data-testid="computer-use-approval-settings">
+          <header>
+            <div>
+              <h3>Approved Apps</h3>
+              <p data-testid="computer-use-approval-summary">${escapeHTML(computerUseApprovalSummary())}</p>
+            </div>
+            <span class="permission-status-pill" data-testid="computer-use-approval-status" data-available="${hasComputerUseApprovals()}">${escapeHTML(computerUseApprovalStatusLabel())}</span>
+          </header>
+          <p class="permission-footnote">Leave both lists empty for unrestricted Computer Use. Bundle IDs are precise on macOS; app names are the cross-platform fallback.</p>
+          <label>
+            Bundle identifiers
+            <textarea class="hit-target-text-entry" name="computerUseApprovedBundleIdentifiers" data-testid="computer-use-approved-bundles" aria-label="Computer Use approved bundle identifiers" rows="3" placeholder="com.apple.Terminal&#10;com.google.Chrome">${escapeHTML(state.settings.computerUseApprovedBundleIdentifiers.join('\n'))}</textarea>
+          </label>
+          <label>
+            App names
+            <textarea class="hit-target-text-entry" name="computerUseApprovedAppNames" data-testid="computer-use-approved-app-names" aria-label="Computer Use approved app names" rows="3" placeholder="Terminal&#10;Google Chrome">${escapeHTML(state.settings.computerUseApprovedAppNames.join('\n'))}</textarea>
+          </label>
+          <div class="permission-actions">
+            <button class="hit-target-text" type="button" data-testid="computer-use-approvals-reset">Reset to unrestricted</button>
+          </div>
+        </section>`;
+    }
+
+    function normalizedApprovalValues(text) {
+      const seen = new Set();
+      return text
+        .replaceAll(',', '\n')
+        .split('\n')
+        .map(value => value.trim())
+        .filter(value => {
+          const key = value.toLocaleLowerCase();
+          if (!value || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    }
+
+    function hasComputerUseApprovals() {
+      return state.settings.computerUseApprovedBundleIdentifiers.length
+        + state.settings.computerUseApprovedAppNames.length > 0;
+    }
+
+    function computerUseApprovalStatusLabel() {
+      const count = state.settings.computerUseApprovedBundleIdentifiers.length
+        + state.settings.computerUseApprovedAppNames.length;
+      return count === 0 ? 'Unrestricted' : `${count} approved`;
+    }
+
+    function computerUseApprovalSummary() {
+      const bundleCount = state.settings.computerUseApprovedBundleIdentifiers.length;
+      const appNameCount = state.settings.computerUseApprovedAppNames.length;
+      if (bundleCount + appNameCount === 0) {
+        return 'Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps.';
+      }
+      const bundlePart = bundleCount === 1 ? '1 bundle ID' : `${bundleCount} bundle IDs`;
+      const appPart = appNameCount === 1 ? '1 app name' : `${appNameCount} app names`;
+      return `Computer Use is restricted to ${bundlePart} and ${appPart}.`;
     }
 
     function computerUseStatusLabel() {
