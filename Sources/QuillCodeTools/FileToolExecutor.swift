@@ -36,7 +36,8 @@ public struct FileToolExecutor: Sendable {
             if isDirectory.boolValue {
                 return ToolResult(
                     ok: false,
-                    error: "\(pathResolver.relativePath(for: url)) is a directory, not a file. Use host.file.list to see its contents."
+                    error: "\(pathResolver.relativePath(for: url)) is a directory, not a file. "
+                        + "Use host.file.list to see its contents."
                 )
             }
             let data = try Data(contentsOf: url)
@@ -159,7 +160,7 @@ public struct FileToolExecutor: Sendable {
     /// A missing-file error the model can act on in one glance: the workspace-relative path plus
     /// "did you mean" siblings when the name looks like a typo of something that exists.
     private func missingFileMessage(for url: URL) -> String {
-        let relative = pathResolver.relativePath(for: url)
+        let relative = Self.displayPath(pathResolver.relativePath(for: url))
         let parent = url.deletingLastPathComponent()
         // Suggestions enumerate the parent directory, so the parent itself must be inside the
         // workspace. When the missing path IS the workspace root (deleted or misconfigured), its
@@ -171,10 +172,19 @@ public struct FileToolExecutor: Sendable {
         guard !matches.isEmpty else {
             return "File not found: \(relative)"
         }
-        let parentRelative = pathResolver.relativePath(for: parent)
+        let parentRelative = Self.displayPath(pathResolver.relativePath(for: parent))
         let prefix = parentRelative == "." ? "" : "\(parentRelative)/"
-        let hints = matches.map { "\(prefix)\($0)" }.joined(separator: ", ")
+        let hints = matches.map { Self.displayPath("\(prefix)\($0)") }.joined(separator: ", ")
         return "File not found: \(relative). Did you mean: \(hints)?"
+    }
+
+    private static func displayPath(_ path: String) -> String {
+        let sanitized = path.unicodeScalars
+            .map { CharacterSet.controlCharacters.contains($0) ? " " : String($0) }
+            .joined()
+        guard sanitized.count > 240 else { return sanitized }
+        let end = sanitized.index(sanitized.startIndex, offsetBy: 240)
+        return String(sanitized[..<end]) + "..."
     }
 
     private func encode<T: Encodable>(_ output: T) -> String {

@@ -30,4 +30,14 @@ final class TrustedRouterErrorBodyFormatterTests: XCTestCase {
             "TrustedRouter streaming request failed with HTTP 500."
         )
     }
+
+    func testBodyIsSingleLineAndBounded() {
+        let body = "first line\nsecond\tline " + String(repeating: "x", count: 1_200)
+        let message = TrustedRouterErrorBodyFormatter.streamingMessage(statusCode: 400, body: body)
+
+        XCTAssertFalse(message.contains("\n"), message)
+        XCTAssertTrue(message.contains("first line second line"), message)
+        XCTAssertLessThan(message.count, 1_100)
+        XCTAssertTrue(message.hasSuffix("..."), message)
+    }
 }

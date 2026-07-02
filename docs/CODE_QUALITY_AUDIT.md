@@ -13784,3 +13784,44 @@ Validation:
 - `swift test --filter 'CoreModelTests|ComputerUseToolExecutorTests|ConfigStoreTests|WorkspaceAgentRunContextBuilderTests|WorkspaceAgentSendSessionFactoryTests'`
 - `swift test` (2,290 tests, 1 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+
+## 2026-07-01 Richer Tool Error A+ Pass
+
+Overall architecture grade after this pass: **A+**. The touched source files
+remain focused on one boundary each: path suggestion ranking, file tool
+execution diagnostics, patch failure summarization, and TrustedRouter HTTP error
+copy. The regenerated file-grade report keeps every source, test, script, and
+Playwright file at **A+**.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `source:QuillCodeTools` | A+ | File/read/list/search and patch diagnostics stay in tool-layer helpers. |
+| `source:QuillCodeAgent` | A+ | TrustedRouter HTTP error copy remains separate from transport execution. |
+| `FilePathSuggester.swift` | A+ | Pure bounded ranking, deterministic sibling ordering, and explicit limit handling. |
+| `FileToolExecutor.swift` | A+ | File-read diagnostics are actionable, workspace-relative, single-line, and bounded. |
+| `PatchToolExecutor.swift` | A+ | Patch failure details surface `git apply` hunk diagnostics without broadening patch execution. |
+| `TrustedRouterErrorBodyFormatter.swift` | A+ | 401/403 hints and provider body excerpts are single-line and bounded. |
+| `RicherToolErrorsTests.swift` | A+ | Covers typo suggestions, directory guidance, patch diagnostics, caps, limits, and odd filenames. |
+| `TrustedRouterErrorBodyFormatterTests.swift` | A+ | Covers auth/permission hints plus long multiline provider body normalization. |
+
+Code quality changes:
+
+- Kept sibling enumeration inside `FilePathSuggester` so executors do not grow
+  ad hoc directory-inspection logic.
+- Sorted directory siblings before scoring so missing-file suggestions are
+  deterministic across filesystems.
+- Guarded non-positive suggestion limits and negative edit-distance caps so
+  callers cannot accidentally request surprising fallback behavior.
+- Sanitized control characters and bounded displayed paths before they reach
+  model-facing errors, chat cards, or logs.
+- Normalized TrustedRouter streaming error bodies into bounded single-line
+  excerpts while preserving the distinct 401 sign-in and 403 permission hints.
+
+Validation:
+
+- `swift test --filter 'FilePathSuggesterTests|RicherToolErrorsFunctionalTests|RicherToolErrorsRouterIntegrationTests|PatchHunkFailureSummaryTests|TrustedRouterErrorBodyFormatterTests'`
+- `swift test --filter 'FilePathSuggesterTests|RicherToolErrorsFunctionalTests|RicherToolErrorsRouterIntegrationTests|PatchHunkFailureSummaryTests|TrustedRouterErrorBodyFormatterTests|ToolRouterTests|FileToolExecutorTests|PatchToolExecutorTests|TrustedRouterStreamingActionTests'` (72 tests, 0 failures)
+- `swift test` (2,317 tests, 1 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`

@@ -83,7 +83,8 @@ public struct PatchToolExecutor: Sendable {
         do {
             try normalizedPatch.write(to: patchURL, atomically: true, encoding: .utf8)
         } catch {
-            return ToolResult(ok: false, error: String(describing: PatchToolError.temporaryFileFailed(String(describing: error))))
+            let toolError = PatchToolError.temporaryFileFailed(String(describing: error))
+            return ToolResult(ok: false, error: String(describing: toolError))
         }
         defer { try? FileManager.default.removeItem(at: patchURL) }
 
@@ -125,7 +126,8 @@ public struct PatchToolExecutor: Sendable {
         guard !details.isEmpty else { return nil }
         let shown = details.prefix(5).joined(separator: "; ")
         let suffix = details.count > 5 ? " (+\(details.count - 5) more)" : ""
-        return "Patch does not apply: \(shown)\(suffix). Re-read the affected region and regenerate the hunk against the current content."
+        return "Patch does not apply: \(shown)\(suffix). "
+            + "Re-read the affected region and regenerate the hunk against the current content."
     }
 
     public static func unsafePath(in patch: String) -> String? {

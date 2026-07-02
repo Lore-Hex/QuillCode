@@ -15,8 +15,14 @@ final class FilePathSuggesterTests: XCTestCase {
     }
 
     func testTransposedAndDroppedCharacters() {
-        XCTAssertEqual(FilePathSuggester.suggest(missing: "Pacakge.swift", candidates: ["Package.swift"]), ["Package.swift"])
-        XCTAssertEqual(FilePathSuggester.suggest(missing: "Makefil", candidates: ["Makefile", "Dockerfile"]), ["Makefile"])
+        XCTAssertEqual(
+            FilePathSuggester.suggest(missing: "Pacakge.swift", candidates: ["Package.swift"]),
+            ["Package.swift"]
+        )
+        XCTAssertEqual(
+            FilePathSuggester.suggest(missing: "Makefil", candidates: ["Makefile", "Dockerfile"]),
+            ["Makefile"]
+        )
     }
 
     func testCaseOnlyDifferenceIsSuggested() {
@@ -60,10 +66,17 @@ final class FilePathSuggesterTests: XCTestCase {
         XCTAssertEqual(FilePathSuggester.suggest(missing: "file0.txt", candidates: candidates, limit: 2).count, 2)
     }
 
+    func testNonPositiveLimitReturnsNoSuggestions() {
+        let candidates = ["main.rs"]
+        XCTAssertTrue(FilePathSuggester.suggest(missing: "mian.rs", candidates: candidates, limit: 0).isEmpty)
+        XCTAssertTrue(FilePathSuggester.suggest(missing: "mian.rs", candidates: candidates, limit: -1).isEmpty)
+    }
+
     func testEditDistanceCapEarlyExit() {
         XCTAssertEqual(FilePathSuggester.editDistance("abc", "abc", cap: 2), 0)
         XCTAssertEqual(FilePathSuggester.editDistance("abc", "abd", cap: 2), 1)
         XCTAssertGreaterThan(FilePathSuggester.editDistance("abcdefgh", "zyxwvuts", cap: 2), 2)
+        XCTAssertEqual(FilePathSuggester.editDistance("abc", "abc", cap: -1), 0)
     }
 
     func testAdjacentTranspositionCountsAsOneEdit() {
@@ -119,6 +132,19 @@ final class RicherToolErrorsFunctionalTests: XCTestCase {
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.error!.contains("File not found: Sources/App.swfit"), result.error!)
         XCTAssertTrue(result.error!.contains("Did you mean: Sources/App.swift?"), result.error!)
+    }
+
+    func testSuggestionMessageCollapsesOddFilenamesToSingleLine() throws {
+        let root = try makeWorkspace()
+        let files = FileToolExecutor(workspaceRoot: root)
+        XCTAssertTrue(files.write(path: "bad\nname.swift", content: "struct Bad {}\n").ok)
+
+        let result = files.read(path: "bad\nnme.swift")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertFalse(result.error!.contains("\n"), result.error!)
+        XCTAssertTrue(result.error!.contains("bad nme.swift"), result.error!)
+        XCTAssertTrue(result.error!.contains("bad name.swift"), result.error!)
     }
 
     func testReadOfMissingFileWithNoCloseSiblingIsPlain() throws {
@@ -196,7 +222,10 @@ final class RicherToolErrorsRouterIntegrationTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let router = ToolRouter(workspaceRoot: root)
         XCTAssertTrue(router.execute(
-            ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"main.rs","content":"fn main() {}\n"}"#)
+            ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: #"{"path":"main.rs","content":"fn main() {}\n"}"#
+            )
         ).ok)
 
         let result = router.execute(

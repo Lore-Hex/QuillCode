@@ -12,12 +12,13 @@ public enum FilePathSuggester {
     /// (suggestions are this type's concern) — the executor facade must not own directory enumeration.
     public static func suggest(missingFileAt url: URL, limit: Int = 3) -> [String] {
         let parent = url.deletingLastPathComponent()
-        let siblings = (try? FileManager.default.contentsOfDirectory(atPath: parent.path)) ?? []
+        let siblings = ((try? FileManager.default.contentsOfDirectory(atPath: parent.path)) ?? []).sorted()
         return suggest(missing: url.lastPathComponent, candidates: siblings, limit: limit)
     }
 
     /// The closest sibling names to `missing`, best first. Empty when nothing is plausibly close.
     public static func suggest(missing: String, candidates: [String], limit: Int = 3) -> [String] {
+        guard limit > 0 else { return [] }
         let target = missing.lowercased()
         guard !target.isEmpty else { return [] }
         // A typo budget that scales with length but stays tight: 1 edit for short names, up to 3 for
@@ -62,6 +63,7 @@ public enum FilePathSuggester {
     /// ONE edit — swapping adjacent letters ("mian" → "main") is the single most common typo, and plain
     /// Levenshtein's 2 would blow the tight budget for short names. Three rolling rows, O(n) space.
     static func editDistance(_ a: String, _ b: String, cap: Int) -> Int {
+        let cap = max(0, cap)
         let aChars = Array(a)
         let bChars = Array(b)
         if aChars.isEmpty { return bChars.count }
