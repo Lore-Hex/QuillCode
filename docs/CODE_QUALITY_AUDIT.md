@@ -1,5 +1,41 @@
 # Code Quality Audit
 
+## 2026-07-02 Permission Rule Architecture A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
+grades A+ in the regenerated repo-wide report**.
+
+This pass started from `scripts/grade-code-quality.py --root .`, then reviewed the lowest-scored production source
+files and the safety-critical permission-rule path by hand. The permission-rule implementation already tested well,
+but one file mixed persistent rule models, ordered table evaluation, and low-level wildcard matching.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Permission-rule ownership | `PermissionRuleTable.swift` held the public rule models, the table evaluator, and the wildcard NFA matcher in one 338-line file. | Rule models now live in `PermissionRuleModels.swift`, ordered table evaluation stays in `PermissionRuleTable.swift`, and wildcard matching lives in `PermissionWildcardPattern.swift`. |
+| Evaluator readability | `decision(...)` interleaved allow-resource scoping, oversize candidate handling, exact matching, wildcard matching, and conservative fallback state in one loop. | The evaluator now uses focused candidate/result helpers, keeping allow scoping and fail-safe skipped-wildcard fallback explicit. |
+| Grading trail | The old safety table file still graded A+ but was the lowest production source file, with long-line and public-declaration notes. | The split files all grade **A+ 100** with no automated issues, and `PermissionRuleTable.swift` no longer appears in the lowest-score list. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`.
+- All modules grade **A+**.
+- Every individual source, test, script, and Playwright file grades **A+**.
+- `Sources/QuillCodeSafety/PermissionRuleModels.swift`, `PermissionRuleTable.swift`, and `PermissionWildcardPattern.swift`
+  each grade **A+ 100**.
+
+Validation:
+
+- `swift test --filter PermissionRuleTableTests`
+- `swift test --filter QuillCodeSafetyTests`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+- `swift test`
+
+Residual risk:
+
+- This was a focused architecture cleanup, not a behavior change. The next quality pass should target another existing
+  lowest-score cluster only when it can reduce ownership ambiguity without fighting active feature PRs.
+
 ## 2026-07-02 Current Main A+ Grade Refresh
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
