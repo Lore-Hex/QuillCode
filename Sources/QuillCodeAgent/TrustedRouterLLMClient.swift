@@ -39,19 +39,25 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
     public var apiKeyOverride: String?
     public var model: String
     public var baseURL: String
+    /// Prompt-cache breakpoints are placed automatically for Anthropic-family models (a large
+    /// recurring cost and latency win for the agent loop) and never for other routes, whose
+    /// requests stay byte-identical. Set `.disabled` to opt out entirely.
+    public var promptCachingPolicy: TrustedRouterPromptCachingPolicy
 
     public init(
         promptBuilder: TrustedRouterPromptBuilder = .init(),
         sessionStore: (any TrustedRouterSessionStore)? = nil,
         apiKeyOverride: String? = nil,
         model: String = TrustedRouterDefaults.defaultModel,
-        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL
+        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        promptCachingPolicy: TrustedRouterPromptCachingPolicy = .automatic
     ) {
         self.promptBuilder = promptBuilder
         self.sessionStore = sessionStore
         self.apiKeyOverride = apiKeyOverride
         self.model = model
         self.baseURL = baseURL
+        self.promptCachingPolicy = promptCachingPolicy
     }
 
     public func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
@@ -97,7 +103,11 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
             method: "POST",
             path: "/chat/completions",
             headers: ["accept": "text/event-stream"],
-            body: try Self.chatCompletionBody(model: model, messages: messages)
+            body: try Self.chatCompletionBody(
+                model: model,
+                messages: messages,
+                promptCachingPolicy: promptCachingPolicy
+            )
         )
         if response.statusCode >= 400 {
             throw TrustedRouterAgentError.streamingHTTPError(
@@ -144,10 +154,20 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         ).configuredAPIKey()
     }
 
-    private static func chatCompletionBody(model: String, messages: [[String: Any]]) throws -> Data {
+    /// Internal (not private) so tests can assert over the exact serialized request JSON —
+    /// cache breakpoints present or absent per policy and provider family.
+    static func chatCompletionBody(
+        model: String,
+        messages: [[String: Any]],
+        promptCachingPolicy: TrustedRouterPromptCachingPolicy = .automatic
+    ) throws -> Data {
         var body = TrustedRouterChatParameters.jsonObjectResponse
         body["model"] = model
-        body["messages"] = messages
+        body["messages"] = TrustedRouterPromptCaching.annotatedMessages(
+            messages,
+            modelID: model,
+            policy: promptCachingPolicy
+        )
         body["stream"] = true
         body["stream_options"] = ["include_usage": true]
         return try JSONSerialization.data(withJSONObject: body)
