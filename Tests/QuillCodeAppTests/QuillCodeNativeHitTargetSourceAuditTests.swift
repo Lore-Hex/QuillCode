@@ -111,4 +111,70 @@ final class QuillCodeNativeHitTargetSourceAuditTests: QuillCodeNativeHitTargetAu
 
         XCTAssertEqual(issues, [])
     }
+
+    func testSwiftNavigationLinkSourceAuditRequiresPressSemantics() throws {
+        let source = """
+        import SwiftUI
+
+        struct NavigationChrome: View {
+            var body: some View {
+                VStack {
+                    NavigationLink(destination: Text("Details")) {
+                        Text("Open details")
+                    }
+
+                    NavigationLink(destination: Text("Wrong semantics")) {
+                        Text("Open")
+                            .quillCodeLinkTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+
+                    NavigationLink(destination: Text("No tactile feedback")) {
+                        Text("Open")
+                            .quillCodeFullRowButtonTarget()
+                    }
+                }
+            }
+        }
+        """
+
+        let issues = try sourceAuditIssues(for: source)
+
+        XCTAssertEqual(
+            issues.filter { $0.contains("missing QuillCode hit-target marker") }.count,
+            1
+        )
+        XCTAssertEqual(
+            issues.filter { $0.contains("missing QuillCode press/action button style") }.count,
+            1
+        )
+        XCTAssertEqual(
+            issues.filter { $0.contains("NavigationLink should use press-style hit-target semantics") }.count,
+            1
+        )
+    }
+
+    func testSwiftNavigationLinkSourceAuditAcceptsFullRowPressTarget() throws {
+        let source = """
+        import SwiftUI
+
+        struct NavigationChrome: View {
+            var body: some View {
+                NavigationLink(destination: Text("Details")) {
+                    HStack {
+                        Text("Open details")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .quillCodeFullRowButtonTarget()
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+            }
+        }
+        """
+
+        let issues = try sourceAuditIssues(for: source)
+
+        XCTAssertEqual(issues, [])
+    }
 }

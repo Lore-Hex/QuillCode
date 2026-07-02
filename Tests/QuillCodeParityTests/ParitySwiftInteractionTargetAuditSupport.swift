@@ -168,6 +168,22 @@ struct SwiftSourceInteractionTargetAudit {
                 violations.append("\(relativePath):\(index + 1) Link should use quillCodeLinkTarget so external navigation is not styled as a button press")
             }
 
+            if isNavigationLinkDeclaration(line),
+               !hasSharedTarget(in: declarationScope) {
+                violations.append("\(relativePath):\(index + 1) NavigationLink lacks shared hit target")
+            }
+
+            if isNavigationLinkDeclaration(line),
+               hasSharedTarget(in: declarationScope),
+               !hasNavigationLinkCompatibleTarget(in: declarationScope) {
+                violations.append("\(relativePath):\(index + 1) NavigationLink uses incompatible shared hit target")
+            }
+
+            if isNavigationLinkDeclaration(line),
+               !hasButtonStyle(in: declarationScope) {
+                violations.append("\(relativePath):\(index + 1) NavigationLink lacks explicit press or platform style")
+            }
+
             if isTextEntryDeclaration(line),
                !declarationScope.contains("quillCodeTextEntryTarget") {
                 violations.append("\(relativePath):\(index + 1) text-entry control lacks shared text-entry hit target")
@@ -225,6 +241,15 @@ struct SwiftSourceInteractionTargetAudit {
             "quillCodeTextButtonTarget",
             "quillCodeCapsuleButtonTarget",
             "quillCodeSegmentedControlTarget"
+        ].contains { sourceWindow.contains($0) }
+    }
+
+    private func hasNavigationLinkCompatibleTarget(in sourceWindow: String) -> Bool {
+        [
+            "quillCodeTextButtonTarget",
+            "quillCodeFullRowButtonTarget",
+            "quillCodeCapsuleButtonTarget",
+            "quillCodeFormActionTarget"
         ].contains { sourceWindow.contains($0) }
     }
 
@@ -419,6 +444,13 @@ struct SwiftSourceInteractionTargetAudit {
         ) != nil
     }
 
+    private func isNavigationLinkDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*NavigationLink(?:\(|\s*\{)"#,
+            options: .regularExpression
+        ) != nil
+    }
+
     private func isDisclosureDeclaration(_ line: String) -> Bool {
         line.range(
             of: #"^\s*DisclosureGroup(?:\(|\s*\{)"#,
@@ -452,6 +484,7 @@ struct SwiftSourceInteractionTargetAudit {
             || isMenuDeclaration(line)
             || isPickerDeclaration(line)
             || isLinkDeclaration(line)
+            || isNavigationLinkDeclaration(line)
             || isDisclosureDeclaration(line)
             || isTextEntryDeclaration(line)
             || isToggleDeclaration(line)
@@ -507,6 +540,8 @@ struct SwiftSourceInteractionTargetAudit {
             "DisclosureGroup {",
             "Toggle(",
             "Link(",
+            "NavigationLink(",
+            "NavigationLink {",
             "TextField(",
             "SecureField(",
             "TextEditor(",
@@ -529,6 +564,8 @@ struct SwiftSourceInteractionTargetAudit {
             "DisclosureGroup {",
             "Toggle(",
             "Link(",
+            "NavigationLink(",
+            "NavigationLink {",
             "TextField(",
             "SecureField(",
             "TextEditor(",
