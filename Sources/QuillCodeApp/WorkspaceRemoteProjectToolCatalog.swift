@@ -30,6 +30,7 @@ enum WorkspaceRemoteProjectToolCatalog {
         .gitPullRequestReviewers,
         .gitPullRequestLabels,
         .gitPullRequestComment,
+        .gitPullRequestLifecycle,
         .gitPullRequestReview,
         .gitPullRequestReviewComment,
         .gitPullRequestReviewReply,

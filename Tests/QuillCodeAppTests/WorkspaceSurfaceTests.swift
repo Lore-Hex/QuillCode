@@ -141,6 +141,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-pr-review-threads",
             "git-pr-review-thread",
             "git-pr-labels",
+            "git-pr-lifecycle",
             "git-pr-merge",
             "git-worktree-list",
             "git-worktree-create",
@@ -220,6 +221,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-review-threads" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-review-thread" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-labels" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-lifecycle" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-merge" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)

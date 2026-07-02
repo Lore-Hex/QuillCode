@@ -20,14 +20,8 @@ enum AgentToolArgumentNormalizer {
         guard !arguments.isEmpty else {
             return false
         }
-        if toolName == ToolDefinition.shellRun.name {
-            return stringValue(in: arguments, keys: ["cmd"]) != nil
-        }
-        if toolName == ToolDefinition.browserOpen.name {
-            return stringValue(in: arguments, keys: ["url"]) != nil
-        }
-        if toolName == ToolDefinition.fileSearch.name {
-            return stringValue(in: arguments, keys: ["query"]) != nil
+        if let requiredKeys = requiredStringArgumentKeys(for: toolName) {
+            return requiredKeys.allSatisfy { stringValue(in: arguments, keys: [$0]) != nil }
         }
         return true
     }
@@ -192,6 +186,21 @@ enum AgentToolArgumentNormalizer {
             return false
         default:
             return true
+        }
+    }
+
+    private static func requiredStringArgumentKeys(for toolName: String) -> [String]? {
+        switch toolName {
+        case ToolDefinition.shellRun.name:
+            return ["cmd"]
+        case ToolDefinition.browserOpen.name:
+            return ["url"]
+        case ToolDefinition.fileSearch.name:
+            return ["query"]
+        case ToolDefinition.gitPullRequestLifecycle.name:
+            return ["action"]
+        default:
+            return nil
         }
     }
 }

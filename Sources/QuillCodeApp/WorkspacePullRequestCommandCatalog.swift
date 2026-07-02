@@ -265,6 +265,20 @@ enum WorkspacePullRequestCommandCatalog {
             )
         ),
         .init(
+            id: "git-pr-lifecycle",
+            title: "Close or reopen pull request",
+            keywords: ["github", "pr", "close", "closed", "reopen", "open", "lifecycle"],
+            systemImage: "arrow.uturn.left.circle",
+            draft: "Close or reopen the current pull request: ",
+            slash: pullRequestSlash(
+                usage: "/pr close|reopen [selector]",
+                title: "Close or reopen pull request",
+                detail: "Close or reopen the current or selected pull request.",
+                insertText: "/pr close ",
+                aliases: ["pr reopen", "close pr", "reopen pr"]
+            )
+        ),
+        .init(
             id: "git-pr-merge",
             title: "Merge pull request",
             keywords: ["github", "pr", "merge", "automerge", "merge train"],

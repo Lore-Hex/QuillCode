@@ -23,6 +23,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
             "git-pr-review-threads",
             "git-pr-review-thread",
             "git-pr-labels",
+            "git-pr-lifecycle",
             "git-pr-merge"
         ])
         XCTAssertTrue(commands.allSatisfy(\.isEnabled))
@@ -70,6 +71,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
             "/pr review-threads [selector]",
             "/pr review-thread resolve|unresolve threadId",
             "/pr labels add|remove label",
+            "/pr close|reopen [selector]",
             "/pr merge [squash|merge|rebase]"
         ])
         XCTAssertEqual(
@@ -82,6 +84,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
             .map(\.usage)
         XCTAssertEqual(catalogPullRequestUsages, slashUsages)
         XCTAssertTrue(SlashCommandCatalog.helpText().contains("/pr list [open|closed|merged|all] [limit]"))
+        XCTAssertTrue(SlashCommandCatalog.helpText().contains("/pr close|reopen [selector]"))
         XCTAssertTrue(SlashCommandCatalog.helpText().contains("/pr review-threads [selector]"))
     }
 }

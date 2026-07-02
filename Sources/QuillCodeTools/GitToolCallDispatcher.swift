@@ -23,6 +23,7 @@ struct GitToolCallDispatcher: Sendable {
         .gitPullRequestReviewers,
         .gitPullRequestLabels,
         .gitPullRequestComment,
+        .gitPullRequestLifecycle,
         .gitPullRequestReview,
         .gitPullRequestReviewComment,
         .gitPullRequestReviewReply,
@@ -124,6 +125,12 @@ struct GitToolCallDispatcher: Sendable {
                 cwd: workspaceRoot,
                 selector: args.string("selector"),
                 body: try args.requiredString("body")
+            )
+        case ToolDefinition.gitPullRequestLifecycle.name:
+            return git.updatePullRequestLifecycle(
+                cwd: workspaceRoot,
+                selector: args.string("selector"),
+                action: try args.requiredString("action")
             )
         case ToolDefinition.gitPullRequestReview.name:
             return git.reviewPullRequest(

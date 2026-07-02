@@ -39,6 +39,13 @@ enum MockPullRequestIntentPlanner {
             )
         }
 
+        if isPullRequestLifecycleRequest(lowercasedRequest) {
+            return ToolCall(
+                name: ToolDefinition.gitPullRequestLifecycle.name,
+                argumentsJSON: ToolArguments.json(MockPullRequestArgumentExtractor.lifecycleArguments(from: request))
+            )
+        }
+
         if isPullRequestReviewActionRequest(lowercasedRequest) {
             return ToolCall(
                 name: ToolDefinition.gitPullRequestReview.name,
@@ -126,6 +133,15 @@ enum MockPullRequestIntentPlanner {
             || tokens.contains("automerge")
             || lowercasedRequest.contains("auto merge")
             || lowercasedRequest.contains("merge train")
+    }
+
+    static func isPullRequestLifecycleRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = tokenizeWords(lowercasedRequest)
+        guard mentionsPullRequest(lowercasedRequest, tokens: tokens) else { return false }
+        return tokens.contains("close")
+            || tokens.contains("closed")
+            || tokens.contains("reopen")
+            || lowercasedRequest.contains("re-open")
     }
 
     static func isPullRequestCheckoutRequest(_ lowercasedRequest: String) -> Bool {

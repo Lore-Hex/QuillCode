@@ -36,4 +36,18 @@ public extension ToolDefinition {
         ),
         risk: .append
     )
+
+    static let gitPullRequestLifecycle = GitPullRequestDefinitionFactory.tool(
+        name: "host.git.pr.lifecycle",
+        description: GitPullRequestDefinitionFactory.described(
+            "Close or reopen the current or selected GitHub pull request using GitHub CLI."
+        ),
+        parametersJSON: GitPullRequestDefinitionFactory.selectorParameters(
+            extra: [
+                "action": .stringEnum(["close", "reopen"], description: "Lifecycle action to apply.")
+            ],
+            required: ["action"]
+        ),
+        risk: .append
+    )
 }
