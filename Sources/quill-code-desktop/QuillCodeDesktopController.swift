@@ -47,7 +47,7 @@ final class QuillCodeDesktopController: ObservableObject {
         browserPageFetcher: any BrowserPageFetching = URLSessionBrowserPageFetcher(),
         browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
         browserSessionPresenter: any DesktopBrowserSessionPresenting = DesktopBrowserSessionPresenter(),
-        automationNotifier: any QuillCodeAutomationNotifying = MacAutomationNotifier(),
+        automationNotifier: any QuillCodeAutomationNotifying = DesktopAutomationNotifierFactory.platformDefault(),
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
