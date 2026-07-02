@@ -142,6 +142,11 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
             router: ToolRouter(workspaceRoot: root),
             sshRemoteShellExecutor: SSHRemoteShellExecutor()
         )
+        // The router's edit guard refuses to patch an existing file the session never read.
+        XCTAssertTrue(executor.executePrimary(ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "hello.txt"])
+        )).ok)
         let patch = """
         diff --git a/hello.txt b/hello.txt
         index e45c9c2..ce01362 100644

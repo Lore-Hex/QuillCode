@@ -39,6 +39,11 @@ final class FileToolExecutorTests: XCTestCase {
             encoding: .utf8
         )
 
+        // Overwriting an existing file requires the session to have read it first.
+        XCTAssertTrue(ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "rules.md"])
+        )).ok)
         let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
             name: ToolDefinition.fileWrite.name,
             argumentsJSON: ToolArguments.json([

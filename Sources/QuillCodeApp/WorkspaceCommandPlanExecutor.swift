@@ -146,6 +146,16 @@ extension QuillCodeWorkspaceModel {
             return false
         }
 
+        // The diagnostic was computed from these instruction files' loaded content, so this
+        // session legitimately knows them — record that, or the read-before-write guard on the
+        // tool run below would refuse to touch files never read via host.file.read.
+        let resolver = FileWorkspacePathResolver(workspaceRoot: workspaceRoot)
+        for reference in diagnostic.sourceReferences {
+            if let url = try? resolver.resolve(reference.path) {
+                FileEditSessionGuard.shared.markRead(url)
+            }
+        }
+
         let result = runToolCall(
             plan.toolCall,
             workspaceRoot: workspaceRoot
