@@ -14,8 +14,16 @@ struct StaticSafetyPolicy: Sendable {
     }
 
     func hardDenyReason(_ context: SafetyContext) -> String? {
-        let haystack = normalizedHaystack(for: context)
-        guard let rule = hardDenyRules.first(where: { $0.matches(haystack) }) else {
+        // Check the horizontal-collapsed haystack (spaces/tabs collapsed, newlines preserved — the
+        // form the permission-rule subject also produces) AND a fully-collapsed haystack (newlines
+        // and CR ALSO folded to a space). The second variant closes any newline-split asymmetry:
+        // a dangerous token spelled `rm -rf\n/` can never dodge the floor even though the subject
+        // preserves newlines. The floor being strictly MORE aggressive than the subject is the
+        // safe direction — over-catching here only forces an extra ask/deny.
+        let haystacks = normalizedHaystacks(for: context)
+        guard let rule = hardDenyRules.first(where: { rule in
+            haystacks.contains { rule.matches($0) }
+        }) else {
             return nil
         }
         return rule.rationale
@@ -52,32 +60,42 @@ struct StaticSafetyPolicy: Sendable {
         }
     }
 
-    private func normalizedHaystack(for context: SafetyContext) -> String {
+    private func normalizedHaystacks(for context: SafetyContext) -> [String] {
         // Match against the decoded argument values, not the raw JSON wire form. The tool executor
         // runs decoded arguments, so the hard-deny list should inspect the same value.
         let arguments = Self.decodedArgumentText(context.toolCall.argumentsJSON)
             ?? context.toolCall.argumentsJSON.replacingOccurrences(of: "\\/", with: "/")
-        // Collapse runs of horizontal whitespace (spaces/tabs) to a single space before the
-        // substring checks, so a padded spelling like `rm -rf  /` or `rm\t-rf /` cannot dodge the
-        // floor — AND so the floor matches the SAME normalized command the permission rule table
-        // matched (see PermissionRuleSubject.normalizedCommand). Newlines are preserved as-is;
-        // the floor's `contains` checks are single-token and unaffected by line boundaries.
-        return Self.collapseHorizontalWhitespace("\(context.toolCall.name) \(arguments)").lowercased()
+        let base = "\(context.toolCall.name) \(arguments)"
+        // Variant 1: collapse horizontal whitespace only (newlines preserved) — the SAME form the
+        // permission-rule subject produces (see PermissionRuleSubject.normalizedCommand).
+        // Variant 2: also fold newlines/CR to a space, so a token split across a newline can't dodge
+        // the floor. De-duplicated when they coincide.
+        let horizontal = Self.collapseWhitespace(base, foldNewlines: false).lowercased()
+        let full = Self.collapseWhitespace(base, foldNewlines: true).lowercased()
+        return horizontal == full ? [horizontal] : [horizontal, full]
     }
 
     static func collapseHorizontalWhitespace(_ text: String) -> String {
+        collapseWhitespace(text, foldNewlines: false)
+    }
+
+    /// Collapses runs of whitespace to a single space. When `foldNewlines` is false, newlines and
+    /// carriage returns are preserved verbatim (only spaces/tabs collapse); when true, they too are
+    /// treated as whitespace and folded.
+    static func collapseWhitespace(_ text: String, foldNewlines: Bool) -> String {
         var output = ""
         output.reserveCapacity(text.count)
         var pendingSpace = false
         var sawNonSpace = false
         for scalar in text.unicodeScalars {
-            if scalar == "\n" || scalar == "\r" {
+            let isNewline = scalar == "\n" || scalar == "\r"
+            if isNewline && !foldNewlines {
                 pendingSpace = false
                 output.unicodeScalars.append(scalar)
                 sawNonSpace = false
                 continue
             }
-            if scalar == " " || scalar == "\t" {
+            if scalar == " " || scalar == "\t" || isNewline {
                 pendingSpace = true
                 continue
             }

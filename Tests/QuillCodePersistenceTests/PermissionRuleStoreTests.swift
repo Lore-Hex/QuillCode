@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeCore
 import QuillCodeSafety
 @testable import QuillCodePersistence
 
@@ -128,18 +129,20 @@ final class PermissionRuleStoreTests: XCTestCase {
         )
     }
 
-    func testMalformedRuleIsSkippedWithoutDroppingTheRest() throws {
+    func testStructurallyMalformedRuleIsSkippedWithoutDroppingTheRestAndNotDegraded() throws {
         let (store, root) = try makeStoreAndRoot()
         let fileURL = store.fileURL(forWorkspaceRoot: root)
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+        // Structurally-malformed rules only (missing required fields / wrong types) — a partial
+        // read that must NOT degrade the load: the surviving rules still apply.
         let json = """
         {"version":1,"rules":[
             {"action":"host.shell.run","resource":"swift test","match":"exact","decision":"allow"},
-            {"action":"host.shell.run","resource":"swift build","decision":"launch-the-missiles"},
             {"resource":"missing action","decision":"deny"},
+            {"action":"host.shell.run","resource":123,"decision":"deny"},
             {"action":"host.git.push","resource":"**","decision":"deny"}
         ]}
         """
@@ -149,8 +152,79 @@ final class PermissionRuleStoreTests: XCTestCase {
         XCTAssertEqual(loaded.table.rules.count, 2)
         XCTAssertEqual(loaded.table.rules.first?.resource, "swift test")
         XCTAssertEqual(loaded.table.rules.last?.action, "host.git.push")
-        XCTAssertEqual(loaded.diagnostics.count, 1)
+        XCTAssertFalse(loaded.degraded, "a partial read of structurally-malformed rules is not degraded")
         XCTAssertTrue(try XCTUnwrap(loaded.diagnostics.first).contains("2 malformed rules"))
+    }
+
+    /// RESIDUAL MINOR: a well-STRUCTURED rule whose `decision` (or `match`) string is unknown to
+    /// this build is NOT structurally malformed — it might be a DENY this build can't represent.
+    /// Dropping it silently while reporting a healthy load would let a matching call auto-approve in
+    /// Auto. The load must be DEGRADED even though other rules parsed fine.
+    func testUnknownDecisionValueDegradesTheLoad() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        // One valid allow + one well-formed rule carrying an unknown `decision`, at the CURRENT
+        // version (no version bump — the exact gap: a newer build's extra decision, or a hand edit).
+        let json = """
+        {"version":1,"rules":[
+            {"action":"host.shell.run","resource":"swift test","match":"exact","decision":"allow"},
+            {"action":"host.git.push","resource":"**","decision":"quarantine"}
+        ]}
+        """
+        try Data(json.utf8).write(to: fileURL)
+
+        let loaded = store.load(forWorkspaceRoot: root)
+        XCTAssertTrue(loaded.degraded, "an unknown decision value must degrade the load (fail safe)")
+        XCTAssertTrue(
+            try XCTUnwrap(loaded.diagnostics.last).contains("unknown match/decision"),
+            "the diagnostic should explain the unrepresentable rule"
+        )
+    }
+
+    func testUnknownMatchKindDegradesTheLoad() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        // A future `regex` match kind written without a version bump.
+        let json = """
+        {"version":1,"rules":[
+            {"action":"host.shell.run","resource":".*","match":"regex","decision":"deny"}
+        ]}
+        """
+        try Data(json.utf8).write(to: fileURL)
+
+        let loaded = store.load(forWorkspaceRoot: root)
+        XCTAssertTrue(loaded.degraded, "an unknown match kind must degrade the load (fail safe)")
+    }
+
+    func testAppendRefusesOverFileWithUnrepresentableRules() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let json = """
+        {"version":1,"rules":[
+            {"action":"host.git.push","resource":"**","decision":"quarantine"}
+        ]}
+        """
+        try Data(json.utf8).write(to: fileURL)
+
+        // Appending would rewrite the file and silently drop the unrepresentable (possibly deny)
+        // rule — so it must refuse, leaving the file untouched.
+        XCTAssertThrowsError(try store.append(
+            PermissionRule(action: "host.shell.run", resource: "ls", match: .exact, decision: .allow),
+            forWorkspaceRoot: root
+        ))
+        XCTAssertEqual(try Data(contentsOf: fileURL), Data(json.utf8), "the file must be left untouched")
     }
 
     func testNewerFileVersionIsLeftAloneAndRefusesAppend() throws {
@@ -229,6 +303,44 @@ final class PermissionRuleStoreTests: XCTestCase {
                 .decision(action: "host.shell.run", resource: "swift test"),
             .allow,
             "a rule saved after the first read must be visible on the next read"
+        )
+    }
+
+    /// End-to-end: a real file with an unknown `decision` value degrades the load, and the
+    /// permission-rule-gated reviewer therefore forces an approval gate instead of auto-approving in
+    /// Auto — even for a call that would otherwise pass. Fails on revert of the residual fix.
+    func testUnknownDecisionValueForcesAskThroughTheReviewer() async throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let json = """
+        {"version":1,"rules":[
+            {"action":"host.git.push","resource":"**","decision":"quarantine"}
+        ]}
+        """
+        try Data(json.utf8).write(to: fileURL)
+
+        struct ApprovingReviewer: SafetyReviewer {
+            func review(_ context: SafetyContext) async -> SafetyReview {
+                SafetyReview(verdict: .approve, rationale: "auto approved")
+            }
+        }
+        let reviewer = PermissionRuleGatedSafetyReviewer(base: ApprovingReviewer(), rules: store)
+        let review = await reviewer.review(SafetyContext(
+            mode: .auto,
+            userMessage: "push",
+            toolCall: ToolCall(name: "host.git.push", argumentsJSON: "{}"),
+            toolDefinition: nil,
+            recentMessages: [],
+            workspaceRoot: root
+        ))
+        XCTAssertEqual(
+            review.verdict,
+            .clarify,
+            "an unknown-decision rule (possibly a deny) must force ask, not auto-approve"
         )
     }
 }

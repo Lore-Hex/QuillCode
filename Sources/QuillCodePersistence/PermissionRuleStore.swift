@@ -31,11 +31,17 @@ public enum PermissionRuleStoreError: Error, CustomStringConvertible {
     /// The on-disk file was written by a NEWER QuillCode. Appending would rewrite (and downgrade)
     /// it, so the save is refused instead of destroying rules this build cannot represent.
     case newerFileVersion(found: Int, supported: Int)
+    /// The on-disk file contains rules with an unknown `match`/`decision` value (a real but
+    /// unrepresentable rule — possibly a deny). Rewriting the file on append would silently drop
+    /// those rules, so the save is refused instead.
+    case unrepresentableRules(count: Int)
 
     public var description: String {
         switch self {
         case .newerFileVersion(let found, let supported):
             return "Permission rules file uses newer format version \(found) (this build supports \(supported)); not overwriting it."
+        case .unrepresentableRules(let count):
+            return "Permission rules file has \(count) rule(s) this build can't represent (unknown match/decision); not overwriting it. Update this build or repair the file first."
         }
     }
 }
@@ -94,6 +100,12 @@ public struct PermissionRuleFileStore: Sendable {
                 throw PermissionRuleStoreError.newerFileVersion(found: version, supported: Self.currentVersion)
             }
             let loaded = Self.decode(data, fileName: fileURL.lastPathComponent)
+            if loaded.hadUnrepresentableRules {
+                // The file holds otherwise-valid rules this build can't represent (possibly a
+                // deny). Rewriting on append would silently drop them, so refuse — the file is
+                // left untouched.
+                throw PermissionRuleStoreError.unrepresentableRules(count: loaded.unrepresentableRuleCount)
+            }
             table = loaded.result.table
             diagnostics = loaded.result.diagnostics
             if loaded.wasCorrupt {
@@ -130,13 +142,53 @@ public struct PermissionRuleFileStore: Sendable {
         var rules: [LenientRule]
     }
 
-    /// Wraps each rule so one malformed entry degrades to a diagnostic instead of discarding the
-    /// whole file.
-    private struct LenientRule: Decodable {
-        var rule: PermissionRule?
+    /// Wraps each rule so one bad entry degrades to a diagnostic instead of discarding the whole
+    /// file — but distinguishes WHY a rule failed:
+    /// - `.parsed` — a fully representable rule.
+    /// - `.malformed` — structurally broken JSON (missing/mistyped `action`/`resource`/`decision`).
+    ///   Dropped tolerantly; not degraded on its own.
+    /// - `.unrepresentable` — a well-STRUCTURED rule whose `match` or `decision` is a real string
+    ///   this build does not know (e.g. a newer build's `regex` match kind, or an extra decision,
+    ///   written without bumping the file `version`, or a hand edit). We CANNOT know its intent —
+    ///   it might be a deny — so the load is degraded (force-ask fail-safe) even though other rules
+    ///   loaded fine.
+    private enum LenientRule: Decodable {
+        case parsed(PermissionRule)
+        case malformed
+        case unrepresentable
+
+        /// The rule's fields decoded permissively — enum-valued fields kept as raw strings so we can
+        /// tell "absent" from "present but unknown".
+        private struct RawRule: Decodable {
+            var action: String?
+            var resource: String?
+            var match: String?
+            var decision: String?
+        }
 
         init(from decoder: Decoder) throws {
-            rule = try? PermissionRule(from: decoder)
+            if let rule = try? PermissionRule(from: decoder) {
+                self = .parsed(rule)
+                return
+            }
+            // PermissionRule failed. Decide whether it was garbage or an unknown enum value.
+            guard let raw = try? RawRule(from: decoder),
+                  raw.action != nil, raw.resource != nil
+            else {
+                // Missing/mistyped required string fields → structurally malformed.
+                self = .malformed
+                return
+            }
+            let unknownMatch = raw.match.map { PermissionRuleMatchKind(rawValue: $0) == nil } ?? false
+            let unknownDecision: Bool
+            if let decision = raw.decision {
+                unknownDecision = PermissionRuleDecision(rawValue: decision) == nil
+            } else {
+                // `decision` is required by PermissionRule; its absence is structural malformation,
+                // not an unknown value.
+                unknownDecision = false
+            }
+            self = (unknownMatch || unknownDecision) ? .unrepresentable : .malformed
         }
     }
 
@@ -167,24 +219,45 @@ public struct PermissionRuleFileStore: Sendable {
         var diagnostics: [String] = []
         var rules: [PermissionRule] = []
         var droppedRules = 0
+        var unrepresentableRules = 0
         for lenient in payload.rules {
-            guard let rule = lenient.rule else {
+            switch lenient {
+            case .parsed(let rule):
+                if rule.match == .pattern, patternExceedsCap(rule) {
+                    diagnostics.append(
+                        "Ignoring an oversized wildcard pattern in \(fileName) (patterns are capped at \(PermissionWildcardPattern.maxPatternScalarCount) characters)."
+                    )
+                }
+                rules.append(rule)
+            case .malformed:
                 droppedRules += 1
-                continue
+            case .unrepresentable:
+                unrepresentableRules += 1
             }
-            if rule.match == .pattern, patternExceedsCap(rule) {
-                diagnostics.append(
-                    "Ignoring an oversized wildcard pattern in \(fileName) (patterns are capped at \(PermissionWildcardPattern.maxPatternScalarCount) characters)."
-                )
-            }
-            rules.append(rule)
         }
-        // A single malformed rule is skipped tolerantly (the rest still load) — this is a partial
-        // read, not an unreadable file, so it is NOT degraded. But if EVERY rule was malformed the
-        // file is effectively corrupt: fail safe.
         if droppedRules > 0 {
             diagnostics.append("Skipped \(droppedRules) malformed rule\(droppedRules == 1 ? "" : "s") in \(fileName).")
         }
+        // A rule with a well-formed structure but an unknown `match`/`decision` value could be a
+        // DENY this build cannot represent. Silently dropping it while reporting a healthy load
+        // would let a matching call auto-approve in Auto — so ANY unrepresentable rule degrades the
+        // load (force-ask fail-safe), even though other rules parsed fine.
+        if unrepresentableRules > 0 {
+            return LoadOutcome(
+                result: PermissionRuleLoadResult(
+                    table: PermissionRuleTable(rules: rules),
+                    degraded: true,
+                    diagnostics: diagnostics + [
+                        "\(unrepresentableRules) rule\(unrepresentableRules == 1 ? "" : "s") in \(fileName) use an unknown match/decision this build can't represent; asking for confirmation until this build is updated or the file is repaired."
+                    ]
+                ),
+                wasCorrupt: false,
+                unrepresentableRuleCount: unrepresentableRules
+            )
+        }
+        // A single structurally-malformed rule is skipped tolerantly (the rest still load) — a
+        // partial read, not an unreadable file, so NOT degraded. But if EVERY rule was malformed
+        // the file is effectively corrupt: fail safe.
         let allRulesMalformed = !payload.rules.isEmpty && rules.isEmpty
         if allRulesMalformed {
             return LoadOutcome(
@@ -208,6 +281,12 @@ public struct PermissionRuleFileStore: Sendable {
     private struct LoadOutcome {
         var result: PermissionRuleLoadResult
         var wasCorrupt: Bool
+        /// How many rules had an unknown match/decision. Distinct from `wasCorrupt` (garbage JSON):
+        /// the file is otherwise valid, so append must REFUSE (not back-up-and-rewrite) to avoid
+        /// silently dropping the unrepresentable — possibly deny — rules.
+        var unrepresentableRuleCount: Int = 0
+
+        var hadUnrepresentableRules: Bool { unrepresentableRuleCount > 0 }
     }
 
     private static func decodedVersion(_ data: Data) -> Int? {

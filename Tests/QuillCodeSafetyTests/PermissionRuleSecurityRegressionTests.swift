@@ -154,6 +154,35 @@ final class PermissionRuleSecurityRegressionTests: XCTestCase {
         }
     }
 
+    /// Self-check #1: the rule-table subject PRESERVES newlines (fix #7) while the floor collapses
+    /// horizontal whitespace (fix #2). A dangerous token split across a NEWLINE (`rm -rf\n/`) must
+    /// still be caught by the floor — the floor also folds newlines, so it stays strictly more
+    /// aggressive than the subject and can't be dodged by a vertical-whitespace split.
+    func testFloorCatchesNewlineSplitDangerousToken() {
+        let policy = StaticSafetyReviewer()
+        for command in ["rm -rf\n/", "rm\n-rf /", "dd\nif=/dev/zero", "mkfs\n.ext4"] {
+            let reason = policy.hardDenyReason(SafetyContext(
+                mode: .auto, userMessage: "",
+                toolCall: ToolCall(name: "host.shell.run", argumentsJSON: ToolArguments.json(["cmd": command])),
+                toolDefinition: nil, recentMessages: []
+            ))
+            XCTAssertNotNil(reason, "floor missed newline-split dangerous token: \(command.debugDescription)")
+        }
+    }
+
+    func testNewlineSplitFloorCommandCannotRideAWildcardAllow() async throws {
+        let root = try makeWorkspace()
+        let reviewer = gated(
+            [PermissionRule(action: "host.shell.run", resource: "**", decision: .allow)],
+            base: SafetyReview(verdict: .clarify, rationale: "ask")
+        )
+        // Even though `**` matches the (newline-preserving) subject, the floor still denies.
+        let review = await reviewer.review(context(
+            mode: .auto, call: shellCall("rm -rf\n/"), definition: shellRun, root: root
+        ))
+        XCTAssertEqual(review.verdict, .deny, "a newline-split floor command must not ride a wildcard allow")
+    }
+
     // MARK: - #4 MAJOR: env / cwd overrides break allow-scoping
 
     func testShellCallWithEnvironmentOverrideIsNotAllowScopable() {
@@ -227,6 +256,63 @@ final class PermissionRuleSecurityRegressionTests: XCTestCase {
             ))
             XCTAssertEqual(review.verdict, .deny, "case spelling \(spelling) dodged the deny on a case-insensitive volume")
         }
+    }
+
+    /// Self-check #2: on a genuinely CASE-SENSITIVE volume the fix must NOT case-fold — otherwise an
+    /// allow rule for `.env.local` would wrongly authorize the distinct sibling `.ENV.local`. Uses a
+    /// case-sensitive volume if one is mounted; otherwise skips (macOS default temp is CI).
+    func testDoesNotCaseFoldOnACaseSensitiveVolume() async throws {
+        guard let root = Self.mountedCaseSensitiveDirectory() else {
+            throw XCTSkip("no case-sensitive volume available")
+        }
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        // A not-yet-existing target keeps its case (the fix must not fold on this volume).
+        let normalized = PermissionRuleSubject.normalizedPath(".ENV.local", workspaceRoot: root)
+        XCTAssertTrue(
+            normalized.hasSuffix(".ENV.local"),
+            "case must be preserved on a case-sensitive volume, got \(normalized)"
+        )
+
+        // An allow rule for the lowercase spelling must NOT authorize the distinct uppercase sibling.
+        let allowResource = PermissionRuleSubject.normalizedPath(".env.local", workspaceRoot: root)
+        let reviewer = gated(
+            [PermissionRule(action: "host.file.write", resource: allowResource, match: .exact, decision: .allow)],
+            base: SafetyReview(verdict: .clarify, rationale: "ask")
+        )
+        // The exact taught spelling is approved…
+        let taught = await reviewer.review(context(
+            mode: .auto,
+            call: ToolCall(name: "host.file.write", argumentsJSON: ToolArguments.json(["path": ".env.local", "content": "x"])),
+            definition: fileWrite, root: root
+        ))
+        // …but the case-variant sibling (a DIFFERENT file here) is not.
+        let sibling = await reviewer.review(context(
+            mode: .auto,
+            call: ToolCall(name: "host.file.write", argumentsJSON: ToolArguments.json(["path": ".ENV.local", "content": "x"])),
+            definition: fileWrite, root: root
+        ))
+        XCTAssertEqual(taught.verdict, .approve)
+        XCTAssertNotEqual(sibling.verdict, .approve, "an allow must not authorize a case-variant sibling on a case-sensitive volume")
+    }
+
+    /// Finds a writable directory on a mounted case-sensitive volume, or nil.
+    private static func mountedCaseSensitiveDirectory() -> URL? {
+        let candidates = (try? FileManager.default.contentsOfDirectory(
+            at: URL(fileURLWithPath: "/Volumes"), includingPropertiesForKeys: nil
+        )) ?? []
+        for volume in candidates {
+            let probe = volume.appendingPathComponent("qc858-\(UUID().uuidString)", isDirectory: true)
+            guard (try? FileManager.default.createDirectory(at: probe, withIntermediateDirectories: true)) != nil
+            else { continue }
+            let caseSensitive = (try? probe.resourceValues(forKeys: [.volumeSupportsCaseSensitiveNamesKey]))?
+                .volumeSupportsCaseSensitiveNames == true
+            if caseSensitive {
+                return probe
+            }
+            try? FileManager.default.removeItem(at: probe)
+        }
+        return nil
     }
 
     // MARK: - #7 MINOR: newline is not treated as a whitespace separator
