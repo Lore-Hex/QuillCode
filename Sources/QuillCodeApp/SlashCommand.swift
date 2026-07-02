@@ -22,6 +22,7 @@ enum SlashCommand: Equatable {
     case worktreePrune(WorkspaceWorktreePruneRequest)
     case toolCall(ToolCall)
     case environmentAction(String?)
+    case environmentSchedule(String)
     case invalid(String)
     case unknown(String)
 }

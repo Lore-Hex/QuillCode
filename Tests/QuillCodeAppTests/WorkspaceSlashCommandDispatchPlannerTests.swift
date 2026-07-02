@@ -167,6 +167,14 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
             ),
             .environmentAction("build", userText: "/env build")
         )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .environmentSchedule("build in 30 minutes"),
+                userText: "/env schedule build in 30 minutes",
+                statusText: "unused"
+            ),
+            .environmentSchedule("build in 30 minutes", userText: "/env schedule build in 30 minutes")
+        )
     }
 
     func testInvalidAndUnknownBuildLocalTranscripts() {

@@ -38,6 +38,8 @@ extension QuillCodeWorkspaceModel {
             return runThreadFollowUpAutomation(automation, now: now)
         case .workspaceSchedule:
             return runWorkspaceScheduleAutomation(automation, now: now)
+        case .localEnvironmentAction:
+            return runLocalEnvironmentActionAutomation(automation, now: now)
         case .monitor:
             return runMonitorAutomation(automation, eventDescription: eventDescription, now: now)
         }
@@ -121,6 +123,56 @@ extension QuillCodeWorkspaceModel {
             now: now
         )
         return applyAutomationRunDraft(draft)
+    }
+
+    private func runLocalEnvironmentActionAutomation(
+        _ automation: QuillAutomation,
+        now: Date
+    ) -> AutomationRunReport? {
+        guard let projectID = automation.projectID,
+              let initialProject = project(id: projectID)
+        else {
+            return reportMissingAutomationDependency(
+                "The project for \(automation.title) is no longer available."
+            )
+        }
+        guard !initialProject.isRemote else {
+            return reportMissingAutomationDependency(
+                "\(automation.title) uses a local environment action, but \(initialProject.name) is an SSH Remote project."
+            )
+        }
+
+        refreshProjectMetadata(initialProject.id)
+        guard let refreshedProject = project(id: initialProject.id),
+              let actionID = automation.localEnvironmentActionID,
+              let action = LocalEnvironmentActionMatcher.action(withID: actionID, in: refreshedProject.localActions)
+        else {
+            return reportMissingAutomationDependency(
+                "The local environment action for \(automation.title) is no longer available."
+            )
+        }
+
+        let context = workspaceThreadContext(refreshedProject.id)
+        let draft = WorkspaceAutomationRunner.localEnvironmentActionDraft(
+            automation: automation,
+            project: refreshedProject,
+            action: action,
+            mode: root.config.mode,
+            model: root.config.defaultModel,
+            instructions: context.instructions,
+            memories: context.memories,
+            now: now
+        )
+        let report = applyAutomationRunDraft(draft)
+        let result = runToolCall(
+            WorkspaceShellToolCallPlanner.localEnvironmentAction(action),
+            workspaceRoot: URL(fileURLWithPath: refreshedProject.path)
+        )
+        refreshProjectMetadata(refreshedProject.id)
+        appendNotice(result.ok
+            ? "Scheduled local environment action completed: \(action.title)"
+            : "Scheduled local environment action failed: \(action.title)")
+        return report
     }
 
     private func runMonitorAutomation(

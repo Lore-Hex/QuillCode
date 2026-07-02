@@ -21,6 +21,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case worktreePrune(WorkspaceWorktreePruneRequest, userText: String)
     case toolCall(ToolCall)
     case environmentAction(String?, userText: String)
+    case environmentSchedule(String, userText: String)
 }
 
 struct WorkspaceSlashCommandDispatchPlanner {
@@ -73,6 +74,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .toolCall(call)
         case .environmentAction(let query):
             return .environmentAction(query, userText: userText)
+        case .environmentSchedule(let scheduleText):
+            return .environmentSchedule(scheduleText, userText: userText)
         case .invalid(let message):
             return .appendTranscript(WorkspaceSlashCommandTranscriptPlanner.invalid(
                 userText: userText,

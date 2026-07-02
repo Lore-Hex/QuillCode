@@ -131,6 +131,48 @@ final class WorkspaceLocalEnvironmentIntegrationTests: XCTestCase {
         XCTAssertEqual(result.error, "Command timed out after 1s.")
     }
 
+    func testLocalEnvironmentActionScheduleRunsWhenDue() throws {
+        let setup = try makeLocalEnvironmentProject(name: "Scheduled Env Project") { actionsDirectory in
+            try "printf scheduled-env-ok".write(
+                to: actionsDirectory.appendingPathComponent("verify.sh"),
+                atomically: true,
+                encoding: .utf8
+            )
+            try """
+            {
+              "title": "Verify Workspace"
+            }
+            """.write(
+                to: actionsDirectory.appendingPathComponent("verify.json"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        let action = try XCTUnwrap(setup.model.selectedProject?.localActions.first)
+        let now = Date(timeIntervalSince1970: 10_000)
+
+        let automation = try XCTUnwrap(setup.model.createLocalEnvironmentActionAutomation(
+            matching: "Verify Workspace in 10 minutes",
+            now: now
+        ))
+        XCTAssertEqual(automation.kind, .localEnvironmentAction)
+        XCTAssertEqual(automation.localEnvironmentActionID, action.id)
+        XCTAssertEqual(automation.scheduleDescription, "In 10 minutes")
+        XCTAssertEqual(automation.nextRunAt, now.addingTimeInterval(10 * 60))
+
+        let reports = setup.model.runDueAutomationReports(now: now.addingTimeInterval(10 * 60 + 1))
+
+        XCTAssertEqual(reports.count, 1)
+        let thread = try XCTUnwrap(setup.model.selectedThread)
+        XCTAssertEqual(thread.title, "Scheduled action: Verify Workspace")
+        XCTAssertEqual(thread.projectID, setup.model.selectedProject?.id)
+        XCTAssertTrue(thread.messages.first?.content.contains("Run the scheduled local environment action") == true)
+        XCTAssertEqual(try shellResult(from: setup.model.currentToolCards.last).stdout, "scheduled-env-ok")
+        let savedAutomation = try XCTUnwrap(setup.model.automations.items.first { $0.id == automation.id })
+        XCTAssertNotNil(savedAutomation.lastRunAt)
+        XCTAssertNil(savedAutomation.nextRunAt)
+    }
+
     private func makeLocalEnvironmentProject(
         name: String,
         configureActions: (URL) throws -> Void

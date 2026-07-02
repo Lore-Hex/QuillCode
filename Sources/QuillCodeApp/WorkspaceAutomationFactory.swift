@@ -47,6 +47,29 @@ enum WorkspaceAutomationFactory {
         )
     }
 
+    static func localEnvironmentAction(
+        for project: ProjectRef,
+        action: LocalEnvironmentAction,
+        scheduleDescription: String,
+        nextRunAt: Date?,
+        recurrence: QuillAutomationRecurrence?,
+        now: Date
+    ) -> QuillAutomation {
+        QuillAutomation(
+            title: "Local action: \(action.title)",
+            detail: "Run \(action.title) in \(project.name).",
+            kind: .localEnvironmentAction,
+            scheduleKind: .cron,
+            scheduleDescription: scheduleDescription,
+            projectID: project.id,
+            localEnvironmentActionID: action.id,
+            createdAt: now,
+            updatedAt: now,
+            nextRunAt: nextRunAt,
+            recurrence: recurrence
+        )
+    }
+
     static func relativeSchedule(
         seconds: TimeInterval,
         now: Date
