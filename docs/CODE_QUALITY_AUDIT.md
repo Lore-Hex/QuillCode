@@ -1,5 +1,40 @@
 # Code Quality Audit
 
+## 2026-07-01 Calendar Automation Recurrence A+ Pass
+
+Overall grade after this slice: **all source, test, script, and E2E modules grade A+; the touched
+automation scheduling path remains A+ and closes the Codex-parity calendar recurrence gap without a
+storage migration**.
+
+This pass graded every module and file with `scripts/grade-code-quality.py --root .`, reviewed the
+calendar recurrence slice at the model/parser/runner boundaries, and added a regression test for the
+ambiguous weekday grammar that previously risked turning one-off phrases into recurring schedules.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Recurrence storage | `QuillAutomationRecurrence` only represented interval recurrence. | Recurrence remains backward-compatible, with optional normalized weekday and wall-clock fields for calendar schedules. |
+| Parser ownership | Calendar one-off parsing was already isolated, but recurring wall-clock phrases would have added ambiguity to the same parser. | `ThreadFollowUpScheduleCalendarRecurrenceParser` owns explicit recurring phrases such as `daily at 9 AM`, `weekdays at 6 PM`, and `fridays at 1 PM`. |
+| One-off ambiguity | `Friday afternoon` could regress into a weekly recurrence if calendar grammar became too broad. | Explicit recurrence cues or plural recurring terms are required; `friday afternoon` stays one-off while `fridays at 1 PM` recurs. |
+| Runner determinism | Recurring jobs advanced by interval seconds only. | `WorkspaceAutomationRunner` accepts an injectable calendar and advances wall-clock recurrences to the next matching local time. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`; every module grades **A+**.
+- Touched production files `AutomationModels.swift`, `ThreadFollowUpScheduleCalendarParser.swift`,
+  `ThreadFollowUpScheduleCalendarRecurrenceParser.swift`, `ThreadFollowUpScheduleParser.swift`, and
+  `WorkspaceAutomationRunner.swift` grade **A+**.
+- Touched automation integration and core model tests grade **A+**.
+
+Validation:
+
+- `swift test --filter 'CoreModelTests|WorkspaceAutomationSchedulingIntegrationTests|WorkspaceAutomationRunIntegrationTests|JSONAutomationStoreTests|WorkspaceAutomationEngineTests|SlashSchedulingCommandParserTests|ParityPlaywrightAutomationGateTests|ParityWorkspaceAutomationStateGateTests'`
+- `python3 scripts/grade-code-quality.py --root .`
+
+Residual risk:
+
+- The parser intentionally supports deterministic English recurrence phrases before broader cron/locale grammar.
+  Full RRULE import/export and richer locale parsing should remain a separate, reviewable parity slice.
+
 ## 2026-07-01 Computer Use Approval Settings A+ Pass
 
 Overall grade target for this slice: keep Computer Use app approval enforcement, settings state, persistence, and

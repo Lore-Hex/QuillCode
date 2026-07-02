@@ -1,7 +1,7 @@
 import Foundation
 
 enum ThreadFollowUpScheduleCalendarParser {
-    private typealias Clock = (hour: Int, minute: Int)
+    typealias Clock = (hour: Int, minute: Int)
 
     static func tomorrowSchedule(
         from value: String,
@@ -182,11 +182,11 @@ enum ThreadFollowUpScheduleCalendarParser {
         )
     }
 
-    private static func weekdayClock(from remainder: String) -> Clock {
+    static func weekdayClock(from remainder: String) -> Clock {
         dayPartClock(from: remainder) ?? parseClock(clockRemainder(remainder)) ?? (9, 0)
     }
 
-    private static func parseClock(_ value: String, defaultMeridiem: String? = nil) -> Clock? {
+    static func parseClock(_ value: String, defaultMeridiem: String? = nil) -> Clock? {
         var text = value
             .lowercased()
             .replacingOccurrences(of: ".", with: "")
@@ -243,7 +243,7 @@ enum ThreadFollowUpScheduleCalendarParser {
         return minute
     }
 
-    private static func clockRemainder<T: StringProtocol>(_ value: T, defaultPrefix: String = "at") -> String {
+    static func clockRemainder<T: StringProtocol>(_ value: T, defaultPrefix: String = "at") -> String {
         var text = String(value)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         for prefix in [defaultPrefix, "at", "around", "about"] where !prefix.isEmpty {
@@ -255,7 +255,7 @@ enum ThreadFollowUpScheduleCalendarParser {
         return text
     }
 
-    private static func dayPartClock(from value: String) -> Clock? {
+    static func dayPartClock(from value: String) -> Clock? {
         switch value.trimmingCharacters(in: .whitespacesAndNewlines) {
         case "morning":
             return (9, 0)
@@ -308,7 +308,7 @@ enum ThreadFollowUpScheduleCalendarParser {
         return calendar.date(from: components) ?? now.addingTimeInterval(TimeInterval(dayOffset) * 86_400)
     }
 
-    private static func weekdayNumber(from value: String) -> Int? {
+    static func weekdayNumber(from value: String) -> Int? {
         switch value {
         case "sunday", "sun":
             return 1

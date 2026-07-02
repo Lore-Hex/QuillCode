@@ -39,10 +39,14 @@ enum WorkspaceAutomationRunner {
             .map(\.self)
     }
 
-    static func updatedAfterRun(_ automation: QuillAutomation, now: Date) -> QuillAutomation {
+    static func updatedAfterRun(
+        _ automation: QuillAutomation,
+        now: Date,
+        calendar: Calendar = .current
+    ) -> QuillAutomation {
         var updated = automation
         updated.lastRunAt = now
-        updated.nextRunAt = automation.recurrence?.nextRun(after: now)
+        updated.nextRunAt = automation.recurrence?.nextRun(after: now, calendar: calendar)
         updated.updatedAt = now
         return updated
     }

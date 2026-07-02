@@ -18,6 +18,15 @@ enum ThreadFollowUpScheduleParser {
         let normalized = normalize(value)
         guard !normalized.isEmpty else { return nil }
 
+        if let calendarRecurrence = ThreadFollowUpScheduleCalendarRecurrenceParser.recurringCalendarSchedule(
+            from: normalized,
+            now: now,
+            calendar: calendar,
+            maximumDelay: maximumDelay
+        ) {
+            return calendarRecurrence
+        }
+
         if let recurrence = ThreadFollowUpScheduleIntervalParser.recurrence(from: normalized),
            recurrence.intervalSeconds <= maximumDelay {
             return ThreadFollowUpSchedule(

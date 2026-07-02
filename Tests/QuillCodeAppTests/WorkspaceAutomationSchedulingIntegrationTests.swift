@@ -199,6 +199,106 @@ final class WorkspaceAutomationSchedulingIntegrationTests: XCTestCase {
         XCTAssertEqual(saved.nextRunAt, now.addingTimeInterval(2 * 60 * 60))
     }
 
+    func testNaturalLanguageRecurringWorkspaceChecksAcceptCalendarRecurrence() throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        let project = try XCTUnwrap(workspace.model.selectedProject)
+        let now = try XCTUnwrap(makeUTCDate(day: 6, hour: 10, minute: 0))
+        let calendar = makeUTCCalendar()
+
+        let weekdays = try XCTUnwrap(workspace.model.createWorkspaceScheduleAutomation(
+            matching: "every weekday at 6 PM",
+            now: now,
+            calendar: calendar
+        ))
+        let monday = try XCTUnwrap(workspace.model.createWorkspaceScheduleAutomation(
+            matching: "every monday at noon",
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(weekdays.scheduleDescription, "Every weekday at 6:00 PM")
+        XCTAssertEqual(weekdays.nextRunAt, makeUTCDate(day: 6, hour: 18, minute: 0))
+        XCTAssertEqual(weekdays.recurrence, QuillAutomationRecurrence(
+            interval: 1,
+            unit: .weeks,
+            weekdays: [2, 3, 4, 5, 6],
+            hour: 18,
+            minute: 0
+        ))
+        XCTAssertEqual(monday.scheduleDescription, "Every Monday at 12:00 PM")
+        XCTAssertEqual(monday.nextRunAt, makeUTCDate(day: 12, hour: 12, minute: 0))
+        XCTAssertEqual(monday.recurrence, QuillAutomationRecurrence(
+            interval: 1,
+            unit: .weeks,
+            weekdays: [2],
+            hour: 12,
+            minute: 0
+        ))
+
+        let saved = try workspace.automationStore.load()
+        XCTAssertEqual(saved.map(\.kind), [.workspaceSchedule, .workspaceSchedule])
+        XCTAssertEqual(saved.map(\.projectID), [project.id, project.id])
+        XCTAssertEqual(saved.map(\.scheduleDescription), [
+            "Every weekday at 6:00 PM",
+            "Every Monday at 12:00 PM"
+        ])
+    }
+
+    func testCalendarRecurrenceRequiresExplicitRecurringLanguageForWeekdays() throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        let now = try XCTUnwrap(makeUTCDate(day: 1, hour: 10, minute: 0))
+        let calendar = makeUTCCalendar()
+
+        let oneOff = try XCTUnwrap(workspace.model.createWorkspaceScheduleAutomation(
+            matching: "friday afternoon",
+            now: now,
+            calendar: calendar
+        ))
+        let recurring = try XCTUnwrap(workspace.model.createWorkspaceScheduleAutomation(
+            matching: "fridays at 1 PM",
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertNil(oneOff.recurrence)
+        XCTAssertEqual(oneOff.scheduleDescription, "Friday at 1:00 PM")
+        XCTAssertEqual(recurring.scheduleDescription, "Every Friday at 1:00 PM")
+        XCTAssertEqual(recurring.recurrence, QuillAutomationRecurrence(
+            interval: 1,
+            unit: .weeks,
+            weekdays: [6],
+            hour: 13,
+            minute: 0
+        ))
+    }
+
+    func testNaturalLanguageRecurringThreadFollowUpsAcceptCalendarRecurrence() throws {
+        let thread = ChatThread(title: "Launch plan")
+        let workspace = try makeAutomationWorkspace(rootState: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        let now = try XCTUnwrap(makeUTCDate(day: 3, hour: 19, minute: 0))
+        let calendar = makeUTCCalendar()
+
+        let recurring = try XCTUnwrap(workspace.model.createThreadFollowUpAutomation(
+            matching: "weekends at 10 AM",
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(recurring.scheduleDescription, "Every weekend at 10:00 AM")
+        XCTAssertEqual(recurring.nextRunAt, makeUTCDate(day: 4, hour: 10, minute: 0))
+        XCTAssertEqual(recurring.recurrence, QuillAutomationRecurrence(
+            interval: 1,
+            unit: .weeks,
+            weekdays: [1, 7],
+            hour: 10,
+            minute: 0
+        ))
+        XCTAssertEqual(try workspace.automationStore.load().first?.threadID, thread.id)
+    }
+
     func testSlashFollowUpSchedulesCurrentThread() async throws {
         let thread = ChatThread(title: "Launch plan")
         let workspace = try makeAutomationWorkspace(rootState: QuillCodeRootState(
