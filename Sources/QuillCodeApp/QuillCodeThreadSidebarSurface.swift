@@ -31,7 +31,10 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.items = items
         self.selectedThreadID = selectedThreadID
         self.activeFilter = activeFilter
-        self.activeSavedSearchID = customSavedSearches.contains { $0.id == activeSavedSearchID } ? activeSavedSearchID : nil
+        self.activeSavedSearchID = Self.resolvedActiveSavedSearchID(
+            activeSavedSearchID,
+            customSavedSearches: customSavedSearches
+        )
         self.savedFilters = SidebarSavedFilterSurface.savedFilters(
             items: items,
             activeFilter: activeFilter,
@@ -83,7 +86,10 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
                 activeFilter: self.activeFilter,
                 hasActiveCustomSavedSearch: self.activeSavedSearchID != nil
             )
-        self.customSavedSearches = try container.decodeIfPresent([SidebarSavedSearchSurface].self, forKey: .customSavedSearches) ?? []
+        self.customSavedSearches = try container.decodeIfPresent(
+            [SidebarSavedSearchSurface].self,
+            forKey: .customSavedSearches
+        ) ?? []
         self.isSelectionMode = try container.decodeIfPresent(Bool.self, forKey: .isSelectionMode) ?? false
         self.selectedThreadIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .selectedThreadIDs) ?? []
         self.selectionLabel = try container.decodeIfPresent(String.self, forKey: .selectionLabel)
@@ -137,6 +143,13 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         default:
             return "\(count) chats selected"
         }
+    }
+
+    private static func resolvedActiveSavedSearchID(
+        _ activeSavedSearchID: UUID?,
+        customSavedSearches: [SidebarSavedSearch]
+    ) -> UUID? {
+        customSavedSearches.contains { $0.id == activeSavedSearchID } ? activeSavedSearchID : nil
     }
 
     private static func resolvedEmptyTitle(

@@ -110,13 +110,25 @@ public struct AppConfig: Codable, Sendable, Hashable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let defaultModel = try container.decodeIfPresent(String.self, forKey: .defaultModel)
+            ?? TrustedRouterDefaults.defaultModel
+        let apiBaseURL = try container.decodeIfPresent(String.self, forKey: .apiBaseURL)
+            ?? TrustedRouterDefaults.defaultAPIBaseURL
+        let developerOverrideEnabled = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .developerOverrideEnabled
+        ) ?? false
+        let trustedRouterAccount = try container.decodeIfPresent(
+            TrustedRouterAccountProfile.self,
+            forKey: .trustedRouterAccount
+        )
         self.init(
-            defaultModel: try container.decodeIfPresent(String.self, forKey: .defaultModel) ?? TrustedRouterDefaults.defaultModel,
+            defaultModel: defaultModel,
             mode: try container.decodeIfPresent(AgentMode.self, forKey: .mode) ?? .auto,
-            apiBaseURL: try container.decodeIfPresent(String.self, forKey: .apiBaseURL) ?? TrustedRouterDefaults.defaultAPIBaseURL,
+            apiBaseURL: apiBaseURL,
             authMode: try container.decodeIfPresent(TrustedRouterAuthMode.self, forKey: .authMode) ?? .oauth,
-            developerOverrideEnabled: try container.decodeIfPresent(Bool.self, forKey: .developerOverrideEnabled) ?? false,
-            trustedRouterAccount: try container.decodeIfPresent(TrustedRouterAccountProfile.self, forKey: .trustedRouterAccount),
+            developerOverrideEnabled: developerOverrideEnabled,
+            trustedRouterAccount: trustedRouterAccount,
             favoriteModels: try container.decodeIfPresent([String].self, forKey: .favoriteModels) ?? [],
             computerUseApprovedBundleIdentifiers: try container.decodeIfPresent(
                 [String].self,

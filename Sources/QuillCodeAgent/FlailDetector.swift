@@ -3,8 +3,8 @@ import QuillCodeCore
 
 /// Detects an agent run that is BUSY but going NOWHERE — the overnight failure mode the wall-clock
 /// watchdog cannot see. A hung run stops calling tools; a flailing run keeps calling them: the same
-/// `swift test` six times with the identical failure, an edit/undo ping-pong, the same command with no
-/// workspace change. This engine is pure and deterministic: the run loop feeds it one
+/// `swift test` six times with the identical failure, an edit/undo ping-pong, the same command with
+/// no workspace change. This engine is pure and deterministic: the run loop feeds it one
 /// `FlailTurnRecord` per tool turn and gets a verdict back. No clocks, no I/O.
 ///
 /// Escalation contract: a rule firing yields `.suspected` until the wiring layer injects a
@@ -33,7 +33,10 @@ public struct ToolCallFingerprint: Sendable, Hashable {
         guard
             let data = json.data(using: .utf8),
             let object = try? JSONSerialization.jsonObject(with: data),
-            let canonical = try? JSONSerialization.data(withJSONObject: normalize(object, workspaceRoot: workspaceRoot), options: [.sortedKeys])
+            let canonical = try? JSONSerialization.data(
+                withJSONObject: normalize(object, workspaceRoot: workspaceRoot),
+                options: [.sortedKeys]
+            )
         else {
             return collapseWhitespace(json)
         }
@@ -200,11 +203,18 @@ public struct FlailDetector: Sendable {
         let tail = history.suffix(repeatThreshold)
         guard tail.count == repeatThreshold, let first = tail.first else { return nil }
         guard !first.fingerprints.isEmpty else { return nil }
-        guard tail.allSatisfy({ $0.fingerprints == first.fingerprints && $0.deltaSignature.isEmpty }) else { return nil }
+        guard tail.allSatisfy({ $0.fingerprints == first.fingerprints && $0.deltaSignature.isEmpty }) else {
+            return nil
+        }
         return FlailStuckReason(
             kind: .repeatedActionNoProgress,
-            message: "Ran the same tool call\(first.fingerprints.count == 1 ? "" : "s") \(repeatThreshold)× in a row with no workspace change."
+            message: repeatedActionMessage(toolCallCount: first.fingerprints.count)
         )
+    }
+
+    private func repeatedActionMessage(toolCallCount: Int) -> String {
+        let noun = toolCallCount == 1 ? "tool call" : "tool calls"
+        return "Ran the same \(noun) \(repeatThreshold)× in a row with no workspace change."
     }
 
     /// The identical failure, `repeatThreshold` turns in a row — edits are happening, learning is not.

@@ -81,6 +81,12 @@ public extension QuillCodeWorkspaceModel {
         let computerUse = topBarState.computerUseStatus
         let toolCards = currentToolCards
         let runtimeIssue = runtimeIssueSurface()
+        let transcriptMessages = thread.map {
+            WorkspaceTranscriptSurfaceBuilder(
+                thread: $0,
+                allowsRevert: selectedProject?.isRemote != true
+            ).messageSurfaces()
+        } ?? []
         let activeSources = WorkspaceContextResolver(
             projects: root.projects,
             globalMemories: root.globalMemories,
@@ -138,7 +144,7 @@ public extension QuillCodeWorkspaceModel {
             projects: navigation.projects,
             sidebar: navigation.sidebar,
             transcript: TranscriptSurface(
-                messages: thread.map { WorkspaceTranscriptSurfaceBuilder(thread: $0, allowsRevert: selectedProject?.isRemote != true).messageSurfaces() } ?? [],
+                messages: transcriptMessages,
                 toolCards: toolCards,
                 timelineItems: thread == nil ? nil : currentTimelineItems,
                 thinking: WorkspaceTranscriptThinkingSurfaceBuilder(
@@ -235,14 +241,18 @@ public extension QuillCodeWorkspaceModel {
             browserCanGoBack: browser.canGoBack,
             browserCanGoForward: browser.canGoForward,
             browserCanReload: browser.canReload,
-            browserCanOpenSession: browser.currentURL != nil
-                || !browser.addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            browserCanOpenSession: browserCanOpenSession,
             canNavigateBack: navigationHistory.canGoBack,
             canNavigateForward: navigationHistory.canGoForward,
             mcpServerStatuses: extensions.mcpServerStatuses,
             mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
             computerUseStatus: root.topBar.computerUseStatus
         )
+    }
+
+    private var browserCanOpenSession: Bool {
+        browser.currentURL != nil
+            || !browser.addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
 }

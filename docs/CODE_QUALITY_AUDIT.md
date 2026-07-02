@@ -1,5 +1,40 @@
 # Code Quality Audit
 
+## 2026-07-02 Cross-Module Maintainability A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
+grades A+ in the regenerated repo-wide report**.
+
+This pass started with `scripts/grade-code-quality.py --root .`, reviewed the lowest-scored production files and
+module summaries, then tightened maintainability issues that had real ownership value instead of broad churn.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Shell tool schema/readability | `host.shell.run` used a one-line JSON schema and repeated pipe-output capping expressions. | The schema is expanded into reviewable JSON, and stdout/stderr capping flows through one private helper. |
+| Flail detector auditability | Canonical JSON encoding and repeated-action messages had dense long expressions in the detector core. | JSON canonicalization is split into readable steps, and repeated-action copy is owned by a small helper. |
+| Workspace surface assembly | Transcript message construction and browser-open state were embedded inline inside the large surface builder. | Transcript construction is named once before the return, and browser-open state has a focused private predicate. |
+| Core decoding | Config/model decoding had several long inline defaulting expressions. | Decoding defaults are staged through local constants, keeping compatibility behavior unchanged and easier to review. |
+| Sidebar/memory surfaces | A few compatibility decode and saved-search expressions were dense. | Saved-search resolution and memory decode formatting are clearer without changing the public surface. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`.
+- All modules grade **A+**.
+- Every individual source, test, script, and Playwright file grades **A+**.
+- The touched production files remain **A+** and no longer appear in the lowest-source list due to line-length findings.
+
+Validation:
+
+- `python3 scripts/grade-code-quality.py --root .`
+- Focused Swift tests for the touched boundaries.
+- Full `swift test`.
+
+Residual risk:
+
+- The remaining lowest-score entries are intentionally large parity/support files or public contract surfaces. Splitting those
+  should happen only when a feature slice changes their ownership, because mechanical churn would make multi-agent PR trains
+  harder to merge without improving runtime behavior.
+
 ## 2026-07-02 Settings Surface Architecture A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; the touched settings

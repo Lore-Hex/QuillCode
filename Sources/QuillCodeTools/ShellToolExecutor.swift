@@ -3,7 +3,34 @@ import QuillCodeCore
 
 private enum ShellToolDefinitionSchema {
     static let run = #"""
-    {"type":"object","properties":{"cmd":{"type":"string"},"cwd":{"type":"string","description":"Optional workspace-relative working directory. It must resolve inside the current project."},"timeoutSeconds":{"type":"integer","minimum":1,"maximum":1800,"description":"Optional bounded timeout in seconds."},"environment":{"type":"object","additionalProperties":{"type":"string"},"description":"Optional command-local environment overrides. Keys must be ASCII identifiers; values must be single-line strings."}},"required":["cmd"]}
+    {
+      "type": "object",
+      "properties": {
+        "cmd": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Optional workspace-relative working directory. It must resolve inside the current project."
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1800,
+          "description": "Optional bounded timeout in seconds."
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Optional command-local env overrides. Keys must be ASCII identifiers; values must be single-line strings."
+        }
+      },
+      "required": [
+        "cmd"
+      ]
+    }
     """#
 }
 
@@ -176,8 +203,8 @@ public struct ShellToolExecutor: Sendable {
 
         // Bound the output so a chatty command can't blow the model's context window on an unattended
         // run — keep the tail (the final status/error is what matters for a shell command).
-        let out = ShellOutputCapper.cap(String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)).text
-        let err = ShellOutputCapper.cap(String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)).text
+        let out = cappedOutput(from: stdout)
+        let err = cappedOutput(from: stderr)
         let ok = process.terminationStatus == 0
         return ToolResult(
             ok: ok,
@@ -186,6 +213,11 @@ public struct ShellToolExecutor: Sendable {
             exitCode: process.terminationStatus,
             error: ok ? nil : "Command failed with exit code \(process.terminationStatus)."
         )
+    }
+
+    private static func cappedOutput(from pipe: Pipe) -> String {
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return ShellOutputCapper.cap(String(decoding: data, as: UTF8.self)).text
     }
 }
 

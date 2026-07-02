@@ -20,7 +20,8 @@ public struct QuillCodeRuntime: Sendable {
 
     public init(
         runner: AgentRunner,
-        contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
+        contextSummaryGenerator: any WorkspaceContextSummaryGenerating =
+            DeterministicWorkspaceContextSummaryGenerator(),
         mode: QuillCodeRuntimeMode,
         statusLabel: String,
         retryChannel: RetryEventChannel? = nil
