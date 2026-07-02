@@ -73,6 +73,26 @@ final class MCPHTTPProberTests: XCTestCase {
         XCTAssertEqual(call.stdout, "hello from remote MCP")
     }
 
+    // Regression (BLOCKER 2): a StreamableHTTP server that emits its SSE reply with CRLF between
+    // fields (spec-permitted) must be parsed, not dropped-then-timed-out.
+    func testStreamableHTTPProbeParsesCRLFSSEResponses() throws {
+        let client = MCPHTTPStubClient()
+        client.onStream { request in
+            let body = try XCTUnwrapMessage(request.body)
+            if (body["method"] as? String) == "notifications/initialized" {
+                return MCPHTTPStubStream(statusCode: 202, headerFields: [:], chunks: [.success(nil)])
+            }
+            let object = Self.result(id: body["id"], Self.resultPayload(for: body["method"] as? String))
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            // CRLF BETWEEN fields and as the frame terminator.
+            return MCPHTTPStubStream.sse(["event: message\r\ndata: \(json)\r\n\r\n"])
+        }
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client)
+        let result = try prober.probe(timeout: 2.0)
+        XCTAssertEqual(result.serverName, "Remote MCP")
+        XCTAssertEqual(result.toolNames, ["search"])
+    }
+
     // MARK: Failover from StreamableHTTP to HTTP+SSE
 
     func testFailsOverToHTTPSSEWhenStreamableRejected() throws {
@@ -159,6 +179,49 @@ final class MCPHTTPProberTests: XCTestCase {
         let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client)
         XCTAssertThrowsError(try prober.probe(timeout: 2.0))
         XCTAssertEqual(attempts.value, 1, "a 401 with no refresh must not retry")
+    }
+
+    // Regression (BLOCKER 1): a server whose SSE GET perpetually 401s while refresh always
+    // succeeds must surface the 401 after exactly ONE refresh+retry — not recurse unbounded
+    // (stack overflow) or flood the token endpoint with refreshes.
+    func testHTTPSSEGetPerpetual401RefreshesExactlyOnce() {
+        let auth = CountingAuthorization(initialHeader: "Bearer old", refreshedHeader: "Bearer new")
+        let client = MCPHTTPStubClient()
+        let getAttempts = LockedInt()
+        client.onStream { request in
+            XCTAssertEqual(request.method, "GET") // httpSSE opens a GET stream first
+            _ = getAttempts.increment()
+            return MCPHTTPStubStream(statusCode: 401, headerFields: [:], chunks: [.success(nil)])
+        }
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client, authorization: auth, mode: .httpSSE)
+        XCTAssertThrowsError(try prober.probe(timeout: 2.0))
+        XCTAssertEqual(auth.refreshCount, 1, "a perpetual 401 must refresh exactly once")
+        XCTAssertEqual(getAttempts.value, 2, "one original attempt + one retry, then stop")
+    }
+
+    // Regression (BLOCKER 1): same bound on the HTTP+SSE message POST path. The SSE GET succeeds
+    // and advertises the endpoint, but the message POST perpetually 401s; refresh always
+    // succeeds. Must refresh exactly once for the POST, then surface the 401.
+    func testHTTPSSEPostPerpetual401RefreshesExactlyOnce() {
+        let auth = CountingAuthorization(initialHeader: "Bearer old", refreshedHeader: "Bearer new")
+        let client = MCPHTTPStubClient()
+        let postAttempts = LockedInt()
+        // A live SSE stream that only ever advertises the endpoint (never a reply).
+        let liveStream = MCPHTTPLiveStubStream()
+        liveStream.pushEvent(name: "endpoint", data: "/messages")
+
+        client.onStream { request in
+            XCTAssertEqual(request.method, "GET")
+            return liveStream
+        }
+        client.onPerform { _ in
+            _ = postAttempts.increment()
+            return MCPHTTPResponse(statusCode: 401)
+        }
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client, authorization: auth, mode: .httpSSE)
+        XCTAssertThrowsError(try prober.probe(timeout: 2.0))
+        XCTAssertEqual(auth.refreshCount, 1, "a perpetual 401 on the message POST must refresh exactly once")
+        XCTAssertEqual(postAttempts.value, 2, "one original POST + one retry, then stop")
     }
 
     // MARK: Malformed SSE — huge frame is rejected, not buffered unbounded

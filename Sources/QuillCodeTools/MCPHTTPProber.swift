@@ -356,7 +356,7 @@ public final class MCPHTTPProber: @unchecked Sendable {
         throw MCPHTTPProberError.transport("the MCP server did not advertise an SSE message endpoint.")
     }
 
-    private func openSSEStream(deadline: Date) throws -> MCPHTTPStream {
+    private func openSSEStream(deadline: Date, allowAuthRetry: Bool = true) throws -> MCPHTTPStream {
         var headers = extraHeaders
         headers["Accept"] = "text/event-stream"
         if let auth = authorization.currentAuthorizationHeader() { headers["Authorization"] = auth }
@@ -372,10 +372,13 @@ public final class MCPHTTPProber: @unchecked Sendable {
         } catch let error as MCPHTTPClientError {
             throw MCPHTTPProberError.transport(error.description)
         }
+        // 401 → refresh once, retry once. `allowAuthRetry` caps this at a single retry so a
+        // server that always 401s (audience mismatch / clock skew / hostile) while its token
+        // endpoint keeps answering refresh cannot drive unbounded recursion + a refresh flood.
         if stream.statusCode == 401 {
             stream.cancel()
-            if authorization.refreshAuthorizationHeader() != nil {
-                return try openSSEStream(deadline: deadline)
+            if allowAuthRetry, authorization.refreshAuthorizationHeader() != nil {
+                return try openSSEStream(deadline: deadline, allowAuthRetry: false)
             }
             throw MCPHTTPProberError.unauthorized
         }
@@ -389,7 +392,13 @@ public final class MCPHTTPProber: @unchecked Sendable {
     /// POST a client→server message to the SSE message endpoint. The HTTP response body is an ack
     /// (the actual JSON-RPC reply comes over the SSE stream), so we only check the status.
     @discardableResult
-    private func postMessage(to url: URL, body: Data, expectResponse: Bool, deadline: Date) throws -> Data {
+    private func postMessage(
+        to url: URL,
+        body: Data,
+        expectResponse: Bool,
+        deadline: Date,
+        allowAuthRetry: Bool = true
+    ) throws -> Data {
         var headers = extraHeaders
         headers["Content-Type"] = "application/json"
         if let auth = authorization.currentAuthorizationHeader() { headers["Authorization"] = auth }
@@ -407,9 +416,17 @@ public final class MCPHTTPProber: @unchecked Sendable {
         } catch let error as MCPHTTPClientError {
             throw MCPHTTPProberError.transport(error.description)
         }
+        // 401 → refresh once, retry once (bounded by `allowAuthRetry`); never recurse
+        // unbounded on a server that perpetually 401s while refresh keeps succeeding.
         if response.statusCode == 401 {
-            if authorization.refreshAuthorizationHeader() != nil {
-                return try postMessage(to: url, body: body, expectResponse: expectResponse, deadline: deadline)
+            if allowAuthRetry, authorization.refreshAuthorizationHeader() != nil {
+                return try postMessage(
+                    to: url,
+                    body: body,
+                    expectResponse: expectResponse,
+                    deadline: deadline,
+                    allowAuthRetry: false
+                )
             }
             throw MCPHTTPProberError.unauthorized
         }

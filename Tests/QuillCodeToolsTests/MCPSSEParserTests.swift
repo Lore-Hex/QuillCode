@@ -38,6 +38,35 @@ final class MCPSSEParserTests: XCTestCase {
         XCTAssertEqual(events.first?.data, "crlf")
     }
 
+    // Regression: a spec-compliant server that puts CRLF BETWEEN fields (not just at the frame
+    // terminator). Character-level splitting drops these because "\r\n" is one grapheme cluster.
+    func testParsesCRLFBetweenFields() throws {
+        var parser = MCPSSEParser()
+        let events = try parser.append(Data("event: message\r\ndata: {\"a\":1}\r\n\r\n".utf8))
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].event, "message")
+        XCTAssertEqual(events[0].data, "{\"a\":1}")
+    }
+
+    func testParsesLoneCRBetweenFields() throws {
+        var parser = MCPSSEParser()
+        let events = try parser.append(Data("event: message\rdata: payload\r\r".utf8))
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].event, "message")
+        XCTAssertEqual(events[0].data, "payload")
+    }
+
+    func testJoinsMultipleCRLFDataLines() throws {
+        var parser = MCPSSEParser()
+        let events = try parser.append(Data("data: line1\r\ndata: line2\r\n\r\n".utf8))
+        XCTAssertEqual(events.first?.data, "line1\nline2")
+    }
+
+    func testSplitLinesHandlesMixedNewlines() {
+        // Direct check of the scalar-level splitter across LF, CRLF, and lone CR.
+        XCTAssertEqual(MCPSSEParser.splitLines("a\r\nb\nc\rd"), ["a", "b", "c", "d"])
+    }
+
     func testIgnoresCommentsAndKeepAlives() throws {
         var parser = MCPSSEParser()
         let events = try parser.append(Data(": keep-alive\n\ndata: real\n\n".utf8))

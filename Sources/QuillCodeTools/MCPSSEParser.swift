@@ -107,8 +107,7 @@ public struct MCPSSEParser: Sendable {
         var dataLines: [String] = []
         var id: String?
 
-        for rawLine in text.split(omittingEmptySubsequences: false, whereSeparator: { $0 == "\n" || $0 == "\r" }) {
-            let line = String(rawLine)
+        for line in Self.splitLines(text) {
             if line.isEmpty || line.hasPrefix(":") {
                 continue // blank line or comment
             }
@@ -134,6 +133,51 @@ public struct MCPSSEParser: Sendable {
             data: dataLines.joined(separator: "\n"),
             id: id
         )
+    }
+
+    /// Split a frame into field lines at the Unicode-scalar level, treating LF (`\n`), CRLF
+    /// (`\r\n`), and lone CR (`\r`) each as a single line break per the WHATWG SSE spec.
+    ///
+    /// This deliberately does NOT use `String.split(whereSeparator:)`, which iterates
+    /// `Character`s: Swift treats `"\r\n"` as ONE extended grapheme cluster that equals neither
+    /// `"\n"` nor `"\r"`, so a CRLF between fields would collapse the whole frame into a single
+    /// line and the `data:` field would never be parsed.
+    static func splitLines(_ text: String) -> [String] {
+        var lines: [String] = []
+        var current = String.UnicodeScalarView()
+        var iterator = text.unicodeScalars.makeIterator()
+        var pushback: Unicode.Scalar?
+
+        func flush() {
+            lines.append(String(current))
+            current = String.UnicodeScalarView()
+        }
+
+        while true {
+            let scalar: Unicode.Scalar?
+            if let held = pushback {
+                pushback = nil
+                scalar = held
+            } else {
+                scalar = iterator.next()
+            }
+            guard let scalar else { break }
+
+            if scalar == "\n" {
+                flush()
+            } else if scalar == "\r" {
+                // Consume an immediately following LF so CRLF is a single break; otherwise the
+                // next scalar belongs to the following line.
+                if let next = iterator.next(), next != "\n" {
+                    pushback = next
+                }
+                flush()
+            } else {
+                current.append(scalar)
+            }
+        }
+        flush() // trailing partial line (no terminator)
+        return lines
     }
 
     /// Split an SSE field line into (name, value). Per spec, the value has a single leading
