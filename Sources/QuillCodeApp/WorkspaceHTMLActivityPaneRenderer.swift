@@ -10,7 +10,7 @@ enum WorkspaceHTMLActivityPaneRenderer {
               <strong data-testid="activity-title">\(escape(activity.title))</strong>
               <p data-testid="activity-subtitle">\(escape(activity.subtitle))</p>
             </div>
-            <span data-testid="activity-status">\(escape(activity.statusLabel))</span>
+            \(integrityBadgeHTML(activity))<span data-testid="activity-status">\(escape(activity.statusLabel))</span>
           </header>
           <article class="activity-task" data-testid="activity-task">
             <strong data-testid="activity-task-title">\(escape(activity.taskTitle))</strong>
@@ -19,6 +19,15 @@ enum WorkspaceHTMLActivityPaneRenderer {
           \(activity.sections.map(renderActivitySection).joined(separator: "\n"))
         </section>
         """
+    }
+
+    /// The run-integrity badge (VERIFIED / UNVERIFIED / RED) rendered as a status pill in the header,
+    /// with a `data-integrity` attribute so styling and tests can key off the verdict. Empty until the
+    /// run has been scanned.
+    private static func integrityBadgeHTML(_ activity: WorkspaceActivitySurface) -> String {
+        guard let integrity = activity.integrityBadge else { return "" }
+        let detail = activity.integrityDetail.isEmpty ? "" : #" title="\#(escape(activity.integrityDetail))""#
+        return #"<span data-testid="activity-integrity" data-integrity="\#(integrity.rawValue)"\#(detail)>\#(escape(integrity.badgeLabel))</span>"#
     }
 
     private static func renderActivitySection(_ section: ActivitySectionSurface) -> String {

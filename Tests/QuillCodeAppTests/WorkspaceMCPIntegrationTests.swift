@@ -6,6 +6,17 @@ import QuillCodeTools
 
 @MainActor
 final class WorkspaceMCPIntegrationTests: XCTestCase {
+    /// The kind of the last actual tool event on the thread, ignoring the trailing post-run integrity
+    /// notice (#875) and the assistant's final message — so these tests still assert on the tool outcome.
+    private func lastToolEventKind(_ model: QuillCodeWorkspaceModel) -> ThreadEventKind? {
+        model.selectedThread?.events.last {
+            switch $0.kind {
+            case .toolQueued, .toolRunning, .toolCompleted, .toolFailed: return true
+            default: return false
+            }
+        }?.kind
+    }
+
     func testMCPServerLifecycleStartsStopsAndStopAllTerminatesProcesses() throws {
         let root = try makeQuillCodeTestDirectory()
         let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
@@ -163,7 +174,11 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         model.setDraft("run MCP read_file on README")
         await model.submitComposer(workspaceRoot: root)
 
-        XCTAssertEqual(Array(model.selectedThread?.events.map(\.kind).suffix(5) ?? []), [
+        // Ignore the trailing post-run integrity notice (#875) when asserting the tool sequence.
+        let toolEventKinds = (model.selectedThread?.events ?? [])
+            .filter { !RunIntegrityRecord.isRecord($0) }
+            .map(\.kind)
+        XCTAssertEqual(Array(toolEventKinds.suffix(5)), [
             .message,
             .toolQueued,
             .toolRunning,
@@ -235,7 +250,7 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         model.setDraft("read the README MCP resource")
         await model.submitComposer(workspaceRoot: root)
 
-        XCTAssertEqual(model.selectedThread?.events.suffix(2).first?.kind, .toolCompleted)
+        XCTAssertEqual(lastToolEventKind(model), .toolCompleted)
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.mcpReadResource.name)
         XCTAssertEqual(
             model.selectedThread?.messages.last?.content,
@@ -276,7 +291,7 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         model.setDraft("load the MCP summarize prompt")
         await model.submitComposer(workspaceRoot: root)
 
-        XCTAssertEqual(model.selectedThread?.events.suffix(2).first?.kind, .toolCompleted)
+        XCTAssertEqual(lastToolEventKind(model), .toolCompleted)
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.mcpGetPrompt.name)
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("MCP prompt:\nPrompt: summarize_project") == true)
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("user: Summarize this workspace.") == true)
@@ -385,7 +400,7 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         model.setDraft("run MCP delete_everything")
         await model.submitComposer(workspaceRoot: root)
 
-        XCTAssertEqual(model.selectedThread?.events.suffix(2).first?.kind, .toolFailed)
+        XCTAssertEqual(lastToolEventKind(model), .toolFailed)
         XCTAssertEqual(
             model.selectedThread?.messages.last?.content,
             "Command failed:\nMCP tool delete_everything was not advertised by mcp_server:filesystem."

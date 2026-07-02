@@ -78,4 +78,63 @@ final class WorkspaceRunNotificationBuilderTests: XCTestCase {
     func testNoAnswerNoApprovalNoFailureIsSilent() {
         XCTAssertNil(WorkspaceRunNotificationBuilder.notification(thread: thread(), didFail: false))
     }
+
+    // MARK: - Run-integrity badge (#875)
+
+    private func shellEvents(_ cmd: String, exitCode: Int32, stdout: String = "") -> [ThreadEvent] {
+        let ok = exitCode == 0
+        let call = ToolCall(name: "host.shell.run", argumentsJSON: #"{"cmd":"\#(cmd)"}"#)
+        let result = ToolResult(ok: ok, stdout: stdout, exitCode: exitCode)
+        let callJSON = (try? JSONHelpers.encodePretty(call)) ?? "{}"
+        let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
+        return [
+            ThreadEvent(kind: .toolQueued, summary: "host.shell.run queued", payloadJSON: callJSON),
+            ThreadEvent(kind: .toolRunning, summary: "host.shell.run running"),
+            ThreadEvent(
+                kind: ok ? .toolCompleted : .toolFailed,
+                summary: "host.shell.run \(ok ? "completed" : "failed")",
+                payloadJSON: resultJSON
+            )
+        ]
+    }
+
+    func testBuilderStampsUnverifiedFromTranscript() {
+        // Claims "tests pass" but never ran a test -> the builder derives UNVERIFIED from the transcript.
+        let t = thread(
+            messages: [ChatMessage(role: .assistant, content: "Shipped it. All tests pass.")]
+        )
+        let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
+        XCTAssertEqual(note?.integrity, .unverified)
+        XCTAssertTrue(note?.title.hasPrefix("[UNVERIFIED]") == true, note?.title ?? "")
+    }
+
+    func testBuilderStampsRedFromStandingTestFailure() {
+        let t = thread(
+            messages: [ChatMessage(role: .assistant, content: "Pushed the change.")],
+            events: shellEvents("swift test", exitCode: 1, stdout: "2 failed")
+        )
+        let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
+        XCTAssertEqual(note?.integrity, .red)
+        XCTAssertTrue(note?.title.hasPrefix("[RED]") == true, note?.title ?? "")
+    }
+
+    func testBuilderStampsVerifiedFromBackedClaim() {
+        let t = thread(
+            messages: [ChatMessage(role: .assistant, content: "Done — all tests pass.")],
+            events: shellEvents("swift test", exitCode: 0, stdout: "0 failures")
+        )
+        let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
+        XCTAssertEqual(note?.integrity, .verified)
+        XCTAssertEqual(note?.title, "QuillCode finished")
+    }
+
+    func testBuilderPrefersRecordedVerdictOverRescan() {
+        // If a verdict was already recorded on the thread, the builder uses it (stability across reloads)
+        // even if the live transcript would scan differently.
+        var t = thread(messages: [ChatMessage(role: .assistant, content: "done")])
+        // Inject a recorded RED verdict directly.
+        t.events.append(RunIntegrityRecord.event(for: RunIntegrityReport(verdict: .red))!)
+        let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
+        XCTAssertEqual(note?.integrity, .red)
+    }
 }

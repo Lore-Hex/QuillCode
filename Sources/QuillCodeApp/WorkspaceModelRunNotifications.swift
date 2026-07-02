@@ -5,6 +5,25 @@ import QuillCodeTools
 
 @MainActor
 extension QuillCodeWorkspaceModel {
+    /// After a run ends, scan its transcript and stamp the run-integrity verdict
+    /// (VERIFIED / UNVERIFIED / RED) onto the run's thread as a persisted notice, so the Activity badge
+    /// and the finish notification both read a stable verdict that survives reloads. Only stamps the
+    /// still-selected run thread (a mid-run thread switch drops the stamp — it is a per-run annotation),
+    /// and never stamps a user-cancelled run (they were watching).
+    func recordRunIntegrityIfNeeded(outcome: WorkspaceAgentSendTaskOutcome, expectedThreadID: UUID) {
+        switch outcome {
+        case .completed, .failed: break
+        case .cancelled: return
+        }
+        guard let thread = selectedThread, thread.id == expectedThreadID else { return }
+        mutateSelectedThread { thread in
+            RunIntegrityRecord.record(into: &thread)
+        }
+        if let thread = selectedThread {
+            threadPersistence.save(thread)
+        }
+    }
+
     /// After a run ends, ping the user if they were away and it needs them: finished,
     /// errored, or blocked on an approval gate. A user-cancelled run is skipped.
     func notifyRunFinishedIfNeeded(outcome: WorkspaceAgentSendTaskOutcome) {
