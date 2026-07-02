@@ -28,6 +28,12 @@ public struct AgentRunner: Sendable {
     /// nil disables compaction entirely (the mock runtime, and any caller that opts out) — the run
     /// then behaves exactly as before, surfacing an overflow error instead of compacting.
     public var compaction: AgentCompactionPolicy?
+    /// LSP integration for the workspace (issue #863): after every write/apply_patch it feeds
+    /// project-wide diagnostics back to the model and (opt-in) auto-formats on save, and it backs the
+    /// `host.lsp.*` navigation tools. A single shared instance persists the language-server process
+    /// across tool steps. nil (the default, and the mock runtime) disables every LSP behavior — writes
+    /// behave exactly as before and the nav tools report "not available".
+    public var lsp: LSPCoordinator?
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -39,7 +45,8 @@ public struct AgentRunner: Sendable {
         maxToolSteps: Int = AgentRunner.defaultMaxToolSteps,
         enablesImmediateActionPreflight: Bool = false,
         workspaceStateSignature: (@Sendable (URL) -> String)? = nil,
-        compaction: AgentCompactionPolicy? = nil
+        compaction: AgentCompactionPolicy? = nil,
+        lsp: LSPCoordinator? = nil
     ) {
         self.llm = llm
         self.safety = safety
@@ -51,6 +58,7 @@ public struct AgentRunner: Sendable {
         self.enablesImmediateActionPreflight = enablesImmediateActionPreflight
         self.workspaceStateSignature = workspaceStateSignature
         self.compaction = compaction
+        self.lsp = lsp
     }
 
     public func send(

@@ -9,6 +9,10 @@ public struct ToolRouter: Sendable {
     public var patch: PatchToolExecutor
     public var web: WebFetchToolExecutor
     public var skill: SkillLoadToolExecutor
+    /// LSP integration. `nil` (the default) disables every LSP behavior: diagnostics-after-write and
+    /// format-on-save are skipped and `host.lsp.*` reports "not available". Injecting a coordinator
+    /// (e.g. from the desktop/CLI runtime) turns the features on without changing any existing tool.
+    public var lsp: LSPCoordinator?
 
     public init(
         workspaceRoot: URL,
@@ -16,7 +20,8 @@ public struct ToolRouter: Sendable {
         git: GitToolExecutor = GitToolExecutor(),
         editGuard: FileEditSessionGuard = .shared,
         web: WebFetchToolExecutor = WebFetchToolExecutor(),
-        skill: SkillLoadToolExecutor? = nil
+        skill: SkillLoadToolExecutor? = nil,
+        lsp: LSPCoordinator? = nil
     ) {
         self.workspaceRoot = workspaceRoot
         self.shell = shell
@@ -25,6 +30,7 @@ public struct ToolRouter: Sendable {
         self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell, editGuard: editGuard)
         self.web = web
         self.skill = skill ?? SkillLoadToolExecutor.default(workspaceRoot: workspaceRoot)
+        self.lsp = lsp
     }
 
     public static let definitions: [ToolDefinition] = ShellToolCallDispatcher.definitions + [
@@ -36,7 +42,7 @@ public struct ToolRouter: Sendable {
         .webFetch,
         .webSearch,
         .skillLoad
-    ] + GitToolCallDispatcher.definitions
+    ] + GitToolCallDispatcher.definitions + LSPToolCallDispatcher.definitions
 
     public func definition(named name: String) -> ToolDefinition? {
         Self.definitions.first { $0.name == name }
@@ -51,6 +57,10 @@ public struct ToolRouter: Sendable {
             }
             if GitToolCallDispatcher.handles(call.name) {
                 return try GitToolCallDispatcher(workspaceRoot: workspaceRoot, git: git)
+                    .execute(name: call.name, arguments: args)
+            }
+            if LSPToolCallDispatcher.handles(call.name) {
+                return try LSPToolCallDispatcher(workspaceRoot: workspaceRoot, coordinator: lsp)
                     .execute(name: call.name, arguments: args)
             }
             switch call.name {
@@ -73,12 +83,17 @@ public struct ToolRouter: Sendable {
                     maxResults: args.int("maxResults")
                 )
             case ToolDefinition.fileWrite.name:
-                return files.write(
-                    path: try args.requiredString("path"),
+                let path = try args.requiredString("path")
+                let result = files.write(
+                    path: path,
                     content: try args.requiredString("content", allowingEmpty: true)
                 )
+                return withLSPFeedback(result, writtenPaths: [path])
             case ToolDefinition.applyPatch.name:
-                return patch.apply(unifiedDiff: try args.requiredString("patch"))
+                let patchText = try args.requiredString("patch")
+                let result = patch.apply(unifiedDiff: patchText)
+                let touched = PatchToolExecutor.targetPaths(in: patchText)
+                return withLSPFeedback(result, writtenPaths: touched)
             case ToolDefinition.webFetch.name:
                 return web.fetch(urlString: try args.requiredString("url"))
             case ToolDefinition.webSearch.name:
@@ -99,5 +114,24 @@ public struct ToolRouter: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    /// After a successful write/patch, run the LSP post-write pass (format-on-save + project-wide
+    /// diagnostics) and append its notice to the result's `stdout`. A no-op when no coordinator is
+    /// wired or the result already failed — the write's own behavior is never altered on failure.
+    private func withLSPFeedback(_ result: ToolResult, writtenPaths: [String]) -> ToolResult {
+        guard let lsp, result.ok, !writtenPaths.isEmpty else { return result }
+        // Resolve to absolute URLs inside the workspace; silently drop anything that fails the
+        // boundary check (a hostile path never reaches the LSP layer).
+        let resolver = FileWorkspacePathResolver(workspaceRoot: workspaceRoot)
+        let urls = writtenPaths.compactMap { try? resolver.resolve($0) }
+        guard !urls.isEmpty else { return result }
+
+        let feedback = lsp.afterWrite(paths: urls)
+        guard let notice = feedback.notice, !notice.isEmpty else { return result }
+        var updated = result
+        let separator = updated.stdout.isEmpty || updated.stdout.hasSuffix("\n") ? "" : "\n"
+        updated.stdout += "\(separator)\n\(notice)\n"
+        return updated
     }
 }

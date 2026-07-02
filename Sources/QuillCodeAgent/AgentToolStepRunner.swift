@@ -26,7 +26,7 @@ extension AgentRunner {
     ) async throws -> AgentToolStep {
         // The edit guard is scoped to THIS thread's model context: only files whose content
         // entered this thread (read or written here) may be overwritten/patched here.
-        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: .session(for: thread.id))
+        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: .session(for: thread.id), lsp: lsp)
         let definition = toolDefinitions.first { $0.name == call.name }
         await appendQueuedEvent(for: call, to: &thread, onProgress: onProgress)
 
