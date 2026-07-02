@@ -1,7 +1,6 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
-import QuillCodeTools
 
 @MainActor
 extension QuillCodeWorkspaceModel {
@@ -183,90 +182,6 @@ extension QuillCodeWorkspaceModel {
         // thread happens to be selected now, so a mid-run thread switch never misattributes the notice.
         drainSelfHealingNotices(expectedThreadID: runThreadID)
         notifyRunFinishedIfNeeded(outcome: outcome)
-    }
-
-    /// After a run ends, ping the user if they were away and it needs them — finished, errored, or
-    /// blocked on an approval gate. A user-cancelled run is skipped (they were clearly watching). The
-    /// desktop handler additionally gates delivery on the app being unfocused.
-    private func notifyRunFinishedIfNeeded(outcome: WorkspaceAgentSendTaskOutcome) {
-        let didFail: Bool
-        switch outcome {
-        case .completed: didFail = false
-        case .failed: didFail = true
-        case .cancelled: return
-        }
-        guard let handler = onRunNotification, let thread = selectedThread else { return }
-        let localActions = selectedProject?.localActions ?? []
-
-        // A successful, edit-bearing run in a project with a verify action gets a CHECKED notification:
-        // run the user's verify command in the background (never blocking the main actor), then post
-        // verified-green / checks-failing. The ping fires after the check — fine, the point is you
-        // walked away. Everything else notifies immediately, exactly as before.
-        if !didFail,
-           WorkspaceTurnRevertPlanner.threadMadeEdits(thread),
-           let verifyAction = LocalEnvironmentActionMatcher.verificationAction(in: localActions),
-           let workspaceRoot = activeWorkspaceRoot {
-            // Capture the action NOW (not a re-lookup later) so deleting it — or the project — during
-            // the check can't turn the gate into a silent missed notification. [weak self] so a long
-            // verify can never keep the model alive past app quit (a missed ping on quit is fine).
-            Task { [weak self, handler] in
-                await self?.runVerificationAndNotify(
-                    action: verifyAction,
-                    thread: thread,
-                    localActions: localActions,
-                    workspaceRoot: workspaceRoot,
-                    handler: handler
-                )
-            }
-            return
-        }
-
-        guard let notification = WorkspaceRunNotificationBuilder.notification(
-            thread: thread,
-            didFail: didFail,
-            localActions: localActions
-        ) else {
-            return
-        }
-        handler(notification)
-    }
-
-    /// Runs the project's verify command (off the main actor via the injected/real runner), then posts
-    /// the CHECKED notification with the resulting verdict. Awaitable so a unit test can drive it with a
-    /// fake runner and assert the posted kind without spawning a shell. Fire-and-forget in production.
-    func runVerificationAndNotify(
-        action: LocalEnvironmentAction,
-        thread: ChatThread,
-        localActions: [LocalEnvironmentAction],
-        workspaceRoot: URL,
-        handler: @MainActor @Sendable (AgentRunNotification) -> Void
-    ) async {
-        // The runner is read here on the main actor (this method is @MainActor) BEFORE the await, so the
-        // off-main shell run never touches the model's state.
-        let runner = verificationRunner ?? Self.runVerificationCommandViaShell
-        let verdict = VerificationResultParser.parse(await runner(action, workspaceRoot))
-        guard let notification = WorkspaceRunNotificationBuilder.notification(
-            thread: thread,
-            didFail: false,
-            localActions: localActions,
-            verification: verdict
-        ) else {
-            return
-        }
-        handler(notification)
-    }
-
-    /// Runs a verification action's command in the workspace and returns its raw result (off the main
-    /// actor via `runCancellable`). The default; tests inject `verificationRunner` to avoid a real shell.
-    static func runVerificationCommandViaShell(_ action: LocalEnvironmentAction, _ workspaceRoot: URL) async -> ToolResult {
-        let cwd = action.workingDirectory.map { workspaceRoot.appendingPathComponent($0) } ?? workspaceRoot
-        let request = ShellExecutionRequest(
-            command: action.command,
-            cwd: cwd,
-            timeoutSeconds: TimeInterval(action.timeoutSeconds ?? 120),
-            environment: action.environment
-        )
-        return await ShellToolExecutor().runCancellable(request)
     }
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
