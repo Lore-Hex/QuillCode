@@ -62,7 +62,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     }
 
     private var configuredRunner: AgentRunner {
-        WorkspaceAgentRunContextBuilder(
+        var runner = WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
             config: config,
             browser: browser,
@@ -74,5 +74,14 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             permissionRules: permissionRules
         ).configuredRunner(from: baseRunner)
+        // Attach the (opt-in) per-workspace LSP coordinator so writes get diagnostics-after-write +
+        // format-on-save and the host.lsp.* tools work. The coordinator is cached per workspace so the
+        // language server persists across sends; nil (feature off / remote project) leaves the runner
+        // exactly as configured above.
+        runner.lsp = WorkspaceLSPCoordinatorProvider.shared.coordinator(
+            forWorkspace: workspaceRoot,
+            isRemote: selectedProject?.isRemote == true
+        )
+        return runner
     }
 }
