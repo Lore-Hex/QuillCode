@@ -1418,6 +1418,45 @@
     .find-bar + .timeline { grid-row: 2; }
     .transcript > .timeline:first-child { grid-row: 1 / 3; }
     .timeline:has(.empty) { justify-content: flex-end; }
+    .transcript-jump-bar {
+      grid-row: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(18,29,35,.6);
+    }
+    .transcript-jump-bar + .timeline { grid-row: 2; }
+    .transcript-jump-button {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 999px;
+      padding: 4px 12px;
+      cursor: pointer;
+    }
+    .transcript-jump-button[data-testid="transcript-jump-last-error"]:not([disabled]) { color: var(--red); }
+    .transcript-jump-button[data-testid="transcript-jump-last-diff"]:not([disabled]) { color: var(--green); }
+    .transcript-jump-button[disabled] { opacity: .5; cursor: default; }
+    .timeline { position: relative; }
+    .transcript-new-turns-pill {
+      position: sticky;
+      top: 6px;
+      align-self: center;
+      z-index: 5;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--blue);
+      border: none;
+      border-radius: 999px;
+      padding: 6px 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,.3);
+    }
     .terminal-pane,
     .browser-pane,
     .extensions-pane,
@@ -4047,7 +4086,10 @@
       nextThreadIndex: 1,
       nextAutomationIndex: 1,
       nextTimelineIndex: 1,
-      copiedTranscriptItemID: null
+      copiedTranscriptItemID: null,
+      // Per-thread "last seen" watermark (thread id -> last-seen timeline item id), powering the
+      // "N new turns" pill. Mirrors the persisted Swift TranscriptNewTurnsMarker.
+      transcriptLastSeen: {}
     };
     let activeMockRun = null;
     let activeTerminalRun = null;
@@ -4892,6 +4934,26 @@
       });
       saveSelectedThreadSnapshot();
       return message;
+    }
+
+    // Simulate a background run finishing on a thread the user is NOT currently viewing: append
+    // an assistant turn straight into that thread's stored snapshot, without touching its
+    // "seen" watermark. On return, the "N new turns" pill surfaces the growth. Used by the E2E
+    // harness (prompt keyword) to exercise the pill deterministically.
+    function growThreadInBackground(threadID, text) {
+      const target = state.sidebar.items.find(item => item.id === threadID);
+      if (!target || threadID === state.sidebar.selectedThreadID) return;
+      const snapshot = target.snapshot || { messages: [], toolCards: [], timelineItems: [], review: emptyReviewSurface() };
+      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text, feedback: null };
+      const item = { id: `timeline-${state.nextTimelineIndex++}`, kind: 'message', message };
+      const nextSnapshot = {
+        ...snapshot,
+        messages: [...(snapshot.messages || []), message],
+        timelineItems: [...(snapshot.timelineItems || []), item]
+      };
+      state.sidebar.items = state.sidebar.items.map(candidate => (
+        candidate.id === threadID ? { ...candidate, snapshot: nextSnapshot } : candidate
+      ));
     }
 
     function renameSelectedThread(title) {
@@ -7102,7 +7164,8 @@
             <main class="transcript" data-testid="transcript">
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
 	              ${state.automations.isVisible ? renderAutomationsPane() : ''}
-	              <div class="timeline" data-testid="timeline">${timeline}</div>
+	              ${hasTimelineContent ? renderTranscriptJumpBar() : ''}
+	              <div class="timeline" data-testid="timeline">${renderNewTurnsPill()}${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
@@ -7226,6 +7289,20 @@
         button.addEventListener('click', event => {
           copyTranscriptItem(event.currentTarget.getAttribute('data-copy-id'));
         });
+      });
+      document.querySelectorAll('[data-testid="transcript-jump-last-error"], [data-testid="transcript-jump-last-diff"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const anchorID = event.currentTarget.getAttribute('data-anchor-id');
+          if (anchorID) scrollTimelineItemIntoView(anchorID);
+        });
+      });
+      document.querySelector('[data-testid="transcript-new-turns-pill"]')?.addEventListener('click', event => {
+        const firstUnseen = event.currentTarget.getAttribute('data-first-unseen-id');
+        // Catching up dismisses the pill; re-render first so the scroll target survives on the
+        // fresh DOM (render replaces innerHTML), then scroll to the first unseen turn.
+        markTranscriptSeen();
+        render();
+        if (firstUnseen) scrollTimelineItemIntoView(firstUnseen);
       });
       document.querySelectorAll('[data-testid="tool-card-action"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -8663,6 +8740,75 @@
       ];
     }
 
+    // Mirrors Swift TranscriptNavigationAnchors.derive: the timeline ids of the most recent
+    // error turn (a failed tool run) and the most recent diff turn (a file write / patch /
+    // commit, or any run that emitted a file/path artifact). null when the transcript has none.
+    const DIFF_PRODUCING_TOOL_NAMES = new Set([
+      'apply_patch', 'file.write', 'git.commit', 'edit', 'write'
+    ]);
+    function isDiffProducingToolName(rawTitle) {
+      const name = String(rawTitle || '').trim().toLowerCase();
+      const stripped = name.startsWith('host.') ? name.slice('host.'.length) : name;
+      return DIFF_PRODUCING_TOOL_NAMES.has(stripped);
+    }
+    function isDiffCard(card) {
+      if (isDiffProducingToolName(card.title)) return true;
+      return (card.artifacts || []).some(artifact => artifact.kind === 'file' || artifact.kind === 'path');
+    }
+    function transcriptNavigationAnchors() {
+      let lastError = null;
+      let lastDiff = null;
+      for (const item of transcriptTimelineItems()) {
+        if (item.kind !== 'toolCard' || !item.toolCard) continue;
+        if (item.toolCard.status === 'failed') lastError = item.id;
+        if (isDiffCard(item.toolCard)) lastDiff = item.id;
+      }
+      return { lastErrorAnchorID: lastError, lastDiffAnchorID: lastDiff };
+    }
+
+    // Mirrors Swift TranscriptNewTurnsResolver.resolve: how many items follow the per-thread
+    // last-seen watermark, and the first unseen id. null when nothing is new (never viewed,
+    // caught up, or a stale marker no longer in the timeline — never a negative count).
+    function transcriptNewTurnsPill() {
+      const lastSeenID = threadLastSeenItemID();
+      if (!lastSeenID) return null;
+      const items = transcriptTimelineItems();
+      const seenIndex = items.findIndex(item => item.id === lastSeenID);
+      if (seenIndex < 0) return null;
+      const unseen = items.slice(seenIndex + 1);
+      if (!unseen.length) return null;
+      return {
+        count: unseen.length,
+        firstUnseenItemID: unseen[0].id,
+        label: unseen.length === 1 ? '1 new turn' : `${unseen.length} new turns`
+      };
+    }
+    function threadLastSeenItemID() {
+      const threadID = state.sidebar.selectedThreadID;
+      if (!threadID) return null;
+      return state.transcriptLastSeen[threadID] || null;
+    }
+    function markTranscriptSeen() {
+      const threadID = state.sidebar.selectedThreadID;
+      if (!threadID) return;
+      const items = transcriptTimelineItems();
+      if (!items.length) return;
+      state.transcriptLastSeen[threadID] = items[items.length - 1].id;
+    }
+
+    // Scroll a timeline item (by its data-timeline-id) into view and briefly mark it as the jump
+    // target so the affordance's effect is observable in tests and to the eye.
+    function scrollTimelineItemIntoView(timelineID) {
+      const element = document.querySelector(`[data-timeline-id="${cssAttrEscape(timelineID)}"]`);
+      if (!element) return;
+      element.scrollIntoView({ block: 'center', behavior: 'auto' });
+      document.querySelectorAll('[data-jump-target="true"]').forEach(node => node.removeAttribute('data-jump-target'));
+      element.setAttribute('data-jump-target', 'true');
+    }
+    function cssAttrEscape(value) {
+      return String(value).replace(/["\\]/g, '\\$&');
+    }
+
     function copyTranscriptItem(timelineID) {
       const item = transcriptTimelineItems().find(entry => entry.id === timelineID);
       const text = item ? transcriptCopyText(item) : '';
@@ -8872,6 +9018,33 @@
         card.outputJSON,
         ...(card.artifacts || []).map(artifact => artifact.label)
       ].filter(Boolean).join('\n');
+    }
+
+    // The jump bar above the transcript: "Last error" / "Last diff" affordances. Each is
+    // disabled (never hidden) when the transcript has no such turn, mirroring the native
+    // QuillCodeTranscriptJumpBar.
+    function renderTranscriptJumpBar() {
+      const anchors = transcriptNavigationAnchors();
+      const button = (testID, label, anchorID) => `
+        <button type="button" class="transcript-jump-button hit-target-text" data-testid="${testID}"
+          data-anchor-id="${escapeHTML(anchorID || '')}" ${anchorID ? '' : 'disabled'}
+          aria-label="Jump to ${escapeHTML(label.toLowerCase())}"
+          title="${anchorID ? `Jump to ${escapeHTML(label.toLowerCase())}` : `No ${escapeHTML(label.toLowerCase())} in this chat`}">${escapeHTML(label)}</button>`;
+      return `
+        <div class="transcript-jump-bar" data-testid="transcript-jump-bar" aria-label="Transcript navigation">
+          ${button('transcript-jump-last-error', 'Last error', anchors.lastErrorAnchorID)}
+          ${button('transcript-jump-last-diff', 'Last diff', anchors.lastDiffAnchorID)}
+        </div>`;
+    }
+
+    // The floating "N new turns" pill, shown when returning to a thread that grew while away.
+    function renderNewTurnsPill() {
+      const pill = transcriptNewTurnsPill();
+      if (!pill) return '';
+      return `
+        <button type="button" class="transcript-new-turns-pill" data-testid="transcript-new-turns-pill"
+          data-first-unseen-id="${escapeHTML(pill.firstUnseenItemID)}" data-count="${pill.count}"
+          aria-label="${escapeHTML(pill.label)}">${escapeHTML(pill.label)}</button>`;
     }
 
     function renderFindBar(matches) {
@@ -10053,6 +10226,9 @@
 
     function newChat() {
       const previousLocation = currentWorkspaceLocation();
+      // The user has seen the outgoing thread up to its current end before starting a new chat;
+      // advance its "N new turns" watermark so later background growth is what surfaces the pill.
+      markTranscriptSeen();
       saveSelectedThreadSnapshot();
       clearSidebarSelection();
       stashComposerDraft(state.sidebar.selectedThreadID);
@@ -13722,6 +13898,9 @@
       const previousLocation = currentWorkspaceLocation();
       const outgoing = state.sidebar.selectedThreadID;
       if (outgoing !== threadID) {
+        // Leaving a thread means the user has seen it up to its current end — advance that
+        // thread's "N new turns" watermark before we swap the transcript out.
+        markTranscriptSeen();
         saveSelectedThreadSnapshot(outgoing);
         stashComposerDraft(outgoing);
         restoreComposerDraft(threadID);
@@ -14065,7 +14244,13 @@
       const fileWriteRequest = fileWriteRequestFromPrompt(text);
       const fileReadPath = fileReadPathFromPrompt(text);
       const fileSearchRequest = fileSearchRequestFromPrompt(text);
-      if (isOnlyNegatedActionRequest(text)) {
+      if (text.toLowerCase().includes('grow other thread')) {
+        // Grow the first thread that is NOT currently selected, in the background, so returning
+        // to it shows the "N new turns" pill. Deterministic hook for the E2E harness.
+        const other = state.sidebar.items.find(item => item.id !== state.sidebar.selectedThreadID);
+        if (other) growThreadInBackground(other.id, 'Background result while you were away.');
+        addMessage('assistant', 'Queued a background turn on another chat.');
+      } else if (isOnlyNegatedActionRequest(text)) {
         addMessage('assistant', "Okay, I won't take that action.");
       } else if (text.toLowerCase().includes('slow task')) {
         const card = addToolCard({

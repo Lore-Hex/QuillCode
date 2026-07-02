@@ -29,8 +29,24 @@ struct QuillCodeTranscriptView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// The last timeline item this view has scrolled the user to the bottom of. Drives the
+    /// "N new turns" pill: when the transcript grows past this marker while the user is scrolled
+    /// up (or returns to the thread), the pill offers a jump to the first unseen item. Local view
+    /// state so the feature works without threading a new binding through the whole workspace.
+    @State private var newTurnsMarker = TranscriptNewTurnsMarker()
+    /// Which anchor jump is currently pending, so the scroll handler can target it once.
+    @State private var pendingJumpAnchorID: String?
+
     private var findMatches: [QuillCodeTranscriptFindMatch] {
         QuillCodeTranscriptFindMatch.matches(in: transcript, query: findQuery)
+    }
+
+    private var navigationAnchors: TranscriptNavigationAnchors {
+        TranscriptNavigationAnchors.derive(from: transcript)
+    }
+
+    private var newTurnsPill: TranscriptNewTurnsPill? {
+        TranscriptNewTurnsResolver.resolve(transcript: transcript, marker: newTurnsMarker)
     }
 
     private var activeFindMatch: QuillCodeTranscriptFindMatch? {
@@ -67,12 +83,25 @@ struct QuillCodeTranscriptView: View {
                 )
                 Divider()
             }
+            transcriptBody
+        }
+        .background(QuillCodePalette.background)
+    }
+
+    @ViewBuilder
+    private var transcriptBody: some View {
+        Group {
             if isEmptyStateVisible {
                 Spacer(minLength: 0)
                 emptyState
                     .padding(.bottom, 20)
             } else {
                 ScrollViewReader { proxy in
+                    QuillCodeTranscriptJumpBar(
+                        anchors: navigationAnchors,
+                        onJumpToLastError: { jump(to: navigationAnchors.lastErrorAnchorID) },
+                        onJumpToLastDiff: { jump(to: navigationAnchors.lastDiffAnchorID) }
+                    )
                     ScrollView {
                         LazyVStack(spacing: 14) {
                             if let contextBanner {
@@ -110,6 +139,9 @@ struct QuillCodeTranscriptView: View {
                         .padding(22)
                     }
                     .defaultScrollAnchor(.bottom)
+                    .overlay(alignment: .top) {
+                        newTurnsPillOverlay(proxy)
+                    }
                     .onAppear {
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
@@ -127,6 +159,9 @@ struct QuillCodeTranscriptView: View {
                         if isPresented {
                             scrollToActiveFindMatch(proxy)
                         }
+                    }
+                    .onChange(of: pendingJumpAnchorID) { _, id in
+                        scrollToPendingJump(proxy, id: id)
                     }
                 }
             }
@@ -276,8 +311,41 @@ struct QuillCodeTranscriptView: View {
         }
     }
 
+    @ViewBuilder
+    private func newTurnsPillOverlay(_ proxy: ScrollViewProxy) -> some View {
+        if let pill = newTurnsPill {
+            QuillCodeTranscriptNewTurnsPill(pill: pill) {
+                jump(to: pill.firstUnseenItemID)
+                newTurnsMarker.markSeen(transcript: transcript)
+            }
+            .padding(.top, 10)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    /// Request a scroll to a specific timeline anchor. A `nil` id (no error/diff turn) is a
+    /// graceful no-op so the disabled affordance can still call through safely.
+    private func jump(to anchorID: String?) {
+        guard let anchorID else { return }
+        // Toggle through nil first so repeated jumps to the same anchor still fire onChange.
+        pendingJumpAnchorID = nil
+        DispatchQueue.main.async {
+            pendingJumpAnchorID = anchorID
+        }
+    }
+
+    private func scrollToPendingJump(_ proxy: ScrollViewProxy, id: String?) {
+        guard let id else { return }
+        quillCodeWithAnimation(.easeInOut(duration: 0.2), reduceMotion: reduceMotion) {
+            proxy.scrollTo(id, anchor: .center)
+        }
+    }
+
     private func scrollToTranscriptEnd(_ proxy: ScrollViewProxy, id: String?) {
         guard let id, !isFindPresented else { return }
+        // Reaching the end means the user has now seen everything up to here — advance the
+        // "N new turns" watermark so the pill does not linger over content already on screen.
+        newTurnsMarker.markSeen(transcript: transcript)
         DispatchQueue.main.async {
             quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
                 proxy.scrollTo(id, anchor: .bottom)

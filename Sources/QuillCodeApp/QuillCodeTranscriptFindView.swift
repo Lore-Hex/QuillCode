@@ -1,48 +1,25 @@
 import SwiftUI
 
+/// The find bar's per-item match. This is now a thin projection of the pure
+/// ``TranscriptSearchIndex`` (literal, case-insensitive, unicode-safe matching with
+/// highlight ranges) so the native find bar, the desktop coordinator, and the HTML harness all
+/// share one matching definition.
 struct QuillCodeTranscriptFindMatch: Identifiable, Hashable {
     var id: String { timelineItemID }
     var timelineItemID: String
     var label: String
+    /// Character-offset ranges of each occurrence within the item's searchable text, for
+    /// highlighting. Empty is impossible for a `QuillCodeTranscriptFindMatch` (a non-matching
+    /// item is dropped).
+    var ranges: [TranscriptSearchIndex.MatchRange]
 
     static func matches(in transcript: TranscriptSurface, query: String) -> [QuillCodeTranscriptFindMatch] {
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedQuery.isEmpty else { return [] }
-        return transcript.timelineItems.compactMap { item in
-            let haystack = searchableText(for: item)
-            guard haystack.localizedCaseInsensitiveContains(normalizedQuery) else { return nil }
-            return QuillCodeTranscriptFindMatch(
-                timelineItemID: item.id,
-                label: label(for: item)
+        TranscriptSearchIndex.build(transcript: transcript, query: query).matches.map {
+            QuillCodeTranscriptFindMatch(
+                timelineItemID: $0.timelineItemID,
+                label: $0.label,
+                ranges: $0.ranges
             )
-        }
-    }
-
-    private static func searchableText(for item: TranscriptTimelineItemSurface) -> String {
-        switch item.kind {
-        case .message:
-            return [
-                item.message?.role.rawValue,
-                item.message?.text
-            ].compactMap { $0 }.joined(separator: "\n")
-        case .toolCard:
-            guard let card = item.toolCard else { return "" }
-            return [
-                card.title,
-                card.subtitle,
-                card.inputJSON,
-                card.outputJSON,
-                card.artifacts.map(\.label).joined(separator: "\n")
-            ].compactMap { $0 }.joined(separator: "\n")
-        }
-    }
-
-    private static func label(for item: TranscriptTimelineItemSurface) -> String {
-        switch item.kind {
-        case .message:
-            return item.message?.role.rawValue.capitalized ?? "Message"
-        case .toolCard:
-            return item.toolCard?.title ?? "Tool"
         }
     }
 }
