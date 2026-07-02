@@ -384,6 +384,39 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
         )
     }
 
+    /// A one-shot auxiliary call (subagent worker / context summary) sends a tool-free request on
+    /// a FRESH thread — so the (empty) history prefix is trivially stable and an .automatic
+    /// Anthropic-route client WOULD annotate it, even though the unique prompt is never re-sent
+    /// (a cache write with no possible read). The `.disabled` policy those call sites use must
+    /// suppress the breakpoint. Fails on revert of the aux-disable wiring's effect.
+    func testFreshThreadOneShotRequestIsAnnotatedOnlyWhenCachingEnabled() throws {
+        let assembled = TrustedRouterPromptBuilder().assembled(
+            thread: ChatThread(title: "Subagent: Explorer"),
+            userMessage: "You are the Explorer subagent. Investigate and report.",
+            tools: []
+        )
+        XCTAssertTrue(assembled.historyPrefixStable, "a fresh thread's prefix is trivially stable")
+
+        func body(policy: TrustedRouterPromptCachingPolicy) throws -> String {
+            let data = try TrustedRouterLLMClient.chatCompletionBody(
+                model: anthropicModel,
+                messages: assembled.messages,
+                promptCachingPolicy: policy,
+                historyPrefixStable: assembled.historyPrefixStable
+            )
+            return String(decoding: data, as: UTF8.self)
+        }
+
+        XCTAssertTrue(
+            try body(policy: .automatic).contains("cache_control"),
+            "sanity: without the opt-out this one-shot request would be annotated"
+        )
+        XCTAssertFalse(
+            try body(policy: .disabled).contains("cache_control"),
+            "a one-shot aux call must not annotate its unique never-repeated prompt"
+        )
+    }
+
     /// End-to-end through the builder + client: a short thread caches, a saturated thread does
     /// not. This is the regression that would FAIL if positional annotation were reinstated
     /// without the stability gate.
