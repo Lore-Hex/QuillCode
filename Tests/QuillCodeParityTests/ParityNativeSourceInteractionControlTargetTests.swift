@@ -145,6 +145,52 @@ final class ParityNativeSourceInteractionControlTargetTests: QuillCodeParityTest
         )
     }
 
+    func testNativeSourceAuditRejectsNavigationLinksWithoutPressSemantics() throws {
+        let violations = try nativeSourceAuditViolations(for: """
+        import SwiftUI
+
+        struct NavigationLinkChrome: View {
+            var body: some View {
+                VStack {
+                    NavigationLink(destination: Text("Details")) {
+                        Text("Open details")
+                    }
+
+                    NavigationLink(destination: Text("Bad details")) {
+                        Text("Looks like a web link")
+                            .quillCodeLinkTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                }
+            }
+        }
+        """)
+
+        XCTAssertTrue(violations.contains { $0.contains("NavigationLink lacks shared hit target") })
+        XCTAssertTrue(violations.contains { $0.contains("NavigationLink lacks explicit press or platform style") })
+        XCTAssertTrue(violations.contains { $0.contains("NavigationLink uses incompatible shared hit target") })
+    }
+
+    func testNativeSourceAuditAcceptsNavigationLinksWithPressTargets() throws {
+        try assertNoNativeSourceAuditViolations(for: """
+        import SwiftUI
+
+        struct NavigationLinkChrome: View {
+            var body: some View {
+                NavigationLink(destination: Text("Details")) {
+                    HStack {
+                        Text("Open details")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .quillCodeFullRowButtonTarget()
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+            }
+        }
+        """)
+    }
+
     func testNativeSourceAuditRejectsMismatchedSemanticTargets() throws {
         let violations = try nativeSourceAuditViolations(for: """
         import SwiftUI
