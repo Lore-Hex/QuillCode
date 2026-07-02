@@ -30,7 +30,8 @@ struct TrustedRouterCatalogModel: Decodable {
             outputModalities: container.firstStringList(for: ["output_modalities", "outputModalities"]),
             capabilityTags: Self.capabilityTags(in: container),
             status: container.firstNonEmptyString(for: ["status", "availability"]),
-            summary: container.firstNonEmptyString(for: ["description", "summary"])
+            summary: container.firstNonEmptyString(for: ["description", "summary"]),
+            releaseDate: Self.releaseDate(in: container)
         )
     }
 
@@ -66,19 +67,55 @@ struct TrustedRouterCatalogModel: Decodable {
             + container.firstStringList(for: ["supported_parameters", "supportedParameters"])
     }
 
+    private static let releaseDateKeys = [
+        "created",
+        "created_at",
+        "createdAt",
+        "release_date",
+        "releaseDate"
+    ]
+
+    /// Catalogs report the model's release moment either as a unix epoch (seconds or milliseconds,
+    /// OpenRouter-style `created`) or as an ISO-8601 / `yyyy-MM-dd` string. The auxiliary-model
+    /// selector uses this for its recency score, so decode is best-effort: unparseable values are nil.
+    private static func releaseDate(in container: KeyedDecodingContainer<FlexibleCodingKey>) -> Date? {
+        // isFinite matters: `Double("inf")`/`Double("1e999")` parse to +infinity, and a non-finite
+        // Date would poison the auxiliary-model selector's recency normalization downstream.
+        if let epoch = try? container.firstDouble(for: releaseDateKeys), epoch.isFinite, epoch > 0 {
+            // Values beyond the year ~33658 in seconds are clearly millisecond epochs.
+            return Date(timeIntervalSince1970: epoch > 1_000_000_000_000 ? epoch / 1000 : epoch)
+        }
+        guard let raw = try? container.firstNonEmptyString(for: releaseDateKeys) else { return nil }
+        return parseDateString(raw)
+    }
+
+    private static func parseDateString(_ raw: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        if let date = iso.date(from: raw) { return date }
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: raw) { return date }
+        let dayFormatter = DateFormatter()
+        dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dayFormatter.timeZone = TimeZone(identifier: "UTC")
+        dayFormatter.dateFormat = "yyyy-MM-dd"
+        return dayFormatter.date(from: raw)
+    }
+
     private static func price(
         in container: KeyedDecodingContainer<FlexibleCodingKey>,
         directKeys: [String],
         pricingKeys: [String]
     ) throws -> Double? {
-        if let direct = try container.firstDouble(for: directKeys) {
+        // Treat non-finite prices (string "inf"/"1e999" parses to +infinity) as absent: they carry
+        // no information and would otherwise leak into pricing displays and model scoring.
+        if let direct = try container.firstDouble(for: directKeys), direct.isFinite {
             return direct
         }
         guard let pricing = try container.decodeIfPresent(FlexibleJSONObject.self, forKey: "pricing") else {
             return nil
         }
         for key in pricingKeys {
-            guard let value = pricing.doubleValue(for: key) else { continue }
+            guard let value = pricing.doubleValue(for: key), value.isFinite else { continue }
             return value < 1 ? value * 1_000_000 : value
         }
         return nil

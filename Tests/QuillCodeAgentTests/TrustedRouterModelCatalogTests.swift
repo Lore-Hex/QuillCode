@@ -65,12 +65,28 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
                       "id": "acme/vision-code",
                       "display_name": "Vision Code",
                       "context_window": "128,000",
+                      "created": 1747008000,
                       "pricing": { "prompt": "0.00000025", "completion": 0.00000125 },
                       "input_modalities": ["text", "image"],
                       "output_modalities": "text",
                       "supported_parameters": { "tools": true, "json_mode": true, "legacy": false },
                       "status": "available",
                       "description": "Vision coding model"
+                    },
+                    {
+                      "id": "acme/vision-code-ms",
+                      "created": 1747008000000,
+                      "pricing": { "prompt": "0.00000025", "completion": 0.00000125 }
+                    },
+                    {
+                      "id": "acme/vision-code-dated",
+                      "release_date": "2025-05-12",
+                      "pricing": { "prompt": "0.00000025", "completion": 0.00000125 }
+                    },
+                    {
+                      "id": "acme/broken-metadata",
+                      "created": "1e999",
+                      "pricing": { "prompt": "inf", "completion": "1e999" }
                     }
                   ]
                 }
@@ -98,6 +114,48 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         XCTAssertEqual(model.capabilities.capabilityTags, ["json mode", "tools"])
         XCTAssertEqual(model.capabilities.status, "available")
         XCTAssertEqual(model.capabilities.summary, "Vision coding model")
+        XCTAssertEqual(model.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
+
+        // 2025-05-12T00:00:00Z — the same instant expressed as a millisecond epoch and a date string.
+        let millisecondModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code-ms" })
+        XCTAssertEqual(millisecondModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
+        let datedModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code-dated" })
+        XCTAssertEqual(datedModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
+
+        // Non-finite metadata ("inf"/"1e999" parse to +infinity via Double(String)) decodes as
+        // absent, never as an infinite price or date that could poison downstream scoring.
+        let brokenModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/broken-metadata" })
+        XCTAssertNil(brokenModel.capabilities.inputPricePerMillionTokens)
+        XCTAssertNil(brokenModel.capabilities.outputPricePerMillionTokens)
+        XCTAssertNil(brokenModel.capabilities.releaseDate)
+    }
+
+    func testNormalizedCatalogBackfillsLiveCapabilitiesIntoBundledEntries() throws {
+        // The bundled curated entries (empty capabilities) dedup-shadow same-canonical-ID live rows.
+        // The live row's capabilities must be backfilled, or canonical models — including the default
+        // session model — would never look priced to pricing-aware features like the aux selector.
+        let liveFast = ModelInfo(
+            id: TrustedRouterDefaults.fastModel,
+            provider: "trustedrouter",
+            displayName: "Live Fast Row",
+            category: "trustedrouter",
+            capabilities: ModelCapabilities(
+                contextWindowTokens: 200_000,
+                inputPricePerMillionTokens: 3,
+                outputPricePerMillionTokens: 15
+            )
+        )
+
+        let catalog = TrustedRouterModelCatalog(models: [liveFast])
+        let fast = try XCTUnwrap(catalog.models.first { $0.id == TrustedRouterDefaults.fastModel })
+
+        XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
+        // Curated identity wins; live capabilities fill the gaps.
+        XCTAssertEqual(fast.displayName, TrustedRouterDefaults.fastModelDisplayName)
+        XCTAssertEqual(fast.category, TrustedRouterDefaults.recommendedCategory)
+        XCTAssertEqual(fast.capabilities.inputPricePerMillionTokens, 3)
+        XCTAssertEqual(fast.capabilities.outputPricePerMillionTokens, 15)
+        XCTAssertEqual(fast.capabilities.contextWindowTokens, 200_000)
     }
 
     func testCatalogFetchEmptyResponseUsesFallbackStatus() async throws {

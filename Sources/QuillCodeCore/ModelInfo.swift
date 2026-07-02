@@ -1,3 +1,5 @@
+import Foundation
+
 public struct ModelCapabilities: Codable, Sendable, Hashable {
     public var contextWindowTokens: Int?
     public var inputPricePerMillionTokens: Double?
@@ -7,6 +9,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
     public var capabilityTags: [String]
     public var status: String?
     public var summary: String?
+    public var releaseDate: Date?
 
     public var isEmpty: Bool {
         contextWindowTokens == nil
@@ -17,6 +20,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
             && capabilityTags.isEmpty
             && status == nil
             && summary == nil
+            && releaseDate == nil
     }
 
     public init(
@@ -27,7 +31,8 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         outputModalities: [String] = [],
         capabilityTags: [String] = [],
         status: String? = nil,
-        summary: String? = nil
+        summary: String? = nil,
+        releaseDate: Date? = nil
     ) {
         self.contextWindowTokens = contextWindowTokens.map { max(0, $0) }
         self.inputPricePerMillionTokens = inputPricePerMillionTokens.map { max(0, $0) }
@@ -37,6 +42,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         self.capabilityTags = Self.normalizedList(capabilityTags)
         self.status = Self.normalizedOptional(status)
         self.summary = Self.normalizedOptional(summary)
+        self.releaseDate = releaseDate
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -48,6 +54,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         case capabilityTags
         case status
         case summary
+        case releaseDate
     }
 
     public init(from decoder: Decoder) throws {
@@ -60,7 +67,8 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
             outputModalities: try container.decodeIfPresent([String].self, forKey: .outputModalities) ?? [],
             capabilityTags: try container.decodeIfPresent([String].self, forKey: .capabilityTags) ?? [],
             status: try container.decodeIfPresent(String.self, forKey: .status),
-            summary: try container.decodeIfPresent(String.self, forKey: .summary)
+            summary: try container.decodeIfPresent(String.self, forKey: .summary),
+            releaseDate: try container.decodeIfPresent(Date.self, forKey: .releaseDate)
         )
     }
 
