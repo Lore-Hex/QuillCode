@@ -117,6 +117,10 @@ public struct GitToolExecutor: Sendable {
         pullRequests.comment(cwd: cwd, selector: selector, body: body)
     }
 
+    public func updatePullRequestLifecycle(cwd: URL, selector: String? = nil, action: String) -> ToolResult {
+        pullRequests.updateLifecycle(cwd: cwd, selector: selector, action: action)
+    }
+
     public func reviewPullRequest(
         cwd: URL,
         selector: String? = nil,
@@ -239,6 +243,10 @@ public struct GitToolExecutor: Sendable {
 
     public static func safePullRequestMergeFlag(_ value: String?) throws -> String {
         try GitHubPullRequestInputValidator.safeMergeFlag(value)
+    }
+
+    public static func safePullRequestLifecycleAction(_ value: String) throws -> String {
+        try GitHubPullRequestInputValidator.safeLifecycleAction(value)
     }
 
     public static func safePullRequestReviewLine(_ value: Int) throws -> Int {

@@ -17,6 +17,7 @@ public enum GitToolError: Error, CustomStringConvertible {
     case invalidPullRequestMergeMethod(String)
     case invalidPullRequestListState(String)
     case invalidPullRequestListLimit(Int)
+    case invalidPullRequestLifecycleAction(String)
     case invalidPullRequestSelector(String)
     case invalidPullRequestReviewer(String)
     case invalidPullRequestLabel(String)
@@ -67,6 +68,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "GitHub pull request list state is unsupported: \(value)"
         case .invalidPullRequestListLimit(let value):
             return "GitHub pull request list limit must be between 1 and 100: \(value)"
+        case .invalidPullRequestLifecycleAction(let value):
+            return "GitHub pull request lifecycle action is unsupported: \(value)"
         case .invalidPullRequestSelector(let value):
             return "GitHub pull request selector is unsupported: \(value)"
         case .invalidPullRequestReviewer(let value):

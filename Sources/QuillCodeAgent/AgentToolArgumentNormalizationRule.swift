@@ -186,6 +186,10 @@ enum AgentToolArgumentNormalizationRules {
             stringArguments: [.init(canonicalKey: "action", aliases: ["review", "verdict", "decision"])]
         ),
         .init(
+            toolNames: [ToolDefinition.gitPullRequestLifecycle.name],
+            stringArguments: [.init(canonicalKey: "action", aliases: ["state", "operation", "lifecycle"])]
+        ),
+        .init(
             toolNames: [ToolDefinition.gitPullRequestMerge.name],
             stringArguments: [.init(canonicalKey: "method", aliases: ["strategy", "mergeMethod", "merge_method"])]
         ),
@@ -211,6 +215,7 @@ enum AgentToolArgumentNormalizationRules {
         ToolDefinition.gitPullRequestReviewers.name,
         ToolDefinition.gitPullRequestLabels.name,
         ToolDefinition.gitPullRequestComment.name,
+        ToolDefinition.gitPullRequestLifecycle.name,
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestReviewComment.name,
         ToolDefinition.gitPullRequestReviewReply.name,

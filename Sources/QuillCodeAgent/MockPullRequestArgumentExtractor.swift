@@ -64,6 +64,13 @@ enum MockPullRequestArgumentExtractor {
         return arguments
     }
 
+    static func lifecycleArguments(from request: String) -> [String: String] {
+        var arguments = selectorArguments(from: request)
+        let lower = request.lowercased()
+        arguments["action"] = lower.contains("reopen") || lower.contains("re-open") ? "reopen" : "close"
+        return arguments
+    }
+
     static func reviewArguments(from request: String) -> [String: String] {
         var arguments = selectorArguments(from: request)
         let action = pullRequestReviewAction(from: request)

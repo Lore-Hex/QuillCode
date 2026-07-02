@@ -33,4 +33,10 @@ public extension GitHubPullRequestToolExecutor {
             try GitHubPullRequestEditCommandBuilder.comment(selector: selector, body: body)
         }
     }
+
+    func updateLifecycle(cwd: URL, selector: String? = nil, action: String) -> ToolResult {
+        runGitHub(cwd: cwd, timeoutSeconds: 60, addURLArtifacts: true) {
+            try GitHubPullRequestEditCommandBuilder.lifecycle(selector: selector, action: action)
+        }
+    }
 }

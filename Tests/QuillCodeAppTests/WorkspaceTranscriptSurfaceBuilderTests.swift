@@ -348,6 +348,14 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
             ),
             "Completed · merged, limit 12"
         )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Queued",
+                toolName: "host.git.pr.lifecycle",
+                inputJSON: ToolArguments.json(["action": "reopen", "selector": "42"])
+            ),
+            "Queued · reopen 42"
+        )
     }
 
     func testToolCardSubtitleBuilderSummarizesBrowserOpenAndReviewComment() {

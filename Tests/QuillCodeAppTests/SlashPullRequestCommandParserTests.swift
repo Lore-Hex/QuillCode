@@ -135,6 +135,16 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
             name: ToolDefinition.gitPullRequestMerge.name,
             arguments: ["selector": "456", "method": "rebase", "auto": true, "deleteBranch": true]
         )
+        try assertToolCall(
+            SlashPullRequestCommandParser.parse("close 456"),
+            name: ToolDefinition.gitPullRequestLifecycle.name,
+            arguments: ["selector": "456", "action": "close"]
+        )
+        try assertToolCall(
+            SlashPullRequestCommandParser.parse("reopen"),
+            name: ToolDefinition.gitPullRequestLifecycle.name,
+            arguments: ["action": "reopen"]
+        )
     }
 
     func testInvalidPullRequestSubcommandsReturnUsageMessages() {
@@ -156,7 +166,7 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashPullRequestCommandParser.parse("unknown"),
-            .invalid("Unknown pull request command 'unknown'. Use create, fill, list, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
+            .invalid("Unknown pull request command 'unknown'. Use create, fill, list, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, close, reopen, or merge.")
         )
     }
 

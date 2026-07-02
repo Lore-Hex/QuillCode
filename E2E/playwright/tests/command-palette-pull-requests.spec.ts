@@ -22,6 +22,7 @@ const pullRequestCommandIDs = [
   'git-pr-review-threads',
   'git-pr-review-thread',
   'git-pr-labels',
+  'git-pr-lifecycle',
   'git-pr-merge'
 ];
 
@@ -60,6 +61,11 @@ const draftCommands = [
     id: 'git-pr-labels',
     query: '>label pull request',
     draft: 'Label the current pull request: '
+  },
+  {
+    id: 'git-pr-lifecycle',
+    query: '>close pull request',
+    draft: 'Close or reopen the current pull request: '
   },
   {
     id: 'git-pr-merge',

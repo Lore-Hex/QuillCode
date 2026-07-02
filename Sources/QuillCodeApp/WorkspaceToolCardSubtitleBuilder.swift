@@ -53,6 +53,8 @@ enum WorkspaceToolCardSubtitleBuilder {
              ToolDefinition.gitPullRequestReview.name, ToolDefinition.gitPullRequestReviewReply.name,
              ToolDefinition.gitPullRequestReviewThreads.name, ToolDefinition.gitPullRequestMerge.name:
             return sanitized(arguments.string("selector"))
+        case ToolDefinition.gitPullRequestLifecycle.name:
+            return pullRequestLifecycleDetail(arguments)
         case ToolDefinition.gitPullRequestReviewThread.name:
             return sanitized(arguments.string("action")) ?? sanitized(arguments.string("threadId"))
         case ToolDefinition.gitWorktreeCreate.name:
@@ -129,6 +131,21 @@ enum WorkspaceToolCardSubtitleBuilder {
             return state
         case (nil, .some(let limit)):
             return limit
+        case (nil, nil):
+            return nil
+        }
+    }
+
+    private static func pullRequestLifecycleDetail(_ arguments: ToolArguments) -> String? {
+        let action = sanitized(arguments.string("action"))
+        let selector = sanitized(arguments.string("selector"))
+        switch (action, selector) {
+        case (.some(let action), .some(let selector)):
+            return "\(action) \(selector)"
+        case (.some(let action), nil):
+            return action
+        case (nil, .some(let selector)):
+            return selector
         case (nil, nil):
             return nil
         }

@@ -3915,6 +3915,7 @@
         { id: 'git-pr-review-threads', title: 'List pull request review threads', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review', 'thread', 'threads', 'unresolved', 'ids', 'browse'], isEnabled: true },
         { id: 'git-pr-review-thread', title: 'Resolve pull request review thread', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review', 'thread', 'resolve', 'unresolve'], isEnabled: true },
         { id: 'git-pr-labels', title: 'Label pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'label', 'labels', 'triage'], isEnabled: true },
+        { id: 'git-pr-lifecycle', title: 'Close or reopen pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'close', 'closed', 'reopen', 'open', 'lifecycle'], isEnabled: true },
         { id: 'git-pr-merge', title: 'Merge pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'merge', 'automerge', 'merge train'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
@@ -11005,6 +11006,7 @@
       'git-pr-diff',
       'git-pr-list',
       'git-pr-labels',
+      'git-pr-lifecycle',
       'git-pr-merge',
       'git-pr-review',
       'git-pr-review-comment',
@@ -11658,6 +11660,7 @@
         'git-pr-review-reply': 'Reply to pull request review comment: ',
         'git-pr-review-thread': 'Resolve pull request review thread: ',
         'git-pr-labels': 'Label the current pull request: ',
+        'git-pr-lifecycle': 'Close or reopen the current pull request: ',
         'git-pr-merge': 'Merge the current pull request with squash'
       };
       if (Object.prototype.hasOwnProperty.call(pullRequestDrafts, commandID)) {

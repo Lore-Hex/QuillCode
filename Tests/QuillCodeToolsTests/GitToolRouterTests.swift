@@ -24,6 +24,7 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.reviewers"))
         XCTAssertTrue(definitions.contains("host.git.pr.labels"))
         XCTAssertTrue(definitions.contains("host.git.pr.comment"))
+        XCTAssertTrue(definitions.contains("host.git.pr.lifecycle"))
         XCTAssertTrue(definitions.contains("host.git.pr.review"))
         XCTAssertTrue(definitions.contains("host.git.pr.review_comment"))
         XCTAssertTrue(definitions.contains("host.git.pr.review_reply"))
@@ -69,6 +70,11 @@ final class GitToolRouterTests: XCTestCase {
         let reviewerItems = try XCTUnwrap(addReviewers["items"] as? [String: Any])
         XCTAssertEqual(addReviewers["type"] as? String, "array")
         XCTAssertEqual(reviewerItems["type"] as? String, "string")
+
+        let lifecycleSchema = try schemaDictionary(for: .gitPullRequestLifecycle)
+        let lifecycleProperties = try XCTUnwrap(lifecycleSchema["properties"] as? [String: Any])
+        let lifecycleAction = try XCTUnwrap(lifecycleProperties["action"] as? [String: Any])
+        XCTAssertEqual(lifecycleAction["enum"] as? [String], ["close", "reopen"])
     }
 
     func testToolRouterRoutesGitWorktreeList() throws {

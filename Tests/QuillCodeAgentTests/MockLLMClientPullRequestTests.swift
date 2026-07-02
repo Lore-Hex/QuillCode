@@ -152,6 +152,38 @@ final class MockLLMClientPullRequestTests: XCTestCase {
         XCTAssertEqual(arguments["body"], "Ready for review")
     }
 
+    func testPullRequestLifecycleUsesStructuredToolCall() async throws {
+        let closeAction = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "close PR #42",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let closeCall) = closeAction else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(closeCall.name, ToolDefinition.gitPullRequestLifecycle.name)
+        var data = try XCTUnwrap(closeCall.argumentsJSON.data(using: .utf8))
+        var arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertEqual(arguments["selector"], "42")
+        XCTAssertEqual(arguments["action"], "close")
+
+        let reopenAction = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "reopen the current pull request",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let reopenCall) = reopenAction else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(reopenCall.name, ToolDefinition.gitPullRequestLifecycle.name)
+        data = try XCTUnwrap(reopenCall.argumentsJSON.data(using: .utf8))
+        arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertNil(arguments["selector"])
+        XCTAssertEqual(arguments["action"], "reopen")
+    }
+
     func testPullRequestReviewUsesStructuredToolCall() async throws {
         let action = try await MockLLMClient().nextAction(
             thread: ChatThread(mode: .auto),
