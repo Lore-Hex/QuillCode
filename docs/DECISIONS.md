@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+- Native `NavigationLink` controls are in-app press targets, not external links. Source audits now reject
+  `NavigationLink` without a shared QuillCode hit-target helper, reject `quillCodeLinkTarget` on in-app navigation,
+  and require explicit press/action styling. Future Codex-style navigation rows should use row/text/capsule/form press
+  semantics so they keep 44 pt geometry, tactile feedback, and unambiguous action ownership.
 - Instruction diagnostic apply actions must stay deterministic. Semantic conflicts may remove the opposite known line only
   when source excerpts still match, and duplicate-scope diagnostics may clear a selected source only when another
   same-scope instruction file has identical normalized content. Non-identical duplicate-scope and nested-override

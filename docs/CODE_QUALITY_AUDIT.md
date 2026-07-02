@@ -1,5 +1,25 @@
 # Code Quality Audit
 
+## 2026-07-01 NavigationLink Hit-Target Quality Pass
+
+Overall grade after this slice: **all modules remain A+; the touched native source-audit files grade A+**.
+
+This pass targeted a remaining click-target contract gap after the broader "click targets everywhere" work: raw
+SwiftUI `NavigationLink` controls were not covered by the production source audit, even though future Codex-style
+project, worktree, thread, and settings navigation rows are likely to use them.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Source-audit coverage | `Button`, `Menu`, `Picker`, `Link`, text entry, toggles, disclosures, and adjustable controls were audited, but `NavigationLink` could enter native UI without QuillCode-owned hit-target semantics. | `SwiftSourceInteractionTargetAudit` now recognizes `NavigationLink` and requires a shared QuillCode target helper. |
+| Semantic ownership | A future in-app navigation row could accidentally use `quillCodeLinkTarget`, making local navigation look like an external web link in the audit model. | `NavigationLink` must use press-style text, row, capsule, or form-action target semantics; `quillCodeLinkTarget` is rejected. |
+| Tactile feedback | Navigation rows could keep geometry but miss explicit press/action styling. | Both parity and app-level source audits require QuillCode press/action styling for `NavigationLink`. |
+| Regression proof | The gap existed because no focused bad/good NavigationLink fixture pinned the policy. | New parity and app tests cover missing target, wrong link semantics, missing press style, and the accepted full-row press pattern. |
+
+Validation:
+
+- `swift test --filter ParityNativeSourceInteractionControlTargetTests`
+- `swift test --filter QuillCodeNativeHitTargetSourceAuditTests`
+
 ## 2026-07-01 Memory Redaction Review Quality Pass
 
 Overall grade after this slice: **all modules grade A+; the touched memory-redaction path grades A+**.

@@ -265,7 +265,11 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
                 issues.append("\(location) missing QuillCode hit-target marker near \(summary)")
                 continue
             }
-            if ["Button", "Menu"].contains(kind),
+            if kind == "NavigationLink",
+               snippet.contains(".quillCodeLinkTarget") {
+                issues.append("\(location) NavigationLink should use press-style hit-target semantics near \(summary)")
+            }
+            if ["Button", "Menu", "NavigationLink"].contains(kind),
                !snippet.contains(platformMenuItemMarker),
                !snippet.contains(".buttonStyle(QuillCodePressableButtonStyle"),
                !snippet.contains(".buttonStyle(QuillCodeActionButtonStyle") {
