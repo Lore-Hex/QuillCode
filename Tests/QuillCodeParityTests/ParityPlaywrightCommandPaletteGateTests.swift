@@ -28,7 +28,7 @@ final class ParityPlaywrightCommandPaletteGateTests: QuillCodeParityTestCase {
         + [
             "prepares pull request creation from the command palette",
             "opens a pull request from commits via the command palette",
-            "views pull request details, checks, and diff from the palette",
+            "lists, views, checks, and diffs pull requests from the palette",
             "covers pull request command visibility and draft actions"
         ].map { ($0, pullRequestSpecText) }
         + [

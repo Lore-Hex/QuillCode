@@ -21,6 +21,7 @@ enum WorkspaceRemoteProjectToolCatalog {
         .gitRestoreHunk,
         .gitCommit,
         .gitPush,
+        .gitPullRequestList,
         .gitPullRequestCreate,
         .gitPullRequestView,
         .gitPullRequestChecks,

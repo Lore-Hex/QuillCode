@@ -71,6 +71,7 @@ struct WorkspaceExecutionContextSurfaceBuilder: Sendable, Hashable {
         ToolDefinition.gitRestoreHunk.name,
         ToolDefinition.gitCommit.name,
         ToolDefinition.gitPush.name,
+        ToolDefinition.gitPullRequestList.name,
         ToolDefinition.gitPullRequestCreate.name,
         ToolDefinition.gitPullRequestView.name,
         ToolDefinition.gitPullRequestChecks.name,

@@ -4,6 +4,7 @@ import QuillCodeTools
 
 enum WorkspaceRemoteGitHubPullRequestBaseCommandBuilder {
     static let toolNames: Set<String> = [
+        ToolDefinition.gitPullRequestList.name,
         ToolDefinition.gitPullRequestCreate.name,
         ToolDefinition.gitPullRequestView.name,
         ToolDefinition.gitPullRequestChecks.name,
@@ -13,6 +14,8 @@ enum WorkspaceRemoteGitHubPullRequestBaseCommandBuilder {
 
     static func command(for call: ToolCall, arguments args: ToolArguments) throws -> String {
         switch call.name {
+        case ToolDefinition.gitPullRequestList.name:
+            return try list(state: args.string("state"), limit: args.int("limit"))
         case ToolDefinition.gitPullRequestCreate.name:
             return try create(
                 title: args.string("title"),
@@ -33,6 +36,17 @@ enum WorkspaceRemoteGitHubPullRequestBaseCommandBuilder {
         default:
             throw WorkspaceRemoteGitToolRequestPlannerError.unsupportedTool(call.name)
         }
+    }
+
+    static func list(state: String?, limit: Int?) throws -> String {
+        var arguments = ["gh", "pr", "list"]
+        if let state = try GitHubPullRequestInputValidator.safeListState(state) {
+            arguments += ["--state", state]
+        }
+        if let limit = try GitHubPullRequestInputValidator.safeListLimit(limit) {
+            arguments += ["--limit", String(limit)]
+        }
+        return WorkspaceRemoteGitHubPullRequestCommandSupport.command(arguments)
     }
 
     static func create(

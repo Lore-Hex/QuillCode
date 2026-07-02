@@ -28,6 +28,32 @@ Residual risk:
 - Conflict detection is intentionally conservative. It does not infer subtle contradictions or rewrite memories
   automatically; richer Chronicle/redaction review and autonomous memory inference remain separate feature work.
 
+## 2026-07-01 GitHub Pull Request List Parity Quality Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; the touched GitHub PR
+listing path is A+ and shares the existing PR architecture seams**.
+
+This pass regenerated the deterministic file/module grade report, then targeted the next concrete Codex workflow gap
+inside the already-focused GitHub PR tool family: discovering PRs from the app without falling back to raw shell or
+memorized `gh` syntax.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Tool coverage | QuillCode could create/view/check/diff/checkout/comment/review/edit/merge PRs, but listing PRs required raw shell. | `host.git.pr.list` is a read-only structured tool backed by `gh pr list`, available locally and through SSH Remote projects. |
+| Input validation | PR list state/limit were not modeled. | Shared validation accepts only `open`, `closed`, `merged`, and `all`, bounds `limit` to 1...100, and is reused by local execution, remote command planning, slash parsing, and tests. |
+| Command UX | `/pr l` routed to labels first, and there was no discoverable list command. | The palette and slash catalog expose `/pr list [open|closed|merged|all] [limit]`; `/pr l` now prefers list, while duplicate/invalid list flags return clear usage. |
+| Mock/runtime parity | Mock PR planning could be stolen by generic shell shortcuts and used substring matching for list state. | PR intent planning runs before generic command shortcuts, recognizes `pr`/`prs`/`pull request`, and extracts list state from tokens so words like `openclaw` are not misread as `open`. |
+
+Verification:
+
+- `swift test --filter 'MockLLMClientPullRequestTests|SlashPullRequestCommandParserTests|GitHubPullRequestBaseToolExecutorTests|GitToolRouterTests|WorkspacePullRequestCommandCatalogTests|WorkspacePullRequestIntegrationTests|WorkspaceRemoteProjectToolExecutorTests|AgentToolArgumentNormalizerTests|WorkspaceExecutionContextSurfaceBuilderTests|WorkspaceTranscriptSurfaceBuilderTests|QuillCodeTranscriptSurfaceTests'`
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md`
+
+Residual risk:
+
+- This lists PRs through GitHub CLI output and URL artifacts only. Rich table filtering/sorting and first-class selectable
+  PR rows in the review pane remain separate UX work.
+
 ## 2026-07-01 Instruction Diagnostic Apply Planner Pass
 
 Overall grade after this slice: **all modules remain A+; the touched instruction-diagnostic apply path is A+ and more

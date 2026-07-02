@@ -124,6 +124,7 @@ final class WorkspaceExecutionContextSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.fileRead.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.fileList.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.fileSearch.name))
+        XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitPullRequestList.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitPullRequestMerge.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitWorktreeCreate.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitWorktreeOpen.name))

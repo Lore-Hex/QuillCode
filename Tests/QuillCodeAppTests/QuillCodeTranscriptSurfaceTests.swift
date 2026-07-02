@@ -72,8 +72,8 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
 
         XCTAssertTrue(ready.canSend)
         XCTAssertEqual(ready.placeholder, "Message QuillCode")
-        XCTAssertEqual(ready.slashSuggestions.first?.usage, "/pr labels add|remove label")
-        XCTAssertEqual(ready.slashSuggestions.first?.insertText, "/pr labels add ")
+        XCTAssertEqual(ready.slashSuggestions.first?.usage, "/pr list [open|closed|merged|all] [limit]")
+        XCTAssertEqual(ready.slashSuggestions.first?.insertText, "/pr list ")
         XCTAssertFalse(blank.canSend)
         XCTAssertEqual(blank.slashSuggestions, [])
         XCTAssertFalse(sending.canSend)
@@ -92,8 +92,8 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
         XCTAssertEqual(suggestions(for: "/workspace-c").first?.usage, "/workspace-check when")
         XCTAssertEqual(suggestions(for: "/workspace-c").first?.insertText, "/workspace-check in ")
         XCTAssertEqual(suggestions(for: "/project r").prefix(2).map(\.usage), ["/project refresh", "/project rename name"])
-        XCTAssertEqual(suggestions(for: "/pr l").first?.usage, "/pr labels add|remove label")
-        XCTAssertEqual(suggestions(for: "/pr l").first?.insertText, "/pr labels add ")
+        XCTAssertEqual(suggestions(for: "/pr l").first?.usage, "/pr list [open|closed|merged|all] [limit]")
+        XCTAssertEqual(suggestions(for: "/pr l").first?.insertText, "/pr list ")
         XCTAssertEqual(suggestions(for: "run /help"), [])
     }
 

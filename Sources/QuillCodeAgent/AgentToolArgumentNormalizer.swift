@@ -178,6 +178,7 @@ enum AgentToolArgumentNormalizer {
         switch toolName {
         case ToolDefinition.gitStatus.name,
             ToolDefinition.gitDiff.name,
+            ToolDefinition.gitPullRequestList.name,
             ToolDefinition.gitPullRequestView.name,
             ToolDefinition.gitPullRequestChecks.name,
             ToolDefinition.gitPullRequestCheckout.name,

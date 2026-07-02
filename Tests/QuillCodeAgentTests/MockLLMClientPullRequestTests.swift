@@ -4,6 +4,39 @@ import QuillCodeTools
 @testable import QuillCodeAgent
 
 final class MockLLMClientPullRequestTests: XCTestCase {
+    func testListPullRequestsUsesStructuredToolCall() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "list merged pull requests limit 12",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestList.name)
+        let data = try XCTUnwrap(call.argumentsJSON.data(using: .utf8))
+        let arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(arguments["state"] as? String, "merged")
+        XCTAssertEqual(arguments["limit"] as? Int, 12)
+    }
+
+    func testListPullRequestsDoesNotInferStateFromPartialWords() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "list pull requests mentioning openclaw",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestList.name)
+        let data = try XCTUnwrap(call.argumentsJSON.data(using: .utf8))
+        let arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertNil(arguments["state"])
+    }
+
     func testCreatePullRequestUsesStructuredToolCall() async throws {
         let action = try await MockLLMClient().nextAction(
             thread: ChatThread(mode: .auto),

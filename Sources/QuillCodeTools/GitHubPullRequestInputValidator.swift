@@ -169,6 +169,30 @@ public enum GitHubPullRequestInputValidator {
         }
     }
 
+    public static func safeListState(_ value: String?) throws -> String? {
+        guard let rawValue = GitInputValidator.trimmedNonEmpty(value) else { return nil }
+        switch rawValue.lowercased().replacingOccurrences(of: "-", with: "_") {
+        case "open":
+            return "open"
+        case "closed":
+            return "closed"
+        case "merged":
+            return "merged"
+        case "all", "any":
+            return "all"
+        default:
+            throw GitToolError.invalidPullRequestListState(rawValue)
+        }
+    }
+
+    public static func safeListLimit(_ value: Int?) throws -> Int? {
+        guard let value else { return nil }
+        guard (1...100).contains(value) else {
+            throw GitToolError.invalidPullRequestListLimit(value)
+        }
+        return value
+    }
+
     private static func isSafeGitHubReviewerComponent(_ value: String) -> Bool {
         guard !value.isEmpty, value.count <= 39,
               value.range(of: githubReviewerComponentPattern, options: .regularExpression) != nil

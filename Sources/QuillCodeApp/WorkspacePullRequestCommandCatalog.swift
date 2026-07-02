@@ -84,6 +84,20 @@ enum WorkspacePullRequestCommandCatalog {
             )
         ),
         .init(
+            id: "git-pr-list",
+            title: "List pull requests",
+            keywords: ["github", "pr", "list", "pull requests", "open prs", "review"],
+            systemImage: "list.bullet.rectangle",
+            toolName: ToolDefinition.gitPullRequestList.name,
+            slash: pullRequestSlash(
+                usage: "/pr list [open|closed|merged|all] [limit]",
+                title: "List pull requests",
+                detail: "List pull requests before choosing one to view, checkout, or review.",
+                insertText: "/pr list ",
+                aliases: ["pr ls", "pull request list", "open prs"]
+            )
+        ),
+        .init(
             id: "git-pr-view",
             title: "View pull request",
             keywords: ["github", "pr", "view", "comments", "review"],

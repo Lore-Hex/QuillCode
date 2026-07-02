@@ -19,6 +19,16 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
 
     func testReadOnlyPullRequestCommandsBuildToolCallsWithSelectors() throws {
         try assertToolCall(
+            SlashPullRequestCommandParser.parse("list all 25"),
+            name: ToolDefinition.gitPullRequestList.name,
+            arguments: ["state": "all", "limit": 25]
+        )
+        try assertToolCall(
+            SlashPullRequestCommandParser.parse("ls --state merged --limit 10"),
+            name: ToolDefinition.gitPullRequestList.name,
+            arguments: ["state": "merged", "limit": 10]
+        )
+        try assertToolCall(
             SlashPullRequestCommandParser.parse("view #456"),
             name: ToolDefinition.gitPullRequestView.name,
             arguments: ["selector": "#456"]
@@ -137,8 +147,16 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
             .invalid("Unknown pull request review action 'squash'. Use approve, comment, or request_changes.")
         )
         XCTAssertEqual(
+            SlashPullRequestCommandParser.parse("list draft"),
+            .invalid("Usage: /pr list [open|closed|merged|all] [limit]")
+        )
+        XCTAssertEqual(
+            SlashPullRequestCommandParser.parse("list open 10 --limit 20"),
+            .invalid("Usage: /pr list [open|closed|merged|all] [limit]")
+        )
+        XCTAssertEqual(
             SlashPullRequestCommandParser.parse("unknown"),
-            .invalid("Unknown pull request command 'unknown'. Use create, fill, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
+            .invalid("Unknown pull request command 'unknown'. Use create, fill, list, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
         )
     }
 

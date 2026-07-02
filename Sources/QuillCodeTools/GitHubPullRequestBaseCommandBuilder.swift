@@ -1,6 +1,17 @@
 import Foundation
 
 enum GitHubPullRequestBaseCommandBuilder {
+    static func list(state: String?, limit: Int?) throws -> [String] {
+        var arguments = ["pr", "list"]
+        if let state = try GitHubPullRequestInputValidator.safeListState(state) {
+            arguments += ["--state", state]
+        }
+        if let limit = try GitHubPullRequestInputValidator.safeListLimit(limit) {
+            arguments += ["--limit", String(limit)]
+        }
+        return arguments
+    }
+
     static func create(
         title: String?,
         body: String?,

@@ -37,6 +37,12 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
     func testPullRequestSlashCommandsDispatchStructuredGitHubToolsThroughSSH() async throws {
         let fixture = try makeRemotePullRequestFixture()
 
+        fixture.model.setDraft("/pr list all 10")
+        await fixture.model.submitComposer(workspaceRoot: fixture.localRoot)
+        XCTAssertEqual(fixture.model.currentToolCards.last?.title, ToolDefinition.gitPullRequestList.name)
+        XCTAssertEqual(fixture.model.currentToolCards.last?.executionContext?.kind, .sshRemote)
+        XCTAssertEqual(try fixture.recordedGHArguments(), ["pr", "list", "--state", "all", "--limit", "10"])
+
         fixture.model.setDraft("/pr view 456")
         await fixture.model.submitComposer(workspaceRoot: fixture.localRoot)
         XCTAssertEqual(fixture.model.currentToolCards.last?.title, ToolDefinition.gitPullRequestView.name)

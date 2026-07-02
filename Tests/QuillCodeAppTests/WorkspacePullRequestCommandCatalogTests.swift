@@ -10,6 +10,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
         XCTAssertEqual(commands.map(\.id), [
             "git-pr-create",
             "git-pr-fill",
+            "git-pr-list",
             "git-pr-view",
             "git-pr-checks",
             "git-pr-diff",
@@ -32,6 +33,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
         XCTAssertEqual(
             WorkspacePullRequestCommandCatalog.toolNameByCommandID,
             [
+                "git-pr-list": ToolDefinition.gitPullRequestList.name,
                 "git-pr-view": ToolDefinition.gitPullRequestView.name,
                 "git-pr-checks": ToolDefinition.gitPullRequestChecks.name,
                 "git-pr-diff": ToolDefinition.gitPullRequestDiff.name,
@@ -55,6 +57,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
         XCTAssertEqual(slashUsages, [
             "/pr create",
             "/pr fill",
+            "/pr list [open|closed|merged|all] [limit]",
             "/pr view [selector]",
             "/pr checks [selector]",
             "/pr diff [selector]",
@@ -78,6 +81,7 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
             .filter { $0.usage.hasPrefix("/pr ") }
             .map(\.usage)
         XCTAssertEqual(catalogPullRequestUsages, slashUsages)
+        XCTAssertTrue(SlashCommandCatalog.helpText().contains("/pr list [open|closed|merged|all] [limit]"))
         XCTAssertTrue(SlashCommandCatalog.helpText().contains("/pr review-threads [selector]"))
     }
 }

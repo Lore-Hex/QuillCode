@@ -45,6 +45,8 @@ enum WorkspaceToolCardSubtitleBuilder {
             return pushDetail(arguments)
         case ToolDefinition.gitPullRequestCreate.name:
             return sanitized(arguments.string("title"))
+        case ToolDefinition.gitPullRequestList.name:
+            return pullRequestListDetail(arguments)
         case ToolDefinition.gitPullRequestView.name, ToolDefinition.gitPullRequestChecks.name,
              ToolDefinition.gitPullRequestCheckout.name, ToolDefinition.gitPullRequestReviewers.name,
              ToolDefinition.gitPullRequestLabels.name, ToolDefinition.gitPullRequestComment.name,
@@ -112,6 +114,21 @@ enum WorkspaceToolCardSubtitleBuilder {
             return remote
         case (nil, .some(let branch)):
             return branch
+        case (nil, nil):
+            return nil
+        }
+    }
+
+    private static func pullRequestListDetail(_ arguments: ToolArguments) -> String? {
+        let state = sanitized(arguments.string("state"))
+        let limit = arguments.int("limit").map { "limit \($0)" }
+        switch (state, limit) {
+        case (.some(let state), .some(let limit)):
+            return "\(state), \(limit)"
+        case (.some(let state), nil):
+            return state
+        case (nil, .some(let limit)):
+            return limit
         case (nil, nil):
             return nil
         }

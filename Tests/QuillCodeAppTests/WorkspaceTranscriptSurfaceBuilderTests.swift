@@ -340,6 +340,14 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
             ),
             "Completed · origin/main"
         )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.git.pr.list",
+                inputJSON: ToolArguments.json(["state": "merged", "limit": 12])
+            ),
+            "Completed · merged, limit 12"
+        )
     }
 
     func testToolCardSubtitleBuilderSummarizesBrowserOpenAndReviewComment() {

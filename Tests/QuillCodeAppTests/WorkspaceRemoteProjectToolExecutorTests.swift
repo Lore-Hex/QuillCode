@@ -14,6 +14,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(names.contains(ToolDefinition.fileWrite.name))
         XCTAssertTrue(names.contains(ToolDefinition.applyPatch.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitStatus.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestList.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewComment.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewReply.name))
@@ -160,6 +161,18 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
     }
 
     func testRemoteGitPlannerBuildsPullRequestCreateRequest() throws {
+        let listRequest = try WorkspaceRemoteGitToolRequestPlanner.request(
+            for: ToolCall(
+                name: ToolDefinition.gitPullRequestList.name,
+                argumentsJSON: ToolArguments.json(["state": "all", "limit": 20])
+            ),
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+
+        XCTAssertEqual(listRequest.command, "'gh' 'pr' 'list' '--state' 'all' '--limit' '20'")
+        XCTAssertEqual(listRequest.artifacts, [])
+        XCTAssertTrue(listRequest.extractsPullRequestURLs)
+
         let request = try WorkspaceRemoteGitToolRequestPlanner.request(
             for: ToolCall(
                 name: ToolDefinition.gitPullRequestCreate.name,

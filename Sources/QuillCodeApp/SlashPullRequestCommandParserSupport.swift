@@ -3,6 +3,61 @@ import QuillCodeCore
 import QuillCodeTools
 
 extension SlashPullRequestCommandParser {
+    static func parseList(_ argument: String) -> SlashCommand {
+        let usage = "Usage: /pr list [open|closed|merged|all] [limit]"
+        var state: String?
+        var limit: Int?
+        let tokens = argument.split(whereSeparator: \.isWhitespace).map(String.init)
+        var index = tokens.startIndex
+
+        do {
+            while index < tokens.endIndex {
+                let token = tokens[index]
+                let normalized = String(token.drop(while: { $0 == "-" }))
+                    .lowercased()
+                    .replacingOccurrences(of: "-", with: "_")
+                if normalized == "limit" || normalized == "l" {
+                    index = tokens.index(after: index)
+                    guard index < tokens.endIndex, limit == nil, let parsedLimit = Int(tokens[index]) else {
+                        return .invalid(usage)
+                    }
+                    limit = parsedLimit
+                } else if normalized.hasPrefix("limit=") {
+                    guard limit == nil,
+                          let parsedLimit = Int(token.split(separator: "=", maxSplits: 1).last ?? "") else {
+                        return .invalid(usage)
+                    }
+                    limit = parsedLimit
+                } else if normalized == "state" {
+                    index = tokens.index(after: index)
+                    guard index < tokens.endIndex, state == nil else {
+                        return .invalid(usage)
+                    }
+                    state = try GitHubPullRequestInputValidator.safeListState(tokens[index])
+                } else if normalized.hasPrefix("state=") {
+                    guard state == nil else { return .invalid(usage) }
+                    let rawState = String(token.split(separator: "=", maxSplits: 1).last ?? "")
+                    state = try GitHubPullRequestInputValidator.safeListState(rawState)
+                } else if let parsedLimit = Int(token) {
+                    guard limit == nil else { return .invalid(usage) }
+                    limit = parsedLimit
+                } else {
+                    guard state == nil else { return .invalid(usage) }
+                    state = try GitHubPullRequestInputValidator.safeListState(token)
+                }
+                index = tokens.index(after: index)
+            }
+            _ = try GitHubPullRequestInputValidator.safeListLimit(limit)
+        } catch {
+            return .invalid(usage)
+        }
+
+        return pullRequestTool(
+            .gitPullRequestList,
+            arguments: compact(["state": state, "limit": limit])
+        )
+    }
+
     static func selectorAndBody(from argument: String) -> (selector: String?, body: String) {
         let trimmed = argument.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let first = trimmed.split(maxSplits: 1, whereSeparator: \.isWhitespace).first else {

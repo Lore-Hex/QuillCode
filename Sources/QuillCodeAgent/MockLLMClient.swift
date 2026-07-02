@@ -94,6 +94,10 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if let pullRequestToolCall = MockPullRequestIntentPlanner.toolCall(for: request, lowercasedRequest: lower) {
+            return .tool(pullRequestToolCall)
+        }
+
         if lower.contains("whoami") {
             return .tool(.init(
                 name: ToolDefinition.shellRun.name,
@@ -189,10 +193,6 @@ public struct MockLLMClient: LLMClient {
 
         if let gitReadCall = AgentGitReadRequestParser.toolCall(for: request, tools: tools) {
             return .tool(gitReadCall)
-        }
-
-        if let pullRequestToolCall = MockPullRequestIntentPlanner.toolCall(for: request, lowercasedRequest: lower) {
-            return .tool(pullRequestToolCall)
         }
 
         if lower.contains("commit") {

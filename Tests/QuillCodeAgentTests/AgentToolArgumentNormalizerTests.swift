@@ -114,6 +114,24 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(arguments["removeReviewers"])
     }
 
+    func testCanonicalArgumentsNormalizePullRequestListAliases() {
+        let arguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.gitPullRequestList.name,
+            in: [
+                "arguments": [
+                    "status": "merged",
+                    "count": 12
+                ]
+            ],
+            sourceText: ""
+        )
+
+        XCTAssertEqual(arguments["state"] as? String, "merged")
+        XCTAssertEqual(arguments["limit"] as? Int, 12)
+        XCTAssertNil(arguments["status"])
+        XCTAssertNil(arguments["count"])
+    }
+
     func testCanonicalArgumentsNormalizePullRequestReviewReplyAliases() {
         let arguments = AgentToolArgumentNormalizer.canonicalArguments(
             for: ToolDefinition.gitPullRequestReviewReply.name,
@@ -191,6 +209,12 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
             AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
                 for: ToolDefinition.fileSearch.name,
                 arguments: ["query": "AgentRunner"]
+            )
+        )
+        XCTAssertTrue(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.gitPullRequestList.name,
+                arguments: [:]
             )
         )
         XCTAssertTrue(
