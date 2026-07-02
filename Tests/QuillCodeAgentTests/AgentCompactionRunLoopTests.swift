@@ -12,20 +12,31 @@ private actor OverflowScriptState {
     private(set) var messageCountsAtCall: [Int] = []
     let overflowRounds: Int
     let finalAction: AgentAction
+    /// The HTTP status + body thrown on the first `overflowRounds` calls. Defaults to a genuine
+    /// context overflow (413), but a test can supply a 429/5xx to prove those are NOT compacted.
+    let failureStatus: Int
+    let failureBody: String
 
-    init(overflowRounds: Int, finalAction: AgentAction) {
+    init(
+        overflowRounds: Int,
+        finalAction: AgentAction,
+        failureStatus: Int = 413,
+        failureBody: String = #"{"error":{"code":"context_length_exceeded"}}"#
+    ) {
         self.overflowRounds = overflowRounds
         self.finalAction = finalAction
+        self.failureStatus = failureStatus
+        self.failureBody = failureBody
     }
 
-    /// Returns the events to yield, or throws the overflow error, recording the thread size seen.
+    /// Returns the events to yield, or throws the scripted error, recording the thread size seen.
     func nextEventsOrThrow(threadMessageCount: Int) throws -> [AgentTextStreamEvent] {
         callCount += 1
         messageCountsAtCall.append(threadMessageCount)
         if callCount <= overflowRounds {
             throw TrustedRouterAgentError.streamingHTTPError(
-                statusCode: 413,
-                body: #"{"error":{"code":"context_length_exceeded"}}"#,
+                statusCode: failureStatus,
+                body: failureBody,
                 rateLimit: nil
             )
         }
@@ -72,11 +83,26 @@ private struct OverflowScriptedLLMClient: UsageStreamingLLMClient {
     }
 }
 
+/// Counts how many times it was asked to summarize, so a test can assert an aux summary call did (or
+/// did NOT) happen — e.g. a misclassified 429 must never spend a summary call.
+private actor SummaryCallCounter {
+    private(set) var count = 0
+    func increment() { count += 1 }
+}
+
 /// A summarizer that fixes the summary text and records that it ran.
 private struct RecordingSummarizer: ThreadCompactionSummarizing {
     let text: String
+    let counter: SummaryCallCounter?
+
+    init(text: String, counter: SummaryCallCounter? = nil) {
+        self.text = text
+        self.counter = counter
+    }
+
     func summarize(sourceTitle: String, olderMessages: [ChatMessage], recentMessages: [ChatMessage]) async throws -> String {
-        text
+        await counter?.increment()
+        return text
     }
 }
 
@@ -94,13 +120,14 @@ final class AgentCompactionRunLoopTests: XCTestCase {
         summary: String = "COMPACTED SUMMARY",
         keepRecent: Int = 4,
         maxRounds: Int = 3,
-        proactiveLimit: Int = 0
+        proactiveLimit: Int = 0,
+        summaryCounter: SummaryCallCounter? = nil
     ) -> AgentCompactionPolicy {
         AgentCompactionPolicy(
             compactor: ThreadCompactor(
                 keepRecentMessages: keepRecent,
                 perMessageTokenFloor: 0,
-                summarizer: RecordingSummarizer(text: summary)
+                summarizer: RecordingSummarizer(text: summary, counter: summaryCounter)
             ),
             proactiveTokenLimit: proactiveLimit,
             maxRoundsPerCall: maxRounds
@@ -276,5 +303,103 @@ final class AgentCompactionRunLoopTests: XCTestCase {
             }
             XCTAssertEqual(status, 401, "a non-overflow error must propagate, not trigger compaction")
         }
+    }
+
+    // MARK: - Rate-limit / transient status is NEVER compacted (regression for the MAJOR defect)
+
+    /// A persistent token-per-minute 429 whose body says "too many tokens" / "reduce the length of the
+    /// messages" must surface as the rate limit, NOT trigger a destructive compaction. Asserts: no
+    /// compaction seam event, the aux summarizer was never called, and the thread's real turns are
+    /// intact. Fails on a revert of the status gate (which would compact and finally raise
+    /// ContextOverflowUnresolvedError, hiding the real 429).
+    func testPersistent429WithTokenBodyIsNotCompactedAndSurfacesAsRateLimit() async throws {
+        let root = try makeTempDirectory()
+        let summaryCounter = SummaryCallCounter()
+        let state = OverflowScriptState(
+            overflowRounds: 1_000, // always fails
+            finalAction: .say("never reached"),
+            failureStatus: 429,
+            failureBody: "Rate limit reached: too many tokens. Please reduce the length of the messages."
+        )
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            compaction: compactionPolicy(maxRounds: 3, summaryCounter: summaryCounter)
+        )
+
+        do {
+            _ = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+            XCTFail("expected the 429 to surface, not be compacted away")
+        } catch let error as TrustedRouterAgentError {
+            guard case .streamingHTTPError(let status, _, _) = error else {
+                return XCTFail("wrong error type: \(error)")
+            }
+            XCTAssertEqual(status, 429, "a rate limit must surface as itself, not as an overflow")
+        } catch let error as ContextOverflowUnresolvedError {
+            XCTFail("a 429 must NOT be treated as overflow; got compaction failure: \(error)")
+        }
+
+        // The aux summary model was never invoked — no housekeeping cost spent on a rate limit.
+        let summaryCalls = await summaryCounter.count
+        XCTAssertEqual(summaryCalls, 0, "a 429 must not spend an aux summary call")
+
+        // The compaction loop made exactly ONE model call: the 429 is not overflow, so it re-throws
+        // immediately without retrying (the run-loop retry lives in RetryingLLMClient, not exercised
+        // here — this proves the compaction loop itself does not retry a rate limit).
+        let calls = await state.callCount
+        XCTAssertEqual(calls, 1, "the compaction loop must not retry a rate limit")
+    }
+
+    func testPersistent5xxWithTokenBodyIsNotCompacted() async throws {
+        let root = try makeTempDirectory()
+        let summaryCounter = SummaryCallCounter()
+        let state = OverflowScriptState(
+            overflowRounds: 1_000,
+            finalAction: .say("never reached"),
+            failureStatus: 503,
+            failureBody: "maximum context length exceeded (too many tokens)"
+        )
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            compaction: compactionPolicy(maxRounds: 3, summaryCounter: summaryCounter)
+        )
+        do {
+            _ = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+            XCTFail("expected the 5xx to surface")
+        } catch let error as TrustedRouterAgentError {
+            guard case .streamingHTTPError(let status, _, _) = error else {
+                return XCTFail("wrong error type: \(error)")
+            }
+            XCTAssertEqual(status, 503, "a transient 5xx must surface, not be compacted")
+        }
+        let summaryCalls = await summaryCounter.count
+        XCTAssertEqual(summaryCalls, 0, "a 5xx must not spend an aux summary call")
+    }
+
+    /// The positive counterpart in the SAME run-loop harness: a genuine 413/400/422 overflow whose body
+    /// carries the identical token phrasing IS compacted and resumes — proving the status gate lets
+    /// real overflows through unchanged.
+    func testGenuineOverflowWithTokenBodyStillCompactsAndResumes() async throws {
+        let root = try makeTempDirectory()
+        let summaryCounter = SummaryCallCounter()
+        let state = OverflowScriptState(
+            overflowRounds: 1,
+            finalAction: .say("recovered"),
+            failureStatus: 400,
+            failureBody: "This model's maximum context length is 200000 tokens; reduce the length of the messages."
+        )
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            compaction: compactionPolicy(summaryCounter: summaryCounter)
+        )
+        let result = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+
+        XCTAssertEqual(result.stopReason, .finished)
+        XCTAssertEqual(result.thread.messages.last?.content, "recovered")
+        XCTAssertTrue(result.thread.events.contains { $0.kind == .notice && $0.summary.contains("Compacted") })
+        let summaryCalls = await summaryCounter.count
+        XCTAssertEqual(summaryCalls, 1, "a real overflow should invoke the aux summary once")
     }
 }

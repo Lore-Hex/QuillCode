@@ -92,9 +92,13 @@ extension AgentRunner {
                     onProgress: onProgress
                 )
             } catch {
-                // Only a recognized context overflow is compactable; everything else (transport,
-                // auth, cancellation, a benign 413 with no context marker) propagates untouched so
-                // the retry/terminal paths keep their existing behavior.
+                // Only a recognized context overflow is compactable; everything else propagates
+                // untouched so the retry/terminal paths keep their existing behavior. Crucially, the
+                // detector is status-gated: a rate-limit (429, even one whose body says "too many
+                // tokens") or a transient 5xx is NOT an overflow, so it re-throws here — after
+                // RetryingLLMClient has exhausted its retries — surfacing the real cause instead of
+                // destroying turns with a compaction it can never satisfy. Also excluded: transport
+                // blips, auth, cancellation, and a benign 4xx with no context marker.
                 guard ContextOverflowDetector.isContextOverflow(error) else { throw error }
                 try Task.checkCancellation()
 

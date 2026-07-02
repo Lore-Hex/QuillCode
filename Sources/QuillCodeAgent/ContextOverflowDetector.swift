@@ -25,12 +25,21 @@ public enum ContextOverflowSignal: String, Sendable, Hashable {
 /// message, or a proactive token estimate — into ONE typed decision the run loop can act on by
 /// compacting and resuming, rather than failing the run.
 ///
-/// Deliberately conservative on the ambiguous signals so it never misfires on an unrelated error:
-/// an HTTP 413 is treated as overflow (for a chat request there is no other meaning), but every OTHER
-/// status code must be corroborated by a machine code or a context-specific message in the body — a
-/// plain 400/429/500 is NOT an overflow. The `RetryClassifier` still owns transient-vs-terminal for
-/// retry; this detector is composed alongside it (see `ContextOverflowDetector.classification`) and
-/// takes priority for the codes it recognizes, without changing the classifier's behavior.
+/// Deliberately conservative so it never misfires on an unrelated error. Two gates:
+/// 1. Status FIRST: a genuine context overflow is a DETERMINISTIC client error — the provider rejects
+///    the prompt with 400/413/422, never a 429 or a 5xx. So this detector defers to `RetryClassifier`:
+///    if the classifier would call the error `.rateLimited` or transient (429, 408, 5xx, …), it is a
+///    rate-limit / server blip and is NEVER reclassified as overflow — even when the body happens to
+///    say "too many tokens" or "reduce the length of the messages" (Anthropic/OpenAI phrase those on a
+///    persistent token-per-minute 429). Letting that through would COMPACT the thread and burn an aux
+///    summary on what is really a rate limit, degrading the very unattended loop this feature protects.
+/// 2. Then body: on a non-transient status, a machine code or a context-specific message confirms
+///    overflow; an HTTP 413 is overflow even with an opaque body (for a chat request the only thing
+///    "too large" is the prompt). A plain deterministic 400/401 with no context marker is NOT overflow.
+///
+/// This GENUINELY composes with `RetryClassifier` rather than overriding it: a 429/5xx always flows to
+/// retry, never to compaction; only a deterministic, overflow-shaped failure is claimed here. The
+/// proactive token-threshold path (`proactiveSignal`) is status-independent by design and unaffected.
 public enum ContextOverflowDetector {
     /// Recognizes the overflow signal in a thrown model-call error, or nil when the error is not a
     /// context overflow. Only inspects the router's HTTP error (status + body); every other error
@@ -47,6 +56,13 @@ public enum ContextOverflowDetector {
     /// without constructing the full error and so a future non-router client can reuse the same
     /// normalization.
     public static func signal(statusCode: Int, body: String) -> ContextOverflowSignal? {
+        // STATUS GATE FIRST — defer to RetryClassifier. A rate-limit (429) or transient status (408,
+        // 5xx, …) is NEVER a context overflow, no matter what its body says: providers put "too many
+        // tokens" / "reduce the length of the messages" on a persistent token-per-minute 429, and
+        // reclassifying that as overflow would compact the thread and spend an aux summary on a rate
+        // limit. Only a DETERMINISTIC failure (the classifier returns `.none`) is overflow-eligible.
+        guard isOverflowEligible(statusCode: statusCode) else { return nil }
+
         // A bounded, lowercased view of the body: bodies are gateway/provider-controlled and can be
         // arbitrarily large, so cap the scan window before lowercasing to keep detection O(1) on a
         // hostile megabyte body. Overflow markers always appear early in the JSON error object.
@@ -59,6 +75,16 @@ public enum ContextOverflowDetector {
         // opaque. Every OTHER status needs a corroborating marker above and is NOT overflow here.
         if statusCode == payloadTooLargeStatusCode { return .httpPayloadTooLarge }
         return nil
+    }
+
+    /// Whether a status is even a candidate for overflow: only when `RetryClassifier` treats it as a
+    /// deterministic (non-retryable) failure. This is the single source of truth that keeps 429 /
+    /// 5xx / 408 out of the overflow path — if the classifier learns a new transient status, this
+    /// gate inherits it automatically rather than duplicating the status list.
+    static func isOverflowEligible(statusCode: Int) -> Bool {
+        RetryClassifier.classify(
+            TrustedRouterAgentError.streamingHTTPError(statusCode: statusCode, body: "", rateLimit: nil)
+        ) == .none
     }
 
     /// Whether an estimated prompt-token count has crossed the proactive compaction threshold. Kept
