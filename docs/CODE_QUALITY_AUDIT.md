@@ -1,5 +1,42 @@
 # Code Quality Audit
 
+## 2026-07-01 Memory Redaction Review Quality Pass
+
+Overall grade after this slice: **all modules grade A+; the touched memory-redaction path grades A+**.
+
+This pass regenerated the per-file/module grade report, then targeted the next real Chronicle parity and quality issue:
+sensitive memory attempts were rejected, but the attempted content could still leak through queued tool payloads, failed
+tool surfaces, local `/remember` transcript text, mock harness thread titles, and the Memories pane had no review affordance
+for a user to retry with safe content.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Redaction ownership | Environment-value redaction existed in `ToolCall`, but memory content redaction was split across write rejection and UI copy. | `ToolCall.redactedArgumentsJSON` now redacts `host.memory.remember` content/reason payloads, and `MemoryRedactionReviewSurface` owns the redacted review projection. |
+| Memory mutation boundary | Sensitive write failures returned only transcript text; future review UI would have had to inspect errors or raw user content. | `WorkspaceMemoryMutation` carries an optional safe review event, assembled by `WorkspaceMemoryMutationFactory` and appended by the actor-owned model mutation path. |
+| UI/UX parity | The Memories pane showed notes and conflicts only, with no visible safe retry path after blocked memory attempts. | SwiftUI, static HTML, and the Playwright harness render redaction review rows with redacted input, guidance, and an Add safe memory action. |
+| Leak prevention | Rejected slash/tool memory attempts could leave raw synthetic secrets in tool payloads, transcript messages, or mock thread/sidebar titles. | Tests now prove raw sensitive content is absent from transcript/tool payloads, Memory review rows, and the harness body while preserving a useful redacted audit trail. |
+| Compatibility | Adding a new Memories surface field could have made old serialized surfaces brittle. | `WorkspaceMemoriesSurface` has tolerant decoding defaults for redaction reviews and older payloads. |
+
+Module and file grades:
+
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; every source, test, E2E, and script module grades **A+**.
+- New `Sources/QuillCodeApp/MemoryRedactionReviewSurface.swift` grades **A+ 100** with no automated issues.
+- Touched files `ToolCall.swift`, `WorkspaceMemoryMutationFactory.swift`, `QuillCodeMemoriesPaneView.swift`,
+  `WorkspaceHTMLMemoriesPaneRenderer.swift`, and `WorkspaceToolEventRecorderTests.swift` all grade **A+**.
+
+Validation:
+
+- `swift test --filter 'CoreModelTests|WorkspaceToolEventRecorderTests|WorkspaceMemoryEngineTests|WorkspaceMemoryIntegrationTests|QuillCodeSecondaryPaneSurfaceTests|WorkspaceHTMLSecondaryPaneRendererTests|QuillCodeNativeHitTargetSurfaceAuditTests'`
+- `npx playwright test tests/memories.spec.ts`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `swift test` (2,185 tests, 1 skipped, 0 failures)
+- `git diff --check`
+
+Residual risk:
+
+- This is deterministic redaction review for explicit memory attempts. Idle Chronicle jobs, autonomous memory inference,
+  richer project-memory review, and deeper model-assisted redaction workflows remain pending parity milestones.
+
 ## 2026-07-01 Memory Conflict Review Quality Pass
 
 Overall grade after this slice: **all source and test modules grade A+; the touched Memories pane conflict-review path

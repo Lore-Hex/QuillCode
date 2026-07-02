@@ -365,6 +365,10 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         )
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.memoryRemember.name)
         XCTAssertEqual(model.currentToolCards.last?.status, .failed)
+        let queuedPayload = try XCTUnwrap(model.selectedThread?.events.first { $0.kind == .toolQueued }?.payloadJSON)
+        XCTAssertTrue(queuedPayload.contains(ToolCall.redactedMemoryContentValue))
+        XCTAssertFalse(queuedPayload.contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE"))
+        XCTAssertEqual(model.surface().memories.redactionReviewCount, 1)
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("credential") == true)
         XCTAssertEqual(model.surface().topBar.memoryLabel, "No memories")
     }
@@ -473,7 +477,15 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
             []
         )
         XCTAssertEqual(model.selectedThread?.title, "Memory not saved")
+        XCTAssertFalse(model.selectedThread?.messages.first?.content.contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE") == true)
+        XCTAssertTrue(model.selectedThread?.messages.first?.content.contains(ToolCall.redactedMemoryContentValue) == true)
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("credential") == true)
+        XCTAssertEqual(model.surface().memories.redactionReviewCount, 1)
+        XCTAssertEqual(model.surface().memories.redactionReviews.first?.title, "Memory redaction blocked")
+        XCTAssertFalse(
+            model.surface().memories.redactionReviews.first?.redactedInput
+                .contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE") == true
+        )
         XCTAssertEqual(model.surface().topBar.memoryLabel, "No memories")
     }
 

@@ -21,7 +21,7 @@ enum WorkspaceHTMLMemoriesPaneRenderer {
     }
 
     private static func renderContent(_ memories: WorkspaceMemoriesSurface) -> String {
-        guard !memories.items.isEmpty else {
+        guard !memories.items.isEmpty || !memories.redactionReviews.isEmpty else {
             return """
             <div class="memories-empty" data-testid="memories-empty">
               <strong>\(escape(memories.emptyTitle))</strong>
@@ -31,9 +31,34 @@ enum WorkspaceHTMLMemoriesPaneRenderer {
         }
         return """
         <div class="memories-grid" data-testid="memories-grid">
+          \(renderRedactionReviews(memories))
           \(renderConflicts(memories))
           \(memories.items.map(renderMemoryItem).joined(separator: "\n"))
         </div>
+        """
+    }
+
+    private static func renderRedactionReviews(_ memories: WorkspaceMemoriesSurface) -> String {
+        guard !memories.redactionReviews.isEmpty else { return "" }
+        return memories.redactionReviews.map(renderRedactionReview).joined(separator: "\n")
+    }
+
+    private static func renderRedactionReview(_ review: MemoryRedactionReviewSurface) -> String {
+        """
+        <article class="memory-redaction-card" data-testid="memory-redaction-review">
+          <header>
+            <strong data-testid="memory-redaction-title">\(escape(review.title))</strong>
+            \(renderCommand(
+                "Add safe memory",
+                testID: "memory-redaction-add",
+                commandID: review.addCommandID,
+                classes: ["memory-redaction-add-button"]
+            ))
+          </header>
+          <p data-testid="memory-redaction-summary">\(escape(review.summary))</p>
+          <code data-testid="memory-redaction-input">\(escape(review.redactedInput))</code>
+          <small data-testid="memory-redaction-guidance">\(escape(review.guidance))</small>
+        </article>
         """
     }
 

@@ -80,6 +80,23 @@ final class QuillCodeNativeHitTargetSurfaceAuditTests: QuillCodeNativeHitTargetA
         XCTAssertEqual(contract?.testID, "quillcode-memory-conflict-edit")
         XCTAssertEqual(contract?.label, "Edit conflicting memory")
     }
+
+    func testAuditCoversMemoryRedactionAddActionWhenVisible() throws {
+        var surface = representativeSurface()
+        let event = try XCTUnwrap(MemoryRedactionReviewSurface.event(
+            action: .save,
+            userText: "/remember api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE"
+        ))
+        surface.memories = WorkspaceMemoriesSurface(isVisible: true, events: [event])
+
+        let report = QuillCodeNativeHitTargetAudit.report(for: surface)
+        let contract = report.surfaceContracts.first { $0.id == "memories.redaction-add" }
+
+        XCTAssertTrue(report.isValid)
+        XCTAssertEqual(contract?.kind, .formAction)
+        XCTAssertEqual(contract?.testID, "quillcode-memory-redaction-add")
+        XCTAssertEqual(contract?.label, "Add safe memory")
+    }
 }
 
 private extension QuillCodeNativeHitTargetSurfaceAuditTests {

@@ -189,6 +189,22 @@ final class CoreModelTests: XCTestCase {
         XCTAssertFalse(redacted.argumentsJSON.contains(".cache/quill"))
     }
 
+    func testToolCallRedactsMemoryRememberContentForTranscript() {
+        let call = ToolCall(
+            id: "tool-memory-redact",
+            name: ToolDefinition.memoryRemember.name,
+            argumentsJSON: #"{"content":"api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE","reason":"user gave token"}"#
+        )
+
+        let redacted = call.redactedForTranscript()
+
+        XCTAssertEqual(redacted.id, call.id)
+        XCTAssertEqual(redacted.name, call.name)
+        XCTAssertTrue(redacted.argumentsJSON.contains(ToolCall.redactedMemoryContentValue))
+        XCTAssertFalse(redacted.argumentsJSON.contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE"))
+        XCTAssertFalse(redacted.argumentsJSON.contains("user gave token"))
+    }
+
     func testAgentPlanUpdateRoundTrips() throws {
         let update = AgentPlanUpdate(
             explanation: "Keep the user informed.",

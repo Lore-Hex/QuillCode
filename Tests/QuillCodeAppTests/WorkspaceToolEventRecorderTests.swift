@@ -59,6 +59,20 @@ final class WorkspaceToolEventRecorderTests: XCTestCase {
         XCTAssertTrue(queuedPayload.contains("<redacted>"))
     }
 
+    func testQueuedPayloadRedactsMemoryRememberContent() throws {
+        let call = ToolCall(
+            name: ToolDefinition.memoryRemember.name,
+            argumentsJSON: #"{"content":"api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE"}"#
+        )
+        let result = ToolResult(ok: false, error: "Memory was not saved because it contains a credential.")
+
+        let events = WorkspaceToolEventRecorder.events(call: call, result: result)
+
+        let queuedPayload = try XCTUnwrap(events[0].payloadJSON)
+        XCTAssertTrue(queuedPayload.contains(ToolCall.redactedMemoryContentValue))
+        XCTAssertFalse(queuedPayload.contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE"))
+    }
+
     func testAppendAddsEventsToThreadInOrder() {
         var thread = ChatThread(events: [
             ThreadEvent(kind: .message, summary: "Existing message")

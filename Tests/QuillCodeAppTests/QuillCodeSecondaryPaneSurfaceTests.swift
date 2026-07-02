@@ -184,6 +184,42 @@ final class QuillCodeSecondaryPaneSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.subtitle, "2 global memories · 1 project memory")
     }
 
+    func testMemoriesSurfaceIncludesRedactionReviewEvents() throws {
+        let event = try XCTUnwrap(MemoryRedactionReviewSurface.event(
+            action: .save,
+            userText: "/remember api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE"
+        ))
+
+        let surface = WorkspaceMemoriesSurface(isVisible: true, events: [event])
+
+        XCTAssertEqual(surface.subtitle, "0 memories · 1 blocked attempt")
+        XCTAssertEqual(surface.redactionReviewCount, 1)
+        XCTAssertEqual(surface.redactionReviews.first?.title, "Memory redaction blocked")
+        XCTAssertEqual(surface.redactionReviews.first?.addCommandID, "memory-add")
+        XCTAssertTrue(surface.redactionReviews.first?.redactedInput.contains(ToolCall.redactedMemoryContentValue) == true)
+        XCTAssertFalse(
+            surface.redactionReviews.first?.redactedInput
+                .contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE") == true
+        )
+    }
+
+    func testMemoriesSurfaceDerivesRedactionReviewFromFailedMemoryToolEvent() throws {
+        let result = ToolResult(ok: false, error: "Memory was not saved because it contains a credential.")
+        let event = ThreadEvent(
+            kind: .toolFailed,
+            summary: "\(ToolDefinition.memoryRemember.name) failed",
+            payloadJSON: try JSONHelpers.encodePretty(result)
+        )
+
+        let surface = WorkspaceMemoriesSurface(isVisible: true, events: [event])
+
+        XCTAssertEqual(surface.redactionReviewCount, 1)
+        XCTAssertEqual(
+            surface.redactionReviews.first?.redactedInput,
+            "\(ToolDefinition.memoryRemember.name) \(ToolCall.redactedMemoryContentValue)"
+        )
+    }
+
     func testAutomationsSurfaceUsesConfiguredWorkflowsAndActions() {
         let due = Date(timeIntervalSince1970: 100)
         let active = QuillAutomation(

@@ -8,6 +8,7 @@ struct WorkspaceMemoryMutation: Sendable, Equatable {
     let updatedProjectMemories: [MemoryNote]?
     let noticeSummary: String?
     let noticeRelativePath: String?
+    let reviewEvent: ThreadEvent?
 
     var changedContext: Bool {
         noticeSummary != nil && noticeRelativePath != nil

@@ -193,6 +193,19 @@ extension QuillCodeNativeHitTargetAudit {
                 )
             )
         }
+        if !surface.redactionReviews.isEmpty {
+            contracts.append(
+                contract(
+                    "memories.redaction-add",
+                    family: .memories,
+                    surface: "Memories",
+                    label: "Add safe memory",
+                    kind: .formAction,
+                    minWidth: 112,
+                    testID: "memory-redaction-add"
+                )
+            )
+        }
         return contracts
     }
 

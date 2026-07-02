@@ -35,6 +35,28 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
         XCTAssertFalse(mutation.changedContext)
     }
 
+    func testSaveGlobalSensitiveContentRedactsTranscriptAndAddsReviewEvent() throws {
+        let directory = try makeQuillCodeTestDirectory()
+
+        let mutation = WorkspaceMemoryEngine.saveGlobal(
+            content: "api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE",
+            userText: "/remember api_key=SYNTHETIC_TEST_SECRET_DO_NOT_USE",
+            directory: directory
+        )
+
+        XCTAssertEqual(mutation.transcript.title, "Memory not saved")
+        XCTAssertTrue(mutation.transcript.userText.contains(ToolCall.redactedMemoryContentValue))
+        XCTAssertFalse(mutation.transcript.userText.contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE"))
+        let event = try XCTUnwrap(mutation.reviewEvent)
+        XCTAssertEqual(event.kind, .notice)
+        XCTAssertEqual(event.summary, MemoryRedactionReviewPayload.eventSummary)
+        let payloadJSON = try XCTUnwrap(event.payloadJSON)
+        XCTAssertTrue(payloadJSON.contains(ToolCall.redactedMemoryContentValue))
+        XCTAssertFalse(payloadJSON.contains("SYNTHETIC_TEST_SECRET_DO_NOT_USE"))
+        XCTAssertEqual(mutation.updatedGlobalMemories, [])
+        XCTAssertFalse(mutation.changedContext)
+    }
+
     func testDeleteGlobalReturnsTranscriptRefreshAndNotice() throws {
         let directory = try makeQuillCodeTestDirectory()
         let note = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)
