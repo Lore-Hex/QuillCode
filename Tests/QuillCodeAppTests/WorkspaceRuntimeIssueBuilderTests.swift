@@ -13,6 +13,11 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
 
         XCTAssertEqual(issue?.title, "TrustedRouter sign-in needed")
         XCTAssertEqual(issue?.actionLabel, "Open Settings")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(
+            route: .settings,
+            reason: .trustedRouterSignInRequired,
+            commandID: "settings"
+        ))
         XCTAssertEqual(issue?.diagnostics.map(\.label), [
             "API base URL",
             "Authentication",
@@ -36,6 +41,11 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
 
         XCTAssertEqual(issue?.title, "Developer key needed")
         XCTAssertEqual(issue?.actionLabel, "Add key")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(
+            route: .settings,
+            reason: .developerKeyMissing,
+            commandID: "settings"
+        ))
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Authentication" }?.value, "Developer override")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Model" }?.value, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider" }?.value, "trustedrouter")
@@ -56,11 +66,13 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
             hasStoredAPIKey: true,
             modelID: "deepseek/deepseek-v4-flash",
             agentStatus: "Failed",
-            lastError: "HTTP 429 rate limit. retry-after: 45 x-ratelimit-remaining: 0 sk-testSecret123456 Bearer abcdefghijklmnop"
+            lastError: "HTTP 429 rate limit. retry-after: 45 x-ratelimit-remaining: 0 " +
+                "sk-testSecret123456 Bearer abcdefghijklmnop"
         ).surface()
 
         XCTAssertEqual(issue?.title, "TrustedRouter rate limit reached")
         XCTAssertEqual(issue?.actionLabel, "Switch model")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(route: .modelPicker, reason: .rateLimited))
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider status" }?.value, "Rate limited")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Retry after" }?.value, "45s")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Rate limit remaining" }?.value, "0")
@@ -84,6 +96,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertEqual(issue?.severity, .warning)
         XCTAssertEqual(issue?.title, "TrustedRouter provider unavailable")
         XCTAssertEqual(issue?.actionLabel, "Switch model")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(route: .modelPicker, reason: .providerUnavailable))
         XCTAssertTrue(issue?.message.contains("deepseek") == true)
         XCTAssertTrue(issue?.message.contains("Deepseek V4 Flash") == true)
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider" }?.value, "deepseek")
@@ -100,6 +113,11 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
 
         XCTAssertEqual(issue?.severity, .error)
         XCTAssertEqual(issue?.title, "TrustedRouter network issue")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(
+            route: .retryLastTurn,
+            reason: .networkUnreachable,
+            commandID: "retry-last-turn"
+        ))
         XCTAssertEqual(
             issue?.message,
             "QuillCode could not reach https://api.example.test/v1. Check the network or API base URL, then retry."
@@ -114,8 +132,45 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
 
         XCTAssertEqual(issue?.title, "Model response was malformed")
         XCTAssertEqual(issue?.actionLabel, "Switch model")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(route: .modelPicker, reason: .malformedModelAction))
         XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.fastModelDisplayName) == true)
         XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.synthModelDisplayName) == true)
+    }
+
+    func testRejectedKeyIssueUsesSettingsRecoveryTelemetry() {
+        let issue = WorkspaceRuntimeIssueBuilder.issue(
+            from: "HTTP 401 invalid api key",
+            config: AppConfig(apiBaseURL: "https://api.example.test/v1")
+        )
+
+        XCTAssertEqual(issue?.title, "TrustedRouter key rejected")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(
+            route: .settings,
+            reason: .trustedRouterKeyRejected,
+            commandID: "settings"
+        ))
+    }
+
+    func testEmptyResponseAndGenericFailureUseRetryRecoveryTelemetry() {
+        let empty = WorkspaceRuntimeIssueBuilder.issue(
+            from: "empty response from model",
+            config: AppConfig()
+        )
+        let generic = WorkspaceRuntimeIssueBuilder.issue(
+            from: "provider did something strange",
+            config: AppConfig()
+        )
+
+        XCTAssertEqual(empty?.recovery, RuntimeRecoveryTelemetry(
+            route: .retryLastTurn,
+            reason: .emptyResponse,
+            commandID: "retry-last-turn"
+        ))
+        XCTAssertEqual(generic?.recovery, RuntimeRecoveryTelemetry(
+            route: .retryLastTurn,
+            reason: .runFailed,
+            commandID: "retry-last-turn"
+        ))
     }
 
     func testArbitraryNumbersDoNotBecomeProviderOutages() {

@@ -55,10 +55,14 @@ enum WorkspaceHTMLTranscriptRenderer {
           <div class="composer-surface" data-testid="composer-surface">
             <label class="composer-sr-only" for="message">Message</label>
             <div class="composer-input-row">
-              <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" rows="1" \(composer.isSending ? "disabled" : "")>\(escape(composer.draft))</textarea>
+              \(renderComposerTextArea(composer))
               \(button)
             </div>
-            <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
+            <div
+              class="composer-controls"
+              data-testid="composer-controls"
+              aria-label="Composer model and safety controls"
+            >
               <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                   testID: "model-picker-button",
                   hitTargetKind: .capsule,
@@ -81,20 +85,51 @@ enum WorkspaceHTMLTranscriptRenderer {
         """
     }
 
+    private static func renderComposerTextArea(_ composer: ComposerSurface) -> String {
+        let disabled = composer.isSending ? " disabled" : ""
+        return "<textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) " +
+            "id=\"message\" " +
+            "aria-label=\"Message\" " +
+            "placeholder=\"\(escape(composer.placeholder))\" " +
+            "rows=\"1\"\(disabled)>" +
+            "\(escape(composer.draft))</textarea>"
+    }
+
     /// The always-visible plan-progress strip, emitted as the first child of the composer form so DOM
     /// order matches native. Empty string when there is no plan (byte-identical to before).
     private static func renderPlanProgress(_ progress: WorkspacePlanProgress?) -> String {
         guard let progress else { return "" }
         let state = progress.isComplete ? "complete" : (progress.isRunning ? "running" : "idle")
         let percent = Int((progress.fraction * 100).rounded())
-        let ariaLabel = "Plan progress: step \(progress.currentStepIndex) of \(progress.totalCount): \(progress.currentStepTitle)"
+        let ariaLabel = "Plan progress: step \(progress.currentStepIndex) " +
+            "of \(progress.totalCount): \(progress.currentStepTitle)"
         return """
-        <div class="composer-plan-progress" data-testid="composer-plan-progress" data-state="\(state)" role="progressbar" aria-valuemin="0" aria-valuemax="\(progress.totalCount)" aria-valuenow="\(progress.completedCount)" aria-label="\(escape(ariaLabel))">
+        <div
+          class="composer-plan-progress"
+          data-testid="composer-plan-progress"
+          data-state="\(state)"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="\(progress.totalCount)"
+          aria-valuenow="\(progress.completedCount)"
+          aria-label="\(escape(ariaLabel))"
+        >
             <div class="plan-progress-track"><div class="plan-progress-fill" style="width:\(percent)%"></div></div>
-            <span class="plan-progress-count" data-testid="plan-progress-count">\(escape(progress.stepCounterLabel))</span>
-            <span class="plan-progress-step" data-testid="plan-progress-step" title="\(escape(progress.currentStepTitle))">\(escape(progress.currentStepTitle))</span>
+            \(renderPlanProgressCount(progress))
+            \(renderPlanProgressStep(progress))
           </div>
         """
+    }
+
+    private static func renderPlanProgressCount(_ progress: WorkspacePlanProgress) -> String {
+        "<span class=\"plan-progress-count\" data-testid=\"plan-progress-count\">" +
+            "\(escape(progress.stepCounterLabel))</span>"
+    }
+
+    private static func renderPlanProgressStep(_ progress: WorkspacePlanProgress) -> String {
+        "<span class=\"plan-progress-step\" data-testid=\"plan-progress-step\" " +
+            "title=\"\(escape(progress.currentStepTitle))\">" +
+            "\(escape(progress.currentStepTitle))</span>"
     }
 
     private static func modeTone(for modeLabel: String) -> String {
@@ -133,23 +168,40 @@ enum WorkspaceHTMLTranscriptRenderer {
 
     private static func renderRuntimeIssue(_ issue: RuntimeIssueSurface?) -> String {
         guard let issue else { return "" }
-        let diagnostics = issue.diagnostics.isEmpty ? "" : """
+        let actionButton = issue.actionLabel.map {
+            WorkspaceHTMLPrimitives.button($0, testID: "runtime-issue-action", hitTargetKind: .text)
+        } ?? ""
+        let diagnostics = issue.allDiagnostics.isEmpty ? "" : """
           <dl class="runtime-diagnostics" data-testid="runtime-diagnostics">
-            \(issue.diagnostics.map { diagnostic in
-              #"<div data-testid="runtime-diagnostic"><dt data-testid="runtime-diagnostic-label">\#(escape(diagnostic.label))</dt><dd data-testid="runtime-diagnostic-value">\#(escape(diagnostic.value))</dd></div>"#
+            \(issue.allDiagnostics.map { diagnostic in
+              runtimeDiagnosticRow(diagnostic)
             }.joined(separator: "\n"))
           </dl>
         """
         return """
-        <section class="runtime-issue \(escape(issue.severity.rawValue))" data-testid="runtime-issue" data-severity="\(escape(issue.severity.rawValue))" aria-label="Runtime issue">
+        <section
+          class="runtime-issue \(escape(issue.severity.rawValue))"
+          data-testid="runtime-issue"
+          data-severity="\(escape(issue.severity.rawValue))"
+          aria-label="Runtime issue"
+        >
           <header>
             <strong data-testid="runtime-issue-title">\(escape(issue.title))</strong>
             <span data-testid="runtime-issue-severity">\(escape(issue.severity.rawValue))</span>
           </header>
           <p data-testid="runtime-issue-message">\(escape(issue.message))</p>
-          \(issue.actionLabel.map { WorkspaceHTMLPrimitives.button($0, testID: "runtime-issue-action", hitTargetKind: .text) } ?? "")
+          \(actionButton)
           \(diagnostics)
         </section>
+        """
+    }
+
+    private static func runtimeDiagnosticRow(_ diagnostic: RuntimeDiagnosticSurface) -> String {
+        """
+        <div data-testid="runtime-diagnostic">
+          <dt data-testid="runtime-diagnostic-label">\(escape(diagnostic.label))</dt>
+          <dd data-testid="runtime-diagnostic-value">\(escape(diagnostic.value))</dd>
+        </div>
         """
     }
 
@@ -164,7 +216,12 @@ enum WorkspaceHTMLTranscriptRenderer {
           </details>
         """
         return """
-        <article class="thinking" data-testid="thinking-indicator" data-thinking-id="\(escape(thinking.id))" aria-label="\(escape(thinking.title)): \(escape(thinking.subtitle))">
+        <article
+          class="thinking"
+          data-testid="thinking-indicator"
+          data-thinking-id="\(escape(thinking.id))"
+          aria-label="\(escape(thinking.title)): \(escape(thinking.subtitle))"
+        >
           <header>
             <strong data-testid="thinking-title">\(escape(thinking.title))</strong>
             <span aria-hidden="true">...</span>
@@ -184,7 +241,12 @@ enum WorkspaceHTMLTranscriptRenderer {
         case .message:
             guard let message = item.message else { return "" }
             return """
-            <article class="message \(message.role.rawValue)" data-testid="message" data-timeline-id="\(escape(item.id))" aria-label="\(escape(message.accessibilityLabel))">
+            <article
+              class="message \(message.role.rawValue)"
+              data-testid="message"
+              data-timeline-id="\(escape(item.id))"
+              aria-label="\(escape(message.accessibilityLabel))"
+            >
               <p>\(escape(message.text))</p>
               <footer class="transcript-actions">
                 \(WorkspaceHTMLPrimitives.button(
@@ -195,7 +257,11 @@ enum WorkspaceHTMLTranscriptRenderer {
                 ))
                 \(renderMessageDraftAction(message))
                 \(renderMessageRevertAction(message))
-                \(renderMessageRetryAction(message, latestAssistantMessageID: latestAssistantMessageID, command: retryLastTurnCommand))
+                \(renderMessageRetryAction(
+                    message,
+                    latestAssistantMessageID: latestAssistantMessageID,
+                    command: retryLastTurnCommand
+                ))
                 \(renderMessageFeedbackActions(message))
               </footer>
             </article>
@@ -277,8 +343,25 @@ enum WorkspaceHTMLTranscriptRenderer {
         guard let banner else { return "" }
         let forkButtons = banner.forkCommands.map { command in
             let testID = WorkspaceThreadForkStrategy(commandID: command.id)?.contextBannerTestID ?? "context-fork"
-            return WorkspaceHTMLPrimitives.commandButton(command.title, testID: testID, commandID: command.id, hitTargetKind: .text)
+            return WorkspaceHTMLPrimitives.commandButton(
+                command.title,
+                testID: testID,
+                commandID: command.id,
+                hitTargetKind: .text
+            )
         }.joined(separator: "\n            ")
+        let compactButton = WorkspaceHTMLPrimitives.commandButton(
+            banner.compactCommand.title,
+            testID: "context-compact",
+            commandID: banner.compactCommand.id,
+            hitTargetKind: .text
+        )
+        let newThreadButton = WorkspaceHTMLPrimitives.commandButton(
+            banner.newThreadCommand.title,
+            testID: "context-new-thread",
+            commandID: banner.newThreadCommand.id,
+            hitTargetKind: .text
+        )
         return """
         <section class="context-banner" data-testid="context-banner" aria-label="Context limit warning">
           <header>
@@ -287,8 +370,8 @@ enum WorkspaceHTMLTranscriptRenderer {
           </header>
           <p data-testid="context-banner-subtitle">\(escape(banner.subtitle))</p>
           <div>
-            \(WorkspaceHTMLPrimitives.commandButton(banner.compactCommand.title, testID: "context-compact", commandID: banner.compactCommand.id, hitTargetKind: .text))
-            \(WorkspaceHTMLPrimitives.commandButton(banner.newThreadCommand.title, testID: "context-new-thread", commandID: banner.newThreadCommand.id, hitTargetKind: .text))
+            \(compactButton)
+            \(newThreadButton)
             \(forkButtons)
           </div>
         </section>

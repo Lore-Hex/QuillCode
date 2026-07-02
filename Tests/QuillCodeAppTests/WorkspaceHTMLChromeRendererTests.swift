@@ -263,6 +263,11 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostics""#))
         XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">API base URL"#))
         XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">Last error"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">Recovery route"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-value">retry-last-turn"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">Recovery reason"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-value">empty-response"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">Recovery command"#))
     }
 
     func testHTMLRendererGroupsPinnedTodayAndArchivedChats() {
