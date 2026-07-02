@@ -24,6 +24,10 @@ public struct AgentRunner: Sendable {
     /// flail detector's "did anything actually change" judgment. nil = the git-based default;
     /// injected in tests for determinism.
     public var workspaceStateSignature: (@Sendable (URL) -> String)?
+    /// Compacts the thread and resumes when a model call overflows the context window (issue #862).
+    /// nil disables compaction entirely (the mock runtime, and any caller that opts out) — the run
+    /// then behaves exactly as before, surfacing an overflow error instead of compacting.
+    public var compaction: AgentCompactionPolicy?
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -34,7 +38,8 @@ public struct AgentRunner: Sendable {
         webSearch: (any WebSearchClient)? = nil,
         maxToolSteps: Int = AgentRunner.defaultMaxToolSteps,
         enablesImmediateActionPreflight: Bool = false,
-        workspaceStateSignature: (@Sendable (URL) -> String)? = nil
+        workspaceStateSignature: (@Sendable (URL) -> String)? = nil,
+        compaction: AgentCompactionPolicy? = nil
     ) {
         self.llm = llm
         self.safety = safety
@@ -45,6 +50,7 @@ public struct AgentRunner: Sendable {
         self.maxToolSteps = maxToolSteps
         self.enablesImmediateActionPreflight = enablesImmediateActionPreflight
         self.workspaceStateSignature = workspaceStateSignature
+        self.compaction = compaction
     }
 
     public func send(
@@ -81,7 +87,7 @@ public struct AgentRunner: Sendable {
             var flailAssessmentInjected = false
 
             for _ in 0..<limit {
-                let action = try await nextAction(
+                let action = try await nextActionCompactingOnOverflow(
                     thread: &next,
                     userMessage: userMessage,
                     tools: tools,
