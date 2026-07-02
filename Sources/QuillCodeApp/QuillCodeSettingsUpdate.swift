@@ -11,6 +11,7 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var computerUseApprovedAppNames: [String]
     public var browserAllowedDomains: [String]
     public var browserBlockedDomains: [String]
+    public var notificationPreferences: QuillCodeNotificationPreferences
 
     public init(
         apiBaseURL: String,
@@ -21,7 +22,8 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         computerUseApprovedBundleIdentifiers: [String] = [],
         computerUseApprovedAppNames: [String] = [],
         browserAllowedDomains: [String] = [],
-        browserBlockedDomains: [String] = []
+        browserBlockedDomains: [String] = [],
+        notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences()
     ) {
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
@@ -41,5 +43,6 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         )
         self.browserAllowedDomains = browserPolicy.allowedDomains
         self.browserBlockedDomains = browserPolicy.blockedDomains
+        self.notificationPreferences = notificationPreferences
     }
 }

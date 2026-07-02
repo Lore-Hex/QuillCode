@@ -83,12 +83,18 @@ final class MCPCryptoAndTokenStoreTests: XCTestCase {
         // A provider with an expired token and a refresh token refreshes when asked.
         let httpClient = MCPHTTPStubClient()
         httpClient.onPerform { _ in
-            MCPHTTPResponse(
+            let payload = [
+                "access_token": "refreshed",
+                "token_type": "Bearer",
+                "expires_in": 3600
+            ] as [String: Any]
+            guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
+                return MCPHTTPResponse(statusCode: 500)
+            }
+            return MCPHTTPResponse(
                 statusCode: 200,
                 headerFields: ["content-type": "application/json"],
-                body: try! JSONSerialization.data(withJSONObject: [
-                    "access_token": "refreshed", "token_type": "Bearer", "expires_in": 3600
-                ])
+                body: body
             )
         }
         let store = InMemorySecretStore()
@@ -102,7 +108,11 @@ final class MCPCryptoAndTokenStoreTests: XCTestCase {
             configuration: configuration,
             clientID: "c",
             tokenStore: tokenStore,
-            initialTokens: MCPOAuthTokens(accessToken: "old", refreshToken: "rt", expiresAt: Date().addingTimeInterval(-10))
+            initialTokens: MCPOAuthTokens(
+                accessToken: "old",
+                refreshToken: "rt",
+                expiresAt: Date().addingTimeInterval(-10)
+            )
         )
         XCTAssertEqual(provider.refreshAuthorizationHeader(), "Bearer refreshed")
         // The refreshed token is persisted.

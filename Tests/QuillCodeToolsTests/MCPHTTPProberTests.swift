@@ -123,7 +123,10 @@ final class MCPHTTPProberTests: XCTestCase {
                     ? ["protocolVersion": "2024-11-05", "serverInfo": ["name": "Legacy MCP"], "capabilities": [:]]
                     : Self.resultPayload(for: method)
                 let reply = Self.result(id: id, payload)
-                let json = String(decoding: try! JSONSerialization.data(withJSONObject: reply), as: UTF8.self)
+                guard let data = try? JSONSerialization.data(withJSONObject: reply) else {
+                    return MCPHTTPResponse(statusCode: 500)
+                }
+                let json = String(decoding: data, as: UTF8.self)
                 liveStream.pushEvent(name: "message", data: json)
             }
             return MCPHTTPResponse(statusCode: 202)
@@ -281,7 +284,11 @@ final class MCPHTTPProberTests: XCTestCase {
 
 // MARK: - Test doubles
 
-private func XCTUnwrapMessage(_ body: Data?, file: StaticString = #filePath, line: UInt = #line) throws -> [String: Any] {
+private func XCTUnwrapMessage(
+    _ body: Data?,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws -> [String: Any] {
     guard let body,
           let object = try JSONSerialization.jsonObject(with: body) as? [String: Any] else {
         throw MCPProbeError.invalidMessage("request body was not a JSON object")

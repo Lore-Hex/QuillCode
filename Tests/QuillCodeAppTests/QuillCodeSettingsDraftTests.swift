@@ -23,6 +23,9 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
         XCTAssertEqual(draft.browserAllowedDomainsText, "")
         XCTAssertEqual(draft.browserBlockedDomainsText, "")
+        XCTAssertTrue(draft.agentRunNotificationsEnabled)
+        XCTAssertTrue(draft.agentRunNotificationsOnlyWhenInactive)
+        XCTAssertTrue(draft.automationNotificationsEnabled)
     }
 
     func testUpdateTrimsBaseURLAndReplacementKey() {
@@ -40,6 +43,35 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertTrue(update.developerOverrideEnabled)
         XCTAssertEqual(update.replacementAPIKey, "sk-tr-v1-test")
         XCTAssertFalse(update.shouldClearAPIKey)
+        XCTAssertEqual(update.notificationPreferences, QuillCodeNotificationPreferences())
+    }
+
+    func testNotificationPreferencesInitializeFromSettingsSurfaceAndUpdate() {
+        let preferences = QuillCodeNotificationPreferences(
+            agentRunNotificationsEnabled: false,
+            agentRunNotificationsOnlyWhenInactive: false,
+            automationNotificationsEnabled: true
+        )
+        let surface = WorkspaceSettingsSurface(
+            config: AppConfig(notificationPreferences: preferences),
+            hasStoredAPIKey: false
+        )
+
+        var draft = QuillCodeSettingsDraft(settings: surface)
+        draft.apiBaseURL = "https://api.trustedrouter.test/v1"
+        draft.automationNotificationsEnabled = false
+
+        XCTAssertFalse(draft.agentRunNotificationsEnabled)
+        XCTAssertFalse(draft.agentRunNotificationsOnlyWhenInactive)
+        XCTAssertFalse(draft.automationNotificationsEnabled)
+        XCTAssertEqual(
+            draft.update.notificationPreferences,
+            QuillCodeNotificationPreferences(
+                agentRunNotificationsEnabled: false,
+                agentRunNotificationsOnlyWhenInactive: false,
+                automationNotificationsEnabled: false
+            )
+        )
     }
 
     func testBlankReplacementKeyBecomesNilAndClearFlagIsPreserved() {

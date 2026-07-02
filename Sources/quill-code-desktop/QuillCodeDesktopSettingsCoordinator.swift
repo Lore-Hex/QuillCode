@@ -73,6 +73,7 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.computerUseApprovedAppNames = update.computerUseApprovedAppNames
         config.browserAllowedDomains = update.browserAllowedDomains
         config.browserBlockedDomains = update.browserBlockedDomains
+        config.notificationPreferences = update.notificationPreferences
 
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()

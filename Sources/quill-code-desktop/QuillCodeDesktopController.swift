@@ -84,10 +84,15 @@ final class QuillCodeDesktopController: ObservableObject {
         self.workspaceRoot = workspaceRoot
         modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: workspaceRoot)
         self.computerUseCoordinator.install(on: model)
-        // Ping the user when a run they walked away from needs them — but not when they are actively
-        // watching QuillCode (it is the frontmost app), which would just be noise.
-        model.onRunNotification = { [automationNotifier] notification in
-            guard !NSApplication.shared.isActive else { return }
+        // Ping the user when unattended work needs attention. The closure reads live config so
+        // Settings toggles apply immediately without rebuilding the desktop controller.
+        let workspaceModel = model
+        workspaceModel.onRunNotification = { [weak workspaceModel, automationNotifier] notification in
+            guard let preferences = workspaceModel?.root.config.notificationPreferences else { return }
+            guard DesktopNotificationPolicy.shouldDeliverAgentRun(
+                preferences: preferences,
+                appIsActive: NSApplication.shared.isActive
+            ) else { return }
             automationNotifier.deliver(notification)
         }
         let initialState = modelStateCoordinator.initialState(from: model)

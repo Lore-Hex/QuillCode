@@ -55,6 +55,9 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var browserBlockedDomains: [String]
     public var browserDomainPolicyStatusLabel: String
     public var browserDomainPolicySummary: String
+    public var notificationPreferences: QuillCodeNotificationPreferences
+    public var notificationStatusLabel: String
+    public var notificationSummary: String
 
     public init(
         config: AppConfig,
@@ -104,6 +107,9 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.browserBlockedDomains = browserPolicy.blockedDomains
         self.browserDomainPolicyStatusLabel = browserPolicy.statusLabel
         self.browserDomainPolicySummary = browserPolicy.summary
+        self.notificationPreferences = config.notificationPreferences
+        self.notificationStatusLabel = NotificationSettingsProjection.statusLabel(config.notificationPreferences)
+        self.notificationSummary = NotificationSettingsProjection.summary(config.notificationPreferences)
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -152,6 +158,9 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case browserBlockedDomains
         case browserDomainPolicyStatusLabel
         case browserDomainPolicySummary
+        case notificationPreferences
+        case notificationStatusLabel
+        case notificationSummary
     }
 
     public init(from decoder: Decoder) throws {
@@ -246,5 +255,56 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             String.self,
             forKey: .browserDomainPolicySummary
         ) ?? browserPolicy.summary
+        let decodedNotificationPreferences = try container.decodeIfPresent(
+            QuillCodeNotificationPreferences.self,
+            forKey: .notificationPreferences
+        ) ?? QuillCodeNotificationPreferences()
+        self.notificationPreferences = decodedNotificationPreferences
+        self.notificationStatusLabel = try container.decodeIfPresent(
+            String.self,
+            forKey: .notificationStatusLabel
+        ) ?? NotificationSettingsProjection.statusLabel(decodedNotificationPreferences)
+        self.notificationSummary = try container.decodeIfPresent(
+            String.self,
+            forKey: .notificationSummary
+        ) ?? NotificationSettingsProjection.summary(decodedNotificationPreferences)
+    }
+}
+
+enum NotificationSettingsProjection {
+    static func statusLabel(_ preferences: QuillCodeNotificationPreferences) -> String {
+        switch (
+            preferences.agentRunNotificationsEnabled,
+            preferences.automationNotificationsEnabled,
+            preferences.agentRunNotificationsOnlyWhenInactive
+        ) {
+        case (true, true, true):
+            return "Smart"
+        case (true, true, false):
+            return "All activity"
+        case (true, false, _):
+            return "Agent runs"
+        case (false, true, _):
+            return "Automations"
+        case (false, false, _):
+            return "Off"
+        }
+    }
+
+    static func summary(_ preferences: QuillCodeNotificationPreferences) -> String {
+        if !preferences.anyNotificationEnabled {
+            return "Desktop notifications are disabled for agent runs and automations."
+        }
+
+        var parts: [String] = []
+        if preferences.agentRunNotificationsEnabled {
+            parts.append(preferences.agentRunNotificationsOnlyWhenInactive
+                ? "Agent runs notify only when QuillCode is in the background"
+                : "Agent runs notify whenever they need attention")
+        }
+        if preferences.automationNotificationsEnabled {
+            parts.append("Automation runs post completion alerts")
+        }
+        return parts.joined(separator: ". ") + "."
     }
 }

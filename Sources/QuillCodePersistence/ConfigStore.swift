@@ -33,6 +33,7 @@ public struct ConfigStore: Sendable {
         var computerUseApprovedAppNames: [String] = []
         var browserAllowedDomains: [String] = []
         var browserBlockedDomains: [String] = []
+        var notificationPreferences = QuillCodeNotificationPreferences()
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -71,6 +72,15 @@ public struct ConfigStore: Sendable {
                 browserAllowedDomains.append(value)
             case "browser_blocked_domain":
                 browserBlockedDomains.append(value)
+            case "agent_run_notifications_enabled":
+                notificationPreferences.agentRunNotificationsEnabled = Self.boolValue(value)
+                    ?? notificationPreferences.agentRunNotificationsEnabled
+            case "agent_run_notifications_only_when_inactive":
+                notificationPreferences.agentRunNotificationsOnlyWhenInactive = Self.boolValue(value)
+                    ?? notificationPreferences.agentRunNotificationsOnlyWhenInactive
+            case "automation_notifications_enabled":
+                notificationPreferences.automationNotificationsEnabled = Self.boolValue(value)
+                    ?? notificationPreferences.automationNotificationsEnabled
             default:
                 continue
             }
@@ -102,6 +112,7 @@ public struct ConfigStore: Sendable {
         )
         config.browserAllowedDomains = browserPolicy.allowedDomains
         config.browserBlockedDomains = browserPolicy.blockedDomains
+        config.notificationPreferences = notificationPreferences
         return config
     }
 
@@ -115,8 +126,9 @@ public struct ConfigStore: Sendable {
             "mode = \(Self.quote(config.mode.rawValue))",
             "api_base_url = \(Self.quote(config.apiBaseURL))",
             "auth_mode = \(Self.quote(config.authMode.rawValue))",
-            "developer_override_enabled = \(config.developerOverrideEnabled ? "true" : "false")"
+            "developer_override_enabled = \(Self.boolString(config.developerOverrideEnabled))"
         ]
+        Self.appendNotificationPreferences(config.notificationPreferences, to: &lines)
         Self.appendRepeatedValues(config.favoriteModels, key: "favorite_model", to: &lines)
         Self.appendRepeatedValues(
             config.computerUseApprovedBundleIdentifiers,
@@ -151,6 +163,46 @@ public struct ConfigStore: Sendable {
     private static func appendRepeatedValues(_ values: [String], key: String, to lines: inout [String]) {
         for value in values {
             lines.append("\(key) = \(quote(value))")
+        }
+    }
+
+    private static func appendNotificationPreferences(
+        _ preferences: QuillCodeNotificationPreferences,
+        to lines: inout [String]
+    ) {
+        appendBoolean(
+            preferences.agentRunNotificationsEnabled,
+            key: "agent_run_notifications_enabled",
+            to: &lines
+        )
+        appendBoolean(
+            preferences.agentRunNotificationsOnlyWhenInactive,
+            key: "agent_run_notifications_only_when_inactive",
+            to: &lines
+        )
+        appendBoolean(
+            preferences.automationNotificationsEnabled,
+            key: "automation_notifications_enabled",
+            to: &lines
+        )
+    }
+
+    private static func appendBoolean(_ value: Bool, key: String, to lines: inout [String]) {
+        lines.append("\(key) = \(boolString(value))")
+    }
+
+    private static func boolString(_ value: Bool) -> String {
+        value ? "true" : "false"
+    }
+
+    private static func boolValue(_ value: String) -> Bool? {
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "true":
+            return true
+        case "false":
+            return false
+        default:
+            return nil
         }
     }
 
