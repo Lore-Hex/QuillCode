@@ -142,6 +142,7 @@ extension QuillCodeWorkspaceModel {
             ),
             mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
             sshRemoteShellExecutor: sshRemoteShellExecutor,
+            permissionRules: permissionRuleStore,
             workspaceRoot: workspaceRoot
         )
     }

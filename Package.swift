@@ -30,7 +30,7 @@ let package = Package(
         .target(name: "QuillCodeSafety", dependencies: ["QuillCodeCore"]),
         .target(name: "CQuillPTY"),
         .target(name: "QuillCodeTools", dependencies: ["QuillCodeCore", "CQuillPTY"]),
-        .target(name: "QuillCodePersistence", dependencies: ["QuillCodeCore"]),
+        .target(name: "QuillCodePersistence", dependencies: ["QuillCodeCore", "QuillCodeSafety"]),
         .target(name: "QuillComputerUseKit", dependencies: ["QuillCodeCore"]),
         .target(
             name: "QuillCodeAgent",
@@ -80,7 +80,7 @@ let package = Package(
         .testTarget(name: "QuillCodeCoreTests", dependencies: ["QuillCodeCore"]),
         .testTarget(name: "QuillCodeSafetyTests", dependencies: ["QuillCodeSafety"]),
         .testTarget(name: "QuillCodeToolsTests", dependencies: ["QuillCodeTools"]),
-        .testTarget(name: "QuillCodePersistenceTests", dependencies: ["QuillCodePersistence"]),
+        .testTarget(name: "QuillCodePersistenceTests", dependencies: ["QuillCodePersistence", "QuillCodeSafety"]),
         .testTarget(name: "QuillComputerUseKitTests", dependencies: ["QuillComputerUseKit"]),
         .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools", "QuillCodeSafety"]),
         .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),

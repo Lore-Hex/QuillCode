@@ -64,6 +64,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             projectStore: projectStore,
             automationStore: automationStore,
             sidebarSavedSearchStore: sidebarSavedSearchStore,
+            permissionRuleStore: PermissionRuleFileStore(directory: paths.permissionsDirectory),
             globalMemoryDirectory: paths.memoriesDirectory
         )
         model.refreshSelectedProjectInstructions()

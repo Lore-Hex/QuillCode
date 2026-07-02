@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeSafety
 import QuillCodeTools
 import QuillComputerUseKit
 
@@ -15,6 +16,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let mcpToolDefinitions: [ToolDefinition]
     private let mcpToolExecutionOverride: AgentToolExecutionOverride?
     private let sshRemoteShellExecutor: SSHRemoteShellExecutor
+    private let permissionRules: (any PermissionRulesProviding)?
     private let workspaceRoot: URL
 
     init(
@@ -28,6 +30,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         mcpToolDefinitions: [ToolDefinition],
         mcpToolExecutionOverride: AgentToolExecutionOverride?,
         sshRemoteShellExecutor: SSHRemoteShellExecutor,
+        permissionRules: (any PermissionRulesProviding)? = nil,
         workspaceRoot: URL
     ) {
         self.baseRunner = baseRunner
@@ -40,6 +43,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.mcpToolDefinitions = mcpToolDefinitions
         self.mcpToolExecutionOverride = mcpToolExecutionOverride
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
+        self.permissionRules = permissionRules
         self.workspaceRoot = workspaceRoot
     }
 
@@ -67,7 +71,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             globalMemoryDirectory: globalMemoryDirectory,
             mcpToolDefinitions: mcpToolDefinitions,
             mcpToolExecutionOverride: mcpToolExecutionOverride,
-            sshRemoteShellExecutor: sshRemoteShellExecutor
+            sshRemoteShellExecutor: sshRemoteShellExecutor,
+            permissionRules: permissionRules
         ).configuredRunner(from: baseRunner)
     }
 }

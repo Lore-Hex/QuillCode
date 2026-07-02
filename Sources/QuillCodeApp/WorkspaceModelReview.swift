@@ -102,7 +102,7 @@ public extension QuillCodeWorkspaceModel {
     func approveToolCardAndResume(_ action: ToolCardActionSurface, workspaceRoot: URL) async -> Bool {
         let approvedThreadID = selectedThread?.id
         let didRun = runToolCardAction(action, workspaceRoot: workspaceRoot)
-        guard didRun, action.kind == .approve, selectedThread?.id == approvedThreadID else { return didRun }
+        guard didRun, action.kind.approvesHeldTool, selectedThread?.id == approvedThreadID else { return didRun }
         // `resumeAgentAfterApproval` is itself guarded to Plan mode + the pinned thread, so this
         // no-ops for a review/auto approval and only continues the approved plan.
         await resumeAgentAfterApproval(workspaceRoot: workspaceRoot, expectedThreadID: approvedThreadID)
@@ -159,6 +159,17 @@ public extension QuillCodeWorkspaceModel {
                 threadPersistence.save(thread)
             }
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        }
+
+        // An "always" answer additionally persists a permission rule for this exact action +
+        // resource, then backfills: every OTHER still-pending approval the new rule matches is
+        // resolved the same way, so teaching the gate once clears the whole queue.
+        if let ruleDecision = plan.persistRuleDecision {
+            persistPermissionRuleAndBackfill(
+                from: plan.request,
+                decision: ruleDecision,
+                workspaceRoot: workspaceRoot
+            )
         }
         return true
     }

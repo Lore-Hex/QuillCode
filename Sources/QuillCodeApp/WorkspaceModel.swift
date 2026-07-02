@@ -42,6 +42,10 @@ public final class QuillCodeWorkspaceModel {
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
     private let sidebarSavedSearchStore: JSONSidebarSavedSearchStore?
+    /// Persisted per-project permission rules ("always allow/deny"). The agent's safety gate reads
+    /// this same store per review, so a rule saved here applies to the very next tool call. Nil
+    /// (tests/CLI without persistence) disables saving; approval flows still work as before.
+    let permissionRuleStore: PermissionRuleFileStore?
     let globalMemoryDirectory: URL?
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
@@ -90,6 +94,7 @@ public final class QuillCodeWorkspaceModel {
         projectStore: JSONProjectStore? = nil,
         automationStore: JSONAutomationStore? = nil,
         sidebarSavedSearchStore: JSONSidebarSavedSearchStore? = nil,
+        permissionRuleStore: PermissionRuleFileStore? = nil,
         globalMemoryDirectory: URL? = nil,
         computerUseBackend: (any ComputerUseBackend)? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
@@ -128,6 +133,7 @@ public final class QuillCodeWorkspaceModel {
         self.projectStore = projectStore
         self.automationStore = automationStore
         self.sidebarSavedSearchStore = sidebarSavedSearchStore
+        self.permissionRuleStore = permissionRuleStore
         self.globalMemoryDirectory = globalMemoryDirectory
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor

@@ -102,7 +102,14 @@ struct QuillCodeCLI {
         } else {
             runner = AgentRunner(enablesImmediateActionPreflight: true)
         }
-        let result = try await runner.send(prompt, in: thread, workspaceRoot: cwd)
+        // The CLI honors the same per-project permission rules the desktop saves ("always
+        // allow/deny"), composing them with — never replacing — the mode + intent safety review.
+        var gatedRunner = runner
+        gatedRunner.safety = PermissionRuleGatedSafetyReviewer(
+            base: runner.safety,
+            rules: PermissionRuleFileStore(directory: paths.permissionsDirectory)
+        )
+        let result = try await gatedRunner.send(prompt, in: thread, workspaceRoot: cwd)
         thread = result.thread
         try JSONThreadStore(directory: paths.threadsDirectory).save(thread)
 

@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeSafety
 
 enum WorkspaceToolCardProjection {
     static func queuedCard(for event: ThreadEvent) -> ToolCardState {
@@ -100,14 +101,30 @@ enum WorkspaceToolCardProjection {
         guard request.recommendedVerdict != .deny else {
             return nil
         }
-        return [
+        var actions = [
             ToolCardActionSurface(
                 title: "Run",
                 kind: .approve,
                 requestID: request.id,
                 style: .primary,
                 systemImage: "play.fill"
-            ),
+            )
+        ]
+        // "Always run" is only offered when the call is allow-scopable — i.e. an exact rule derived
+        // from it would bound what runs. For a tool with no bounding resource (apply_patch, git.*,
+        // a shell call carrying an env/cwd override) an always-allow would over-broaden, so the
+        // button is withheld; "Run" (this once) still works. Scopability depends only on the tool
+        // call arguments, so a nil workspace root is fine here (matching not being performed).
+        if PermissionRuleSubject.make(toolCall: request.toolCall, workspaceRoot: nil).allowScopable {
+            actions.append(ToolCardActionSurface(
+                title: "Always run",
+                kind: .approveAlways,
+                requestID: request.id,
+                style: .secondary,
+                systemImage: "repeat"
+            ))
+        }
+        actions.append(contentsOf: [
             ToolCardActionSurface(
                 title: "Edit",
                 kind: .edit,
@@ -121,8 +138,16 @@ enum WorkspaceToolCardProjection {
                 requestID: request.id,
                 style: .secondary,
                 systemImage: "xmark"
+            ),
+            ToolCardActionSurface(
+                title: "Never",
+                kind: .denyAlways,
+                requestID: request.id,
+                style: .destructive,
+                systemImage: "nosign"
             )
-        ]
+        ])
+        return actions
     }
 
     private static func approvalSubtitle(
