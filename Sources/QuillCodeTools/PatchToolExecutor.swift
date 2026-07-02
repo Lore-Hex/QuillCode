@@ -114,26 +114,11 @@ public struct PatchToolExecutor: Sendable {
         unsafePath(in: patch, workspaceRoot: nil)
     }
 
-    /// The workspace-relative file paths a unified diff touches (old and new sides, `/dev/null`
-    /// excluded), deduplicated in order of first appearance.
+    /// The workspace-relative file paths a unified diff touches (old and new sides, rename/copy
+    /// headers, `/dev/null` excluded), deduplicated in order of first appearance. Handles git's
+    /// C-style quoted paths (`core.quotepath`) and filenames with spaces.
     public static func targetPaths(in patch: String) -> [String] {
-        var seen = Set<String>()
-        var paths: [String] = []
-        for line in patch.components(separatedBy: .newlines) {
-            guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
-                continue
-            }
-            for rawPath in pathsInDiffMetadataLine(line) where rawPath != "/dev/null" {
-                var path = rawPath
-                if path.hasPrefix("a/") || path.hasPrefix("b/") {
-                    path.removeFirst(2)
-                }
-                if seen.insert(path).inserted {
-                    paths.append(path)
-                }
-            }
-        }
-        return paths
+        DiffHeaderPathParser.targetPaths(in: patch)
     }
 
     /// Scans a unified diff for any target path that escapes the workspace. When `workspaceRoot` is
@@ -147,11 +132,7 @@ public struct PatchToolExecutor: Sendable {
     /// so that case is backstopped at apply time.
     public static func unsafePath(in patch: String, workspaceRoot: URL?) -> String? {
         for line in patch.components(separatedBy: .newlines) {
-            guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
-                continue
-            }
-            let paths = pathsInDiffMetadataLine(line)
-            for path in paths where isUnsafeDiffPath(path, workspaceRoot: workspaceRoot) {
+            for path in pathsInDiffMetadataLine(line) where isUnsafeDiffPath(path, workspaceRoot: workspaceRoot) {
                 return path
             }
         }
@@ -159,17 +140,7 @@ public struct PatchToolExecutor: Sendable {
     }
 
     private static func pathsInDiffMetadataLine(_ line: String) -> [String] {
-        if line.hasPrefix("diff --git ") {
-            return line
-                .dropFirst("diff --git ".count)
-                .split(separator: " ")
-                .map(String.init)
-        }
-        return line
-            .dropFirst(4)
-            .split(separator: "\t")
-            .first
-            .map { [String($0)] } ?? []
+        DiffHeaderPathParser.paths(in: line)
     }
 
     private static func isUnsafeDiffPath(_ rawPath: String, workspaceRoot: URL?) -> Bool {

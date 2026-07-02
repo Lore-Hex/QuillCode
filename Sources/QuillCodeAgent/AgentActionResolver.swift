@@ -6,10 +6,20 @@ extension AgentRunner {
         thread: inout ChatThread,
         userMessage: String,
         tools: [ToolDefinition],
+        workspaceRoot: URL,
         onProgress: AgentRunProgressHandler?
     ) async throws -> AgentAction {
         if enablesImmediateActionPreflight,
            let action = AgentImmediateActionPlanner.action(for: userMessage, tools: tools) {
+            // The planner parsed this action from the user's own command. A user-authored file
+            // write is not a model blind-overwrite, so record that target as known for this
+            // thread before the read-before-write guard runs. LLM-produced actions below do not
+            // get this marker.
+            AgentImmediateActionWriteReadMarker.markIfNeeded(
+                action,
+                thread: thread,
+                workspaceRoot: workspaceRoot
+            )
             return action
         }
 

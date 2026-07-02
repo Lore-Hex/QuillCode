@@ -127,6 +127,54 @@ final class AgentToolLoopTests: XCTestCase {
         ])
     }
 
+    func testExplicitUserCommandedFileWriteCanOverwriteExistingFileInOneTurn() async throws {
+        let root = try makeTempDirectory()
+        try "old\n".write(to: root.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        var runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say("The provider should not be needed for this explicit preflight write.")
+        ]))
+        runner.enablesImmediateActionPreflight = true
+
+        let result = try await runner.send(
+            "write a file at notes.txt that says new",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("notes.txt"), encoding: .utf8), "new\n")
+    }
+
+    func testModelAuthoredFileWriteToUnreadExistingFileIsBlocked() async throws {
+        let root = try makeTempDirectory()
+        try "old\n".write(to: root.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(.init(
+                    name: ToolDefinition.fileWrite.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "notes.txt",
+                        "content": "new\n"
+                    ])
+                )),
+                .say("The write was refused because I need to read the file first.")
+            ]),
+            safety: AlwaysApprovingSafetyReviewer()
+        )
+
+        let result = try await runner.send(
+            "change notes",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertFalse(result.toolResults[0].ok)
+        XCTAssertTrue(result.toolResults[0].error?.contains("not read in this session") == true)
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("notes.txt"), encoding: .utf8), "old\n")
+    }
+
     func testAgentRecoversBacktickedPromisedWorkAnswerBeforeFinalizing() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [
@@ -286,9 +334,10 @@ final class AgentToolLoopTests: XCTestCase {
         try initializeGitRepo(at: root)
         try "old\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
         XCTAssertTrue(ShellToolExecutor().run(.init(command: "git add hello.txt && git commit -m initial", cwd: root)).ok)
-        // The agent's per-call routers share FileEditSessionGuard.shared, which refuses to patch
-        // an existing file the session never read — record the fixture file as read.
-        FileEditSessionGuard.shared.markRead(root.appendingPathComponent("hello.txt"))
+        // The agent's tool loop refuses to patch an existing file the THREAD's session never
+        // read — record the fixture file as read in this thread's edit session.
+        let thread = ChatThread(mode: .auto)
+        FileEditSessionGuard.session(for: thread.id).markRead(root.appendingPathComponent("hello.txt"))
         let patch = """
         diff --git a/hello.txt b/hello.txt
         --- a/hello.txt
@@ -305,7 +354,7 @@ final class AgentToolLoopTests: XCTestCase {
 
         let result = try await runner.send(
             "apply this patch",
-            in: ChatThread(mode: .auto),
+            in: thread,
             workspaceRoot: root
         )
 

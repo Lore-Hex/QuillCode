@@ -39,7 +39,9 @@ public struct WorkspaceWorktreePrunePreviewLoadRequest: Sendable {
                 executor: sshRemoteShellExecutor
             )
         } else {
-            result = ToolRouter(workspaceRoot: workspaceRoot).execute(call)
+            // Detached edit session: this loader only runs read-only git worktree tools,
+            // so nothing here may mark or consult any model session's read-set.
+            result = ToolRouter(workspaceRoot: workspaceRoot, editGuard: FileEditSessionGuard()).execute(call)
         }
 
         guard result.ok else {

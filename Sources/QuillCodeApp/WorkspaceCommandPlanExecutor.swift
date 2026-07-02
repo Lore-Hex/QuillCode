@@ -146,13 +146,14 @@ extension QuillCodeWorkspaceModel {
             return false
         }
 
-        // The diagnostic was computed from these instruction files' loaded content, so this
-        // session legitimately knows them — record that, or the read-before-write guard on the
-        // tool run below would refuse to touch files never read via host.file.read.
+        // The tool run below edits instruction files whose loaded content produced this plan, so
+        // the UI session legitimately knows them. Mark ONLY the files the plan actually edits —
+        // and only those whose content was genuinely loaded — never the untouched (kept) ones.
+        let loadedPaths = Set(activeInstructionSources.map(\.path))
         let resolver = FileWorkspacePathResolver(workspaceRoot: workspaceRoot)
-        for reference in diagnostic.sourceReferences {
-            if let url = try? resolver.resolve(reference.path) {
-                FileEditSessionGuard.shared.markRead(url)
+        for path in Self.plannedInstructionEditPaths(of: plan.toolCall) where loadedPaths.contains(path) {
+            if let url = try? resolver.resolve(path) {
+                uiEditSessionGuard.markRead(url)
             }
         }
 
@@ -164,6 +165,18 @@ extension QuillCodeWorkspaceModel {
             _ = refreshProjectContext(projectID)
         }
         return true
+    }
+
+    /// The workspace-relative files a planned instruction-diagnostic edit will actually touch.
+    static func plannedInstructionEditPaths(of call: ToolCall) -> [String] {
+        guard let arguments = try? ToolArguments(call.argumentsJSON) else { return [] }
+        if call.name == ToolDefinition.fileWrite.name {
+            return (try? arguments.requiredString("path")).map { [$0] } ?? []
+        }
+        if call.name == ToolDefinition.applyPatch.name {
+            return (try? arguments.requiredString("patch")).map(PatchToolExecutor.targetPaths(in:)) ?? []
+        }
+        return []
     }
 
     static func instructionResolutionDraft(for diagnostic: ProjectInstructionDiagnostic) -> String {

@@ -78,6 +78,7 @@ public struct AgentRunner: Sendable {
                     thread: &next,
                     userMessage: userMessage,
                     tools: tools,
+                    workspaceRoot: workspaceRoot,
                     onProgress: onProgress
                 )
                 let resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(

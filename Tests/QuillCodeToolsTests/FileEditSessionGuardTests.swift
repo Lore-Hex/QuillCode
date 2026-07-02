@@ -33,6 +33,50 @@ final class FileEditSessionGuardWriteTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("notes.txt"), encoding: .utf8), "new\n")
     }
 
+    func testReadPermissionIsScopedToOneGuardSession() throws {
+        let root = try makeTempDirectory()
+        try "old\n".write(to: root.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        let firstSession = FileEditSessionGuard()
+        let secondSession = FileEditSessionGuard()
+
+        XCTAssertTrue(FileToolExecutor(workspaceRoot: root, editGuard: firstSession).read(path: "notes.txt").ok)
+
+        let blocked = FileToolExecutor(workspaceRoot: root, editGuard: secondSession)
+            .write(path: "notes.txt", content: "second session\n")
+        XCTAssertFalse(blocked.ok)
+        XCTAssertTrue(blocked.error?.contains("not read in this session") == true, blocked.error ?? "")
+
+        let allowed = FileToolExecutor(workspaceRoot: root, editGuard: firstSession)
+            .write(path: "notes.txt", content: "first session\n")
+        XCTAssertTrue(allowed.ok, allowed.error ?? "")
+    }
+
+    func testBinaryReadDoesNotGrantWritePermission() throws {
+        let root = try makeTempDirectory()
+        let guardSession = FileEditSessionGuard()
+        try Data([0, 1, 2, 3]).write(to: root.appendingPathComponent("image.bin"))
+        let files = FileToolExecutor(workspaceRoot: root, editGuard: guardSession)
+
+        XCTAssertTrue(files.read(path: "image.bin").ok)
+        let write = files.write(path: "image.bin", content: "not actually inspected\n")
+
+        XCTAssertFalse(write.ok)
+        XCTAssertTrue(write.error?.contains("not read in this session") == true, write.error ?? "")
+    }
+
+    func testPastEndReadDoesNotGrantWritePermission() throws {
+        let root = try makeTempDirectory()
+        let guardSession = FileEditSessionGuard()
+        try "one\ntwo\n".write(to: root.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        let files = FileToolExecutor(workspaceRoot: root, editGuard: guardSession)
+
+        XCTAssertTrue(files.read(path: "notes.txt", offset: 99).ok)
+        let write = files.write(path: "notes.txt", content: "not actually inspected\n")
+
+        XCTAssertFalse(write.ok)
+        XCTAssertTrue(write.error?.contains("not read in this session") == true, write.error ?? "")
+    }
+
     func testNewFileCreationAllowedWithoutRead() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root, editGuard: FileEditSessionGuard())
@@ -166,6 +210,38 @@ final class FileEditSessionGuardPatchTests: XCTestCase {
         """
 
         XCTAssertEqual(PatchToolExecutor.targetPaths(in: patch), ["hello.txt", "fresh.txt"])
+    }
+
+    func testTargetPathsParsesQuotedPathsAndRenameHeaders() {
+        let patch = """
+        diff --git "a/old name.txt" "b/new name.txt"
+        similarity index 100%
+        rename from old name.txt
+        rename to new name.txt
+        diff --git "a/r\\303\\251sum\\303\\251.txt" "b/r\\303\\251sum\\303\\251.txt"
+        --- "a/r\\303\\251sum\\303\\251.txt"
+        +++ "b/r\\303\\251sum\\303\\251.txt"
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+
+        XCTAssertEqual(
+            PatchToolExecutor.targetPaths(in: patch),
+            ["old name.txt", "new name.txt", "résumé.txt"]
+        )
+    }
+
+    func testTargetPathsFallsBackToDiffGitHeaderForBinaryPatch() {
+        let patch = """
+        diff --git "a/image old.png" "b/image new.png"
+        index 1111111..2222222 100644
+        GIT binary patch
+        literal 0
+        HcmV?d00001
+        """
+
+        XCTAssertEqual(PatchToolExecutor.targetPaths(in: patch), ["image old.png", "image new.png"])
     }
 }
 

@@ -1,21 +1,41 @@
 import Foundation
 
-/// Records which workspace files this session has actually read, so a model-driven write or
+/// Records which workspace files a session has actually read, so a model-driven write or
 /// patch can be refused when it would blind-overwrite a file the session never inspected. Also
 /// hands out per-file locks so concurrent edits to the same file are serialized instead of
 /// interleaved.
 ///
-/// One instance is one "session" of file knowledge. `shared` is the process-wide session that
-/// `ToolRouter` uses by default: the CLI runs one agent session per process, and the desktop
-/// app's tool runs all share the app process. Tests inject a fresh instance for isolation.
+/// One instance is one "session" of file knowledge, and the invariant it protects is
+/// "THIS session's model has seen this file's content". The scopes in use:
+///
+/// - `session(for:)` — the guard for one chat thread's model context, keyed by the thread ID.
+///   The agent tool loop (CLI and desktop) uses this: a read that entered thread A's context
+///   never grants thread B write rights, and a new chat starts with an empty read-set.
+/// - The desktop app keeps ONE separate guard for app/UI-initiated tool runs
+///   (`QuillCodeWorkspaceModel.uiEditSessionGuard`), so a review-pane "Open" click never grants
+///   any model thread write rights.
+/// - `shared` — the process-wide fallback for `ToolRouter` construction sites without a finer
+///   session. No model loop uses it; the agent and workspace paths inject a scoped guard.
+///
+/// Tests inject fresh instances for isolation.
 public final class FileEditSessionGuard: @unchecked Sendable {
     public static let shared = FileEditSessionGuard()
+
+    private static let sessions = SessionRegistry()
 
     private let stateLock = NSLock()
     private var readKeys: Set<String> = []
     private var fileLocks: [String: NSLock] = [:]
 
     public init() {}
+
+    /// The guard scoped to one model session (chat thread), keyed by the thread ID. The same ID
+    /// always returns the same instance for the lifetime of the process; a new thread ID starts
+    /// with an empty read-set. (Entries are a few strings per touched file — no eviction needed
+    /// at chat-thread scale.)
+    public static func session(for id: UUID) -> FileEditSessionGuard {
+        sessions.sessionGuard(for: id)
+    }
 
     /// Records that the session knows the current content of `url` — a successful read, or a
     /// write/patch the session itself just made.
@@ -61,6 +81,21 @@ public final class FileEditSessionGuard: @unchecked Sendable {
     /// how it was addressed (e.g. macOS `/var` vs `/private/var` temporary directories).
     private static func key(for url: URL) -> String {
         url.standardizedFileURL.resolvingSymlinksInPath().path
+    }
+}
+
+/// The lock-protected thread-ID → guard map behind `FileEditSessionGuard.session(for:)`.
+private final class SessionRegistry: @unchecked Sendable {
+    private let lock = NSLock()
+    private var guards: [UUID: FileEditSessionGuard] = [:]
+
+    func sessionGuard(for id: UUID) -> FileEditSessionGuard {
+        lock.lock()
+        defer { lock.unlock() }
+        if let existing = guards[id] { return existing }
+        let created = FileEditSessionGuard()
+        guards[id] = created
+        return created
     }
 }
 

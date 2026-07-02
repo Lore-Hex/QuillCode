@@ -30,8 +30,9 @@ public struct FileToolExecutor: Sendable {
         do {
             let url = try resolve(path)
             let data = try Data(contentsOf: url)
-            editGuard?.markRead(url)
-            // Refuse binary/image content gracefully instead of erroring or dumping garbage into context.
+            // Refuse binary/image content gracefully instead of erroring or dumping garbage into
+            // context. The refusal must NOT count as a read: the session was never shown the
+            // content, so it earns no write/patch rights over it.
             if FileReadRenderer.isProbablyBinary(data) {
                 return ToolResult(
                     ok: true,
@@ -43,6 +44,11 @@ public struct FileToolExecutor: Sendable {
             // Strip a leading BOM and normalize CRLF→LF so the numbered view is not polluted by a
             // U+FEFF on line 1 or a trailing `\r` on every line. The file on disk is untouched.
             let display = FileEncodingPreservation.normalizeForDisplay(text)
+            // A partial (offset/limit) read counts as reading the file, but a window past the end
+            // shows no content at all, so it must not mark either.
+            if Self.windowShowsContent(display: display, offset: offset) {
+                editGuard?.markRead(url)
+            }
             return ToolResult(
                 ok: true,
                 stdout: FileReadRenderer.render(display, offset: offset, limit: limit),
@@ -51,6 +57,16 @@ public struct FileToolExecutor: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    /// Whether a `[offset, …)` read window intersects the file at all — mirrors
+    /// `FileReadRenderer.render`'s "offset is past the end" case.
+    private static func windowShowsContent(display: String, offset: Int?) -> Bool {
+        let start = max(1, offset ?? 1)
+        guard start > 1 else { return true }
+        var lines = display.isEmpty ? [] : display.components(separatedBy: "\n")
+        if display.hasSuffix("\n"), lines.last == "" { lines.removeLast() }
+        return start <= lines.count
     }
 
     public func write(path: String, content: String) -> ToolResult {
