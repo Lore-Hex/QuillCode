@@ -361,16 +361,22 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("surface_test_ids")
                 && smokeScriptText.contains("required_test_ids")
                 && smokeScriptText.contains("required_command_contract_ids")
-                && smokeScriptText.contains(#"for boolean_field in ("allowsNestedInteractiveChildren", "requiresUnblockedInterior", "requiresTactileFeedback", "allowsTextSelection")"#)
-                && smokeScriptText.contains("malformed {boolean_field}")
+                && smokeScriptText.contains("required_boolean_fields = (")
+                && smokeScriptText.contains("for boolean_field in required_boolean_fields")
+                && smokeScriptText.contains("malformed {field}")
                 && smokeScriptText.contains("scripts/native-click-probe-contracts.py")
                 && smokeScriptText.contains("validate \"$REPORT_PATH\"")
                 && smokeScriptText.contains(#""collisionScope""#)
                 && smokeScriptText.contains(#""browser": {"textEntry", "textButton", "icon"}"#)
-                && smokeScriptText.contains(#"for field in ("id", "label", "source", "surface", "collisionScope")"#)
-                && smokeScriptText.contains(#"for optional_field in ("testID", "commandID")"#)
+                && smokeScriptText.contains("required_contract_fields = (")
+                && smokeScriptText.contains("for field in required_contract_fields")
+                && smokeScriptText.contains("optional_contract_fields = (")
+                && smokeScriptText.contains("for optional_field in optional_contract_fields")
+                && smokeScriptText.contains("require_policy_coverage")
                 && smokeScriptText.contains("unaddressable native hit target")
-                && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
+                && smokeScriptText.contains(#""segmentedControl""#)
+                && smokeScriptText.contains(#""ownedGesture""#)
+                && smokeScriptText.contains(#""capsule""#),
             "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric, semantic kind/action/focus policy, unique ID, addressable test/command/focus handle, and non-empty metadata field while delegating click probes to the shared validator."
         )
         XCTAssertTrue(

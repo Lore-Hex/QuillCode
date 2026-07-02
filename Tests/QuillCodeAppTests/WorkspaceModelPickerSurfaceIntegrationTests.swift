@@ -11,7 +11,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
             topBar: TopBarState(model: "acme/code-pro")
         ))
         model.setModelCatalog([
-            .init(id: TrustedRouterDefaults.synthModel, provider: "trustedrouter", displayName: TrustedRouterDefaults.synthModelDisplayName, category: "Recommended"),
+            recommendedSynthModel(),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "acme/fast", provider: "acme", displayName: "Fast", category: "Coding")
         ])
@@ -21,7 +21,10 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.topBar.modelLabel, "acme/Code Pro")
         XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding"])
         let recommended = surface.topBar.modelCategories.first { $0.category == "Recommended" }
-        XCTAssertEqual(recommended?.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(
+            recommended?.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id),
+            TrustedRouterDefaults.recommendedModelIDs
+        )
         let coding = surface.topBar.modelCategories.first { $0.category == "Coding" }
         XCTAssertEqual(coding?.models.map(\.id), ["acme/code-pro", "acme/fast"])
         XCTAssertTrue(coding?.models.first?.isSelected == true)
@@ -33,24 +36,24 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
             topBar: TopBarState(model: TrustedRouterDefaults.synthModel)
         ))
         model.setModelCatalog([
-            .init(id: TrustedRouterDefaults.synthModel, provider: "trustedrouter", displayName: TrustedRouterDefaults.synthModelDisplayName, category: "Recommended"),
+            recommendedSynthModel(),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
         ])
 
         let topBar = model.surface().topBar
 
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "coding").flatMap(\.models).map(\.id), ["acme/code-pro"])
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "coding"), ["acme/code-pro"])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "moon k2"), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(
-            topBar.filteredModelCategories(matching: "synth").flatMap(\.models).map(\.id),
+            filteredModelIDs(in: topBar, matching: "synth"),
             [TrustedRouterDefaults.synthModel, TrustedRouterDefaults.synthCodeModel]
         )
         XCTAssertEqual(
-            topBar.filteredModelCategories(matching: "tr/synth-code").flatMap(\.models).map(\.id),
+            filteredModelIDs(in: topBar, matching: "tr/synth-code"),
             [TrustedRouterDefaults.synthCodeModel]
         )
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "default model").flatMap(\.models).map(\.id), [TrustedRouterDefaults.synthModel])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "default model"), [TrustedRouterDefaults.synthModel])
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
@@ -86,8 +89,8 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertEqual(option.metadataRows.first { $0.label == "Pricing" }?.value, "$0.25 in / $1.25 out per 1M")
         XCTAssertEqual(option.metadataRows.first { $0.label == "Modalities" }?.value, "text, image -> text")
         XCTAssertEqual(option.metadataRows.first { $0.label == "Capabilities" }?.value, "tools, json mode")
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "128K image").flatMap(\.models).map(\.id), ["acme/vision-code"])
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "json mode available").flatMap(\.models).map(\.id), ["acme/vision-code"])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "128K image"), ["acme/vision-code"])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "json mode available"), ["acme/vision-code"])
     }
 
     func testSurfaceKeepsUnknownSelectedModelVisible() {
@@ -139,17 +142,20 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertTrue(defaultOption.badges.contains("Recommended"))
         XCTAssertEqual(defaultOption.metadataSummary, "Fast everyday agent")
         XCTAssertEqual(defaultOption.detailTitle, "Nike 1.0")
-        XCTAssertEqual(defaultOption.capabilitySummary, "Nike 1.0 is the fast default for coding, shell, and file-editing turns.")
+        XCTAssertEqual(
+            defaultOption.capabilitySummary,
+            "Nike 1.0 is the fast default for coding, shell, and file-editing turns."
+        )
         XCTAssertTrue(defaultOption.metadataDetails.contains("Provider: trustedrouter"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Model ID: trustedrouter/fast"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Category: Recommended"))
         XCTAssertEqual(defaultOption.metadataRows.map(\.label), ["Provider", "Model ID", "Category", "State"])
         XCTAssertEqual(defaultOption.metadataRows.first { $0.label == "State" }?.value, "Default, Recommended")
 
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "moon k2"), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").first?.category, "Recent")
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "nike default").flatMap(\.models).map(\.id), [TrustedRouterDefaults.defaultModel])
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "default state").flatMap(\.models).map(\.id), [TrustedRouterDefaults.defaultModel])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "nike default"), [TrustedRouterDefaults.defaultModel])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "default state"), [TrustedRouterDefaults.defaultModel])
     }
 
     func testModelPickerShowsFavoriteModelsBeforeRecent() throws {
@@ -186,6 +192,19 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertEqual(recent.models.map(\.id), ["moonshotai/kimi-k2.6"])
 
         XCTAssertEqual(topBar.filteredModelCategories(matching: "favorite").map(\.category), ["Favorites"])
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "glm").flatMap(\.models).map(\.id), ["z-ai/glm-5.2"])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "glm"), ["z-ai/glm-5.2"])
+    }
+
+    private func filteredModelIDs(in topBar: TopBarSurface, matching query: String) -> [String] {
+        topBar.filteredModelCategories(matching: query).flatMap(\.models).map(\.id)
+    }
+
+    private func recommendedSynthModel() -> ModelInfo {
+        ModelInfo(
+            id: TrustedRouterDefaults.synthModel,
+            provider: "trustedrouter",
+            displayName: TrustedRouterDefaults.synthModelDisplayName,
+            category: "Recommended"
+        )
     }
 }

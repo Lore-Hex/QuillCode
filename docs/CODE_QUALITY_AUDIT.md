@@ -1,5 +1,45 @@
 # Code Quality Audit
 
+## 2026-07-02 Native Smoke And Model Picker Tail A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
+grades A+ in the regenerated repo-wide report**.
+
+This pass started from `scripts/grade-code-quality.py --root .`, reviewed the module summaries and lowest-scored
+individual files, then improved the two lowest-value tail issues that were safe to change without touching active
+agent PR areas.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Native desktop smoke gate | `scripts/native-desktop-smoke.sh` was the lowest-scored file, mostly because dense embedded Python assertions repeated long smoke-gate messages. | The smoke gate now uses one artifact-path array plus small embedded Python helpers for failure formatting, typed-list validation, boolean checks, and policy coverage. |
+| Native hit-target validation readability | Surface policy checks embedded set math and long error strings at each assertion site. | Policy coverage is named once and reused for kind, action, and focus-target checks, so future click-target regressions are easier to inspect. |
+| Model-picker integration tests | Model filtering assertions repeated the full `filteredModelCategories(...).flatMap(...).map(...)` chain, and default-model fixtures repeated the recommended TrustedRouter model literal. | The test now uses `filteredModelIDs(in:matching:)` and `recommendedSynthModel()` helpers, keeping Nike/Prometheus/default-model assertions readable and DRY. |
+| Grading trail | The previous report was accurate but stale for this pass. | `docs/CODE_QUALITY_FILE_GRADES.md` is regenerated and shows all modules and files remain A+. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`.
+- All modules grade **A+**.
+- Every individual source, test, script, and Playwright file grades **A+**.
+- `scripts/native-desktop-smoke.sh` has zero lines over 120 columns; its remaining heuristic note is file size.
+- `Tests/QuillCodeAppTests/WorkspaceModelPickerSurfaceIntegrationTests.swift` has zero lines over 120 columns and no longer appears in the lowest-score list.
+
+Validation:
+
+- `bash -n scripts/native-desktop-smoke.sh`
+- `scripts/native-desktop-smoke.sh`
+- `python3 scripts/grade-code-quality.py --root .`
+- `swift test --filter WorkspaceModelPickerSurfaceIntegrationTests`
+- `swift test --filter ParityNativeInteractionContractGateTests/testNativeHitTargetAuditIsPartOfDesktopSmokeContract`
+- `swift test`
+- `npm test -- tests/model-picker.spec.ts tests/interaction-audit-edge-controls.spec.ts`
+
+Residual risk:
+
+- The remaining lowest-score entries are large parity gates, desktop controller orchestration, or broad UI contracts.
+  Splitting them should happen only when a feature slice changes ownership, because mechanical splits would add merge
+  conflict risk without improving runtime behavior.
+
 ## 2026-07-02 Computer Use Screenshot Context A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file
