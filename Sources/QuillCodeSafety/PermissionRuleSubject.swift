@@ -108,10 +108,18 @@ public struct PermissionRuleSubject: Sendable, Hashable {
         return PermissionRuleSubject(action: action, resource: command, allowScopable: allowScopable)
     }
 
-    /// Trims and collapses runs of spaces/tabs to a single space so `rm  -rf x` cannot dodge a rule
-    /// saved for `rm -rf x`. NEWLINES and carriage returns are preserved verbatim: they separate
-    /// commands, so collapsing them would let a single-command allow (`echo hi`) match a
-    /// multi-command script (`echo hi\nrm -rf .`).
+    /// Trims and collapses runs of HORIZONTAL whitespace to a single ASCII space so `rm  -rf x`
+    /// cannot dodge a rule saved for `rm -rf x`. Every horizontal whitespace scalar folds — not just
+    /// space/tab but exotic Unicode whitespace (NBSP U+00A0, thin space U+2009, ideographic space
+    /// U+3000, …) — and zero-width scalars (U+200B/C/D, U+FEFF) are stripped, so `rm -rf<NBSP>/`
+    /// normalizes to the same resource a plain-space spelling would (see `WhitespaceFolding`).
+    ///
+    /// NEWLINE-LIKE scalars (LF/CR and the vertical whitespace class — form-feed, vertical-tab, line/
+    /// paragraph separator) are preserved verbatim: they separate commands, so folding them would
+    /// let a single-command allow (`echo hi`) match a multi-command script (`echo hi\nrm -rf .`).
+    /// The floor's `collapseWhitespace` folds the SAME horizontal set this does and additionally
+    /// folds these separators, so the floor stays a strict superset of this normalization — no
+    /// whitespace spelling can match a wildcard allow while dodging the floor.
     static func normalizedCommand(_ command: String?) -> String {
         guard let command else { return "" }
         var output = ""
@@ -119,14 +127,19 @@ public struct PermissionRuleSubject: Sendable, Hashable {
         var pendingSpace = false
         var atLineStart = true
         for scalar in command.unicodeScalars {
-            if scalar == "\n" || scalar == "\r" {
-                // Line boundary: drop any trailing horizontal space, emit the newline.
+            if WhitespaceFolding.isZeroWidth(scalar) {
+                // Zero-width: strip it, joining the tokens on either side without a space.
+                continue
+            }
+            if WhitespaceFolding.isNewlineLike(scalar) {
+                // Line boundary / command separator: drop any trailing horizontal space, emit it
+                // verbatim so a multi-command script never collapses into a single-command allow.
                 pendingSpace = false
                 output.unicodeScalars.append(scalar)
                 atLineStart = true
                 continue
             }
-            if scalar == " " || scalar == "\t" {
+            if WhitespaceFolding.isFoldableHorizontal(scalar) {
                 pendingSpace = true
                 continue
             }
