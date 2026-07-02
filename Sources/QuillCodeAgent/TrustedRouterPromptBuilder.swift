@@ -59,6 +59,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to push or publish a git branch, use host.git.push instead of host.shell.run.
         - If the user asks to open or create a pull request/PR, use host.git.pr.create instead of host.shell.run.
         - host.git.pr.create should include a non-empty "title" unless you set "fill": true.
+        - If the user asks to list, browse, or find pull requests/PRs before choosing one, use \
+        host.git.pr.list.
         - If the user asks to view, inspect, summarize, or read comments/reviews on the current pull \
         request/PR, use host.git.pr.view.
         - If the user asks about pull request/PR checks, CI, or status, use host.git.pr.checks.
@@ -83,6 +85,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         host.git.pr.review_thread with "threadId" and "action" equal to "resolve" or "unresolve".
         - If the user asks to merge or auto-merge a pull request/PR, use host.git.pr.merge with optional \
         "selector", "method" ("squash", "merge", or "rebase"), "auto", and "deleteBranch".
+        - host.git.pr.list may include optional "state" ("open", "closed", "merged", or "all") and \
+        optional "limit".
         - host.git.pr.view, host.git.pr.checks, host.git.pr.diff, host.git.pr.checkout, \
         host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.review, \
         host.git.pr.review_comment, host.git.pr.review_reply, host.git.pr.review_threads, and \

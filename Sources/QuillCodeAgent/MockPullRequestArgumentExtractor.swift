@@ -22,6 +22,19 @@ enum MockPullRequestArgumentExtractor {
         return ["selector": selector]
     }
 
+    static func listArguments(from request: String) -> [String: Any] {
+        var arguments: [String: Any] = [:]
+        let tokens = Set(tokenizeArguments(request).map { $0.lowercased() })
+        for state in ["open", "closed", "merged", "all"] where tokens.contains(state) {
+            arguments["state"] = state
+            break
+        }
+        if let limit = pullRequestListLimit(from: request) {
+            arguments["limit"] = limit
+        }
+        return arguments
+    }
+
     static func commentArguments(from request: String) -> [String: String] {
         var arguments = selectorArguments(from: request)
         arguments["body"] = pullRequestCommentBody(from: request) ?? request
@@ -216,6 +229,24 @@ enum MockPullRequestArgumentExtractor {
             }
         }
         return nil
+    }
+
+    static func pullRequestListLimit(from request: String) -> Int? {
+        let tokens = tokenizeArguments(request)
+        for index in tokens.indices {
+            let lower = tokens[index].lowercased()
+            if ["limit", "max", "top", "first"].contains(lower) {
+                let nextIndex = tokens.index(after: index)
+                if tokens.indices.contains(nextIndex), let value = Int(tokens[nextIndex]) {
+                    return value
+                }
+            }
+            if lower.hasPrefix("limit="),
+               let value = Int(lower.split(separator: "=", maxSplits: 1).last ?? "") {
+                return value
+            }
+        }
+        return tokens.compactMap(Int.init).first
     }
 
     static func pullRequestTitle(from request: String) -> String? {

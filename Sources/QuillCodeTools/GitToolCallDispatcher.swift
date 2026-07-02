@@ -14,6 +14,7 @@ struct GitToolCallDispatcher: Sendable {
         .gitRestoreHunk,
         .gitCommit,
         .gitPush,
+        .gitPullRequestList,
         .gitPullRequestCreate,
         .gitPullRequestView,
         .gitPullRequestChecks,
@@ -75,6 +76,12 @@ struct GitToolCallDispatcher: Sendable {
                 remote: args.string("remote"),
                 branch: args.string("branch"),
                 setUpstream: args.bool("setUpstream") ?? false
+            )
+        case ToolDefinition.gitPullRequestList.name:
+            return git.listPullRequests(
+                cwd: workspaceRoot,
+                state: args.string("state"),
+                limit: args.int("limit")
             )
         case ToolDefinition.gitPullRequestCreate.name:
             return git.createPullRequest(

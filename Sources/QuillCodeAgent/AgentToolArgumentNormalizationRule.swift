@@ -107,6 +107,11 @@ enum AgentToolArgumentNormalizationRules {
             stringArguments: [.init(canonicalKey: "title", aliases: ["name", "subject"])]
         ),
         .init(
+            toolNames: [ToolDefinition.gitPullRequestList.name],
+            stringArguments: [.init(canonicalKey: "state", aliases: ["status"])],
+            valueArguments: [.init(canonicalKey: "limit", aliases: ["count", "max", "first"])]
+        ),
+        .init(
             toolNames: pullRequestToolNames,
             stringArguments: [
                 .init(

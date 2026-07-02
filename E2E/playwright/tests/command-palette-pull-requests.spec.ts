@@ -9,6 +9,7 @@ import {
 
 const pullRequestCommandIDs = [
   'git-pr-create',
+  'git-pr-list',
   'git-pr-view',
   'git-pr-checks',
   'git-pr-diff',
@@ -95,8 +96,20 @@ test('mock harness opens a pull request from commits via the command palette', a
     .toContainText('Opened a pull request for the current branch');
 });
 
-test('mock harness views pull request details, checks, and diff from the palette', async ({ page }) => {
+test('mock harness lists, views, checks, and diffs pull requests from the palette', async ({ page }) => {
   await page.goto(harnessURL());
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await fillCommandPalette(page, '>list pull requests');
+  await expect(commandPaletteResult(page, 'git-pr-list')).toBeVisible();
+  await commandPaletteResult(page, 'git-pr-list').click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.pr.list');
+  await expect(page.getByTestId('message').last()).toContainText('Open pull requests');
+  await expect(page.getByTestId('tool-card-artifact-label').filter({
+    hasText: 'github.com/Lore-Hex/QuillCode/pull/77'
+  })).toBeVisible();
 
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>view pull request');
@@ -104,10 +117,11 @@ test('mock harness views pull request details, checks, and diff from the palette
   await commandPaletteResult(page, 'git-pr-view').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
-  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.pr.view');
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.view');
   await expect(page.getByTestId('message').last()).toContainText('Current pull request');
-  await expect(page.getByTestId('tool-card-artifact-label'))
-    .toContainText('github.com/Lore-Hex/QuillCode/pull/42');
+  await expect(page.getByTestId('tool-card-artifact-label').filter({
+    hasText: 'github.com/Lore-Hex/QuillCode/pull/42'
+  }).last()).toBeVisible();
 
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>pr checks');

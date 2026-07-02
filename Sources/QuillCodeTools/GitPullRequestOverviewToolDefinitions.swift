@@ -1,6 +1,18 @@
 import QuillCodeCore
 
 public extension ToolDefinition {
+    static let gitPullRequestList = GitPullRequestDefinitionFactory.tool(
+        name: "host.git.pr.list",
+        description: GitPullRequestDefinitionFactory.described(
+            "List GitHub pull requests for the current project using GitHub CLI."
+        ),
+        parametersJSON: GitToolParameterSchema.object(properties: [
+            "limit": .integer(description: "Maximum number of pull requests to list, from 1 to 100."),
+            "state": .stringEnum(["open", "closed", "merged", "all"])
+        ]),
+        risk: .read
+    )
+
     static let gitPullRequestCreate = GitPullRequestDefinitionFactory.tool(
         name: "host.git.pr.create",
         description: "Create a GitHub pull request for the current project branch using GitHub CLI.",

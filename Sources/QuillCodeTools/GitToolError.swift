@@ -15,6 +15,8 @@ public enum GitToolError: Error, CustomStringConvertible {
     case invalidPullRequestReviewSide(String)
     case invalidPullRequestReviewAction(String)
     case invalidPullRequestMergeMethod(String)
+    case invalidPullRequestListState(String)
+    case invalidPullRequestListLimit(Int)
     case invalidPullRequestSelector(String)
     case invalidPullRequestReviewer(String)
     case invalidPullRequestLabel(String)
@@ -61,6 +63,10 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "GitHub pull request review action is unsupported: \(value)"
         case .invalidPullRequestMergeMethod(let value):
             return "GitHub pull request merge method is unsupported: \(value)"
+        case .invalidPullRequestListState(let value):
+            return "GitHub pull request list state is unsupported: \(value)"
+        case .invalidPullRequestListLimit(let value):
+            return "GitHub pull request list limit must be between 1 and 100: \(value)"
         case .invalidPullRequestSelector(let value):
             return "GitHub pull request selector is unsupported: \(value)"
         case .invalidPullRequestReviewer(let value):

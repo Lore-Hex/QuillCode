@@ -2,6 +2,16 @@ import XCTest
 @testable import QuillCodeTools
 
 final class GitHubPullRequestBaseToolExecutorTests: XCTestCase {
+    func testListPullRequestsUsesGitHubCLIArguments() throws {
+        let fixture = try makeGitHubPullRequestFixture()
+
+        let result = fixture.git.listPullRequests(cwd: fixture.root, state: "merged", limit: 25)
+
+        assertGitHubToolResultOK(result)
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123"])
+        try assertGitHubArguments(fixture, ["pr", "list", "--state", "merged", "--limit", "25"])
+    }
+
     func testCreatePullRequestUsesGitHubCLIArguments() throws {
         let fixture = try makeGitHubPullRequestFixture()
 
@@ -87,6 +97,8 @@ final class GitHubPullRequestBaseToolExecutorTests: XCTestCase {
     func testPullRequestToolsRejectUnsafeSelector() throws {
         let fixture = try makeGitHubPullRequestFixture()
 
+        XCTAssertFalse(fixture.git.listPullRequests(cwd: fixture.root, state: "draft").ok)
+        XCTAssertFalse(fixture.git.listPullRequests(cwd: fixture.root, limit: 101).ok)
         XCTAssertFalse(fixture.git.viewPullRequest(cwd: fixture.root, selector: "--json").ok)
         XCTAssertFalse(fixture.git.pullRequestChecks(cwd: fixture.root, selector: "feature branch").ok)
         XCTAssertFalse(fixture.git.diffPullRequest(cwd: fixture.root, selector: "--patch").ok)

@@ -9,6 +9,7 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         .union(WorkspaceRemoteGitHubPullRequestMergeCommandBuilder.toolNames)
 
     private static let urlArtifactToolNames: Set<String> = [
+        ToolDefinition.gitPullRequestList.name,
         ToolDefinition.gitPullRequestCreate.name,
         ToolDefinition.gitPullRequestView.name,
         ToolDefinition.gitPullRequestDiff.name,

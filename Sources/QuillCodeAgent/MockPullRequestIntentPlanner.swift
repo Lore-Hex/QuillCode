@@ -4,6 +4,13 @@ import QuillCodeTools
 
 enum MockPullRequestIntentPlanner {
     static func toolCall(for request: String, lowercasedRequest: String) -> ToolCall? {
+        if isPullRequestListRequest(lowercasedRequest) {
+            return ToolCall(
+                name: ToolDefinition.gitPullRequestList.name,
+                argumentsJSON: ToolArguments.json(MockPullRequestArgumentExtractor.listArguments(from: request))
+            )
+        }
+
         if isPullRequestCheckoutRequest(lowercasedRequest) {
             return ToolCall(
                 name: ToolDefinition.gitPullRequestCheckout.name,
@@ -70,29 +77,37 @@ enum MockPullRequestIntentPlanner {
         return nil
     }
 
+    static func isPullRequestListRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = tokenizeWords(lowercasedRequest)
+        guard mentionsPullRequest(lowercasedRequest, tokens: tokens) else { return false }
+        return tokens.contains("list")
+            || tokens.contains("ls")
+            || tokens.contains("browse")
+            || tokens.contains("find")
+            || lowercasedRequest.contains("show prs")
+            || lowercasedRequest.contains("open prs")
+    }
+
     static func isPullRequestRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
         let creationTerms = tokens.contains("create")
             || tokens.contains("submit")
             || tokens.contains("new")
             || (tokens.contains("open") && !tokens.contains("current") && !tokens.contains("existing"))
-        return mentionsPullRequest && creationTerms
+        return mentionsPullRequest(lowercasedRequest, tokens: tokens) && creationTerms
     }
 
     static func isPullRequestChecksRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
         let checkTerms = tokens.contains("check")
             || tokens.contains("checks")
             || tokens.contains("ci")
             || tokens.contains("status")
-        return mentionsPullRequest && checkTerms
+        return mentionsPullRequest(lowercasedRequest, tokens: tokens) && checkTerms
     }
 
     static func isPullRequestCommentRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
         let commentTerms = tokens.contains("comment")
             || tokens.contains("comments")
             || tokens.contains("reply")
@@ -101,13 +116,12 @@ enum MockPullRequestIntentPlanner {
             || tokens.contains("read")
             || tokens.contains("inspect")
             || tokens.contains("summarize")
-        return mentionsPullRequest && commentTerms && !readTerms
+        return mentionsPullRequest(lowercasedRequest, tokens: tokens) && commentTerms && !readTerms
     }
 
     static func isPullRequestMergeRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
-        guard mentionsPullRequest else { return false }
+        guard mentionsPullRequest(lowercasedRequest, tokens: tokens) else { return false }
         return tokens.contains("merge")
             || tokens.contains("automerge")
             || lowercasedRequest.contains("auto merge")
@@ -116,8 +130,7 @@ enum MockPullRequestIntentPlanner {
 
     static func isPullRequestCheckoutRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
-        guard mentionsPullRequest else { return false }
+        guard mentionsPullRequest(lowercasedRequest, tokens: tokens) else { return false }
         return tokens.contains("checkout")
             || lowercasedRequest.contains("check out")
             || tokens.contains("switch")
@@ -126,8 +139,7 @@ enum MockPullRequestIntentPlanner {
 
     static func isPullRequestReviewActionRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
-        guard mentionsPullRequest else { return false }
+        guard mentionsPullRequest(lowercasedRequest, tokens: tokens) else { return false }
         if tokens.contains("approve") || tokens.contains("approved") {
             return true
         }
@@ -142,8 +154,7 @@ enum MockPullRequestIntentPlanner {
 
     static func isPullRequestReviewerRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
-        guard mentionsPullRequest else { return false }
+        guard mentionsPullRequest(lowercasedRequest, tokens: tokens) else { return false }
         if lowercasedRequest.contains("request review from")
             || lowercasedRequest.contains("request reviewer")
             || lowercasedRequest.contains("request reviewers")
@@ -160,8 +171,7 @@ enum MockPullRequestIntentPlanner {
 
     static func isPullRequestLabelRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
-        guard mentionsPullRequest else { return false }
+        guard mentionsPullRequest(lowercasedRequest, tokens: tokens) else { return false }
         if lowercasedRequest.contains("add label")
             || lowercasedRequest.contains("add labels")
             || lowercasedRequest.contains("remove label")
@@ -178,7 +188,6 @@ enum MockPullRequestIntentPlanner {
 
     static func isPullRequestViewRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = tokenizeWords(lowercasedRequest)
-        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
         let viewTerms = tokens.contains("view")
             || tokens.contains("show")
             || tokens.contains("inspect")
@@ -189,7 +198,13 @@ enum MockPullRequestIntentPlanner {
         let createTerms = tokens.contains("create")
             || tokens.contains("submit")
             || tokens.contains("new")
-        return mentionsPullRequest && viewTerms && !createTerms
+        return mentionsPullRequest(lowercasedRequest, tokens: tokens) && viewTerms && !createTerms
+    }
+
+    private static func mentionsPullRequest(_ lowercasedRequest: String, tokens: [String]) -> Bool {
+        lowercasedRequest.contains("pull request")
+            || tokens.contains("pr")
+            || tokens.contains("prs")
     }
 
     private static func tokenizeWords(_ lowercasedRequest: String) -> [String] {

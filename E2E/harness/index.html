@@ -3848,6 +3848,7 @@
         { id: 'git-diff', title: 'Review diff', shortcut: '', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'review'], isEnabled: true },
         { id: 'git-pr-fill', title: 'Create pull request from commits', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'fill', 'autofill', 'branch', 'commits'], isEnabled: true },
+        { id: 'git-pr-list', title: 'List pull requests', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'list', 'pull requests', 'open prs', 'review'], isEnabled: true },
         { id: 'git-pr-view', title: 'View pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'view', 'comments', 'review'], isEnabled: true },
         { id: 'git-pr-checks', title: 'Pull request checks', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'checks', 'ci', 'status'], isEnabled: true },
         { id: 'git-pr-diff', title: 'Pull request diff', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pr diff', 'pull request diff', 'diff', 'review', 'changes'], isEnabled: true },
@@ -10101,6 +10102,31 @@
       render();
     }
 
+    function runGitPullRequestListAction() {
+      ensureThread('List pull requests');
+      const stdout = [
+        '77\tOPEN\tAdd PR list parity\tcodex/pr-list-parity',
+        '42\tOPEN\tAdd project extension update lifecycle\tfeature/extensions'
+      ].join('\n') + '\n';
+      addToolCard({
+        title: 'host.git.pr.list',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ state: 'open', limit: 30 }, null, 2),
+        outputJSON: JSON.stringify({
+          ok: true,
+          stdout,
+          artifacts: [
+            'https://github.com/Lore-Hex/QuillCode/pull/77',
+            'https://github.com/Lore-Hex/QuillCode/pull/42'
+          ]
+        }, null, 2)
+      });
+      addMessage('assistant', 'Open pull requests:\n' + stdout);
+      syncSelectedThreadSearchText();
+      render();
+    }
+
     function runGitPullRequestChecksAction() {
       ensureThread('Pull request checks');
       const stdout = [
@@ -10775,6 +10801,7 @@
       'git-pr-create',
       'git-pr-fill',
       'git-pr-diff',
+      'git-pr-list',
       'git-pr-labels',
       'git-pr-merge',
       'git-pr-review',
@@ -11399,6 +11426,10 @@
       }
       if (commandID === 'git-pr-fill') {
         runGitPullRequestFillAction();
+        return;
+      }
+      if (commandID === 'git-pr-list') {
+        runGitPullRequestListAction();
         return;
       }
       if (commandID === 'git-pr-view') {

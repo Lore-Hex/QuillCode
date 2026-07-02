@@ -128,6 +128,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-diff",
             "git-pr-create",
             "git-pr-fill",
+            "git-pr-list",
             "git-pr-view",
             "git-pr-checks",
             "git-pr-diff",

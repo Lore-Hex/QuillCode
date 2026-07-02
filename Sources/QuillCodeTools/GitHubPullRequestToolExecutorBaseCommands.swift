@@ -2,6 +2,12 @@ import Foundation
 import QuillCodeCore
 
 public extension GitHubPullRequestToolExecutor {
+    func list(cwd: URL, state: String? = nil, limit: Int? = nil) -> ToolResult {
+        runGitHub(cwd: cwd, timeoutSeconds: 45, addURLArtifacts: true) {
+            try GitHubPullRequestBaseCommandBuilder.list(state: state, limit: limit)
+        }
+    }
+
     func createPullRequest(
         cwd: URL,
         title: String? = nil,

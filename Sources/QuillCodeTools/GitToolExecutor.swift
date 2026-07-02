@@ -75,6 +75,10 @@ public struct GitToolExecutor: Sendable {
         )
     }
 
+    public func listPullRequests(cwd: URL, state: String? = nil, limit: Int? = nil) -> ToolResult {
+        pullRequests.list(cwd: cwd, state: state, limit: limit)
+    }
+
     public func viewPullRequest(cwd: URL, selector: String? = nil) -> ToolResult {
         pullRequests.view(cwd: cwd, selector: selector)
     }

@@ -22,6 +22,8 @@ enum SlashPullRequestCommandParser {
             return .workspaceCommand("git-pr-create")
         case "fill", "autofill":
             return .workspaceCommand("git-pr-fill")
+        case "list", "ls":
+            return parseList(rest)
         case "view", "show", "inspect", "comments":
             return pullRequestTool(.gitPullRequestView, selector: rest)
         case "checks", "ci", "status":
@@ -78,7 +80,7 @@ enum SlashPullRequestCommandParser {
         case "merge", "automerge", "auto_merge":
             return parseMerge(rest, autoByDefault: subcommand != "merge")
         default:
-            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, fill, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, fill, list, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
         }
     }
 }

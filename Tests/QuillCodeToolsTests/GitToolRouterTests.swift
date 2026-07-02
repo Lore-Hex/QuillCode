@@ -15,6 +15,7 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
         XCTAssertTrue(definitions.contains("host.git.commit"))
         XCTAssertTrue(definitions.contains("host.git.push"))
+        XCTAssertTrue(definitions.contains("host.git.pr.list"))
         XCTAssertTrue(definitions.contains("host.git.pr.create"))
         XCTAssertTrue(definitions.contains("host.git.pr.view"))
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
@@ -41,6 +42,7 @@ final class GitToolRouterTests: XCTestCase {
         let gitDefinitions = GitToolCallDispatcher.definitions.map(\.name)
 
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitStatus.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestList.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeOpen.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeRemove.name))
