@@ -34,6 +34,7 @@ public struct ToolRouter: Sendable {
         .fileWrite,
         .applyPatch,
         .webFetch,
+        .webSearch,
         .skillLoad
     ] + GitToolCallDispatcher.definitions
 
@@ -80,6 +81,16 @@ public struct ToolRouter: Sendable {
                 return patch.apply(unifiedDiff: try args.requiredString("patch"))
             case ToolDefinition.webFetch.name:
                 return web.fetch(urlString: try args.requiredString("url"))
+            case ToolDefinition.webSearch.name:
+                // `host.web.search` is async and routes through TrustedRouter, so the live agent
+                // loop dispatches it directly to a `WebSearchToolExecutor` (see AgentToolStepRunner)
+                // rather than through this synchronous router. Reaching here means no search client
+                // was wired (mock runtime, or a direct router call), so report it plainly instead of
+                // as an "unknown tool".
+                return ToolResult(
+                    ok: false,
+                    error: "Web search is not available in this workspace. Sign in to TrustedRouter or configure an API key."
+                )
             case ToolDefinition.skillLoad.name:
                 return skill.load(name: try args.requiredString("name"))
             default:

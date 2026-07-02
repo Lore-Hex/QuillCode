@@ -58,4 +58,34 @@ final class AgentWebToolAnswerFormattersTests: XCTestCase {
         let answer = AgentWebToolAnswerFormatters.webFetchAnswer(call: call(), result: result, followUpReviewResult: nil)
         XCTAssertTrue(answer?.contains("no readable content") == true)
     }
+
+    // MARK: - Web search formatter
+
+    private func searchCall(_ json: String = #"{"query":"swift async"}"#) -> ToolCall {
+        ToolCall(name: ToolDefinition.webSearch.name, argumentsJSON: json)
+    }
+
+    func testSearchFormatterIsRegistered() {
+        let result = ToolResult(ok: true, stdout: "Search results for \"swift async\".\n\n1. Title\n   https://a.com")
+        let answers = AgentToolAnswerFormatters.all.compactMap { $0(searchCall(), result, nil) }
+        XCTAssertEqual(answers.count, 1)
+        XCTAssertTrue(answers[0].contains("https://a.com"))
+    }
+
+    func testSearchSuccessPassesResultsThrough() {
+        let result = ToolResult(ok: true, stdout: "Search results for \"swift async\".\n\n1. Title\n   https://a.com")
+        let answer = AgentWebToolAnswerFormatters.webSearchAnswer(call: searchCall(), result: result, followUpReviewResult: nil)
+        XCTAssertEqual(answer, "Search results for \"swift async\".\n\n1. Title\n   https://a.com")
+    }
+
+    func testSearchFailureExplainsWithError() {
+        let result = ToolResult(ok: false, error: "Web search for \"x\" failed: upstream 503.")
+        let answer = AgentWebToolAnswerFormatters.webSearchAnswer(call: searchCall(), result: result, followUpReviewResult: nil)
+        XCTAssertTrue(answer?.contains("Could not search for swift async") == true)
+        XCTAssertTrue(answer?.contains("upstream 503") == true)
+    }
+
+    func testSearchIgnoresOtherTools() {
+        XCTAssertNil(AgentWebToolAnswerFormatters.webSearchAnswer(call: call(), result: ToolResult(ok: true, stdout: "x"), followUpReviewResult: nil))
+    }
 }

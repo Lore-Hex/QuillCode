@@ -119,10 +119,33 @@ extension AgentRunner {
     ) async throws -> ToolResult {
         await appendRunningEvent(for: call, to: &thread, onProgress: onProgress)
         try Task.checkCancellation()
-        let result = await toolExecutionOverride?(call, workspaceRoot) ?? router.execute(call)
+        let result: ToolResult
+        if let searchResult = await webSearchResult(for: call) {
+            result = searchResult
+        } else if let overrideResult = await toolExecutionOverride?(call, workspaceRoot) {
+            result = overrideResult
+        } else {
+            result = router.execute(call)
+        }
         try Task.checkCancellation()
         await appendResultEvent(for: call, result: result, to: &thread, onProgress: onProgress)
         return result
+    }
+
+    /// Dispatch `host.web.search` to the injected TrustedRouter-backed client. Returns nil for
+    /// every other tool (so the normal override/router path runs) and nil when no search client is
+    /// wired (so the router's own "not available" message is used). This is the single place the
+    /// async, credential-bearing search executor is invoked, shared by the CLI and desktop loops.
+    private func webSearchResult(for call: ToolCall) async -> ToolResult? {
+        guard call.name == ToolDefinition.webSearch.name, let webSearch else { return nil }
+        do {
+            let args = try ToolArguments(call.argumentsJSON)
+            let query = try args.requiredString("query")
+            return await WebSearchToolExecutor(client: webSearch)
+                .search(query: query, maxResults: args.int("maxResults"))
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
     }
 
     private func runFollowUpReviewIfNeeded(

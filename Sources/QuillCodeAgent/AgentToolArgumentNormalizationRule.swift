@@ -107,6 +107,18 @@ enum AgentToolArgumentNormalizationRules {
             stringArguments: [.init(canonicalKey: "url", aliases: ["address", "href", "link", "target", "page", "uri"])]
         ),
         .init(
+            toolNames: [ToolDefinition.webSearch.name],
+            stringArguments: [
+                .init(
+                    canonicalKey: "query",
+                    aliases: ["q", "term", "text", "search", "searchQuery", "search_query", "searchTerm", "search_term"]
+                )
+            ],
+            valueArguments: [
+                .init(canonicalKey: "maxResults", aliases: ["limit", "max", "count", "num", "numResults", "num_results", "max_results"])
+            ]
+        ),
+        .init(
             toolNames: [ToolDefinition.gitPullRequestCreate.name],
             stringArguments: [.init(canonicalKey: "title", aliases: ["name", "subject"])]
         ),

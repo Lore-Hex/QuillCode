@@ -373,6 +373,14 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceToolCardSubtitleBuilder.subtitle(
                 stateLabel: "Completed",
+                toolName: "host.web.search",
+                inputJSON: ToolArguments.json(["query": "swift async await"])
+            ),
+            "Completed · swift async await"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
                 toolName: "host.git.pr.review_comment",
                 inputJSON: ToolArguments.json(["path": "Sources/App.swift", "line": 12, "body": "nit"])
             ),

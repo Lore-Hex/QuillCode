@@ -31,7 +31,7 @@ enum WorkspaceToolCardSubtitleBuilder {
              ToolDefinition.gitPullRequestDiff.name, ToolDefinition.gitPullRequestReviewComment.name,
              ToolDefinition.gitWorktreeRemove.name:
             return sanitized(arguments.string("path"))
-        case ToolDefinition.fileSearch.name:
+        case ToolDefinition.fileSearch.name, ToolDefinition.webSearch.name:
             return sanitized(arguments.string("query"))
         case ToolDefinition.applyPatch.name:
             return "patch"
