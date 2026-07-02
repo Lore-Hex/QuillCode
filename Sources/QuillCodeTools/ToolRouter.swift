@@ -7,18 +7,21 @@ public struct ToolRouter: Sendable {
     public var files: FileToolExecutor
     public var git: GitToolExecutor
     public var patch: PatchToolExecutor
+    public var web: WebFetchToolExecutor
 
     public init(
         workspaceRoot: URL,
         shell: ShellToolExecutor = ShellToolExecutor(),
         git: GitToolExecutor = GitToolExecutor(),
-        editGuard: FileEditSessionGuard = .shared
+        editGuard: FileEditSessionGuard = .shared,
+        web: WebFetchToolExecutor = WebFetchToolExecutor()
     ) {
         self.workspaceRoot = workspaceRoot
         self.shell = shell
         self.files = FileToolExecutor(workspaceRoot: workspaceRoot, editGuard: editGuard)
         self.git = git
         self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell, editGuard: editGuard)
+        self.web = web
     }
 
     public static let definitions: [ToolDefinition] = ShellToolCallDispatcher.definitions + [
@@ -26,7 +29,8 @@ public struct ToolRouter: Sendable {
         .fileList,
         .fileSearch,
         .fileWrite,
-        .applyPatch
+        .applyPatch,
+        .webFetch
     ] + GitToolCallDispatcher.definitions
 
     public func definition(named name: String) -> ToolDefinition? {
@@ -70,6 +74,8 @@ public struct ToolRouter: Sendable {
                 )
             case ToolDefinition.applyPatch.name:
                 return patch.apply(unifiedDiff: try args.requiredString("patch"))
+            case ToolDefinition.webFetch.name:
+                return web.fetch(urlString: try args.requiredString("url"))
             default:
                 return ToolResult(ok: false, error: "Unknown tool: \(call.name)")
             }
