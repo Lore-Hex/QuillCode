@@ -116,11 +116,22 @@ enum ProjectInstructionDiagnosticsBuilder {
         scopedInstructions: [ProjectInstruction],
         broaderInstructions: [ProjectInstruction]
     ) -> ProjectInstructionDiagnostic? {
-        let scopedOverrides = scopedInstructions.filter { containsExplicitOverrideLanguage($0.content) }
-        guard !scopedOverrides.isEmpty else { return nil }
+        let overrideReferences = scopedInstructions.flatMap { instruction in
+            explicitOverrideLines(instruction.content).map { line in
+                ProjectInstructionDiagnosticSourceReference(
+                    path: instruction.path,
+                    lineNumber: line.number,
+                    role: ProjectInstructionDiagnosticReferenceRole.nestedOverride,
+                    excerpt: line.text,
+                    suggestedAction: "Remove or rewrite this override line so nested guidance extends broader guidance."
+                )
+            }
+        }
+        guard !overrideReferences.isEmpty else { return nil }
+        let overridePaths = Array(Set(overrideReferences.map(\.path))).sorted()
         let detail = [
             ProjectInstruction.scopeLabel(for: scopePath),
-            "from \(pathList(scopedOverrides))",
+            "from \(overridePaths.joined(separator: ", "))",
             "explicitly references overriding broader guidance in \(pathList(broaderInstructions))"
         ].joined(separator: " ")
 
@@ -129,13 +140,7 @@ enum ProjectInstructionDiagnosticsBuilder {
             title: "Nested instruction override",
             detail: detail,
             statusLabel: ProjectInstructionDiagnosticStatusLabel.scope,
-            sourceReferences: scopedOverrides.map {
-                ProjectInstructionDiagnosticReferenceBuilder.reference(
-                    for: $0,
-                    role: ProjectInstructionDiagnosticReferenceRole.nestedOverride,
-                    suggestedAction: "Clarify whether this nested rule intentionally overrides broader guidance."
-                )
-            } + broaderInstructions.map {
+            sourceReferences: overrideReferences + broaderInstructions.map {
                 ProjectInstructionDiagnosticReferenceBuilder.reference(
                     for: $0,
                     role: ProjectInstructionDiagnosticReferenceRole.broaderGuidance,
@@ -279,22 +284,41 @@ enum ProjectInstructionDiagnosticsBuilder {
             && normalizedLine.split(separator: " ").count >= 3
     }
 
-    private static func containsExplicitOverrideLanguage(_ content: String) -> Bool {
-        let normalized = content.lowercased()
-        return [
-            "override broader",
-            "overrides broader",
-            "ignore broader",
-            "ignore parent",
-            "ignore root",
-            "supersede broader",
-            "supersedes broader",
-            "instead of broader",
-            "instead of parent",
-            "do not follow broader",
-            "do not follow parent"
-        ].contains { normalized.contains($0) }
+    private static func explicitOverrideLines(_ content: String) -> [InstructionLine] {
+        content
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n")
+            .enumerated()
+            .compactMap { index, rawLine -> InstructionLine? in
+                guard containsExplicitOverrideLanguage(rawLine) else { return nil }
+                return InstructionLine(
+                    path: "",
+                    number: index + 1,
+                    text: rawLine,
+                    normalized: normalizedInstructionLine(rawLine)
+                )
+            }
     }
+
+    private static func containsExplicitOverrideLanguage(_ line: String) -> Bool {
+        let normalized = normalizedInstructionLine(line)
+        return explicitOverridePhrases.contains { normalized.contains($0) }
+    }
+
+    private static let explicitOverridePhrases = [
+        "override broader",
+        "overrides broader",
+        "ignore broader",
+        "ignore parent",
+        "ignore root",
+        "supersede broader",
+        "supersedes broader",
+        "instead of broader",
+        "instead of parent",
+        "do not follow broader",
+        "do not follow parent"
+    ]
 
     private static func pathList(_ instructions: [ProjectInstruction]) -> String {
         instructions.map(\.path).joined(separator: ", ")

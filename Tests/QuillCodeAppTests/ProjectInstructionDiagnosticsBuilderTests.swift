@@ -43,13 +43,21 @@ final class ProjectInstructionDiagnosticsBuilderTests: XCTestCase {
             instruction("AGENTS.md", content: "Keep changes reviewable."),
             instruction(
                 "Sources/Feature/AGENTS.md",
-                content: "This file overrides broader guidance for feature experiments."
+                content: "Use feature patterns.\nThis file overrides broader guidance for feature experiments."
             )
         ])
 
         XCTAssertEqual(diagnostics.map(\.id), ["instruction-nested-override-Sources-Feature"])
         XCTAssertEqual(diagnostics.first?.title, "Nested instruction override")
         XCTAssertEqual(diagnostics.first?.sourceReferences.map(\.role), ["nested override", "broader guidance"])
+        XCTAssertEqual(
+            diagnostics.first?.sourceReferences.map(\.locationLabel),
+            ["Sources/Feature/AGENTS.md:2", "AGENTS.md:1"]
+        )
+        XCTAssertEqual(
+            diagnostics.first?.sourceReferences.first?.excerpt,
+            "This file overrides broader guidance for feature experiments."
+        )
     }
 
     func testDiagnosticsDoNotFlagAdditiveNestedInstructions() {

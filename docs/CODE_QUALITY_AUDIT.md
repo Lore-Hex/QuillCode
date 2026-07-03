@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-07-02 Nested Instruction Override Cleanup Pass
+
+Overall grade after this slice: **A+ instruction diagnostics, A+ deterministic apply planner, A+ project-rule UX**.
+
+This pass completes the direct cleanup loop for another AGENTS/rules structural issue without asking QuillCode to
+rewrite user intent. Explicit nested override diagnostics now carry exact line references instead of file-level
+references. When those excerpts still match, Activity can offer a single `Remove override lines...` action for the
+nested file; stale excerpts or unsafe paths remain manual.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Diagnostic precision | A+ | Override diagnostics now identify only the lines containing explicit broader/parent/root override language while preserving broader-source audit references. |
+| Apply planner | A+ | The planner removes all matching override lines from the selected nested file through audited `host.apply_patch` and refuses stale excerpts. |
+| Activity UX | A+ | Users get a direct cleanup path for obvious override wording while richer semantic rewrites stay in Resolve/Edit. |
+
+Residual risk:
+
+- Non-identical same-scope duplicate merges and semantic nested override rewrites still need richer review UX or model-assisted proposals before they should become one-click actions.
+
 ## 2026-07-02 Nested Instruction Overlap Cleanup Pass
 
 Overall grade after this slice: **A+ instruction diagnostics, A+ deterministic apply planner, A project-rule UX**.
@@ -13,13 +34,13 @@ Strict grades:
 
 | Area | Grade | Notes |
 | --- | --- | --- |
-| Diagnostic precision | A+ | `ProjectInstructionDiagnosticsBuilder` now suppresses harmless additive nested rules, flags repeated broad lines with exact source references, and keeps explicit override wording manual. |
+| Diagnostic precision | A+ | `ProjectInstructionDiagnosticsBuilder` now suppresses harmless additive nested rules, flags repeated broad lines with exact source references, and separates explicit override wording from ordinary nested scope layering. |
 | Apply planner | A+ | `ProjectInstructionDiagnosticApplyPlanner` removes repeated broad lines only from the nested source through audited `host.apply_patch`, after verifying loaded line excerpts still match. |
-| Activity UX | A | Activity gets direct `Remove repeated lines...` actions for deterministic cleanup while retaining Resolve/Edit for ambiguous duplicate merges and explicit overrides. |
+| Activity UX | A | Activity gets direct `Remove repeated lines...` actions for deterministic cleanup while retaining Resolve/Edit for ambiguous duplicate merges and semantic explicit override rewrites. |
 
 Residual risk:
 
-- Non-identical same-scope duplicate merges and explicit nested override rewrites still need richer review UX or model-assisted proposals before they should become one-click actions.
+- Non-identical same-scope duplicate merges and semantic explicit nested override rewrites still need richer review UX or model-assisted proposals before they should become one-click actions.
 
 ## 2026-07-02 Agent Run Loop And Filesystem Performance A+ Pass
 
