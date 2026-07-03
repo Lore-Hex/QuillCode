@@ -29,13 +29,22 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         self.progress = progress
         self.newThreadCommand = newThreadCommand
         self.forkCommand = forkCommand
-        self.forkCommands = Self.normalizedForkCommands(primary: forkCommand, commands: forkCommands)
+        self.forkCommands = Self.normalizedForkCommands(
+            primary: forkCommand,
+            commands: forkCommands
+        )
         self.compactCommand = compactCommand
     }
 
     private enum CodingKeys: String, CodingKey {
-        case usedPercent, title, subtitle, progress, newThreadCommand
-        case forkCommand, forkCommands, compactCommand
+        case usedPercent
+        case title
+        case subtitle
+        case progress
+        case newThreadCommand
+        case forkCommand
+        case forkCommands
+        case compactCommand
     }
 
     public init(from decoder: Decoder) throws {

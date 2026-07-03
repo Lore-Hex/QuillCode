@@ -7,6 +7,8 @@ public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
     public var text: String
     public var accessibilityLabel: String
     public var feedback: MessageFeedbackValue?
+    /// Present on the user message that began a turn whose `apply_patch` edits can be
+    /// reverted, so the UI can offer a "Revert this turn's edits" affordance there.
     public var revert: MessageRevertSurface?
 
     public init(
@@ -23,6 +25,8 @@ public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+/// The revert affordance for a turn: which turn to revert, and whether the turn also made
+/// edits outside `apply_patch` (so the UI can disclose what the revert cannot undo).
 public struct MessageRevertSurface: Codable, Sendable, Hashable {
     public var turnMessageID: UUID
     public var hasNonApplyPatchEdits: Bool
@@ -33,6 +37,9 @@ public struct MessageRevertSurface: Codable, Sendable, Hashable {
     }
 }
 
+/// The single source of truth for the revert affordance's user-facing copy, so the native,
+/// HTML, and harness surfaces make byte-identical, truthful claims about what a reverse-patch
+/// revert does and does NOT undo.
 public enum TurnRevertCopy {
     public static let buttonTitle = "Revert this turn's edits"
 

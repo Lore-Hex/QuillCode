@@ -3,13 +3,13 @@ import XCTest
 final class ParityWorkspaceExecutionAgentContextGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesAgentRunContextAssembly() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let agentSessionText = try Self.appSourceText(named: "WorkspaceModelAgentSession.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let memoryExecutorText = try Self.appSourceText(named: "WorkspaceMemoryRememberToolExecutor.swift")
 
         XCTAssertTrue(factoryText.contains("WorkspaceAgentRunContextBuilder("), "The send-session factory should delegate per-run tool assembly.")
-        XCTAssertTrue(composerText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel composer APIs should delegate per-run session assembly.")
+        XCTAssertTrue(agentSessionText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel agent-session APIs should delegate per-run session assembly.")
         XCTAssertTrue(builderText.contains("configuredRunner(from runner: AgentRunner, modelID: String? = nil)"), "Agent run context builder should own runner configuration.")
         XCTAssertTrue(builderText.contains("ToolDefinition.planUpdate"), "Agent run context builder should attach the plan tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.handoffUpdate"), "Agent run context builder should attach the handoff summary tool.")
@@ -30,7 +30,7 @@ final class ParityWorkspaceExecutionAgentContextGateTests: QuillCodeParityTestCa
 
     func testWorkspaceModelDelegatesAgentSendSession() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let agentSessionText = try Self.appSourceText(named: "WorkspaceModelAgentSession.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
 
@@ -39,7 +39,7 @@ final class ParityWorkspaceExecutionAgentContextGateTests: QuillCodeParityTestCa
         XCTAssertTrue(sessionText.contains("runner.send("), "The session should own the runner send call.")
         XCTAssertTrue(sessionText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory"), "The session should report whether the run saved memory.")
         XCTAssertTrue(factoryText.contains("WorkspaceAgentSendSession("), "The factory should own agent send session construction.")
-        XCTAssertTrue(composerText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel composer APIs should delegate agent send execution setup.")
+        XCTAssertTrue(agentSessionText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel agent-session APIs should delegate agent send execution setup.")
         XCTAssertFalse(modelText.contains("WorkspaceAgentSendSession("), "WorkspaceModel should not construct agent send sessions inline.")
         XCTAssertFalse(modelText.contains("activeRunner.send("), "WorkspaceModel should not own the low-level send call.")
         XCTAssertFalse(modelText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread)"), "WorkspaceModel should not inspect memory events after each send.")

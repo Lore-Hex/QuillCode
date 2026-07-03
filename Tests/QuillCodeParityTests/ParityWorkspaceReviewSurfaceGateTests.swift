@@ -90,19 +90,17 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceSurfaceDelegatesTranscriptSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
-        let transcriptText = [
-            try Self.appSourceText(named: "QuillCodeTranscriptSurface.swift"),
-            try Self.appSourceText(named: "QuillCodeContextBannerSurface.swift"),
-            try Self.appSourceText(named: "QuillCodeMessageSurface.swift"),
-            try Self.appSourceText(named: "QuillCodeComposerSurface.swift")
-        ].joined(separator: "\n")
+        let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptSurface.swift")
+        let contextBannerText = try Self.appSourceText(named: "QuillCodeContextBannerSurface.swift")
+        let messageText = try Self.appSourceText(named: "QuillCodeMessageSurface.swift")
+        let composerText = try Self.appSourceText(named: "QuillCodeComposerSurface.swift")
 
-        XCTAssertTrue(transcriptText.contains("public struct TranscriptSurface"), "Transcript aggregate should live beside transcript contracts.")
-        XCTAssertTrue(transcriptText.contains("public enum TranscriptTimelineItemKind"), "Transcript timeline kind should live beside transcript contracts.")
-        XCTAssertTrue(transcriptText.contains("public struct TranscriptTimelineItemSurface"), "Transcript timeline rows should live beside transcript contracts.")
-        XCTAssertTrue(transcriptText.contains("public struct ContextBannerSurface"), "Context banner presentation should live beside transcript contracts.")
-        XCTAssertTrue(transcriptText.contains("public struct MessageSurface"), "Message presentation should live beside transcript contracts.")
-        XCTAssertTrue(transcriptText.contains("public struct ComposerSurface"), "Composer presentation should live beside transcript contracts.")
+        XCTAssertTrue(transcriptText.contains("public struct TranscriptSurface"), "Transcript aggregate should live in a focused transcript surface file.")
+        XCTAssertTrue(transcriptText.contains("public enum TranscriptTimelineItemKind"), "Transcript timeline kind should live in the transcript surface file.")
+        XCTAssertTrue(transcriptText.contains("public struct TranscriptTimelineItemSurface"), "Transcript timeline rows should live in the transcript surface file.")
+        XCTAssertTrue(contextBannerText.contains("public struct ContextBannerSurface"), "Context banner presentation should live in a focused context banner file.")
+        XCTAssertTrue(messageText.contains("public struct MessageSurface"), "Message presentation should live in a focused message surface file.")
+        XCTAssertTrue(composerText.contains("public struct ComposerSurface"), "Composer presentation should live in a focused composer surface file.")
         XCTAssertFalse(surfaceText.contains("public struct TranscriptSurface"), "WorkspaceSurface should not own transcript aggregate records.")
         XCTAssertFalse(surfaceText.contains("public enum TranscriptTimelineItemKind"), "WorkspaceSurface should not own transcript timeline kind presentation.")
         XCTAssertFalse(surfaceText.contains("public struct TranscriptTimelineItemSurface"), "WorkspaceSurface should not own transcript timeline rows.")

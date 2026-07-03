@@ -170,7 +170,7 @@ public extension QuillCodeWorkspaceModel {
     /// soon as A is in front or the slot is free again — without needing two threads to run at once.
     /// `canDrainAfter`-gated, so it never drains past an open gate, never drains a running thread,
     /// and drains each item exactly once.
-    public func recoverFollowUpQueueIfIdle(threadID: UUID?, workspaceRoot: URL) async {
+    func recoverFollowUpQueueIfIdle(threadID: UUID?, workspaceRoot: URL) async {
         guard !composer.isSending else { return }
         await drainFollowUpQueueForThread(threadID, workspaceRoot: workspaceRoot)
     }
