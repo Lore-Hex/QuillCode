@@ -68,6 +68,29 @@ final class WorkspaceSlashRegistryHarnessParityTests: XCTestCase {
         XCTAssertTrue(try harnessSlashUsages().contains("/compact"), "Harness should keep /compact registered.")
     }
 
+    func testHarnessExecutesThreadLifecycleSlashAliases() throws {
+        let harness = try harnessSource()
+        [
+            #"/^\/(duplicate|duplicate-chat|copy-chat)\b/i"#,
+            #"/^\/(pin|pin-chat)\b/i"#,
+            #"/^\/(unpin|unpin-chat)\b/i"#,
+            #"/^\/(clear|clear-chat|reset-chat)\b/i"#,
+            #"/^\/(undo|revert|revert-latest|undo-edit)\b/i"#,
+            #"/^\/(archive|archive-chat)\b/i"#,
+            #"/^\/(unarchive|unarchive-chat)\b/i"#,
+            #"/^\/(delete|delete-chat|remove-chat)\b/i"#
+        ].forEach { pattern in
+            XCTAssertTrue(
+                harness.contains(pattern),
+                "Harness slash execution should include \(pattern)."
+            )
+        }
+        XCTAssertTrue(
+            harness.contains("runSidebarThreadAction('delete', state.sidebar.selectedThreadID);"),
+            "Harness /delete should execute the same selected-thread delete route as the command palette."
+        )
+    }
+
     // MARK: - /model trigger-rule parity
 
     /// The harness must gate the `/model` sub-search on the same rule as native: a trailing space

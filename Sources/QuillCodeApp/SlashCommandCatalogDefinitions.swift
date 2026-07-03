@@ -67,6 +67,12 @@ extension SlashCommandCatalog {
             aliases: ["unarchive-chat"]
         ),
         slashDefinition(
+            "/delete",
+            "Delete chat",
+            "Remove the current chat from QuillCode without touching project files.",
+            aliases: ["delete-chat", "remove-chat"]
+        ),
+        slashDefinition(
             "/compact",
             "Compact context",
             "Create a shorter continuation thread from the latest turns.",

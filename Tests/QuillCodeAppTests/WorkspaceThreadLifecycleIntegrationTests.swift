@@ -455,6 +455,28 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertTrue(persisted.events.isEmpty)
         XCTAssertTrue(persisted.followUpQueue.isEmpty)
     }
+
+    func testWorkspaceCommandDeleteSelectedThreadPersistsRemovalAndSelectsNextThread() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root)
+        let olderThread = ChatThread(title: "Older", updatedAt: Date(timeIntervalSince1970: 100))
+        let selectedThread = ChatThread(title: "Selected", updatedAt: Date(timeIntervalSince1970: 200))
+        try threadStore.save(olderThread)
+        try threadStore.save(selectedThread)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [olderThread, selectedThread],
+                selectedThreadID: selectedThread.id
+            ),
+            threadStore: threadStore
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("thread-delete", workspaceRoot: root))
+
+        XCTAssertThrowsError(try threadStore.load(selectedThread.id))
+        XCTAssertEqual(model.root.threads.map(\.id), [olderThread.id])
+        XCTAssertEqual(model.root.selectedThreadID, olderThread.id)
+    }
 }
 
 private struct FixedContextSummaryGenerator: WorkspaceContextSummaryGenerating {

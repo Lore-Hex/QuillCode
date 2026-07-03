@@ -14976,3 +14976,28 @@ Validation:
 - `swift test --filter 'RunIntegrityScannerTests|RunSpendFusePolicyTests|AgentStreamingTests/testRunSpendFuse'` (42 tests, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
 - `rg -n "\| A \||\| A- \||\| B|\| C|\| D|\| F" docs/CODE_QUALITY_FILE_GRADES.md` (no non-A+ grade rows)
+
+## 2026-07-03 Thread Delete Slash Command Parity Slice
+
+Overall grade after this slice: **A+ for selected-thread delete command parity**.
+The selected-thread Delete affordance now has slash-command access without
+introducing a second deletion implementation.
+
+Code quality changes:
+
+- Added `/delete`, `/delete-chat`, and `/remove-chat` aliases that route through
+  the normal `thread-delete` workspace command planner and executor.
+- Added slash-catalog copy that explicitly says project files are not touched,
+  keeping destructive scope clear in suggestions and `/help`.
+- Mirrored slash registration in the HTML/Playwright harness so native and E2E
+  surfaces stay aligned.
+- Added command-plan and persisted integration coverage proving
+  `thread-delete` removes the selected thread through the shared command route
+  and selects the next available thread.
+
+Validation:
+
+- `swift test --filter 'SlashThreadCommandParserTests|WorkspaceCommandPlanTests|WorkspaceCommandActionPlannerTests|WorkspaceThreadLifecycleIntegrationTests|WorkspaceSlashRegistryHarnessParityTests|ParitySlashThreadMemoryParserGateTests'` (48 tests, 0 failures)
+- `swift test --quiet` (3,149 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+- `git diff --check`
