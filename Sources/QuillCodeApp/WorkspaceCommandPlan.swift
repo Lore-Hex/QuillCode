@@ -243,6 +243,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case projectRemove = "project-remove"
     case threadRename = "thread-rename"
     case threadDuplicate = "thread-duplicate"
+    case threadClear = "thread-clear"
     case threadArchive = "thread-archive"
     case threadUnarchive = "thread-unarchive"
     case threadDelete = "thread-delete"

@@ -14766,3 +14766,34 @@ Validation:
 - `npm test -- workspace-state.spec.ts -g "context pressure"` from `E2E/playwright` (1 test, 0 failures)
 - `npm test -- workspace-state.spec.ts interaction-audit.spec.ts` from `E2E/playwright` (8 tests, 0 failures)
 - `git diff --check`
+
+## 2026-07-03 Thread Clear Slash Command Parity Slice
+
+Overall grade after this slice: **A+ for thread-clear command routing and
+lifecycle separation**. The Codex-style clear action now uses the same
+slash-command catalog, workspace command surface, planner, executor, pure
+lifecycle engine, persistence, and icon paths as visible UI commands.
+
+Code quality changes:
+
+- Added `/clear`, `/clear-chat`, and `/reset-chat` as aliases that route to the
+  normal `thread-clear` workspace command.
+- Added `thread-clear` to the thread command catalog with conservative
+  availability: it is enabled only when the selected thread has visible
+  messages, tool/event history, or queued follow-ups.
+- Added `WorkspaceThreadLifecycleEngine.clearThread` so the reset rule stays
+  pure and directly testable.
+- Preserved the thread shell, selected project, mode, model, instructions,
+  memories, title, pin/archive state, and creation date while clearing messages,
+  events, queued follow-ups, and the composer draft.
+- Updated parity docs and parser gates so future slash-command work does not
+  move thread lifecycle aliases back into the outer parser.
+
+Validation:
+
+- `swift test --filter 'SlashThreadCommandParserTests|WorkspaceCommandActionPlannerTests|WorkspaceCommandSurfaceBuilderTests|WorkspaceThreadLifecycleEngineTests|WorkspaceThreadLifecycleIntegrationTests|QuillCodeCommandIconCatalogTests'` (54 tests, 0 failures)
+- `swift test --filter 'SlashThreadCommandParserTests|SlashCommandCatalog|WorkspaceCommandActionPlannerTests|WorkspaceCommandSurfaceBuilderTests|WorkspaceSurfaceTests|WorkspaceThreadLifecycleEngineTests|WorkspaceThreadLifecycleIntegrationTests|WorkspaceCommandPlanExecutorTests|WorkspaceSlashCommandDispatchPlannerTests|WorkspaceSlashCommandIntegrationTests|QuillCodeCommandIconCatalogTests|ParitySlashThreadMemoryParserGateTests|ParityWorkspaceThreadCommandIntegrationGateTests|ParityWorkspaceCommandActionPlannerGateTests|ParityWorkspaceCommandSurfaceBuilderGateTests'` (100 tests, 0 failures)
+- `swift test --filter 'WorkspaceRenderedCommandRoutingParityTests|WorkspaceSlashRegistryHarnessParityTests'` (9 tests, 0 failures)
+- `swift test --quiet` (3,141 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+- `git diff --check`

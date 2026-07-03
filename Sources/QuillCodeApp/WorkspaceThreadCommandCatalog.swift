@@ -4,6 +4,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var hasSelectedThread: Bool
     var selectedThreadIsArchived: Bool
     var selectedThreadHasMessages: Bool
+    var selectedThreadCanClear: Bool
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -47,6 +48,13 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "copy"],
                 isEnabled: availability.hasSelectedThread
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-clear",
+                title: "Clear chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "reset", "context", "transcript"],
+                isEnabled: availability.selectedThreadCanClear
             ),
             WorkspaceCommandSurface(
                 id: "thread-archive",

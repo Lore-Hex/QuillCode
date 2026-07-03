@@ -114,6 +114,73 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
         XCTAssertEqual(threads.map(\.id), [selected.id])
     }
 
+    func testClearThreadResetsConversationStateAndPreservesShell() throws {
+        let projectID = UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+        let now = Date(timeIntervalSince1970: 42)
+        let createdAt = Date(timeIntervalSince1970: 1)
+        let instruction = ProjectInstruction(
+            path: "AGENTS.md",
+            title: "AGENTS.md",
+            content: "Use Swift.",
+            byteCount: 10
+        )
+        let memory = MemoryNote(
+            id: "global-style",
+            scope: .global,
+            title: "Style",
+            content: "Prefer focused diffs.",
+            relativePath: "style.md",
+            byteCount: 21
+        )
+        var thread = ChatThread(
+            title: "Fix CI",
+            projectID: projectID,
+            mode: .review,
+            model: "trustedrouter/fusion",
+            messages: [
+                .init(role: .user, content: "run whoami"),
+                .init(role: .assistant, content: "quill")
+            ],
+            events: [
+                .init(kind: .toolCompleted, summary: "Ran shell")
+            ],
+            createdAt: createdAt,
+            instructions: [instruction],
+            memories: [memory],
+            followUpQueue: [FollowUpItem(text: "then run tests")]
+        )
+        thread.isPinned = true
+        let normalizedModel = thread.model
+        var threads = [thread]
+
+        let result = try XCTUnwrap(WorkspaceThreadLifecycleEngine.clearThread(
+            thread.id,
+            threads: &threads,
+            now: now
+        ))
+
+        XCTAssertEqual(result.changedThread.id, thread.id)
+        XCTAssertEqual(result.changedThread.title, "Fix CI")
+        XCTAssertEqual(result.changedThread.projectID, projectID)
+        XCTAssertEqual(result.changedThread.mode, .review)
+        XCTAssertEqual(result.changedThread.model, normalizedModel)
+        XCTAssertEqual(result.changedThread.createdAt, createdAt)
+        XCTAssertEqual(result.changedThread.updatedAt, now)
+        XCTAssertEqual(result.changedThread.instructions, [instruction])
+        XCTAssertEqual(result.changedThread.memories, [memory])
+        XCTAssertTrue(result.changedThread.isPinned)
+        XCTAssertTrue(result.changedThread.messages.isEmpty)
+        XCTAssertTrue(result.changedThread.events.isEmpty)
+        XCTAssertTrue(result.changedThread.followUpQueue.isEmpty)
+    }
+
+    func testClearThreadRejectsAlreadyEmptyThread() {
+        let thread = ChatThread(title: "Empty")
+        var threads = [thread]
+
+        XCTAssertNil(WorkspaceThreadLifecycleEngine.clearThread(thread.id, threads: &threads))
+    }
+
     func testAgentRunThreadUpdateUpsertsAndPreservesCurrentSelection() {
         let project = ProjectRef(name: "QuillCode", path: "/repo")
         let target = ChatThread(title: "Original", projectID: project.id)

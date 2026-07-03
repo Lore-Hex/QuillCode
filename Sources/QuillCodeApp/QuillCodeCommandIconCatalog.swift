@@ -45,6 +45,8 @@ enum QuillCodeCommandIconCatalog {
             return "terminal"
         case "terminal-clear":
             return "clear"
+        case "thread-clear":
+            return "text.badge.xmark"
         case "toggle-browser":
             return "globe"
         case "open-browser-session":

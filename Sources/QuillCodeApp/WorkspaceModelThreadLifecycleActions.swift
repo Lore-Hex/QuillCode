@@ -79,6 +79,19 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func clearThread(_ id: UUID) -> Bool {
+        guard let result = updateThreadLifecycle({
+            WorkspaceThreadLifecycleEngine.clearThread(id, threads: &$0)
+        }) else {
+            return false
+        }
+
+        threadDrafts = ComposerDraftStore.cleared(id, drafts: threadDrafts)
+        persistChangedThread(result.changedThread)
+        return true
+    }
+
+    @discardableResult
     private func updateAndSaveThread(
         _ mutation: (inout [ChatThread]) -> ChatThread?
     ) -> ChatThread? {

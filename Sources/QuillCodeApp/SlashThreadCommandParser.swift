@@ -4,6 +4,7 @@ enum SlashThreadCommandParser {
     static func supports(_ name: String) -> Bool {
         switch normalizedName(name) {
         case "new", "new-chat", "newchat",
+             "clear", "clear-chat", "reset-chat",
              "compact", "compact-context", "context-compact",
              "rename", "rename-chat", "title",
              "duplicate", "duplicate-chat", "copy-chat",
@@ -22,6 +23,8 @@ enum SlashThreadCommandParser {
         switch command {
         case "new", "new-chat", "newchat":
             return .newChat
+        case "clear", "clear-chat", "reset-chat":
+            return .workspaceCommand("thread-clear")
         case "compact", "compact-context", "context-compact":
             return .workspaceCommand("compact-context")
         case "rename", "rename-chat", "title":

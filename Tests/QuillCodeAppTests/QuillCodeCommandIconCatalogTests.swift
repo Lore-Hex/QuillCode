@@ -15,6 +15,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "project-refresh-context": "arrow.clockwise",
             "project-rename": "text.cursor",
             "project-remove": "minus.circle",
+            "thread-clear": "text.badge.xmark",
             "toggle-terminal": "terminal",
             "terminal-clear": "clear",
             "toggle-browser": "globe",

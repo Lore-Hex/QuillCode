@@ -72,11 +72,13 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
 
         XCTAssertEqual(planner.effect(for: .threadRename), .setDraft("/rename Fix CI"))
         XCTAssertEqual(planner.effect(for: .threadDuplicate), .duplicateThread(threadID: thread.id))
+        XCTAssertEqual(planner.effect(for: .threadClear), .clearThread(threadID: thread.id))
         XCTAssertEqual(planner.effect(for: .threadArchive), .archiveThread(threadID: thread.id))
         XCTAssertEqual(planner.effect(for: .threadUnarchive), .unarchiveThread(threadID: thread.id))
         XCTAssertEqual(planner.effect(for: .threadDelete), .deleteThread(threadID: thread.id))
 
         let staleSelection = WorkspaceCommandActionPlanner(selectedThreadID: thread.id)
+        XCTAssertEqual(staleSelection.effect(for: .threadClear), .clearThread(threadID: thread.id))
         XCTAssertEqual(staleSelection.effect(for: .threadArchive), .archiveThread(threadID: thread.id))
         XCTAssertNil(staleSelection.effect(for: .threadRename))
         XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .threadDuplicate))

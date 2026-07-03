@@ -407,6 +407,38 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertFalse(model.root.threads.contains { $0.id == archived.id })
         XCTAssertEqual(model.root.selectedThreadID, duplicateID)
     }
+
+    func testWorkspaceCommandClearThreadPersistsResetAndKeepsSelection() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root)
+        let thread = ChatThread(
+            title: "Investigate",
+            messages: [
+                .init(role: .user, content: "run whoami"),
+                .init(role: .assistant, content: "quill")
+            ],
+            events: [.init(kind: .toolCompleted, summary: "Ran shell")],
+            followUpQueue: [FollowUpItem(text: "then run tests")]
+        )
+        try threadStore.save(thread)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: threadStore
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("thread-clear", workspaceRoot: root))
+
+        let selected = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(selected.id, thread.id)
+        XCTAssertEqual(selected.title, "Investigate")
+        XCTAssertTrue(selected.messages.isEmpty)
+        XCTAssertTrue(selected.events.isEmpty)
+        XCTAssertTrue(selected.followUpQueue.isEmpty)
+        let persisted = try threadStore.load(thread.id)
+        XCTAssertTrue(persisted.messages.isEmpty)
+        XCTAssertTrue(persisted.events.isEmpty)
+        XCTAssertTrue(persisted.followUpQueue.isEmpty)
+    }
 }
 
 private struct FixedContextSummaryGenerator: WorkspaceContextSummaryGenerating {

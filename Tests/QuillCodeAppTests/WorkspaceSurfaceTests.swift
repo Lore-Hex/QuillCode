@@ -70,6 +70,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "sidebar-filter:archived",
             "thread-rename",
             "thread-duplicate",
+            "thread-clear",
             "thread-archive",
             "thread-unarchive",
             "thread-delete",

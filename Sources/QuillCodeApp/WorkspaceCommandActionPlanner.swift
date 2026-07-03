@@ -29,6 +29,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case setDraft(String)
     case removeProject(projectID: UUID)
     case duplicateThread(threadID: UUID)
+    case clearThread(threadID: UUID)
     case archiveThread(threadID: UUID)
     case unarchiveThread(threadID: UUID)
     case deleteThread(threadID: UUID)
@@ -108,6 +109,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return selectedThread.map { .setDraft("/rename \($0.title)") }
         case .threadDuplicate:
             return selectedThreadID.map { .duplicateThread(threadID: $0) }
+        case .threadClear:
+            return selectedThreadID.map { .clearThread(threadID: $0) }
         case .threadArchive:
             return selectedThreadID.map { .archiveThread(threadID: $0) }
         case .threadUnarchive:
