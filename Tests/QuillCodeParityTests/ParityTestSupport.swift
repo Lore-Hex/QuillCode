@@ -41,6 +41,21 @@ class QuillCodeParityTestCase: XCTestCase {
         return try String(contentsOf: file, encoding: .utf8)
     }
 
+    static func desktopControllerSourceText() throws -> String {
+        let root = packageRoot().appendingPathComponent("Sources/quill-code-desktop")
+        return try FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil
+        )
+        .filter {
+            $0.pathExtension == "swift"
+                && $0.lastPathComponent.hasPrefix("QuillCodeDesktopController")
+        }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        .map { try String(contentsOf: $0, encoding: .utf8) }
+        .joined(separator: "\n")
+    }
+
     static func appSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeApp")

@@ -1,9 +1,49 @@
 import XCTest
 
 final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
+    func testDesktopControllerCoreStaysBootstrapFocused() throws {
+        let coreText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
+        let coreLineCount = coreText.split(separator: "\n").count
+
+        XCTAssertLessThanOrEqual(
+            coreLineCount,
+            240,
+            "The core desktop controller file should stay focused on published state, bootstrap, notifications, and refresh."
+        )
+        let extensionFileNames = [
+            "QuillCodeDesktopController+Commands.swift",
+            "QuillCodeDesktopController+ComposerAndPanes.swift",
+            "QuillCodeDesktopController+Navigation.swift",
+            "QuillCodeDesktopController+Settings.swift",
+            "QuillCodeDesktopController+Terminal.swift",
+            "QuillCodeDesktopController+Transcript.swift",
+            "QuillCodeDesktopController+WorkspaceActions.swift",
+            "QuillCodeDesktopController+Worktrees.swift",
+        ]
+        for fileName in extensionFileNames {
+            let extensionText = try Self.desktopSourceText(named: fileName)
+            Self.assertSource(extensionText, contains: "extension QuillCodeDesktopController")
+        }
+        [
+            "func newChat()",
+            "func send()",
+            "func runToolCardAction",
+            "func createWorktree",
+            "func copyTranscriptItem",
+            "func runCommand(_ command:",
+        ].forEach { routedFunction in
+            XCTAssertFalse(
+                coreText.contains(routedFunction),
+                "\(routedFunction) belongs in a focused controller extension, not the core bootstrap file."
+            )
+            Self.assertSource(controllerText, contains: routedFunction)
+        }
+    }
+
     func testDesktopControllerDelegatesSettingsPersistenceAndSystemSettings() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let settingsCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopSettingsCoordinator.swift")
         let computerUseCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopComputerUseCoordinator.swift")
 
@@ -54,7 +94,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesTranscriptCopyFeedback() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let copyText = try Self.desktopSourceText(named: "QuillCodeDesktopCopyCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopCopyCoordinator")
@@ -73,7 +113,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesProjectImportResolution() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let importText = try Self.desktopSourceText(named: "QuillCodeDesktopProjectImportCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopProjectImportCoordinator")
@@ -88,7 +128,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesPaneMutations() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let paneCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopPaneCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopPaneCoordinator")
@@ -117,7 +157,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesWorkspaceActionMutations() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let actionCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopWorkspaceActionCoordinator.swift")
         let sourceOpenerText = try Self.desktopSourceText(named: "QuillCodeDesktopSourceOpener.swift")
 
@@ -146,7 +186,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesModelStateSynchronization() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let stateCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopModelStateCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopModelStateCoordinator")
@@ -170,7 +210,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesNavigationMutations() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let navigationText = try Self.desktopSourceText(named: "QuillCodeDesktopNavigationCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopNavigationCoordinator")
@@ -200,7 +240,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesWorktreeActions() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let worktreeText = try Self.desktopSourceText(named: "QuillCodeDesktopWorktreeCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopWorktreeCoordinator")
@@ -229,7 +269,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopControllerDelegatesCommandPlanning() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let plannerText = try Self.desktopSourceText(named: "QuillCodeDesktopCommandPlanner.swift")
         let coordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopCommandCoordinator.swift")
 
@@ -257,7 +297,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
 
     func testDesktopNotifiesWhenDueAutomationsRun() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let automationCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopAutomationCoordinator.swift")
 
         Self.assertSource(text, contains: "UNUserNotificationCenter")

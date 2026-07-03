@@ -14,7 +14,7 @@ final class ParityWorkspaceReviewCardModelGateTests: QuillCodeParityTestCase {
         let approvalPlannerText = try Self.appSourceText(named: "WorkspaceApprovalActionPlanner.swift")
         let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
         let desktopAppText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
-        let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let desktopControllerText = try Self.desktopControllerSourceText()
         let desktopActionCoordinatorText = try Self.desktopSourceText(
             named: "QuillCodeDesktopWorkspaceActionCoordinator.swift"
         )
