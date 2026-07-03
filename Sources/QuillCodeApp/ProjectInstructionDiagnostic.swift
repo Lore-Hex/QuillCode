@@ -24,6 +24,11 @@ struct ProjectInstructionDiagnostic: Sendable, Hashable, Identifiable {
             && id.hasPrefix("instruction-nested-overlap-")
     }
 
+    var isExplicitNestedOverride: Bool {
+        statusLabel == ProjectInstructionDiagnosticStatusLabel.scope
+            && id.hasPrefix("instruction-nested-override-")
+    }
+
     init(
         id: String,
         title: String,

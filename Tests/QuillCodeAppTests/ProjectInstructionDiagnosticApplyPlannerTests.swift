@@ -201,7 +201,52 @@ final class ProjectInstructionDiagnosticApplyPlannerTests: XCTestCase {
         XCTAssertFalse(patch.contains("diff --git a/AGENTS.md b/AGENTS.md"))
     }
 
-    func testPlannerLeavesExplicitNestedOverrideManual() throws {
+    func testPlannerRemovesExplicitNestedOverrideLines() throws {
+        let root = ProjectInstruction(
+            path: "AGENTS.md",
+            title: "AGENTS.md",
+            content: "Keep changes reviewable.",
+            byteCount: 24
+        )
+        let nested = ProjectInstruction(
+            path: "Sources/Feature/AGENTS.md",
+            title: "Feature AGENTS.md",
+            content: """
+            Use feature patterns.
+            This file overrides broader guidance for feature experiments.
+            Prefer local helpers.
+            Ignore parent rules about examples.
+            """,
+            byteCount: 128
+        )
+        let instructions = [root, nested]
+        let diagnostic = try XCTUnwrap(
+            ProjectInstructionDiagnosticsBuilder
+                .diagnostics(for: instructions)
+                .first { $0.id.hasPrefix("instruction-nested-override-") }
+        )
+        let actions = ProjectInstructionDiagnosticApplyPlanner.supportedActions(
+            for: diagnostic,
+            instructions: instructions
+        )
+        let plan = try XCTUnwrap(ProjectInstructionDiagnosticApplyPlanner.plan(
+            for: diagnostic,
+            selectedReferenceIndex: 0,
+            instructions: instructions
+        ))
+
+        XCTAssertEqual(actions.map(\.title), ["Remove override lines from Sources/Feature/AGENTS.md"])
+        XCTAssertEqual(plan.summary, "Remove explicit nested override language from Sources/Feature/AGENTS.md.")
+        XCTAssertEqual(plan.toolCall.name, ToolDefinition.applyPatch.name)
+        let patch = try stringArgument("patch", in: plan.toolCall)
+        XCTAssertTrue(patch.contains("-This file overrides broader guidance for feature experiments."))
+        XCTAssertTrue(patch.contains("-Ignore parent rules about examples."))
+        XCTAssertTrue(patch.contains(" Use feature patterns."))
+        XCTAssertTrue(patch.contains(" Prefer local helpers."))
+        XCTAssertFalse(patch.contains("diff --git a/AGENTS.md b/AGENTS.md"))
+    }
+
+    func testPlannerRejectsStaleExplicitNestedOverrideLines() throws {
         let root = ProjectInstruction(
             path: "AGENTS.md",
             title: "AGENTS.md",
@@ -214,21 +259,22 @@ final class ProjectInstructionDiagnosticApplyPlannerTests: XCTestCase {
             content: "This file overrides broader guidance for feature experiments.",
             byteCount: 60
         )
-        let instructions = [root, nested]
+        let staleNested = ProjectInstruction(
+            path: "Sources/Feature/AGENTS.md",
+            title: "Feature AGENTS.md",
+            content: "Use feature patterns.",
+            byteCount: 21
+        )
         let diagnostic = try XCTUnwrap(
             ProjectInstructionDiagnosticsBuilder
-                .diagnostics(for: instructions)
+                .diagnostics(for: [root, nested])
                 .first { $0.id.hasPrefix("instruction-nested-override-") }
         )
 
-        XCTAssertEqual(ProjectInstructionDiagnosticApplyPlanner.supportedActions(
-            for: diagnostic,
-            instructions: instructions
-        ), [])
         XCTAssertNil(ProjectInstructionDiagnosticApplyPlanner.plan(
             for: diagnostic,
             selectedReferenceIndex: 0,
-            instructions: instructions
+            instructions: [root, staleNested]
         ))
     }
 
