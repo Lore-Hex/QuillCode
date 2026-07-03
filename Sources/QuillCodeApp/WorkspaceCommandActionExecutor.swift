@@ -99,6 +99,21 @@ extension QuillCodeWorkspaceModel {
             return startCompactContext()
         case .disconnectAll:
             return disconnectAll()
+        case .attentionNext:
+            attentionMoveDown()
+            return true
+        case .attentionPrevious:
+            attentionMoveUp()
+            return true
+        case .attentionOpen:
+            attentionOpenSelected()
+            return true
+        case .attentionAcknowledge:
+            attentionAcknowledgeSelected()
+            return true
+        case .attentionDismiss:
+            attentionDismissSelected()
+            return true
         }
     }
 }

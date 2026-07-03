@@ -123,6 +123,8 @@ struct QuillCodeDesktopRootView: View {
             onMessageFeedback: controller.setMessageFeedback,
             onDeleteFollowUp: controller.deleteFollowUp,
             onSaveSidebarSavedSearch: controller.saveSidebarSavedSearch,
+            onOpenAttentionDigest: controller.openAttentionDigest,
+            onCloseAttentionDigest: controller.closeAttentionDigest,
             onCommand: controller.runCommand
         )
     }

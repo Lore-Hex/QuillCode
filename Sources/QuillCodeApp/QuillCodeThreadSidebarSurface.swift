@@ -14,6 +14,9 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
     public var selectedThreadIDs: Set<UUID>
     public var selectionLabel: String
     public var bulkActions: [SidebarBulkActionSurface]
+    /// The severity-ranked "Attention" section for the morning triage inbox (issue #877). Empty when no
+    /// thread needs attention, in which case the section renders nothing.
+    public var attention: AttentionSectionSurface
 
     public init(
         title: String = "Chats",
@@ -25,7 +28,8 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         customSavedSearches: [SidebarSavedSearch] = [],
         isSelectionMode: Bool = false,
         selectedThreadIDs: Set<UUID> = [],
-        bulkActions: [SidebarBulkActionSurface] = []
+        bulkActions: [SidebarBulkActionSurface] = [],
+        attention: AttentionSectionSurface = AttentionSectionSurface()
     ) {
         self.title = title
         self.items = items
@@ -55,6 +59,7 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.selectedThreadIDs = selectedThreadIDs
         self.selectionLabel = Self.selectionLabel(count: selectedThreadIDs.count)
         self.bulkActions = bulkActions
+        self.attention = attention
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -70,6 +75,7 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         case selectedThreadIDs
         case selectionLabel
         case bulkActions
+        case attention
     }
 
     public init(from decoder: Decoder) throws {
@@ -95,6 +101,8 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.selectionLabel = try container.decodeIfPresent(String.self, forKey: .selectionLabel)
             ?? Self.selectionLabel(count: self.selectedThreadIDs.count)
         self.bulkActions = try container.decodeIfPresent([SidebarBulkActionSurface].self, forKey: .bulkActions) ?? []
+        self.attention = try container.decodeIfPresent(AttentionSectionSurface.self, forKey: .attention)
+            ?? AttentionSectionSurface()
     }
 
     public func filteredItems(matching query: String) -> [SidebarItemSurface] {

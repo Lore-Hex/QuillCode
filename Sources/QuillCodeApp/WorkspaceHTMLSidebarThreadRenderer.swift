@@ -91,12 +91,44 @@ enum WorkspaceHTMLSidebarThreadRenderer {
         }
 
         return [
+            renderAttentionSection(sidebar.attention),
             renderSection(title: "Pinned", items: sidebar.pinnedItems),
             renderRecentSections(sidebar),
             renderSection(title: "Archived", items: sidebar.archivedItems)
         ]
         .filter { !$0.isEmpty }
         .joined(separator: "\n")
+    }
+
+    /// The morning-triage "Attention" section (issue #877): severity-ranked rows with the run-integrity
+    /// verdict badge, unseen-turn count, and j/k/Enter/a/d keyboard triage. Rendered empty (nothing) when
+    /// no thread needs attention. Mirrors the native `QuillCodeAttentionSectionView` exactly.
+    private static func renderAttentionSection(_ attention: AttentionSectionSurface) -> String {
+        guard !attention.isEmpty else { return "" }
+        let rows = attention.rows.map { renderAttentionRow($0, selectedThreadID: attention.selectedThreadID) }
+            .joined(separator: "\n")
+        return """
+        <section data-testid="attention-section" aria-label="Attention">
+          <h3 data-testid="sidebar-section-title">Attention</h3>
+          \(rows)
+        </section>
+        """
+    }
+
+    private static func renderAttentionRow(_ row: AttentionRowSurface, selectedThreadID: UUID?) -> String {
+        let isCursor = row.threadID == selectedThreadID
+        let unseen = row.unseenLabel.map {
+            #"<span data-testid="attention-unseen">\#(escape($0))</span>"#
+        } ?? ""
+        return """
+        <div data-testid="attention-row" data-thread-id="\(row.threadID.uuidString)" \
+        data-verdict="\(row.verdict.rawValue)" data-cursor="\(isCursor ? "true" : "false")" \
+        aria-current="\(isCursor ? "true" : "false")">
+          <span data-testid="attention-verdict" data-verdict="\(row.verdict.rawValue)">\(escape(row.badgeLabel))</span>
+          <span data-testid="attention-title">\(escape(row.title))</span>
+          \(unseen)
+        </div>
+        """
     }
 
     private static func renderRecentSections(_ sidebar: SidebarSurface) -> String {

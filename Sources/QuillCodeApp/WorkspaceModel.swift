@@ -71,6 +71,10 @@ public final class QuillCodeWorkspaceModel {
     /// Transient per-thread unsent composer drafts, stashed on thread switch and
     /// restored on selection so drafts never bleed across threads. Session-only.
     public internal(set) var threadDrafts: [UUID: String] = [:]
+    /// The thread whose morning-triage return digest card is currently open (issue #877), or nil when no
+    /// digest is showing. Session-only presentation state; the digest content itself is rebuilt from the
+    /// thread's persisted records on every surface pass.
+    public internal(set) var attentionDigestThreadID: UUID?
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),

@@ -53,6 +53,11 @@ public struct QuillCodeWorkspaceView: View {
     public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
     public var onDeleteFollowUp: (UUID) -> Void = { _ in }
     public var onSaveSidebarSavedSearch: (String, String) -> Void
+    /// Open a thread's morning-triage return digest (issue #877), used when the user clicks an Attention
+    /// row or presses Enter on the selected one.
+    public var onOpenAttentionDigest: (UUID) -> Void
+    /// Dismiss the currently open return digest card.
+    public var onCloseAttentionDigest: () -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSearchPresented = false
@@ -122,6 +127,8 @@ public struct QuillCodeWorkspaceView: View {
         onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onDeleteFollowUp: @escaping (UUID) -> Void = { _ in },
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
+        onOpenAttentionDigest: @escaping (UUID) -> Void = { _ in },
+        onCloseAttentionDigest: @escaping () -> Void = {},
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -174,6 +181,8 @@ public struct QuillCodeWorkspaceView: View {
         self.onMessageFeedback = onMessageFeedback
         self.onDeleteFollowUp = onDeleteFollowUp
         self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
+        self.onOpenAttentionDigest = onOpenAttentionDigest
+        self.onCloseAttentionDigest = onCloseAttentionDigest
         self.onCommand = onCommand
     }
 
@@ -197,7 +206,8 @@ public struct QuillCodeWorkspaceView: View {
                         onProjectAction: handleProjectAction,
                         onSelectThread: onSelectThread,
                         onThreadAction: handleThreadAction,
-                        onCommand: handleCommand
+                        onCommand: handleCommand,
+                        onOpenAttentionDigest: onOpenAttentionDigest
                     )
                         .frame(width: QuillCodeMetrics.sidebarWidth)
                     Divider()
@@ -245,6 +255,11 @@ public struct QuillCodeWorkspaceView: View {
         .frame(minWidth: 980, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
+        .overlay {
+            if let digest = surface.attentionDigest {
+                attentionDigestOverlay(digest)
+            }
+        }
         .onChange(of: surface.composer.focusToken) { _, _ in
             // The `focus-composer` (Cmd+L) command bumps this token; grab focus when it changes.
             isComposerFocused = true
@@ -280,6 +295,27 @@ public struct QuillCodeWorkspaceView: View {
             onRenameProject: onRenameProject,
             onSaveSidebarSavedSearch: onSaveSidebarSavedSearch
         )
+    }
+
+    private func attentionDigestOverlay(_ digest: AttentionDigestSurface) -> some View {
+        ZStack {
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+                .onTapGesture { onCloseAttentionDigest() }
+                .quillCodeOwnedGestureTarget()
+                .accessibilityLabel("Dismiss digest")
+            QuillCodeAttentionDigestView(
+                digest: digest,
+                onClose: onCloseAttentionDigest,
+                onAcknowledge: { handleCommand(attentionCommand(.attentionAcknowledge)) },
+                onDismiss: { handleCommand(attentionCommand(.attentionDismiss)) }
+            )
+        }
+        .transition(.opacity)
+    }
+
+    private func attentionCommand(_ action: WorkspaceCommandAction) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(id: action.rawValue, title: action.rawValue)
     }
 
     private func handleThreadAction(_ action: SidebarItemActionSurface) {

@@ -46,9 +46,18 @@ struct WorkspaceNavigationSurfaceBuilder {
                 bulkActions: sidebarBulkActions(
                     selectedThreadIDs: resolvedSelectedThreadIDs,
                     visibleSidebarItems: visibleSidebarItems
-                )
+                ),
+                attention: attentionSection()
             )
         )
+    }
+
+    /// Build the morning-triage Attention section from the actual threads, ranked by the shared pure
+    /// `AttentionModel`. The section's cursor prefers the sidebar's selected thread when that thread is
+    /// itself an attention row, so keyboard triage and click selection stay in sync.
+    private func attentionSection() -> AttentionSectionSurface {
+        let model = AttentionModel.build(from: threads, selectedThreadID: selectedThreadID)
+        return AttentionSectionSurface(model: model)
     }
 
     private func projectItems() -> [ProjectItemSurface] {
