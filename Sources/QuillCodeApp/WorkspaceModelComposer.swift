@@ -42,29 +42,55 @@ extension QuillCodeWorkspaceModel {
             onProgressUpdated: onProgressUpdated
         ) else { return }
 
-        // Only drain the next item after a turn that COMPLETED. A Stop (cancel) or a failure
-        // halts the wave and leaves the remaining queue intact and persisted, so the user can
-        // resume or delete — a single Stop never silently flushes every queued item, and a
-        // transient failure never spam-fires the whole queue into the same error.
-        var runThreadID = first.threadID
-        var shouldDrain = first.completed
-        while shouldDrain, let queued = drainNextFollowUp(runThreadID: runThreadID) {
-            guard let turn = await sendFollowUpTurn(
+        await drainFollowUpQueue(
+            after: first,
+            workspaceRoot: workspaceRoot,
+            onStarted: onStarted,
+            onProgressUpdated: onProgressUpdated
+        )
+    }
+
+    /// Drains queued follow-ups one per turn boundary, starting after `initialTurn` finished. Each
+    /// item becomes the next turn through the shared run/finish machinery. The loop advances only
+    /// when the just-finished turn is drainable (see `canDrainAfter`): a Stop, a failure, OR an
+    /// UNDECIDED approval gate halts the wave and leaves the remaining queue intact and persisted.
+    /// Shared by the composer submit path and the post-approval resume path so both drain
+    /// identically (and never past an approval gate).
+    func drainFollowUpQueue(
+        after initialTurn: AgentTurnResult,
+        workspaceRoot: URL,
+        onStarted: (@MainActor @Sendable () -> Void)?,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)?
+    ) async {
+        var turn = initialTurn
+        while canDrainAfter(turn), let queued = drainNextFollowUp(runThreadID: turn.threadID) {
+            guard let nextTurn = await sendFollowUpTurn(
                 queued,
-                runThreadID: runThreadID,
+                runThreadID: turn.threadID,
                 workspaceRoot: workspaceRoot,
                 onStarted: onStarted,
                 onProgressUpdated: onProgressUpdated
             ) else { break }
-            runThreadID = turn.threadID
-            shouldDrain = turn.completed
+            turn = nextTurn
         }
     }
 
+    /// Whether the queue may drain after `turn`. Only a turn that COMPLETED normally AND left no
+    /// undecided approval gate on the run thread is drainable. A Stop/failure is not `completed`; a
+    /// Plan-mode turn that proposes a mutating tool returns `.completed` but leaves an undecided
+    /// `approvalRequested` — draining then would start a queued turn PAST the still-open gate (and
+    /// orphan the held tool). Reuses the same undecided-approval detection as the approval UI and
+    /// the run-finished notification, so all three paths agree.
+    private func canDrainAfter(_ turn: AgentTurnResult) -> Bool {
+        guard turn.completed else { return false }
+        let runThread = root.threads.first { $0.id == turn.threadID }
+        return WorkspaceApprovalActionPlanner.undecidedRequests(in: runThread).isEmpty
+    }
+
     /// The disposition of one agent turn: the thread it ran on and whether it completed
-    /// normally (vs. cancelled/failed). The drain loop keys off `completed` to decide whether
-    /// to pull the next queued item.
-    private struct AgentTurnResult {
+    /// normally (vs. cancelled/failed). The drain loop keys off `completed` (and a separate
+    /// pending-approval check) to decide whether to pull the next queued item.
+    struct AgentTurnResult {
         var threadID: UUID
         var completed: Bool
     }
@@ -215,6 +241,15 @@ extension QuillCodeWorkspaceModel {
         applyComposerSendLifecycle(sendStart.lifecycle)
         let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot)
         finishAgentSend(outcome, runThreadID: sendStart.threadID)
+        // The resumed plan turn can be the one that finally completes without a new approval gate,
+        // so drain any follow-ups the user queued while approval was pending. If the resumed turn
+        // hits the NEXT plan-mode approval gate, `canDrainAfter` keeps the queue waiting again.
+        await drainFollowUpQueue(
+            after: AgentTurnResult(threadID: sendStart.threadID, completed: outcome.didComplete),
+            workspaceRoot: workspaceRoot,
+            onStarted: nil,
+            onProgressUpdated: nil
+        )
     }
 
     public func resumeAgentAfterSpendFuseApproval(workspaceRoot: URL, expectedThreadID: UUID?) async {
