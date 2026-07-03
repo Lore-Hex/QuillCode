@@ -6,6 +6,8 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadHasMessages: Bool
     var selectedThreadCanClear: Bool
     var selectedThreadCanRevertLatestTurn: Bool
+    var selectedThreadCanPin: Bool
+    var selectedThreadCanUnpin: Bool
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -49,6 +51,20 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "copy"],
                 isEnabled: availability.hasSelectedThread
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-pin",
+                title: "Pin chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "pin", "pinned"],
+                isEnabled: availability.selectedThreadCanPin
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-unpin",
+                title: "Unpin chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "pin", "unpin", "pinned"],
+                isEnabled: availability.selectedThreadCanUnpin
             ),
             WorkspaceCommandSurface(
                 id: "thread-clear",

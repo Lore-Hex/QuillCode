@@ -65,6 +65,10 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
 
     func testThreadActionsUseSelectedThreadIDAndTitleAppropriately() {
         let thread = ChatThread(title: "Fix CI")
+        var pinnedThread = ChatThread(title: "Pinned")
+        pinnedThread.isPinned = true
+        var archivedThread = ChatThread(title: "Archived")
+        archivedThread.isArchived = true
         let planner = WorkspaceCommandActionPlanner(
             selectedThreadID: thread.id,
             selectedThread: thread
@@ -72,14 +76,33 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
 
         XCTAssertEqual(planner.effect(for: .threadRename), .setDraft("/rename Fix CI"))
         XCTAssertEqual(planner.effect(for: .threadDuplicate), .duplicateThread(threadID: thread.id))
+        XCTAssertEqual(planner.effect(for: .threadPin), .setThreadPinned(threadID: thread.id, isPinned: true))
+        XCTAssertNil(planner.effect(for: .threadUnpin))
         XCTAssertEqual(planner.effect(for: .threadClear), .clearThread(threadID: thread.id))
         XCTAssertEqual(planner.effect(for: .threadArchive), .archiveThread(threadID: thread.id))
         XCTAssertEqual(planner.effect(for: .threadUnarchive), .unarchiveThread(threadID: thread.id))
         XCTAssertEqual(planner.effect(for: .threadDelete), .deleteThread(threadID: thread.id))
+        XCTAssertEqual(
+            WorkspaceCommandActionPlanner(
+                selectedThreadID: pinnedThread.id,
+                selectedThread: pinnedThread
+            ).effect(for: .threadUnpin),
+            .setThreadPinned(threadID: pinnedThread.id, isPinned: false)
+        )
+        XCTAssertNil(WorkspaceCommandActionPlanner(
+            selectedThreadID: pinnedThread.id,
+            selectedThread: pinnedThread
+        ).effect(for: .threadPin))
+        XCTAssertNil(WorkspaceCommandActionPlanner(
+            selectedThreadID: archivedThread.id,
+            selectedThread: archivedThread
+        ).effect(for: .threadPin))
 
         let staleSelection = WorkspaceCommandActionPlanner(selectedThreadID: thread.id)
         XCTAssertEqual(staleSelection.effect(for: .threadClear), .clearThread(threadID: thread.id))
         XCTAssertEqual(staleSelection.effect(for: .threadArchive), .archiveThread(threadID: thread.id))
+        XCTAssertNil(staleSelection.effect(for: .threadPin))
+        XCTAssertNil(staleSelection.effect(for: .threadUnpin))
         XCTAssertNil(staleSelection.effect(for: .threadRename))
         XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .threadDuplicate))
     }

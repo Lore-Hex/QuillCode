@@ -99,6 +99,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         ).commands
 
         XCTAssertEqual(try command("thread-rename", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("thread-pin", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("thread-unpin", in: commands).isEnabled, false)
         XCTAssertEqual(try command("thread-clear", in: commands).isEnabled, true)
         XCTAssertEqual(try command("fork-from-last", in: commands).isEnabled, true)
         XCTAssertEqual(try command("fork-with-summary", in: commands).isEnabled, true)
@@ -112,6 +114,18 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("thread-bulk-unarchive", in: commands).isEnabled, true)
         XCTAssertEqual(try command("thread-bulk-delete", in: commands).isEnabled, true)
         XCTAssertEqual(try command("retry-last-turn", in: commands).isEnabled, true)
+
+        var pinnedSelectedThread = selectedThread
+        pinnedSelectedThread.isPinned = true
+        let pinnedCommands = makeBuilder(selectedThread: pinnedSelectedThread).commands
+        XCTAssertEqual(try command("thread-pin", in: pinnedCommands).isEnabled, false)
+        XCTAssertEqual(try command("thread-unpin", in: pinnedCommands).isEnabled, true)
+
+        var archivedSelectedThread = selectedThread
+        archivedSelectedThread.isArchived = true
+        let archivedCommands = makeBuilder(selectedThread: archivedSelectedThread).commands
+        XCTAssertEqual(try command("thread-pin", in: archivedCommands).isEnabled, false)
+        XCTAssertEqual(try command("thread-unpin", in: archivedCommands).isEnabled, false)
     }
 
     func testThreadClearCommandIsEnabledForEventOnlyThread() throws {

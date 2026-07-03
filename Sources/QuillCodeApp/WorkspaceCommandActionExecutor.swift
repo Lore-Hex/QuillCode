@@ -82,6 +82,8 @@ extension QuillCodeWorkspaceModel {
             return removeProject(projectID)
         case .duplicateThread(let threadID):
             return duplicateThread(threadID) != nil
+        case .setThreadPinned(let threadID, let isPinned):
+            return setPinThread(threadID, isPinned: isPinned)
         case .clearThread(let threadID):
             return clearThread(threadID)
         case .revertLatestTurn:

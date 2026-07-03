@@ -29,6 +29,22 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertNil(model.root.topBar.projectName)
     }
 
+    func testWorkspaceCommandPinAndUnpinSelectedThreadPersistState() throws {
+        let thread = ChatThread(title: "Keep handy")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        let workspaceRoot = try makeTempDirectory()
+
+        XCTAssertTrue(model.runWorkspaceCommand("thread-pin", workspaceRoot: workspaceRoot))
+        XCTAssertTrue(model.selectedThread?.isPinned == true)
+        XCTAssertFalse(model.runWorkspaceCommand("thread-pin", workspaceRoot: workspaceRoot))
+        XCTAssertTrue(model.runWorkspaceCommand("thread-unpin", workspaceRoot: workspaceRoot))
+        XCTAssertTrue(model.selectedThread?.isPinned == false)
+        XCTAssertFalse(model.runWorkspaceCommand("thread-unpin", workspaceRoot: workspaceRoot))
+    }
+
     func testForkFromLastCreatesBoundedThreadFromLatestUserTurn() throws {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         let instructions = [

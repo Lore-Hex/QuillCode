@@ -25,6 +25,39 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
         ))
     }
 
+    func testSetPinThreadIsIdempotentAndUpdatesTimestampOnlyWhenChanged() throws {
+        let thread = ChatThread(title: "Pin me", updatedAt: Date(timeIntervalSince1970: 10))
+        let pinnedAt = Date(timeIntervalSince1970: 20)
+        let unpinnedAt = Date(timeIntervalSince1970: 30)
+        var threads = [thread]
+
+        let pinned = try XCTUnwrap(WorkspaceThreadLifecycleEngine.setPinThread(
+            thread.id,
+            isPinned: true,
+            threads: &threads,
+            now: pinnedAt
+        ))
+
+        XCTAssertTrue(pinned.isPinned)
+        XCTAssertEqual(pinned.updatedAt, pinnedAt)
+        XCTAssertNil(WorkspaceThreadLifecycleEngine.setPinThread(
+            thread.id,
+            isPinned: true,
+            threads: &threads,
+            now: unpinnedAt
+        ))
+
+        let unpinned = try XCTUnwrap(WorkspaceThreadLifecycleEngine.setPinThread(
+            thread.id,
+            isPinned: false,
+            threads: &threads,
+            now: unpinnedAt
+        ))
+
+        XCTAssertFalse(unpinned.isPinned)
+        XCTAssertEqual(unpinned.updatedAt, unpinnedAt)
+    }
+
     func testArchiveSelectedThreadSelectsNewestUnarchivedThreadInSameProject() throws {
         let projectID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
         let selected = ChatThread(title: "Selected", projectID: projectID, updatedAt: Date(timeIntervalSince1970: 10))

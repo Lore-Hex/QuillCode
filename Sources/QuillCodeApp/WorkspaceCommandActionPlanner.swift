@@ -29,6 +29,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case setDraft(String)
     case removeProject(projectID: UUID)
     case duplicateThread(threadID: UUID)
+    case setThreadPinned(threadID: UUID, isPinned: Bool)
     case clearThread(threadID: UUID)
     case revertLatestTurn
     case archiveThread(threadID: UUID)
@@ -110,6 +111,18 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return selectedThread.map { .setDraft("/rename \($0.title)") }
         case .threadDuplicate:
             return selectedThreadID.map { .duplicateThread(threadID: $0) }
+        case .threadPin:
+            guard let selectedThreadID,
+                  let selectedThread,
+                  !selectedThread.isPinned,
+                  !selectedThread.isArchived
+            else { return nil }
+            return .setThreadPinned(threadID: selectedThreadID, isPinned: true)
+        case .threadUnpin:
+            guard let selectedThreadID,
+                  selectedThread?.isPinned == true
+            else { return nil }
+            return .setThreadPinned(threadID: selectedThreadID, isPinned: false)
         case .threadClear:
             return selectedThreadID.map { .clearThread(threadID: $0) }
         case .threadRevertLatest:

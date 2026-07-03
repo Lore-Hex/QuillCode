@@ -70,6 +70,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "sidebar-filter:archived",
             "thread-rename",
             "thread-duplicate",
+            "thread-pin",
+            "thread-unpin",
             "thread-clear",
             "thread-revert-latest",
             "thread-archive",
