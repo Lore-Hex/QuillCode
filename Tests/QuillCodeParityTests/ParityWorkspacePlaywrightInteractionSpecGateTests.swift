@@ -66,6 +66,31 @@ final class ParityWorkspacePlaywrightInteractionSpecGateTests: QuillCodeParityTe
         XCTAssertFalse(coreSpecText.contains(shortcutFlowName), "\(shortcutFlowName) should not drift back into core.spec.ts.")
     }
 
+    func testCommandPaletteHelpersUseRealFocusedInputEvents() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let helperText = try String(
+            contentsOf: testRoot.appendingPathComponent("harness-helpers.ts"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            helperText.contains("await expect(input).toBeFocused()"),
+            "Command-palette tests should prove the palette can receive keyboard input before filling it."
+        )
+        XCTAssertTrue(
+            helperText.contains("await input.fill(query)"),
+            "Command-palette tests should use Playwright's real input path instead of mutating DOM values."
+        )
+        XCTAssertFalse(
+            helperText.contains("dispatchEvent(new InputEvent"),
+            "Command-palette helpers must not bypass app focus/input handling by dispatching synthetic InputEvents."
+        )
+        XCTAssertFalse(
+            helperText.contains("element.value = nextQuery"),
+            "Command-palette helpers must not bypass app focus/input handling by assigning DOM values directly."
+        )
+    }
+
 
     func testPlaywrightReviewFlowsStayInFocusedSpec() throws {
         let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")

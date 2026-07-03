@@ -89,10 +89,23 @@ test('mock harness audits every visible interactive click target across workspac
   await page.getByTestId('search-close').click();
 
   await openTopBarOverflow(page);
-  await page.getByTestId('top-bar-overflow-command-palette').click();
+  await clickTargetInteriorPoint(
+    page.getByTestId('top-bar-overflow-command-palette'),
+    'top-bar command palette action trailing interior',
+    0.85,
+    0.5
+  );
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await expectInteractionTargetsClean(page, 'command palette');
-  await page.getByTestId('command-palette-close').click();
+  await fillCommandPalette(page, '>shortcuts');
+  await clickTargetInteriorPoint(
+    commandPaletteResult(page, 'keyboard-shortcuts'),
+    'command palette keyboard shortcuts result trailing interior',
+    0.85,
+    0.5
+  );
+  await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
+  await page.getByTestId('keyboard-shortcuts-close').click();
 
   await openTopBarOverflow(page);
   await page.getByTestId('top-bar-overflow-keyboard-shortcuts').click();

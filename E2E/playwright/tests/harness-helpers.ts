@@ -68,15 +68,8 @@ export async function expectSelectedCommandPaletteResult(page: Page, label: stri
 export async function fillCommandPalette(page: Page, query: string) {
   const input = page.getByTestId('command-palette-input');
   await expect(input).toBeVisible();
-  await input.evaluate((element, nextQuery) => {
-    if (!(element instanceof HTMLInputElement)) return;
-    element.value = nextQuery;
-    element.dispatchEvent(new InputEvent('input', {
-      bubbles: true,
-      data: nextQuery,
-      inputType: 'insertReplacementText'
-    }));
-  }, query);
+  await expect(input).toBeFocused();
+  await input.fill(query);
   await expect(input).toHaveValue(query);
 }
 
