@@ -3,6 +3,10 @@ import QuillCodeCore
 
 struct QuillCodeTranscriptView: View {
     var transcript: TranscriptSurface
+    /// The currently selected thread, so the "N new turns" watermark is tracked per thread and a
+    /// thread that grew in the background shows its pill on return. `nil` for the empty/no-thread
+    /// state (no pill).
+    var threadID: UUID?
     var contextBanner: ContextBannerSurface?
     var runtimeIssue: RuntimeIssueSurface?
     var review: WorkspaceReviewSurface
@@ -29,8 +33,23 @@ struct QuillCodeTranscriptView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Per-thread "N new turns" bookkeeping. A `@StateObject` so it survives thread switches within
+    /// this view's lifetime — the watermark for a thread you left stays put while it grows in the
+    /// background, so the pill can appear when you return. See ``TranscriptNewTurnsTracker``.
+    @StateObject private var newTurnsStore = QuillCodeTranscriptNewTurnsStore()
+    /// Which anchor jump is currently pending, so the scroll handler can target it once.
+    @State private var pendingJumpAnchorID: String?
+
     private var findMatches: [QuillCodeTranscriptFindMatch] {
         QuillCodeTranscriptFindMatch.matches(in: transcript, query: findQuery)
+    }
+
+    private var navigationAnchors: TranscriptNavigationAnchors {
+        TranscriptNavigationAnchors.derive(from: transcript)
+    }
+
+    private var newTurnsPill: TranscriptNewTurnsPill? {
+        newTurnsStore.pill(for: threadID, transcript: transcript)
     }
 
     private var activeFindMatch: QuillCodeTranscriptFindMatch? {
@@ -67,12 +86,43 @@ struct QuillCodeTranscriptView: View {
                 )
                 Divider()
             }
+            transcriptBody
+        }
+        .background(QuillCodePalette.background)
+        // The "N new turns" watermark bookkeeping lives on this STABLE parent — not inside the
+        // empty-state-gated transcript subtree, which SwiftUI tears down (so its .onChange would
+        // never fire) whenever the selected thread's transcript is empty, e.g. right after New
+        // Chat. Advancing the outgoing thread's watermark on every thread switch (including New
+        // Chat, and including when either transcript is empty) is what lets a background-grown
+        // thread show its pill on return. Mirrors the harness's newChat()/selectThread() → mark-seen.
+        .onAppear {
+            newTurnsStore.observe(threadID: threadID, transcript: transcript)
+        }
+        .onChange(of: threadID) { oldThreadID, newThreadID in
+            newTurnsStore.leave(threadID: oldThreadID)
+            newTurnsStore.observe(threadID: newThreadID, transcript: transcript)
+        }
+        .onChange(of: scrollAnchorID) { _, _ in
+            // Record the foreground thread's current tail (does not move the acknowledged
+            // watermark) as it grows while the user watches.
+            newTurnsStore.observe(threadID: threadID, transcript: transcript)
+        }
+    }
+
+    @ViewBuilder
+    private var transcriptBody: some View {
+        Group {
             if isEmptyStateVisible {
                 Spacer(minLength: 0)
                 emptyState
                     .padding(.bottom, 20)
             } else {
                 ScrollViewReader { proxy in
+                    QuillCodeTranscriptJumpBar(
+                        anchors: navigationAnchors,
+                        onJumpToLastError: { jump(to: navigationAnchors.lastErrorAnchorID) },
+                        onJumpToLastDiff: { jump(to: navigationAnchors.lastDiffAnchorID) }
+                    )
                     ScrollView {
                         LazyVStack(spacing: 14) {
                             if let contextBanner {
@@ -110,6 +160,9 @@ struct QuillCodeTranscriptView: View {
                         .padding(22)
                     }
                     .defaultScrollAnchor(.bottom)
+                    .overlay(alignment: .top) {
+                        newTurnsPillOverlay(proxy)
+                    }
                     .onAppear {
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
@@ -127,6 +180,9 @@ struct QuillCodeTranscriptView: View {
                         if isPresented {
                             scrollToActiveFindMatch(proxy)
                         }
+                    }
+                    .onChange(of: pendingJumpAnchorID) { _, id in
+                        scrollToPendingJump(proxy, id: id)
                     }
                 }
             }
@@ -276,8 +332,44 @@ struct QuillCodeTranscriptView: View {
         }
     }
 
+    @ViewBuilder
+    private func newTurnsPillOverlay(_ proxy: ScrollViewProxy) -> some View {
+        if let pill = newTurnsPill {
+            QuillCodeTranscriptNewTurnsPill(pill: pill) {
+                // Tapping the pill acknowledges the new turns (dismisses the pill) and jumps to
+                // the first unseen item.
+                newTurnsStore.markSeen(threadID: threadID, transcript: transcript)
+                jump(to: pill.firstUnseenItemID)
+            }
+            .padding(.top, 10)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    /// Request a scroll to a specific timeline anchor. A `nil` id (no error/diff turn) is a
+    /// graceful no-op so the disabled affordance can still call through safely.
+    private func jump(to anchorID: String?) {
+        guard let anchorID else { return }
+        // Toggle through nil first so repeated jumps to the same anchor still fire onChange.
+        pendingJumpAnchorID = nil
+        DispatchQueue.main.async {
+            pendingJumpAnchorID = anchorID
+        }
+    }
+
+    private func scrollToPendingJump(_ proxy: ScrollViewProxy, id: String?) {
+        guard let id else { return }
+        quillCodeWithAnimation(.easeInOut(duration: 0.2), reduceMotion: reduceMotion) {
+            proxy.scrollTo(id, anchor: .center)
+        }
+    }
+
     private func scrollToTranscriptEnd(_ proxy: ScrollViewProxy, id: String?) {
         guard let id, !isFindPresented else { return }
+        // NOTE: this deliberately does NOT mark the thread seen. Marking seen here (it fires on
+        // appear and on every scroll-anchor change, including on return to a grown thread) would
+        // advance the watermark before the pill could ever evaluate — the exact bug that made the
+        // pill unreachable. The watermark advances only on leaving the thread or a pill tap.
         DispatchQueue.main.async {
             quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
                 proxy.scrollTo(id, anchor: .bottom)
@@ -292,104 +384,5 @@ struct QuillCodeTranscriptView: View {
                 spacing: QuillCodeMetrics.controlClusterSpacing
             )
         ]
-    }
-}
-
-private struct QuillCodeThinkingView: View {
-    var thinking: TranscriptThinkingSurface
-
-    @State private var isTraceExpanded = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-                    Text(thinking.title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(QuillCodePalette.text)
-                    QuillCodeThinkingDots(reduceMotion: reduceMotion)
-                }
-                Text(thinking.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(QuillCodePalette.muted)
-                if !thinking.traceLines.isEmpty {
-                    Button {
-                        quillCodeWithAnimation(.easeOut(duration: 0.16), reduceMotion: reduceMotion) {
-                            isTraceExpanded.toggle()
-                        }
-                    } label: {
-                        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                            Image(systemName: isTraceExpanded ? "chevron.down" : "chevron.right")
-                                .font(.caption2.weight(.bold))
-                            Text(thinking.traceTitle)
-                                .font(.caption.weight(.semibold))
-                            Text("\(thinking.traceLines.count)")
-                                .font(.caption2.monospacedDigit().weight(.semibold))
-                                .foregroundStyle(QuillCodePalette.muted)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(QuillCodePalette.selection)
-                                .clipShape(Capsule())
-                        }
-                        .foregroundStyle(QuillCodePalette.blue)
-                        .quillCodeCapsuleButtonTarget(minWidth: 96, alignment: .leading)
-                    }
-                    .buttonStyle(QuillCodePressableButtonStyle())
-                    .accessibilityIdentifier("thinking-trace-toggle")
-                    .accessibilityLabel("\(thinking.traceTitle), \(thinking.traceLines.count) events")
-                    .accessibilityValue(isTraceExpanded ? "Expanded" : "Collapsed")
-
-                    if isTraceExpanded {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(thinking.traceLines, id: \.self) { line in
-                                Text(line)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(QuillCodePalette.muted)
-                                    .textSelection(.enabled)
-                            }
-                        }
-                        .padding(.top, 4)
-                    }
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .background(QuillCodePalette.panel.opacity(0.82))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            Spacer(minLength: 80)
-        }
-        .frame(maxWidth: 760, alignment: .leading)
-        .accessibilityIdentifier("thinking-indicator")
-        .accessibilityLabel("\(thinking.title): \(thinking.subtitle)")
-    }
-}
-
-private struct QuillCodeThinkingDots: View {
-    var reduceMotion: Bool
-
-    @ViewBuilder
-    var body: some View {
-        if reduceMotion {
-            dots(activeIndex: 2)
-        } else {
-            TimelineView(.animation) { context in
-                dots(activeIndex: Int(context.date.timeIntervalSinceReferenceDate * 2.8) % 3)
-            }
-        }
-    }
-
-    private func dots(activeIndex: Int) -> some View {
-        HStack(spacing: 4) {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .fill(QuillCodePalette.blue)
-                    .frame(width: 5, height: 5)
-                    .scaleEffect(index == activeIndex ? 1 : 0.72)
-                    .opacity(index == activeIndex ? 1 : 0.42)
-            }
-        }
-        .frame(width: 28, height: 12)
-        .accessibilityHidden(true)
     }
 }

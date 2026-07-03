@@ -26,6 +26,12 @@ public struct TurnRevertPlan: Sendable, Hashable {
 /// attributed to the latest user message at-or-before their timestamp (the same chronology
 /// the transcript builder renders by). Pure and synchronous — no git, no side effects.
 public enum WorkspaceTurnRevertPlanner {
+    /// The tool id recorded for a reverse-patch turn revert (see `runTurnRevert`). It is a dynamic
+    /// tool with no static `ToolDefinition`, so it is named once here and reused everywhere that
+    /// must recognize it (the recorder and the transcript's "Last diff" classifier) rather than
+    /// duplicating the literal.
+    public static let revertTurnToolName = "host.git.revert_turn"
+
     /// The risk class of every statically-defined tool, so a turn's non-`apply_patch` edits are
     /// detected by SAFETY rather than a hand-maintained name list that silently rots the moment a new
     /// mutating tool is added (the old denylist provably omitted, e.g., `host.git.pr.checkout` and the
@@ -34,6 +40,53 @@ public enum WorkspaceTurnRevertPlanner {
         ToolRouter.definitions.map { ($0.name, $0.risk) },
         uniquingKeysWith: { existing, _ in existing }
     )
+
+    /// Whether a statically-registered tool exists for this name (i.e. it is not a dynamic/MCP
+    /// tool). Used to keep the "Last diff" classifier from treating arbitrary non-`host.*` card
+    /// titles as mutating just because they are unknown.
+    static func isRegisteredTool(_ name: String) -> Bool {
+        toolRiskByName[name] != nil
+    }
+
+    /// The tool ids whose run rewrites tracked file **content in the working tree** — i.e. produces
+    /// a `git diff`. This is the precise scope of the transcript's "Last diff" affordance (doc:
+    /// "most recent file write/patch"), NOT the broader "any non-read side effect": it deliberately
+    /// EXCLUDES repo/remote ops that leave working-tree file bytes unchanged —
+    /// - most `host.git.pr.*` (PR metadata: reviewers, labels, comments, merge, review threads),
+    /// - `host.git.push` (uploads already-committed history),
+    /// - `host.git.commit` / `host.git.stage` / `host.git.stage_hunk` (record/stage content that is
+    ///   already on disk; they do not change working-tree file bytes),
+    /// - `host.git.worktree.*` (create/remove/prune a worktree — not a content diff),
+    /// - `host.shell.run` (opaque; may or may not write files, so we do not claim it as a diff).
+    ///
+    /// `host.git.pr.checkout` is the one PR tool that IS included: it runs `gh pr checkout`, which
+    /// switches the working tree to the PR's head branch and wholesale-rewrites every differing file
+    /// on disk — a real working-tree content change, and often the single most impactful one in a
+    /// PR-review flow. (The rest of `host.git.pr.*` only touch PR metadata.)
+    ///
+    /// This is the SINGLE SOURCE OF TRUTH shared by the native classifier and, mirrored id-for-id,
+    /// the HTML/Playwright harness. `WorkspaceTurnRevertDiffToolParityTests` enumerates every
+    /// registered tool plus the dynamic ids and asserts membership matches the harness set, so a
+    /// future divergence (a new file-mutating tool added to one side only) fails CI rather than
+    /// silently drifting.
+    ///
+    /// Note this is a distinct, narrower concept from ``isMutatingNonApplyTool`` (which the revert
+    /// planner uses to decide whether a turn's undo is *partial* — there, over-claiming mutation is
+    /// the safe direction; here, precision to file-content changes is what the label promises).
+    public static let workingTreeDiffToolNames: Set<String> = [
+        ToolDefinition.applyPatch.name,             // host.apply_patch
+        revertTurnToolName,                         // host.git.revert_turn (dynamic; reverse-applies a patch)
+        ToolDefinition.fileWrite.name,              // host.file.write
+        ToolDefinition.gitRestore.name,             // host.git.restore
+        ToolDefinition.gitRestoreHunk.name,         // host.git.restore_hunk
+        ToolDefinition.gitPullRequestCheckout.name  // host.git.pr.checkout (switches branch → rewrites files on disk)
+    ]
+
+    /// Whether a tool run rewrote tracked file content in the working tree — the "Last diff"
+    /// predicate. See ``workingTreeDiffToolNames`` for the exact set and rationale.
+    public static func isDiffProducingTool(_ name: String) -> Bool {
+        workingTreeDiffToolNames.contains(name)
+    }
 
     /// Whether a tool call other than `apply_patch` changed state that a reverse-patch of this turn's
     /// `apply_patch` edits cannot undo — a mutating local-tree change, or a remote/side effect the
