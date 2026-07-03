@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   clickCommandPaletteCommand,
   clickSidebarTool,
@@ -21,10 +21,20 @@ import {
   expectInteractionTargetsClean
 } from './interaction-audit-routability';
 
+async function fillComposerAndSend(page: Page, text: string) {
+  const composer = page.getByLabel('Message');
+  const sendButton = page.getByTestId('send-button');
+  await expect(sendButton).toBeVisible();
+  await composer.fill(text);
+  await expect(sendButton).toBeEnabled();
+  await sendButton.click();
+}
+
 test('primary utility controls activate from near-edge target points', async ({ page }) => {
   await page.goto(harnessURL());
 
   await page.getByLabel('Message').fill('run whoami');
+  await expect(page.getByTestId('send-button')).toBeEnabled();
   await clickTargetInteriorPoint(page.getByRole('button', { name: 'Send' }), 'send button trailing edge', 0.92, 0.5);
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
@@ -219,8 +229,7 @@ test('sidebar and project controls activate from near-edge target points', async
   await expect(page.getByTestId('search-panel')).toBeVisible();
   await page.getByTestId('search-close').click();
 
-  await page.getByLabel('Message').fill('run whoami');
-  await page.getByRole('button', { name: 'Send' }).click();
+  await fillComposerAndSend(page, 'run whoami');
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
 
   await page.evaluate(() => {
@@ -330,8 +339,7 @@ test('transcript, recovery, and suggestion controls activate from near-edge targ
   );
   await expect(page.getByLabel('Message')).toHaveValue(/^\/[a-z-]+/);
 
-  await page.getByLabel('Message').fill('run whoami');
-  await page.getByRole('button', { name: 'Send' }).click();
+  await fillComposerAndSend(page, 'run whoami');
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
 
   const whoamiAnswer = page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' });
@@ -353,14 +361,12 @@ test('transcript, recovery, and suggestion controls activate from near-edge targ
   await clickTargetInteriorPoint(page.getByTestId('message-retry').last(), 'assistant retry trailing edge', 0.92, 0.5);
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
 
-  await page.getByLabel('Message').fill('long context ' + 'word '.repeat(22000));
-  await page.getByRole('button', { name: 'Send' }).click();
+  await fillComposerAndSend(page, 'long context ' + 'word '.repeat(22000));
   await expect(page.getByTestId('context-banner')).toBeVisible();
   await clickTargetInteriorPoint(page.getByTestId('context-new-thread'), 'context new-thread trailing edge', 0.92, 0.5);
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
 
-  await page.getByLabel('Message').fill('trigger network failure');
-  await page.getByRole('button', { name: 'Send' }).click();
+  await fillComposerAndSend(page, 'trigger network failure');
   await expect(page.getByTestId('runtime-issue-action')).toHaveText('Retry');
   await clickTargetInteriorPoint(page.getByTestId('runtime-issue-action'), 'runtime retry leading edge', 0.08, 0.5);
   await expect(page.getByTestId('runtime-issue')).not.toBeVisible();

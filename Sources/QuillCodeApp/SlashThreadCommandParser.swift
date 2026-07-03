@@ -9,6 +9,9 @@ enum SlashThreadCommandParser {
              "compact", "compact-context", "context-compact",
              "rename", "rename-chat", "title",
              "duplicate", "duplicate-chat", "copy-chat",
+             "fork", "fork-last", "fork-from-last",
+             "fork-summary", "fork-with-summary",
+             "fork-full", "fork-full-context",
              "pin", "pin-chat",
              "unpin", "unpin-chat",
              "archive", "archive-chat",
@@ -37,6 +40,14 @@ enum SlashThreadCommandParser {
             return value.isEmpty ? .invalid("Usage: /rename New chat title") : .renameThread(value)
         case "duplicate", "duplicate-chat", "copy-chat":
             return .workspaceCommand("thread-duplicate")
+        case "fork":
+            return parseFork(argument: value)
+        case "fork-last", "fork-from-last":
+            return .workspaceCommand("fork-from-last")
+        case "fork-summary", "fork-with-summary":
+            return .workspaceCommand("fork-with-summary")
+        case "fork-full", "fork-full-context":
+            return .workspaceCommand("fork-full-context")
         case "pin", "pin-chat":
             return .workspaceCommand("thread-pin")
         case "unpin", "unpin-chat":
@@ -54,5 +65,18 @@ enum SlashThreadCommandParser {
 
     private static func normalizedName(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func parseFork(argument: String) -> SlashCommand {
+        switch normalizedName(argument) {
+        case "", "last", "latest", "latest-turn", "from-last":
+            return .workspaceCommand("fork-from-last")
+        case "summary", "summarized", "summarized-context", "compact":
+            return .workspaceCommand("fork-with-summary")
+        case "full", "full-context", "all":
+            return .workspaceCommand("fork-full-context")
+        default:
+            return .invalid("Usage: /fork [last|summary|full]")
+        }
     }
 }

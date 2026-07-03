@@ -16,12 +16,16 @@ final class ParitySlashThreadMemoryParserGateTests: QuillCodeParityTestCase {
             "Usage: /rename New chat title",
             "thread-clear",
             "thread-duplicate",
-            "thread-delete"
+            "thread-delete",
+            "fork-from-last",
+            "fork-with-summary",
+            "fork-full-context"
         ].forEach { Self.assertSource(parserText, contains: $0) }
         [
             "testSupportsThreadLifecycleAliases",
             "testClearAliasesMapToThreadClearCommand",
-            "testRenameAliasesTrimTitlesAndValidateRequiredTitle"
+            "testRenameAliasesTrimTitlesAndValidateRequiredTitle",
+            "testForkAliasesAndModesMapToWorkspaceCommands"
         ].forEach { Self.assertSource(parserTests, contains: $0) }
         [
             ".renameThread(argument)",
@@ -29,6 +33,9 @@ final class ParitySlashThreadMemoryParserGateTests: QuillCodeParityTestCase {
             "thread-clear",
             "thread-duplicate",
             "thread-delete",
+            "fork-from-last",
+            "fork-with-summary",
+            "fork-full-context",
             "compact-context"
         ].forEach { Self.assertSource(slashText, excludes: $0) }
     }

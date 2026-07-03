@@ -15001,3 +15001,33 @@ Validation:
 - `swift test --quiet` (3,149 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
 - `git diff --check`
+
+## 2026-07-03 Thread Fork Slash Command Parity Slice
+
+Overall grade after this slice: **A+ for context-fork slash command parity**.
+The existing fork continuation engine now has typed slash-command access without
+adding a second fork implementation.
+
+Code quality changes:
+
+- Added `/fork [last|summary|full]` plus explicit `/fork-last`,
+  `/fork-summary`, and `/fork-full-context` aliases that route through the
+  existing `fork-from-last`, `fork-with-summary`, and `fork-full-context`
+  workspace command IDs.
+- Kept `SlashCommandParser` clean by delegating all thread lifecycle aliases to
+  `SlashThreadCommandParser`, including invalid-mode copy for `/fork`.
+- Mirrored slash suggestion and execution behavior in the HTML/Playwright
+  harness so native and E2E surfaces stay aligned.
+- Refactored the thread slash parser tests into table-driven helpers to avoid a
+  long assertion pileup while expanding alias coverage.
+- Updated the parity matrix, roadmap, and decisions log so other agents can see
+  that `/fork` is part of the thread lifecycle command boundary.
+
+Validation:
+
+- `swift test --filter 'SlashThreadCommandParserTests|WorkspaceCommandPlanTests|WorkspaceCommandActionPlannerTests|WorkspaceThreadLifecycleIntegrationTests|WorkspaceSlashRegistryHarnessParityTests|ParitySlashThreadMemoryParserGateTests'` (49 tests, 0 failures)
+- `swift test --filter 'SlashThreadCommandParserTests|WorkspaceSlashRegistryHarnessParityTests|ParitySlashThreadMemoryParserGateTests'` (18 tests, 0 failures after test cleanup)
+- `swift test --quiet` (3,150 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+- `rg -n "\| (A-|A |B\+|B-|B |C\+|C-|C |D\+|D-|D |F) \|" docs/CODE_QUALITY_FILE_GRADES.md` (no non-A+ grade rows)
+- `git diff --check`
