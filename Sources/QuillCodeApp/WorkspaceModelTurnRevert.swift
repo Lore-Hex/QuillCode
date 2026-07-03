@@ -31,7 +31,7 @@ public extension QuillCodeWorkspaceModel {
 
         let result = GitPatchToolExecutor().restoreTurnPatch(cwd: workspaceRoot, patches: plan.patches)
         // Record the revert as a transcript tool run so it is visible and itself revertible.
-        let revertCall = ToolCall(name: "host.git.revert_turn", argumentsJSON: "{}")
+        let revertCall = ToolCall(name: WorkspaceTurnRevertPlanner.revertTurnToolName, argumentsJSON: "{}")
         mutateSelectedThread { thread in
             WorkspaceToolEventRecorder.append(call: revertCall, result: result, to: &thread)
         }

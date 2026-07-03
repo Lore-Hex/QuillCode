@@ -26,6 +26,12 @@ public struct TurnRevertPlan: Sendable, Hashable {
 /// attributed to the latest user message at-or-before their timestamp (the same chronology
 /// the transcript builder renders by). Pure and synchronous — no git, no side effects.
 public enum WorkspaceTurnRevertPlanner {
+    /// The tool id recorded for a reverse-patch turn revert (see `runTurnRevert`). It is a dynamic
+    /// tool with no static `ToolDefinition`, so it is named once here and reused everywhere that
+    /// must recognize it (the recorder and the transcript's "Last diff" classifier) rather than
+    /// duplicating the literal.
+    public static let revertTurnToolName = "host.git.revert_turn"
+
     /// The risk class of every statically-defined tool, so a turn's non-`apply_patch` edits are
     /// detected by SAFETY rather than a hand-maintained name list that silently rots the moment a new
     /// mutating tool is added (the old denylist provably omitted, e.g., `host.git.pr.checkout` and the
@@ -34,6 +40,26 @@ public enum WorkspaceTurnRevertPlanner {
         ToolRouter.definitions.map { ($0.name, $0.risk) },
         uniquingKeysWith: { existing, _ in existing }
     )
+
+    /// Whether a statically-registered tool exists for this name (i.e. it is not a dynamic/MCP
+    /// tool). Used to keep the "Last diff" classifier from treating arbitrary non-`host.*` card
+    /// titles as mutating just because they are unknown.
+    static func isRegisteredTool(_ name: String) -> Bool {
+        toolRiskByName[name] != nil
+    }
+
+    /// Whether a tool run produced a **working-tree / repo diff** worth navigating to for the
+    /// transcript's "Last diff" affordance: `apply_patch`, the `revert_turn` reverse-patch, or any
+    /// registered non-`read` tool (file write, git restore/commit/stage, shell run, …). Registry-
+    /// driven so future mutating tools are caught automatically; unknown *registered-tool-shaped*
+    /// names are excluded so a plain card title cannot false-positive. This is the shared,
+    /// authoritative diff predicate — the classifier must not hand-maintain its own list.
+    public static func isDiffProducingTool(_ name: String) -> Bool {
+        if name == ToolDefinition.applyPatch.name || name == revertTurnToolName {
+            return true
+        }
+        return isRegisteredTool(name) && isMutatingNonApplyTool(name)
+    }
 
     /// Whether a tool call other than `apply_patch` changed state that a reverse-patch of this turn's
     /// `apply_patch` edits cannot undo — a mutating local-tree change, or a remote/side effect the

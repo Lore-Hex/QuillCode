@@ -8740,20 +8740,30 @@
       ];
     }
 
-    // Mirrors Swift TranscriptNavigationAnchors.derive: the timeline ids of the most recent
-    // error turn (a failed tool run) and the most recent diff turn (a file write / patch /
-    // commit, or any run that emitted a file/path artifact). null when the transcript has none.
+    // Mirrors Swift TranscriptNavigationAnchors.derive / WorkspaceTurnRevertPlanner.isDiffProducingTool:
+    // the timeline ids of the most recent error turn (a failed tool run) and the most recent diff
+    // turn. A "diff" is apply_patch, the revert_turn reverse-patch, or any registered NON-read tool
+    // (file write, git restore/commit/stage, shell run, …) — driven by the tool registry's risk
+    // classes, NOT a hand-list that rots when a mutating tool is added (that omission is exactly
+    // why an earlier version missed revert_turn / restore / restore_hunk). This mirror lists the
+    // registry's non-read tool ids; read-only tools and unregistered/dynamic names are not diffs,
+    // and we never infer a diff from file/path artifacts (reads emit those too). null if none.
     const DIFF_PRODUCING_TOOL_NAMES = new Set([
-      'apply_patch', 'file.write', 'git.commit', 'edit', 'write'
+      // apply_patch + the dynamic revert-turn tool (no static definition).
+      'host.apply_patch', 'host.git.revert_turn',
+      // Registered non-read (.append / .destructive) tools that mutate the tree / repo.
+      'host.file.write',
+      'host.git.stage', 'host.git.stage_hunk', 'host.git.restore', 'host.git.restore_hunk',
+      'host.git.commit', 'host.git.push',
+      'host.shell.run'
     ]);
     function isDiffProducingToolName(rawTitle) {
-      const name = String(rawTitle || '').trim().toLowerCase();
-      const stripped = name.startsWith('host.') ? name.slice('host.'.length) : name;
-      return DIFF_PRODUCING_TOOL_NAMES.has(stripped);
+      const name = String(rawTitle || '').trim();
+      // Fully-qualified match only (tool card titles are the raw host.* ids); also accept a
+      // de-prefixed display title by re-qualifying it.
+      const qualified = name.startsWith('host.') ? name : `host.${name}`;
+      return DIFF_PRODUCING_TOOL_NAMES.has(qualified);
     }
-    // Diff detection is by tool NAME only. Read-only tools (host.file.read/list/search) emit
-    // absolute-path artifacts that classify as kind 'file', so an artifact fallback would wrongly
-    // count reads as diffs (and jump "Last diff" to a read). Mirror TranscriptNavigationAnchors.
     function isDiffCard(card) {
       return isDiffProducingToolName(card.title);
     }

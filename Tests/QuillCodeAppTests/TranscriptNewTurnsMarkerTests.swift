@@ -153,6 +153,29 @@ final class TranscriptNewTurnsMarkerTests: XCTestCase {
         XCTAssertNil(tracker.pill(for: threadA, timeline: timeline(5)))
     }
 
+    func testTrackerNewChatThenBackgroundGrowThenReturnShowsPill() {
+        // MAJOR 2 regression: the New Chat path. The watermark must advance when LEAVING A via New
+        // Chat (a switch to a brand-new EMPTY thread), so background growth on A surfaces on
+        // return. This is the exact transition sequence the fixed native wiring delivers from the
+        // stable parent (which fires even though the new thread's transcript is empty).
+        let newChatThread = UUID(uuidString: "CCCCCCCC-0000-0000-0000-000000000003")!
+        var tracker = TranscriptNewTurnsTracker()
+
+        // View A (3 turns).
+        tracker.observe(threadID: threadA, timeline: timeline(3))
+        // New Chat: leave A (advances A's watermark to its tail), then observe the new EMPTY thread.
+        tracker.leave(threadID: threadA)
+        tracker.observe(threadID: newChatThread, timeline: [])
+        // A grows to 5 in the background while the empty new chat is foreground.
+        // Return to A.
+        tracker.leave(threadID: newChatThread)
+        tracker.observe(threadID: threadA, timeline: timeline(5))
+
+        let pill = tracker.pill(for: threadA, timeline: timeline(5))
+        XCTAssertEqual(pill?.count, 2, "New-Chat → background-grow → return must show the pill")
+        XCTAssertEqual(pill?.firstUnseenItemID, timeline(5)[3].id)
+    }
+
     func testTrackerReturnWithoutLeavingNeverShowsPillForNeverLeftThread() {
         // Fail-on-revert guard for MAJOR 2: if the view re-observes a thread on return and that
         // observe wrongly advanced the watermark, this would still pass — so we assert the

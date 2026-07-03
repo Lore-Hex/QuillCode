@@ -104,6 +104,29 @@ test('read-only session keeps the last-diff affordance disabled', async ({ page 
   await expect(page.getByTestId('transcript-jump-last-diff')).toBeDisabled();
 });
 
+test('last diff anchors to a turn revert (revert_turn is a diff)', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // Apply a patch (a diff), then revert that turn. The revert is recorded as a host.git.revert_turn
+  // card — a dynamic tool with no static definition — which must ALSO count as a diff, and be the
+  // most recent one (jumping to a just-reverted diff is a prime use of "Last diff").
+  await send(page, 'apply patch to fix the bug');
+  await expect(page.getByTestId('tool-card').filter({ hasText: 'host.apply_patch' })).toBeVisible();
+  const diffAnchorAfterPatch = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  expect(diffAnchorAfterPatch).toBeTruthy();
+
+  await page.getByTestId('message-revert-turn').first().click();
+  const revertCard = page.getByTestId('tool-card').filter({ hasText: 'host.git.revert_turn' });
+  await expect(revertCard).toBeVisible();
+
+  // "Last diff" stays enabled and now points at the revert, not the earlier patch.
+  await expect(page.getByTestId('transcript-jump-last-diff')).toBeEnabled();
+  const diffAnchorAfterRevert = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  expect(diffAnchorAfterRevert).toBeTruthy();
+  expect(diffAnchorAfterRevert).not.toBe(diffAnchorAfterPatch);
+  expect(await revertCard.getAttribute('data-timeline-id')).toBe(diffAnchorAfterRevert);
+});
+
 test('N new turns pill appears on return to a thread that grew and jumps to the first unseen turn', async ({ page }) => {
   await page.goto(harnessURL());
 

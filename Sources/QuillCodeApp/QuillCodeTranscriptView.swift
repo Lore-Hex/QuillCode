@@ -89,6 +89,24 @@ struct QuillCodeTranscriptView: View {
             transcriptBody
         }
         .background(QuillCodePalette.background)
+        // The "N new turns" watermark bookkeeping lives on this STABLE parent — not inside the
+        // empty-state-gated transcript subtree, which SwiftUI tears down (so its .onChange would
+        // never fire) whenever the selected thread's transcript is empty, e.g. right after New
+        // Chat. Advancing the outgoing thread's watermark on every thread switch (including New
+        // Chat, and including when either transcript is empty) is what lets a background-grown
+        // thread show its pill on return. Mirrors the harness's newChat()/selectThread() → mark-seen.
+        .onAppear {
+            newTurnsStore.observe(threadID: threadID, transcript: transcript)
+        }
+        .onChange(of: threadID) { oldThreadID, newThreadID in
+            newTurnsStore.leave(threadID: oldThreadID)
+            newTurnsStore.observe(threadID: newThreadID, transcript: transcript)
+        }
+        .onChange(of: scrollAnchorID) { _, _ in
+            // Record the foreground thread's current tail (does not move the acknowledged
+            // watermark) as it grows while the user watches.
+            newTurnsStore.observe(threadID: threadID, transcript: transcript)
+        }
     }
 
     @ViewBuilder
@@ -146,21 +164,10 @@ struct QuillCodeTranscriptView: View {
                         newTurnsPillOverlay(proxy)
                     }
                     .onAppear {
-                        // Record what's on screen for the foreground thread (updates the observed
-                        // tail, NOT the acknowledged watermark), then scroll to the end.
-                        newTurnsStore.observe(threadID: threadID, transcript: transcript)
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
                     .onChange(of: scrollAnchorID) { _, id in
-                        newTurnsStore.observe(threadID: threadID, transcript: transcript)
                         scrollToTranscriptEnd(proxy, id: id)
-                    }
-                    .onChange(of: threadID) { oldThreadID, newThreadID in
-                        // Leaving a thread advances its watermark to the last tail we observed
-                        // while it was foreground; the incoming thread keeps its frozen watermark
-                        // so a background-grown thread shows its pill on return.
-                        newTurnsStore.leave(threadID: oldThreadID)
-                        newTurnsStore.observe(threadID: newThreadID, transcript: transcript)
                     }
                     .onChange(of: activeFindIndex) { _, _ in
                         scrollToActiveFindMatch(proxy)

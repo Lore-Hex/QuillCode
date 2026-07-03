@@ -1,4 +1,6 @@
 import Foundation
+import QuillCodeCore
+import QuillCodeTools
 
 /// Deterministic derivation of the transcript's navigation anchors: the most recent turn that
 /// produced an **error** (a failed tool run) and the most recent turn that produced a **diff**
@@ -51,38 +53,43 @@ public struct TranscriptNavigationAnchors: Sendable, Equatable {
         card.status == .failed
     }
 
-    /// A tool card counts as a **diff** when it wrote to the working tree: an `apply_patch`, a
-    /// file write, or a commit. We detect this SOLELY from the tool *name* (`card.title`, which is
-    /// the raw tool id like `host.apply_patch` / `host.file.write` / `host.git.commit`).
+    /// A tool card counts as a **diff** when its tool mutated the working tree / repo — an
+    /// `apply_patch`, a `revert_turn` reverse-patch, or any registered non-`read` tool (file write,
+    /// git restore/commit/stage, shell run, …).
+    ///
+    /// Classification delegates to the codebase's AUTHORITATIVE, risk-based predicate
+    /// (`WorkspaceTurnRevertPlanner.isDiffProducingTool`, keyed off each tool's `ToolRiskClass`)
+    /// rather than a bespoke name list. A hand-maintained list silently rots the moment a new
+    /// mutating tool is added: an earlier version of this feature omitted `host.git.revert_turn` /
+    /// `host.git.restore` / `host.git.restore_hunk`, so "Last diff" never anchored to a
+    /// just-reverted or restored diff.
     ///
     /// We deliberately do NOT infer "diff" from file/path artifacts: read-only tools
-    /// (`host.file.read` / `host.file.list` / `host.file.search`) all emit absolute-path
-    /// artifacts, and `ToolArtifactValueClassifier` classifies an absolute path as `.file`. An
-    /// artifact fallback therefore lights up "Last diff" in sessions that only read/listed/searched
-    /// — and, since `derive()` keeps the *last* hit in timeline order, a `[apply_patch, file.read]`
-    /// sequence would jump to the READ, defeating the "most recent file write/patch" contract. The
-    /// tool name is the authoritative, deterministic signal that a run mutated the tree.
+    /// (`host.file.read` / `host.file.list` / `host.file.search`) all emit absolute-path artifacts
+    /// that `ToolArtifactValueClassifier` labels `.file`, so an artifact fallback would light up
+    /// "Last diff" in read-only sessions and, since `derive()` keeps the last hit in timeline
+    /// order, would jump `[apply_patch, then file.read]` to the READ.
     static func isDiffCard(_ card: ToolCardState) -> Bool {
         isDiffProducingToolName(card.title)
     }
 
-    /// Tool names whose successful run mutates files. Compared case-insensitively and tolerant of
-    /// the `host.` prefix so both raw ids (`host.apply_patch`) and any de-prefixed display title
-    /// (`apply_patch`) are recognized.
+    /// Whether a tool by this raw id mutated the working tree / repo state. `derive()` only calls
+    /// this for `.toolCard` items, so the input is a tool id. Tolerant of surrounding whitespace
+    /// and a de-prefixed display title (`apply_patch` as well as `host.apply_patch`); the shared
+    /// predicate only trusts registered names (plus apply_patch / revert_turn), so a non-tool
+    /// title cannot false-positive.
     static func isDiffProducingToolName(_ rawTitle: String) -> Bool {
-        let name = rawTitle
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        let stripped = name.hasPrefix("host.") ? String(name.dropFirst("host.".count)) : name
-        return diffProducingToolNames.contains(stripped)
+        let trimmed = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        return canonicalToolNameCandidates(trimmed).contains(where: WorkspaceTurnRevertPlanner.isDiffProducingTool)
     }
 
-    private static let diffProducingToolNames: Set<String> = [
-        "apply_patch",
-        "file.write",
-        "git.commit",
-        // Friendly display variants some surfaces show instead of the raw id.
-        "edit",
-        "write"
-    ]
+    /// The raw title as-is plus a `host.`-prefixed variant, so a de-prefixed display title still
+    /// resolves against the fully-qualified tool registry (`apply_patch` → `host.apply_patch`).
+    private static func canonicalToolNameCandidates(_ trimmed: String) -> [String] {
+        guard !trimmed.isEmpty else { return [] }
+        if trimmed.hasPrefix("host.") {
+            return [trimmed]
+        }
+        return [trimmed, "host.\(trimmed)"]
+    }
 }

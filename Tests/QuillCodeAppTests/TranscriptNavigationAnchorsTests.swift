@@ -46,12 +46,47 @@ final class TranscriptNavigationAnchorsTests: XCTestCase {
         XCTAssertTrue(anchors.hasError)
     }
 
-    func testLastDiffDetectedFromApplyPatchAndFileWriteAndCommit() {
-        for name in ["host.apply_patch", "host.file.write", "host.git.commit", "apply_patch", "Edit", "Write"] {
+    func testLastDiffDetectedForEveryMutatingTool() {
+        // Every mutating tool the codebase can emit as a card — including the ones an earlier
+        // name-list missed (revert_turn / restore / restore_hunk) — must count as a diff. Driven
+        // by the shared risk-based predicate, so this stays correct as tools are added.
+        let mutating = [
+            "host.apply_patch",
+            "host.file.write",
+            "host.git.commit",
+            "host.git.stage",
+            "host.git.restore",
+            "host.git.restore_hunk",
+            "host.git.revert_turn",
+            "host.shell.run",
+            "apply_patch" // de-prefixed display title still resolves
+        ]
+        for name in mutating {
             let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
                 card(id: "t1", title: name, status: .done)
             ]))
             XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-t1", "expected \(name) to be a diff turn")
+        }
+    }
+
+    func testRevertTurnCardIsADiffAndAnchorsLastDiff() {
+        // Regression: jumping to a just-reverted diff is a prime use of "Last diff". The revert is
+        // recorded as a host.git.revert_turn card (a dynamic tool with no static definition).
+        XCTAssertEqual(WorkspaceTurnRevertPlanner.revertTurnToolName, "host.git.revert_turn")
+        let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
+            card(id: "patch", title: "host.apply_patch", status: .done),
+            card(id: "revert", title: WorkspaceTurnRevertPlanner.revertTurnToolName, status: .done)
+        ]))
+        XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-revert")
+        XCTAssertTrue(anchors.hasDiff)
+    }
+
+    func testGitRestoreAndRestoreHunkAreDiffs() {
+        for name in ["host.git.restore", "host.git.restore_hunk"] {
+            let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
+                card(id: "t1", title: name, status: .done)
+            ]))
+            XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-t1", "\(name) overwrites working-tree files")
         }
     }
 
@@ -103,9 +138,10 @@ final class TranscriptNavigationAnchorsTests: XCTestCase {
         XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-patch")
     }
 
-    func testUnknownToolWithFileArtifactIsNotADiff() {
-        // We intentionally do NOT infer diffs from artifacts for tools outside the known set, so a
-        // future read-capable tool that emits path artifacts cannot masquerade as a write.
+    func testUnknownNonRegisteredToolWithFileArtifactIsNotADiff() {
+        // We do NOT infer diffs from artifacts, and an unregistered (dynamic/MCP-shaped) name is
+        // not trusted as mutating, so a read-capable tool that emits path artifacts cannot
+        // masquerade as a write.
         let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
             card(id: "t1", title: "host.custom.generate", status: .done, artifacts: [ToolArtifactState(value: "/repo/src/main.swift")])
         ]))
@@ -131,18 +167,33 @@ final class TranscriptNavigationAnchorsTests: XCTestCase {
     }
 
     func testErrorAndDiffAreIndependentAnchors() {
-        // A failed write is BOTH the last error and the last diff.
+        // A patch (diff) precedes a failed READ (error, not a diff): the two anchors land on
+        // different turns.
         let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
             card(id: "t1", title: "host.apply_patch", status: .done),
-            card(id: "t2", title: "host.shell.run", status: .failed)
+            card(id: "t2", title: "host.file.read", status: .failed)
         ]))
         XCTAssertEqual(anchors.lastErrorAnchorID, "timeline-tool-t2")
         XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-t1")
     }
 
-    func testToolNameMatchingIsCaseInsensitiveAndPrefixTolerant() {
-        XCTAssertTrue(TranscriptNavigationAnchors.isDiffProducingToolName("HOST.APPLY_PATCH"))
+    func testFailedWriteIsBothErrorAndDiff() {
+        // A single failed write is both the last error and the last diff (it attempted a change).
+        let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
+            card(id: "t1", title: "host.file.write", status: .failed)
+        ]))
+        XCTAssertEqual(anchors.lastErrorAnchorID, "timeline-tool-t1")
+        XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-t1")
+    }
+
+    func testToolNameMatchingIsPrefixTolerantAndRejectsReadsAndNonTools() {
+        XCTAssertTrue(TranscriptNavigationAnchors.isDiffProducingToolName("host.apply_patch"))
         XCTAssertTrue(TranscriptNavigationAnchors.isDiffProducingToolName("  apply_patch  "))
+        XCTAssertTrue(TranscriptNavigationAnchors.isDiffProducingToolName("host.git.revert_turn"))
         XCTAssertFalse(TranscriptNavigationAnchors.isDiffProducingToolName("host.file.read"))
+        // A non-tool card title (e.g. the orphan-card fallback) must not false-positive just
+        // because it is not a registered read tool.
+        XCTAssertFalse(TranscriptNavigationAnchors.isDiffProducingToolName("Tool"))
+        XCTAssertFalse(TranscriptNavigationAnchors.isDiffProducingToolName("Approval needed"))
     }
 }
