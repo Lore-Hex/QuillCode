@@ -105,6 +105,13 @@ enum SlashCommandCatalog {
         if usage.contains(query) {
             return 90
         }
+        // The low-weight free-text fallback (matching title/detail/aliases as a substring) is a
+        // KEYWORD search — it must only apply while the user is still typing the command word. Once
+        // the query contains whitespace the user has moved on to typing an ARGUMENT (`/skill foo`),
+        // and a stray substring hit inside the detail's own usage-example (".../skill code-review")
+        // must NOT keep the command as a live suggestion — that left the popup open and let Enter
+        // re-accept the bare `/skill ` insertText, dropping the typed argument and blocking submit.
+        guard !query.contains(" ") else { return nil }
         if definition.searchableText.map(normalize).contains(where: { $0.contains(query) }) {
             return 70
         }

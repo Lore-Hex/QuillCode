@@ -275,11 +275,15 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/mode auto|plan|review|read-only" }
         )
         let modelCommand = try XCTUnwrap(
-            SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/model /synth" }
+            SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/model name" }
+        )
+        let skillCommand = try XCTUnwrap(
+            SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/skill name" }
         )
 
         XCTAssertEqual(WorkspaceCommandPlan(commandID: modeCommand.id), .setDraft("/mode "))
         XCTAssertEqual(WorkspaceCommandPlan(commandID: modelCommand.id), .setDraft("/model "))
+        XCTAssertEqual(WorkspaceCommandPlan(commandID: skillCommand.id), .setDraft("/skill "))
     }
 
     func testInvalidCommandsReturnNil() {

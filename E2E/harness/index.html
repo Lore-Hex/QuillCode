@@ -3652,17 +3652,18 @@
           {
             category: 'Recommended',
             models: [
-              { id: 'tr/socrates', provider: 'trustedrouter', displayName: 'Socrates 1.1', isSelected: false, isFavorite: false, badges: ['Recommended'] },
-              { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
-              { id: 'tr/synth', provider: 'trustedrouter', displayName: 'Synth', isSelected: false, isFavorite: false, badges: ['Recommended'] },
-              { id: 'tr/synth-code', provider: 'trustedrouter', displayName: 'Synth Code', isSelected: false, isFavorite: false, badges: ['Recommended'] }
+              { id: 'tr/socrates', provider: 'trustedrouter', displayName: 'Socrates 1.1', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 3, outputPricePerMillionTokens: 15 } },
+              { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'], capabilities: { inputPricePerMillionTokens: 0.8, outputPricePerMillionTokens: 4 } },
+              { id: 'tr/synth', provider: 'trustedrouter', displayName: 'Synth', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } },
+              { id: 'tr/synth-code', provider: 'trustedrouter', displayName: 'Synth Code', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } }
             ]
           },
           {
             category: 'Safety',
             models: [
-              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false, isFavorite: false, badges: [] },
-              { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false, isFavorite: false, badges: [] }
+              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false, isFavorite: false, badges: [], capabilities: { inputPricePerMillionTokens: 0.6, outputPricePerMillionTokens: 2.2 } },
+              // No price — proves the `/model` popup renders a model gracefully without a price line.
+              { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false, isFavorite: false, badges: [], capabilities: {} }
             ]
           }
         ],
@@ -3884,6 +3885,7 @@
         isSending: false,
         canSend: false,
         slashActiveIndex: 0,
+        modelCommandActiveIndex: 0,
         mentionActiveIndex: 0,
         historyRecallIndex: null,
         historySavedDraft: null,
@@ -4489,7 +4491,8 @@
       { usage: '/env name', title: 'Run local environment action', detail: 'List or run project-local environment scripts.', insertText: '/env ', aliases: ['environment', 'local-env'] },
       { usage: '/mode auto|plan|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Plan, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
       { usage: '/plan', title: 'Enter Plan mode', detail: 'Investigate read-only and propose a plan; mutating tools wait for your approval.', insertText: '/plan', aliases: [] },
-      { usage: '/model provider/model', title: 'Set model', detail: 'Switch the active TrustedRouter model.', insertText: '/model ', aliases: [] }
+      { usage: '/model name', title: 'Set model', detail: "Search the TrustedRouter catalog with live per-1M pricing and switch the thread's model.", insertText: '/model ', aliases: ['models', 'switch model', 'change model'] },
+      { usage: '/skill name', title: 'Run a skill', detail: 'Load an installed skill by name and follow it, for example /skill code-review.', insertText: '/skill ', aliases: ['skills', 'run skill', 'load skill'] }
     ];
     const slashCommandPalettePrefix = 'slash-command:';
 
@@ -4512,6 +4515,9 @@
     function slashSuggestions(draft, limit = 6) {
       const text = String(draft).trimStart();
       if (!text.startsWith('/') || text.includes('\n')) return [];
+      // Once the user has committed to `/model ` and is querying a model, the model sub-search owns
+      // the popup (mirrors native); suppress the top-level slash list so the two never both render.
+      if (isModelCommandActive(draft)) return [];
       const query = normalizeSlashText(text.slice(1));
       return slashCommandDefinitions
         .map((definition, index) => ({ definition, index, score: slashSuggestionScore(definition, query) }))
@@ -4527,9 +4533,168 @@
       if (usage.startsWith(query)) return 120;
       if (definition.aliases.some(alias => normalizeSlashText(alias).startsWith(query))) return 110;
       if (usage.includes(query)) return 90;
+      // Mirrors Swift: the low-weight free-text (title/detail/alias) fallback is a KEYWORD search
+      // that only applies while typing the command word. Once the query has whitespace the user is
+      // typing an ARGUMENT (`/skill foo`), so a stray hit inside the detail's own usage-example must
+      // not keep the command live (that blocked Enter-submit of a fully-typed `/skill code-review`).
+      if (query.includes(' ')) return null;
       const searchable = [definition.usage, definition.title, definition.detail, ...definition.aliases]
         .map(normalizeSlashText);
       return searchable.some(value => value.includes(query)) ? 70 : null;
+    }
+
+    // --- /model sub-search (mirrors Swift SlashModelCatalogSearch + ModelCommandPriceLabel) ------
+    // Parity target for issue #879: the composer `/model ` popup browses the catalog with live
+    // per-1M pricing. The trigger, filter, ranking, and price formatting must match the Swift core
+    // so native and harness agree (enforced by the parity test).
+    const modelCommandPrefixes = ['/model', '/models'];
+
+    function modelCommandCurrency(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '$0';
+      const safe = Math.max(0, number);
+      const trimmed = safe.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+      return `$${trimmed}`;
+    }
+
+    function modelCommandPriceLabel(capabilities) {
+      const input = capabilities && capabilities.inputPricePerMillionTokens;
+      const output = capabilities && capabilities.outputPricePerMillionTokens;
+      const hasInput = input !== null && input !== undefined;
+      const hasOutput = output !== null && output !== undefined;
+      if (hasInput && hasOutput) return `${modelCommandCurrency(input)} in / ${modelCommandCurrency(output)} out per 1M`;
+      if (hasInput) return `${modelCommandCurrency(input)} input per 1M`;
+      if (hasOutput) return `${modelCommandCurrency(output)} output per 1M`;
+      return '';
+    }
+
+    // The model query after `/model `, or null when the sub-search is inactive. Requires the
+    // command word to be FOLLOWED by a space (so a bare `/model` stays a top-level command row and
+    // `/modelfoo` is a different token), and no newline (a multi-line draft is prose, not a command).
+    function modelCommandQuery(draft) {
+      const leading = String(draft).replace(/^[ \t]+/, '');
+      if (leading.includes('\n')) return null;
+      const lowered = leading.toLowerCase();
+      for (const prefix of modelCommandPrefixes) {
+        const withSpace = prefix + ' ';
+        if (lowered.startsWith(withSpace)) {
+          return leading.slice(withSpace.length).trim();
+        }
+      }
+      return null;
+    }
+
+    function isModelCommandActive(draft) {
+      return modelCommandQuery(draft) !== null;
+    }
+
+    // Mirrors the TrustedRouter alias resolution the Swift core applies (TrustedRouterDefaults.
+    // canonicalModelID). The mock catalog is already canonical, but resolving aliases here keeps
+    // dedup + the emitted `/model <id>` insertText in parity with native even if a catalog entry
+    // (or a favorites/recent duplicate) ever carries an alias form of an id.
+    const modelIDAliases = {
+      'fast': 'trustedrouter/fast',
+      '/fast': 'trustedrouter/fast',
+      'tr/fast': 'trustedrouter/fast',
+      'trustedrouter/nike': 'trustedrouter/fast',
+      'synth': 'tr/synth',
+      '/synth': 'tr/synth',
+      'trustedrouter/synth': 'tr/synth',
+      'fusion': 'tr/synth'
+    };
+
+    function canonicalModelID(id) {
+      const trimmed = String(id || '').trim();
+      return modelIDAliases[trimmed.toLowerCase()] || trimmed;
+    }
+
+    function normalizeModelField(value) {
+      return String(value || '').toLowerCase().replaceAll('-', ' ').replaceAll('_', ' ').trim();
+    }
+
+    function modelCommandScore(option, query) {
+      if (!query) return 50;
+      const fields = [option.id, option.provider, option.displayName, option.detailTitle || option.displayName, option.category || '']
+        .map(normalizeModelField);
+      if (fields.some(field => field.startsWith(query))) return 120;
+      const haystack = fields.join(' ');
+      const terms = query.split(/\s+/).filter(Boolean);
+      if (terms.every(term => haystack.includes(term))) return 90;
+      return null;
+    }
+
+    function modelCommandSuggestions(draft, limit = 6) {
+      const query = modelCommandQuery(draft);
+      if (query === null) return [];
+      const normalizedQuery = normalizeModelField(query);
+      const seen = new Set();
+      const options = [];
+      for (const category of state.topBar.modelCategories) {
+        for (const model of category.models) {
+          const key = canonicalModelID(model.id);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          options.push({ ...model, category: model.category || category.category });
+        }
+      }
+      return options
+        .map((option, index) => ({ option, index, score: modelCommandScore(option, normalizedQuery) }))
+        .filter(entry => entry.score !== null)
+        .sort((left, right) => right.score - left.score || left.index - right.index)
+        .slice(0, Math.max(0, limit))
+        .map(entry => {
+          const modelID = canonicalModelID(entry.option.id);
+          return {
+            modelID,
+            title: entry.option.detailTitle || entry.option.displayName || modelID,
+            detail: `${entry.option.provider} · ${entry.option.category}`,
+            priceLabel: modelCommandPriceLabel(entry.option.capabilities),
+            isCurrent: Boolean(entry.option.isSelected),
+            insertText: `/model ${modelID}`
+          };
+        });
+    }
+
+    function clampModelCommandActiveIndex(suggestions = modelCommandSuggestions(state.composer.draft)) {
+      if (!suggestions.length) {
+        state.composer.modelCommandActiveIndex = 0;
+        return;
+      }
+      state.composer.modelCommandActiveIndex = Math.max(
+        0,
+        Math.min(state.composer.modelCommandActiveIndex || 0, suggestions.length - 1)
+      );
+    }
+
+    function moveModelCommandSuggestion(delta) {
+      const suggestions = modelCommandSuggestions(state.composer.draft);
+      if (!suggestions.length) return false;
+      const current = state.composer.modelCommandActiveIndex || 0;
+      state.composer.modelCommandActiveIndex = (current + delta + suggestions.length) % suggestions.length;
+      render();
+      const input = document.getElementById('message');
+      input?.focus();
+      resizeComposerInput(input);
+      return true;
+    }
+
+    function acceptModelCommandSuggestion() {
+      const suggestions = modelCommandSuggestions(state.composer.draft);
+      if (!suggestions.length) return false;
+      clampModelCommandActiveIndex(suggestions);
+      const suggestion = suggestions[state.composer.modelCommandActiveIndex];
+      // Switch the model NOW through the same live writer the picker uses. Only consume the draft
+      // when the switch actually landed, so a suggestion whose id somehow fails to resolve never
+      // silently wipes the user's text (mirrors native, where onSetModel always hits a real writer).
+      if (!selectModel(suggestion.modelID)) return false;
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.composer.modelCommandActiveIndex = 0;
+      render();
+      const input = document.getElementById('message');
+      input?.focus();
+      resizeComposerInput(input);
+      return true;
     }
 
     function tokenizeSlashArguments(text) {
@@ -4700,6 +4865,15 @@
       if (!suggestions.length) return false;
       clampSlashActiveIndex(suggestions);
       const suggestion = suggestions[state.composer.slashActiveIndex];
+      // Mirrors Swift: on Enter (non-force), never re-accept a completion the user has typed PAST —
+      // if the draft already begins with the space-terminated insertText and carries an argument,
+      // re-accepting would reset to the bare command and drop the argument, blocking submit.
+      if (!force
+        && suggestion.insertText.endsWith(' ')
+        && state.composer.draft.startsWith(suggestion.insertText)
+        && state.composer.draft.length > suggestion.insertText.length) {
+        return false;
+      }
       if (!force && state.composer.draft === suggestion.insertText && !suggestion.insertText.endsWith(' ')) {
         return false;
       }
@@ -7316,6 +7490,7 @@
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
 	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
+              ${renderModelCommandSuggestions()}
               ${renderSlashSuggestions()}
               ${renderFileMentionSuggestions()}
               <form class="composer" data-testid="composer">
@@ -7365,6 +7540,7 @@
         state.composer.draft = event.target.value;
         state.composer.canSend = state.composer.draft.trim().length > 0;
         state.composer.slashActiveIndex = 0;
+        state.composer.modelCommandActiveIndex = 0;
         state.composer.mentionActiveIndex = 0;
         // A user edit exits message-history recall (programmatic recall sets do not fire input).
         state.composer.historyRecallIndex = null;
@@ -7373,6 +7549,7 @@
         const shouldRenderSuggestions = state.composer.draft.trimStart().startsWith('/')
           || activeFileMention(state.composer.draft) !== null;
         if (shouldRenderSuggestions
+          || document.querySelector('[data-testid="model-command-suggestions"]')
           || document.querySelector('[data-testid="slash-suggestions"]')
           || document.querySelector('[data-testid="file-mention-suggestions"]')) {
           const cursor = state.composer.draft.length;
@@ -7389,9 +7566,19 @@
         }
       });
       input.addEventListener('keydown', event => {
-        const suggestions = slashSuggestions(state.composer.draft);
-        const mentions = suggestions.length ? [] : fileMentionSuggestions(state.composer.draft);
-        if (suggestions.length && event.key === 'ArrowDown') {
+        const models = modelCommandSuggestions(state.composer.draft);
+        const suggestions = models.length ? [] : slashSuggestions(state.composer.draft);
+        const mentions = (models.length || suggestions.length) ? [] : fileMentionSuggestions(state.composer.draft);
+        if (models.length && event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveModelCommandSuggestion(1);
+        } else if (models.length && event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveModelCommandSuggestion(-1);
+        } else if (models.length && event.key === 'Tab' && !event.shiftKey) {
+          event.preventDefault();
+          acceptModelCommandSuggestion();
+        } else if (suggestions.length && event.key === 'ArrowDown') {
           event.preventDefault();
           moveSlashSuggestion(1);
         } else if (suggestions.length && event.key === 'ArrowUp') {
@@ -7411,12 +7598,16 @@
         } else if (mentions.length && event.key === 'Tab' && !event.shiftKey) {
           event.preventDefault();
           acceptFileMentionSuggestion({ force: true });
-        } else if (!suggestions.length && !mentions.length && event.key === 'ArrowUp') {
+        } else if (!models.length && !suggestions.length && !mentions.length && event.key === 'ArrowUp') {
           if (recallOlderHistory()) event.preventDefault();
-        } else if (!suggestions.length && !mentions.length && event.key === 'ArrowDown') {
+        } else if (!models.length && !suggestions.length && !mentions.length && event.key === 'ArrowDown') {
           if (recallNewerHistory()) event.preventDefault();
         } else if (event.key === 'Enter') {
           if (event.shiftKey) return;
+          if (models.length && acceptModelCommandSuggestion()) {
+            event.preventDefault();
+            return;
+          }
           if (suggestions.length && acceptSlashSuggestion({ force: false })) {
             event.preventDefault();
             return;
@@ -7496,6 +7687,13 @@
       document.querySelectorAll('[data-testid="message-retry"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="model-command-suggestion"]').forEach((button, index) => {
+        button.addEventListener('click', () => {
+          // Clicking a row selects it, then runs the shared accept (switches model + clears draft).
+          state.composer.modelCommandActiveIndex = index;
+          acceptModelCommandSuggestion();
         });
       });
       document.querySelectorAll('[data-testid="slash-suggestion"]').forEach(button => {
@@ -8335,7 +8533,7 @@
     function selectModel(selectedID) {
       const allModels = state.topBar.modelCategories.flatMap(category => category.models);
       const selected = allModels.find(model => model.id === selectedID);
-      if (!selected) return;
+      if (!selected) return false;
       state.topBar.selectedModelID = selected.id;
       state.topBar.modelLabel = modelDisplayLabel(selected);
       state.topBar.modelPickerOpen = false;
@@ -8355,6 +8553,7 @@
         })
       }));
       render();
+      return true;
     }
 
     function cycleMode() {
@@ -9472,8 +9671,35 @@
         </section>`;
     }
 
+    function renderModelCommandSuggestions() {
+      const suggestions = modelCommandSuggestions(state.composer.draft);
+      if (!suggestions.length) return '';
+      clampModelCommandActiveIndex(suggestions);
+      const rows = suggestions.map((suggestion, index) => `
+        <button
+          class="slash-suggestion hit-target-row ${index === state.composer.modelCommandActiveIndex ? 'selected' : ''}"
+          type="button"
+          data-testid="model-command-suggestion"
+          data-model-id="${escapeHTML(suggestion.modelID)}"
+          data-current="${suggestion.isCurrent ? 'true' : 'false'}"
+          data-selected="${index === state.composer.modelCommandActiveIndex ? 'true' : 'false'}"
+        >
+          <span>
+            <span class="slash-title">${escapeHTML(suggestion.title)}${suggestion.isCurrent ? ' <span class="mention-changed-badge" data-testid="model-command-current-badge">Current</span>' : ''}</span>
+            <span class="slash-detail">${escapeHTML(suggestion.detail)}</span>
+          </span>
+          <span class="slash-usage" data-testid="model-command-price">${escapeHTML(suggestion.priceLabel)}</span>
+        </button>
+      `).join('');
+      return `
+        <section class="slash-suggestions" data-testid="model-command-suggestions" aria-label="Model switch">
+          <h3>Models</h3>
+          <div class="slash-suggestion-list">${rows}</div>
+        </section>`;
+    }
+
     function renderFileMentionSuggestions() {
-      if (slashSuggestions(state.composer.draft).length) return '';
+      if (slashSuggestions(state.composer.draft).length || modelCommandSuggestions(state.composer.draft).length) return '';
       const suggestions = fileMentionSuggestions(state.composer.draft);
       if (!suggestions.length) return '';
       clampFileMentionActiveIndex(suggestions);
@@ -14788,6 +15014,27 @@
           addMessage('assistant', `Mode set to ${nextMode}.`);
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode plan, /mode review, or /mode read-only');
+        }
+      } else if (/^\/(skill|skills)\b/i.test(text)) {
+        // Mirrors native: `/skill name` runs a normal agent turn that loads + follows the skill via
+        // host.skill.load. A bare `/skill` shows usage. The skill name is sanitized to a bare token.
+        const skillName = text
+          .replace(/^\/(skill|skills)\b/i, '')
+          .trim()
+          .split(/\s+/)[0]
+          ?.replace(/[/\\]/g, '')
+          .replace(/\.\./g, '') || '';
+        if (!skillName) {
+          addMessage('assistant', 'Usage: /skill name (for example /skill code-review)');
+        } else {
+          addToolCard({
+            title: 'host.skill.load',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ name: skillName }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, name: skillName }, null, 2)
+          });
+          addMessage('assistant', `Loaded the ${skillName} skill and followed its instructions.`);
         }
       } else if (/^\/(rename|rename-chat|title)\b/i.test(text)) {
         const nextTitle = text.replace(/^\/(rename|rename-chat|title)\b/i, '').trim();

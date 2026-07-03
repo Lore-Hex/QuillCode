@@ -53,3 +53,16 @@ where Base: PromptCacheControllableLLMClient {
 public func disablingPromptCachingIfSupported(_ client: any LLMClient) -> any LLMClient {
     (client as? any PromptCacheControllableLLMClient)?.disablingPromptCaching() ?? client
 }
+
+/// Returns `client` retargeted at `modelID` when it supports model overriding and `modelID` is
+/// non-empty, otherwise the client unchanged. Lets the run path pin each turn to the SELECTED
+/// (per-thread) model without knowing the concrete client type — a mock client in tests, or a
+/// client already on that model, is passed through untouched. This is what makes `/model` (and the
+/// top-bar picker) take effect on the very next turn: the live runner's client is built once with
+/// the config default, so each send must re-point it at the thread's chosen model.
+public func overridingModelIfSupported(_ client: any LLMClient, modelID: String) -> any LLMClient {
+    guard !modelID.isEmpty, let overridable = client as? any ModelOverridingLLMClient else {
+        return client
+    }
+    return overridable.overridingModel(modelID)
+}

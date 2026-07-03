@@ -10,7 +10,7 @@ final class ParityWorkspaceExecutionAgentContextGateTests: QuillCodeParityTestCa
 
         XCTAssertTrue(factoryText.contains("WorkspaceAgentRunContextBuilder("), "The send-session factory should delegate per-run tool assembly.")
         XCTAssertTrue(composerText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel composer APIs should delegate per-run session assembly.")
-        XCTAssertTrue(builderText.contains("configuredRunner(from runner: AgentRunner)"), "Agent run context builder should own runner configuration.")
+        XCTAssertTrue(builderText.contains("configuredRunner(from runner: AgentRunner, modelID: String? = nil)"), "Agent run context builder should own runner configuration.")
         XCTAssertTrue(builderText.contains("ToolDefinition.planUpdate"), "Agent run context builder should attach the plan tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.handoffUpdate"), "Agent run context builder should attach the handoff summary tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserInspect"), "Agent run context builder should attach the browser tool.")
