@@ -14587,3 +14587,40 @@ Validation:
 - `swift test --filter 'ModelTokenUsageTests|WorkspaceTokenUsageIntegrationTests|AgentStreamingTests|AppConfigCompatibilityTests|WorkspaceActivityIntegrationTests|WorkspaceActivitySurfaceTests|WorkspaceHTMLChromeRendererTests|WorkspaceSurfaceTests'` (51 tests, 0 failures)
 - `swift test --quiet` (2,910 tests, 2 skipped, 0 failures)
 - `git diff --check`
+
+## 2026-07-02 Run Spend Fuse Approval Gate A+ Pass
+
+Overall grade after this slice: **A+ for cost-control architecture and agent
+continuation gating**. The previous pass made spend visible; this pass makes the
+configured spend fuse enforceable without turning it into a fake shell/tool
+approval or coupling pricing logic to SwiftUI.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `RunSpendFusePolicy.swift` | A+ | Pure, catalog-driven policy computes priced spend, buckets approvals, decodes legacy-safe approval state, and deterministically reuses pending requests by transcript order. |
+| `Agent.swift` | A+ | The agent pauses immediately after model usage crosses the fuse and before executing the next model/tool action, preserving transcript progress and stop reasons. |
+| `WorkspaceToolCardProjection.swift` | A+ | Spend approvals render as a focused Spend Review with Continue/Stop instead of normal tool Run/Edit controls. |
+| `WorkspaceApprovalActionPlanner.swift` | A+ | Spend-fuse decisions are recorded as continuation choices and never execute a fake tool. |
+| `WorkspaceModelComposer.swift` | A+ | Approved spend reviews resume the same thread from the last user message without requiring Plan mode. |
+| `ApprovalModels.swift` | A+ | Approval scope is backward-compatible; older approval JSON defaults to normal tool approvals. |
+
+Code quality changes:
+
+- Added an explicit `run_spend_fuse` approval scope so cost gates do not masquerade as shell/tool approvals.
+- Added a pure `RunSpendFusePolicy` that prices `ModelTokenUsageEvent` records
+  from the live model catalog and buckets approvals by configured fuse amount.
+- Wired the policy through workspace session construction so the UI runner and
+  test runner share the same enforcement path.
+- Added Spend Review projection/actions with Continue and Stop semantics.
+- Added focused tests for bucket approval behavior, legacy approval decoding,
+  agent pause-before-tool execution, UI card actions, and workspace runner wiring.
+
+Validation:
+
+- `swift test --filter 'RunSpendFusePolicyTests|WorkspaceToolCardIntegrationTests|WorkspaceTokenUsageIntegrationTests|WorkspaceAgentSendSessionFactoryTests|WorkspaceAgentRunContextBuilderTests|AppConfigCompatibilityTests|AgentStreamingTests/testUsageStreamingToolActionPausesAtSpendFuseBeforeToolRuns|LSPSourceKitIntegrationTests/testRealServerHandshakeAndDefinition'` (41 tests, 1 skipped, 0 failures)
+- `swift test --filter 'LSPSourceKitIntegrationTests/testRealServerHandshakeAndDefinition'` (1 test skipped because local `sourcekit-lsp` is present but closes before the bounded request)
+- `swift test --quiet` (2,969 tests, 3 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+- `git diff --check`

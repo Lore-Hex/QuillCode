@@ -34,6 +34,9 @@ public struct AgentRunner: Sendable {
     /// across tool steps. nil (the default, and the mock runtime) disables every LSP behavior — writes
     /// behave exactly as before and the nav tools report "not available".
     public var lsp: LSPCoordinator?
+    /// Optional cost-control gate. When configured with a positive fuse and priced model catalog,
+    /// provider usage events pause the run before the next model/tool step once spend crosses a bucket.
+    public var runSpendFusePolicy: RunSpendFusePolicy?
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -46,7 +49,8 @@ public struct AgentRunner: Sendable {
         enablesImmediateActionPreflight: Bool = false,
         workspaceStateSignature: (@Sendable (URL) -> String)? = nil,
         compaction: AgentCompactionPolicy? = nil,
-        lsp: LSPCoordinator? = nil
+        lsp: LSPCoordinator? = nil,
+        runSpendFusePolicy: RunSpendFusePolicy? = nil
     ) {
         self.llm = llm
         self.safety = safety
@@ -59,6 +63,7 @@ public struct AgentRunner: Sendable {
         self.workspaceStateSignature = workspaceStateSignature
         self.compaction = compaction
         self.lsp = lsp
+        self.runSpendFusePolicy = runSpendFusePolicy
     }
 
     public func send(
@@ -94,6 +99,16 @@ public struct AgentRunner: Sendable {
                     workspaceRoot: workspaceRoot,
                     onProgress: onProgress
                 )
+                if let paused = await pauseIfSpendFuseRequiresApproval(
+                    thread: &next,
+                    onProgress: onProgress
+                ) {
+                    return AgentRunResult(
+                        thread: next,
+                        toolResults: runLoop.toolResults,
+                        stopReason: paused
+                    )
+                }
                 let resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
                     action,
                     thread: next,
@@ -225,6 +240,47 @@ public struct AgentRunner: Sendable {
         }
         thread.events.append(.init(kind: .message, summary: text))
         thread.updatedAt = Date()
+    }
+
+    private func pauseIfSpendFuseRequiresApproval(
+        thread: inout ChatThread,
+        onProgress: AgentRunProgressHandler?
+    ) async -> AgentRunStopReason? {
+        guard let runSpendFusePolicy else { return nil }
+        switch runSpendFusePolicy.approvalState(for: thread) {
+        case .allowed:
+            return nil
+        case .blocked(let existingRequestID):
+            thread.events.append(.init(
+                kind: .notice,
+                summary: "Spend fuse is waiting on approval \(existingRequestID)."
+            ))
+            thread.updatedAt = Date()
+            await onProgress?(thread)
+            let summary = runSpendFusePolicy.spendSummary(for: thread)
+            return .spendFuseApprovalRequired(totalUSD: summary.totalUSD, fuseUSD: runSpendFusePolicy.fuseUSD)
+        case .request(let request):
+            let summary = runSpendFusePolicy.spendSummary(for: thread)
+            let text = "Thread spend reached \(RunSpendFusePolicy.costLabel(summary.totalUSD)). "
+                + "Approve to continue this run."
+            thread.events.append(.init(
+                kind: .approvalRequested,
+                summary: request.reason,
+                payloadJSON: try? JSONHelpers.encodePretty(request)
+            ))
+            thread.messages.append(.init(role: .assistant, content: text))
+            thread.events.append(.init(kind: .message, summary: text))
+            thread.updatedAt = Date()
+            await onProgress?(thread)
+            let payload = try? JSONHelpers.decode(
+                RunSpendFuseApprovalPayload.self,
+                from: request.toolCall.argumentsJSON
+            )
+            return .spendFuseApprovalRequired(
+                totalUSD: payload?.totalUSD ?? 0,
+                fuseUSD: payload?.fuseUSD ?? runSpendFusePolicy.fuseUSD
+            )
+        }
     }
 
     private static func mergedToolDefinitions(

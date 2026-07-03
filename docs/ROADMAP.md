@@ -41,5 +41,6 @@
   records carry the model ID, Activity renders priced per-call receipts and a
   thread-total spend row from catalog pricing, legacy usage events remain
   auditable as unpriced rows, and `AppConfig.runSpendFuseUSD` is normalized with
-  backward-compatible defaults. The remaining cost-control roadmap item is
-  turning the displayed fuse crossing into a hard async approval pause.
+  backward-compatible defaults. The displayed fuse crossing is now enforced as a
+  hard async Spend Review pause: the next model/tool step does not run until the
+  user chooses Continue for the current spend bucket.

@@ -8,11 +8,30 @@ public enum ApprovalVerdict: String, Codable, Sendable {
 
 public struct ApprovalRequest: Codable, Sendable, Hashable, Identifiable {
     public var id: String
+    public var scope: ApprovalRequestScope
     public var toolCall: ToolCall
     public var toolDefinition: ToolDefinition?
     public var reason: String
     public var recommendedVerdict: ApprovalVerdict?
     public var reviewTelemetry: ApprovalReviewTelemetry?
+
+    public init(
+        id: String = "approval-\(UUID().uuidString)",
+        scope: ApprovalRequestScope = .tool,
+        toolCall: ToolCall,
+        toolDefinition: ToolDefinition?,
+        reason: String,
+        recommendedVerdict: ApprovalVerdict? = nil,
+        reviewTelemetry: ApprovalReviewTelemetry? = nil
+    ) {
+        self.id = id
+        self.scope = scope
+        self.toolCall = toolCall
+        self.toolDefinition = toolDefinition
+        self.reason = reason
+        self.recommendedVerdict = recommendedVerdict
+        self.reviewTelemetry = reviewTelemetry
+    }
 
     public init(
         id: String = "approval-\(UUID().uuidString)",
@@ -22,12 +41,38 @@ public struct ApprovalRequest: Codable, Sendable, Hashable, Identifiable {
         recommendedVerdict: ApprovalVerdict? = nil,
         reviewTelemetry: ApprovalReviewTelemetry? = nil
     ) {
-        self.id = id
-        self.toolCall = toolCall
-        self.toolDefinition = toolDefinition
-        self.reason = reason
-        self.recommendedVerdict = recommendedVerdict
-        self.reviewTelemetry = reviewTelemetry
+        self.init(
+            id: id,
+            scope: .tool,
+            toolCall: toolCall,
+            toolDefinition: toolDefinition,
+            reason: reason,
+            recommendedVerdict: recommendedVerdict,
+            reviewTelemetry: reviewTelemetry
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case scope
+        case toolCall
+        case toolDefinition
+        case reason
+        case recommendedVerdict
+        case reviewTelemetry
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(String.self, forKey: .id),
+            scope: try container.decodeIfPresent(ApprovalRequestScope.self, forKey: .scope) ?? .tool,
+            toolCall: try container.decode(ToolCall.self, forKey: .toolCall),
+            toolDefinition: try container.decodeIfPresent(ToolDefinition.self, forKey: .toolDefinition),
+            reason: try container.decode(String.self, forKey: .reason),
+            recommendedVerdict: try container.decodeIfPresent(ApprovalVerdict.self, forKey: .recommendedVerdict),
+            reviewTelemetry: try container.decodeIfPresent(ApprovalReviewTelemetry.self, forKey: .reviewTelemetry)
+        )
     }
 }
 
@@ -48,6 +93,11 @@ public struct ApprovalDecision: Codable, Sendable, Hashable {
         self.rationale = rationale
         self.reviewTelemetry = reviewTelemetry
     }
+}
+
+public enum ApprovalRequestScope: String, Codable, Sendable, Hashable {
+    case tool
+    case runSpendFuse = "run_spend_fuse"
 }
 
 public enum ApprovalReviewSource: String, Codable, Sendable, Hashable {

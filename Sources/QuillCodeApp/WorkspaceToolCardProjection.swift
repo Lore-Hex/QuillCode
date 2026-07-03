@@ -35,7 +35,7 @@ enum WorkspaceToolCardProjection {
     static func approvalReviewCard(for event: ThreadEvent, fallback: ToolCardState? = nil) -> ToolCardState {
         let request = decode(ApprovalRequest.self, event.payloadJSON)
         let toolCall = request?.toolCall
-        let title = toolCall?.name ?? fallback?.title ?? "Approval needed"
+        let title = approvalTitle(request: request, fallback: fallback)
         let inputJSON = toolCall?.argumentsJSON ?? fallback?.inputJSON ?? event.payloadJSON
         let actions = request.flatMap { approvalActions(for: $0) } ?? []
         let needsReview = request?.recommendedVerdict == .deny
@@ -101,6 +101,24 @@ enum WorkspaceToolCardProjection {
         guard request.recommendedVerdict != .deny else {
             return nil
         }
+        if request.scope == .runSpendFuse {
+            return [
+                ToolCardActionSurface(
+                    title: "Continue",
+                    kind: .approve,
+                    requestID: request.id,
+                    style: .primary,
+                    systemImage: "play.fill"
+                ),
+                ToolCardActionSurface(
+                    title: "Stop",
+                    kind: .deny,
+                    requestID: request.id,
+                    style: .secondary,
+                    systemImage: "xmark"
+                )
+            ]
+        }
         var actions = [
             ToolCardActionSurface(
                 title: "Run",
@@ -148,6 +166,13 @@ enum WorkspaceToolCardProjection {
             )
         ])
         return actions
+    }
+
+    private static func approvalTitle(request: ApprovalRequest?, fallback: ToolCardState?) -> String {
+        if request?.scope == .runSpendFuse {
+            return "Spend Review"
+        }
+        return request?.toolCall.name ?? fallback?.title ?? "Approval needed"
     }
 
     private static func approvalSubtitle(

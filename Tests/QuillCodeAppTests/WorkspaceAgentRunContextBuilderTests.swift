@@ -78,6 +78,35 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), expectedNames)
     }
 
+    func testConfiguredRunnerWiresSpendFusePolicyFromConfigAndCatalog() {
+        let runner = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            config: AppConfig(runSpendFuseUSD: 0.25),
+            modelCatalog: [
+                ModelInfo(
+                    id: "trustedrouter/fast",
+                    provider: "trustedrouter",
+                    displayName: "Nike 1.0",
+                    category: "Fast",
+                    capabilities: ModelCapabilities(
+                        inputPricePerMillionTokens: 1.0,
+                        outputPricePerMillionTokens: 2.0
+                    )
+                )
+            ],
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ).configuredRunner(from: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []))
+
+        let policy = runner.runSpendFusePolicy
+        XCTAssertEqual(policy?.fuseUSD, 0.25)
+        XCTAssertEqual(policy?.modelCatalog.map(\.id), ["trustedrouter/fast"])
+    }
+
     func testOverrideHandlesPlanBrowserAndMemoryTools() async throws {
         let memoryDirectory = try makeQuillCodeTestDirectory()
         let runner = WorkspaceAgentRunContextBuilder(

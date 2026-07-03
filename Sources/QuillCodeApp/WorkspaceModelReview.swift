@@ -101,8 +101,13 @@ public extension QuillCodeWorkspaceModel {
     @discardableResult
     func approveToolCardAndResume(_ action: ToolCardActionSurface, workspaceRoot: URL) async -> Bool {
         let approvedThreadID = selectedThread?.id
+        let request = WorkspaceApprovalActionPlanner.pendingRequest(id: action.requestID, in: selectedThread)
         let didRun = runToolCardAction(action, workspaceRoot: workspaceRoot)
         guard didRun, action.kind.approvesHeldTool, selectedThread?.id == approvedThreadID else { return didRun }
+        if request?.scope == .runSpendFuse {
+            await resumeAgentAfterSpendFuseApproval(workspaceRoot: workspaceRoot, expectedThreadID: approvedThreadID)
+            return didRun
+        }
         // `resumeAgentAfterApproval` is itself guarded to Plan mode + the pinned thread, so this
         // no-ops for a review/auto approval and only continues the approved plan.
         await resumeAgentAfterApproval(workspaceRoot: workspaceRoot, expectedThreadID: approvedThreadID)

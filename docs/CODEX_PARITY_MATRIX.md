@@ -35,5 +35,7 @@
 - Run receipts now persist model-aware token usage events, price usage from the
   live model catalog when pricing metadata is available, and render a Run
   Receipts section in Activity with per-call rows, thread total, unpriced legacy
-  audit rows, and a normalized spend-fuse status. Hard async approval gating
-  when a run crosses the fuse remains the next cost-control slice.
+  audit rows, and a normalized spend-fuse status. Agent runs now hard-pause
+  after a priced model call crosses the configured spend-fuse bucket, render a
+  focused Spend Review tool card with Continue/Stop actions, and resume only
+  after the user approves the next spend bucket.

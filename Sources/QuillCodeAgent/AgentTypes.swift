@@ -55,9 +55,11 @@ public enum AgentRunStopReason: Sendable, Hashable {
     /// The flail detector confirmed the run was busy-but-stuck — repeating the same action or failure
     /// with no workspace progress — even after a self-assessment nudge; the run was stopped to save
     /// the remaining budget. `reason` is the human-readable stuck reason.
+    case flailDetected(reason: String)
+    /// The run crossed its configured spend fuse and paused until the user approves continuing.
     /// (Appended last: never insert enum cases mid-list — discriminants shift and stale incremental
     /// builds miscompile.)
-    case flailDetected(reason: String)
+    case spendFuseApprovalRequired(totalUSD: Double, fuseUSD: Double)
 }
 
 public struct AgentRunResult: Sendable {

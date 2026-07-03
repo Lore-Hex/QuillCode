@@ -55,6 +55,41 @@ final class WorkspaceToolCardIntegrationTests: XCTestCase {
         XCTAssertEqual(cards[0].actions.map(\.title), ["Run", "Always run", "Edit", "Skip", "Never"])
     }
 
+    func testToolCardsRepresentSpendFuseReviewAsContinuationChoice() throws {
+        let request = ApprovalRequest(
+            id: "spend-review",
+            scope: .runSpendFuse,
+            toolCall: ToolCall(
+                name: RunSpendFusePolicy.toolName,
+                argumentsJSON: try JSONHelpers.encodePretty(RunSpendFuseApprovalPayload(
+                    totalUSD: 0.01,
+                    fuseUSD: 0.01,
+                    bucket: 1,
+                    pricedCallCount: 1,
+                    unpricedCallCount: 0
+                ))
+            ),
+            toolDefinition: nil,
+            reason: "Thread spend reached $0.01 against the $0.01 fuse.",
+            recommendedVerdict: .clarify
+        )
+        let thread = ChatThread(events: [
+            ThreadEvent(
+                kind: .approvalRequested,
+                summary: request.reason,
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            )
+        ])
+
+        let cards = WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards()
+
+        XCTAssertEqual(cards.count, 1)
+        XCTAssertEqual(cards[0].title, "Spend Review")
+        XCTAssertEqual(cards[0].status, .review)
+        XCTAssertEqual(cards[0].actions.map(\.title), ["Continue", "Stop"])
+        XCTAssertTrue(cards[0].subtitle.contains("Thread spend reached $0.01"))
+    }
+
     func testToolCardApprovalActionRecordsDecisionAndRunsTool() throws {
         let root = try makeTempDirectory()
         let call = ToolCall(
@@ -254,6 +289,50 @@ final class WorkspaceToolCardIntegrationTests: XCTestCase {
         // No resume fired — the scripted follow-up never ran and no new approval was surfaced.
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("step-two.txt").path))
         XCTAssertEqual(approvalRequestCount(model), 1)
+    }
+
+    func testApprovingSpendFuseReviewResumesWithoutRunningAFakeTool() async throws {
+        let root = try makeTempDirectory()
+        let request = ApprovalRequest(
+            id: "spend-review",
+            scope: .runSpendFuse,
+            toolCall: ToolCall(
+                name: RunSpendFusePolicy.toolName,
+                argumentsJSON: try JSONHelpers.encodePretty(RunSpendFuseApprovalPayload(
+                    totalUSD: 0.01,
+                    fuseUSD: 0.01,
+                    bucket: 1,
+                    pricedCallCount: 1,
+                    unpricedCallCount: 0
+                ))
+            ),
+            toolDefinition: nil,
+            reason: "Thread spend reached $0.01 against the $0.01 fuse.",
+            recommendedVerdict: .clarify
+        )
+        let thread = ChatThread(
+            mode: .auto,
+            messages: [ChatMessage(role: .user, content: "keep going")],
+            events: [
+                ThreadEvent(kind: .message, summary: "keep going"),
+                ThreadEvent(
+                    kind: .approvalRequested,
+                    summary: request.reason,
+                    payloadJSON: try JSONHelpers.encodePretty(request)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            runner: AgentRunner(llm: ScriptedLLMClient([.say("continued")]))
+        )
+
+        _ = await model.approveToolCardAndResume(approve("spend-review"), workspaceRoot: root)
+
+        let events = try XCTUnwrap(model.selectedThread?.events)
+        XCTAssertTrue(events.contains { $0.kind == .approvalDecided })
+        XCTAssertFalse(events.contains { $0.kind == .toolQueued })
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "continued")
     }
 
     func testResumeIsSkippedWhenTheSelectedThreadIsNotTheApprovedOne() async throws {
