@@ -158,6 +158,27 @@ public extension QuillCodeWorkspaceModel {
     /// undecided approval remains), pinned to the decided thread. Separate from the decision so the
     /// safety-critical "record the refusal" can be unconditional while the drain stays slot-gated.
     func drainFollowUpQueueAfterGateDecision(threadID: UUID?, workspaceRoot: URL) async {
+        await drainFollowUpQueueForThread(threadID, workspaceRoot: workspaceRoot)
+    }
+
+    /// Recovers a thread's follow-up queue that could not drain when it was first decided/finished
+    /// because the single global `.send` slot was busy running ANOTHER thread. There is only one
+    /// `.send` slot, so a deny on thread A while a run holds the slot for thread B skips A's drain,
+    /// and B's own completion drains only B's queue — leaving A's queue stranded as visible chips.
+    /// The desktop calls this for the now-idle thread when a thread becomes the active context
+    /// (select) and when the `.send` slot frees (a send/approval finishes), so A's queue drains as
+    /// soon as A is in front or the slot is free again — without needing two threads to run at once.
+    /// `canDrainAfter`-gated, so it never drains past an open gate, never drains a running thread,
+    /// and drains each item exactly once.
+    public func recoverFollowUpQueueIfIdle(threadID: UUID?, workspaceRoot: URL) async {
+        guard !composer.isSending else { return }
+        await drainFollowUpQueueForThread(threadID, workspaceRoot: workspaceRoot)
+    }
+
+    /// Shared self-gated drain of a single thread's follow-up queue: runs the `canDrainAfter`-gated
+    /// `drainFollowUpQueue` pinned to `threadID` (a no-op while a run is in flight or an undecided
+    /// approval remains on that thread).
+    private func drainFollowUpQueueForThread(_ threadID: UUID?, workspaceRoot: URL) async {
         guard let threadID else { return }
         await drainFollowUpQueue(
             after: AgentTurnResult(threadID: threadID, completed: true),

@@ -68,6 +68,60 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
         XCTAssertEqual(userTurns?.filter { $0 == "drain me" }.count, 1, "the queued follow-up drained once")
     }
 
+    func testCrossThreadDenyStrandsQueueThenRecoversWhenSlotFrees() async throws {
+        // MAJOR: thread A holds an open gate with a queued follow-up; the user switches to thread B
+        // and runs a send (B holds the single `.send` slot); denying A's gate records the decision
+        // but A's drain is skipped because the slot is busy. The queue must NOT be stranded — it
+        // recovers when the slot frees / A becomes active again.
+        let workspaceRoot = try makeTempDirectory()
+        let threadA = try gatedThread(requestID: "gate-a", queued: ["stranded then recovered"])
+        let threadB = ChatThread(mode: .auto, messages: [ChatMessage(role: .user, content: "thread B")])
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [threadA, threadB], selectedThreadID: threadB.id)
+        )
+        let coordinator = QuillCodeDesktopWorkspaceActionCoordinator()
+        let tasks = QuillCodeDesktopTaskCoordinator()
+
+        // Thread B holds the single `.send` slot (a run in flight).
+        let release = ManualRelease()
+        tasks.startIfIdle(.send) { await release.wait() }
+        XCTAssertTrue(tasks.isRunning(.send))
+
+        // Deny A's gate. The desktop selects the gate's thread before deciding (mirrors
+        // decideNotificationApproval), so the decision applies to A; A is then the active thread.
+        model.selectThread(threadA.id)
+        coordinator.runToolCardAction(
+            denyAction(requestID: "gate-a"),
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: {}
+        )
+        XCTAssertTrue(
+            isGateDecided(requestID: "gate-a", in: model.selectedThread),
+            "the refusal is recorded even while B holds the slot"
+        )
+        XCTAssertEqual(
+            model.selectedThread?.followUpQueue.map(\.text),
+            ["stranded then recovered"],
+            "A's queue cannot drain yet — the slot is busy on B"
+        )
+
+        // B's run completes, freeing the slot. Recover the now-active thread A (the controller
+        // triggers this on slot-free / thread-select; here we drive the same model recovery method).
+        await release.open()
+        try await waitUntil(timeoutSeconds: 2) { !tasks.isRunning(.send) }
+        await model.recoverFollowUpQueueIfIdle(threadID: model.selectedThread?.id, workspaceRoot: workspaceRoot)
+
+        let recovered = model.root.threads.first { $0.id == threadA.id }
+        XCTAssertTrue(recovered?.followUpQueue.isEmpty == true, "A's stranded queue must recover")
+        let aUserTurns = recovered?.messages.filter { $0.role == .user }.map(\.content)
+        XCTAssertEqual(
+            aUserTurns?.filter { $0 == "stranded then recovered" }.count, 1,
+            "A's queued follow-up drained exactly once on recovery"
+        )
+    }
+
     // MARK: helpers
 
     private func denyAction(requestID: String) -> ToolCardActionSurface {
@@ -92,6 +146,16 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
     /// shell tool, with follow-ups queued behind the gate.
     private func gatedModel(queued: [String]) throws -> (model: QuillCodeWorkspaceModel, requestID: String) {
         let requestID = "deny-gate"
+        let thread = try gatedThread(requestID: requestID, queued: queued)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id)
+        )
+        return (model, requestID)
+    }
+
+    /// A `.auto` thread holding a pre-seeded undecided approval for a mutating shell tool, with
+    /// `queued` follow-ups parked behind the gate.
+    private func gatedThread(requestID: String, queued: [String]) throws -> ChatThread {
         let held = ToolCall(
             name: ToolDefinition.shellRun.name,
             argumentsJSON: ToolArguments.json(["cmd": "touch gated-tool.txt"])
@@ -113,10 +177,7 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
             )]
         )
         thread.followUpQueue = queued.map { FollowUpItem(text: $0) }
-        let model = QuillCodeWorkspaceModel(
-            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id)
-        )
-        return (model, requestID)
+        return thread
     }
 
     private func waitUntil(

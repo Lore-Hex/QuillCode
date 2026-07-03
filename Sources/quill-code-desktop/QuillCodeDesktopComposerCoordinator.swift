@@ -8,7 +8,8 @@ struct QuillCodeDesktopComposerCoordinator {
         model: QuillCodeWorkspaceModel,
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
-        refresh: @escaping @MainActor () -> Void
+        refresh: @escaping @MainActor () -> Void,
+        onSlotFree: @escaping @MainActor () -> Void = {}
     ) {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
@@ -29,7 +30,8 @@ struct QuillCodeDesktopComposerCoordinator {
             model: model,
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
             tasks: tasks,
-            refresh: refresh
+            refresh: refresh,
+            onSlotFree: onSlotFree
         )
     }
 
@@ -38,7 +40,8 @@ struct QuillCodeDesktopComposerCoordinator {
         model: QuillCodeWorkspaceModel,
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
-        refresh: @escaping @MainActor () -> Void
+        refresh: @escaping @MainActor () -> Void,
+        onSlotFree: @escaping @MainActor () -> Void = {}
     ) {
         guard !tasks.isRunning(.send), model.prepareRetryLastUserTurn() else { return }
 
@@ -47,7 +50,8 @@ struct QuillCodeDesktopComposerCoordinator {
             model: model,
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
             tasks: tasks,
-            refresh: refresh
+            refresh: refresh,
+            onSlotFree: onSlotFree
         )
     }
 
@@ -55,7 +59,8 @@ struct QuillCodeDesktopComposerCoordinator {
         model: QuillCodeWorkspaceModel,
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
-        refresh: @escaping @MainActor () -> Void
+        refresh: @escaping @MainActor () -> Void,
+        onSlotFree: @escaping @MainActor () -> Void
     ) {
         tasks.startIfIdle(.send) { [weak model] in
             guard let model else { return }
@@ -66,6 +71,10 @@ struct QuillCodeDesktopComposerCoordinator {
             )
         } onFinish: {
             refresh()
+            // The `.send` slot just freed. Recover any OTHER thread's follow-up queue that was
+            // stranded because it was decided/finished while this send held the single slot (a
+            // cross-thread deny). Self-gated, so a no-op when there is nothing to recover.
+            onSlotFree()
         }
     }
 }

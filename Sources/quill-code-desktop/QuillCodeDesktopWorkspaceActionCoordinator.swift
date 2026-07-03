@@ -29,9 +29,10 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
             // DENY / skip is a REFUSAL — you must always be able to refuse a held tool, so record the
             // decision UNCONDITIONALLY (it runs no held tool and no resume, so it needs no `.send`
             // slot and is never dropped by an in-flight send). Then drain any queued follow-ups
-            // through the `.send` slot; the drain self-gates (`canDrainAfter` no-ops it while a run is
-            // in flight — the in-flight send drains the thread's queue on completion), so the refusal
-            // is instant and the queue still drains once things settle.
+            // through the `.send` slot; the drain self-gates via `canDrainAfter`. If the slot is busy
+            // running ANOTHER thread, this drain is skipped — the decided thread's queue is then
+            // recovered by `recoverFollowUpQueueIfIdle` when that thread is next selected or when the
+            // slot frees (both wired in the controller), so a cross-thread deny never strands it.
             _ = model.runToolCardAction(action, workspaceRoot: workspaceRoot)
             let decidedThreadID = model.selectedThread?.id
             tasks.startIfIdle(.send) { [weak model] in
