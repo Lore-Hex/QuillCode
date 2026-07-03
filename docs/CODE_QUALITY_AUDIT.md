@@ -1,5 +1,36 @@
 # Code Quality Audit
 
+## 2026-07-02 Agent Run Loop And Filesystem Performance A+ Pass
+
+Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file grades A+ in the regenerated repo-wide report**.
+
+This pass started from the regenerated grade report, then reviewed the lowest production source rows by hand. `Agent.swift` and `TrustedRouterLLMClient.swift` still graded A+, but both carried too much local ownership. The filesystem typo-suggestion path also had a hidden scale risk: a missing file inside a huge directory could enumerate and sort every sibling before returning an error.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Agent run-loop ownership | `Agent.swift` mixed orchestration with mutable tool-result, repeated-call, workspace-signature, and flail-detection bookkeeping. | `AgentRunLoopState` owns the mutable run state, keeping `AgentRunner.send` focused on control flow and user-visible events. |
+| Workspace signature performance | The default signature always launched a shell and the parent-walk edge case could keep moving from `/` to `/..`-style paths in non-git temp directories. | `AgentWorkspaceStateSignature` short-circuits non-git roots before shelling out and standardizes parent URLs so the filesystem walk terminates at root. |
+| TrustedRouter streaming ownership | `TrustedRouterLLMClient` owned auth, request construction, HTTP error handling, SSE decoding, reasoning aliases, and usage-event projection. | `TrustedRouterStreamingEventDecoder` owns chunk decoding and event projection; the client now keeps only transport/request responsibilities. |
+| Missing-file suggestions | Filesystem suggestions used `contentsOfDirectory(...).sorted()`, which could stall errors in oversized directories. | Suggestions enumerate lazily, cap at `FilePathSuggester.maxCandidates`, and skip oversized directories instead of turning an error path into a full directory scan. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`.
+- All modules grade **A+**.
+- Every individual source, test, script, and Playwright file grades **A+**.
+- The lowest production source rows remain A+ and are now ownership notes rather than correctness or performance warnings.
+
+Validation:
+
+- `swift test --filter 'AgentRunLoopStateTests|AgentFlailWiringTests|AgentRunStopReasonTests|FilePathSuggesterTests|TrustedRouterStreamingActionTests|AgentStreamingTests'`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+- `swift test --quiet`
+
+Residual risk:
+
+- This slice improves architecture and performance on already-A+ code, but it is not a Codex-parity feature slice. The broadest remaining risks are still end-to-end feature parity, native packaging parity, and real-world UI automation coverage.
+
 ## 2026-07-02 Permission Rule Architecture A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file

@@ -12,8 +12,27 @@ public enum FilePathSuggester {
     /// (suggestions are this type's concern) — the executor facade must not own directory enumeration.
     public static func suggest(missingFileAt url: URL, limit: Int = 3) -> [String] {
         let parent = url.deletingLastPathComponent()
-        let siblings = ((try? FileManager.default.contentsOfDirectory(atPath: parent.path)) ?? []).sorted()
+        let siblings = boundedSiblingNames(in: parent)
         return suggest(missing: url.lastPathComponent, candidates: siblings, limit: limit)
+    }
+
+    private static func boundedSiblingNames(in parent: URL) -> [String] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: parent,
+            includingPropertiesForKeys: nil,
+            options: [.skipsSubdirectoryDescendants]
+        ) else {
+            return []
+        }
+
+        var names: [String] = []
+        while let url = enumerator.nextObject() as? URL {
+            names.append(url.lastPathComponent)
+            if names.count > maxCandidates {
+                return []
+            }
+        }
+        return names.sorted()
     }
 
     /// The closest sibling names to `missing`, best first. Empty when nothing is plausibly close.
