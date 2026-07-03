@@ -151,7 +151,7 @@ final class RunIntegrityScannerTests: XCTestCase {
     func testNonTestShellFailureIsNotRed() {
         let run = thread(
             assistantText: ["No matches found, moving on."],
-            events: shell("grep -q TODO src/", exitCode: 1)
+            events: shell("grep -q MARKER src/", exitCode: 1)
         )
         XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
     }
@@ -254,7 +254,7 @@ final class RunIntegrityScannerTests: XCTestCase {
 
     // MARK: - Persistence round-trip (verdict stable across a JSON reload)
 
-    func testRecordAndReadBackVerdict() {
+    func testRecordAndReadBackVerdict() throws {
         var run = thread(
             assistantText: ["tests pass"],
             events: shell("swift test", exitCode: 0, stdout: "0 failures")
@@ -268,10 +268,10 @@ final class RunIntegrityScannerTests: XCTestCase {
         // ...and survives a full Codable round-trip of the thread (what JSONThreadStore does).
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        let data = try! encoder.encode(run)
+        let data = try encoder.encode(run)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let reloaded = try! decoder.decode(ChatThread.self, from: data)
+        let reloaded = try decoder.decode(ChatThread.self, from: data)
         XCTAssertEqual(RunIntegrityRecord.latest(in: reloaded)?.verdict, .verified)
     }
 
