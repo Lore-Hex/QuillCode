@@ -42,6 +42,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesAgentSendSessionExecution() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let agentSessionText = try Self.appSourceText(named: "WorkspaceModelAgentSession.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
         let coordinatorText = try Self.appSourceText(named: "WorkspaceAgentSendTaskCoordinator.swift")
@@ -88,12 +89,12 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "Focused coordinator tests should cover runtime failure classification."
         )
         XCTAssertTrue(
-            composerText.contains("WorkspaceAgentSendSessionFactory("),
-            "WorkspaceModel composer APIs should delegate runner execution setup to the send-session factory."
+            agentSessionText.contains("WorkspaceAgentSendSessionFactory("),
+            "WorkspaceModel agent-session APIs should delegate runner execution setup to the send-session factory."
         )
         XCTAssertTrue(
-            composerText.contains("WorkspaceAgentSendTaskCoordinator("),
-            "WorkspaceModel composer APIs should delegate active send task execution to the focused coordinator."
+            agentSessionText.contains("WorkspaceAgentSendTaskCoordinator("),
+            "WorkspaceModel agent-session APIs should delegate active send task execution to the focused coordinator."
         )
         XCTAssertFalse(
             composerText.contains("WorkspaceAgentSendSession("),
@@ -139,7 +140,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let preparerText = try Self.appSourceText(named: "WorkspaceThreadContextPreparer.swift")
         let submitStart = try XCTUnwrap(composerText.range(of: "public func submitComposer"))
         let prepareStart = try XCTUnwrap(composerText.range(of: "private func prepareAgentSendThread"))
-        let prepareEnd = try XCTUnwrap(composerText.range(of: "private func agentSendSessionFactory"))
+        let prepareEnd = try XCTUnwrap(composerText.range(of: "public func resumeAgentAfterApproval"))
         let submitBody = String(composerText[submitStart.lowerBound..<prepareStart.lowerBound])
         let prepareBody = String(composerText[prepareStart.lowerBound..<prepareEnd.lowerBound])
 
@@ -185,7 +186,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendProgressPlanner.swift")
-        let progressStart = try XCTUnwrap(composerText.range(of: "private func applyAgentProgress"))
+        let progressStart = try XCTUnwrap(composerText.range(of: "func applyAgentProgress"))
         let progressEnd = try XCTUnwrap(composerText.range(of: "private func finishCancelledSend"))
         let progressBody = String(composerText[progressStart.lowerBound..<progressEnd.lowerBound])
 

@@ -180,7 +180,11 @@ extension QuillCodeWorkspaceModel {
         threadDrafts = ComposerDraftStore.cleared(draftThreadID, drafts: threadDrafts)
         onStarted?()
 
-        let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot, onProgressUpdated: onProgressUpdated)
+        let outcome = await runAgentSession(
+            sendStart,
+            workspaceRoot: workspaceRoot,
+            onProgressUpdated: onProgressUpdated
+        )
         finishAgentSend(outcome, runThreadID: sendStart.threadID)
         return AgentTurnResult(threadID: sendStart.threadID, completed: outcome.didComplete)
     }
@@ -192,31 +196,6 @@ extension QuillCodeWorkspaceModel {
         guard var thread = selectedThread else { return nil }
         syncThreadContext(into: &thread)
         return thread
-    }
-
-    /// Runs one agent send through the shared coordinator and returns its typed outcome (the
-    /// caller passes it to `finishAgentSend`). Used by both `submitComposer` (a fresh user turn)
-    /// and `resumeAgentAfterApproval` (a continuation that adds no user message).
-    /// `recordsUserMessage: false` because the caller has already shaped the thread (a user turn
-    /// was appended for a submit; nothing is appended for a resume).
-    func runAgentSession(
-        _ sendStart: WorkspaceAgentSendStartPlan,
-        workspaceRoot: URL,
-        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
-    ) async -> WorkspaceAgentSendTaskOutcome {
-        let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
-            .makeSession(
-                prompt: sendStart.prompt,
-                thread: sendStart.thread,
-                recordsUserMessage: false
-            )
-        return await WorkspaceAgentSendTaskCoordinator(
-            start: sendStart,
-            session: session
-        ).run { [weak self] progressThread in
-            await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
-            await onProgressUpdated?()
-        }
     }
 
     /// After a Plan-mode approval has run the held tool, resume the agent so it drives the plan
@@ -271,30 +250,6 @@ extension QuillCodeWorkspaceModel {
         finishAgentSend(outcome, runThreadID: sendStart.threadID)
     }
 
-    private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
-        WorkspaceAgentSendSessionFactory(
-            baseRunner: runner,
-            selectedProject: selectedProject,
-            config: root.config,
-            modelCatalog: root.modelCatalog,
-            browser: browser,
-            browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
-                guard let self else { return nil }
-                return self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
-            },
-            computerUseBackend: computerUseBackend,
-            globalMemoryDirectory: globalMemoryDirectory,
-            mcpToolDefinitions: mcpRuntime.toolDefinitions(
-                manifests: selectedProject?.extensionManifests ?? [],
-                extensions: extensions
-            ),
-            mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
-            sshRemoteShellExecutor: sshRemoteShellExecutor,
-            permissionRules: permissionRuleStore,
-            workspaceRoot: workspaceRoot
-        )
-    }
-
     private func finishCompletedSend(_ result: WorkspaceAgentSendSessionResult) throws {
         let completion = WorkspaceAgentSendTerminalPlanner.completed(
             result: result,
@@ -342,7 +297,7 @@ extension QuillCodeWorkspaceModel {
         notifyRunFinishedIfNeeded(outcome: outcome)
     }
 
-    private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
+    func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
         guard let progress = WorkspaceAgentSendProgressPlanner.progress(
             thread: thread,
             expectedThreadID: expectedThreadID,

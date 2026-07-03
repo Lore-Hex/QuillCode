@@ -107,6 +107,42 @@ Residual risk:
 
 - Non-identical same-scope duplicate merges and semantic explicit nested override rewrites still need richer review UX or model-assisted proposals before they should become one-click actions.
 
+## 2026-07-02 Run Receipt Ledger And Spend-Fuse Gate A+ Pass
+
+Overall grade after this slice: **the automated file/module report remains A+ across the repo; the human
+architecture grade for run receipts moves from A-/B+ to A+** because pricing, fuse status, Activity rendering,
+and runtime spend-review enforcement now share one deterministic core ledger.
+
+This pass started from the regenerated grade report and then reviewed the run-receipt cost-control boundary by
+hand. The files already graded A+, but `WorkspaceRunReceiptSurfaceBuilder` and `RunSpendFusePolicy` each owned
+their own pricing/model lookup semantics, which made cost accounting harder to audit and easier to drift.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Receipt pricing ownership | Activity rendering and runtime spend-review policy each priced usage and looked up model aliases separately. | `RunSpendLedger` in `QuillCodeCore` owns catalog lookup, pricing, totals, unpriced counts, status, and display-safe cost labels. |
+| Runtime enforcement | Spend Review used its own summary path while Activity used a separate private receipt path. | `RunSpendFusePolicy` now derives its approval summary from the same core ledger that renders Activity receipts. |
+| Catalog robustness | A direct unique-key dictionary would be fragile if live catalog aliases duplicated a canonical model ID. | The ledger's model index is first-wins, so duplicate aliases cannot trap or crash the send path. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`.
+- All modules grade **A+**.
+- Every individual source, test, script, and Playwright file grades **A+**.
+- The new `RunSpendLedger.swift` grades **A+**, and `WorkspaceRunReceiptSurfaceBuilder.swift` is reduced to projection code.
+
+Validation:
+
+- `swift test --filter WorkspaceTokenUsageIntegrationTests`
+- `swift test --filter RunSpendFusePolicyTests`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+- `swift test --quiet` (3,021 tests, 2 skipped, 0 failures)
+
+Residual risk:
+
+- This closes the duplicated spend-accounting path. A future UX slice can make the Spend Review bucket/fuse
+  explanation more prominent in the composer before the user starts another turn.
+
 ## 2026-07-02 Agent Run Loop And Filesystem Performance A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file grades A+ in the regenerated repo-wide report**.
@@ -14795,6 +14831,50 @@ Validation:
 - `swift test --filter 'SlashThreadCommandParserTests|SlashCommandCatalog|WorkspaceCommandActionPlannerTests|WorkspaceCommandSurfaceBuilderTests|WorkspaceSurfaceTests|WorkspaceThreadLifecycleEngineTests|WorkspaceThreadLifecycleIntegrationTests|WorkspaceCommandPlanExecutorTests|WorkspaceSlashCommandDispatchPlannerTests|WorkspaceSlashCommandIntegrationTests|QuillCodeCommandIconCatalogTests|ParitySlashThreadMemoryParserGateTests|ParityWorkspaceThreadCommandIntegrationGateTests|ParityWorkspaceCommandActionPlannerGateTests|ParityWorkspaceCommandSurfaceBuilderGateTests'` (100 tests, 0 failures)
 - `swift test --filter 'WorkspaceRenderedCommandRoutingParityTests|WorkspaceSlashRegistryHarnessParityTests'` (9 tests, 0 failures)
 - `swift test --quiet` (3,141 tests, 2 skipped, 0 failures)
+
+## 2026-07-03 Run Spend Ledger And Focused Surface Split A+ Pass
+
+Overall grade after this slice: **A+ for every source file, test file, and
+module row**. This pass centralizes run-spend receipt accounting in Core and
+then removes the remaining file-level quality penalties by splitting broad App
+surface and composer files into focused contracts.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `RunSpendLedger.swift` | A+ | Core-owned, catalog-driven run receipt accounting now powers both Activity receipts and spend-fuse summaries. |
+| `RunSpendFusePolicy.swift` | A+ | Spend enforcement reuses the shared ledger instead of maintaining a second pricing path. |
+| `WorkspaceRunReceiptSurfaceBuilder.swift` | A+ | App layer now only projects ledger receipts into Activity rows; pricing and fuse math are not duplicated in UI code. |
+| `QuillCodeTranscriptSurface.swift` | A+ | Transcript aggregate and timeline contracts stay focused after moving composer, message, and context banner contracts into their own files. |
+| `WorkspaceModelComposer.swift` | A+ | Composer send flow now owns draft submission, follow-up draining, and terminal lifecycle only; agent-session and slash-command plumbing live in focused extensions. |
+| `WorkspaceModelAgentSession.swift` | A+ | Agent session construction, progress application, browser-tool override, and self-healing notices are grouped around the run-session boundary. |
+| `WorkspaceModelSlashCommands.swift` | A+ | Slash dispatch, local transcript appending, schedule transcripts, and status text are grouped behind the slash-command boundary. |
+
+Code quality changes:
+
+- Added a shared `RunSpendLedger` in `QuillCodeCore` and removed duplicated
+  App-local spend accounting.
+- Updated spend-fuse policy and Activity receipt projection to use the shared
+  ledger, including duplicate-alias first-match behavior and legacy unpriced
+  usage visibility.
+- Split transcript surface contracts into focused composer, context banner,
+  message/revert, and transcript/timeline files.
+- Split composer orchestration so send-loop lifecycle, run-session wiring, and
+  slash-command transcript handling each live in their own extension file.
+- Removed the stale mixed `WorkspaceModelComposerCommands.swift` extension after
+  rebasing onto main so agent-session and slash-command helpers have one owner.
+- Updated parity gates to protect the same architectural boundaries under the
+  new focused file layout.
+- Removed a redundant access modifier warning in `WorkspaceModelReview.swift`.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; no file or module grades
+  below A+.
+
+Validation:
+
+- `swift test --filter 'QuillCodeTranscriptSurfaceTests|ParityWorkspaceReviewSurfaceGateTests|WorkspaceComposerIntegrationTests|WorkspaceTokenUsageIntegrationTests|RunSpendFusePolicyTests'` (39 tests, 0 failures)
+- `swift test --filter 'ParityWorkspaceExecutionAgentContextGateTests|ParityWorkspaceExecutionGateTests|ParityWorkspaceExecutionIntegrationGateTests|ParityWorkspaceSlashTranscriptGateTests|ParityWorkspaceStatusModelGateTests'` (14 tests, 0 failures)
+- `swift test --quiet` (3,021 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
 - `git diff --check`
 

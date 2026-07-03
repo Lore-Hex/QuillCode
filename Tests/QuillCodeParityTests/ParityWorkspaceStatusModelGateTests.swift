@@ -3,10 +3,7 @@ import XCTest
 final class ParityWorkspaceStatusModelGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = [
-            try Self.appSourceText(named: "WorkspaceModelComposer.swift"),
-            try Self.appSourceText(named: "WorkspaceModelComposerCommands.swift")
-        ].joined(separator: "\n")
+        let slashText = try Self.appSourceText(named: "WorkspaceModelSlashCommands.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceStatusTextBuilder.swift")
         let contextBuilderText = try Self.appSourceText(named: "WorkspaceStatusContextBuilder.swift")
@@ -26,7 +23,7 @@ final class ParityWorkspaceStatusModelGateTests: QuillCodeParityTestCase {
             "enum WorkspaceStatusContextBuilder",
             "static func context"
         ])
-        Self.assertSource(composerText, containsAll: [
+        Self.assertSource(slashText, containsAll: [
             "WorkspaceStatusTextBuilder.statusText",
             "WorkspaceStatusContextBuilder.context"
         ])

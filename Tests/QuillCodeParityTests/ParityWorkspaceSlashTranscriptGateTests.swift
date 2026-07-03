@@ -3,10 +3,7 @@ import XCTest
 final class ParityWorkspaceSlashTranscriptGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = [
-            try Self.appSourceText(named: "WorkspaceModelComposer.swift"),
-            try Self.appSourceText(named: "WorkspaceModelComposerCommands.swift")
-        ].joined(separator: "\n")
+        let slashText = try Self.appSourceText(named: "WorkspaceModelSlashCommands.swift")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceLocalCommandTranscriptAppender.swift")
@@ -51,7 +48,7 @@ final class ParityWorkspaceSlashTranscriptGateTests: QuillCodeParityTestCase {
             "WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound"
         ])
         Self.assertSource(dispatchPlannerText, containsAll: dispatchCalls)
-        Self.assertSource(composerText, containsAll: [
+        Self.assertSource(slashText, containsAll: [
             "WorkspaceLocalCommandTranscriptAppender.append"
         ] + scheduledCalls)
         Self.assertSource(localEnvironmentModelText, containsAll: [
