@@ -163,6 +163,75 @@ final class ProjectInstructionDiagnosticApplyPlannerTests: XCTestCase {
         ))
     }
 
+    func testPlannerRemovesRepeatedBroadLinesFromNestedInstructionSource() throws {
+        let root = ProjectInstruction(
+            path: "AGENTS.md",
+            title: "AGENTS.md",
+            content: "Keep changes reviewable.\nRun focused validation.\n",
+            byteCount: 48
+        )
+        let nested = ProjectInstruction(
+            path: "Sources/Feature/AGENTS.md",
+            title: "Feature AGENTS.md",
+            content: "Use feature patterns.\nKeep changes reviewable.\nRun focused validation.\nPrefer local helpers.\n",
+            byteCount: 90
+        )
+        let instructions = [root, nested]
+        let diagnostic = try nestedOverlap(in: instructions)
+
+        let actions = ProjectInstructionDiagnosticApplyPlanner.supportedActions(
+            for: diagnostic,
+            instructions: instructions
+        )
+        let plan = try XCTUnwrap(ProjectInstructionDiagnosticApplyPlanner.plan(
+            for: diagnostic,
+            selectedReferenceIndex: 0,
+            instructions: instructions
+        ))
+
+        XCTAssertEqual(actions.map(\.title), ["Remove repeated lines from Sources/Feature/AGENTS.md"])
+        XCTAssertEqual(plan.summary, "Remove repeated broad guidance from Sources/Feature/AGENTS.md.")
+        XCTAssertEqual(plan.toolCall.name, ToolDefinition.applyPatch.name)
+        let patch = try stringArgument("patch", in: plan.toolCall)
+        XCTAssertTrue(patch.contains("diff --git a/Sources/Feature/AGENTS.md b/Sources/Feature/AGENTS.md"))
+        XCTAssertTrue(patch.contains("-Keep changes reviewable."))
+        XCTAssertTrue(patch.contains("-Run focused validation."))
+        XCTAssertTrue(patch.contains(" Use feature patterns."))
+        XCTAssertTrue(patch.contains(" Prefer local helpers."))
+        XCTAssertFalse(patch.contains("diff --git a/AGENTS.md b/AGENTS.md"))
+    }
+
+    func testPlannerLeavesExplicitNestedOverrideManual() throws {
+        let root = ProjectInstruction(
+            path: "AGENTS.md",
+            title: "AGENTS.md",
+            content: "Keep changes reviewable.",
+            byteCount: 24
+        )
+        let nested = ProjectInstruction(
+            path: "Sources/Feature/AGENTS.md",
+            title: "Feature AGENTS.md",
+            content: "This file overrides broader guidance for feature experiments.",
+            byteCount: 60
+        )
+        let instructions = [root, nested]
+        let diagnostic = try XCTUnwrap(
+            ProjectInstructionDiagnosticsBuilder
+                .diagnostics(for: instructions)
+                .first { $0.id.hasPrefix("instruction-nested-override-") }
+        )
+
+        XCTAssertEqual(ProjectInstructionDiagnosticApplyPlanner.supportedActions(
+            for: diagnostic,
+            instructions: instructions
+        ), [])
+        XCTAssertNil(ProjectInstructionDiagnosticApplyPlanner.plan(
+            for: diagnostic,
+            selectedReferenceIndex: 0,
+            instructions: instructions
+        ))
+    }
+
     private func semanticConflict(
         in instructions: [ProjectInstruction],
         file: StaticString = #filePath,
@@ -186,6 +255,20 @@ final class ProjectInstructionDiagnosticApplyPlannerTests: XCTestCase {
             ProjectInstructionDiagnosticsBuilder
                 .diagnostics(for: instructions)
                 .first(where: \.isDuplicateScope),
+            file: file,
+                line: line
+        )
+    }
+
+    private func nestedOverlap(
+        in instructions: [ProjectInstruction],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> ProjectInstructionDiagnostic {
+        try XCTUnwrap(
+            ProjectInstructionDiagnosticsBuilder
+                .diagnostics(for: instructions)
+                .first(where: \.isNestedOverlap),
             file: file,
             line: line
         )

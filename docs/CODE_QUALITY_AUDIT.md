@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-07-02 Nested Instruction Overlap Cleanup Pass
+
+Overall grade after this slice: **A+ instruction diagnostics, A+ deterministic apply planner, A project-rule UX**.
+
+This pass closes a noisy AGENTS/rules parity gap without making QuillCode guess at user intent. Additive nested rule files
+are no longer flagged simply because a broader instruction file exists. The diagnostics builder now separates three
+cases: duplicate same-scope files, nested files that repeat meaningful broad guidance, and explicit nested override
+language. Only the nested repeated-line case gets a direct cleanup action.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Diagnostic precision | A+ | `ProjectInstructionDiagnosticsBuilder` now suppresses harmless additive nested rules, flags repeated broad lines with exact source references, and keeps explicit override wording manual. |
+| Apply planner | A+ | `ProjectInstructionDiagnosticApplyPlanner` removes repeated broad lines only from the nested source through audited `host.apply_patch`, after verifying loaded line excerpts still match. |
+| Activity UX | A | Activity gets direct `Remove repeated lines...` actions for deterministic cleanup while retaining Resolve/Edit for ambiguous duplicate merges and explicit overrides. |
+
+Residual risk:
+
+- Non-identical same-scope duplicate merges and explicit nested override rewrites still need richer review UX or model-assisted proposals before they should become one-click actions.
+
 ## 2026-07-02 Agent Run Loop And Filesystem Performance A+ Pass
 
 Overall grade after this slice: **every source, test, script, and E2E module grades A+; every individual file grades A+ in the regenerated repo-wide report**.

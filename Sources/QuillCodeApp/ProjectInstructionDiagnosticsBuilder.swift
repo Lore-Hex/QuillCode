@@ -37,33 +37,113 @@ enum ProjectInstructionDiagnosticsBuilder {
             guard scopePath != "." else { return nil }
             let broaderInstructions = instructions.filter { isBroaderScope($0.scopePath, than: scopePath) }
             guard !broaderInstructions.isEmpty else { return nil }
-            let detail = [
-                ProjectInstruction.scopeLabel(for: scopePath),
-                "from \(pathList(scopedInstructions))",
-                "may override \(pathList(broaderInstructions))"
-            ].joined(separator: " ")
-
-            return ProjectInstructionDiagnostic(
-                id: "instruction-nested-override-\(normalizedID(scopePath))",
-                title: "Nested instruction override",
-                detail: detail,
-                statusLabel: ProjectInstructionDiagnosticStatusLabel.scope,
-                sourceReferences: scopedInstructions.map {
-                    ProjectInstructionDiagnosticReferenceBuilder.reference(
-                        for: $0,
-                        role: "nested scope",
-                        suggestedAction: "Clarify whether this nested rule intentionally overrides broader guidance."
-                    )
-                } + broaderInstructions.map {
-                    ProjectInstructionDiagnosticReferenceBuilder.reference(
-                        for: $0,
-                        role: "broader scope",
-                        suggestedAction: "Clarify how this broader rule should interact with nested guidance."
-                    )
-                },
-                resolutionHint: "State the override explicitly or merge the broader and nested rules."
+            if let overlapDiagnostic = nestedOverlapDiagnostic(
+                scopePath: scopePath,
+                scopedInstructions: scopedInstructions,
+                broaderInstructions: broaderInstructions
+            ) {
+                return overlapDiagnostic
+            }
+            return explicitNestedOverrideDiagnostic(
+                scopePath: scopePath,
+                scopedInstructions: scopedInstructions,
+                broaderInstructions: broaderInstructions
             )
         }
+    }
+
+    private static func nestedOverlapDiagnostic(
+        scopePath: String,
+        scopedInstructions: [ProjectInstruction],
+        broaderInstructions: [ProjectInstruction]
+    ) -> ProjectInstructionDiagnostic? {
+        let broaderLines = broaderInstructionLines(broaderInstructions)
+        guard !broaderLines.isEmpty else { return nil }
+
+        var references: [ProjectInstructionDiagnosticSourceReference] = []
+        var seenNestedLines = Set<String>()
+        var seenBroaderLines = Set<String>()
+
+        for instruction in scopedInstructions {
+            for line in meaningfulInstructionLines(instruction.content) {
+                guard let broaderLine = broaderLines[line.normalized] else { continue }
+                let nestedKey = "\(instruction.path):\(line.number)"
+                guard seenNestedLines.insert(nestedKey).inserted else { continue }
+                references.append(ProjectInstructionDiagnosticSourceReference(
+                    path: instruction.path,
+                    lineNumber: line.number,
+                    role: ProjectInstructionDiagnosticReferenceRole.repeatedNestedGuidance,
+                    excerpt: line.text,
+                    suggestedAction: "Remove the repeated broad line from this nested source."
+                ))
+
+                let broaderKey = "\(broaderLine.path):\(broaderLine.number)"
+                if seenBroaderLines.insert(broaderKey).inserted {
+                    references.append(ProjectInstructionDiagnosticSourceReference(
+                        path: broaderLine.path,
+                        lineNumber: broaderLine.number,
+                        role: ProjectInstructionDiagnosticReferenceRole.broaderGuidance,
+                        excerpt: broaderLine.text,
+                        suggestedAction: "Keep this guidance in the broader source."
+                    ))
+                }
+            }
+        }
+
+        guard references.contains(where: {
+            $0.role == ProjectInstructionDiagnosticReferenceRole.repeatedNestedGuidance
+        }) else {
+            return nil
+        }
+
+        let detail = [
+            ProjectInstruction.scopeLabel(for: scopePath),
+            "repeats broader guidance in \(pathList(scopedInstructions));",
+            "broader source \(pathList(broaderInstructions)) already applies"
+        ].joined(separator: " ")
+        return ProjectInstructionDiagnostic(
+            id: "instruction-nested-overlap-\(normalizedID(scopePath))",
+            title: "Nested instruction overlap",
+            detail: detail,
+            statusLabel: ProjectInstructionDiagnosticStatusLabel.scope,
+            sourceReferences: references,
+            resolutionHint: "Keep broad guidance in the broadest applicable file and leave nested files for scoped additions."
+        )
+    }
+
+    private static func explicitNestedOverrideDiagnostic(
+        scopePath: String,
+        scopedInstructions: [ProjectInstruction],
+        broaderInstructions: [ProjectInstruction]
+    ) -> ProjectInstructionDiagnostic? {
+        let scopedOverrides = scopedInstructions.filter { containsExplicitOverrideLanguage($0.content) }
+        guard !scopedOverrides.isEmpty else { return nil }
+        let detail = [
+            ProjectInstruction.scopeLabel(for: scopePath),
+            "from \(pathList(scopedOverrides))",
+            "explicitly references overriding broader guidance in \(pathList(broaderInstructions))"
+        ].joined(separator: " ")
+
+        return ProjectInstructionDiagnostic(
+            id: "instruction-nested-override-\(normalizedID(scopePath))",
+            title: "Nested instruction override",
+            detail: detail,
+            statusLabel: ProjectInstructionDiagnosticStatusLabel.scope,
+            sourceReferences: scopedOverrides.map {
+                ProjectInstructionDiagnosticReferenceBuilder.reference(
+                    for: $0,
+                    role: ProjectInstructionDiagnosticReferenceRole.nestedOverride,
+                    suggestedAction: "Clarify whether this nested rule intentionally overrides broader guidance."
+                )
+            } + broaderInstructions.map {
+                ProjectInstructionDiagnosticReferenceBuilder.reference(
+                    for: $0,
+                    role: ProjectInstructionDiagnosticReferenceRole.broaderGuidance,
+                    suggestedAction: "Clarify how this broader rule should interact with nested guidance."
+                )
+            },
+            resolutionHint: "State the override explicitly or edit the nested rule so it extends broader guidance."
+        )
     }
 
     private static func semanticConflictDiagnostics(
@@ -150,6 +230,72 @@ enum ProjectInstructionDiagnosticsBuilder {
         lhs == rhs || isBroaderScope(lhs, than: rhs) || isBroaderScope(rhs, than: lhs)
     }
 
+    private static func broaderInstructionLines(
+        _ instructions: [ProjectInstruction]
+    ) -> [String: InstructionLine] {
+        var lines: [String: InstructionLine] = [:]
+        for instruction in instructions {
+            for line in meaningfulInstructionLines(instruction.content) where lines[line.normalized] == nil {
+                lines[line.normalized] = InstructionLine(
+                    path: instruction.path,
+                    number: line.number,
+                    text: line.text,
+                    normalized: line.normalized
+                )
+            }
+        }
+        return lines
+    }
+
+    private static func meaningfulInstructionLines(_ content: String) -> [InstructionLine] {
+        content
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n")
+            .enumerated()
+            .compactMap { index, rawLine -> InstructionLine? in
+                let trimmed = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+                let normalized = normalizedInstructionLine(trimmed)
+                guard isMeaningfulRepeatedGuidance(normalized) else { return nil }
+                return InstructionLine(
+                    path: "",
+                    number: index + 1,
+                    text: rawLine,
+                    normalized: normalized
+                )
+            }
+    }
+
+    private static func normalizedInstructionLine(_ line: String) -> String {
+        line
+            .lowercased()
+            .replacingOccurrences(of: #"^[\-\*\d\.\)\s]+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " .;:"))
+    }
+
+    private static func isMeaningfulRepeatedGuidance(_ normalizedLine: String) -> Bool {
+        normalizedLine.count >= 16
+            && normalizedLine.split(separator: " ").count >= 3
+    }
+
+    private static func containsExplicitOverrideLanguage(_ content: String) -> Bool {
+        let normalized = content.lowercased()
+        return [
+            "override broader",
+            "overrides broader",
+            "ignore broader",
+            "ignore parent",
+            "ignore root",
+            "supersede broader",
+            "supersedes broader",
+            "instead of broader",
+            "instead of parent",
+            "do not follow broader",
+            "do not follow parent"
+        ].contains { normalized.contains($0) }
+    }
+
     private static func pathList(_ instructions: [ProjectInstruction]) -> String {
         instructions.map(\.path).joined(separator: ", ")
     }
@@ -186,4 +332,17 @@ enum ProjectInstructionDiagnosticsBuilder {
         return normalized.isEmpty || scopePath == "." ? "root" : normalized
     }
 
+}
+
+enum ProjectInstructionDiagnosticReferenceRole {
+    static let broaderGuidance = "broader guidance"
+    static let nestedOverride = "nested override"
+    static let repeatedNestedGuidance = "repeated nested guidance"
+}
+
+private struct InstructionLine: Sendable, Hashable {
+    var path: String
+    var number: Int
+    var text: String
+    var normalized: String
 }

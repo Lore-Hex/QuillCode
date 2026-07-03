@@ -1,6 +1,17 @@
 # QuillCode Decisions
 
+## 2026-07-02
+
+- Nested instruction diagnostics should distinguish normal scope layering from real cleanup work. A nested `AGENTS.md`,
+  `.quillcode/rules.md`, or `.quillcode/instructions.md` that only adds scoped guidance is no longer flagged just
+  because broader instructions exist; Codex-style nested rule files are expected. Activity now flags a nested overlap
+  only when a meaningful line repeats broad guidance already supplied by an applicable broader file, and that case gets
+  a direct `Remove repeated lines...` action that runs through audited `host.apply_patch` against the nested file while
+  preserving the broader source. Explicit override language still stays manual through Resolve/Edit because changing it
+  would guess at user intent.
+
 ## 2026-07-01
+
 
 - Browser domain policy is a persisted runtime policy, not a renderer-only guard. `AppConfig` stores normalized allowed
   and blocked domain lists, and `WorkspaceBrowserWorkflow` applies them after URL resolution and before manual opens,
@@ -23,8 +34,9 @@
   semantics so they keep 44 pt geometry, tactile feedback, and unambiguous action ownership.
 - GitHub pull request lifecycle belongs in the structured PR tool family, not in ad hoc shell recipes. `host.git.pr.lifecycle` accepts a validated `action` of `close` or `reopen`, shares the same selector validation as other PR tools, runs through local or SSH Remote `gh pr close|reopen`, and is exposed through slash commands plus the command palette. The agent argument normalizer treats lifecycle as selector/action-only, not a body-bearing PR comment/review tool.
 - Instruction diagnostic apply actions must stay deterministic. Semantic conflicts may remove the opposite known line only
-  when source excerpts still match, and duplicate-scope diagnostics may clear a selected source only when another
-  same-scope instruction file has identical normalized content. Non-identical duplicate-scope and nested-override
+  when source excerpts still match, duplicate-scope diagnostics may clear a selected source only when another same-scope
+  instruction file has identical normalized content, and nested-overlap diagnostics may remove repeated broad lines from
+  the nested source only when the loaded line still matches. Non-identical duplicate-scope and explicit nested-override
   diagnostics remain manual Resolve/Edit workflows because merging those files would guess at user intent.
 - Generated Python bytecode must not be tracked. Native click-probe validator caches are now ignored with
   `__pycache__/` and `*.py[cod]`, so grade generation and smoke validation cannot rewrite binary artifacts in normal
@@ -593,7 +605,7 @@
 - Interaction-target parity gates are split by rendered interaction responsibility. Playwright audit contracts, HTML primitive semantics, rendered command routing, critical target registry coverage, responsive/dynamic target contracts, and Swift HTML source-audit fixtures each live in separate files, with shared text loading in a support helper.
 - Command-palette E2E specs are split by workflow. Core palette behavior, worktree commands, pull request commands, pull request review, and local environment actions each own a focused Playwright spec, while shared palette open/close/selection helpers live in `harness-helpers.ts`. Keep broad `core.spec.ts` free of command-palette workflow coverage.
 - Activity source commands preserve source location as typed command data, not renderer-local string conventions. Path-only Open/Edit command IDs remain stable, while diagnostic source actions may use `activity-source-*-line:<line>:<path>` so `file:line` survives Activity rendering, command parsing, model fallback, and desktop routing. Native editor opening is a desktop-only convenience for readable local files inside the active workspace; remote projects, missing files, directories, absolute paths, and workspace escapes must fall back to the normal model/tool-card path.
-- Instruction diagnostic keep-side fixes are intentionally narrow and deterministic. Activity may offer direct patch actions only for two-reference semantic conflicts where the referenced path is a safe generated patch target and the loaded instruction line still matches the diagnostic excerpt. The command removes the opposite conflicting line via `host.apply_patch` and refreshes project context; duplicate-scope and nested-override diagnostics stay manual until a merge strategy can preserve user intent.
+- Instruction diagnostic keep-side fixes are intentionally narrow and deterministic. Activity may offer direct patch actions only for two-reference semantic conflicts where the referenced path is a safe generated patch target and the loaded instruction line still matches the diagnostic excerpt. The command removes the opposite conflicting line via `host.apply_patch` and refreshes project context; exact duplicate-scope cleanup and nested-overlap line removal use the same audited-tool boundary, while non-identical duplicate-scope and explicit nested-override diagnostics stay manual until a merge strategy can preserve user intent.
 - GitHub pull request listing is a first-class read-only PR tool, not a shell workaround. `host.git.pr.list` owns optional state and limit arguments, `GitHubPullRequestInputValidator` normalizes/bounds those arguments for local execution, SSH Remote command planning, slash parsing, and tests, and command/palette/slash surfaces should expose `/pr list` before label commands for `/pr l` discoverability.
 - Run-finished notifications are a workspace-model boundary separate from composer send orchestration. `WorkspaceModelComposer` owns submit/resume, send lifecycle, progress, and terminal outcome handling; `WorkspaceModelRunNotifications` owns notification gating, verification-action dispatch, and shell verification fallback. Keep future "notify me when done" behavior in the notification extension so the composer does not grow another cross-cutting concern.
 - Computer Use app approval is an executor preflight, not UI-only state. `ComputerUseAppApprovalPolicy` stores normalized bundle-identifier and app-name allowlists from `AppConfig`, `ComputerUseToolExecutor` checks that policy after backend availability and permissions, and platform foreground-app discovery lives behind `ComputerUseForegroundApplicationProviding`. An empty allowlist remains unrestricted for existing users; configured allowlists must block before any screenshot/input action reaches the backend. The Settings quick-add action edits only the unsaved settings draft, prefers a foreground app's bundle identifier for stable macOS identity, falls back to app name for Linux/helper backends, and persists through the same Save path as manual approval edits.

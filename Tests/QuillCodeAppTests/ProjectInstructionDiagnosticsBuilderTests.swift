@@ -16,24 +16,49 @@ final class ProjectInstructionDiagnosticsBuilderTests: XCTestCase {
         XCTAssertEqual(diagnostics.first?.statusLabel, "review")
     }
 
-    func testDiagnosticsFlagNestedInstructionOverrides() {
+    func testDiagnosticsFlagNestedInstructionOverlaps() {
         let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
-            instruction("AGENTS.md"),
-            instruction("Sources/AGENTS.md"),
-            instruction("Sources/Feature/.quillcode/rules.md"),
-            instruction("Tests/AGENTS.md")
+            instruction("AGENTS.md", content: "Keep changes reviewable.\nRun focused tests."),
+            instruction("Sources/AGENTS.md", content: "Keep changes reviewable.\nUse source patterns."),
+            instruction("Sources/Feature/.quillcode/rules.md", content: "Run focused tests.\nUse feature patterns.")
         ])
 
         XCTAssertEqual(diagnostics.map(\.id), [
-            "instruction-nested-override-Sources",
-            "instruction-nested-override-Sources-Feature",
-            "instruction-nested-override-Tests"
+            "instruction-nested-overlap-Sources",
+            "instruction-nested-overlap-Sources-Feature"
         ])
         XCTAssertEqual(
             diagnostics[1].detail,
-            "Sources/Feature/** from Sources/Feature/.quillcode/rules.md may override AGENTS.md, Sources/AGENTS.md"
+            "Sources/Feature/** repeats broader guidance in Sources/Feature/.quillcode/rules.md; broader source AGENTS.md, Sources/AGENTS.md already applies"
         )
         XCTAssertEqual(diagnostics[1].statusLabel, "scope")
+        XCTAssertEqual(
+            diagnostics[1].sourceReferences.map(\.role),
+            ["repeated nested guidance", "broader guidance"]
+        )
+    }
+
+    func testDiagnosticsFlagExplicitNestedOverrideLanguage() {
+        let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
+            instruction("AGENTS.md", content: "Keep changes reviewable."),
+            instruction(
+                "Sources/Feature/AGENTS.md",
+                content: "This file overrides broader guidance for feature experiments."
+            )
+        ])
+
+        XCTAssertEqual(diagnostics.map(\.id), ["instruction-nested-override-Sources-Feature"])
+        XCTAssertEqual(diagnostics.first?.title, "Nested instruction override")
+        XCTAssertEqual(diagnostics.first?.sourceReferences.map(\.role), ["nested override", "broader guidance"])
+    }
+
+    func testDiagnosticsDoNotFlagAdditiveNestedInstructions() {
+        let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
+            instruction("AGENTS.md", content: "Keep changes reviewable."),
+            instruction("Sources/Feature/AGENTS.md", content: "Use feature patterns.")
+        ])
+
+        XCTAssertEqual(diagnostics, [])
     }
 
     func testDiagnosticsDoNotFlagSiblingScopes() {
@@ -55,38 +80,37 @@ final class ProjectInstructionDiagnosticsBuilderTests: XCTestCase {
         ])
 
         XCTAssertEqual(diagnostics.map(\.id), [
-            "instruction-nested-override-Sources-Feature",
             "instruction-semantic-conflict-tests-agents-md-sources-feature-agents-md"
         ])
-        XCTAssertEqual(diagnostics[1].title, "Conflicting instruction intent")
+        XCTAssertEqual(diagnostics[0].title, "Conflicting instruction intent")
         XCTAssertEqual(
-            diagnostics[1].detail,
+            diagnostics[0].detail,
             "Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"
         )
-        XCTAssertEqual(diagnostics[1].statusLabel, "conflict")
+        XCTAssertEqual(diagnostics[0].statusLabel, "conflict")
         XCTAssertEqual(
-            diagnostics[1].sourceReferences.map(\.locationLabel),
+            diagnostics[0].sourceReferences.map(\.locationLabel),
             ["AGENTS.md:2", "Sources/Feature/AGENTS.md:2"]
         )
         XCTAssertEqual(
-            diagnostics[1].sourceReferences.map(\.excerpt),
+            diagnostics[0].sourceReferences.map(\.excerpt),
             [
                 "Always run tests before final answers.",
                 "Do not run tests for feature changes."
             ]
         )
-        XCTAssertEqual(diagnostics[1].sourceReferences.map(\.role), ["requires tests", "avoids tests"])
+        XCTAssertEqual(diagnostics[0].sourceReferences.map(\.role), ["requires tests", "avoids tests"])
         XCTAssertEqual(
-            diagnostics[1].resolutionHint,
+            diagnostics[0].resolutionHint,
             "Choose one intent for tests guidance and edit the conflicting lines so they agree."
         )
     }
 
     func testDiagnosticsAttachSourceReferencesToStructuralIssues() {
         let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
-            instruction("AGENTS.md", content: "Root rule."),
-            instruction(".quillcode/rules.md", content: "Project rule."),
-            instruction("Sources/Feature/AGENTS.md", content: "Feature rule.")
+            instruction("AGENTS.md", content: "Keep changes reviewable."),
+            instruction(".quillcode/rules.md", content: "Run focused validation."),
+            instruction("Sources/Feature/AGENTS.md", content: "Keep changes reviewable.\nUse feature rule.")
         ])
 
         XCTAssertEqual(diagnostics[0].title, "Shared instruction scope")
@@ -94,12 +118,12 @@ final class ProjectInstructionDiagnosticsBuilderTests: XCTestCase {
             diagnostics[0].sourceReferences.map(\.locationLabel),
             ["AGENTS.md:1", ".quillcode/rules.md:1"]
         )
-        XCTAssertEqual(diagnostics[1].title, "Nested instruction override")
+        XCTAssertEqual(diagnostics[1].title, "Nested instruction overlap")
         XCTAssertEqual(
             diagnostics[1].sourceReferences.map(\.locationLabel),
-            ["Sources/Feature/AGENTS.md:1", "AGENTS.md:1", ".quillcode/rules.md:1"]
+            ["Sources/Feature/AGENTS.md:1", "AGENTS.md:1"]
         )
-        XCTAssertTrue(diagnostics[1].resolutionHint.contains("State the override explicitly"))
+        XCTAssertTrue(diagnostics[1].resolutionHint.contains("Keep broad guidance"))
     }
 
     func testDiagnosticsDoNotFlagSemanticContradictionsAcrossSiblingScopes() {
