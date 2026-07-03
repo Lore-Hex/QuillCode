@@ -152,6 +152,21 @@ public extension QuillCodeWorkspaceModel {
         return await approveToolCardAndResume(action, workspaceRoot: workspaceRoot)
     }
 
+    /// Drains follow-ups after an approval gate DECISION was already recorded (e.g. a deny/skip whose
+    /// decision the desktop recorded unconditionally so a refusal is never dropped). Runs the same
+    /// self-gated drain as `approveToolCardAndResume` (a no-op while a run is in flight or an
+    /// undecided approval remains), pinned to the decided thread. Separate from the decision so the
+    /// safety-critical "record the refusal" can be unconditional while the drain stays slot-gated.
+    func drainFollowUpQueueAfterGateDecision(threadID: UUID?, workspaceRoot: URL) async {
+        guard let threadID else { return }
+        await drainFollowUpQueue(
+            after: AgentTurnResult(threadID: threadID, completed: true),
+            workspaceRoot: workspaceRoot,
+            onStarted: nil,
+            onProgressUpdated: nil
+        )
+    }
+
     @discardableResult
     func runToolCardAction(_ action: ToolCardActionSurface, workspaceRoot: URL) -> Bool {
         guard let plan = WorkspaceApprovalActionPlanner.plan(action: action, thread: selectedThread) else {
