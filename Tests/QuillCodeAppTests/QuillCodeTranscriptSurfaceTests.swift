@@ -76,7 +76,9 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
         XCTAssertEqual(ready.slashSuggestions.first?.insertText, "/pr list ")
         XCTAssertFalse(blank.canSend)
         XCTAssertEqual(blank.slashSuggestions, [])
-        XCTAssertFalse(sending.canSend)
+        // Never-locking composer: a non-empty draft is submittable even mid-run — it enqueues as a
+        // follow-up chip rather than being rejected, so sendability no longer gates on `isSending`.
+        XCTAssertTrue(sending.canSend)
     }
 
     func testComposerSurfaceShowsFilteredSlashSuggestions() {

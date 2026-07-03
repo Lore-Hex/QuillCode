@@ -30,7 +30,8 @@ test('mock harness shows sent message and thinking state before async work compl
   await page.getByLabel('Message').fill('slow task');
   await page.getByRole('button', { name: 'Send' }).click();
 
-  await expect(page.getByLabel('Message')).toBeDisabled();
+  // Never-locking composer: the input stays editable during a run so a follow-up can be queued.
+  await expect(page.getByLabel('Message')).toBeEnabled();
   await expect(page.getByTestId('message').first()).toContainText('slow task');
   await expect(page.getByTestId('thinking-indicator')).toBeVisible();
   await expect(page.getByTestId('thinking-title')).toHaveText('Thinking');
@@ -49,7 +50,8 @@ test('mock harness stops an active composer run from the composer', async ({ pag
   await expect(page.getByTestId('top-bar-stop-button')).toBeVisible();
   await expect(page.getByTestId('stop-button')).toBeVisible();
   await expect(page.getByTestId('send-button')).toHaveCount(0);
-  await expect(page.getByLabel('Message')).toBeDisabled();
+  // Never-locking composer: input remains enabled during a run (Stop replaces Send, not the input).
+  await expect(page.getByLabel('Message')).toBeEnabled();
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'running');
 
   await page.getByTestId('top-bar-stop-button').click();

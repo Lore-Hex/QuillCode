@@ -14,6 +14,11 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var isArchived: Bool
     public var createdAt: Date
     public var updatedAt: Date
+    /// Composer submissions entered while a run was active, parked as visible chips and
+    /// drained one per turn boundary (see `FollowUpQueue`). Stored on the thread so the
+    /// queue persists with the conversation and survives a reload; decodes to empty for
+    /// threads written before this field existed.
+    public var followUpQueue: [FollowUpItem]
 
     public init(
         id: UUID = UUID(),
@@ -28,7 +33,8 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         instructions: [ProjectInstruction] = [],
-        memories: [MemoryNote] = []
+        memories: [MemoryNote] = [],
+        followUpQueue: [FollowUpItem] = []
     ) {
         self.id = id
         self.title = title
@@ -43,6 +49,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.isArchived = isArchived
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.followUpQueue = followUpQueue
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -59,6 +66,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case isArchived
         case createdAt
         case updatedAt
+        case followUpQueue
     }
 
     public init(from decoder: Decoder) throws {
@@ -76,6 +84,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.isArchived = try container.decode(Bool.self, forKey: .isArchived)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        self.followUpQueue = try container.decodeIfPresent([FollowUpItem].self, forKey: .followUpQueue) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -93,5 +102,6 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(isArchived, forKey: .isArchived)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(followUpQueue, forKey: .followUpQueue)
     }
 }

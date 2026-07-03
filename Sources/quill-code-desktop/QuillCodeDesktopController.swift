@@ -142,21 +142,20 @@ final class QuillCodeDesktopController: ObservableObject {
 
     /// Decides a blocked approval gate from a tapped notification action. Selects the gate's thread
     /// first (a notification may target a thread the user is not currently viewing), then routes through
-    /// the exact same `decidePendingApproval` path as the in-app tool card so async and in-app approval
-    /// behave identically.
+    /// the SAME coordinator `runToolCardAction` path as the in-app tool card. Going through the one
+    /// path (rather than a bare `Task` calling `decidePendingApproval`) means the notification decision
+    /// serializes on the `.send` slot exactly like the in-app decision — the two can't interleave their
+    /// resume/drain — while a Skip still records unconditionally (the coordinator never drops a refusal).
     func decideNotificationApproval(requestID: String, approve: Bool, threadID: UUID?) {
         if let threadID, model.selectedThread?.id != threadID {
             selectThread(threadID)
         }
-        Task { [weak self] in
-            guard let self else { return }
-            _ = await model.decidePendingApproval(
-                requestID: requestID,
-                approve: approve,
-                workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot
-            )
-            refresh()
-        }
+        runToolCardAction(ToolCardActionSurface(
+            title: approve ? "Approve" : "Skip",
+            kind: approve ? .approve : .deny,
+            requestID: requestID,
+            style: approve ? .primary : .secondary
+        ))
     }
 
     private func scheduleModelCatalogRefreshIfNeeded() {

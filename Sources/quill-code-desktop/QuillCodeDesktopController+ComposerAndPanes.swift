@@ -8,7 +8,8 @@ extension QuillCodeDesktopController {
             model: model,
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
-            refresh: { [weak self] in self?.refresh() }
+            refresh: { [weak self] in self?.refresh() },
+            onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
     }
 
@@ -18,8 +19,16 @@ extension QuillCodeDesktopController {
             model: model,
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
-            refresh: { [weak self] in self?.refresh() }
+            refresh: { [weak self] in self?.refresh() },
+            onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
+    }
+
+    /// Recovers the currently-selected thread's stranded follow-up queue once the `.send` slot frees
+    /// (a send/approval finished). Covers the case where the user denied thread A's gate while a
+    /// send ran on thread B in the background: B's completion frees the slot and this drains A.
+    private func recoverSelectedThreadDrain() {
+        recoverFollowUpDrain(for: model.selectedThread?.id)
     }
 
     func toggleTerminal() {

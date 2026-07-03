@@ -307,11 +307,14 @@ test('Cmd+Shift+R retries the last turn, and is a no-op with nothing to retry', 
   await page.keyboard.press('Meta+Shift+R');
   await expect(page.getByTestId('message')).toHaveCount(0);
 
-  // Send a turn and let it finish (retry is disabled while a send is in flight).
+  // Send a turn and let it FINISH. The composer never locks (it stays enabled during a run so a
+  // follow-up can be queued), so composer-enabled is NOT a turn-done signal — wait on the real
+  // completion: the agent status returning to Idle. Retry-last-turn is gated on !isSending, so the
+  // shortcut is a no-op until the turn actually completes.
   await message.fill('retry me please');
   await message.press('Enter');
   await expect(page.getByTestId('message').filter({ hasText: 'retry me please' })).toHaveCount(1);
-  await expect(message).toBeEnabled();
+  await expect(page.getByTestId('agent-status')).toHaveText('Idle');
 
   // Cmd+Shift+R re-runs the last user turn: a second identical user message appears.
   await page.keyboard.press('Meta+Shift+R');

@@ -18,15 +18,40 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         refresh: @escaping @MainActor () -> Void
     ) {
         let workspaceRoot = activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
-        guard action.kind.approvesHeldTool else {
-            // Skip / edit / never are immediate, local, and unaffected by any in-flight send.
+        guard action.kind.decidesGate else {
+            // `edit` only seeds a composer draft (it leaves the gate undecided) — immediate, local,
+            // and unaffected by any in-flight send.
             _ = model.runToolCardAction(action, workspaceRoot: workspaceRoot)
             return
         }
-        // Approving runs the held tool AND resumes the plan. Route the WHOLE thing through the
-        // same `.send` slot a composer send uses (and gate on it up front, mirroring the composer),
-        // so the held tool + resume are atomic, Stop cancels them, and they never interleave with
-        // another send. `approveToolCardAndResume` is exactly the method the tests drive.
+
+        guard action.kind.approvesHeldTool else {
+            // DENY / skip is a REFUSAL — you must always be able to refuse a held tool, so record the
+            // decision UNCONDITIONALLY (it runs no held tool and no resume, so it needs no `.send`
+            // slot and is never dropped by an in-flight send). Then drain any queued follow-ups
+            // through the `.send` slot; the drain self-gates via `canDrainAfter`. If the slot is busy
+            // running ANOTHER thread, this drain is skipped — the decided thread's queue is then
+            // recovered by `recoverFollowUpQueueIfIdle` when that thread is next selected or when the
+            // slot frees (both wired in the controller), so a cross-thread deny never strands it.
+            _ = model.runToolCardAction(action, workspaceRoot: workspaceRoot)
+            let decidedThreadID = model.selectedThread?.id
+            tasks.startIfIdle(.send) { [weak model] in
+                await model?.drainFollowUpQueueAfterGateDecision(
+                    threadID: decidedThreadID,
+                    workspaceRoot: workspaceRoot
+                )
+            } onFinish: {
+                refresh()
+            }
+            refresh()
+            return
+        }
+
+        // APPROVE runs the held tool AND resumes the plan — route the WHOLE thing through the same
+        // `.send` slot a composer send uses (gated up front, mirroring the composer), so the held
+        // tool + resume + follow-up drain are atomic, Stop cancels them, and they never interleave
+        // with another send. `approveToolCardAndResume` is the single async choke point the tests
+        // drive: it resolves the gate and then drains any queued follow-ups.
         guard !tasks.isRunning(.send) else { return }
         tasks.startIfIdle(.send) { [weak model] in
             _ = await model?.approveToolCardAndResume(action, workspaceRoot: workspaceRoot)

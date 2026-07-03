@@ -36,6 +36,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onCopyTranscriptItem: (String, String) -> Void
     var onRevertTurn: (UUID) -> Void = { _ in }
     var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
+    var onDeleteFollowUp: (UUID) -> Void = { _ in }
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -142,7 +143,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
                     onSetModel: onSetModel,
                     onToggleModelFavorite: onToggleModelFavorite,
                     onSend: onSend,
-                    onStop: stopActiveRun
+                    onStop: stopActiveRun,
+                    onDeleteFollowUp: onDeleteFollowUp
                 )
             }
             if surface.activity.isVisible {

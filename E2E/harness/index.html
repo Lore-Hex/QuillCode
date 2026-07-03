@@ -3137,6 +3137,41 @@
     .composer-surface:focus-within {
       border-color: rgba(255,255,255,.18);
     }
+    .composer-followup-queue {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .composer-followup-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(65, 184, 232, 0.12);
+      border: 1px solid rgba(65, 184, 232, 0.3);
+      color: var(--blue, #41b8e8);
+      font-size: 13px;
+    }
+    .composer-followup-text {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .composer-followup-delete {
+      flex: 0 0 auto;
+      color: var(--muted, rgba(158,176,184,1));
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .composer-followup-delete:hover {
+      color: var(--blue, #41b8e8);
+    }
     .composer-input-row {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -3778,7 +3813,10 @@
         historySavedDraft: null,
         // The current run's plan progress for the always-visible strip above the input; null => no strip.
         // Mirrors Swift ComposerSurface.planProgress (the surface renders the pre-computed struct).
-        planProgress: null
+        planProgress: null,
+        // Composer submissions entered during a live run, parked as delete-able chips and drained
+        // one per turn boundary. Mirrors Swift ComposerSurface.followUpQueue / ChatThread.followUpQueue.
+        followUpQueue: []
       },
       settings: {
         isOpen: false,
@@ -7176,8 +7214,9 @@
                 ${renderComposerPlanProgress()}
                 <div class="composer-surface" data-testid="composer-surface">
                   <label class="composer-sr-only" for="message">Message</label>
+                  ${renderComposerFollowUpQueue()}
                   <div class="composer-input-row">
-                    <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
+                    <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1">${escapeHTML(state.composer.draft)}</textarea>
                     ${state.composer.isSending
                       ? '<button type="button" class="stop-button hit-target-text" data-testid="stop-button">Stop</button>'
                       : `<button class="hit-target-text" type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
@@ -7234,7 +7273,10 @@
           nextInput?.setSelectionRange(cursor, cursor);
           resizeComposerInput(nextInput);
         } else {
-          document.querySelector('[data-testid="send-button"]').disabled = !state.composer.canSend;
+          // The send button is absent while a run is in flight (the Stop button takes its place),
+          // yet the composer stays editable so a follow-up can be typed and queued — guard the ref.
+          const sendButton = document.querySelector('[data-testid="send-button"]');
+          if (sendButton) sendButton.disabled = !state.composer.canSend;
         }
       });
       input.addEventListener('keydown', event => {
@@ -7284,6 +7326,11 @@
       });
       document.querySelector('[data-testid="stop-button"]')?.addEventListener('click', () => {
         runCommand('stop-all');
+      });
+      document.querySelectorAll('[data-testid="composer-followup-delete"]').forEach(button => {
+        button.addEventListener('click', event => {
+          deleteFollowUp(event.currentTarget.getAttribute('data-followup-id'));
+        });
       });
       document.querySelectorAll('[data-copy-id]').forEach(button => {
         button.addEventListener('click', event => {
@@ -9081,6 +9128,20 @@
 
     // Mirrors Swift WorkspaceHTMLTranscriptRenderer.renderPlanProgress: the always-visible strip above
     // the input, rendered from the pre-computed state.composer.planProgress (null => nothing).
+    function renderComposerFollowUpQueue() {
+      const items = state.composer.followUpQueue || [];
+      if (!items.length) return '';
+      const chips = items.map(item => `
+        <span class="composer-followup-chip" data-testid="composer-followup-chip" data-followup-id="${escapeHTML(item.id)}">
+          <span class="composer-followup-text" data-testid="composer-followup-text">${escapeHTML(item.text)}</span>
+          <button type="button" class="composer-followup-delete hit-target-icon" data-testid="composer-followup-delete" data-followup-id="${escapeHTML(item.id)}" aria-label="Remove queued follow-up">×</button>
+        </span>`).join('\n');
+      return `
+        <div class="composer-followup-queue" data-testid="composer-followup-queue" aria-label="Queued follow-ups">
+          ${chips}
+        </div>`;
+    }
+
     function renderComposerPlanProgress() {
       const p = state.composer.planProgress;
       if (!p) return '';
@@ -10267,6 +10328,9 @@
       state.composer.draft = '';
       state.composer.canSend = false;
       state.composer.slashActiveIndex = 0;
+      // A fresh thread is not running and carries no queued follow-ups (the queue is per-thread).
+      state.composer.isSending = false;
+      state.composer.followUpQueue = [];
       state.topBar.primaryTitle = 'QuillCode';
       // The usage chip is per-thread; a fresh thread has no usage until its first turn.
       state.topBar.usageStatusLabel = null;
@@ -14188,6 +14252,19 @@
     function sendMessage(value) {
       const text = String(value).trim();
       if (!text) return;
+      // Never lock the composer: a submit DURING a live run enqueues as a follow-up chip
+      // (drained at the next turn boundary by finishMockAgentTurn) instead of starting a turn.
+      if (state.composer.isSending) {
+        state.composer.followUpQueue.push({ id: crypto.randomUUID(), text });
+        state.composer.draft = '';
+        state.composer.canSend = false;
+        render();
+        return;
+      }
+      startMockAgentTurn(text);
+    }
+
+    function startMockAgentTurn(text) {
       ensureThread(initialThreadTitleForPrompt(text));
       if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
       state.composer.draft = '';
@@ -14204,10 +14281,16 @@
       window.setTimeout(() => completeMockAgentTurn(text), 0);
     }
 
+    function deleteFollowUp(id) {
+      state.composer.followUpQueue = state.composer.followUpQueue.filter(item => item.id !== id);
+      render();
+    }
+
     function finishMockAgentTurn() {
       state.composer.isSending = false;
       state.composer.canSend = Boolean(state.composer.draft.trim());
-      if (!['Failed', 'Stopped'].includes(state.topBar.agentStatus)) {
+      const halted = ['Failed', 'Stopped'].includes(state.topBar.agentStatus);
+      if (!halted) {
         state.topBar.agentStatus = 'Idle';
         // Mirrors native: the model reports token usage at the end of a turn, surfaced as
         // the quiet top-bar usage chip. The chip is derived per-thread, so a fresh thread
@@ -14215,6 +14298,14 @@
         state.topBar.usageStatusLabel = mockTokenUsageLabel();
       }
       syncSelectedThreadSearchText();
+      // Drain the next queued follow-up as the next turn — but only after a turn that finished
+      // normally. A Stop/Failure halts the wave and leaves the remaining queue intact, mirroring
+      // the native drain loop (which only continues after a completed outcome).
+      if (!halted && state.composer.followUpQueue.length) {
+        const next = state.composer.followUpQueue.shift();
+        startMockAgentTurn(next.text);
+        return;
+      }
       render();
     }
 
@@ -14283,11 +14374,10 @@
           card.outputJSON = JSON.stringify({ ok: true, stdout: 'mock-user\\n', stderr: '', exitCode: 0 }, null, 2);
           card.artifacts = artifactsFromOutput(card.outputJSON);
           activeMockRun = null;
-          state.composer.isSending = false;
-          state.topBar.agentStatus = 'Idle';
           addMessage('assistant', 'Long-running task completed.');
-          syncSelectedThreadSearchText();
-          render();
+          // Route through the shared finisher so a queued follow-up drains as the next turn
+          // (it clears isSending, sets Idle/usage, and pops the next follow-up if any).
+          finishMockAgentTurn();
         }, 2000);
         activeMockRun = { id: runID, timer };
         shouldFinishMockAgentTurn = false;

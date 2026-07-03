@@ -16,6 +16,7 @@ struct QuillCodeComposerView: View {
     var onToggleModelFavorite: (String) -> Void
     var onSend: () -> Void
     var onStop: () -> Void
+    var onDeleteFollowUp: (UUID) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var activeSlashSuggestionIndex = 0
@@ -80,6 +81,10 @@ struct QuillCodeComposerView: View {
 
     private var composerSurface: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if !composer.followUpQueue.isEmpty {
+                followUpQueueChips
+            }
+
             HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 composerField
                 composerAction
@@ -103,6 +108,50 @@ struct QuillCodeComposerView: View {
             return QuillCodePalette.blue.opacity(0.34)
         }
         return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
+    }
+
+    /// The queued follow-up chips shown above the input while a run is live. Each chip shows
+    /// the queued prompt and a delete button that removes it before it drains. Stacked one per
+    /// row (oldest first) so a long queued prompt stays readable and the drain order is clear.
+    private var followUpQueueChips: some View {
+        VStack(alignment: .leading, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+            ForEach(composer.followUpQueue) { item in
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                    Text(item.text)
+                        .font(.callout)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        onDeleteFollowUp(item.id)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption2.weight(.bold))
+                            .quillCodeIconButtonTarget(size: 22, radius: 6)
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .help("Remove queued follow-up")
+                    .accessibilityLabel("Remove queued follow-up")
+                    .accessibilityIdentifier("quillcode-followup-delete")
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(QuillCodePalette.blue.opacity(0.12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(QuillCodePalette.blue.opacity(0.3), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("quillcode-followup-chip")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Queued follow-ups")
     }
 
     private var slashSuggestions: [SlashCommandSuggestionSurface] {
@@ -148,7 +197,8 @@ struct QuillCodeComposerView: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 8)
             .quillCodeTextEntryTarget()
-            .disabled(composer.isSending)
+            // Never locks during a run: typing stays enabled so a follow-up can be entered and
+            // queued (Enter enqueues while the run is live, drains at the next turn boundary).
             .focused(isFocused)
             .onKeyPress(.downArrow) {
                 if !slashSuggestions.isEmpty {

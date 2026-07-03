@@ -92,25 +92,48 @@ public extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: result.finalStatus)
     }
 
-    /// Runs the approval (the held tool) and, after a Plan-mode approval, resumes the agent so it
-    /// drives the plan forward — proposing the next step, which is itself gated for approval (see
-    /// `resumeAgentAfterApproval`). This is the SINGLE path both the tests and the desktop drive
-    /// (the desktop wraps it in the cancellable `.send` slot), so the shipped wiring is exactly
-    /// what is tested. The resume is pinned to the thread the held tool acted on, so a thread
-    /// switch during the async continuation can never resume the wrong plan.
+    /// Resolves an approval gate and, once it settles, drains any follow-ups the user queued while
+    /// the gate was open. For a Plan-mode APPROVE it also resumes the agent so it drives the plan
+    /// forward — proposing the next step, which is itself gated for approval (see
+    /// `resumeAgentAfterApproval`). This is the SINGLE async path both the tests and the desktop
+    /// drive for EVERY decided gate action — approve/approveAlways AND deny/denyAlways, in any mode
+    /// (plan/auto/review) — so the queue drains after the gate is resolved regardless of the
+    /// decision or mode. The resume and drain are pinned to the thread the held tool acted on, so a
+    /// thread switch during the async continuation can never resume/drain the wrong plan.
     @discardableResult
     func approveToolCardAndResume(_ action: ToolCardActionSurface, workspaceRoot: URL) async -> Bool {
-        let approvedThreadID = selectedThread?.id
+        let decidedThreadID = selectedThread?.id
         let request = WorkspaceApprovalActionPlanner.pendingRequest(id: action.requestID, in: selectedThread)
         let didRun = runToolCardAction(action, workspaceRoot: workspaceRoot)
-        guard didRun, action.kind.approvesHeldTool, selectedThread?.id == approvedThreadID else { return didRun }
-        if request?.scope == .runSpendFuse {
-            await resumeAgentAfterSpendFuseApproval(workspaceRoot: workspaceRoot, expectedThreadID: approvedThreadID)
-            return didRun
+        guard didRun, selectedThread?.id == decidedThreadID else { return didRun }
+
+        // An APPROVE resumes the run: a spend-fuse approval resumes past the budget gate; a Plan-mode
+        // approve resumes the plan (`resumeAgentAfterApproval` is guarded to Plan mode + the pinned
+        // thread, so it no-ops for an auto/review approval). A DENY runs neither — it only resolved
+        // the gate. After any resume settles we still drain (below), so the two paths agree.
+        if action.kind.approvesHeldTool {
+            if request?.scope == .runSpendFuse {
+                await resumeAgentAfterSpendFuseApproval(workspaceRoot: workspaceRoot, expectedThreadID: decidedThreadID)
+            } else {
+                await resumeAgentAfterApproval(workspaceRoot: workspaceRoot, expectedThreadID: decidedThreadID)
+            }
         }
-        // `resumeAgentAfterApproval` is itself guarded to Plan mode + the pinned thread, so this
-        // no-ops for a review/auto approval and only continues the approved plan.
-        await resumeAgentAfterApproval(workspaceRoot: workspaceRoot, expectedThreadID: approvedThreadID)
+
+        // Drain the follow-up queue after the gate is RESOLVED — for every decision (approve/deny)
+        // and every mode/scope. `canDrainAfter` keeps this a no-op when a resumed plan hit the NEXT
+        // gate (an undecided approval remains) or an `edit` left the gate open, so items never drain
+        // past a still-open gate and never drain while a run is in flight. This is the common choke
+        // point that fixes the deny/skip and auto/review-approve strandings the Plan-only resume
+        // drain missed. Pinned to the decided thread so a mid-decision thread switch drains nothing
+        // wrong.
+        if let decidedThreadID {
+            await drainFollowUpQueue(
+                after: AgentTurnResult(threadID: decidedThreadID, completed: true),
+                workspaceRoot: workspaceRoot,
+                onStarted: nil,
+                onProgressUpdated: nil
+            )
+        }
         return didRun
     }
 
@@ -127,6 +150,42 @@ public extension QuillCodeWorkspaceModel {
             style: approve ? .primary : .secondary
         )
         return await approveToolCardAndResume(action, workspaceRoot: workspaceRoot)
+    }
+
+    /// Drains follow-ups after an approval gate DECISION was already recorded (e.g. a deny/skip whose
+    /// decision the desktop recorded unconditionally so a refusal is never dropped). Runs the same
+    /// self-gated drain as `approveToolCardAndResume` (a no-op while a run is in flight or an
+    /// undecided approval remains), pinned to the decided thread. Separate from the decision so the
+    /// safety-critical "record the refusal" can be unconditional while the drain stays slot-gated.
+    func drainFollowUpQueueAfterGateDecision(threadID: UUID?, workspaceRoot: URL) async {
+        await drainFollowUpQueueForThread(threadID, workspaceRoot: workspaceRoot)
+    }
+
+    /// Recovers a thread's follow-up queue that could not drain when it was first decided/finished
+    /// because the single global `.send` slot was busy running ANOTHER thread. There is only one
+    /// `.send` slot, so a deny on thread A while a run holds the slot for thread B skips A's drain,
+    /// and B's own completion drains only B's queue — leaving A's queue stranded as visible chips.
+    /// The desktop calls this for the now-idle thread when a thread becomes the active context
+    /// (select) and when the `.send` slot frees (a send/approval finishes), so A's queue drains as
+    /// soon as A is in front or the slot is free again — without needing two threads to run at once.
+    /// `canDrainAfter`-gated, so it never drains past an open gate, never drains a running thread,
+    /// and drains each item exactly once.
+    public func recoverFollowUpQueueIfIdle(threadID: UUID?, workspaceRoot: URL) async {
+        guard !composer.isSending else { return }
+        await drainFollowUpQueueForThread(threadID, workspaceRoot: workspaceRoot)
+    }
+
+    /// Shared self-gated drain of a single thread's follow-up queue: runs the `canDrainAfter`-gated
+    /// `drainFollowUpQueue` pinned to `threadID` (a no-op while a run is in flight or an undecided
+    /// approval remains on that thread).
+    private func drainFollowUpQueueForThread(_ threadID: UUID?, workspaceRoot: URL) async {
+        guard let threadID else { return }
+        await drainFollowUpQueue(
+            after: AgentTurnResult(threadID: threadID, completed: true),
+            workspaceRoot: workspaceRoot,
+            onStarted: nil,
+            onProgressUpdated: nil
+        )
     }
 
     @discardableResult

@@ -51,6 +51,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onExportConversationMarkdown: (String, String) -> Void
     public var onRevertTurn: (UUID) -> Void = { _ in }
     public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
+    public var onDeleteFollowUp: (UUID) -> Void = { _ in }
     public var onSaveSidebarSavedSearch: (String, String) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
@@ -119,6 +120,7 @@ public struct QuillCodeWorkspaceView: View {
         onExportConversationMarkdown: @escaping (String, String) -> Void = { _, _ in },
         onRevertTurn: @escaping (UUID) -> Void = { _ in },
         onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
+        onDeleteFollowUp: @escaping (UUID) -> Void = { _ in },
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
@@ -170,6 +172,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onExportConversationMarkdown = onExportConversationMarkdown
         self.onRevertTurn = onRevertTurn
         self.onMessageFeedback = onMessageFeedback
+        self.onDeleteFollowUp = onDeleteFollowUp
         self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
         self.onCommand = onCommand
     }
@@ -234,6 +237,7 @@ public struct QuillCodeWorkspaceView: View {
                     onCopyTranscriptItem: onCopyTranscriptItem,
                     onRevertTurn: onRevertTurn,
                     onMessageFeedback: onMessageFeedback,
+                    onDeleteFollowUp: onDeleteFollowUp,
                     onCommand: handleCommand
                 )
             }

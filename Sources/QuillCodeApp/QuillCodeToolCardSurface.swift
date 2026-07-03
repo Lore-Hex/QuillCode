@@ -29,6 +29,15 @@ public enum ToolCardActionKind: String, Codable, Sendable, Hashable {
     public var approvesHeldTool: Bool {
         self == .approve || self == .approveAlways
     }
+
+    /// Kinds that RESOLVE the approval gate — the approve family and the deny family. `.edit` does
+    /// not decide the gate (it seeds a composer draft and leaves the request undecided for a
+    /// re-submit). The desktop routes every gate-deciding action through the async approval choke
+    /// point so a queued follow-up drains once the gate is settled — for a deny/skip as well as an
+    /// approve, in every mode.
+    public var decidesGate: Bool {
+        self == .approve || self == .approveAlways || self == .deny || self == .denyAlways
+    }
 }
 
 public enum ToolCardActionStyle: String, Codable, Sendable, Hashable {
