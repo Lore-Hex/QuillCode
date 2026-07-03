@@ -1,9 +1,17 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { harnessURL } from './harness-helpers';
 
 async function send(page: Page, text: string) {
   await page.getByLabel('Message').fill(text);
   await page.getByRole('button', { name: 'Send' }).click();
+}
+
+function lastDiffJump(page: Page) {
+  return page.getByTestId('transcript-jump-last-diff');
+}
+
+async function anchorID(locator: Locator) {
+  return locator.getAttribute('data-anchor-id');
 }
 
 test('incremental find highlights the active match and navigates next/prev', async ({ page }) => {
@@ -79,9 +87,10 @@ test('last diff ignores read-only file tools even though they emit path artifact
   // Write a file (a real diff), then read it back SUCCESSFULLY. The successful read carries the
   // file's absolute path as an artifact (kind 'file'), but a read is not a diff.
   await send(page, 'write hello to a file');
-  // Wait for the write card (the mock completes the turn asynchronously) before reading the anchor.
   await expect(page.getByTestId('tool-card').filter({ hasText: 'host.file.write' })).toBeVisible();
-  const diffAnchorAfterWrite = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  const lastDiff = lastDiffJump(page);
+  await expect(lastDiff).toBeEnabled();
+  const diffAnchorAfterWrite = await anchorID(lastDiff);
   expect(diffAnchorAfterWrite).toBeTruthy();
 
   await send(page, 'read hello.txt');
@@ -89,8 +98,8 @@ test('last diff ignores read-only file tools even though they emit path artifact
   await expect(page.getByTestId('tool-card').filter({ hasText: 'host.file.read' })).toBeVisible();
 
   // ...but "Last diff" must still point at the WRITE, not the later read.
-  await expect(page.getByTestId('transcript-jump-last-diff')).toBeEnabled();
-  expect(await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id')).toBe(diffAnchorAfterWrite);
+  await expect(lastDiff).toBeEnabled();
+  expect(await anchorID(lastDiff)).toBe(diffAnchorAfterWrite);
 });
 
 test('read-only session keeps the last-diff affordance disabled', async ({ page }) => {
@@ -114,7 +123,8 @@ test('last diff anchors to a turn revert (revert_turn is a diff)', async ({ page
   // most recent one (jumping to a just-reverted diff is a prime use of "Last diff").
   await send(page, 'apply patch to fix the bug');
   await expect(page.getByTestId('tool-card').filter({ hasText: 'host.apply_patch' })).toBeVisible();
-  const diffAnchorAfterPatch = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  const lastDiff = lastDiffJump(page);
+  const diffAnchorAfterPatch = await anchorID(lastDiff);
   expect(diffAnchorAfterPatch).toBeTruthy();
 
   await page.getByTestId('message-revert-turn').first().click();
@@ -122,8 +132,8 @@ test('last diff anchors to a turn revert (revert_turn is a diff)', async ({ page
   await expect(revertCard).toBeVisible();
 
   // "Last diff" stays enabled and now points at the revert, not the earlier patch.
-  await expect(page.getByTestId('transcript-jump-last-diff')).toBeEnabled();
-  const diffAnchorAfterRevert = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  await expect(lastDiff).toBeEnabled();
+  const diffAnchorAfterRevert = await anchorID(lastDiff);
   expect(diffAnchorAfterRevert).toBeTruthy();
   expect(diffAnchorAfterRevert).not.toBe(diffAnchorAfterPatch);
   expect(await revertCard.getAttribute('data-timeline-id')).toBe(diffAnchorAfterRevert);
@@ -135,19 +145,21 @@ test('repo-only ops (commit) do not retarget last diff — only working-tree wri
   // Apply a patch (a working-tree diff), then commit. A commit records already-written content and
   // does NOT change working-tree file bytes, so "Last diff" must stay pinned to the patch.
   await send(page, 'apply patch to fix the bug');
-  // Wait for the patch card before reading the anchor (the mock completes the turn asynchronously).
-  await expect(page.getByTestId('tool-card').filter({ hasText: 'host.apply_patch' })).toBeVisible();
-  const diffAnchorAfterPatch = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  const lastDiff = lastDiffJump(page);
+  await expect(lastDiff).toBeEnabled();
+  const diffAnchorAfterPatch = await anchorID(lastDiff);
   expect(diffAnchorAfterPatch).toBeTruthy();
 
   await send(page, 'commit with message wip');
   await expect(page.getByTestId('tool-card').filter({ hasText: 'host.git.commit' })).toBeVisible();
 
-  await expect(page.getByTestId('transcript-jump-last-diff')).toBeEnabled();
-  expect(await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id')).toBe(diffAnchorAfterPatch);
+  await expect(lastDiff).toBeEnabled();
+  expect(await anchorID(lastDiff)).toBe(diffAnchorAfterPatch);
 });
 
-test('N new turns pill appears on return to a thread that grew and jumps to the first unseen turn', async ({ page }) => {
+test('N new turns pill appears on return to a thread that grew and jumps to the first unseen turn', async ({
+  page,
+}) => {
   await page.goto(harnessURL());
 
   // Thread A.
