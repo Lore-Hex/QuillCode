@@ -80,6 +80,7 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         Self.assertSource(activityText, contains: "ProjectInstructionDiagnosticsBuilder")
         Self.assertSource(diagnosticsText, contains: "ProjectInstructionDiagnostic")
         Self.assertSource(diagnosticsText, contains: "Shared instruction scope")
+        Self.assertSource(diagnosticsText, contains: "Nested instruction overlap")
         Self.assertSource(diagnosticsText, contains: "Nested instruction override")
         Self.assertSource(diagnosticsText, contains: "Conflicting instruction intent")
         Self.assertSource(modelText, excludes: "scopePath(for:")

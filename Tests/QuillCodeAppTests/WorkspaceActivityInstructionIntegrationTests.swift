@@ -6,13 +6,23 @@ import QuillCodeCore
 final class WorkspaceActivityInstructionIntegrationTests: XCTestCase {
     func testActivitySourcesSurfaceInstructionDiagnostics() throws {
         let instructions = [
-            ProjectInstruction(path: "AGENTS.md", title: "AGENTS.md", content: "Use Swift.", byteCount: 10),
-            ProjectInstruction(path: ".quillcode/rules.md", title: "rules.md", content: "Use tests.", byteCount: 10),
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "AGENTS.md",
+                content: "Keep changes reviewable.",
+                byteCount: 24
+            ),
+            ProjectInstruction(
+                path: ".quillcode/rules.md",
+                title: "rules.md",
+                content: "Run focused validation.",
+                byteCount: 23
+            ),
             ProjectInstruction(
                 path: "Sources/Feature/AGENTS.md",
                 title: "Feature AGENTS.md",
-                content: "Use feature tests.",
-                byteCount: 18,
+                content: "Keep changes reviewable.\nUse feature tests.",
+                byteCount: 43,
                 wasTruncated: true
             )
         ]
@@ -33,13 +43,13 @@ final class WorkspaceActivityInstructionIntegrationTests: XCTestCase {
             "rules.md",
             "AGENTS.md",
             "Shared instruction scope",
-            "Nested instruction override"
+            "Nested instruction overlap"
         ])
         XCTAssertEqual(activity.sources[2].statusLabel, "truncated")
         XCTAssertEqual(activity.sources[3].detail, "whole project: AGENTS.md, .quillcode/rules.md")
         XCTAssertEqual(
             activity.sources[4].detail,
-            "Sources/Feature/** from Sources/Feature/AGENTS.md may override AGENTS.md, .quillcode/rules.md"
+            "Sources/Feature/** repeats broader guidance in Sources/Feature/AGENTS.md; broader source AGENTS.md, .quillcode/rules.md already applies"
         )
         XCTAssertEqual(activity.sections.first { $0.kind == .sources }?.countLabel, "5 items")
     }

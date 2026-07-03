@@ -24,6 +24,7 @@ enum ProjectInstructionDiagnosticApplyPlanner {
             }
         }
         return supportedDuplicateScopeActions(for: diagnostic, instructions: instructions)
+            + supportedNestedOverlapActions(for: diagnostic)
     }
 
     static func plan(
@@ -39,6 +40,10 @@ enum ProjectInstructionDiagnosticApplyPlanner {
             )
         }
         return duplicateScopePlan(
+            for: diagnostic,
+            selectedReferenceIndex: selectedReferenceIndex,
+            instructions: instructions
+        ) ?? nestedOverlapPlan(
             for: diagnostic,
             selectedReferenceIndex: selectedReferenceIndex,
             instructions: instructions
@@ -181,6 +186,64 @@ enum ProjectInstructionDiagnosticApplyPlanner {
         "Clear duplicate \(clearedPath); identical guidance remains in \(remainingPath ?? "another source")."
     }
 
+    private static func supportedNestedOverlapActions(
+        for diagnostic: ProjectInstructionDiagnostic
+    ) -> [ActivityItemActionSurface] {
+        nestedOverlapIndexes(for: diagnostic).map { index in
+            applyAction(
+                title: "Remove repeated lines from \(diagnostic.sourceReferences[index].path)",
+                diagnosticID: diagnostic.id,
+                selectedReferenceIndex: index
+            )
+        }
+    }
+
+    private static func nestedOverlapPlan(
+        for diagnostic: ProjectInstructionDiagnostic,
+        selectedReferenceIndex: Int,
+        instructions: [ProjectInstruction]
+    ) -> ProjectInstructionDiagnosticApplyPlan? {
+        guard nestedOverlapIndexes(for: diagnostic).contains(selectedReferenceIndex) else {
+            return nil
+        }
+        let selectedReference = diagnostic.sourceReferences[selectedReferenceIndex]
+        let instructionByPath = instructionsByPath(instructions)
+        guard let selectedInstruction = instructionByPath[selectedReference.path] else {
+            return nil
+        }
+        let repeatedReferences = diagnostic.sourceReferences.filter {
+            $0.path == selectedReference.path
+                && $0.role == ProjectInstructionDiagnosticReferenceRole.repeatedNestedGuidance
+        }
+        guard let patch = removalPatch(for: repeatedReferences, in: selectedInstruction) else {
+            return nil
+        }
+
+        return ProjectInstructionDiagnosticApplyPlan(
+            diagnosticID: diagnostic.id,
+            selectedReferenceIndex: selectedReferenceIndex,
+            summary: "Remove repeated broad guidance from \(selectedReference.path).",
+            toolCall: ToolCall(
+                name: ToolDefinition.applyPatch.name,
+                argumentsJSON: ToolArguments.json(["patch": patch])
+            )
+        )
+    }
+
+    private static func nestedOverlapIndexes(for diagnostic: ProjectInstructionDiagnostic) -> [Int] {
+        guard diagnostic.isNestedOverlap else { return [] }
+        var seenPaths = Set<String>()
+        return diagnostic.sourceReferences.enumerated().compactMap { index, reference in
+            guard reference.role == ProjectInstructionDiagnosticReferenceRole.repeatedNestedGuidance,
+                  isSafeGeneratedToolPath(reference.path),
+                  seenPaths.insert(reference.path).inserted
+            else {
+                return nil
+            }
+            return index
+        }
+    }
+
     private static func instructionsByPath(_ instructions: [ProjectInstruction]) -> [String: ProjectInstruction] {
         instructions.reduce(into: [:]) { partial, instruction in
             if partial[instruction.path] == nil {
@@ -233,6 +296,40 @@ enum ProjectInstructionDiagnosticApplyPlanner {
         for displayLineNumber in startLine...endLine {
             let line = lines[displayLineNumber - 1]
             patchLines.append(displayLineNumber == reference.lineNumber ? "-\(line)" : " \(line)")
+        }
+        return patchLines.joined(separator: "\n") + "\n"
+    }
+
+    private static func removalPatch(
+        for references: [ProjectInstructionDiagnosticSourceReference],
+        in instruction: ProjectInstruction
+    ) -> String? {
+        let lines = contentLines(instruction.content)
+        let lineIndexesToRemove = Set(references.compactMap { reference -> Int? in
+            let lineIndex = reference.lineNumber - 1
+            guard lines.indices.contains(lineIndex),
+                  normalizedLine(lines[lineIndex]) == normalizedLine(reference.excerpt)
+            else {
+                return nil
+            }
+            return lineIndex
+        })
+        guard !lineIndexesToRemove.isEmpty,
+              lineIndexesToRemove.count == references.count
+        else {
+            return nil
+        }
+
+        let oldCount = max(lines.count, 1)
+        let newCount = lines.count - lineIndexesToRemove.count
+        var patchLines = [
+            "diff --git a/\(instruction.path) b/\(instruction.path)",
+            "--- a/\(instruction.path)",
+            "+++ b/\(instruction.path)",
+            "@@ -1,\(oldCount) +1,\(newCount) @@"
+        ]
+        for (index, line) in lines.enumerated() {
+            patchLines.append(lineIndexesToRemove.contains(index) ? "-\(line)" : " \(line)")
         }
         return patchLines.joined(separator: "\n") + "\n"
     }

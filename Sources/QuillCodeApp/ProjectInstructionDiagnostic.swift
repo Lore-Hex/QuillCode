@@ -19,6 +19,11 @@ struct ProjectInstructionDiagnostic: Sendable, Hashable, Identifiable {
             && id.hasPrefix("instruction-duplicate-scope-")
     }
 
+    var isNestedOverlap: Bool {
+        statusLabel == ProjectInstructionDiagnosticStatusLabel.scope
+            && id.hasPrefix("instruction-nested-overlap-")
+    }
+
     init(
         id: String,
         title: String,
