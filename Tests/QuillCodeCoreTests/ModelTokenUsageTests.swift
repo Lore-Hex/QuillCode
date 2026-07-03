@@ -38,10 +38,24 @@ final class ModelTokenUsageTests: XCTestCase {
 
     func testUsageEventRoundTripsThroughThreadEventPayload() throws {
         let usage = ModelTokenUsage(promptTokens: 10, completionTokens: 2, totalTokens: 12)
-        let event = ModelTokenUsageEvent.event(usage: usage)
+        let event = ModelTokenUsageEvent.event(usage: usage, modelID: " /synth ")
 
         XCTAssertEqual(event.kind, .notice)
         XCTAssertEqual(event.summary, ModelTokenUsageEvent.summary)
         XCTAssertEqual(ModelTokenUsageEvent.usage(from: event), usage)
+        XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.modelID, TrustedRouterDefaults.synthModel)
+    }
+
+    func testUsageEventReadsLegacyUsagePayload() throws {
+        let usage = ModelTokenUsage(promptTokens: 10, completionTokens: 2, totalTokens: 12)
+        let event = ThreadEvent(
+            kind: .notice,
+            summary: ModelTokenUsageEvent.summary,
+            payloadJSON: try JSONHelpers.encodePretty(usage)
+        )
+
+        XCTAssertEqual(ModelTokenUsageEvent.usage(from: event), usage)
+        XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.usage, usage)
+        XCTAssertNil(ModelTokenUsageEvent.record(from: event)?.modelID)
     }
 }

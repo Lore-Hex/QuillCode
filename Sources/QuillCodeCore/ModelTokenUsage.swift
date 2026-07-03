@@ -41,25 +41,63 @@ public struct ModelTokenUsage: Codable, Sendable, Hashable {
     }
 }
 
-public enum ModelTokenUsageEvent {
-    public static let summary = "Model token usage"
+public struct ModelTokenUsageRecord: Codable, Sendable, Hashable {
+    public var usage: ModelTokenUsage
+    public var modelID: String?
 
-    public static func event(usage: ModelTokenUsage) -> ThreadEvent {
-        ThreadEvent(
-            kind: .notice,
-            summary: summary,
-            payloadJSON: try? JSONHelpers.encodePretty(usage)
+    public init(usage: ModelTokenUsage, modelID: String? = nil) {
+        self.usage = usage
+        self.modelID = Self.normalizedModelID(modelID)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case usage
+        case modelID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            usage: try container.decode(ModelTokenUsage.self, forKey: .usage),
+            modelID: try container.decodeIfPresent(String.self, forKey: .modelID)
         )
     }
 
-    public static func usage(from event: ThreadEvent) -> ModelTokenUsage? {
+    private static func normalizedModelID(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : TrustedRouterDefaults.canonicalModelID(trimmed)
+    }
+}
+
+public enum ModelTokenUsageEvent {
+    public static let summary = "Model token usage"
+
+    public static func event(usage: ModelTokenUsage, modelID: String? = nil) -> ThreadEvent {
+        ThreadEvent(
+            kind: .notice,
+            summary: summary,
+            payloadJSON: try? JSONHelpers.encodePretty(ModelTokenUsageRecord(usage: usage, modelID: modelID))
+        )
+    }
+
+    public static func record(from event: ThreadEvent) -> ModelTokenUsageRecord? {
         guard event.kind == .notice,
               event.summary == summary,
               let payloadJSON = event.payloadJSON
         else {
             return nil
         }
-        return try? JSONHelpers.decode(ModelTokenUsage.self, from: payloadJSON)
+        if let record = try? JSONHelpers.decode(ModelTokenUsageRecord.self, from: payloadJSON) {
+            return record
+        }
+        guard let usage = try? JSONHelpers.decode(ModelTokenUsage.self, from: payloadJSON) else {
+            return nil
+        }
+        return ModelTokenUsageRecord(usage: usage)
+    }
+
+    public static func usage(from event: ThreadEvent) -> ModelTokenUsage? {
+        record(from: event)?.usage
     }
 }
 

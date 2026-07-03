@@ -65,6 +65,7 @@ enum WorkspaceActivitySurfaceBuilder {
         planItems: [ActivityItemSurface],
         changeItems: [ActivityItemSurface] = [],
         contextItems: [ActivityItemSurface],
+        runReceiptItems: [ActivityItemSurface] = [],
         recentSteps: [ActivityItemSurface],
         subagents: [ActivityItemSurface],
         tools: [ActivityItemSurface],
@@ -90,6 +91,11 @@ enum WorkspaceActivitySurfaceBuilder {
                 kind: .context,
                 items: contextItems,
                 isCollapsed: collapsedSectionIDs.contains(.context)
+            ),
+            ActivitySectionSurface(
+                kind: .runReceipts,
+                items: runReceiptItems,
+                isCollapsed: collapsedSectionIDs.contains(.runReceipts)
             ),
             ActivitySectionSurface(
                 kind: .recent,

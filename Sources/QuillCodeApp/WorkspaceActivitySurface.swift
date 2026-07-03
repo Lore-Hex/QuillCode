@@ -10,6 +10,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     public private(set) var taskSubtitle: String
     public private(set) var planItems: [ActivityItemSurface]
     public private(set) var contextItems: [ActivityItemSurface]
+    public private(set) var runReceiptItems: [ActivityItemSurface]
     public private(set) var recentSteps: [ActivityItemSurface]
     public private(set) var subagents: [ActivityItemSurface]
     public private(set) var tools: [ActivityItemSurface]
@@ -34,6 +35,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         planItems: [ActivityItemSurface] = [],
         changeItems: [ActivityItemSurface] = [],
         contextItems: [ActivityItemSurface] = [],
+        runReceiptItems: [ActivityItemSurface] = [],
         recentSteps: [ActivityItemSurface] = [],
         subagents: [ActivityItemSurface] = [],
         tools: [ActivityItemSurface] = [],
@@ -55,6 +57,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.integrityDetail = integrityDetail
         self.planItems = planItems
         self.contextItems = contextItems
+        self.runReceiptItems = runReceiptItems
         self.recentSteps = recentSteps
         self.subagents = subagents
         self.tools = tools
@@ -66,6 +69,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             planItems: planItems,
             changeItems: changeItems,
             contextItems: contextItems,
+            runReceiptItems: runReceiptItems,
             recentSteps: recentSteps,
             subagents: subagents,
             tools: tools,
@@ -85,6 +89,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         memories: [MemoryNote],
         agentStatus: String,
         changeFiles: [WorkspaceReviewFileSurface] = [],
+        modelCatalog: [ModelInfo] = [],
+        runSpendFuseUSD: Double? = 1.0,
         collapsedSectionIDs: Set<ActivitySectionKind> = [],
         dismissedInstructionDiagnosticIDs: Set<String> = []
     ) {
@@ -130,6 +136,11 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             planItems: planItems,
             changeItems: WorkspaceActivityChangesSurfaceBuilder.items(from: changeFiles),
             contextItems: WorkspaceActivitySurfaceBuilder.contextItems(for: thread),
+            runReceiptItems: WorkspaceRunReceiptSurfaceBuilder(
+                thread: thread,
+                modelCatalog: modelCatalog,
+                spendFuseUSD: runSpendFuseUSD
+            ).items(),
             recentSteps: WorkspaceActivitySurfaceBuilder.recentSteps(for: thread),
             subagents: WorkspaceActivitySurfaceBuilder.subagentItems(for: thread),
             tools: WorkspaceActivitySurfaceBuilder.toolItems(from: toolCards),
@@ -159,6 +170,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         case taskSubtitle
         case planItems
         case contextItems
+        case runReceiptItems
         case recentSteps
         case subagents
         case tools
@@ -182,6 +194,10 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             ?? "Start a chat to see task progress, tools, sources, and artifacts."
         self.planItems = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .planItems) ?? []
         self.contextItems = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .contextItems) ?? []
+        self.runReceiptItems = try container.decodeIfPresent(
+            [ActivityItemSurface].self,
+            forKey: .runReceiptItems
+        ) ?? []
         self.recentSteps = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .recentSteps) ?? []
         self.subagents = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .subagents) ?? []
         self.tools = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .tools) ?? []
@@ -195,6 +211,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             ?? WorkspaceActivitySurfaceBuilder.sections(
                 planItems: planItems,
                 contextItems: contextItems,
+                runReceiptItems: runReceiptItems,
                 recentSteps: recentSteps,
                 subagents: subagents,
                 tools: tools,

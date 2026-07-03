@@ -178,6 +178,8 @@ final class AgentStreamingTests: XCTestCase {
 
         let recordedUsage = result.thread.events.compactMap(ModelTokenUsageEvent.usage(from:)).last
         XCTAssertEqual(recordedUsage, usage)
+        let recordedModelID = result.thread.events.compactMap(ModelTokenUsageEvent.record(from:)).last?.modelID
+        XCTAssertEqual(recordedModelID, TrustedRouterDefaults.defaultModel)
         XCTAssertEqual(result.thread.messages.last?.content, "hello")
     }
 
