@@ -46,26 +46,47 @@ final class TranscriptNavigationAnchorsTests: XCTestCase {
         XCTAssertTrue(anchors.hasError)
     }
 
-    func testLastDiffDetectedForEveryMutatingTool() {
-        // Every mutating tool the codebase can emit as a card — including the ones an earlier
-        // name-list missed (revert_turn / restore / restore_hunk) — must count as a diff. Driven
-        // by the shared risk-based predicate, so this stays correct as tools are added.
-        let mutating = [
+    func testLastDiffDetectedForEveryWorkingTreeMutatingTool() {
+        // Every tool that rewrites working-tree file content — including the ones an earlier
+        // name-list missed (revert_turn / restore / restore_hunk) — must count as a diff.
+        let diffTools = [
             "host.apply_patch",
             "host.file.write",
-            "host.git.commit",
-            "host.git.stage",
             "host.git.restore",
             "host.git.restore_hunk",
             "host.git.revert_turn",
-            "host.shell.run",
             "apply_patch" // de-prefixed display title still resolves
         ]
-        for name in mutating {
+        for name in diffTools {
             let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
                 card(id: "t1", title: name, status: .done)
             ]))
             XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-t1", "expected \(name) to be a diff turn")
+        }
+    }
+
+    func testRepoAndRemoteOpsAreNotDiffs() {
+        // Registered non-read tools that do NOT rewrite working-tree file content must not anchor
+        // "Last diff" (its label promises "file write/patch"): commit/stage record already-written
+        // content, push uploads committed history, pr.* is PR metadata, worktree.* is not a content
+        // diff, and shell.run is opaque.
+        let nonDiff = [
+            "host.git.commit",
+            "host.git.stage",
+            "host.git.stage_hunk",
+            "host.git.push",
+            "host.git.pr.create",
+            "host.git.pr.merge",
+            "host.git.pr.reviewers",
+            "host.git.worktree.create",
+            "host.git.worktree.remove",
+            "host.shell.run"
+        ]
+        for name in nonDiff {
+            let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
+                card(id: "t1", title: name, status: .done)
+            ]))
+            XCTAssertNil(anchors.lastDiffAnchorID, "\(name) does not change working-tree file content")
         }
     }
 

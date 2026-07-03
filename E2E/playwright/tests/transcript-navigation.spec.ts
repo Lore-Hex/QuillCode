@@ -127,6 +127,22 @@ test('last diff anchors to a turn revert (revert_turn is a diff)', async ({ page
   expect(await revertCard.getAttribute('data-timeline-id')).toBe(diffAnchorAfterRevert);
 });
 
+test('repo-only ops (commit) do not retarget last diff — only working-tree writes do', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // Apply a patch (a working-tree diff), then commit. A commit records already-written content and
+  // does NOT change working-tree file bytes, so "Last diff" must stay pinned to the patch.
+  await send(page, 'apply patch to fix the bug');
+  const diffAnchorAfterPatch = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  expect(diffAnchorAfterPatch).toBeTruthy();
+
+  await send(page, 'commit with message wip');
+  await expect(page.getByTestId('tool-card').filter({ hasText: 'host.git.commit' })).toBeVisible();
+
+  await expect(page.getByTestId('transcript-jump-last-diff')).toBeEnabled();
+  expect(await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id')).toBe(diffAnchorAfterPatch);
+});
+
 test('N new turns pill appears on return to a thread that grew and jumps to the first unseen turn', async ({ page }) => {
   await page.goto(harnessURL());
 

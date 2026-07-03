@@ -48,17 +48,38 @@ public enum WorkspaceTurnRevertPlanner {
         toolRiskByName[name] != nil
     }
 
-    /// Whether a tool run produced a **working-tree / repo diff** worth navigating to for the
-    /// transcript's "Last diff" affordance: `apply_patch`, the `revert_turn` reverse-patch, or any
-    /// registered non-`read` tool (file write, git restore/commit/stage, shell run, …). Registry-
-    /// driven so future mutating tools are caught automatically; unknown *registered-tool-shaped*
-    /// names are excluded so a plain card title cannot false-positive. This is the shared,
-    /// authoritative diff predicate — the classifier must not hand-maintain its own list.
+    /// The tool ids whose run rewrites tracked file **content in the working tree** — i.e. produces
+    /// a `git diff`. This is the precise scope of the transcript's "Last diff" affordance (doc:
+    /// "most recent file write/patch"), NOT the broader "any non-read side effect": it deliberately
+    /// EXCLUDES repo/remote ops that leave working-tree file bytes unchanged —
+    /// - `host.git.pr.*` (PR metadata: reviewers, labels, comments, merge, review threads),
+    /// - `host.git.push` (uploads already-committed history),
+    /// - `host.git.commit` / `host.git.stage` / `host.git.stage_hunk` (record/stage content that is
+    ///   already on disk; they do not change working-tree file bytes),
+    /// - `host.git.worktree.*` (create/remove/prune a worktree — not a content diff),
+    /// - `host.shell.run` (opaque; may or may not write files, so we do not claim it as a diff).
+    ///
+    /// This is the SINGLE SOURCE OF TRUTH shared by the native classifier and, mirrored id-for-id,
+    /// the HTML/Playwright harness. `WorkspaceTurnRevertDiffToolParityTests` enumerates every
+    /// registered tool plus the dynamic ids and asserts membership matches the harness set, so a
+    /// future divergence (a new file-mutating tool added to one side only) fails CI rather than
+    /// silently drifting.
+    ///
+    /// Note this is a distinct, narrower concept from ``isMutatingNonApplyTool`` (which the revert
+    /// planner uses to decide whether a turn's undo is *partial* — there, over-claiming mutation is
+    /// the safe direction; here, precision to file-content changes is what the label promises).
+    public static let workingTreeDiffToolNames: Set<String> = [
+        ToolDefinition.applyPatch.name,       // host.apply_patch
+        revertTurnToolName,                   // host.git.revert_turn (dynamic; reverse-applies a patch)
+        ToolDefinition.fileWrite.name,        // host.file.write
+        ToolDefinition.gitRestore.name,       // host.git.restore
+        ToolDefinition.gitRestoreHunk.name    // host.git.restore_hunk
+    ]
+
+    /// Whether a tool run rewrote tracked file content in the working tree — the "Last diff"
+    /// predicate. See ``workingTreeDiffToolNames`` for the exact set and rationale.
     public static func isDiffProducingTool(_ name: String) -> Bool {
-        if name == ToolDefinition.applyPatch.name || name == revertTurnToolName {
-            return true
-        }
-        return isRegisteredTool(name) && isMutatingNonApplyTool(name)
+        workingTreeDiffToolNames.contains(name)
     }
 
     /// Whether a tool call other than `apply_patch` changed state that a reverse-patch of this turn's

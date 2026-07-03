@@ -53,18 +53,18 @@ struct TranscriptNavigationAnchors: Sendable, Equatable {
         card.status == .failed
     }
 
-    /// A tool card counts as a **diff** when its tool mutated the working tree / repo — an
-    /// `apply_patch`, a `revert_turn` reverse-patch, or any registered non-`read` tool (file write,
-    /// git restore/commit/stage, shell run, …).
+    /// A tool card counts as a **diff** when its tool rewrote tracked file **content in the working
+    /// tree** — `apply_patch`, the `revert_turn` reverse-patch, `file.write`, `git.restore`, or
+    /// `git.restore_hunk`. This matches the affordance's promise ("most recent file write/patch").
     ///
-    /// Classification delegates to the codebase's AUTHORITATIVE, risk-based predicate
-    /// (`WorkspaceTurnRevertPlanner.isDiffProducingTool`, keyed off each tool's `ToolRiskClass`)
-    /// rather than a bespoke name list. A hand-maintained list silently rots the moment a new
-    /// mutating tool is added: an earlier version of this feature omitted `host.git.revert_turn` /
-    /// `host.git.restore` / `host.git.restore_hunk`, so "Last diff" never anchored to a
-    /// just-reverted or restored diff.
+    /// Classification delegates to the single source of truth
+    /// (`WorkspaceTurnRevertPlanner.isDiffProducingTool` / `.workingTreeDiffToolNames`), which the
+    /// HTML/Playwright harness mirrors id-for-id and `WorkspaceTurnRevertDiffToolParityTests`
+    /// guards. It deliberately EXCLUDES repo/remote ops that leave working-tree bytes unchanged —
+    /// `git.pr.*`, `git.push`, `git.commit`/`git.stage`/`git.stage_hunk`, `git.worktree.*` — and the
+    /// opaque `shell.run`, so "Last diff" never jumps to an "add PR reviewers" or "push branch" card.
     ///
-    /// We deliberately do NOT infer "diff" from file/path artifacts: read-only tools
+    /// We also do NOT infer "diff" from file/path artifacts: read-only tools
     /// (`host.file.read` / `host.file.list` / `host.file.search`) all emit absolute-path artifacts
     /// that `ToolArtifactValueClassifier` labels `.file`, so an artifact fallback would light up
     /// "Last diff" in read-only sessions and, since `derive()` keeps the last hit in timeline
@@ -73,11 +73,10 @@ struct TranscriptNavigationAnchors: Sendable, Equatable {
         isDiffProducingToolName(card.title)
     }
 
-    /// Whether a tool by this raw id mutated the working tree / repo state. `derive()` only calls
-    /// this for `.toolCard` items, so the input is a tool id. Tolerant of surrounding whitespace
-    /// and a de-prefixed display title (`apply_patch` as well as `host.apply_patch`); the shared
-    /// predicate only trusts registered names (plus apply_patch / revert_turn), so a non-tool
-    /// title cannot false-positive.
+    /// Whether a tool by this raw id rewrote working-tree file content. `derive()` only calls this
+    /// for `.toolCard` items, so the input is a tool id. Tolerant of surrounding whitespace and a
+    /// de-prefixed display title (`apply_patch` as well as `host.apply_patch`); the shared set holds
+    /// only fully-qualified `host.*` ids, so a non-tool title cannot false-positive.
     static func isDiffProducingToolName(_ rawTitle: String) -> Bool {
         let trimmed = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         return canonicalToolNameCandidates(trimmed).contains(where: WorkspaceTurnRevertPlanner.isDiffProducingTool)

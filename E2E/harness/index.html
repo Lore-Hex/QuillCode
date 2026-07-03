@@ -8740,22 +8740,22 @@
       ];
     }
 
-    // Mirrors Swift TranscriptNavigationAnchors.derive / WorkspaceTurnRevertPlanner.isDiffProducingTool:
-    // the timeline ids of the most recent error turn (a failed tool run) and the most recent diff
-    // turn. A "diff" is apply_patch, the revert_turn reverse-patch, or any registered NON-read tool
-    // (file write, git restore/commit/stage, shell run, …) — driven by the tool registry's risk
-    // classes, NOT a hand-list that rots when a mutating tool is added (that omission is exactly
-    // why an earlier version missed revert_turn / restore / restore_hunk). This mirror lists the
-    // registry's non-read tool ids; read-only tools and unregistered/dynamic names are not diffs,
-    // and we never infer a diff from file/path artifacts (reads emit those too). null if none.
+    // "Last diff" classifier for transcriptNavigationAnchors(). A "diff" turn is one whose tool
+    // rewrote tracked file CONTENT in the working tree (doc: "most recent file write/patch") — NOT
+    // any non-read side effect. This set MUST stay identical to Swift
+    // WorkspaceTurnRevertPlanner.workingTreeDiffToolNames; WorkspaceTurnRevertDiffToolParityTests
+    // enumerates every tool id and fails CI if the two sides diverge (so this cross-language mirror
+    // cannot silently rot). Deliberately EXCLUDES repo/remote ops that leave working-tree bytes
+    // unchanged: host.git.pr.* (PR metadata), host.git.push (already-committed history),
+    // host.git.commit / stage / stage_hunk (record/stage existing content), host.git.worktree.*
+    // (not a content diff), host.shell.run (opaque). We never infer a diff from file/path artifacts
+    // (reads emit those too).
     const DIFF_PRODUCING_TOOL_NAMES = new Set([
-      // apply_patch + the dynamic revert-turn tool (no static definition).
-      'host.apply_patch', 'host.git.revert_turn',
-      // Registered non-read (.append / .destructive) tools that mutate the tree / repo.
+      'host.apply_patch',
+      'host.git.revert_turn',   // dynamic tool (no static definition); reverse-applies a patch
       'host.file.write',
-      'host.git.stage', 'host.git.stage_hunk', 'host.git.restore', 'host.git.restore_hunk',
-      'host.git.commit', 'host.git.push',
-      'host.shell.run'
+      'host.git.restore',
+      'host.git.restore_hunk'
     ]);
     function isDiffProducingToolName(rawTitle) {
       const name = String(rawTitle || '').trim();
