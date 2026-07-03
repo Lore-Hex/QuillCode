@@ -27,6 +27,9 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var settings: WorkspaceSettingsSurface
     public var runtimeIssue: RuntimeIssueSurface?
     public var lastError: String?
+    /// The morning-triage return digest card (issue #877), present when the user has opened a thread's
+    /// digest from the Attention section, nil otherwise.
+    public var attentionDigest: AttentionDigestSurface?
 
     public init(
         chrome: WorkspaceChromeSurface = WorkspaceChromeSurface(),
@@ -48,7 +51,8 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
         runtimeIssue: RuntimeIssueSurface? = nil,
-        lastError: String? = nil
+        lastError: String? = nil,
+        attentionDigest: AttentionDigestSurface? = nil
     ) {
         self.chrome = chrome
         self.topBar = topBar
@@ -70,6 +74,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.settings = settings
         self.runtimeIssue = runtimeIssue
         self.lastError = lastError
+        self.attentionDigest = attentionDigest
     }
 }
 
@@ -113,7 +118,8 @@ public extension QuillCodeWorkspaceModel {
             activeSidebarSavedSearchID: activeSidebarSavedSearchID,
             sidebarSavedSearches: sidebarSavedSearches,
             selectionIsActive: sidebarSelection.isActive,
-            selectedThreadIDs: sidebarSelectedThreadIDs
+            selectedThreadIDs: sidebarSelectedThreadIDs,
+            attentionCursorID: attentionCursorID
         ).surface()
         let topBar = WorkspaceTopBarSurfaceBuilder(
             topBarState: topBarState,
@@ -210,8 +216,22 @@ public extension QuillCodeWorkspaceModel {
                 modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog)
             ),
             runtimeIssue: runtimeIssue,
-            lastError: lastError
+            lastError: lastError,
+            attentionDigest: attentionDigestSurface()
         )
+    }
+
+    /// The morning-triage return digest for the currently opened digest thread (issue #877), or nil when
+    /// none is open. The unseen-turn seam reuses the persisted return watermark so it matches what the
+    /// user last saw across sessions.
+    private func attentionDigestSurface() -> AttentionDigestSurface? {
+        guard let digestThreadID = attentionDigestThreadID,
+              let thread = root.threads.first(where: { $0.id == digestThreadID })
+        else {
+            return nil
+        }
+        let unseen = ThreadReturnWatermarkRecord.unseenCount(in: thread)
+        return AttentionDigestSurface(digest: TriageDigest.build(for: thread, unseenCount: unseen))
     }
 
     private func runtimeIssueSurface() -> RuntimeIssueSurface? {

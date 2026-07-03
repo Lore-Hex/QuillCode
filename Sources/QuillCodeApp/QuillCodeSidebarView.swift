@@ -10,6 +10,9 @@ struct QuillCodeSidebarView: View {
     var onSelectThread: (UUID) -> Void
     var onThreadAction: (SidebarItemActionSurface) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
+    /// Opening a thread from the Attention section lands on its return digest, so it is routed
+    /// separately from an ordinary thread selection. Defaults to a plain selection when unset.
+    var onOpenAttentionDigest: (UUID) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -35,6 +38,14 @@ struct QuillCodeSidebarView: View {
                         onCommand: onCommand
                     )
                 }
+            }
+            if !sidebar.attention.isEmpty {
+                QuillCodeAttentionSectionView(
+                    attention: sidebar.attention,
+                    onSelectThread: onOpenAttentionDigest,
+                    onCommand: onCommand
+                )
+                Divider()
             }
             QuillCodeSidebarThreadListView(
                 sidebar: sidebar,

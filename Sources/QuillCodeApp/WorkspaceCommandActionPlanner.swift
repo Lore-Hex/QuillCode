@@ -37,6 +37,11 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case forkThread(WorkspaceThreadForkStrategy)
     case compactContext
     case disconnectAll
+    case attentionNext
+    case attentionPrevious
+    case attentionOpen
+    case attentionAcknowledge
+    case attentionDismiss
 }
 
 struct WorkspaceCommandActionPlanner: Sendable, Hashable {
@@ -139,6 +144,16 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .compactContext
         case .disconnectAll:
             return .disconnectAll
+        case .attentionNext:
+            return .attentionNext
+        case .attentionPrevious:
+            return .attentionPrevious
+        case .attentionOpen:
+            return .attentionOpen
+        case .attentionAcknowledge:
+            return .attentionAcknowledge
+        case .attentionDismiss:
+            return .attentionDismiss
         }
     }
 }

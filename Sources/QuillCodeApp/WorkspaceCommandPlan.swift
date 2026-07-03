@@ -261,6 +261,12 @@ enum WorkspaceCommandAction: String, Equatable {
     case forkFullContext = "fork-full-context"
     case compactContext = "compact-context"
     case disconnectAll = "disconnect-all"
+    // Morning-triage inbox keyboard triage (issue #877): j / k / Enter / a / d.
+    case attentionNext = "attention-next"
+    case attentionPrevious = "attention-previous"
+    case attentionOpen = "attention-open"
+    case attentionAcknowledge = "attention-acknowledge"
+    case attentionDismiss = "attention-dismiss"
 }
 
 private extension String {

@@ -17,6 +17,9 @@ struct WorkspaceNavigationSurfaceBuilder {
     var sidebarSavedSearches: [SidebarSavedSearch] = []
     var selectionIsActive: Bool
     var selectedThreadIDs: Set<UUID>
+    /// The morning-triage Attention preview cursor (issue #877) — which row j/k highlight. Distinct from
+    /// `selectedThreadID`: cursoring is preview/navigation and must not move the workspace selection.
+    var attentionCursorID: UUID? = nil
 
     func surface() -> WorkspaceNavigationSurface {
         let visibleSidebarItems = filteredSidebarItems()
@@ -46,9 +49,19 @@ struct WorkspaceNavigationSurfaceBuilder {
                 bulkActions: sidebarBulkActions(
                     selectedThreadIDs: resolvedSelectedThreadIDs,
                     visibleSidebarItems: visibleSidebarItems
-                )
+                ),
+                attention: attentionSection()
             )
         )
+    }
+
+    /// Build the morning-triage Attention section from the actual threads, ranked by the shared pure
+    /// `AttentionModel`. The section's cursor is the dedicated preview cursor (`attentionCursorID`), which
+    /// the pure model clamps/defaults to the first row when nil or stale — it is NOT the workspace's
+    /// selected thread, so moving the cursor never advances a watermark.
+    private func attentionSection() -> AttentionSectionSurface {
+        let model = AttentionModel.build(from: threads, selectedThreadID: attentionCursorID)
+        return AttentionSectionSurface(model: model)
     }
 
     private func projectItems() -> [ProjectItemSurface] {

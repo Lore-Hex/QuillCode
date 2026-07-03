@@ -868,6 +868,44 @@
       justify-content: space-between;
       gap: 8px;
     }
+    /* Morning-triage Attention section + return digest (issue #877). */
+    [data-testid="attention-section"] { margin-bottom: 8px; }
+    [data-testid="attention-row"] {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px; margin: 2px 0; border-radius: 10px; cursor: pointer;
+      border: 1px solid transparent;
+    }
+    [data-testid="attention-row"]:hover { background: rgba(255,255,255,.05); }
+    [data-testid="attention-row"][data-cursor="true"] { background: rgba(255,255,255,.08); }
+    [data-testid="attention-row"][data-cursor="true"][data-verdict="red"] { border-color: rgba(255,92,82,.6); }
+    [data-testid="attention-row"][data-cursor="true"][data-verdict="unverified"] { border-color: rgba(247,184,79,.6); }
+    [data-testid="attention-title"] { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    [data-testid="attention-verdict"] {
+      font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px;
+    }
+    [data-testid="attention-verdict"][data-verdict="red"] { color: var(--red); background: rgba(255,92,82,.16); }
+    [data-testid="attention-verdict"][data-verdict="unverified"] { color: var(--yellow); background: rgba(247,184,79,.16); }
+    [data-testid="attention-unseen"] {
+      font-size: 10px; font-weight: 600; color: var(--blue);
+      padding: 2px 6px; border-radius: 999px; background: rgba(64,184,232,.16);
+    }
+    .attention-digest-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center; z-index: 60;
+    }
+    .attention-digest-card {
+      width: min(460px, 90vw); background: var(--panel);
+      border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .attention-digest-header { display: flex; align-items: center; gap: 10px; }
+    .attention-digest-header strong { flex: 1; }
+    [data-testid="attention-digest-seam"] {
+      color: var(--blue); font-size: 11px; font-weight: 600; text-align: center;
+      border-top: 1px solid rgba(64,184,232,.5); border-bottom: 1px solid rgba(64,184,232,.5);
+      padding: 4px 0;
+    }
+    [data-testid="attention-digest-reasons"] { margin: 0; padding-left: 18px; font-size: 12px; }
+    .attention-digest-actions { display: flex; gap: 10px; }
     .sidebar-title-row {
       display: flex;
       align-items: center;
@@ -3679,6 +3717,11 @@
         selectedThreadIDs: [],
         items: []
       },
+      // Morning-triage inbox (issue #877): the thread whose return digest card is open, or null.
+      attentionDigestThreadID: null,
+      // The Attention section's preview cursor — which row j/k highlight. Distinct from the workspace
+      // selection so cursoring never advances a watermark (native mirrors this with attentionCursorID).
+      attentionCursorID: null,
       transcript: {
         messages: [],
         toolCards: [],
@@ -6975,6 +7018,27 @@
             </details>
           </div>`).join('')
         : '<p data-testid="project-empty">No projects yet</p>';
+      // Morning-triage Attention section (issue #877). Mirrors WorkspaceHTMLSidebarThreadRenderer's
+      // renderAttentionSection: severity-ranked rows with the verdict badge, title, and unseen count.
+      const renderAttentionSection = () => {
+        const rows = attentionRows();
+        if (!rows.length) return '';
+        const cursorID = attentionSelectedThreadID();
+        return `
+        <section data-testid="attention-section" aria-label="Attention">
+          <h3 data-testid="sidebar-section-title">Attention</h3>
+          ${rows.map(row => {
+            const isCursor = row.threadID === cursorID;
+            const unseen = row.unseenLabel ? `<span data-testid="attention-unseen">${escapeHTML(row.unseenLabel)}</span>` : '';
+            return `
+          <div class="hit-target-row" data-testid="attention-row" data-thread-id="${escapeHTML(row.threadID)}" data-verdict="${escapeHTML(row.verdict)}" data-cursor="${isCursor ? 'true' : 'false'}" role="button" tabindex="0" aria-current="${isCursor ? 'true' : 'false'}" aria-label="${escapeHTML(`${row.badgeLabel}. ${row.title}.${row.unseenLabel ? ` ${row.unseenLabel}.` : ''}`)}">
+            <span data-testid="attention-verdict" data-verdict="${escapeHTML(row.verdict)}">${escapeHTML(row.badgeLabel)}</span>
+            <span data-testid="attention-title">${escapeHTML(row.title)}</span>
+            ${unseen}
+          </div>`;
+          }).join('')}
+        </section>`;
+      };
       const renderSidebarSection = (title, items) => items.length ? `
         <section data-testid="sidebar-section">
           <h3 data-testid="sidebar-section-title">${escapeHTML(title)}</h3>
@@ -7112,7 +7176,7 @@
           </div>
         </div>` : '';
       const sidebarContent = visibleSidebarItems.length
-        ? bulkToolbar + renderSidebarSection('Pinned', pinnedItems) + recentSections.map(section => renderSidebarSection(section.title, section.items)).join('') + renderSidebarSection('Archived', archivedItems)
+        ? bulkToolbar + renderAttentionSection() + renderSidebarSection('Pinned', pinnedItems) + recentSections.map(section => renderSidebarSection(section.title, section.items)).join('') + renderSidebarSection('Archived', archivedItems)
         : `<p data-testid="sidebar-empty">${escapeHTML(state.sidebar.items.length ? activeEmptyTitle : 'No chats yet')}</p>`;
       const sidebarThreadHeader = state.sidebar.items.length || state.sidebar.isSelectionMode ? `
         <div class="sidebar-title-row" data-testid="sidebar-title-row">
@@ -7288,6 +7352,7 @@
           ${state.shortcuts.isOpen ? renderKeyboardShortcutsPanel() : ''}
           ${state.worktreeDialog.mode ? renderWorktreeDialog() : ''}
           ${renderSidebarSavedSearchDialog()}
+          ${renderAttentionDigest()}
         </section>`;
 
       normalizeInteractionTargetContracts(document.getElementById('app'));
@@ -7644,6 +7709,17 @@
         button.addEventListener('click', event => {
           toggleSidebarThreadSelection(event.currentTarget.getAttribute('data-thread-id'));
           render();
+        });
+      });
+      // Morning-triage Attention rows: clicking a row opens its return digest (issue #877).
+      document.querySelectorAll('[data-testid="attention-row"]').forEach(row => {
+        row.addEventListener('click', event => {
+          openAttentionDigest(event.currentTarget.getAttribute('data-thread-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="attention-digest-close"], [data-testid="attention-digest-acknowledge"], [data-testid="attention-digest-dismiss"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
       document.querySelectorAll('[data-testid="sidebar-bulk-action"], [data-testid="sidebar-filter"], [data-testid="sidebar-saved-search"], [data-testid="sidebar-saved-search-create"], [data-testid="sidebar-saved-search-move-up"], [data-testid="sidebar-saved-search-move-down"], [data-testid="sidebar-saved-search-delete"]').forEach(button => {
@@ -8771,6 +8847,42 @@
         </div>`;
     }
 
+    // Morning-triage return digest card (issue #877). Mirrors WorkspaceHTMLRenderer.attentionDigestHTML.
+    function renderAttentionDigest() {
+      const digest = attentionDigest();
+      if (!digest) return '';
+      const badge = digest.badgeLabel
+        ? `<span data-testid="attention-digest-verdict" data-verdict="${escapeHTML(digest.verdict || '')}">${escapeHTML(digest.badgeLabel)}</span>`
+        : '';
+      const summary = digest.verdictSummary
+        ? `<p data-testid="attention-digest-summary">${escapeHTML(digest.verdictSummary)}</p>`
+        : '';
+      const seam = digest.unseenSeamLabel
+        ? `<div data-testid="attention-digest-seam">${escapeHTML(digest.unseenSeamLabel)}</div>`
+        : '';
+      const reasons = digest.reasons.length
+        ? `<ul data-testid="attention-digest-reasons">${digest.reasons.map(reason => `<li>${escapeHTML(reason)}</li>`).join('')}</ul>`
+        : '';
+      return `
+        <div class="attention-digest-backdrop" data-testid="attention-digest" data-thread-id="${escapeHTML(digest.threadID)}">
+          <div class="attention-digest-card">
+            <div class="attention-digest-header">
+              ${badge}
+              <strong data-testid="attention-digest-title">${escapeHTML(digest.title)}</strong>
+              <button type="button" class="hit-target-text" data-testid="attention-digest-close" data-command-id="attention-digest-close" aria-label="Close digest">Close</button>
+            </div>
+            ${summary}
+            ${seam}
+            <div data-testid="attention-digest-outcome">${escapeHTML(digest.outcome)}</div>
+            ${reasons}
+            <div class="attention-digest-actions">
+              <button type="button" class="hit-target-text" data-testid="attention-digest-acknowledge" data-command-id="attention-acknowledge">Acknowledge</button>
+              <button type="button" class="hit-target-text" data-testid="attention-digest-dismiss" data-command-id="attention-dismiss">Dismiss</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
     function renderSidebarSavedSearchDialog() {
       const dialog = state.sidebar.savedSearchDialog || {};
       if (!dialog.isOpen) return '';
@@ -8899,6 +9011,140 @@
       const items = transcriptTimelineItems();
       if (!items.length) return;
       state.transcriptLastSeen[threadID] = items[items.length - 1].id;
+    }
+
+    // ---- Morning-triage inbox (issue #877) ----
+    // These mirror QuillCodeCore's AttentionModel / TriageVerdict / ThreadTriageRecord EXACTLY. A sidebar
+    // thread item carries: integrityVerdict ('red'|'unverified'|'verified'|null — the persisted Run
+    // Integrity stamp), triageState ('pending'|'acknowledged'|'dismissed', default pending), and
+    // unseenCount (>= 0). Keep this in lockstep with MorningTriage.swift; the parity gate test scans both.
+    const triageSeverity = { red: 2, unverified: 1, verified: 0 };
+    const triageBadgeLabel = { red: 'RED', unverified: 'UNVERIFIED', verified: 'VERIFIED' };
+    function verdictNeedsAttention(verdict) {
+      return verdict === 'red' || verdict === 'unverified';
+    }
+    // Build the ranked attention rows from the sidebar items (mirrors AttentionModel.build + rank):
+    // include a thread iff it has an attention-worthy verdict AND its triage state is pending; sort by
+    // severity desc, then updatedAt desc, then threadID asc (total, deterministic).
+    // Unseen-turn count derived from the persisted watermark (mirrors ThreadReturnWatermarkRecord.
+    // unseenCount): turns after the last-seen turn, never negative.
+    function attentionUnseenCount(item) {
+      const turns = Math.max(0, item.attentionMessageTurns || 0);
+      const lastSeen = item.attentionLastSeenTurn;
+      if (turns === 0 || lastSeen === null || lastSeen === undefined) return 0;
+      return Math.max(0, turns - 1 - lastSeen);
+    }
+    // Advance a thread's return watermark to its tail — mirrors persistOutgoingReturnWatermark, run when
+    // the user LEAVES a thread (an actual open/read), never on cursor preview.
+    function attentionMarkThreadSeen(threadID) {
+      const item = state.sidebar.items.find(entry => entry.id === threadID);
+      if (!item || !item.attentionMessageTurns) return;
+      item.attentionLastSeenTurn = item.attentionMessageTurns - 1;
+    }
+    function attentionRows() {
+      return state.sidebar.items
+        .filter(item => verdictNeedsAttention(item.integrityVerdict) && (item.triageState || 'pending') === 'pending')
+        .map(item => {
+          const unseen = attentionUnseenCount(item);
+          return {
+            threadID: item.id,
+            title: item.title,
+            verdict: item.integrityVerdict,
+            badgeLabel: triageBadgeLabel[item.integrityVerdict],
+            summary: item.verdictSummary || '',
+            unseenCount: unseen,
+            unseenLabel: unseen > 0 ? `${unseen} new` : null,
+            updatedAt: item.updatedAt || ''
+          };
+        })
+        .sort((lhs, rhs) => {
+          if (triageSeverity[lhs.verdict] !== triageSeverity[rhs.verdict]) {
+            return triageSeverity[rhs.verdict] - triageSeverity[lhs.verdict];
+          }
+          if (lhs.updatedAt !== rhs.updatedAt) {
+            return lhs.updatedAt < rhs.updatedAt ? 1 : -1;
+          }
+          return lhs.threadID < rhs.threadID ? -1 : (lhs.threadID > rhs.threadID ? 1 : 0);
+        });
+    }
+    // The cursor thread id: the open digest thread if any, else the dedicated PREVIEW cursor
+    // (attentionCursorID), clamped to an actual attention row (falling back to the first row). It is NOT
+    // the workspace's selected thread — mirrors native, so moving the cursor never advances a watermark.
+    function attentionSelectedThreadID() {
+      const rows = attentionRows();
+      if (!rows.length) return null;
+      const preferred = state.attentionDigestThreadID || state.attentionCursorID;
+      return rows.some(row => row.threadID === preferred) ? preferred : rows[0].threadID;
+    }
+    function attentionSelectRelative(delta) {
+      const rows = attentionRows();
+      if (!rows.length) return;
+      const current = attentionSelectedThreadID();
+      const index = Math.max(0, rows.findIndex(row => row.threadID === current));
+      const clamped = Math.min(rows.length - 1, Math.max(0, index + delta));
+      // Move the PREVIEW cursor only — do NOT selectThread (which would advance the outgoing thread's
+      // watermark and zero its unseen badge). Opening (Enter/click) is the only path that reads a thread.
+      state.attentionCursorID = rows[clamped].threadID;
+      render();
+    }
+    function attentionMoveDown() { attentionSelectRelative(1); }
+    function attentionMoveUp() { attentionSelectRelative(-1); }
+    function attentionOpenSelected() {
+      const threadID = attentionSelectedThreadID();
+      if (!threadID) return;
+      openAttentionDigest(threadID);
+    }
+    function openAttentionDigest(threadID) {
+      if (!state.sidebar.items.some(item => item.id === threadID)) return;
+      // A genuine open: park the preview cursor here and select the thread. selectThread persists the
+      // OUTGOING thread's watermark (the one being left), never this incoming one — so the opened thread
+      // keeps its unseen badge until the user later leaves it.
+      state.attentionCursorID = threadID;
+      selectThread(threadID);
+      state.attentionDigestThreadID = threadID;
+      render();
+    }
+    function closeAttentionDigest() {
+      state.attentionDigestThreadID = null;
+      render();
+    }
+    function attentionTriageSelected(triageState) {
+      const rows = attentionRows();
+      const threadID = attentionSelectedThreadID();
+      if (!threadID || !rows.length) return;
+      const item = state.sidebar.items.find(entry => entry.id === threadID);
+      if (item) item.triageState = triageState;
+      if (state.attentionDigestThreadID === threadID) state.attentionDigestThreadID = null;
+      // Advance the PREVIEW cursor to whatever slid into place (or the first remaining row) — cursor only,
+      // no selectThread, so the passed-over threads keep their unseen badges.
+      const remaining = attentionRows();
+      state.attentionCursorID = remaining.length ? remaining[0].threadID : null;
+      render();
+    }
+    function attentionAcknowledgeSelected() { attentionTriageSelected('acknowledged'); }
+    function attentionDismissSelected() { attentionTriageSelected('dismissed'); }
+    // The return digest for the open thread (mirrors TriageDigest.build): verdict + reasons + outcome +
+    // unseen seam. Reasons are seeded per-thread in the harness; native re-scans the transcript.
+    function attentionDigest() {
+      const threadID = state.attentionDigestThreadID;
+      if (!threadID) return null;
+      const item = state.sidebar.items.find(entry => entry.id === threadID);
+      if (!item) return null;
+      const verdict = verdictNeedsAttention(item.integrityVerdict) || item.integrityVerdict === 'verified'
+        ? item.integrityVerdict : null;
+      const unseen = attentionUnseenCount(item);
+      const seamLabel = unseen === 0 ? null : (unseen === 1 ? '1 unseen turn' : `${unseen} unseen turns`);
+      return {
+        threadID,
+        title: item.title,
+        verdict,
+        badgeLabel: verdict ? triageBadgeLabel[verdict] : null,
+        verdictSummary: item.verdictSummary || '',
+        reasons: item.digestReasons || [],
+        outcome: item.digestOutcome || 'No final answer recorded.',
+        unseenCount: unseen,
+        unseenSeamLabel: seamLabel
+      };
     }
 
     // Scroll a timeline item (by its data-timeline-id) into view and briefly mark it as the jump
@@ -11497,6 +11743,12 @@
     const harnessStaticCommandIDs = new Set([
       'add-project',
       'add-ssh-project',
+      'attention-next',
+      'attention-previous',
+      'attention-open',
+      'attention-acknowledge',
+      'attention-dismiss',
+      'attention-digest-close',
       'cycle-mode',
       'focus-composer',
       'automation-create-thread-follow-up',
@@ -11668,6 +11920,12 @@
         console.warn('QuillCode harness received unroutable command', commandID);
         return;
       }
+      if (commandID === 'attention-next') { attentionMoveDown(); return; }
+      if (commandID === 'attention-previous') { attentionMoveUp(); return; }
+      if (commandID === 'attention-open') { attentionOpenSelected(); return; }
+      if (commandID === 'attention-acknowledge') { attentionAcknowledgeSelected(); return; }
+      if (commandID === 'attention-dismiss') { attentionDismissSelected(); return; }
+      if (commandID === 'attention-digest-close') { closeAttentionDigest(); return; }
       if (commandID === 'command-palette') {
         openCommandPalette();
         return;
@@ -14056,6 +14314,10 @@
         // Leaving a thread means the user has seen it up to its current end — advance that
         // thread's "N new turns" watermark before we swap the transcript out.
         markTranscriptSeen();
+        // Mirror native persistOutgoingReturnWatermark: advance the OUTGOING thread's morning-triage
+        // return watermark too, so a thread genuinely read (opened) loses its unseen badge. This runs
+        // only on a real thread switch — never on Attention cursor preview (which no longer selectThreads).
+        if (outgoing) attentionMarkThreadSeen(outgoing);
         saveSelectedThreadSnapshot(outgoing);
         stashComposerDraft(outgoing);
         restoreComposerDraft(threadID);
@@ -15165,6 +15427,7 @@
 
     document.addEventListener('keydown', event => {
       if (handleCommandPaletteKeydown(event)) return;
+      if (handleAttentionTriageKeydown(event)) return;
       updateDynamicCommands();
       const command = state.commands.find(candidate => (
         candidate.isEnabled && shortcutMatches(event, candidate.shortcut)
@@ -15178,6 +15441,53 @@
       event.preventDefault();
       runCommand(command.id);
     });
+
+    // Morning-triage keyboard triage (issue #877): j/k/Enter/a/d act on the Attention section. They are
+    // bare single-letter keys, so they must NOT fire while typing in ANY editable field — including the
+    // composer (BLOCKER-3 fix: the composer is emphatically NOT a shortcut-allowed context here, unlike
+    // Tab-cycling; letting these fire in the composer would eat the user's keystroke via preventDefault
+    // and silently triage/open runs). Native scopes its `.onKeyPress` to the Attention section view, so
+    // it likewise never fires from the composer; this guard is that section-scoping's behavioral mirror.
+    // They require no modifiers and only apply when the Attention section actually has rows.
+    function attentionTriageContextIsActive() {
+      // The section must actually exist with rows to act on.
+      if (!attentionRows().length) return false;
+      // MINOR parity: native scopes these keys to the Attention section view via .onKeyPress, so they
+      // fire only when that section is the active context. Mirror that here rather than firing for ANY
+      // non-editable focus:
+      const active = document.activeElement;
+      // Never while focus is in an editable field (composer, search box, terminal entry, etc.).
+      if (active) {
+        if (active.isContentEditable) return false;
+        const tag = active.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+      }
+      // The Attention section is scoped to the sidebar; when the digest is open its own key handlers
+      // (and the backdrop) own the interaction, so cursor/triage keys should not fire from underneath it.
+      if (state.attentionDigestThreadID) return false;
+      // Focus must be the section's context: the body/no-focus (nothing else claims the keys) or an
+      // element inside the sidebar (where the Attention section lives) — not an unrelated focused control.
+      if (!active || active === document.body) return true;
+      const sidebar = document.querySelector('[data-testid="sidebar"]');
+      return !!(sidebar && sidebar.contains(active));
+    }
+    function handleAttentionTriageKeydown(event) {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
+      if (!attentionTriageContextIsActive()) return false;
+      const key = String(event.key || '').toLowerCase();
+      const routes = {
+        j: 'attention-next',
+        k: 'attention-previous',
+        a: 'attention-acknowledge',
+        d: 'attention-dismiss',
+        enter: 'attention-open'
+      };
+      const commandID = routes[key];
+      if (!commandID) return false;
+      event.preventDefault();
+      runCommand(commandID);
+      return true;
+    }
 
     // The composer is the one editable field where Tab shortcuts are intended (Shift+Tab cycles
     // mode, plain Tab accepts a suggestion). Everywhere else, Tab/Shift+Tab is focus traversal.
@@ -15203,6 +15513,43 @@
     }
 
     window.__quillCodeCommandRoutingAudit = commandRoutingAuditReport;
+    // Test hook (issue #877): seed the sidebar with threads carrying morning-triage verdict stamps so
+    // Playwright can drive the Attention section deterministically. Each spec: { id, title, verdict,
+    // summary, unseenCount, reasons, outcome, updatedAt? }.
+    //
+    // The unseen count is WATERMARK-DERIVED (not a fixed field): a thread gets a message-turn count and a
+    // `attentionLastSeenTurn` watermark, and unseen = turns after the watermark. This is what lets
+    // Playwright catch the "cursoring zeroes passed-over badges" class of bug — if navigation wrongly
+    // advanced a thread's watermark, its derived unseen count would drop, and the test would see it.
+    window.__quillCodeTestSeedAttentionThreads = function(specs) {
+      state.sidebar.selectedThreadID = null;
+      state.attentionDigestThreadID = null;
+      state.attentionCursorID = null;
+      state.sidebar.items = (specs || []).map((spec, index) => {
+        const unseen = Math.max(0, spec.unseenCount || 0);
+        // Give the thread enough turns to carry `unseen` unseen turns after the watermark. The watermark
+        // index sits `unseen` turns before the tail; unseen === attentionMessageTurns - 1 - lastSeenTurn.
+        const attentionMessageTurns = unseen + 1;
+        return {
+          id: spec.id,
+          title: spec.title,
+          subtitle: state.topBar.modelLabel,
+          searchText: '',
+          updatedAt: spec.updatedAt || new Date(Date.now() - index * 1000).toISOString(),
+          isSelected: false,
+          isPinned: false,
+          isArchived: false,
+          integrityVerdict: spec.verdict || null,
+          verdictSummary: spec.summary || '',
+          attentionMessageTurns,
+          attentionLastSeenTurn: attentionMessageTurns - 1 - unseen,
+          triageState: spec.triageState || 'pending',
+          digestReasons: spec.reasons || [],
+          digestOutcome: spec.outcome || 'No final answer recorded.'
+        };
+      });
+      render();
+    };
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;
     window.__quillCodeTestAddInstructionConflict = function() {
       state.activity.instructionDiagnostics = [{

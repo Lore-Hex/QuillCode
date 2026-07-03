@@ -61,6 +61,20 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    /// Open a thread's morning-triage return digest (issue #877): selects the thread and presents the
+    /// digest card. Draft handling mirrors `selectThread` since the workspace thread changes.
+    func openAttentionDigest(_ id: UUID) {
+        model.setDraft(draft)
+        model.openAttentionDigest(for: id)
+        modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
+        refresh()
+    }
+
+    func closeAttentionDigest() {
+        model.closeAttentionDigest()
+        refresh()
+    }
+
     func selectProject(_ id: UUID?) {
         navigationCoordinator.selectProject(id, model: model)
         refresh()
