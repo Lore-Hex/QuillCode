@@ -73,6 +73,37 @@ test('jump bar disables error/diff when absent and jumps to them when present', 
   await expect(page.locator(`[data-timeline-id="${diffAnchor}"]`)).toHaveAttribute('data-jump-target', 'true');
 });
 
+test('last diff ignores read-only file tools even though they emit path artifacts', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // Write a file (a real diff), then read it back SUCCESSFULLY. The successful read carries the
+  // file's absolute path as an artifact (kind 'file'), but a read is not a diff.
+  await send(page, 'write hello to a file');
+  const diffAnchorAfterWrite = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
+  expect(diffAnchorAfterWrite).toBeTruthy();
+
+  await send(page, 'read hello.txt');
+  // The read produced a tool card with a path artifact...
+  await expect(page.getByTestId('tool-card').filter({ hasText: 'host.file.read' })).toBeVisible();
+
+  // ...but "Last diff" must still point at the WRITE, not the later read.
+  await expect(page.getByTestId('transcript-jump-last-diff')).toBeEnabled();
+  expect(await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id')).toBe(diffAnchorAfterWrite);
+});
+
+test('read-only session keeps the last-diff affordance disabled', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // A session that only reads/lists/searches — none of which are diffs — even though the reads
+  // emit path artifacts.
+  await send(page, 'list files here');
+  await send(page, 'find whoami in the project');
+  await send(page, 'read README.md');
+
+  await expect(page.getByTestId('transcript-jump-bar')).toBeVisible();
+  await expect(page.getByTestId('transcript-jump-last-diff')).toBeDisabled();
+});
+
 test('N new turns pill appears on return to a thread that grew and jumps to the first unseen turn', async ({ page }) => {
   await page.goto(harnessURL());
 

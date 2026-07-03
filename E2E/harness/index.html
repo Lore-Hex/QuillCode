@@ -8751,9 +8751,11 @@
       const stripped = name.startsWith('host.') ? name.slice('host.'.length) : name;
       return DIFF_PRODUCING_TOOL_NAMES.has(stripped);
     }
+    // Diff detection is by tool NAME only. Read-only tools (host.file.read/list/search) emit
+    // absolute-path artifacts that classify as kind 'file', so an artifact fallback would wrongly
+    // count reads as diffs (and jump "Last diff" to a read). Mirror TranscriptNavigationAnchors.
     function isDiffCard(card) {
-      if (isDiffProducingToolName(card.title)) return true;
-      return (card.artifacts || []).some(artifact => artifact.kind === 'file' || artifact.kind === 'path');
+      return isDiffProducingToolName(card.title);
     }
     function transcriptNavigationAnchors() {
       let lastError = null;
@@ -12771,7 +12773,9 @@
         inputJSON: JSON.stringify({ path }, null, 2),
         outputJSON: JSON.stringify(
           ok
-            ? { ok: true, stdout: contents }
+            // Mirror FileToolExecutor.read: a successful read returns the file's absolute path as
+            // an artifact (classified as kind 'file'). This must NOT make the read count as a diff.
+            ? { ok: true, stdout: contents, artifacts: [`/mock/QuillCode/${path}`] }
             : { ok: false, error: `File not found: ${path}` },
           null,
           2

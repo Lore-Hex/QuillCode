@@ -3,6 +3,10 @@ import QuillCodeCore
 
 struct QuillCodeTranscriptView: View {
     var transcript: TranscriptSurface
+    /// The currently selected thread, so the "N new turns" watermark is tracked per thread and a
+    /// thread that grew in the background shows its pill on return. `nil` for the empty/no-thread
+    /// state (no pill).
+    var threadID: UUID?
     var contextBanner: ContextBannerSurface?
     var runtimeIssue: RuntimeIssueSurface?
     var review: WorkspaceReviewSurface
@@ -29,11 +33,10 @@ struct QuillCodeTranscriptView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// The last timeline item this view has scrolled the user to the bottom of. Drives the
-    /// "N new turns" pill: when the transcript grows past this marker while the user is scrolled
-    /// up (or returns to the thread), the pill offers a jump to the first unseen item. Local view
-    /// state so the feature works without threading a new binding through the whole workspace.
-    @State private var newTurnsMarker = TranscriptNewTurnsMarker()
+    /// Per-thread "N new turns" bookkeeping. A `@StateObject` so it survives thread switches within
+    /// this view's lifetime — the watermark for a thread you left stays put while it grows in the
+    /// background, so the pill can appear when you return. See ``TranscriptNewTurnsTracker``.
+    @StateObject private var newTurnsStore = QuillCodeTranscriptNewTurnsStore()
     /// Which anchor jump is currently pending, so the scroll handler can target it once.
     @State private var pendingJumpAnchorID: String?
 
@@ -46,7 +49,7 @@ struct QuillCodeTranscriptView: View {
     }
 
     private var newTurnsPill: TranscriptNewTurnsPill? {
-        TranscriptNewTurnsResolver.resolve(transcript: transcript, marker: newTurnsMarker)
+        newTurnsStore.pill(for: threadID, transcript: transcript)
     }
 
     private var activeFindMatch: QuillCodeTranscriptFindMatch? {
@@ -143,10 +146,21 @@ struct QuillCodeTranscriptView: View {
                         newTurnsPillOverlay(proxy)
                     }
                     .onAppear {
+                        // Record what's on screen for the foreground thread (updates the observed
+                        // tail, NOT the acknowledged watermark), then scroll to the end.
+                        newTurnsStore.observe(threadID: threadID, transcript: transcript)
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
                     .onChange(of: scrollAnchorID) { _, id in
+                        newTurnsStore.observe(threadID: threadID, transcript: transcript)
                         scrollToTranscriptEnd(proxy, id: id)
+                    }
+                    .onChange(of: threadID) { oldThreadID, newThreadID in
+                        // Leaving a thread advances its watermark to the last tail we observed
+                        // while it was foreground; the incoming thread keeps its frozen watermark
+                        // so a background-grown thread shows its pill on return.
+                        newTurnsStore.leave(threadID: oldThreadID)
+                        newTurnsStore.observe(threadID: newThreadID, transcript: transcript)
                     }
                     .onChange(of: activeFindIndex) { _, _ in
                         scrollToActiveFindMatch(proxy)
@@ -315,8 +329,10 @@ struct QuillCodeTranscriptView: View {
     private func newTurnsPillOverlay(_ proxy: ScrollViewProxy) -> some View {
         if let pill = newTurnsPill {
             QuillCodeTranscriptNewTurnsPill(pill: pill) {
+                // Tapping the pill acknowledges the new turns (dismisses the pill) and jumps to
+                // the first unseen item.
+                newTurnsStore.markSeen(threadID: threadID, transcript: transcript)
                 jump(to: pill.firstUnseenItemID)
-                newTurnsMarker.markSeen(transcript: transcript)
             }
             .padding(.top, 10)
             .transition(.move(edge: .top).combined(with: .opacity))
@@ -343,9 +359,10 @@ struct QuillCodeTranscriptView: View {
 
     private func scrollToTranscriptEnd(_ proxy: ScrollViewProxy, id: String?) {
         guard let id, !isFindPresented else { return }
-        // Reaching the end means the user has now seen everything up to here — advance the
-        // "N new turns" watermark so the pill does not linger over content already on screen.
-        newTurnsMarker.markSeen(transcript: transcript)
+        // NOTE: this deliberately does NOT mark the thread seen. Marking seen here (it fires on
+        // appear and on every scroll-anchor change, including on return to a grown thread) would
+        // advance the watermark before the pill could ever evaluate — the exact bug that made the
+        // pill unreachable. The watermark advances only on leaving the thread or a pill tap.
         DispatchQueue.main.async {
             quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
                 proxy.scrollTo(id, anchor: .bottom)

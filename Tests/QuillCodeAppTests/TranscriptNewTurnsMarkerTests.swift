@@ -92,4 +92,92 @@ final class TranscriptNewTurnsMarkerTests: XCTestCase {
         marker.markSeen(timeline: grown)
         XCTAssertNil(TranscriptNewTurnsResolver.resolve(timeline: grown, marker: marker))
     }
+
+    // MARK: - Per-thread tracker (the semantics the native pill drives)
+
+    private let threadA = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000001")!
+    private let threadB = UUID(uuidString: "BBBBBBBB-0000-0000-0000-000000000002")!
+
+    func testTrackerShowsNoPillOnFirstViewOfAThread() {
+        var tracker = TranscriptNewTurnsTracker()
+        // Observing (foreground) a thread never seen before must NOT create a pill: there is no
+        // acknowledged watermark yet.
+        tracker.observe(threadID: threadA, timeline: timeline(3))
+        XCTAssertNil(tracker.pill(for: threadA, timeline: timeline(3)))
+    }
+
+    func testTrackerObserveDoesNotAdvanceWatermarkSoBackgroundGrowthSurfaces() {
+        var tracker = TranscriptNewTurnsTracker()
+        // View A (3 turns), then leave A — its watermark is set to A's end.
+        tracker.observe(threadID: threadA, timeline: timeline(3))
+        tracker.leave(threadID: threadA)
+        // A grows to 5 in the background. We only "observe" it again on return — which must not
+        // advance the watermark. The pill must appear.
+        tracker.observe(threadID: threadA, timeline: timeline(5))
+        let pill = tracker.pill(for: threadA, timeline: timeline(5))
+        XCTAssertEqual(pill?.count, 2)
+        XCTAssertEqual(pill?.firstUnseenItemID, timeline(5)[3].id)
+    }
+
+    func testTrackerLeaveUsesTailObservedWhileForegroundNotLaterGrowth() {
+        var tracker = TranscriptNewTurnsTracker()
+        // Foreground A at 3 turns.
+        tracker.observe(threadID: threadA, timeline: timeline(3))
+        // Leave — watermark should be A's 3rd item, the last thing we had on screen.
+        tracker.leave(threadID: threadA)
+        // On return with 4 turns, exactly 1 is new.
+        tracker.observe(threadID: threadA, timeline: timeline(4))
+        XCTAssertEqual(tracker.pill(for: threadA, timeline: timeline(4))?.count, 1)
+    }
+
+    func testTrackerSwitchingThreadsDoesNotClobberEachOthersWatermarks() {
+        var tracker = TranscriptNewTurnsTracker()
+        // See A (2), leave A. See B (3), leave B.
+        tracker.observe(threadID: threadA, timeline: timeline(2))
+        tracker.leave(threadID: threadA)
+        tracker.observe(threadID: threadB, timeline: timeline(3))
+        tracker.leave(threadID: threadB)
+        // Both grow in the background; each thread's own delta is independent.
+        XCTAssertEqual(tracker.pill(for: threadA, timeline: timeline(5))?.count, 3)
+        XCTAssertEqual(tracker.pill(for: threadB, timeline: timeline(6))?.count, 3)
+    }
+
+    func testTrackerMarkSeenClearsPill() {
+        var tracker = TranscriptNewTurnsTracker()
+        tracker.observe(threadID: threadA, timeline: timeline(3))
+        tracker.leave(threadID: threadA)
+        tracker.observe(threadID: threadA, timeline: timeline(5))
+        XCTAssertNotNil(tracker.pill(for: threadA, timeline: timeline(5)))
+        // Tapping the pill (markSeen) catches up to the current end.
+        tracker.markSeen(threadID: threadA, timeline: timeline(5))
+        XCTAssertNil(tracker.pill(for: threadA, timeline: timeline(5)))
+    }
+
+    func testTrackerReturnWithoutLeavingNeverShowsPillForNeverLeftThread() {
+        // Fail-on-revert guard for MAJOR 2: if the view re-observes a thread on return and that
+        // observe wrongly advanced the watermark, this would still pass — so we assert the
+        // *positive*: a thread that was left THEN grew MUST show a pill on return. (The buggy impl
+        // advanced the watermark on every appear/scroll, making this nil.)
+        var tracker = TranscriptNewTurnsTracker()
+        tracker.observe(threadID: threadA, timeline: timeline(3))
+        tracker.leave(threadID: threadA)
+        // Simulate the native return sequence: onChange(threadID) observe, then onAppear observe,
+        // then scrollAnchorID-change observe — none may advance the watermark.
+        tracker.observe(threadID: threadA, timeline: timeline(5))
+        tracker.observe(threadID: threadA, timeline: timeline(5))
+        tracker.observe(threadID: threadA, timeline: timeline(5))
+        XCTAssertEqual(
+            tracker.pill(for: threadA, timeline: timeline(5))?.count,
+            2,
+            "repeated observe() on return must not advance the watermark; the pill must survive"
+        )
+    }
+
+    func testTrackerNilThreadIsInert() {
+        var tracker = TranscriptNewTurnsTracker()
+        tracker.observe(threadID: nil, timeline: timeline(3))
+        tracker.leave(threadID: nil)
+        tracker.markSeen(threadID: nil, timeline: timeline(3))
+        XCTAssertNil(tracker.pill(for: nil, timeline: timeline(3)))
+    }
 }

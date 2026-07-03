@@ -52,17 +52,18 @@ public struct TranscriptNavigationAnchors: Sendable, Equatable {
     }
 
     /// A tool card counts as a **diff** when it wrote to the working tree: an `apply_patch`, a
-    /// file write, or a commit. We detect this from the tool *name* (`card.title`, which is the
-    /// raw tool id like `host.apply_patch` / `host.file.write` / `host.git.commit`) plus, as a
-    /// resilient fallback, any file/path artifact the run produced. Both signals are structural
-    /// and deterministic; neither depends on human-facing copy that a sibling feature might edit.
+    /// file write, or a commit. We detect this SOLELY from the tool *name* (`card.title`, which is
+    /// the raw tool id like `host.apply_patch` / `host.file.write` / `host.git.commit`).
+    ///
+    /// We deliberately do NOT infer "diff" from file/path artifacts: read-only tools
+    /// (`host.file.read` / `host.file.list` / `host.file.search`) all emit absolute-path
+    /// artifacts, and `ToolArtifactValueClassifier` classifies an absolute path as `.file`. An
+    /// artifact fallback therefore lights up "Last diff" in sessions that only read/listed/searched
+    /// — and, since `derive()` keeps the *last* hit in timeline order, a `[apply_patch, file.read]`
+    /// sequence would jump to the READ, defeating the "most recent file write/patch" contract. The
+    /// tool name is the authoritative, deterministic signal that a run mutated the tree.
     static func isDiffCard(_ card: ToolCardState) -> Bool {
-        if isDiffProducingToolName(card.title) {
-            return true
-        }
-        // Fallback: a run that emitted a concrete file/path artifact changed the tree even if
-        // its tool name isn't in the known set (e.g. a future write-capable tool).
-        return card.artifacts.contains { $0.kind == .file || $0.kind == .path }
+        isDiffProducingToolName(card.title)
     }
 
     /// Tool names whose successful run mutates files. Compared case-insensitively and tolerant of

@@ -1,4 +1,29 @@
 import SwiftUI
+import QuillCodeCore
+
+/// SwiftUI-facing owner of the per-thread ``TranscriptNewTurnsTracker``. Held as a `@StateObject`
+/// on the transcript view so it survives across thread switches (the transcript view is not
+/// `.id(threadID)`-scoped), letting a background-grown thread show its pill on return. All real
+/// logic lives in the pure tracker; this only republishes changes to SwiftUI.
+final class QuillCodeTranscriptNewTurnsStore: ObservableObject {
+    @Published private var tracker = TranscriptNewTurnsTracker()
+
+    func observe(threadID: UUID?, transcript: TranscriptSurface) {
+        tracker.observe(threadID: threadID, transcript: transcript)
+    }
+
+    func leave(threadID: UUID?) {
+        tracker.leave(threadID: threadID)
+    }
+
+    func markSeen(threadID: UUID?, transcript: TranscriptSurface) {
+        tracker.markSeen(threadID: threadID, transcript: transcript)
+    }
+
+    func pill(for threadID: UUID?, transcript: TranscriptSurface) -> TranscriptNewTurnsPill? {
+        tracker.pill(for: threadID, transcript: transcript)
+    }
+}
 
 /// A compact bar above the transcript offering the two "jump" motions of every post-run
 /// investigation: **jump to last error** (most recent failed tool run) and **jump to last diff**

@@ -51,6 +51,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                 if !surface.automations.isVisible || !surface.transcript.timelineItems.isEmpty {
                     QuillCodeTranscriptView(
                         transcript: surface.transcript,
+                        threadID: surface.sidebar.selectedThreadID,
                         contextBanner: surface.contextBanner,
                         runtimeIssue: surface.runtimeIssue,
                         review: surface.review,
