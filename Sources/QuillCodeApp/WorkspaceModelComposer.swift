@@ -54,8 +54,9 @@ extension QuillCodeWorkspaceModel {
     /// item becomes the next turn through the shared run/finish machinery. The loop advances only
     /// when the just-finished turn is drainable (see `canDrainAfter`): a Stop, a failure, OR an
     /// UNDECIDED approval gate halts the wave and leaves the remaining queue intact and persisted.
-    /// Shared by the composer submit path and the post-approval resume path so both drain
-    /// identically (and never past an approval gate).
+    /// Shared by the composer submit path AND the single approval-decision choke point
+    /// (`approveToolCardAndResume`), so a wave drains identically whether it started from a fresh
+    /// submit or resumed after a gate was resolved — and never past an approval gate.
     func drainFollowUpQueue(
         after initialTurn: AgentTurnResult,
         workspaceRoot: URL,
@@ -75,14 +76,16 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    /// Whether the queue may drain after `turn`. Only a turn that COMPLETED normally AND left no
-    /// undecided approval gate on the run thread is drainable. A Stop/failure is not `completed`; a
-    /// Plan-mode turn that proposes a mutating tool returns `.completed` but leaves an undecided
-    /// `approvalRequested` — draining then would start a queued turn PAST the still-open gate (and
-    /// orphan the held tool). Reuses the same undecided-approval detection as the approval UI and
-    /// the run-finished notification, so all three paths agree.
+    /// Whether the queue may drain after `turn`. A turn is drainable only when it COMPLETED
+    /// normally, nothing is currently sending, AND the run thread has no undecided approval gate.
+    /// A Stop/failure is not `completed`; a Plan-mode turn that proposes a mutating tool returns
+    /// `.completed` but leaves an undecided `approvalRequested` — draining then would start a queued
+    /// turn PAST the still-open gate (and orphan the held tool). The `isSending` check keeps the
+    /// approval-decision drain a no-op while a resumed plan turn is still running. Reuses the same
+    /// undecided-approval detection as the approval UI and the run-finished notification, so all
+    /// paths agree.
     private func canDrainAfter(_ turn: AgentTurnResult) -> Bool {
-        guard turn.completed else { return false }
+        guard turn.completed, !composer.isSending else { return false }
         let runThread = root.threads.first { $0.id == turn.threadID }
         return WorkspaceApprovalActionPlanner.undecidedRequests(in: runThread).isEmpty
     }
@@ -241,15 +244,10 @@ extension QuillCodeWorkspaceModel {
         applyComposerSendLifecycle(sendStart.lifecycle)
         let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot)
         finishAgentSend(outcome, runThreadID: sendStart.threadID)
-        // The resumed plan turn can be the one that finally completes without a new approval gate,
-        // so drain any follow-ups the user queued while approval was pending. If the resumed turn
-        // hits the NEXT plan-mode approval gate, `canDrainAfter` keeps the queue waiting again.
-        await drainFollowUpQueue(
-            after: AgentTurnResult(threadID: sendStart.threadID, completed: outcome.didComplete),
-            workspaceRoot: workspaceRoot,
-            onStarted: nil,
-            onProgressUpdated: nil
-        )
+        // NOTE: the follow-up drain is NOT here — it runs at the single approval-decision choke
+        // point (`approveToolCardAndResume`), which fires after EVERY gate resolution (approve/deny,
+        // any mode), so this Plan-mode resume path and the deny/auto/review paths all drain once and
+        // identically. Draining here too would double-drain the Plan-approve case.
     }
 
     public func resumeAgentAfterSpendFuseApproval(workspaceRoot: URL, expectedThreadID: UUID?) async {

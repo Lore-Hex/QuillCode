@@ -242,6 +242,112 @@ final class WorkspaceFollowUpQueueIntegrationTests: XCTestCase {
         )
     }
 
+    // MARK: approval gate — the drain must resolve for EVERY decision + mode, not just Plan-approve
+
+    /// Builds a model whose selected thread is in `mode`, holds a pre-seeded undecided approval for
+    /// a mutating shell tool, and has follow-ups queued behind the gate. The `scripted` actions feed
+    /// any resume the decision triggers (a Plan-mode approve). Mirrors the existing gated-approval
+    /// test setup in WorkspaceToolCardIntegrationTests.
+    private func gatedModel(
+        mode: AgentMode,
+        requestID: String,
+        queued: [String],
+        scripted: [AgentAction] = [.say("resumed done")]
+    ) throws -> (model: QuillCodeWorkspaceModel, threadID: UUID) {
+        let held = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "touch gated-tool.txt"])
+        )
+        let request = ApprovalRequest(
+            id: requestID,
+            toolCall: held,
+            toolDefinition: ToolDefinition.shellRun,
+            reason: "gate",
+            recommendedVerdict: .clarify
+        )
+        var thread = ChatThread(
+            mode: mode,
+            messages: [ChatMessage(role: .user, content: "do the gated work")],
+            events: [ThreadEvent(
+                kind: .approvalRequested,
+                summary: "gate",
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            )]
+        )
+        thread.followUpQueue = queued.map { FollowUpItem(text: $0) }
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            runner: AgentRunner(llm: GatedScriptedLLMClient(gate: alwaysOpenGate(), actions: scripted))
+        )
+        return (model, thread.id)
+    }
+
+    private func alwaysOpenGate() -> LLMGate {
+        let gate = LLMGate()
+        gate.open()
+        return gate
+    }
+
+    func testAutoModeApproveDrainsQueuedFollowUp() async throws {
+        // MAJOR B (auto): an Auto-mode approval gate resolved by Approve must drain the queue — the
+        // old drain was wired only into the Plan-mode resume, so Auto/Review approve stranded it.
+        let root = try makeTempDirectory()
+        let (model, _) = try gatedModel(mode: .auto, requestID: "auto-gate", queued: ["auto follow-up"])
+
+        _ = await model.decidePendingApproval(requestID: "auto-gate", approve: true, workspaceRoot: root)
+
+        XCTAssertTrue(model.followUpQueue.isEmpty, "auto-mode approve must drain the queue")
+        let userTurns = model.selectedThread?.messages.filter { $0.role == .user }.map(\.content)
+        XCTAssertEqual(userTurns?.filter { $0 == "auto follow-up" }.count, 1)
+    }
+
+    func testReviewModeApproveDrainsQueuedFollowUp() async throws {
+        // MINOR/MAJOR B (review): Review mode gates every mutating tool; an approve must drain.
+        let root = try makeTempDirectory()
+        let (model, _) = try gatedModel(mode: .review, requestID: "review-gate", queued: ["review follow-up"])
+
+        _ = await model.decidePendingApproval(requestID: "review-gate", approve: true, workspaceRoot: root)
+
+        XCTAssertTrue(model.followUpQueue.isEmpty, "review-mode approve must drain the queue")
+        let userTurns = model.selectedThread?.messages.filter { $0.role == .user }.map(\.content)
+        XCTAssertEqual(userTurns?.filter { $0 == "review follow-up" }.count, 1)
+    }
+
+    func testDenySkipDrainsQueuedFollowUpsInFIFOOrder() async throws {
+        // MAJOR A: Deny/Skip resolves the gate but never reached the Plan-only resume drain, so the
+        // queue was stranded. Deny must drain the queue too — in FIFO order.
+        let root = try makeTempDirectory()
+        let (model, _) = try gatedModel(
+            mode: .auto,
+            requestID: "deny-gate",
+            queued: ["first queued", "second queued"]
+        )
+
+        _ = await model.decidePendingApproval(requestID: "deny-gate", approve: false, workspaceRoot: root)
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("gated-tool.txt").path),
+            "a denied tool must not run"
+        )
+        XCTAssertTrue(model.followUpQueue.isEmpty, "deny/skip must drain the queue")
+        let userTurns = model.selectedThread?.messages.filter { $0.role == .user }.map(\.content) ?? []
+        // The queued follow-ups became user turns in FIFO order (after the original user message).
+        let queuedTurns = userTurns.filter { $0 == "first queued" || $0 == "second queued" }
+        XCTAssertEqual(queuedTurns, ["first queued", "second queued"], "drained in FIFO order")
+    }
+
+    func testPlanDenyDrainsQueuedFollowUp() async throws {
+        // Deny in Plan mode (no resume) must still drain — the resume path never fires on a deny.
+        let root = try makeTempDirectory()
+        let (model, _) = try gatedModel(mode: .plan, requestID: "plan-deny-gate", queued: ["plan deny follow-up"])
+
+        _ = await model.decidePendingApproval(requestID: "plan-deny-gate", approve: false, workspaceRoot: root)
+
+        XCTAssertTrue(model.followUpQueue.isEmpty, "plan-mode deny must drain the queue")
+        let userTurns = model.selectedThread?.messages.filter { $0.role == .user }.map(\.content)
+        XCTAssertEqual(userTurns?.filter { $0 == "plan deny follow-up" }.count, 1)
+    }
+
     // MARK: helpers
 
     private func waitUntil(
