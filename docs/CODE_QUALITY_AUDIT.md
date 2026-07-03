@@ -1,5 +1,70 @@
 # Code Quality Audit
 
+## 2026-07-03 UI Surface Ownership A+ Pass
+
+Overall grade after this slice: **A+ across every generated file/module row**. The
+previous regenerated report had two non-A+ SwiftUI files because composer and
+workspace shell responsibilities were too concentrated; this pass splits those
+surfaces without changing caller behavior.
+
+Code quality changes:
+
+- Split morning-triage records and attention models out of `MorningTriage.swift`
+  so triage verdict logic stays focused and test helpers can use throwing JSON
+  setup instead of `try!`.
+- Split transcript payload DTOs into message, composer, and context-banner
+  surface files so each surface has a smaller ownership boundary.
+- Moved composer follow-up chips, text-entry chrome, and send/stop controls into
+  reusable controls while keeping suggestion/history orchestration in
+  `QuillCodeComposerView`.
+- Introduced `QuillCodeWorkspaceActions` so `QuillCodeWorkspaceView` stores one
+  action bundle instead of dozens of public callback properties.
+- Moved local slash-command/browser/self-healing side-effect helpers out of
+  `WorkspaceModelComposer` to keep the model composer focused on send state.
+
+Validation:
+
+- `swift test --filter MorningTriageTests` (36 tests, 0 failures)
+- `swift test --filter 'QuillCodeTranscriptSurfaceTests|WorkspaceComposerIntegrationTests|WorkspaceComposerSendLifecycleTests|WorkspaceSwiftUIView|WorkspaceSurfaceTests|WorkspaceHTMLChromeRendererTests'` (46 tests, 0 failures)
+- `swift test --filter 'WorkspaceComposerIntegrationTests|WorkspaceComposerSendLifecycleTests|WorkspaceEnvironmentSchedulePlannerTests|WorkspaceSlashCommandDispatchPlannerTests|WorkspaceLocalCommandTranscriptAppenderTests'` (29 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (0 non-A+ rows)
+
+## 2026-07-02 Run Receipt Ledger And Spend-Fuse Gate A+ Pass
+
+Overall grade after this slice: **the automated file/module report remains A+ across the repo; the human
+architecture grade for run receipts moves from A-/B+ to A+** because pricing, fuse status, Activity rendering,
+and runtime spend-review enforcement now share one deterministic core ledger.
+
+This pass started from the regenerated grade report and then reviewed the run-receipt cost-control boundary by
+hand. The files already graded A+, but `WorkspaceRunReceiptSurfaceBuilder` and `RunSpendFusePolicy` each owned
+their own pricing/model lookup semantics, which made cost accounting harder to audit and easier to drift.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Receipt pricing ownership | Activity rendering and runtime spend-review policy each priced usage and looked up model aliases separately. | `RunSpendLedger` in `QuillCodeCore` owns catalog lookup, pricing, totals, unpriced counts, status, and display-safe cost labels. |
+| Runtime enforcement | Spend Review used its own summary path while Activity used a separate private receipt path. | `RunSpendFusePolicy` now derives its approval summary from the same core ledger that renders Activity receipts. |
+| Catalog robustness | A direct unique-key dictionary would be fragile if live catalog aliases duplicated a canonical model ID. | The ledger's model index is first-wins, so duplicate aliases cannot trap or crash the send path. |
+
+File and module grades:
+
+- `docs/CODE_QUALITY_FILE_GRADES.md` was regenerated from `scripts/grade-code-quality.py --root .`.
+- All modules grade **A+**.
+- Every individual source, test, script, and Playwright file grades **A+**.
+- The new `RunSpendLedger.swift` grades **A+**, and `WorkspaceRunReceiptSurfaceBuilder.swift` is reduced to projection code.
+
+Validation:
+
+- `swift test --filter WorkspaceTokenUsageIntegrationTests`
+- `swift test --filter RunSpendFusePolicyTests`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+- `swift test --quiet` (2,970 tests, 2 skipped, 0 failures)
+
+Residual risk:
+
+- This closes the duplicated spend-accounting path. A future UX slice can make the Spend Review bucket/fuse
+  explanation more prominent in the composer before the user starts another turn.
+
 ## 2026-07-02 Nested Instruction Override Cleanup Pass
 
 Overall grade after this slice: **A+ instruction diagnostics, A+ deterministic apply planner, A+ project-rule UX**.

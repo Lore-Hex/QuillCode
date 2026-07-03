@@ -437,7 +437,10 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
     }
 
     func testNativePrimaryClickTargetsExposeStableAccessibilityIdentifiers() throws {
-        let composerText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
+        let composerText = [
+            try Self.appSourceText(named: "QuillCodeComposerView.swift"),
+            try Self.appSourceText(named: "QuillCodeComposerControls.swift")
+        ].joined(separator: "\n")
         let modelPickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
         let topBarText = [
             try Self.appSourceText(named: "QuillCodeModePickerButton.swift"),

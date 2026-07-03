@@ -90,7 +90,12 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceSurfaceDelegatesTranscriptSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
-        let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptSurface.swift")
+        let transcriptText = [
+            try Self.appSourceText(named: "QuillCodeTranscriptSurface.swift"),
+            try Self.appSourceText(named: "QuillCodeContextBannerSurface.swift"),
+            try Self.appSourceText(named: "QuillCodeMessageSurface.swift"),
+            try Self.appSourceText(named: "QuillCodeComposerSurface.swift")
+        ].joined(separator: "\n")
 
         XCTAssertTrue(transcriptText.contains("public struct TranscriptSurface"), "Transcript aggregate should live beside transcript contracts.")
         XCTAssertTrue(transcriptText.contains("public enum TranscriptTimelineItemKind"), "Transcript timeline kind should live beside transcript contracts.")

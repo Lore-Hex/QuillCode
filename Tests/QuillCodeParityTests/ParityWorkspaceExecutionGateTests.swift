@@ -186,7 +186,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendProgressPlanner.swift")
         let progressStart = try XCTUnwrap(composerText.range(of: "private func applyAgentProgress"))
-        let progressEnd = try XCTUnwrap(composerText.range(of: "private func executeBrowserToolForAgent"))
+        let progressEnd = try XCTUnwrap(composerText.range(of: "private func finishCancelledSend"))
         let progressBody = String(composerText[progressStart.lowerBound..<progressEnd.lowerBound])
 
         XCTAssertTrue(

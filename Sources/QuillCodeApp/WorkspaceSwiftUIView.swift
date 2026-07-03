@@ -11,54 +11,7 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var isSettingsPresented: Bool
     @Binding public var isKeyboardShortcutsPresented: Bool
     public var copiedTranscriptItemID: String?
-    public var onSend: () -> Void
-    public var onRunTerminalCommand: () -> Void
-    public var onTerminalHistoryPrevious: () -> Void
-    public var onTerminalHistoryNext: () -> Void
-    public var onTerminalResize: (TerminalWindowSize) -> Void
-    public var onTerminalSuspend: () -> Void
-    public var onTerminalResume: () -> Void
-    public var onOpenBrowserPreview: () -> Void
-    public var onOpenBrowserSession: (() -> Void)?
-    public var onAddBrowserComment: (String) -> Void
-    public var onAddProjectRequested: () -> Void
-    public var onSelectThread: (UUID) -> Void
-    public var onThreadAction: (WorkspaceThreadRowMutation) -> Void
-    public var onRenameThread: (UUID, String) -> Void
-    public var onSelectProject: (UUID?) -> Void
-    public var onProjectAction: (WorkspaceProjectRowMutation) -> Void
-    public var onRenameProject: (UUID, String) -> Void
-    public var onSetMode: (AgentMode) -> Void
-    public var onSetModel: (String) -> Void
-    public var onToggleModelFavorite: (String) -> Void
-    public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
-    public var onStartTrustedRouterSignIn: () -> Void
-    public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
-    public var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
-    public var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
-    public var onPullRequestReviewDraftChange: (WorkspacePullRequestReviewDraftSurface) -> Void
-    public var onCancelPullRequestReviewDraft: () -> Void
-    public var onSubmitPullRequestReviewDraft: () -> Void
-    public var onToolCardAction: (ToolCardActionSurface) -> Void
-    public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
-    public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
-    public var onListWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoad
-    public var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
-    public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
-    public var onPreviewWorktreePrune: () async -> WorkspaceWorktreePrunePreview
-    public var onPruneWorktrees: (WorkspaceWorktreePruneRequest) -> Void
-    public var onCopyTranscriptItem: (String, String) -> Void
-    public var onExportConversationMarkdown: (String, String) -> Void
-    public var onRevertTurn: (UUID) -> Void = { _ in }
-    public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
-    public var onDeleteFollowUp: (UUID) -> Void = { _ in }
-    public var onSaveSidebarSavedSearch: (String, String) -> Void
-    /// Open a thread's morning-triage return digest (issue #877), used when the user clicks an Attention
-    /// row or presses Enter on the selected one.
-    public var onOpenAttentionDigest: (UUID) -> Void
-    /// Dismiss the currently open return digest card.
-    public var onCloseAttentionDigest: () -> Void
-    public var onCommand: (WorkspaceCommandSurface) -> Void
+    public var actions: QuillCodeWorkspaceActions
 
     @State private var isSearchPresented = false
     @State private var isFindPresented = false
@@ -139,51 +92,53 @@ public struct QuillCodeWorkspaceView: View {
         self._isSettingsPresented = isSettingsPresented
         self._isKeyboardShortcutsPresented = isKeyboardShortcutsPresented
         self.copiedTranscriptItemID = copiedTranscriptItemID
-        self.onSend = onSend
-        self.onRunTerminalCommand = onRunTerminalCommand
-        self.onTerminalHistoryPrevious = onTerminalHistoryPrevious
-        self.onTerminalHistoryNext = onTerminalHistoryNext
-        self.onTerminalResize = onTerminalResize
-        self.onTerminalSuspend = onTerminalSuspend
-        self.onTerminalResume = onTerminalResume
-        self.onOpenBrowserPreview = onOpenBrowserPreview
-        self.onOpenBrowserSession = onOpenBrowserSession
-        self.onAddBrowserComment = onAddBrowserComment
-        self.onAddProjectRequested = onAddProjectRequested
-        self.onSelectThread = onSelectThread
-        self.onThreadAction = onThreadAction
-        self.onRenameThread = onRenameThread
-        self.onSelectProject = onSelectProject
-        self.onProjectAction = onProjectAction
-        self.onRenameProject = onRenameProject
-        self.onSetMode = onSetMode
-        self.onSetModel = onSetModel
-        self.onToggleModelFavorite = onToggleModelFavorite
-        self.onSaveSettings = onSaveSettings
-        self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
-        self.onReviewAction = onReviewAction
-        self.onPullRequestReviewThreadAction = onPullRequestReviewThreadAction
-        self.onPullRequestReviewThreadReply = onPullRequestReviewThreadReply
-        self.onPullRequestReviewDraftChange = onPullRequestReviewDraftChange
-        self.onCancelPullRequestReviewDraft = onCancelPullRequestReviewDraft
-        self.onSubmitPullRequestReviewDraft = onSubmitPullRequestReviewDraft
-        self.onToolCardAction = onToolCardAction
-        self.onAddReviewComment = onAddReviewComment
-        self.onCreateWorktree = onCreateWorktree
-        self.onListWorktreeChoices = onListWorktreeChoices
-        self.onOpenWorktree = onOpenWorktree
-        self.onRemoveWorktree = onRemoveWorktree
-        self.onPreviewWorktreePrune = onPreviewWorktreePrune
-        self.onPruneWorktrees = onPruneWorktrees
-        self.onCopyTranscriptItem = onCopyTranscriptItem
-        self.onExportConversationMarkdown = onExportConversationMarkdown
-        self.onRevertTurn = onRevertTurn
-        self.onMessageFeedback = onMessageFeedback
-        self.onDeleteFollowUp = onDeleteFollowUp
-        self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
-        self.onOpenAttentionDigest = onOpenAttentionDigest
-        self.onCloseAttentionDigest = onCloseAttentionDigest
-        self.onCommand = onCommand
+        self.actions = QuillCodeWorkspaceActions(
+            onSend: onSend,
+            onRunTerminalCommand: onRunTerminalCommand,
+            onTerminalHistoryPrevious: onTerminalHistoryPrevious,
+            onTerminalHistoryNext: onTerminalHistoryNext,
+            onTerminalResize: onTerminalResize,
+            onTerminalSuspend: onTerminalSuspend,
+            onTerminalResume: onTerminalResume,
+            onOpenBrowserPreview: onOpenBrowserPreview,
+            onOpenBrowserSession: onOpenBrowserSession,
+            onAddBrowserComment: onAddBrowserComment,
+            onAddProjectRequested: onAddProjectRequested,
+            onSelectThread: onSelectThread,
+            onThreadAction: onThreadAction,
+            onRenameThread: onRenameThread,
+            onSelectProject: onSelectProject,
+            onProjectAction: onProjectAction,
+            onRenameProject: onRenameProject,
+            onSetMode: onSetMode,
+            onSetModel: onSetModel,
+            onToggleModelFavorite: onToggleModelFavorite,
+            onSaveSettings: onSaveSettings,
+            onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+            onReviewAction: onReviewAction,
+            onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
+            onPullRequestReviewThreadReply: onPullRequestReviewThreadReply,
+            onPullRequestReviewDraftChange: onPullRequestReviewDraftChange,
+            onCancelPullRequestReviewDraft: onCancelPullRequestReviewDraft,
+            onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
+            onToolCardAction: onToolCardAction,
+            onAddReviewComment: onAddReviewComment,
+            onCreateWorktree: onCreateWorktree,
+            onListWorktreeChoices: onListWorktreeChoices,
+            onOpenWorktree: onOpenWorktree,
+            onRemoveWorktree: onRemoveWorktree,
+            onPreviewWorktreePrune: onPreviewWorktreePrune,
+            onPruneWorktrees: onPruneWorktrees,
+            onCopyTranscriptItem: onCopyTranscriptItem,
+            onExportConversationMarkdown: onExportConversationMarkdown,
+            onRevertTurn: onRevertTurn,
+            onMessageFeedback: onMessageFeedback,
+            onDeleteFollowUp: onDeleteFollowUp,
+            onSaveSidebarSavedSearch: onSaveSidebarSavedSearch,
+            onOpenAttentionDigest: onOpenAttentionDigest,
+            onCloseAttentionDigest: onCloseAttentionDigest,
+            onCommand: onCommand
+        )
     }
 
     public var body: some View {
@@ -201,13 +156,13 @@ public struct QuillCodeWorkspaceView: View {
                         projects: surface.projects,
                         sidebar: surface.sidebar,
                         commands: surface.commands,
-                        onSelectProject: onSelectProject,
-                        onAddProjectRequested: onAddProjectRequested,
+                        onSelectProject: actions.onSelectProject,
+                        onAddProjectRequested: actions.onAddProjectRequested,
                         onProjectAction: handleProjectAction,
-                        onSelectThread: onSelectThread,
+                        onSelectThread: actions.onSelectThread,
                         onThreadAction: handleThreadAction,
                         onCommand: handleCommand,
-                        onOpenAttentionDigest: onOpenAttentionDigest
+                        onOpenAttentionDigest: actions.onOpenAttentionDigest
                     )
                         .frame(width: QuillCodeMetrics.sidebarWidth)
                     Divider()
@@ -223,31 +178,31 @@ public struct QuillCodeWorkspaceView: View {
                     activeFindIndex: $activeFindIndex,
                     isComposerFocused: $isComposerFocused,
                     copiedTranscriptItemID: copiedTranscriptItemID,
-                    onSetMode: onSetMode,
-                    onSetModel: onSetModel,
-                    onToggleModelFavorite: onToggleModelFavorite,
-                    onSend: onSend,
-                    onRunTerminalCommand: onRunTerminalCommand,
-                    onTerminalHistoryPrevious: onTerminalHistoryPrevious,
-                    onTerminalHistoryNext: onTerminalHistoryNext,
-                    onTerminalResize: onTerminalResize,
-                    onTerminalSuspend: onTerminalSuspend,
-                    onTerminalResume: onTerminalResume,
-                    onOpenBrowserPreview: onOpenBrowserPreview,
-                    onOpenBrowserSession: onOpenBrowserSession,
-                    onAddBrowserComment: onAddBrowserComment,
-                    onReviewAction: onReviewAction,
-                    onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
-                    onPullRequestReviewThreadReply: onPullRequestReviewThreadReply,
-                    onPullRequestReviewDraftChange: onPullRequestReviewDraftChange,
-                    onCancelPullRequestReviewDraft: onCancelPullRequestReviewDraft,
-                    onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
-                    onToolCardAction: onToolCardAction,
-                    onAddReviewComment: onAddReviewComment,
-                    onCopyTranscriptItem: onCopyTranscriptItem,
-                    onRevertTurn: onRevertTurn,
-                    onMessageFeedback: onMessageFeedback,
-                    onDeleteFollowUp: onDeleteFollowUp,
+                    onSetMode: actions.onSetMode,
+                    onSetModel: actions.onSetModel,
+                    onToggleModelFavorite: actions.onToggleModelFavorite,
+                    onSend: actions.onSend,
+                    onRunTerminalCommand: actions.onRunTerminalCommand,
+                    onTerminalHistoryPrevious: actions.onTerminalHistoryPrevious,
+                    onTerminalHistoryNext: actions.onTerminalHistoryNext,
+                    onTerminalResize: actions.onTerminalResize,
+                    onTerminalSuspend: actions.onTerminalSuspend,
+                    onTerminalResume: actions.onTerminalResume,
+                    onOpenBrowserPreview: actions.onOpenBrowserPreview,
+                    onOpenBrowserSession: actions.onOpenBrowserSession,
+                    onAddBrowserComment: actions.onAddBrowserComment,
+                    onReviewAction: actions.onReviewAction,
+                    onPullRequestReviewThreadAction: actions.onPullRequestReviewThreadAction,
+                    onPullRequestReviewThreadReply: actions.onPullRequestReviewThreadReply,
+                    onPullRequestReviewDraftChange: actions.onPullRequestReviewDraftChange,
+                    onCancelPullRequestReviewDraft: actions.onCancelPullRequestReviewDraft,
+                    onSubmitPullRequestReviewDraft: actions.onSubmitPullRequestReviewDraft,
+                    onToolCardAction: actions.onToolCardAction,
+                    onAddReviewComment: actions.onAddReviewComment,
+                    onCopyTranscriptItem: actions.onCopyTranscriptItem,
+                    onRevertTurn: actions.onRevertTurn,
+                    onMessageFeedback: actions.onMessageFeedback,
+                    onDeleteFollowUp: actions.onDeleteFollowUp,
                     onCommand: handleCommand
                 )
             }
@@ -281,19 +236,19 @@ public struct QuillCodeWorkspaceView: View {
             renameThreadDraft: $renameThreadDraft,
             renameProjectDraft: $renameProjectDraft,
             sidebarSavedSearchDraft: $sidebarSavedSearchDraft,
-            onSelectThread: onSelectThread,
-            onSaveSettings: onSaveSettings,
-            onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+            onSelectThread: actions.onSelectThread,
+            onSaveSettings: actions.onSaveSettings,
+            onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
             onCommand: handleCommand,
-            onCreateWorktree: onCreateWorktree,
+            onCreateWorktree: actions.onCreateWorktree,
             onRetryWorktreeChoices: retryWorktreeChoices,
-            onOpenWorktree: onOpenWorktree,
-            onRemoveWorktree: onRemoveWorktree,
+            onOpenWorktree: actions.onOpenWorktree,
+            onRemoveWorktree: actions.onRemoveWorktree,
             onRetryWorktreePrunePreview: retryWorktreePrunePreview,
-            onPruneWorktrees: onPruneWorktrees,
-            onRenameThread: onRenameThread,
-            onRenameProject: onRenameProject,
-            onSaveSidebarSavedSearch: onSaveSidebarSavedSearch
+            onPruneWorktrees: actions.onPruneWorktrees,
+            onRenameThread: actions.onRenameThread,
+            onRenameProject: actions.onRenameProject,
+            onSaveSidebarSavedSearch: actions.onSaveSidebarSavedSearch
         )
     }
 
@@ -301,12 +256,12 @@ public struct QuillCodeWorkspaceView: View {
         ZStack {
             Color.black.opacity(0.45)
                 .ignoresSafeArea()
-                .onTapGesture { onCloseAttentionDigest() }
+                .onTapGesture { actions.onCloseAttentionDigest() }
                 .quillCodeOwnedGestureTarget()
                 .accessibilityLabel("Dismiss digest")
             QuillCodeAttentionDigestView(
                 digest: digest,
-                onClose: onCloseAttentionDigest,
+                onClose: actions.onCloseAttentionDigest,
                 onAcknowledge: { handleCommand(attentionCommand(.attentionAcknowledge)) },
                 onDismiss: { handleCommand(attentionCommand(.attentionDismiss)) }
             )
@@ -339,11 +294,11 @@ public struct QuillCodeWorkspaceView: View {
         case let .renameThread(threadID, title):
             renameThreadDraft = QuillCodeThreadRenameDraft(threadID: threadID, title: title)
         case let .mutateThread(mutation):
-            onThreadAction(mutation)
+            actions.onThreadAction(mutation)
         case let .renameProject(projectID, name):
             renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
         case let .mutateProject(mutation):
-            onProjectAction(mutation)
+            actions.onProjectAction(mutation)
         }
     }
 
@@ -368,7 +323,7 @@ public struct QuillCodeWorkspaceView: View {
         case .presentFind:
             isFindPresented = true
         case .requestAddProject:
-            onAddProjectRequested()
+            actions.onAddProjectRequested()
         case .presentCommandPalette:
             commandQuery = ""
             isCommandPalettePresented = true
@@ -383,25 +338,25 @@ public struct QuillCodeWorkspaceView: View {
         case .presentCreateWorktree:
             worktreeDialogs.presentCreate()
         case .presentOpenWorktree:
-            worktreeDialogs.presentOpen(loadChoices: onListWorktreeChoices)
+            worktreeDialogs.presentOpen(loadChoices: actions.onListWorktreeChoices)
         case .presentRemoveWorktree:
-            worktreeDialogs.presentRemove(loadChoices: onListWorktreeChoices)
+            worktreeDialogs.presentRemove(loadChoices: actions.onListWorktreeChoices)
         case .presentPruneWorktrees:
-            worktreeDialogs.presentPrune(loadPreview: onPreviewWorktreePrune)
+            worktreeDialogs.presentPrune(loadPreview: actions.onPreviewWorktreePrune)
         case .openBrowserSession:
-            onOpenBrowserSession?()
+            actions.onOpenBrowserSession?()
         case .copyConversation:
             // Reuses the existing per-item copy closure (-> controller -> pasteboard),
             // so the whole-conversation export shares the same copy path and feedback.
             if let markdown = TranscriptMarkdownExporter.clipboardMarkdown(for: surface.transcript) {
-                onCopyTranscriptItem("conversation", markdown)
+                actions.onCopyTranscriptItem("conversation", markdown)
             }
         case .exportConversationMarkdown:
             if let markdown = TranscriptMarkdownExporter.exportableMarkdown(for: surface.transcript) {
-                onExportConversationMarkdown(surface.topBar.primaryTitle, markdown)
+                actions.onExportConversationMarkdown(surface.topBar.primaryTitle, markdown)
             }
         case let .dispatch(command, focusesComposer):
-            onCommand(command)
+            actions.onCommand(command)
             if focusesComposer {
                 DispatchQueue.main.async {
                     isComposerFocused = true
@@ -411,11 +366,11 @@ public struct QuillCodeWorkspaceView: View {
     }
 
     private func retryWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
-        worktreeDialogs.retryChoices(for: sheet, loadChoices: onListWorktreeChoices)
+        worktreeDialogs.retryChoices(for: sheet, loadChoices: actions.onListWorktreeChoices)
     }
 
     private func retryWorktreePrunePreview() {
-        worktreeDialogs.retryPrunePreview(loadPreview: onPreviewWorktreePrune)
+        worktreeDialogs.retryPrunePreview(loadPreview: actions.onPreviewWorktreePrune)
     }
 }
 

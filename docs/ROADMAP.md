@@ -38,10 +38,11 @@
 
 ## Latest Quality Pass
 
-- Run-receipt cost ledger groundwork is now in place: TrustedRouter usage
+- Run-receipt cost ledger enforcement is now in place: TrustedRouter usage
   records carry the model ID, Activity renders priced per-call receipts and a
   thread-total spend row from catalog pricing, legacy usage events remain
   auditable as unpriced rows, and `AppConfig.runSpendFuseUSD` is normalized with
-  backward-compatible defaults. The displayed fuse crossing is now enforced as a
-  hard async Spend Review pause: the next model/tool step does not run until the
-  user chooses Continue for the current spend bucket.
+  backward-compatible defaults. The displayed fuse crossing is backed by the
+  same core `RunSpendLedger` that powers runtime enforcement, and runs now
+  hard-pause on a Spend Review card until the user chooses Continue for the
+  current spend bucket.

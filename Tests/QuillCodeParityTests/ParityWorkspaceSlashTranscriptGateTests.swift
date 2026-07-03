@@ -3,7 +3,10 @@ import XCTest
 final class ParityWorkspaceSlashTranscriptGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let composerText = [
+            try Self.appSourceText(named: "WorkspaceModelComposer.swift"),
+            try Self.appSourceText(named: "WorkspaceModelComposerCommands.swift")
+        ].joined(separator: "\n")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceLocalCommandTranscriptAppender.swift")
