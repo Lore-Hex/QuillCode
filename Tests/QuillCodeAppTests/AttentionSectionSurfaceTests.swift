@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodePersistence
 @testable import QuillCodeApp
 
 /// App-layer tests for the morning-triage Attention surface + HTML rendering + model actions (issue
@@ -154,5 +155,88 @@ final class AttentionSectionSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="attention-digest-reasons""#))
         XCTAssertTrue(html.contains(#"data-command-id="attention-acknowledge""#))
         XCTAssertTrue(html.contains(#"data-command-id="attention-dismiss""#))
+    }
+
+    // MARK: - MAJOR 2: the unseen-turn seam is written by production and non-zero after reload
+
+    private func threadWithVerdictAndMessages(
+        _ verdict: RunIntegrityVerdict,
+        id threadID: UUID,
+        title: String,
+        messageCount: Int
+    ) -> ChatThread {
+        var thread = threadWithVerdict(verdict, id: threadID, title: title)
+        for i in 0..<messageCount {
+            thread.messages.append(ChatMessage(role: i.isMultiple(of: 2) ? .user : .assistant, content: "turn \(i)"))
+        }
+        return thread
+    }
+
+    /// The core regression for MAJOR 2: leaving a thread must PERSIST its return watermark (not just a
+    /// session-only in-memory tracker), so a thread that grows in the background shows a non-zero unseen
+    /// count in Attention + digest AFTER a reload from the store — not only in-session.
+    func testLeavingThreadPersistsWatermarkSoBackgroundGrowthShowsUnseenAfterReload() throws {
+        let dir = try makeTempDirectory()
+        let store = JSONThreadStore(directory: dir)
+        let threadA = threadWithVerdictAndMessages(.red, id: id(1), title: "overnight A", messageCount: 3)
+        let threadB = threadWithVerdict(.verified, id: id(2), title: "B")
+        try store.save(threadA)
+        try store.save(threadB)
+
+        let m = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [threadA, threadB], selectedThreadID: id(1)),
+            threadStore: store
+        )
+        // The production writer must run on leave: switch A → B.
+        m.selectThread(id(2))
+
+        // A watermark record was actually persisted (not just a session tracker).
+        let leftA = try store.load(id(1))
+        XCTAssertNotNil(
+            ThreadReturnWatermarkRecord.lastSeenItemID(in: leftA),
+            "leaving a thread must persist its return watermark (MAJOR 2)"
+        )
+        XCTAssertEqual(ThreadReturnWatermarkRecord.unseenCount(in: leftA), 0, "caught up at leave time")
+
+        // A run finishes on A in the background: two more turns arrive; persist.
+        var grownA = leftA
+        grownA.messages.append(ChatMessage(role: .assistant, content: "overnight result"))
+        grownA.messages.append(ChatMessage(role: .user, content: "follow-up"))
+        try store.save(grownA)
+
+        // Reload from disk (fresh session) — the unseen count must be non-zero.
+        let reloadedA = try store.load(id(1))
+        XCTAssertEqual(ThreadReturnWatermarkRecord.unseenCount(in: reloadedA), 2)
+
+        // And it surfaces in the Attention model + digest built from the reloaded thread.
+        let model = AttentionModel.build(from: [reloadedA])
+        XCTAssertEqual(model.items.first?.unseenCount, 2)
+        XCTAssertEqual(model.items.first?.unseenLabel, "2 new")
+        let digest = TriageDigest.build(for: reloadedA, unseenCount: ThreadReturnWatermarkRecord.unseenCount(in: reloadedA))
+        XCTAssertEqual(digest.unseenSeamLabel, "2 unseen turns")
+    }
+
+    func testNewChatPersistsOutgoingThreadWatermark() throws {
+        let dir = try makeTempDirectory()
+        let store = JSONThreadStore(directory: dir)
+        let threadA = threadWithVerdictAndMessages(.red, id: id(1), title: "A", messageCount: 2)
+        try store.save(threadA)
+        let m = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [threadA], selectedThreadID: id(1)),
+            threadStore: store
+        )
+        // New Chat / fork / compact all route through insertCreatedThread, which must persist the
+        // outgoing thread's watermark.
+        _ = m.insertCreatedThread(ChatThread(id: id(9), title: "New"), selectedProjectID: UUID?.none, saveThread: true)
+        let leftA = try store.load(id(1))
+        XCTAssertNotNil(ThreadReturnWatermarkRecord.lastSeenItemID(in: leftA))
+    }
+
+    func testSelectingSameThreadDoesNotAdvanceWatermark() {
+        // Re-selecting the current thread is not a "leave" — the watermark must not move.
+        let threadA = threadWithVerdictAndMessages(.red, id: id(1), title: "A", messageCount: 2)
+        let m = model([threadA], selected: id(1))
+        m.selectThread(id(1))
+        XCTAssertNil(ThreadReturnWatermarkRecord.lastSeenItemID(in: m.root.threads[0]))
     }
 }

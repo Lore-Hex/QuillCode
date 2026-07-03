@@ -84,6 +84,25 @@ extension QuillCodeWorkspaceModel {
         selectThread(threadID)
     }
 
+    /// Persist the CURRENTLY selected thread's morning-triage return watermark up to its current tail,
+    /// because the user is about to leave it. This is the cross-session mirror of the transcript view's
+    /// session-only `TranscriptNewTurnsTracker.leave` (and the harness's `selectThread → markTranscriptSeen`):
+    /// on the next visit, only turns added *after* this point — e.g. a run that finished in the
+    /// background — count as unseen in the Attention section and the digest seam.
+    ///
+    /// Crucially this preserves the thread's `updatedAt` (it does NOT go through `mutateThread`, which
+    /// force-bumps it): leaving a thread is invisible bookkeeping and must not reorder the recency-sorted
+    /// sidebar. A no-op when nothing is selected or the thread is already watermarked at its tail.
+    func persistOutgoingReturnWatermark() {
+        guard let outgoing = root.selectedThreadID,
+              let index = root.threads.firstIndex(where: { $0.id == outgoing })
+        else {
+            return
+        }
+        guard ThreadReturnWatermarkRecord.markSeen(&root.threads[index]) else { return }
+        threadPersistence.save(root.threads[index])
+    }
+
     private func triageSelected(as state: ThreadTriageState) {
         var model = attentionModel
         guard let threadID = model.selectedThreadID else { return }

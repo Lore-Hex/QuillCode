@@ -237,6 +237,83 @@ final class MorningTriageTests: XCTestCase {
         XCTAssertEqual(ThreadTriageRecord.current(in: thread), .acknowledged)
     }
 
+    // MARK: - BLOCKER 1: a triaged thread that goes RED again re-surfaces
+
+    /// Replace the thread's integrity record with a fresh one (a NEW run stamping the badge), exactly as
+    /// `RunIntegrityRecord.record` does after a run finishes — a brand-new event id even for the same
+    /// verdict.
+    private func restampIntegrity(_ verdict: RunIntegrityVerdict, on thread: inout ChatThread) {
+        let report = RunIntegrityReport(
+            verdict: verdict,
+            reasons: [RunIntegrityReason(rule: .standingTestFailure, detail: "make test exited 1")]
+        )
+        thread.events.removeAll(where: RunIntegrityRecord.isRecord)
+        if let event = RunIntegrityRecord.event(for: report) {
+            thread.events.append(event)
+        }
+    }
+
+    func testAcknowledgedThreadThatGoesRedAgainReopensTriage() {
+        var thread = threadWithVerdict(.red, id: id(1))
+        // User acknowledges the current RED run — it leaves Attention.
+        ThreadTriageRecord.set(.acknowledged, on: &thread)
+        XCTAssertFalse(ThreadTriageRecord.needsAttention(in: thread))
+        XCTAssertTrue(AttentionModel.build(from: [thread]).isEmpty)
+
+        // Later the user reopens the thread and sends again; that run fails → a NEW integrity record
+        // re-stamps RED. The stale acknowledgement must NOT keep hiding it.
+        restampIntegrity(.red, on: &thread)
+        XCTAssertTrue(
+            ThreadTriageRecord.needsAttention(in: thread),
+            "a thread that goes RED again after being acked must re-surface"
+        )
+        let model = AttentionModel.build(from: [thread])
+        XCTAssertEqual(model.items.map(\.threadID), [id(1)])
+    }
+
+    func testDismissedThreadThatGetsNewVerdictReopensTriage() {
+        var thread = threadWithVerdict(.unverified, id: id(1))
+        ThreadTriageRecord.set(.dismissed, on: &thread)
+        XCTAssertFalse(ThreadTriageRecord.needsAttention(in: thread))
+        // A new run stamps a different verdict (also a fresh record id).
+        restampIntegrity(.red, on: &thread)
+        XCTAssertTrue(ThreadTriageRecord.needsAttention(in: thread))
+        XCTAssertEqual(AttentionModel.build(from: [thread]).items.first?.verdict, .red)
+    }
+
+    func testAcknowledgementStillSilencesTheSameRun() {
+        var thread = threadWithVerdict(.red, id: id(1))
+        ThreadTriageRecord.set(.acknowledged, on: &thread)
+        // No new run — the same integrity record stands. It must stay silenced.
+        XCTAssertFalse(ThreadTriageRecord.needsAttention(in: thread))
+        XCTAssertTrue(AttentionModel.build(from: [thread]).isEmpty)
+    }
+
+    func testReacknowledgingAfterReopenBindsToTheNewRun() {
+        var thread = threadWithVerdict(.red, id: id(1))
+        ThreadTriageRecord.set(.acknowledged, on: &thread)
+        restampIntegrity(.red, on: &thread)
+        XCTAssertTrue(ThreadTriageRecord.needsAttention(in: thread))
+        // Acknowledge the NEW run — now it binds to the new record and silences again.
+        XCTAssertTrue(ThreadTriageRecord.set(.acknowledged, on: &thread))
+        XCTAssertFalse(ThreadTriageRecord.needsAttention(in: thread))
+    }
+
+    func testTriageBindingSurvivesReloadThenReopensOnNewRun() throws {
+        var thread = threadWithVerdict(.red, id: id(1))
+        ThreadTriageRecord.set(.acknowledged, on: &thread)
+
+        // Reload: still silenced (same run).
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        var reloaded = try decoder.decode(ChatThread.self, from: try encoder.encode(thread))
+        XCTAssertFalse(ThreadTriageRecord.needsAttention(in: reloaded))
+
+        // A new run after reload re-opens triage.
+        restampIntegrity(.red, on: &reloaded)
+        XCTAssertTrue(ThreadTriageRecord.needsAttention(in: reloaded))
+    }
+
     func testAttentionUnseenNeverNegative() {
         let item = AttentionItem(
             threadID: id(1), title: "t", verdict: .red, summary: "s", unseenCount: -4,

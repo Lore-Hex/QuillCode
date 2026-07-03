@@ -18,6 +18,12 @@ extension QuillCodeWorkspaceModel {
     public func selectThread(_ id: UUID, recordsNavigation: Bool = true) {
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         let previousLocation = currentNavigationLocation
+        // The user is leaving the current thread: persist its morning-triage return watermark to its
+        // current tail so background growth on it surfaces as "unseen" on return (cross-session).
+        // Only on an actual thread switch, mirroring the transcript tracker's leave transition.
+        if let outgoing = root.selectedThreadID, outgoing != id {
+            persistOutgoingReturnWatermark()
+        }
         restoreComposerDraft(from: root.selectedThreadID, to: id)
         selectThreadRecord(id, projectID: thread.projectID)
         if recordsNavigation {
@@ -32,6 +38,11 @@ extension QuillCodeWorkspaceModel {
         saveThread: Bool
     ) -> UUID {
         let previousLocation = currentNavigationLocation
+        // Leaving the current thread for a newly created one (New Chat / fork / compact): persist its
+        // return watermark, mirroring the harness's newChat() → markTranscriptSeen.
+        if let outgoing = root.selectedThreadID, outgoing != thread.id {
+            persistOutgoingReturnWatermark()
+        }
         clearSidebarSelection()
         restoreComposerDraft(from: root.selectedThreadID, to: thread.id)
         root.threads.insert(thread, at: 0)

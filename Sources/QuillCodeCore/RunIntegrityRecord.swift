@@ -26,13 +26,26 @@ public enum RunIntegrityRecord {
 
     /// The most recently recorded integrity verdict on a thread, or nil if none was ever recorded.
     public static func latest(in thread: ChatThread) -> Payload? {
+        latestEvent(in: thread).flatMap { event in
+            event.payloadJSON.flatMap { try? JSONHelpers.decode(Payload.self, from: $0) }
+        }
+    }
+
+    /// The most recent integrity-record EVENT on a thread (payload + its stable event id), or nil if
+    /// none was ever recorded. The event id identifies the specific run that produced this verdict —
+    /// `record(into:)` mints a fresh event each run — so downstream features (morning triage) can tell
+    /// "the run I already triaged" from "a new run that re-stamped the badge".
+    public static func latestEvent(in thread: ChatThread) -> ThreadEvent? {
         for event in thread.events.reversed() where isRecord(event) {
-            if let payloadJSON = event.payloadJSON,
-               let payload = try? JSONHelpers.decode(Payload.self, from: payloadJSON) {
-                return payload
-            }
+            return event
         }
         return nil
+    }
+
+    /// The stable id of the most recent integrity-record event, or nil if none. This is the identity a
+    /// triage decision binds to, so a NEW run (new id) re-opens triage even if the verdict is the same.
+    public static func latestRecordID(in thread: ChatThread) -> UUID? {
+        latestEvent(in: thread)?.id
     }
 
     /// Scans the thread, then records the resulting verdict as a fresh notice event.

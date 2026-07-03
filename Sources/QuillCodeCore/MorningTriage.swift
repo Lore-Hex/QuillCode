@@ -111,9 +111,15 @@ public enum ThreadTriageRecord {
     /// The Codable payload stored in the notice event's `payloadJSON`.
     public struct Payload: Codable, Sendable, Hashable {
         public var state: ThreadTriageState
+        /// The id of the `RunIntegrityRecord` event this decision was made about. A triage decision is
+        /// bound to the SPECIFIC run/verdict it triaged — when a later run re-stamps a fresh integrity
+        /// record (new id), the decision is stale and the thread re-opens for triage. `nil` for a
+        /// decision made when no integrity record was present, or decoded from an older payload.
+        public var verdictRecordID: UUID?
 
-        public init(state: ThreadTriageState) {
+        public init(state: ThreadTriageState, verdictRecordID: UUID? = nil) {
             self.state = state
+            self.verdictRecordID = verdictRecordID
         }
     }
 
@@ -121,31 +127,61 @@ public enum ThreadTriageRecord {
         event.kind == .notice && event.summary == eventSummary
     }
 
-    /// Build the notice event for a triage state. Returns nil only if encoding somehow fails.
-    public static func event(for state: ThreadTriageState) -> ThreadEvent? {
-        guard let payloadJSON = try? JSONHelpers.encodePretty(Payload(state: state)) else { return nil }
+    /// Build the notice event for a triage state bound to the given integrity-record id. Returns nil
+    /// only if encoding somehow fails.
+    public static func event(for state: ThreadTriageState, verdictRecordID: UUID?) -> ThreadEvent? {
+        let payload = Payload(state: state, verdictRecordID: verdictRecordID)
+        guard let payloadJSON = try? JSONHelpers.encodePretty(payload) else { return nil }
         return ThreadEvent(kind: .notice, summary: eventSummary, payloadJSON: payloadJSON)
+    }
+
+    /// The most recent triage payload on a thread, or nil if none was ever recorded.
+    public static func latestPayload(in thread: ChatThread) -> Payload? {
+        for event in thread.events.reversed() where isRecord(event) {
+            if let payloadJSON = event.payloadJSON,
+               let payload = try? JSONHelpers.decode(Payload.self, from: payloadJSON) {
+                return payload
+            }
+        }
+        return nil
     }
 
     /// The current triage state of a thread: the most recently recorded one, or `.pending` if none was
     /// ever recorded (a fresh, un-triaged run is pending review).
     public static func current(in thread: ChatThread) -> ThreadTriageState {
-        for event in thread.events.reversed() where isRecord(event) {
-            if let payloadJSON = event.payloadJSON,
-               let payload = try? JSONHelpers.decode(Payload.self, from: payloadJSON) {
-                return payload.state
-            }
-        }
-        return .pending
+        latestPayload(in: thread)?.state ?? .pending
     }
 
-    /// Set the thread's triage state, replacing any prior record. Bumps `updatedAt` only when the state
-    /// actually changes, so re-recording the same state is idempotent and does not reshuffle the sidebar.
+    /// Whether a thread still needs the morning-triage user's attention, given its persisted triage
+    /// decision AND the CURRENT integrity record.
+    ///
+    /// BLOCKER-1 fix: a triage decision (`acknowledged` / `dismissed`) only silences the thread for the
+    /// EXACT run it was made about. If a later run re-stamps the integrity badge (a new record id), the
+    /// stale decision no longer applies, so the thread re-surfaces. This is the whole point of the
+    /// inbox: a thread that goes RED again after you acked it must come back. A `pending` decision (or
+    /// none) is always actionable.
+    public static func needsAttention(in thread: ChatThread) -> Bool {
+        guard let payload = latestPayload(in: thread), !payload.state.isActionable else {
+            return true // pending or never triaged → needs attention
+        }
+        // Acknowledged/dismissed: only silenced while the triaged run is still the current one.
+        let currentRecordID = RunIntegrityRecord.latestRecordID(in: thread)
+        return payload.verdictRecordID != currentRecordID
+    }
+
+    /// Set the thread's triage state, binding the decision to the thread's CURRENT integrity record so a
+    /// later run re-opens triage. Bumps `updatedAt` only when the effective decision actually changes,
+    /// so re-recording the same (state, record) is idempotent and does not reshuffle the sidebar.
     @discardableResult
     public static func set(_ state: ThreadTriageState, on thread: inout ChatThread) -> Bool {
-        guard current(in: thread) != state else { return false }
+        let verdictRecordID = RunIntegrityRecord.latestRecordID(in: thread)
+        if let existing = latestPayload(in: thread),
+           existing.state == state,
+           existing.verdictRecordID == verdictRecordID {
+            return false
+        }
         thread.events.removeAll(where: isRecord)
-        if let event = event(for: state) {
+        if let event = event(for: state, verdictRecordID: verdictRecordID) {
             thread.events.append(event)
             thread.updatedAt = Date()
             return true
@@ -220,6 +256,10 @@ public enum ThreadReturnWatermarkRecord {
 
     /// Mark the thread seen up to its current last message — advancing the watermark to the tail. A no-op
     /// (returns false, leaves the thread untouched) when the timeline is empty or already at the tail.
+    ///
+    /// This deliberately does NOT bump `thread.updatedAt`: the watermark is invisible bookkeeping (the
+    /// user leaving a thread must not reorder the recency-sorted sidebar). Callers that persist the
+    /// thread should preserve its `updatedAt`.
     @discardableResult
     public static func markSeen(_ thread: inout ChatThread) -> Bool {
         guard let tail = messageTimelineIDs(for: thread).last else { return false }
@@ -229,7 +269,6 @@ public enum ThreadReturnWatermarkRecord {
             return false
         }
         thread.events.append(ThreadEvent(kind: .notice, summary: eventSummary, payloadJSON: payloadJSON))
-        thread.updatedAt = Date()
         return true
     }
 }
@@ -349,9 +388,10 @@ public struct AttentionModel: Sendable, Hashable {
     }
 
     /// Build the Attention model from a set of threads. A thread contributes a row iff it has a
-    /// persisted RunIntegrity stamp that needs attention (RED / UNVERIFIED) AND its triage state is still
-    /// `pending`. Everything derives from the ACTUAL persisted records on each thread — never self-report
-    /// and never a stale copy.
+    /// persisted RunIntegrity stamp that needs attention (RED / UNVERIFIED) AND it still needs the user's
+    /// attention — either never triaged, or triaged against an OLDER run than its current verdict (so a
+    /// thread that goes RED again after being acked re-surfaces). Everything derives from the ACTUAL
+    /// persisted records on each thread — never self-report and never a stale copy.
     public static func build(
         from threads: [ChatThread],
         selectedThreadID: UUID? = nil
@@ -360,7 +400,7 @@ public struct AttentionModel: Sendable, Hashable {
             guard let stamp = TriageStamp.derive(from: thread), stamp.verdict.needsAttention else {
                 return nil
             }
-            guard ThreadTriageRecord.current(in: thread).isActionable else { return nil }
+            guard ThreadTriageRecord.needsAttention(in: thread) else { return nil }
             return AttentionItem(
                 threadID: thread.id,
                 title: thread.title,

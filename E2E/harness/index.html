@@ -15412,14 +15412,27 @@
     });
 
     // Morning-triage keyboard triage (issue #877): j/k/Enter/a/d act on the Attention section. They are
-    // bare single-letter keys, so they must NOT fire while typing in an editable field, must require no
-    // modifiers, and only apply when the Attention section actually has rows. Enter, additionally, only
-    // triages when the digest is not already open (so it doesn't hijack composer newlines etc.). This
-    // mirrors the native `.onKeyPress` handlers scoped to the sidebar Attention section.
+    // bare single-letter keys, so they must NOT fire while typing in ANY editable field — including the
+    // composer (BLOCKER-3 fix: the composer is emphatically NOT a shortcut-allowed context here, unlike
+    // Tab-cycling; letting these fire in the composer would eat the user's keystroke via preventDefault
+    // and silently triage/open runs). Native scopes its `.onKeyPress` to the Attention section view, so
+    // it likewise never fires from the composer; this guard is that section-scoping's behavioral mirror.
+    // They require no modifiers and only apply when the Attention section actually has rows.
+    function attentionTriageContextIsActive() {
+      // Never while focus is in an editable field (composer, search box, terminal entry, etc.). The
+      // native surface scopes the keys to the sidebar section, which is not an editable field.
+      const active = document.activeElement;
+      if (active) {
+        if (active.isContentEditable) return false;
+        const tag = active.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+      }
+      // Only when the Attention section is actually present with rows to act on.
+      return attentionRows().length > 0;
+    }
     function handleAttentionTriageKeydown(event) {
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
-      if (!focusAllowsTabShortcut()) return false; // reuse the "not in an editable field" guard
-      if (!attentionRows().length) return false;
+      if (!attentionTriageContextIsActive()) return false;
       const key = String(event.key || '').toLowerCase();
       const routes = {
         j: 'attention-next',

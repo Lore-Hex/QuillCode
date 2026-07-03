@@ -147,16 +147,46 @@ test('clicking an Attention row opens its digest; digest actions triage it', asy
   await expect(attentionRow(page, 't-red')).toBeVisible();
 });
 
-test('triage keys do not fire while typing in the composer', async ({ page }) => {
+// BLOCKER-3 fail-on-revert: with the composer focused, real j/k/a/d/Enter keystrokes must land as TEXT
+// and must NOT triage/open — the bare triage keys are section-scoped, never composer shortcuts. Uses
+// keyboard.type (which dispatches real keydown events) rather than fill() so the guard is exercised.
+test('triage keys land as composer text and never triage while typing', async ({ page }) => {
   await page.goto(harnessURL());
   await seedAttention(page, [
     { id: 't-red-a', title: 'red a', verdict: 'red' },
     { id: 't-red-b', title: 'red b', verdict: 'red' }
   ]);
 
-  // Type "adjk" into the composer; none of these should triage or move the cursor.
-  await page.getByLabel('Message').fill('adjk');
-  await expect(page.getByLabel('Message')).toHaveValue('adjk');
+  const composer = page.getByLabel('Message');
+  await composer.click();
+  await expect(composer).toBeFocused();
+
+  // Real keystrokes: every triage letter must be typed into the composer, not eaten.
+  await page.keyboard.type('adjkd');
+  await expect(composer).toHaveValue('adjkd');
+  // Nothing was triaged, no digest opened, the cursor did not move.
   await expect(page.getByTestId('attention-row')).toHaveCount(2);
+  await expect(page.getByTestId('attention-digest')).toHaveCount(0);
   await expect(attentionRow(page, 't-red-a')).toHaveAttribute('data-cursor', 'true');
+
+  // Enter in the composer must not open the digest either (it submits / newlines per the composer).
+  await composer.fill('');
+  await composer.click();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('attention-digest')).toHaveCount(0);
+});
+
+// And the positive half: with focus NOT in an editable field, the keys DO drive the section.
+test('triage keys drive the section when focus is not in an editable field', async ({ page }) => {
+  await page.goto(harnessURL());
+  await seedAttention(page, [
+    { id: 't-red-a', title: 'red a', verdict: 'red' },
+    { id: 't-red-b', title: 'red b', verdict: 'red' }
+  ]);
+  // Move focus out of any input onto the body.
+  await page.locator('body').click({ position: { x: 2, y: 2 } });
+  await page.keyboard.press('j');
+  await expect(attentionRow(page, 't-red-b')).toHaveAttribute('data-cursor', 'true');
+  await page.keyboard.press('a');
+  await expect(page.getByTestId('attention-row')).toHaveCount(1);
 });

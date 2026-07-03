@@ -137,6 +137,43 @@ final class ParityAttentionInboxGateTests: QuillCodeParityTestCase {
         ])
     }
 
+    // MARK: - Triage-key focus guard (BLOCKER-3 divergence defense)
+
+    func testHarnessTriageKeysDoNotFireInEditableFieldsAndAreSectionScoped() throws {
+        let harness = try harnessText()
+        // The triage guard must be its OWN function, NOT a reuse of focusAllowsTabShortcut (which treats
+        // the composer as shortcut-allowed — the exact bug). It must block INPUT / TEXTAREA / SELECT /
+        // contentEditable and only fire when the Attention section has rows.
+        Self.assertSource(harness, containsAll: [
+            "function attentionTriageContextIsActive()",
+            "if (!attentionTriageContextIsActive()) return false;",
+            "active.isContentEditable",
+            "tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'",
+            "return attentionRows().length > 0;"
+        ])
+        // Fail-on-revert: the triage keydown handler must NOT gate on focusAllowsTabShortcut (the buggy
+        // guard that let the keys fire in the composer).
+        let triageHandler = try slice(
+            of: harness,
+            from: "function handleAttentionTriageKeydown(event) {",
+            to: "\n    }"
+        )
+        Self.assertSource(triageHandler, excludes: "focusAllowsTabShortcut")
+    }
+
+    /// Extract the substring from the first occurrence of `from` up to the next occurrence of `to`.
+    private func slice(of source: String, from: String, to: String) throws -> String {
+        guard let start = source.range(of: from) else {
+            XCTFail("expected harness to contain: \(from)")
+            return ""
+        }
+        guard let end = source.range(of: to, range: start.upperBound..<source.endIndex) else {
+            XCTFail("expected \(to) after \(from)")
+            return ""
+        }
+        return String(source[start.lowerBound..<end.upperBound])
+    }
+
     // MARK: - Triage state agreement
 
     func testTriageStatesMatchAcrossSurfaces() throws {
