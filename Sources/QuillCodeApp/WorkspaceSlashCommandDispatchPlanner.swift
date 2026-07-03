@@ -76,6 +76,14 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .environmentAction(query, userText: userText)
         case .environmentSchedule(let scheduleText):
             return .environmentSchedule(scheduleText, userText: userText)
+        case .runSkill:
+            // `/skill name` is resolved to an agent turn by `WorkspaceComposerSubmissionPlanner`
+            // and never reaches slash dispatch; treat any stray value as an unknown command rather
+            // than silently dropping it.
+            return .appendTranscript(WorkspaceSlashCommandTranscriptPlanner.unknown(
+                userText: userText,
+                name: "skill"
+            ))
         case .invalid(let message):
             return .appendTranscript(WorkspaceSlashCommandTranscriptPlanner.invalid(
                 userText: userText,

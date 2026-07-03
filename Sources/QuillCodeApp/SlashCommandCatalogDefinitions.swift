@@ -220,10 +220,18 @@ extension SlashCommandCatalog {
             "Investigate read-only and propose a plan; mutating tools wait for your approval."
         ),
         slashDefinition(
-            "/model /synth",
+            "/model name",
             "Set model",
-            "Switch the active TrustedRouter model, for example /synth or provider/model.",
-            insert: "/model "
+            "Search the TrustedRouter catalog with live per-1M pricing and switch the thread's model.",
+            insert: "/model ",
+            aliases: ["models", "switch model", "change model"]
+        ),
+        slashDefinition(
+            "/skill name",
+            "Run a skill",
+            "Load an installed skill by name and follow it, for example /skill code-review.",
+            insert: "/skill ",
+            aliases: ["skills", "run skill", "load skill"]
         )
     ]
 

@@ -20,6 +20,7 @@ struct QuillCodeComposerView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var activeSlashSuggestionIndex = 0
+    @State private var activeModelCommandIndex = 0
     @State private var activeFileMentionIndex = 0
     @State private var historyRecallIndex: Int?
     @State private var historySavedDraft: String?
@@ -29,7 +30,14 @@ struct QuillCodeComposerView: View {
             if let planProgress = composer.planProgress {
                 QuillCodePlanProgressStrip(progress: planProgress, reduceMotion: reduceMotion)
             }
-            if !slashSuggestions.isEmpty {
+            if !modelCommandSuggestions.isEmpty {
+                QuillCodeModelCommandSuggestionPanel(
+                    suggestions: modelCommandSuggestions,
+                    selectedIndex: activeModelCommandIndex,
+                    onSelect: acceptModelCommand
+                )
+                .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .bottom)))
+            } else if !slashSuggestions.isEmpty {
                 QuillCodeSlashSuggestionPanel(
                     suggestions: slashSuggestions,
                     selectedIndex: activeSlashSuggestionIndex,
@@ -51,6 +59,7 @@ struct QuillCodeComposerView: View {
         .background(QuillCodePalette.panel)
         .onChange(of: draft) { _, newValue in
             activeSlashSuggestionIndex = 0
+            activeModelCommandIndex = 0
             activeFileMentionIndex = 0
             if newValue.isEmpty {
                 historyRecallIndex = nil
@@ -62,6 +71,13 @@ struct QuillCodeComposerView: View {
                 activeSlashSuggestionIndex = 0
             } else {
                 activeSlashSuggestionIndex = min(activeSlashSuggestionIndex, suggestions.count - 1)
+            }
+        }
+        .onChange(of: modelCommandSuggestions) { _, suggestions in
+            if suggestions.isEmpty {
+                activeModelCommandIndex = 0
+            } else {
+                activeModelCommandIndex = min(activeModelCommandIndex, suggestions.count - 1)
             }
         }
         .onChange(of: fileMentionSuggestions) { _, suggestions in
@@ -104,7 +120,7 @@ struct QuillCodeComposerView: View {
     }
 
     private var composerSurfaceStroke: Color {
-        if !slashSuggestions.isEmpty || !fileMentionSuggestions.isEmpty {
+        if !modelCommandSuggestions.isEmpty || !slashSuggestions.isEmpty || !fileMentionSuggestions.isEmpty {
             return QuillCodePalette.blue.opacity(0.34)
         }
         return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
@@ -154,12 +170,22 @@ struct QuillCodeComposerView: View {
         .accessibilityLabel("Queued follow-ups")
     }
 
+    /// Catalog model suggestions for the `/model ` sub-search. Takes precedence over the general
+    /// slash popup (see `slashSuggestions`) so `/model gpt` browses models instead of re-showing the
+    /// `/model` command row. Uses the topBar's live categories, so prices are the current catalog's.
+    private var modelCommandSuggestions: [ModelCommandSuggestionSurface] {
+        SlashModelCatalogSearch.suggestions(for: draft, categories: topBar.modelCategories)
+    }
+
     private var slashSuggestions: [SlashCommandSuggestionSurface] {
-        SlashCommandCatalog.suggestions(for: draft)
+        // Once the user has committed to `/model ` and is querying a model, the model sub-search
+        // owns the popup; suppress the top-level slash list so the two never both render.
+        guard !SlashModelCatalogSearch.isActive(in: draft) else { return [] }
+        return SlashCommandCatalog.suggestions(for: draft)
     }
 
     private var fileMentionSuggestions: [FileMentionSuggestionSurface] {
-        guard slashSuggestions.isEmpty else { return [] }
+        guard slashSuggestions.isEmpty, modelCommandSuggestions.isEmpty else { return [] }
         return FileMentionCatalog.suggestions(for: draft, in: fileMentionIndex, changedPaths: changedFilePaths)
     }
 
@@ -201,6 +227,10 @@ struct QuillCodeComposerView: View {
             // queued (Enter enqueues while the run is live, drains at the next turn boundary).
             .focused(isFocused)
             .onKeyPress(.downArrow) {
+                if !modelCommandSuggestions.isEmpty {
+                    activeModelCommandIndex = min(activeModelCommandIndex + 1, modelCommandSuggestions.count - 1)
+                    return .handled
+                }
                 if !slashSuggestions.isEmpty {
                     activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, slashSuggestions.count - 1)
                     return .handled
@@ -212,6 +242,10 @@ struct QuillCodeComposerView: View {
                 return recallNewerHistory() ? .handled : .ignored
             }
             .onKeyPress(.upArrow) {
+                if !modelCommandSuggestions.isEmpty {
+                    activeModelCommandIndex = max(activeModelCommandIndex - 1, 0)
+                    return .handled
+                }
                 if !slashSuggestions.isEmpty {
                     activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
                     return .handled
@@ -223,11 +257,13 @@ struct QuillCodeComposerView: View {
                 return recallOlderHistory() ? .handled : .ignored
             }
             .onKeyPress(.tab) {
+                if acceptActiveModelCommand() { return .handled }
                 if acceptActiveSlashSuggestion(force: true) { return .handled }
                 if acceptActiveFileMention(force: true) { return .handled }
                 return .ignored
             }
             .onKeyPress(.return) {
+                if acceptActiveModelCommand() { return .handled }
                 if acceptActiveSlashSuggestion(force: false) { return .handled }
                 if acceptActiveFileMention(force: false) { return .handled }
                 return .ignored
@@ -273,6 +309,26 @@ struct QuillCodeComposerView: View {
             .help("Send")
             .accessibilityLabel("Send message")
             .accessibilityIdentifier("quillcode-send-button")
+        }
+    }
+
+    private func acceptActiveModelCommand() -> Bool {
+        guard !modelCommandSuggestions.isEmpty else { return false }
+        let index = min(max(activeModelCommandIndex, 0), modelCommandSuggestions.count - 1)
+        acceptModelCommand(modelCommandSuggestions[index])
+        return true
+    }
+
+    /// Accepting a model row switches the thread's model NOW through the shared live writer
+    /// (`onSetModel` → `setModel` → `thread.model` + persistence), then clears the composer so the
+    /// consumed `/model` command never lingers as sendable text. This is the SAME writer the picker
+    /// and the typed `/model <id>` command use — no second, divergent model-setting path.
+    private func acceptModelCommand(_ suggestion: ModelCommandSuggestionSurface) {
+        onSetModel(suggestion.modelID)
+        draft = ""
+        activeModelCommandIndex = 0
+        DispatchQueue.main.async {
+            isFocused.wrappedValue = true
         }
     }
 

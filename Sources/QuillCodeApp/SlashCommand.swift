@@ -23,6 +23,9 @@ enum SlashCommand: Equatable {
     case toolCall(ToolCall)
     case environmentAction(String?)
     case environmentSchedule(String)
+    /// `/skill name` — carries the agent prompt that loads and runs the named skill. The submission
+    /// planner unwraps this into a normal agent turn (issue #879).
+    case runSkill(String)
     case invalid(String)
     case unknown(String)
 }
@@ -75,6 +78,11 @@ enum SlashCommandParser {
             return .mode(.plan)
         case "model":
             return SlashModelCommandParser.parse(argument)
+        case let skillCommand where SlashSkillCommandPlanner.supports(skillCommand):
+            guard let skillPrompt = SlashSkillCommandPlanner.agentPrompt(for: argument) else {
+                return .invalid(SlashSkillCommandPlanner.usage)
+            }
+            return .runSkill(skillPrompt)
         default:
             return .unknown(name)
         }

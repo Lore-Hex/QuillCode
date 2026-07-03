@@ -62,6 +62,96 @@ private struct QuillCodeSlashSuggestionRow: View {
     }
 }
 
+struct QuillCodeModelCommandSuggestionPanel: View {
+    var suggestions: [ModelCommandSuggestionSurface]
+    var selectedIndex: Int
+    var onSelect: (ModelCommandSuggestionSurface) -> Void
+
+    var body: some View {
+        QuillCodeSuggestionPanel(title: "Models", accessibilityLabel: "Model switch") {
+            ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                QuillCodeModelCommandSuggestionRow(
+                    suggestion: suggestion,
+                    isSelected: index == selectedIndex,
+                    onSelect: onSelect
+                )
+            }
+        }
+    }
+}
+
+private struct QuillCodeModelCommandSuggestionRow: View {
+    var suggestion: ModelCommandSuggestionSurface
+    var isSelected: Bool
+    var onSelect: (ModelCommandSuggestionSurface) -> Void
+
+    var body: some View {
+        Button {
+            onSelect(suggestion)
+        } label: {
+            HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Image(systemName: "diamond")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(suggestion.title)
+                            .font(.callout.weight(.semibold))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if suggestion.isCurrent {
+                            currentBadge
+                        }
+                    }
+                    Text(suggestion.detail)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+
+                if !suggestion.priceLabel.isEmpty {
+                    Text(suggestion.priceLabel)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                        .layoutPriority(1)
+                }
+
+                QuillCodeSuggestionRowArrow(isSelected: isSelected)
+            }
+            .quillCodeSuggestionRowChrome(isSelected: isSelected)
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .quillCodeFullRowButtonTarget(radius: 12)
+        .accessibilityLabel(
+            "Switch to \(suggestion.title)"
+                + "\(suggestion.isCurrent ? ", current" : "")"
+        )
+        .accessibilityHint(
+            suggestion.priceLabel.isEmpty
+                ? suggestion.detail
+                : "\(suggestion.detail), \(suggestion.priceLabel)"
+        )
+    }
+
+    private var currentBadge: some View {
+        Text("Current")
+            .font(.system(size: 9, weight: .bold))
+            .textCase(.uppercase)
+            .foregroundStyle(QuillCodePalette.blue)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(QuillCodePalette.blue.opacity(0.16)))
+            .accessibilityHidden(true)
+    }
+}
+
 struct QuillCodeFileMentionSuggestionPanel: View {
     var suggestions: [FileMentionSuggestionSurface]
     var selectedIndex: Int
