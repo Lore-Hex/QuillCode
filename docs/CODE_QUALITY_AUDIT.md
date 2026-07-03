@@ -14934,3 +14934,45 @@ Validation:
 - `swift test --filter 'SlashThreadCommandParserTests|WorkspaceCommandPlanTests|WorkspaceCommandActionPlannerTests|WorkspaceCommandSurfaceBuilderTests|WorkspaceSurfaceTests|WorkspaceThreadLifecycleEngineTests|WorkspaceThreadLifecycleIntegrationTests|WorkspaceRenderedCommandRoutingParityTests|WorkspaceSlashRegistryHarnessParityTests'` (77 tests, 0 failures)
 - `swift test --quiet` (3,147 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+
+## 2026-07-03 Core Run Integrity And Spend Fuse A+ Split
+
+Overall grade after this slice: **every module and every individual source,
+test, script, and E2E file remains A+**, with the Core quality risk moved from
+large mixed files into focused single-purpose boundaries.
+
+This pass started with the generated file/module report and then reviewed the
+lowest production Core rows by hand. `RunIntegrityLexicons.swift` still graded
+A+, but it mixed public runner tables, shell segmentation, wrapper parsing,
+same-scope keying, and success-claim matching in one 614-line file. The spend
+fuse policy also graded A+ but mixed approval state/payload models and policy
+behavior in one file.
+
+Code quality changes:
+
+- Split run-integrity command classification into focused files:
+  public entry point, runner tables, shell segment splitting, parser/wrapper
+  handling, scope identity, and success-claim matching.
+- Removed the stale `selectorFlags` table after confirming the current inverted
+  default no longer reads it; the safer behavior is covered by existing selector
+  and unknown-value tests.
+- Split run-spend fuse models from `RunSpendFusePolicy`, leaving the policy file
+  to own approval state transitions and persisted approval lookups only.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; there are no non-A+ rows.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Whole architecture | A+ | Core behavior now has clearer file ownership and fewer mixed-responsibility edit points. |
+| `TestCommandLexicon` boundary | A+ | Public API remains stable while tables, parsing, shell splitting, and scope identity are separately testable. |
+| `SuccessClaimLexicon` boundary | A+ | Success-claim wording no longer shares a file with shell command parsing. |
+| `RunSpendFusePolicy` boundary | A+ | Policy logic is separate from DTO/summarization models. |
+| File/module report | A+ | All modules and every individual file grade A+ in the regenerated report. |
+
+Validation:
+
+- `swift test --filter RunIntegrityScannerTests` (39 tests, 0 failures)
+- `swift test --filter 'RunIntegrityScannerTests|RunSpendFusePolicyTests|AgentStreamingTests/testRunSpendFuse'` (42 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+- `rg -n "\| A \||\| A- \||\| B|\| C|\| D|\| F" docs/CODE_QUALITY_FILE_GRADES.md` (no non-A+ grade rows)
