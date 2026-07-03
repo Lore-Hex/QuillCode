@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeApp
 
 final class SlashWorkspaceCommandParserTests: XCTestCase {
@@ -7,6 +8,7 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preview"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("git-status"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("git"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktree"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktrees"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("wt"))
@@ -25,6 +27,48 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/changes"), .workspaceCommand("git-diff"))
         XCTAssertEqual(SlashCommandParser.parse("/git-status"), .workspaceCommand("git-status"))
         XCTAssertEqual(SlashCommandParser.parse("/gitstatus"), .workspaceCommand("git-status"))
+        XCTAssertEqual(SlashCommandParser.parse("/git"), .workspaceCommand("git-status"))
+        XCTAssertEqual(SlashCommandParser.parse("/git status"), .workspaceCommand("git-status"))
+        XCTAssertEqual(SlashCommandParser.parse("/git diff"), .workspaceCommand("git-diff"))
+    }
+
+    func testGitFetchAndPullParseStructuredToolCalls() throws {
+        guard case .toolCall(let fetchCall) = SlashCommandParser.parse("/git fetch origin --prune") else {
+            return XCTFail("Expected /git fetch to dispatch host.git.fetch.")
+        }
+        XCTAssertEqual(fetchCall.name, ToolDefinition.gitFetch.name)
+        let fetchArgs = try ToolArguments(fetchCall.argumentsJSON)
+        XCTAssertEqual(fetchArgs.string("remote"), "origin")
+        XCTAssertEqual(fetchArgs.bool("prune"), true)
+
+        guard case .toolCall(let pullCall) = SlashCommandParser.parse("/git pull origin main") else {
+            return XCTFail("Expected /git pull to dispatch host.git.pull.")
+        }
+        XCTAssertEqual(pullCall.name, ToolDefinition.gitPull.name)
+        let pullArgs = try ToolArguments(pullCall.argumentsJSON)
+        XCTAssertEqual(pullArgs.string("remote"), "origin")
+        XCTAssertEqual(pullArgs.string("branch"), "main")
+        XCTAssertEqual(pullArgs.bool("ffOnly"), true)
+
+        guard case .toolCall(let mergePullCall) = SlashCommandParser.parse("/git pull origin main --merge") else {
+            return XCTFail("Expected explicit merge pull to dispatch host.git.pull.")
+        }
+        XCTAssertEqual(try ToolArguments(mergePullCall.argumentsJSON).bool("ffOnly"), false)
+    }
+
+    func testGitSyncSubcommandsRejectAmbiguousArguments() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/git fetch origin upstream"),
+            .invalid("Unexpected git fetch argument 'upstream'. Try /git fetch [remote] [--prune].")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/git pull --merge"),
+            .invalid("Non-fast-forward git pull needs a remote or branch. Try /git pull origin main --merge.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/git pull origin main extra"),
+            .invalid("Unexpected git pull argument 'extra'. Try /git pull [remote] [branch].")
+        )
     }
 
     func testInitAliasesScaffoldProjectInstructions() {

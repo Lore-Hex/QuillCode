@@ -17,6 +17,20 @@ enum WorkspaceGitCommandCatalog {
                 keywords: ["git", "diff", "review", "changes", "remote"],
                 isEnabled: hasWorkspaceOrRemoteProject
             ),
+            WorkspaceCommandSurface(
+                id: "git-fetch",
+                title: "Fetch latest refs",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["git", "fetch", "sync", "remote", "latest", "refs"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
+                id: "git-pull",
+                title: "Pull latest changes",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["git", "pull", "sync", "remote", "latest", "ff-only"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
         ]
 
         let worktreeCommands = [

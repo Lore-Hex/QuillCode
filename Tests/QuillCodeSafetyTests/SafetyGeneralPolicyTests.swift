@@ -73,6 +73,30 @@ final class SafetyGeneralPolicyTests: SafetyPolicyTestCase {
         )
     }
 
+    func testAutoApprovesUserRequestedGitFetchAndPull() async {
+        await assertVerdict(
+            .approve,
+            tool: gitFetch,
+            argumentsJSON: #"{"remote":"origin","prune":true}"#,
+            userMessage: "fetch latest refs from origin and prune"
+        )
+        await assertVerdict(
+            .approve,
+            tool: gitPull,
+            argumentsJSON: #"{"ffOnly":true}"#,
+            userMessage: "pull latest changes"
+        )
+    }
+
+    func testAutoDoesNotTreatRunAsBlanketIntentForGitSync() async {
+        await assertVerdict(
+            .clarify,
+            tool: gitPull,
+            argumentsJSON: #"{"ffOnly":true}"#,
+            userMessage: "run the tests"
+        )
+    }
+
     func testAutoDoesNotTreatExecuteAsBlanketIntentForPullRequestMerge() async {
         await assertVerdict(
             .clarify,

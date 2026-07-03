@@ -195,6 +195,24 @@ public struct MockLLMClient: LLMClient {
             return .tool(gitReadCall)
         }
 
+        if lower.contains("git fetch") || lower.contains("fetch latest") || lower.contains("fetch remote") {
+            return .tool(.init(
+                name: ToolDefinition.gitFetch.name,
+                argumentsJSON: ToolArguments.json(Self.extractFetchArguments(from: request))
+            ))
+        }
+
+        if lower.contains("git pull")
+            || lower.contains("pull latest")
+            || lower.contains("pull from")
+            || lower.contains("sync branch")
+            || lower.contains("sync latest") {
+            return .tool(.init(
+                name: ToolDefinition.gitPull.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullArguments(from: request))
+            ))
+        }
+
         if lower.contains("commit") {
             return .tool(.init(
                 name: ToolDefinition.gitCommit.name,
@@ -289,6 +307,51 @@ public struct MockLLMClient: LLMClient {
             arguments["branch"] = tokens[tokens.index(after: branchIndex)]
         }
         return arguments
+    }
+
+    static func extractFetchArguments(from request: String) -> [String: Any] {
+        let tokens = gitSyncTokens(from: request)
+        var arguments: [String: Any] = [:]
+        if tokens.contains(where: { $0.lowercased() == "--prune" || $0.lowercased() == "prune" }) {
+            arguments["prune"] = true
+        }
+        if let remote = token(afterAnyOf: ["remote", "from"], in: tokens) {
+            arguments["remote"] = remote
+        }
+        return arguments
+    }
+
+    static func extractPullArguments(from request: String) -> [String: Any] {
+        let tokens = gitSyncTokens(from: request)
+        var arguments: [String: Any] = ["ffOnly": true]
+        if tokens.contains(where: { $0.lowercased() == "--no-ff-only" || $0.lowercased() == "--merge" }) {
+            arguments["ffOnly"] = false
+        }
+        if let remote = token(afterAnyOf: ["remote", "from"], in: tokens) {
+            arguments["remote"] = remote
+        }
+        if let branch = token(afterAnyOf: ["branch"], in: tokens) {
+            arguments["branch"] = branch
+        }
+        return arguments
+    }
+
+    private static func gitSyncTokens(from request: String) -> [String] {
+        request
+            .split { !$0.isLetter && !$0.isNumber && $0 != "/" && $0 != "-" && $0 != "_" && $0 != "." }
+            .map(String.init)
+    }
+
+    private static func token(afterAnyOf markers: [String], in tokens: [String]) -> String? {
+        let markers = Set(markers.map { $0.lowercased() })
+        for index in tokens.indices where markers.contains(tokens[index].lowercased()) {
+            let nextIndex = tokens.index(after: index)
+            guard tokens.indices.contains(nextIndex), !tokens[nextIndex].hasPrefix("-") else {
+                continue
+            }
+            return tokens[nextIndex]
+        }
+        return nil
     }
 
     static func isBrowserInspectionRequest(_ lowercasedRequest: String) -> Bool {

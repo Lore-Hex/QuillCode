@@ -32,6 +32,12 @@
 
 ## Current Parity Notes
 
+- Structured Git sync now has first-class `host.git.fetch` and `host.git.pull`
+  tools for local and SSH Remote projects, `/git fetch` and `/git pull`
+  slash commands, command-palette entries, Auto safety policy coverage, prompt
+  guidance, mock LLM routing, and Playwright harness support. Fetch defaults to
+  `origin`; pull defaults to `--ff-only`, and explicit non-fast-forward slash
+  pulls require a named remote or branch.
 - Run receipts now persist model-aware token usage events, price usage from the
   live model catalog when pricing metadata is available, and render a Run
   Receipts section in Activity with per-call rows, thread total, unpriced legacy

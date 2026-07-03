@@ -8,6 +8,8 @@ struct GitToolCallDispatcher: Sendable {
     static let definitions: [ToolDefinition] = [
         .gitStatus,
         .gitDiff,
+        .gitFetch,
+        .gitPull,
         .gitStage,
         .gitRestore,
         .gitStageHunk,
@@ -49,6 +51,19 @@ struct GitToolCallDispatcher: Sendable {
             return git.status(cwd: workspaceRoot)
         case ToolDefinition.gitDiff.name:
             return git.diff(cwd: workspaceRoot, staged: args.bool("staged") ?? false)
+        case ToolDefinition.gitFetch.name:
+            return git.fetch(
+                cwd: workspaceRoot,
+                remote: args.string("remote"),
+                prune: args.bool("prune") ?? false
+            )
+        case ToolDefinition.gitPull.name:
+            return git.pull(
+                cwd: workspaceRoot,
+                remote: args.string("remote"),
+                branch: args.string("branch"),
+                ffOnly: args.bool("ffOnly") ?? true
+            )
         case ToolDefinition.gitStage.name:
             return git.stage(cwd: workspaceRoot, path: try args.requiredString("path"))
         case ToolDefinition.gitRestore.name:

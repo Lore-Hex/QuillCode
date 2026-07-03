@@ -21,6 +21,35 @@ public struct GitLocalToolExecutor: Sendable {
         shell.run(.init(command: staged ? "git diff --staged" : "git diff", cwd: cwd, timeoutSeconds: 20))
     }
 
+    public func fetch(cwd: URL, remote: String? = nil, prune: Bool = false) -> ToolResult {
+        do {
+            return runGit(
+                try GitFetchOptions(remote: remote, prune: prune).gitArguments,
+                cwd: cwd,
+                timeoutSeconds: 120
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func pull(
+        cwd: URL,
+        remote: String? = nil,
+        branch: String? = nil,
+        ffOnly: Bool = true
+    ) -> ToolResult {
+        do {
+            return runGit(
+                try GitPullOptions(remote: remote, branch: branch, ffOnly: ffOnly).gitArguments,
+                cwd: cwd,
+                timeoutSeconds: 180
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func stage(cwd: URL, path: String) -> ToolResult {
         do {
             return runGit(["add", "--", try GitInputValidator.safeRelativePath(path, cwd: cwd)], cwd: cwd, timeoutSeconds: 20)

@@ -126,11 +126,52 @@ final class GitLocalToolExecutorTests: XCTestCase {
         XCTAssertFalse(remoteHead.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
+    func testFetchFetchesNamedRemote() throws {
+        let parent = try makeTempDirectory()
+        let remote = parent.appendingPathComponent("remote.git")
+        let root = parent.appendingPathComponent("repo")
+        try initializeBareRemote(remote, parent: parent)
+        try cloneRemote(remote, into: root, parent: parent)
+
+        let result = GitToolExecutor().fetch(cwd: root, remote: "origin", prune: true)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+    }
+
+    func testPullUsesFastForwardByDefault() throws {
+        let parent = try makeTempDirectory()
+        let remote = parent.appendingPathComponent("remote.git")
+        let seed = parent.appendingPathComponent("seed")
+        let root = parent.appendingPathComponent("repo")
+        try initializeBareRemote(remote, parent: parent)
+        try cloneRemote(remote, into: seed, parent: parent)
+        try makeCommit(in: seed, file: "hello.txt", contents: "hello\n", message: "seed")
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git push origin HEAD:main", cwd: seed)).ok)
+        try cloneRemote(remote, into: root, parent: parent)
+        try makeCommit(in: seed, file: "hello.txt", contents: "hello again\n", message: "update")
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git push origin HEAD:main", cwd: seed)).ok)
+
+        let result = GitToolExecutor().pull(cwd: root)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("hello.txt"), encoding: .utf8),
+            "hello again\n"
+        )
+    }
+
     func testPushRejectsUnsafeRemoteAndBranchNames() throws {
         let root = try makeTempGitRepoWithInitialCommit()
 
         XCTAssertFalse(GitToolExecutor().push(cwd: root, remote: "--all").ok)
         XCTAssertFalse(GitToolExecutor().push(cwd: root, remote: "origin", branch: "feature;rm").ok)
+    }
+
+    func testFetchAndPullRejectUnsafeRemoteAndBranchNames() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+
+        XCTAssertFalse(GitToolExecutor().fetch(cwd: root, remote: "--all").ok)
+        XCTAssertFalse(GitToolExecutor().pull(cwd: root, remote: "origin", branch: "feature;rm").ok)
     }
 
     func testInputValidatorNormalizesSharedGitInputs() throws {
@@ -145,5 +186,25 @@ final class GitLocalToolExecutorTests: XCTestCase {
         XCTAssertThrowsError(try GitInputValidator.safeName("--bad"))
         XCTAssertThrowsError(try GitInputValidator.safeName("../main"))
         XCTAssertThrowsError(try GitInputValidator.safeRelativePath("../outside", cwd: root))
+    }
+
+    private func initializeBareRemote(_ remote: URL, parent: URL) throws {
+        let result = ShellToolExecutor().run(.init(command: "git init --bare '\(remote.path)'", cwd: parent))
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+    }
+
+    private func cloneRemote(_ remote: URL, into root: URL, parent: URL) throws {
+        let result = ShellToolExecutor().run(.init(command: "git clone '\(remote.path)' '\(root.path)'", cwd: parent))
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git config user.email quillcode-tests@example.com", cwd: root)).ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git config user.name 'QuillCode Tests'", cwd: root)).ok)
+        _ = ShellToolExecutor().run(.init(command: "git checkout -B main", cwd: root))
+    }
+
+    private func makeCommit(in root: URL, file: String, contents: String, message: String) throws {
+        try contents.write(to: root.appendingPathComponent(file), atomically: true, encoding: .utf8)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git add -- '\(file)'", cwd: root)).ok)
+        let commit = ShellToolExecutor().run(.init(command: "git commit -m '\(message)'", cwd: root))
+        XCTAssertTrue(commit.ok, "\(commit.error ?? "") \(commit.stderr)")
     }
 }

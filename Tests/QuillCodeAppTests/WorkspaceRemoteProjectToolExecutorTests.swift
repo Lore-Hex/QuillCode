@@ -14,6 +14,8 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(names.contains(ToolDefinition.fileWrite.name))
         XCTAssertTrue(names.contains(ToolDefinition.applyPatch.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitStatus.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitFetch.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitPull.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestList.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestLifecycle.name))
@@ -206,6 +208,18 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             "git diff --staged"
         )
         XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitFetch.name, arguments: ["remote": "origin", "prune": true]),
+            "git fetch --prune 'origin'"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitPull.name, arguments: ["remote": "origin", "branch": "main"]),
+            "git pull --ff-only 'origin' 'main'"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitPull.name, arguments: ["branch": "main"]),
+            "git pull --ff-only 'origin' 'main'"
+        )
+        XCTAssertEqual(
             try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: ["path": "notes/plan.txt"]),
             "git add -- 'notes/plan.txt'"
         )
@@ -228,6 +242,12 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         )
         XCTAssertThrowsError(
             try remoteBasicGitCommand(name: ToolDefinition.gitCommit.name, arguments: ["message": "  \n"])
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitFetch.name, arguments: ["remote": "--all"])
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitPull.name, arguments: ["branch": "feature;rm"])
         )
     }
 

@@ -14,6 +14,14 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .runTool(name: ToolDefinition.gitDiff.name)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-fetch"),
+            .runTool(name: ToolDefinition.gitFetch.name)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-pull"),
+            .runTool(name: ToolDefinition.gitPull.name)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-pr-view"),
             .runTool(name: ToolDefinition.gitPullRequestView.name)
         )

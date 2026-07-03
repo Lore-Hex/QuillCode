@@ -131,6 +131,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-extensions",
             "git-status",
             "git-diff",
+            "git-fetch",
+            "git-pull",
             "git-pr-create",
             "git-pr-fill",
             "git-pr-list",
@@ -213,6 +215,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-status" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-diff" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-fetch" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pull" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-view" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checks" }?.isEnabled, true)

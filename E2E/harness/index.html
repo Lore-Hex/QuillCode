@@ -4067,6 +4067,8 @@
         { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
         { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
         { id: 'git-diff', title: 'Review diff', shortcut: '', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
+        { id: 'git-fetch', title: 'Fetch latest refs', shortcut: '', category: 'Git', keywords: ['git', 'fetch', 'sync', 'remote', 'latest', 'refs'], isEnabled: true },
+        { id: 'git-pull', title: 'Pull latest changes', shortcut: '', category: 'Git', keywords: ['git', 'pull', 'sync', 'remote', 'latest', 'ff-only'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'review'], isEnabled: true },
         { id: 'git-pr-fill', title: 'Create pull request from commits', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'fill', 'autofill', 'branch', 'commits'], isEnabled: true },
         { id: 'git-pr-list', title: 'List pull requests', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'list', 'pull requests', 'open prs', 'review'], isEnabled: true },
@@ -4490,6 +4492,8 @@
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
       { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
+      { usage: '/git fetch', title: 'Fetch latest refs', detail: 'Fetch from the selected project remote without changing the working tree.', insertText: '/git fetch', aliases: ['git fetch origin', 'fetch'] },
+      { usage: '/git pull', title: 'Pull latest changes', detail: 'Pull the selected project with --ff-only by default.', insertText: '/git pull', aliases: ['git sync', 'pull latest'] },
       { usage: '/memories', title: 'Show memories', detail: 'Show loaded global and project memories.', insertText: '/memories', aliases: ['memory'] },
       { usage: '/remember text', title: 'Add memory', detail: 'Save an explicit global memory after redaction checks.', insertText: '/remember ', aliases: [] },
       { usage: '/worktrees', title: 'List worktrees', detail: 'List git worktrees for the selected project.', insertText: '/worktrees', aliases: ['worktree', 'wt'] },
@@ -6274,6 +6278,8 @@
         command.id === 'terminal-clear' ? { ...command, isEnabled: state.terminal.entries.length > 0 && !state.terminal.isRunning } :
         command.id === 'git-status' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-diff' ? { ...command, isEnabled: hasProject } :
+        command.id === 'git-fetch' ? { ...command, isEnabled: hasProject } :
+        command.id === 'git-pull' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-pr-create' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-pr-fill' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-list' ? { ...command, isEnabled: hasLocalProject } :
@@ -11286,6 +11292,36 @@
       render();
     }
 
+    function runGitFetchAction() {
+      const project = selectedProject();
+      const prefix = project?.isRemote ? `ssh ${project.path}\n` : '';
+      const stdout = `${prefix}From github.com:Lore-Hex/QuillCode\n * [new branch]      main -> origin/main\n`;
+      addToolCard({
+        title: 'host.git.fetch',
+        subtitle: 'Completed · origin',
+        status: 'done',
+        inputJSON: JSON.stringify({ remote: 'origin' }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      addMessage('assistant', 'Fetched latest refs from origin.');
+      render();
+    }
+
+    function runGitPullAction() {
+      const project = selectedProject();
+      const prefix = project?.isRemote ? `ssh ${project.path}\n` : '';
+      const stdout = `${prefix}Already up to date.\n`;
+      addToolCard({
+        title: 'host.git.pull',
+        subtitle: 'Completed · ff-only',
+        status: 'done',
+        inputJSON: JSON.stringify({ ffOnly: true }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      addMessage('assistant', 'Pulled latest changes with --ff-only. Already up to date.');
+      render();
+    }
+
     function runGitPullRequestFillAction() {
       ensureThread('Create pull request from commits');
       const url = 'https://github.com/Lore-Hex/QuillCode/pull/77';
@@ -12032,6 +12068,8 @@
       'fork-full-context',
       'fork-with-summary',
       'git-diff',
+      'git-fetch',
+      'git-pull',
       'git-pr-checks',
       'git-pr-checkout',
       'git-pr-comment',
@@ -12481,6 +12519,14 @@
       }
       if (commandID === 'git-diff') {
         runGitDiffAction();
+        return;
+      }
+      if (commandID === 'git-fetch') {
+        runGitFetchAction();
+        return;
+      }
+      if (commandID === 'git-pull') {
+        runGitPullAction();
         return;
       }
       if (commandID === 'toggle-terminal') {
@@ -15255,6 +15301,12 @@
         addMessage('assistant', 'Found 2 review threads: 1 unresolved, 1 resolved.');
       } else if (/^\/(pr|pull-?request)\s+(fill|autofill|create\s+--?fill)\b/i.test(text)) {
         runGitPullRequestFillAction();
+        return;
+      } else if (/^\/git\s+fetch\b/i.test(text)) {
+        runGitFetchAction();
+        return;
+      } else if (/^\/git\s+(pull|sync)\b/i.test(text)) {
+        runGitPullAction();
         return;
       } else if (/^\/(pr|pull-?request)\b/i.test(text)) {
         state.composer.draft = 'Create a pull request titled ';

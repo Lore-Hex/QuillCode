@@ -70,6 +70,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to download, save, or fetch a URL or domain, use host.shell.run immediately \
         with curl or wget, save into a relative workspace path such as downloads/example.com.html, create \
         parent directories first with mkdir -p when needed, and do not pipe remote content into a shell.
+        - If the user asks to fetch git refs or remote updates, use host.git.fetch instead of host.shell.run.
+        - If the user asks to pull, sync, or update the current git branch from a remote, use \
+        host.git.pull instead of host.shell.run. Omit "ffOnly" unless the user explicitly requests a \
+        non-fast-forward pull; the default is safe fast-forward-only behavior.
         - If the user asks to push or publish a git branch, use host.git.push instead of host.shell.run.
         - If the user asks to open or create a pull request/PR, use host.git.pr.create instead of host.shell.run.
         - host.git.pr.create should include a non-empty "title" unless you set "fill": true.
