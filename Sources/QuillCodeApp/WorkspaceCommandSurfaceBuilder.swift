@@ -103,6 +103,13 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         selectedThread?.messages.isEmpty == false
     }
 
+    private var selectedThreadCanClear: Bool {
+        guard let selectedThread else { return false }
+        return !selectedThread.messages.isEmpty
+            || !selectedThread.events.isEmpty
+            || !selectedThread.followUpQueue.isEmpty
+    }
+
     private var selectedProjectIsRemote: Bool {
         selectedProject?.isRemote == true
     }
@@ -116,6 +123,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             hasSelectedThread: hasSelectedThread,
             selectedThreadIsArchived: selectedThread?.isArchived == true,
             selectedThreadHasMessages: selectedThreadHasMessages,
+            selectedThreadCanClear: selectedThreadCanClear,
             hasAnySidebarThread: sidebarItemCount > 0,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             hasSidebarSelection: !selectedSidebarThreads.isEmpty,

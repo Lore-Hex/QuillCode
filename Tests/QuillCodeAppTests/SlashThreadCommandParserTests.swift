@@ -5,6 +5,7 @@ final class SlashThreadCommandParserTests: XCTestCase {
     func testSupportsThreadLifecycleAliases() {
         XCTAssertTrue(SlashThreadCommandParser.supports("new"))
         XCTAssertTrue(SlashThreadCommandParser.supports("new-chat"))
+        XCTAssertTrue(SlashThreadCommandParser.supports("clear-chat"))
         XCTAssertTrue(SlashThreadCommandParser.supports("compact-context"))
         XCTAssertTrue(SlashThreadCommandParser.supports("rename-chat"))
         XCTAssertTrue(SlashThreadCommandParser.supports("copy-chat"))
@@ -25,6 +26,13 @@ final class SlashThreadCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "compact-context", argument: ""), .workspaceCommand("compact-context"))
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "context-compact", argument: ""), .workspaceCommand("compact-context"))
         XCTAssertEqual(SlashCommandParser.parse("/compact-context"), .workspaceCommand("compact-context"))
+    }
+
+    func testClearAliasesMapToThreadClearCommand() {
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "clear", argument: ""), .workspaceCommand("thread-clear"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "clear-chat", argument: ""), .workspaceCommand("thread-clear"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "reset-chat", argument: ""), .workspaceCommand("thread-clear"))
+        XCTAssertEqual(SlashCommandParser.parse("/clear"), .workspaceCommand("thread-clear"))
     }
 
     func testRenameAliasesTrimTitlesAndValidateRequiredTitle() {

@@ -4000,6 +4000,7 @@
         { id: 'sidebar-filter:archived', title: 'Show archived chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'archived'], isEnabled: true },
         { id: 'thread-rename', title: 'Rename chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'title'], isEnabled: false },
         { id: 'thread-duplicate', title: 'Duplicate chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'copy'], isEnabled: false },
+        { id: 'thread-clear', title: 'Clear chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'reset', 'context', 'transcript'], isEnabled: false },
         { id: 'thread-archive', title: 'Archive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'hide'], isEnabled: false },
         { id: 'thread-unarchive', title: 'Unarchive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'restore'], isEnabled: false },
         { id: 'thread-delete', title: 'Delete chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'remove'], isEnabled: false },
@@ -4463,6 +4464,7 @@
       { usage: '/help', title: 'Show slash commands', detail: 'List the available composer commands.', insertText: '/help', aliases: ['?'] },
       { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
       { usage: '/new', title: 'New chat', detail: 'Start a fresh thread in the selected project.', insertText: '/new', aliases: ['new-chat', 'newchat'] },
+      { usage: '/clear', title: 'Clear chat', detail: 'Reset this thread transcript and queued follow-ups without deleting the chat.', insertText: '/clear', aliases: ['clear-chat', 'reset-chat'] },
       { usage: '/rename title', title: 'Rename chat', detail: 'Rename the current thread.', insertText: '/rename ', aliases: ['rename-chat', 'title'] },
       { usage: '/duplicate', title: 'Duplicate chat', detail: 'Copy the current thread into a new one.', insertText: '/duplicate', aliases: ['duplicate-chat', 'copy-chat'] },
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
@@ -6241,6 +6243,7 @@
         .map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
+        command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
         command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThread.isArchived } :
         command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && selectedThread.isArchived } :
         command.id === 'thread-delete' ? { ...command, isEnabled: hasThread } :
@@ -12045,6 +12048,7 @@
       'thread-bulk-pin',
       'thread-bulk-unarchive',
       'thread-bulk-unpin',
+      'thread-clear',
       'thread-delete',
       'thread-duplicate',
       'thread-rename',
@@ -12295,6 +12299,10 @@
       }
       if (commandID === 'thread-duplicate') {
         runSidebarThreadAction('duplicate', state.sidebar.selectedThreadID);
+        return;
+      }
+      if (commandID === 'thread-clear') {
+        clearSelectedThreadTranscript();
         return;
       }
       if (commandID === 'thread-archive') {
@@ -14493,6 +14501,19 @@
       state.review = emptyReviewSurface();
     }
 
+    function clearSelectedThreadTranscript() {
+      const threadID = state.sidebar.selectedThreadID;
+      if (!threadID) return;
+      emptyTranscriptSurface();
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      if (state.threadDrafts) delete state.threadDrafts[threadID];
+      saveSelectedThreadSnapshot(threadID);
+      syncSelectedThreadSearchText();
+      updateDynamicCommands();
+      render();
+    }
+
     function selectedThreadSnapshot() {
       return {
         messages: clonedPlainObject(state.transcript.messages, []),
@@ -15050,6 +15071,9 @@
         }
       } else if (/^\/(duplicate|duplicate-chat|copy-chat)\b/i.test(text)) {
         runSidebarThreadAction('duplicate', state.sidebar.selectedThreadID);
+        return;
+      } else if (/^\/(clear|clear-chat|reset-chat)\b/i.test(text)) {
+        clearSelectedThreadTranscript();
         return;
       } else if (/^\/(archive|archive-chat)\b/i.test(text)) {
         runSidebarThreadAction('archive', state.sidebar.selectedThreadID);

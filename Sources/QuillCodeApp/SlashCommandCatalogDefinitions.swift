@@ -18,6 +18,12 @@ extension SlashCommandCatalog {
             aliases: ["new-chat", "newchat"]
         ),
         slashDefinition(
+            "/clear",
+            "Clear chat",
+            "Reset the current thread transcript and queued follow-ups without deleting the chat.",
+            aliases: ["clear-chat", "reset-chat"]
+        ),
+        slashDefinition(
             "/rename title",
             "Rename chat",
             "Rename the current thread.",

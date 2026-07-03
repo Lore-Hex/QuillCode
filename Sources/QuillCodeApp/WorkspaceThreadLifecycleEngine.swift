@@ -17,6 +17,10 @@ struct WorkspaceThreadLifecycleEngine {
         var selectedThreadID: UUID?
     }
 
+    struct ClearResult: Sendable, Hashable {
+        var changedThread: ChatThread
+    }
+
     struct BulkMutationResult: Sendable, Hashable {
         var changedThreads: [ChatThread]
     }
@@ -114,6 +118,24 @@ struct WorkspaceThreadLifecycleEngine {
             removedThread: removed,
             selectedThreadID: nextSelection
         )
+    }
+
+    static func clearThread(
+        _ id: UUID,
+        threads: inout [ChatThread],
+        now: Date = Date()
+    ) -> ClearResult? {
+        guard let index = threads.firstIndex(where: { $0.id == id }),
+              !threads[index].messages.isEmpty || !threads[index].events.isEmpty || !threads[index].followUpQueue.isEmpty
+        else {
+            return nil
+        }
+
+        threads[index].messages = []
+        threads[index].events = []
+        threads[index].followUpQueue = []
+        threads[index].updatedAt = now
+        return ClearResult(changedThread: threads[index])
     }
 
     static func archiveThreads(

@@ -18,6 +18,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
 
         XCTAssertEqual(try command("new-chat", in: commands).isEnabled, true)
         XCTAssertEqual(try command("thread-rename", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("thread-clear", in: commands).isEnabled, false)
         XCTAssertEqual(try command("workspace-back", in: commands).isEnabled, false)
         XCTAssertEqual(try command("workspace-forward", in: commands).isEnabled, false)
         XCTAssertEqual(try command("find-in-chat", in: commands).isEnabled, false)
@@ -98,6 +99,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         ).commands
 
         XCTAssertEqual(try command("thread-rename", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("thread-clear", in: commands).isEnabled, true)
         XCTAssertEqual(try command("fork-from-last", in: commands).isEnabled, true)
         XCTAssertEqual(try command("fork-with-summary", in: commands).isEnabled, true)
         XCTAssertEqual(try command("fork-full-context", in: commands).isEnabled, true)
@@ -110,6 +112,16 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("thread-bulk-unarchive", in: commands).isEnabled, true)
         XCTAssertEqual(try command("thread-bulk-delete", in: commands).isEnabled, true)
         XCTAssertEqual(try command("retry-last-turn", in: commands).isEnabled, true)
+    }
+
+    func testThreadClearCommandIsEnabledForEventOnlyThread() throws {
+        let selectedThread = ChatThread(
+            events: [.init(kind: .toolCompleted, summary: "Ran shell")]
+        )
+        let commands = makeBuilder(selectedThread: selectedThread).commands
+
+        XCTAssertEqual(try command("thread-clear", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("compact-context", in: commands).isEnabled, false)
     }
 
     func testSavedSearchesAppearAsThreadCommands() throws {
