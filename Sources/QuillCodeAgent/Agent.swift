@@ -82,17 +82,9 @@ public struct AgentRunner: Sendable {
         do {
             try Task.checkCancellation()
             let tools = Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
-            var toolResults: [ToolResult] = []
-            var lastExecutedCall: ToolCall?
-            var lastCompletion: AgentToolStepCompletion?
+            var runLoop = AgentRunLoopState()
             let limit = max(1, maxToolSteps)
-            // Flail detection: catch a run that is busy but going NOWHERE (same action / same failure
-            // repeating with zero workspace change) — the overnight failure mode the exact-repeat
-            // short-circuit above and the step ceiling below both miss.
-            var flailDetector = FlailDetector()
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
-            var previousWorkspaceState: String?
-            var flailAssessmentInjected = false
 
             for _ in 0..<limit {
                 let action = try await nextActionCompactingOnOverflow(
@@ -113,26 +105,24 @@ public struct AgentRunner: Sendable {
                 case .say(let text):
                     appendAssistantMessage(text, to: &next)
                     await onProgress?(next)
-                    return AgentRunResult(thread: next, toolResults: toolResults)
+                    return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
                 case .tool(let call):
-                    if let lastExecutedCall,
-                       lastExecutedCall.name == call.name,
-                       lastExecutedCall.argumentsJSON == call.argumentsJSON,
-                       let lastCompletion {
+                    if let lastCompletion = runLoop.repeatedCompletion(for: call) {
                         appendAssistantMessage(Self.finalAnswer(
                             for: lastCompletion.call,
                             result: lastCompletion.result,
                             followUpReviewResult: lastCompletion.followUpReviewResult
                         ), to: &next)
                         await onProgress?(next)
-                        return AgentRunResult(thread: next, toolResults: toolResults)
+                        return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
                     }
 
                     // Baseline the workspace state before the first tool step, so that step's own
                     // delta is measurable. (Lazy: a .say-only run never pays for a signature.)
-                    if previousWorkspaceState == nil {
-                        previousWorkspaceState = stateSignature(workspaceRoot)
-                    }
+                    runLoop.baselineWorkspaceStateIfNeeded(
+                        workspaceRoot: workspaceRoot,
+                        stateSignature: stateSignature
+                    )
                     let step = try await runToolStep(
                         call,
                         userMessage: userMessage,
@@ -143,34 +133,25 @@ public struct AgentRunner: Sendable {
                     )
                     switch step {
                     case .blocked:
-                        return AgentRunResult(thread: next, toolResults: toolResults)
+                        return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
                     case .completed(let completion):
-                        toolResults.append(contentsOf: completion.toolResults)
-                        lastExecutedCall = call
-                        lastCompletion = completion
                         appendToolFeedback(completion, to: &next)
-
-                        let workspaceState = stateSignature(workspaceRoot)
-                        let verdict = flailDetector.record(FlailTurnRecord(
-                            fingerprints: [ToolCallFingerprint.make(call: call, workspaceRoot: workspaceRoot)],
-                            deltaSignature: workspaceState == previousWorkspaceState ? "" : workspaceState,
-                            failureSignature: FlailSignatures.failureSignature(fromToolOutput: [
-                                completion.result.stdout,
-                                completion.result.stderr,
-                                completion.result.error ?? "",
-                            ].joined(separator: "\n"))
-                        ))
-                        previousWorkspaceState = workspaceState
+                        let verdict = runLoop.recordCompletedStep(
+                            completion,
+                            workspaceRoot: workspaceRoot,
+                            stateSignature: stateSignature
+                        )
                         switch verdict {
                         case .none:
                             break
                         case .suspected(let reason):
                             // ONE self-assessment nudge per run: make the model say why it is stuck
                             // and change course, instead of burning the rest of the budget.
-                            if !flailAssessmentInjected {
-                                flailAssessmentInjected = true
-                                flailDetector.recordAssessment()
-                                next.messages.append(.init(role: .user, content: Self.flailSelfAssessmentPrompt(reason: reason)))
+                            if runLoop.recordFlailAssessmentIfNeeded() {
+                                next.messages.append(.init(
+                                    role: .user,
+                                    content: Self.flailSelfAssessmentPrompt(reason: reason)
+                                ))
                                 next.events.append(.init(
                                     kind: .notice,
                                     summary: "Self-healing: \(reason.message) Asked the agent to reassess its approach."
@@ -194,7 +175,7 @@ public struct AgentRunner: Sendable {
                             await onProgress?(next)
                             return AgentRunResult(
                                 thread: next,
-                                toolResults: toolResults,
+                                toolResults: runLoop.toolResults,
                                 stopReason: .flailDetected(reason: reason.message)
                             )
                         }
@@ -206,7 +187,7 @@ public struct AgentRunner: Sendable {
             // returning a final answer — the run hit its ceiling. Synthesize an answer as before, but
             // record it HONESTLY (a notice + a distinct stopReason) so it is not mistaken for a real
             // finish on an unattended run.
-            if let lastCompletion {
+            if let lastCompletion = runLoop.latestCompletion {
                 appendAssistantMessage(Self.finalAnswer(
                     for: lastCompletion.call,
                     result: lastCompletion.result,
@@ -225,7 +206,7 @@ public struct AgentRunner: Sendable {
             await onProgress?(next)
             return AgentRunResult(
                 thread: next,
-                toolResults: toolResults,
+                toolResults: runLoop.toolResults,
                 stopReason: .toolStepCeilingExhausted(limit: limit)
             )
         } catch is CancellationError {
@@ -258,20 +239,6 @@ public struct AgentRunner: Sendable {
             definitions.append(definition)
         }
         return definitions
-    }
-
-    /// The default workspace-state signature: a git hash over status + diff, so "nothing changed" is
-    /// judged by the actual tree, not by what the tools claimed. One fast local git invocation per
-    /// completed tool step; a non-git workspace degrades to a constant (flail rules then rely on
-    /// fingerprints and failure signatures alone).
-    static func defaultWorkspaceStateSignature(_ root: URL) -> String {
-        let result = ShellToolExecutor().run(.init(
-            command: "{ git status --porcelain; git diff HEAD; } 2>/dev/null | git hash-object --stdin 2>/dev/null || echo no-git",
-            cwd: root,
-            timeoutSeconds: 10
-        ))
-        let signature = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-        return signature.isEmpty ? "no-git" : signature
     }
 
     /// The one nudge a suspected-flailing run gets before being stopped: name the loop it is in and

@@ -66,6 +66,22 @@ final class FilePathSuggesterTests: XCTestCase {
         XCTAssertEqual(FilePathSuggester.suggest(missing: "file0.txt", candidates: candidates, limit: 2).count, 2)
     }
 
+    func testFilesystemSuggestionsSkipOversizedParentDirectories() throws {
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        for index in 0...FilePathSuggester.maxCandidates {
+            _ = FileManager.default.createFile(
+                atPath: parent.appendingPathComponent("file-\(index).txt").path,
+                contents: Data()
+            )
+        }
+
+        let missing = parent.appendingPathComponent("mian.swift")
+        XCTAssertTrue(FilePathSuggester.suggest(missingFileAt: missing).isEmpty)
+    }
+
     func testNonPositiveLimitReturnsNoSuggestions() {
         let candidates = ["main.rs"]
         XCTAssertTrue(FilePathSuggester.suggest(missing: "mian.rs", candidates: candidates, limit: 0).isEmpty)

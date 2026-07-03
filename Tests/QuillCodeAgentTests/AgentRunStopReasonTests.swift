@@ -17,7 +17,11 @@ final class AgentRunStopReasonTests: XCTestCase {
     private var root: URL { FileManager.default.temporaryDirectory }
 
     func testCeilingExhaustionIsHonestlyLabeled() async throws {
-        let runner = AgentRunner(llm: VaryingToolLLMClient(), maxToolSteps: 2)
+        let runner = AgentRunner(
+            llm: VaryingToolLLMClient(),
+            toolExecutionOverride: { _, _ in ToolResult(ok: false, error: "missing") },
+            maxToolSteps: 2
+        )
         let result = try await runner.send("go", in: ChatThread(title: "T", messages: [], events: []), workspaceRoot: root)
 
         // The run gave up at its budget — not a genuine finish.
