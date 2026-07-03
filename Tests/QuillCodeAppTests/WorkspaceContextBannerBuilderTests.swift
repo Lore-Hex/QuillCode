@@ -34,6 +34,58 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
         XCTAssertEqual(banner.title, "Context limit reached (100% used)")
     }
 
+    func testBannerShowsRunningContextSummaryProgressAndDisablesContextMoves() throws {
+        let thread = ChatThread(
+            messages: [
+                .init(role: .user, content: String(repeating: "x", count: 102_376))
+            ],
+            events: [
+                ThreadEvent(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact)
+                )
+            ]
+        )
+
+        let banner = try XCTUnwrap(WorkspaceContextBannerBuilder(thread: thread).banner())
+        let progress = try XCTUnwrap(banner.progress)
+
+        XCTAssertEqual(progress.activeCommandID, "compact-context")
+        XCTAssertEqual(progress.title, "Compacting context")
+        XCTAssertEqual(progress.statusLabel, "Running")
+        XCTAssertFalse(banner.compactCommand.isEnabled)
+        XCTAssertFalse(banner.forkCommand.isEnabled)
+        XCTAssertTrue(banner.newThreadCommand.isEnabled)
+        XCTAssertEqual(Set(banner.forkCommands.map(\.isEnabled)), [false])
+    }
+
+    func testFinishedContextSummaryNoticeClearsBannerProgress() throws {
+        let thread = ChatThread(
+            messages: [
+                .init(role: .user, content: String(repeating: "x", count: 102_376))
+            ],
+            events: [
+                ThreadEvent(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary)
+                ),
+                ThreadEvent(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                        outcome: WorkspaceContextSummaryOutcome(summaryOverride: "ready", source: .model),
+                        purpose: .forkSummary
+                    )
+                )
+            ]
+        )
+
+        let banner = try XCTUnwrap(WorkspaceContextBannerBuilder(thread: thread).banner())
+
+        XCTAssertNil(banner.progress)
+        XCTAssertTrue(banner.compactCommand.isEnabled)
+        XCTAssertEqual(Set(banner.forkCommands.map(\.isEnabled)), [true])
+    }
+
     func testBannerHiddenForMissingEmptyOrShortThreads() {
         let emptyThread = ChatThread()
         let shortThread = ChatThread(messages: [

@@ -161,6 +161,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
     public var usedPercent: Int
     public var title: String
     public var subtitle: String
+    public var progress: ContextBannerProgressSurface?
     public var newThreadCommand: WorkspaceCommandSurface
     public var forkCommand: WorkspaceCommandSurface
     public var forkCommands: [WorkspaceCommandSurface]
@@ -170,6 +171,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         usedPercent: Int,
         title: String,
         subtitle: String,
+        progress: ContextBannerProgressSurface? = nil,
         newThreadCommand: WorkspaceCommandSurface,
         forkCommand: WorkspaceCommandSurface,
         forkCommands: [WorkspaceCommandSurface]? = nil,
@@ -181,6 +183,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         self.usedPercent = usedPercent
         self.title = title
         self.subtitle = subtitle
+        self.progress = progress
         self.newThreadCommand = newThreadCommand
         self.forkCommand = forkCommand
         self.forkCommands = Self.normalizedForkCommands(
@@ -194,6 +197,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         case usedPercent
         case title
         case subtitle
+        case progress
         case newThreadCommand
         case forkCommand
         case forkCommands
@@ -205,6 +209,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         let decodedUsedPercent = try container.decode(Int.self, forKey: .usedPercent)
         let decodedTitle = try container.decode(String.self, forKey: .title)
         let decodedSubtitle = try container.decode(String.self, forKey: .subtitle)
+        let decodedProgress = try container.decodeIfPresent(ContextBannerProgressSurface.self, forKey: .progress)
         let decodedNewThreadCommand = try container.decode(WorkspaceCommandSurface.self, forKey: .newThreadCommand)
         let decodedForkCommand = try container.decode(WorkspaceCommandSurface.self, forKey: .forkCommand)
         let decodedForkCommands = try container.decodeIfPresent([WorkspaceCommandSurface].self, forKey: .forkCommands)
@@ -219,6 +224,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         self.usedPercent = decodedUsedPercent
         self.title = decodedTitle
         self.subtitle = decodedSubtitle
+        self.progress = decodedProgress
         self.newThreadCommand = decodedNewThreadCommand
         self.forkCommand = decodedForkCommand
         self.forkCommands = Self.normalizedForkCommands(
@@ -233,6 +239,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         try container.encode(usedPercent, forKey: .usedPercent)
         try container.encode(title, forKey: .title)
         try container.encode(subtitle, forKey: .subtitle)
+        try container.encodeIfPresent(progress, forKey: .progress)
         try container.encode(newThreadCommand, forKey: .newThreadCommand)
         try container.encode(forkCommand, forKey: .forkCommand)
         try container.encode(forkCommands, forKey: .forkCommands)
@@ -250,6 +257,25 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
                 seenIDs.insert(command.id)
                 return true
             }
+    }
+}
+
+public struct ContextBannerProgressSurface: Codable, Sendable, Hashable {
+    public var activeCommandID: String
+    public var title: String
+    public var detail: String
+    public var statusLabel: String
+
+    public init(
+        activeCommandID: String,
+        title: String,
+        detail: String,
+        statusLabel: String = "Running"
+    ) {
+        self.activeCommandID = activeCommandID
+        self.title = title
+        self.detail = detail
+        self.statusLabel = statusLabel
     }
 }
 

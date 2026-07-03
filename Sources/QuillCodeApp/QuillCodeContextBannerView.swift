@@ -28,6 +28,9 @@ struct QuillCodeContextBannerView: View {
                 Text(banner.subtitle)
                     .font(.callout)
                     .foregroundStyle(QuillCodePalette.muted)
+                if let progress = banner.progress {
+                    progressStrip(progress)
+                }
                 actionButtons
             }
 
@@ -42,6 +45,37 @@ struct QuillCodeContextBannerView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func progressStrip(_ progress: ContextBannerProgressSurface) -> some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(progress.title)
+                        .font(.caption.weight(.semibold))
+                    Text(progress.statusLabel)
+                        .font(.caption2.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(QuillCodePalette.blue.opacity(0.14))
+                        .clipShape(Capsule())
+                }
+                Text(progress.detail)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(QuillCodePalette.blue.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(progress.title), \(progress.statusLabel). \(progress.detail)")
     }
 
     @ViewBuilder
