@@ -14797,3 +14797,32 @@ Validation:
 - `swift test --quiet` (3,141 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
 - `git diff --check`
+
+## 2026-07-03 Latest Turn Undo Command Parity Slice
+
+Overall grade after this slice: **A+ for command-surface reuse and undo honesty**.
+The existing per-message Revert affordance now has a Codex-style command and
+slash route without adding a second revert implementation.
+
+Code quality changes:
+
+- Added `thread-revert-latest` to the thread command catalog with conservative
+  availability: it is enabled only for local selected threads with a live
+  `WorkspaceTurnRevertPlanner` plan.
+- Added `/undo`, `/revert`, `/revert-latest`, and `/undo-edit` aliases that
+  route through the same workspace command planner/executor as command-palette
+  actions.
+- Added `WorkspaceTurnRevertPlanner.latestPlan(in:)` and
+  `runLatestTurnRevert(workspaceRoot:)`, keeping latest-turn lookup pure and the
+  side effect in the existing reverse-patch executor.
+- Threaded `workspaceRoot` through `runWorkspaceCommandAction` so command
+  actions that touch files do not depend on optional ambient model state.
+- Mirrored the command, slash registration, routing, and availability in the
+  HTML/Playwright harness so native and E2E surfaces stay aligned.
+
+Validation:
+
+- `swift test --filter 'SlashThreadCommandParserTests|WorkspaceCommandPlanTests|WorkspaceTurnRevertSurfaceTests|WorkspaceSlashRegistryHarnessParityTests|ParityWorkspaceCommandActionPlannerGateTests|ParityWorkspaceCommandPlanExecutorGateTests'` (37 tests, 0 failures)
+- `swift test --filter WorkspaceSurfaceTests/testSurfaceIncludesTopBarSidebarComposerAndCommands` (1 test, 0 failures)
+- `swift test --quiet` (3,145 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)

@@ -151,6 +151,11 @@ public enum WorkspaceTurnRevertPlanner {
         plans(for: thread).first { $0.turnMessageID == turnMessageID }
     }
 
+    /// The most recent currently revertable turn, matching the command-palette `/undo` affordance.
+    public static func latestPlan(in thread: ChatThread) -> TurnRevertPlan? {
+        plans(for: thread).last
+    }
+
     /// Whether this thread's run changed files at all — an `apply_patch` edit OR any non-read mutating
     /// tool (shell write, git, file write, …). The verification gate uses this to check only after an
     /// edit-bearing run. Reuses the same risk-classified mutation test as the revert-scope flag, so it

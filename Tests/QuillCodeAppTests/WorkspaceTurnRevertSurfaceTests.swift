@@ -100,6 +100,69 @@ final class WorkspaceTurnRevertSurfaceTests: XCTestCase {
         XCTAssertTrue(model.currentToolCards.contains { $0.title == "host.git.revert_turn" && $0.status == .failed })
     }
 
+    func testLatestPlanChoosesTheMostRecentRevertableTurn() {
+        let first = ChatMessage(role: .user, content: "first edit", createdAt: Date(timeIntervalSince1970: 100))
+        let second = ChatMessage(role: .user, content: "second edit", createdAt: Date(timeIntervalSince1970: 200))
+        let thread = ChatThread(title: "T", messages: [first, second], events: [
+            applyPatchEvent("FIRST", at: 150),
+            applyPatchEvent("SECOND", at: 250)
+        ])
+
+        XCTAssertEqual(WorkspaceTurnRevertPlanner.latestPlan(in: thread)?.turnMessageID, second.id)
+    }
+
+    func testCommandSurfaceEnablesUndoLatestEditOnlyWhenLatestTurnCanBeReverted() {
+        let plainThread = ChatThread(title: "Plain", messages: [
+            ChatMessage(role: .user, content: "just talk", createdAt: Date(timeIntervalSince1970: 100))
+        ])
+        let plainModel = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [plainThread],
+            selectedThreadID: plainThread.id
+        ))
+        XCTAssertEqual(command(in: plainModel, id: "thread-revert-latest")?.isEnabled, false)
+
+        let editedUser = ChatMessage(role: .user, content: "edit", createdAt: Date(timeIntervalSince1970: 100))
+        let editedThread = ChatThread(title: "Edited", messages: [editedUser], events: [
+            applyPatchEvent("DIFF", at: 150)
+        ])
+        let editedModel = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [editedThread],
+            selectedThreadID: editedThread.id
+        ))
+        XCTAssertEqual(command(in: editedModel, id: "thread-revert-latest")?.isEnabled, true)
+    }
+
+    func testUndoLatestEditWorkspaceCommandRevertsTheLatestPatchOnly() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let executor = FileToolExecutor(workspaceRoot: root)
+        XCTAssertTrue(executor.write(path: "a.txt", content: "old\n").ok)
+        _ = try runGit(["add", "-A"], cwd: root)
+        _ = try runGit(["commit", "-m", "base"], cwd: root)
+
+        XCTAssertTrue(executor.write(path: "a.txt", content: "first\n").ok)
+        let firstPatch = GitToolExecutor().diff(cwd: root).stdout
+        _ = try runGit(["add", "-A"], cwd: root)
+        _ = try runGit(["commit", "-m", "first"], cwd: root)
+
+        XCTAssertTrue(executor.write(path: "a.txt", content: "second\n").ok)
+        let secondPatch = GitToolExecutor().diff(cwd: root).stdout
+        XCTAssertFalse(firstPatch.isEmpty)
+        XCTAssertFalse(secondPatch.isEmpty)
+
+        let first = ChatMessage(role: .user, content: "first edit", createdAt: Date(timeIntervalSince1970: 100))
+        let second = ChatMessage(role: .user, content: "second edit", createdAt: Date(timeIntervalSince1970: 200))
+        let thread = ChatThread(title: "T", messages: [first, second], events: [
+            applyPatchEvent(firstPatch, at: 150),
+            applyPatchEvent(secondPatch, at: 250)
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id))
+
+        XCTAssertTrue(model.runWorkspaceCommand("thread-revert-latest", workspaceRoot: root))
+
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("a.txt"), encoding: .utf8), "first\n")
+        XCTAssertTrue(model.currentToolCards.contains { $0.title == WorkspaceTurnRevertPlanner.revertTurnToolName })
+    }
+
     func testHTMLRendererDisclosesNonApplyPatchEditsInTheRevertScope() {
         let user = ChatMessage(role: .user, content: "mixed turn", createdAt: Date(timeIntervalSince1970: 100))
         let thread = ChatThread(title: "T", messages: [user], events: [applyPatchEvent("DIFF", at: 150), shellEvent(at: 160)])
@@ -137,5 +200,9 @@ final class WorkspaceTurnRevertSurfaceTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("a.txt"), encoding: .utf8), "old\n")
         // The revert is recorded as a transcript tool run plus a diff refresh.
         XCTAssertTrue(model.currentToolCards.contains { $0.title == "host.git.revert_turn" })
+    }
+
+    private func command(in model: QuillCodeWorkspaceModel, id: String) -> WorkspaceCommandSurface? {
+        model.surface().commands.first { $0.id == id }
     }
 }

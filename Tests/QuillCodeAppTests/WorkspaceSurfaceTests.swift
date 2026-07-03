@@ -71,6 +71,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "thread-rename",
             "thread-duplicate",
             "thread-clear",
+            "thread-revert-latest",
             "thread-archive",
             "thread-unarchive",
             "thread-delete",

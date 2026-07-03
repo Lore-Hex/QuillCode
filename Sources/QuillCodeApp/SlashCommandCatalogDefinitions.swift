@@ -24,6 +24,12 @@ extension SlashCommandCatalog {
             aliases: ["clear-chat", "reset-chat"]
         ),
         slashDefinition(
+            "/undo",
+            "Undo latest edit",
+            "Reverse the latest revertable file edits from the current thread.",
+            aliases: ["revert", "revert-latest", "undo-edit"]
+        ),
+        slashDefinition(
             "/rename title",
             "Rename chat",
             "Rename the current thread.",

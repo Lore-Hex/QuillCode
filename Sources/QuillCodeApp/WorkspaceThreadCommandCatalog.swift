@@ -5,6 +5,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadIsArchived: Bool
     var selectedThreadHasMessages: Bool
     var selectedThreadCanClear: Bool
+    var selectedThreadCanRevertLatestTurn: Bool
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -55,6 +56,13 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "reset", "context", "transcript"],
                 isEnabled: availability.selectedThreadCanClear
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-revert-latest",
+                title: "Undo latest edit",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "undo", "revert", "latest", "edit"],
+                isEnabled: availability.selectedThreadCanRevertLatestTurn
             ),
             WorkspaceCommandSurface(
                 id: "thread-archive",

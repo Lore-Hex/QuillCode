@@ -101,7 +101,7 @@ extension QuillCodeWorkspaceModel {
             runToolCall(call, workspaceRoot: workspaceRoot)
             return true
         case .action(let action):
-            return runWorkspaceCommandAction(action)
+            return runWorkspaceCommandAction(action, workspaceRoot: workspaceRoot)
         }
     }
 
