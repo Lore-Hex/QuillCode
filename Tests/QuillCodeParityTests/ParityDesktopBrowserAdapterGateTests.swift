@@ -3,7 +3,7 @@ import XCTest
 final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
     func testDesktopBrowserLiveDOMCaptureUsesFocusedAdapter() throws {
         let desktopText = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let capturerText = try Self.desktopSourceText(named: "DesktopBrowserLiveDOMCapturer.swift")
 
@@ -32,7 +32,7 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
 
     func testDesktopBrowserVisibleSessionUsesFocusedAdapter() throws {
         let desktopText = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")

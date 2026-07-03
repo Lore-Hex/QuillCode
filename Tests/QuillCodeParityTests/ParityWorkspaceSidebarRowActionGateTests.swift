@@ -4,7 +4,7 @@ final class ParityWorkspaceSidebarRowActionGateTests: QuillCodeParityTestCase {
     func testSidebarRowActionsUseSharedPlannerAndExecutor() throws {
         let workspaceViewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSidebarRowActionPlanner.swift")
-        let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let desktopControllerText = try Self.desktopControllerSourceText()
         let desktopNavigationText = try Self.desktopSourceText(
             named: "QuillCodeDesktopNavigationCoordinator.swift"
         )

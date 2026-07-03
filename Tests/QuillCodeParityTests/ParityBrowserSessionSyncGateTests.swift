@@ -9,7 +9,7 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowserSession.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
         let coordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let snapshotTests = try Self.appTestSourceText(named: "BrowserSessionSyncSnapshotTests.swift")
         let engineTests = try Self.appTestSourceText(named: "WorkspaceBrowserEngineTests.swift")
         let integrationTests = try Self.appTestSourceText(named: "WorkspaceBrowserIntegrationTests.swift")

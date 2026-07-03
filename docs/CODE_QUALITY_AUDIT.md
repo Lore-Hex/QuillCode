@@ -14447,3 +14447,42 @@ Validation:
 - `swift test --quiet` (2,864 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
 - `git diff --check`
+
+## 2026-07-02 Desktop Controller Split A+ Pass
+
+Overall grade after this slice: **A+ for desktop controller architecture**. The
+desktop controller had already delegated behavior to focused coordinators, but
+the file still concentrated every UI-facing forwarding method in one 619-line
+source file. This pass keeps the controller as the state/bootstrap bridge and
+moves routing families into small controller extensions so future Codex parity
+work has lower conflict and review risk.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `QuillCodeDesktopController.swift` | A+ | Core file is now 183 lines and owns published state, dependency construction, notification bootstrap, model-catalog scheduling, and refresh. |
+| `QuillCodeDesktopController+Navigation.swift` | A+ | Thread/project navigation, project import, and saved-search routing stay together. |
+| `QuillCodeDesktopController+ComposerAndPanes.swift` | A+ | Chat send/retry, pane toggles, and browser preview/session actions are grouped by user-facing workspace chrome. |
+| `QuillCodeDesktopController+WorkspaceActions.swift` | A+ | Tool cards, review actions, pull-request review threads, review comments, and message feedback share the workspace-action coordinator. |
+| `QuillCodeDesktopController+Commands.swift` | A+ | Native command dispatch, modal openers, stop/disconnect, and the command-performing conformance are isolated from bootstrap state. |
+| `ParityDesktopControllerGateTests.swift` | A+ | Source gates now audit the full controller family while requiring the core file to stay bootstrap-focused. |
+
+Code quality changes:
+
+- Split the 619-line desktop controller into one 183-line bootstrap file plus
+  focused extension files for commands, composer/panes, navigation, settings,
+  terminal, transcript copy/export, workspace actions, and worktrees.
+- Added `desktopControllerSourceText()` parity-test support so architecture
+  gates still audit the whole controller type after the split.
+- Added a core-file size and extension-presence gate to prevent future desktop
+  routing branches from accumulating in the bootstrap file.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; every module and every
+  lowest-scored file row remains A+.
+
+Validation:
+
+- `swift test --filter 'ParityDesktopControllerGateTests|ParityDesktopTaskCoordinationGateTests|ParityDesktopTrustedRouterAuthGateTests|ParityDesktopBrowserAdapterGateTests|ParityBrowserSessionSyncGateTests|ParityWorkspaceReviewCardModelGateTests|ParityWorkspaceSidebarRowActionGateTests|QuillCodeDesktopControllerSmokeTests'` (32 tests, 0 failures)
+- `swift test` (2,865 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`

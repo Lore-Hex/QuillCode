@@ -3,7 +3,7 @@ import XCTest
 final class ParityDesktopTrustedRouterAuthGateTests: QuillCodeParityTestCase {
     func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let signInText = try Self.desktopSourceText(named: "QuillCodeDesktopSignInCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopSignInCoordinator")

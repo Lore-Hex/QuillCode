@@ -3,7 +3,7 @@ import XCTest
 final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
     func testDesktopControllerDelegatesCancellableTaskSlots() throws {
         let text = try Self.desktopSourceText()
-        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controllerText = try Self.desktopControllerSourceText()
         let activeWorkCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopActiveWorkCoordinator.swift")
         let automationCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopAutomationCoordinator.swift")
         let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
