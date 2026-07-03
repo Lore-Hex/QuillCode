@@ -9,6 +9,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let baseRunner: AgentRunner
     private let selectedProject: ProjectRef?
     private let config: AppConfig
+    private let modelCatalog: [ModelInfo]
     private let browser: BrowserState
     private let browserToolOverride: AgentToolExecutionOverride?
     private let computerUseBackend: (any ComputerUseBackend)?
@@ -23,6 +24,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         baseRunner: AgentRunner,
         selectedProject: ProjectRef?,
         config: AppConfig,
+        modelCatalog: [ModelInfo] = [],
         browser: BrowserState,
         browserToolOverride: AgentToolExecutionOverride?,
         computerUseBackend: (any ComputerUseBackend)?,
@@ -36,6 +38,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.baseRunner = baseRunner
         self.selectedProject = selectedProject
         self.config = config
+        self.modelCatalog = modelCatalog
         self.browser = browser
         self.browserToolOverride = browserToolOverride
         self.computerUseBackend = computerUseBackend
@@ -65,6 +68,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         var runner = WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
             config: config,
+            modelCatalog: modelCatalog,
             browser: browser,
             browserToolOverride: browserToolOverride,
             computerUseBackend: computerUseBackend,

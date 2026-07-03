@@ -37,6 +37,9 @@ enum WorkspaceApprovalActionPlanner {
         guard let request = pendingRequest(id: action.requestID, in: thread) else {
             return nil
         }
+        if request.scope == .runSpendFuse {
+            return spendFusePlan(action: action, request: request)
+        }
         switch action.kind {
         case .approve:
             return decisionPlan(
@@ -80,6 +83,32 @@ enum WorkspaceApprovalActionPlanner {
                 assistantNotice: "Skipped \(request.toolCall.name) and saved a rule to keep blocking it.",
                 persistRuleDecision: .deny
             )
+        }
+    }
+
+    private static func spendFusePlan(
+        action: ToolCardActionSurface,
+        request: ApprovalRequest
+    ) -> WorkspaceApprovalActionPlan? {
+        switch action.kind {
+        case .approve:
+            return decisionPlan(
+                request: request,
+                verdict: .approve,
+                rationale: "Approved spend-fuse continuation from the tool card.",
+                shouldRunTool: false,
+                assistantNotice: nil
+            )
+        case .deny:
+            return decisionPlan(
+                request: request,
+                verdict: .deny,
+                rationale: "Stopped at the spend fuse from the tool card.",
+                shouldRunTool: false,
+                assistantNotice: "Stopped before spending more on this thread."
+            )
+        case .edit, .approveAlways, .denyAlways:
+            return nil
         }
     }
 

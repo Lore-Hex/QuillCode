@@ -124,11 +124,33 @@ extension QuillCodeWorkspaceModel {
         finishAgentSend(outcome, runThreadID: sendStart.threadID)
     }
 
+    public func resumeAgentAfterSpendFuseApproval(workspaceRoot: URL, expectedThreadID: UUID?) async {
+        guard !composer.isSending,
+              let thread = selectedThread,
+              thread.id == expectedThreadID
+        else {
+            return
+        }
+        guard let intent = thread.messages.last(where: { $0.role == .user })?.content,
+              !intent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        let sendStart = WorkspaceAgentSendStartPlan(
+            prompt: intent,
+            thread: thread,
+            threadID: thread.id,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: composer)
+        )
+        applyComposerSendLifecycle(sendStart.lifecycle)
+        let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot)
+        finishAgentSend(outcome, runThreadID: sendStart.threadID)
+    }
+
     private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
         WorkspaceAgentSendSessionFactory(
             baseRunner: runner,
             selectedProject: selectedProject,
             config: root.config,
+            modelCatalog: root.modelCatalog,
             browser: browser,
             browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
                 guard let self else { return nil }

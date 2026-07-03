@@ -8,6 +8,7 @@ import QuillComputerUseKit
 struct WorkspaceAgentRunContextBuilder: Sendable {
     var selectedProject: ProjectRef?
     var config: AppConfig = AppConfig()
+    var modelCatalog: [ModelInfo] = []
     var browser: BrowserState
     var browserToolOverride: AgentToolExecutionOverride? = nil
     var computerUseBackend: (any ComputerUseBackend)?
@@ -24,6 +25,10 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         activeRunner.baseToolDefinitions = baseToolDefinitions
         activeRunner.additionalToolDefinitions = additionalToolDefinitions
         activeRunner.toolExecutionOverride = toolExecutionOverride
+        activeRunner.runSpendFusePolicy = RunSpendFusePolicy(
+            fuseUSD: config.runSpendFuseUSD,
+            modelCatalog: modelCatalog
+        )
         if let permissionRules {
             activeRunner.safety = PermissionRuleGatedSafetyReviewer(
                 base: runner.safety,

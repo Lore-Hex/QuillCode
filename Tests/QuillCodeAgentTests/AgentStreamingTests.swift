@@ -207,6 +207,51 @@ final class AgentStreamingTests: XCTestCase {
         XCTAssertEqual(result.thread.events[1].summary, AgentRunner.streamingNotice)
     }
 
+    func testUsageStreamingToolActionPausesAtSpendFuseBeforeToolRuns() async throws {
+        let root = try makeTempDirectory()
+        let usage = ModelTokenUsage(promptTokens: 2_000, completionTokens: 1_000)
+        let policy = try XCTUnwrap(RunSpendFusePolicy(
+            fuseUSD: 0.01,
+            modelCatalog: [
+                ModelInfo(
+                    id: TrustedRouterDefaults.defaultModel,
+                    provider: "trustedrouter",
+                    displayName: "Nike 1.0",
+                    category: "Fast",
+                    capabilities: ModelCapabilities(
+                        inputPricePerMillionTokens: 2.0,
+                        outputPricePerMillionTokens: 6.0
+                    )
+                )
+            ]
+        ))
+        let runner = AgentRunner(
+            llm: UsageStreamingActionLLMClient(events: [
+                .text(#"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}"#),
+                .usage(usage)
+            ]),
+            runSpendFusePolicy: policy
+        )
+
+        let result = try await runner.send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 0)
+        XCTAssertEqual(result.stopReason, .spendFuseApprovalRequired(totalUSD: 0.01, fuseUSD: 0.01))
+        XCTAssertTrue(result.thread.events.contains { $0.kind == .approvalRequested })
+        XCTAssertFalse(result.thread.events.contains { $0.kind == .toolQueued })
+        let request = try XCTUnwrap(result.thread.events.compactMap { event -> ApprovalRequest? in
+            guard event.kind == .approvalRequested, let payloadJSON = event.payloadJSON else { return nil }
+            return try? JSONHelpers.decode(ApprovalRequest.self, from: payloadJSON)
+        }.last)
+        XCTAssertEqual(request.scope, .runSpendFuse)
+        XCTAssertEqual(request.toolCall.name, RunSpendFusePolicy.toolName)
+        XCTAssertEqual(result.thread.messages.last?.content, "Thread spend reached $0.01. Approve to continue this run.")
+    }
+
     func testUsageStreamingReasoningSummariesAreRecordedAsThinkingTrace() async throws {
         let root = try makeTempDirectory()
         let recorder = ProgressRecorder()

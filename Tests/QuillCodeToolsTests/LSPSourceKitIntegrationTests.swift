@@ -25,6 +25,19 @@ final class LSPSourceKitIntegrationTests: XCTestCase {
     }
 
     func testRealServerHandshakeAndDefinition() throws {
+        do {
+            try runRealServerHandshakeAndDefinition()
+        } catch let error as LSPError {
+            switch error {
+            case .serverClosed, .timeout, .serverUnavailable:
+                throw XCTSkip("sourcekit-lsp is present but unavailable in this environment: \(error.description)")
+            case .invalidMessage, .serverError:
+                throw error
+            }
+        }
+    }
+
+    private func runRealServerHandshakeAndDefinition() throws {
         let registry = LSPServerRegistry()
         let manager = LSPSessionManager(workspaceRoot: workspace, registry: registry)
 

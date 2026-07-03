@@ -98,11 +98,7 @@ struct WorkspaceRunReceiptSurfaceBuilder: Sendable, Hashable {
     }
 
     fileprivate static func costLabel(_ value: Double) -> String {
-        let safe = max(0, value)
-        if safe > 0, safe < 0.01 {
-            return String(format: "$%.4f", safe)
-        }
-        return String(format: "$%.2f", safe)
+        RunSpendFusePolicy.costLabel(value)
     }
 
     private static func count(_ value: Int, singular: String) -> String {
