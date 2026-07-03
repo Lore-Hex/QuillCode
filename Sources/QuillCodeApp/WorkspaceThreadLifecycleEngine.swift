@@ -197,7 +197,14 @@ struct WorkspaceThreadLifecycleEngine {
 
     private static func upsertThread(_ thread: ChatThread, threads: inout [ChatThread]) {
         if let index = threads.firstIndex(where: { $0.id == thread.id }) {
-            threads[index] = thread
+            // The follow-up queue is model/UI-owned state, not conversation state the agent
+            // produces — its snapshot in the incoming (agent) copy is stale (captured at
+            // send-start, before any mid-run enqueue). Preserve the live in-memory queue so a
+            // follow-up submitted DURING the run survives the agent's authoritative overwrite
+            // and is still present for the turn-boundary drain.
+            var updated = thread
+            updated.followUpQueue = threads[index].followUpQueue
+            threads[index] = updated
         } else {
             threads.insert(thread, at: 0)
         }

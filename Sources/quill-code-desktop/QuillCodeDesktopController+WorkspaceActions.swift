@@ -24,6 +24,11 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    func deleteFollowUp(_ id: UUID) {
+        model.deleteFollowUp(id)
+        refresh()
+    }
+
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {
         workspaceActionCoordinator.runReviewAction(action, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()

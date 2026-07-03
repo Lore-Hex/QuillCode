@@ -54,6 +54,7 @@ enum WorkspaceHTMLTranscriptRenderer {
           \(renderPlanProgress(composer.planProgress))
           <div class="composer-surface" data-testid="composer-surface">
             <label class="composer-sr-only" for="message">Message</label>
+            \(renderFollowUpQueue(composer.followUpQueue))
             <div class="composer-input-row">
               \(renderComposerTextArea(composer))
               \(button)
@@ -93,6 +94,33 @@ enum WorkspaceHTMLTranscriptRenderer {
             "placeholder=\"\(escape(composer.placeholder))\" " +
             "rows=\"1\"\(disabled)>" +
             "\(escape(composer.draft))</textarea>"
+    }
+
+    /// The follow-up queue chips: composer submissions parked during the live run, each with a
+    /// delete affordance. Empty string when nothing is queued (byte-identical to before). Each
+    /// chip carries its item id on the delete button so the harness/native layer can target it.
+    private static func renderFollowUpQueue(_ items: [FollowUpItemSurface]) -> String {
+        guard !items.isEmpty else { return "" }
+        let chips = items.map { item in
+            """
+            <span class="composer-followup-chip" data-testid="composer-followup-chip" data-followup-id="\(escape(item.id.uuidString))">
+              <span class="composer-followup-text" data-testid="composer-followup-text">\(escape(item.text))</span>
+              \(WorkspaceHTMLPrimitives.button(
+                  "×",
+                  testID: "composer-followup-delete",
+                  hitTargetKind: .icon,
+                  classes: ["composer-followup-delete"],
+                  ariaLabel: "Remove queued follow-up",
+                  attributes: [("data-followup-id", item.id.uuidString)]
+              ))
+            </span>
+            """
+        }.joined(separator: "\n")
+        return """
+        <div class="composer-followup-queue" data-testid="composer-followup-queue" aria-label="Queued follow-ups">
+          \(chips)
+        </div>
+        """
     }
 
     /// The always-visible plan-progress strip, emitted as the first child of the composer form so DOM

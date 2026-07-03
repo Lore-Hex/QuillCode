@@ -31,23 +31,115 @@ extension QuillCodeWorkspaceModel {
         onStarted: (@MainActor @Sendable () -> Void)? = nil,
         onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
     ) async {
+        // Run the typed turn, then drain the run thread's follow-up queue one item per turn
+        // boundary — each queued item becomes the next turn. Draining inside this single
+        // `.send` task (the desktop coordinator holds the slot for the whole call) keeps the
+        // composer continuously "sending" across the wave, so no gap lets a stray idle submit
+        // race the drain, and no double-send occurs (each item is popped exactly once).
+        guard let first = await sendComposerDraftTurn(
+            workspaceRoot: workspaceRoot,
+            onStarted: onStarted,
+            onProgressUpdated: onProgressUpdated
+        ) else { return }
+
+        // Only drain the next item after a turn that COMPLETED. A Stop (cancel) or a failure
+        // halts the wave and leaves the remaining queue intact and persisted, so the user can
+        // resume or delete — a single Stop never silently flushes every queued item, and a
+        // transient failure never spam-fires the whole queue into the same error.
+        var runThreadID = first.threadID
+        var shouldDrain = first.completed
+        while shouldDrain, let queued = drainNextFollowUp(runThreadID: runThreadID) {
+            guard let turn = await sendFollowUpTurn(
+                queued,
+                runThreadID: runThreadID,
+                workspaceRoot: workspaceRoot,
+                onStarted: onStarted,
+                onProgressUpdated: onProgressUpdated
+            ) else { break }
+            runThreadID = turn.threadID
+            shouldDrain = turn.completed
+        }
+    }
+
+    /// The disposition of one agent turn: the thread it ran on and whether it completed
+    /// normally (vs. cancelled/failed). The drain loop keys off `completed` to decide whether
+    /// to pull the next queued item.
+    private struct AgentTurnResult {
+        var threadID: UUID
+        var completed: Bool
+    }
+
+    /// Runs the turn for the current composer draft (a fresh user submit). Handles the
+    /// ignore/slash/agent split exactly as before. Returns the turn result for the caller to
+    /// drive the drain, or nil when nothing ran (empty draft, or a slash command, which has no
+    /// queued follow-through).
+    private func sendComposerDraftTurn(
+        workspaceRoot: URL,
+        onStarted: (@MainActor @Sendable () -> Void)?,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)?
+    ) async -> AgentTurnResult? {
         let submissionPlan = WorkspaceComposerSubmissionPlanner.plan(draft: composer.draft)
         let draftThreadID = root.selectedThreadID
         let prompt: String
         switch submissionPlan {
         case .ignore:
-            return
+            return nil
         case .slash(let command, let originalPrompt):
             composer.draft = ""
             threadDrafts = ComposerDraftStore.cleared(draftThreadID, drafts: threadDrafts)
             setLastError(nil)
             await handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
-            return
+            return nil
         case .agent(let plannedPrompt):
             prompt = plannedPrompt
         }
 
-        guard let thread = prepareAgentSendThread() else { return }
+        return await runAgentTurn(
+            prompt: prompt,
+            clearingDraftFor: draftThreadID,
+            workspaceRoot: workspaceRoot,
+            onStarted: onStarted,
+            onProgressUpdated: onProgressUpdated
+        )
+    }
+
+    /// Runs a drained follow-up item as the next turn on the run thread. The run thread is
+    /// re-selected first so the queued prompt lands on the conversation it was queued against
+    /// even if the user switched threads mid-run; an already-deleted item never reaches here
+    /// because `drainNextFollowUp` only returns items still present in the queue.
+    private func sendFollowUpTurn(
+        _ prompt: String,
+        runThreadID: UUID,
+        workspaceRoot: URL,
+        onStarted: (@MainActor @Sendable () -> Void)?,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)?
+    ) async -> AgentTurnResult? {
+        if root.selectedThreadID != runThreadID,
+           root.threads.contains(where: { $0.id == runThreadID }) {
+            selectThread(runThreadID)
+        }
+        return await runAgentTurn(
+            prompt: prompt,
+            clearingDraftFor: nil,
+            workspaceRoot: workspaceRoot,
+            onStarted: onStarted,
+            onProgressUpdated: onProgressUpdated
+        )
+    }
+
+    /// Shared per-turn engine: shapes the send-start plan, appends the user turn, marks the
+    /// composer sending, runs the agent session, and applies the terminal lifecycle. Used for
+    /// both a typed draft and a drained follow-up so both paths go through the identical
+    /// run/finish machinery (no divergent lifecycle handling). Returns the turn result.
+    @discardableResult
+    private func runAgentTurn(
+        prompt: String,
+        clearingDraftFor draftThreadID: UUID?,
+        workspaceRoot: URL,
+        onStarted: (@MainActor @Sendable () -> Void)?,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)?
+    ) async -> AgentTurnResult? {
+        guard let thread = prepareAgentSendThread() else { return nil }
         let sendStart = WorkspaceAgentSendStartPlanner.started(
             prompt: prompt,
             thread: thread,
@@ -61,6 +153,7 @@ extension QuillCodeWorkspaceModel {
 
         let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot, onProgressUpdated: onProgressUpdated)
         finishAgentSend(outcome, runThreadID: sendStart.threadID)
+        return AgentTurnResult(threadID: sendStart.threadID, completed: outcome.didComplete)
     }
 
     private func prepareAgentSendThread() -> ChatThread? {
@@ -178,6 +271,11 @@ extension QuillCodeWorkspaceModel {
         if completion.shouldRefreshMemoryContext {
             refreshThreadMemoryContext(&thread)
         }
+        // The follow-up queue is model-owned: the agent's completion copy carries a stale snapshot
+        // (captured at send-start). `updateThreadFromAgentRun` preserves the live queue in memory;
+        // carry that same live queue onto the copy we persist so disk matches memory (a mid-run
+        // enqueue survives to disk, and a drained item's removal is not resurrected).
+        thread.followUpQueue = root.threads.first { $0.id == thread.id }?.followUpQueue ?? thread.followUpQueue
         updateThreadFromAgentRun(thread)
         try threadPersistence.saveOrThrow(thread)
         // A completed run may have created, moved, or deleted files; keep composer
