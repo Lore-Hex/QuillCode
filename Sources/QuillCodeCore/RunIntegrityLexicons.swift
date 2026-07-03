@@ -134,14 +134,24 @@ public enum TestCommandLexicon {
     }
 
     /// Splits a command line into the segments separated by shell control operators `&&`, `||`, `;`,
-    /// `|`, `&`. Each segment is classified independently (its own argv[0]). Quote-naive but bounded —
-    /// good enough for the high-precision heuristic; the worst case of an operator inside a quoted string
-    /// only ever SPLITS a segment further, which can drop a match (false negative, safe), never invent
-    /// one in a non-command position.
+    /// `|`, `&`. Each segment is classified independently (its own argv[0]).
+    ///
+    /// QUOTE-AWARE: an operator inside single/double quotes OR backticks (command substitution) does NOT
+    /// split, so a runner name inside a quoted argument of a non-runner command — `echo "run && pytest
+    /// tests"`, `git commit -m "fix; pytest later"`, `echo \`pytest\`` — is never carved into a synthetic
+    /// `pytest …` segment (which would falsely classify it as a test). If quotes are UNBALANCED (a parse
+    /// we can't trust), we conservatively do NOT split at all and treat the whole line as one segment —
+    /// better to miss a real `&&`-chained test (false negative, safe) than to manufacture a phantom test
+    /// in a non-command position.
     static func commandSegments(in lowered: String) -> [String] {
+        let scalars = Array(lowered)
+        guard quotesAreBalanced(scalars) else {
+            let trimmed = lowered.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? [] : [trimmed]
+        }
         var segments: [String] = []
         var current = ""
-        let scalars = Array(lowered)
+        var quote: Character?
         var i = 0
         func flush() {
             let trimmed = current.trimmingCharacters(in: .whitespaces)
@@ -150,6 +160,15 @@ public enum TestCommandLexicon {
         }
         while i < scalars.count {
             let c = scalars[i]
+            if let open = quote {
+                current.append(c)
+                if c == open { quote = nil }
+                i += 1
+                continue
+            }
+            if isQuoteChar(c) {
+                quote = c; current.append(c); i += 1; continue
+            }
             let next: Character? = i + 1 < scalars.count ? scalars[i + 1] : nil
             if (c == "&" && next == "&") || (c == "|" && next == "|") {
                 flush(); i += 2; continue
@@ -164,13 +183,46 @@ public enum TestCommandLexicon {
         return segments
     }
 
+    static func isQuoteChar(_ c: Character) -> Bool {
+        c == "'" || c == "\"" || c == "`"
+    }
+
+    /// Whether single/double quotes and backticks are balanced (naive, quote-nesting-aware: a `"` inside
+    /// `'…'` is literal and vice-versa). Used to decide whether the quote-aware split can be trusted.
+    static func quotesAreBalanced(_ scalars: [Character]) -> Bool {
+        var quote: Character?
+        for c in scalars {
+            if let open = quote {
+                if c == open { quote = nil }
+            } else if isQuoteChar(c) {
+                quote = c
+            }
+        }
+        return quote == nil
+    }
+
+    /// Presence-probe commands: the following program is DESCRIBED, not executed, so a nonzero exit is
+    /// "not installed", never a test failure. `which pytest`, `type pytest`, `command -v pytest`,
+    /// `command -V pytest`, `hash pytest`. These must NEVER classify as a test.
+    static let presenceProbePrograms: Set<String> = ["which", "type", "hash", "whereis"]
+
     /// Classifies one already-lowercased segment by reading its argv[0] (after stripping env-assignments
     /// and passthrough wrappers) and, for build drivers, checking for a test subcommand.
     static func classifySegment(_ segment: String) -> Match? {
-        var tokens = tokenize(segment)
-        tokens = strippingLeadingWrappers(tokens)
+        let rawTokens = strippingLeadingEnv(tokenize(segment))
+        // Presence probes describe a program rather than run it — never a test, even if the argument is a
+        // runner name. `command -v pytest`, `which pytest`, `type -a pytest`.
+        if isPresenceProbe(rawTokens) { return nil }
+
+        let tokens = strippingLeadingWrappers(rawTokens)
         guard let head = tokens.first else { return nil }
         let program = basename(head)
+
+        // 0. `python -m <testmodule>` / `python3 -m pytest`: the module after `-m` is the real runner
+        //    (argv[0] is only the interpreter). Recognized in command position, not by substring.
+        if let match = pythonModuleMatch(tokens) {
+            return match
+        }
 
         // 1. Bare single-program runners: argv[0] basename alone is enough.
         if runnerBasenames.contains(program) {
@@ -209,6 +261,59 @@ public enum TestCommandLexicon {
         }
 
         return nil
+    }
+
+    /// Test modules invoked via `python -m <module>` (or `python3`/`py`). The module IS the runner.
+    public static let pythonTestModules: Set<String> = [
+        "pytest", "unittest", "nose", "nose2", "tox", "green", "ward", "behave", "trial",
+    ]
+
+    /// The Python interpreters that front a `-m <module>` invocation.
+    static let pythonInterpreters: Set<String> = ["python", "python3", "python2", "py", "pypy", "pypy3"]
+
+    /// Recognizes `python[3] -m <testmodule> …`: the interpreter is argv[0], `-m` selects a module, and
+    /// when that module is a known test runner the command IS a test run. The scope keys off the module
+    /// plus its target args so different `-m pytest tests/x` vs `tests/y` stay distinct.
+    static func pythonModuleMatch(_ tokens: [String]) -> Match? {
+        guard let head = tokens.first, pythonInterpreters.contains(basename(head)) else { return nil }
+        // Find `-m` and the module token immediately after it.
+        var index = 1
+        while index < tokens.count {
+            if tokens[index] == "-m", index + 1 < tokens.count {
+                let module = tokens[index + 1]
+                guard pythonTestModules.contains(module) else { return nil }
+                // Scope: the module + the arguments AFTER it (targets), so `-m pytest tests/auth` and
+                // `-m pytest tests/utils` differ. Reuse scopeKey over [module, targets…].
+                let moduleAndTargets = [module] + tokens[(index + 2)...]
+                return Match(runner: "python -m \(module)", scope: scopeKey(runner: module, tokens: moduleAndTargets))
+            }
+            index += 1
+        }
+        return nil
+    }
+
+    /// Whether the (env-stripped) tokens are a presence probe rather than an execution: `which pytest`,
+    /// `type pytest`, `hash pytest`, `command -v pytest`, `command -V pytest`.
+    static func isPresenceProbe(_ tokens: [String]) -> Bool {
+        guard let head = tokens.first else { return false }
+        let program = basename(head)
+        if presenceProbePrograms.contains(program) { return true }
+        // `command -v`/`-V <program>`: describes, does not run.
+        if program == "command", tokens.count >= 2 {
+            let flag = tokens[1]
+            if flag == "-v" || flag == "-V" { return true }
+        }
+        return false
+    }
+
+    /// Strips only leading `NAME=value` env-assignments (not wrappers) — used before the presence-probe
+    /// check so `FOO=1 which pytest` is still recognized as a probe.
+    static func strippingLeadingEnv(_ tokens: [String]) -> [String] {
+        var remaining = tokens
+        while let head = remaining.first, isEnvAssignment(head) {
+            remaining.removeFirst()
+        }
+        return remaining
     }
 
     /// A `run <script>` invocation where the script name is test-shaped: `test`, `test:unit`,
@@ -319,15 +424,74 @@ public enum TestCommandLexicon {
         return stripped.split(separator: "/").last.map(String.init) ?? stripped
     }
 
-    /// Identity for same-scope re-run matching: runner + the target-ish argument tokens (paths, scheme
-    /// names) normalized. Two invocations of the same suite share a scope; two different suites (e.g.
-    /// `pytest tests/auth` vs `pytest tests/utils`) do not. Flags are dropped so a re-run with extra
-    /// flags still matches.
+    /// Selector flags whose VALUE names the specific suite/target being run. Their value MUST enter the
+    /// scope key — otherwise `cargo test --test=auth_it` and `--test=utils_it` collapse to the same
+    /// scope and an unrelated green run falsely clears a red one (the trust hole). Both attached
+    /// (`--test=auth`) and separated (`--test auth`, `-k auth`) forms are handled.
+    static let selectorFlags: Set<String> = [
+        "--test", "--package", "-p", "--bin", "--example", "--features",
+        "--testpathpattern", "--testnamepattern", "--config", "-c",
+        "-k", "--filter", "--group", "--suite", "--only", "--scheme", "--target",
+        "--project", "--spec", "--grep", "-g", "--name", "--tests", "--run",
+    ]
+
+    /// Identity for same-scope re-run matching: runner + the target-ish arguments (positional paths AND
+    /// selector-flag VALUES) normalized. Two invocations of the same suite share a scope; two different
+    /// suites — whether selected positionally (`pytest tests/auth` vs `tests/utils`) or by flag
+    /// (`cargo test --test=auth` vs `--test=utils`, `pytest -k auth` vs `-k utils`) — do NOT.
+    ///
+    /// CONSERVATIVE: non-selector flags are ignored (so a bare re-run with extra `-v` still matches), but
+    /// every selector value is INCLUDED. When in doubt we prefer MORE distinct scopes — a scope that is
+    /// too fine only means the RED rule falls back to exact-command identity (which never falsely
+    /// clears), whereas a scope that is too coarse would hide a standing failure.
     static func scopeKey(runner: String, tokens: [String]) -> String {
-        let targets = tokens.dropFirst()
-            .filter { !$0.hasPrefix("-") }
-            .joined(separator: " ")
-        return "\(runner)|\(targets)"
+        var parts: [String] = []
+        let args = Array(tokens.dropFirst())
+        var index = 0
+        while index < args.count {
+            let token = args[index]
+            if token.hasPrefix("-") {
+                // Attached form: `--test=auth`, `-kauth`, `-k=auth`.
+                if let (flag, value) = attachedSelector(token) {
+                    parts.append("\(flag)=\(value)")
+                    index += 1
+                    continue
+                }
+                // Separated form: `--test auth`, `-k auth`.
+                if selectorFlags.contains(token), index + 1 < args.count, !args[index + 1].hasPrefix("-") {
+                    parts.append("\(token)=\(args[index + 1])")
+                    index += 2
+                    continue
+                }
+                index += 1 // a non-selector flag — ignored
+                continue
+            }
+            // Positional target (path, scheme name, subcommand).
+            parts.append(token)
+            index += 1
+        }
+        return "\(runner)|\(parts.joined(separator: " "))"
+    }
+
+    /// Parses an attached-value selector flag: `--test=auth` → ("--test", "auth"); `-kauth` →
+    /// ("-k", "auth"); `-k=auth` → ("-k", "auth"). Returns nil for non-selector or valueless flags.
+    static func attachedSelector(_ token: String) -> (flag: String, value: String)? {
+        // Long form `--flag=value`.
+        if token.hasPrefix("--"), let eq = token.firstIndex(of: "=") {
+            let flag = String(token[token.startIndex..<eq])
+            let value = String(token[token.index(after: eq)...])
+            if selectorFlags.contains(flag), !value.isEmpty { return (flag, value) }
+            return nil
+        }
+        // Short form `-kVALUE` or `-k=VALUE`.
+        if token.hasPrefix("-"), !token.hasPrefix("--"), token.count > 2 {
+            let flag = String(token.prefix(2)) // e.g. "-k"
+            guard selectorFlags.contains(flag) else { return nil }
+            var value = String(token.dropFirst(2))
+            if value.hasPrefix("=") { value = String(value.dropFirst()) }
+            if !value.isEmpty { return (flag, value) }
+        }
+        return nil
     }
 
     /// Substring match with cheap word-ish boundaries. Retained for `SuccessClaimLexicon` reuse so there
