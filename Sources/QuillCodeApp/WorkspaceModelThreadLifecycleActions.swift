@@ -24,6 +24,13 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    @discardableResult
+    public func setPinThread(_ id: UUID, isPinned: Bool) -> Bool {
+        updateAndSaveThread { threads in
+            WorkspaceThreadLifecycleEngine.setPinThread(id, isPinned: isPinned, threads: &threads)
+        } != nil
+    }
+
     public func archiveThread(_ id: UUID) {
         applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({ threads in

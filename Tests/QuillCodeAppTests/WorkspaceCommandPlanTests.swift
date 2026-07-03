@@ -257,6 +257,14 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .action(.threadBulkArchive)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "thread-pin"),
+            .action(.threadPin)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "thread-unpin"),
+            .action(.threadUnpin)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "thread-revert-latest"),
             .action(.threadRevertLatest)
         )

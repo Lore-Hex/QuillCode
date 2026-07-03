@@ -43,6 +43,18 @@ extension SlashCommandCatalog {
             aliases: ["duplicate-chat", "copy-chat"]
         ),
         slashDefinition(
+            "/pin",
+            "Pin chat",
+            "Keep the current thread in the pinned section.",
+            aliases: ["pin-chat"]
+        ),
+        slashDefinition(
+            "/unpin",
+            "Unpin chat",
+            "Remove the current thread from the pinned section.",
+            aliases: ["unpin-chat"]
+        ),
+        slashDefinition(
             "/archive",
             "Archive chat",
             "Move the current thread out of the recent list.",

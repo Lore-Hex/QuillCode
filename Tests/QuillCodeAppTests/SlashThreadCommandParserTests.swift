@@ -51,13 +51,19 @@ final class SlashThreadCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "rename", argument: "   "), .invalid("Usage: /rename New chat title"))
     }
 
-    func testDuplicateArchiveAndUnarchiveAliasesMapToWorkspaceCommands() {
+    func testDuplicatePinArchiveAndUnarchiveAliasesMapToWorkspaceCommands() {
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "duplicate", argument: ""), .workspaceCommand("thread-duplicate"))
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "copy-chat", argument: ""), .workspaceCommand("thread-duplicate"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "pin", argument: ""), .workspaceCommand("thread-pin"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "pin-chat", argument: ""), .workspaceCommand("thread-pin"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "unpin", argument: ""), .workspaceCommand("thread-unpin"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "unpin-chat", argument: ""), .workspaceCommand("thread-unpin"))
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "archive", argument: ""), .workspaceCommand("thread-archive"))
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "archive-chat", argument: ""), .workspaceCommand("thread-archive"))
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "unarchive", argument: ""), .workspaceCommand("thread-unarchive"))
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "unarchive-chat", argument: ""), .workspaceCommand("thread-unarchive"))
         XCTAssertEqual(SlashCommandParser.parse("/duplicate-chat"), .workspaceCommand("thread-duplicate"))
+        XCTAssertEqual(SlashCommandParser.parse("/pin"), .workspaceCommand("thread-pin"))
+        XCTAssertEqual(SlashCommandParser.parse("/unpin-chat"), .workspaceCommand("thread-unpin"))
     }
 }

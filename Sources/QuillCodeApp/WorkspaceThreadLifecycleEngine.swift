@@ -65,6 +65,22 @@ struct WorkspaceThreadLifecycleEngine {
         return threads[index]
     }
 
+    static func setPinThread(
+        _ id: UUID,
+        isPinned: Bool,
+        threads: inout [ChatThread],
+        now: Date = Date()
+    ) -> ChatThread? {
+        guard let index = threads.firstIndex(where: { $0.id == id }),
+              threads[index].isPinned != isPinned
+        else {
+            return nil
+        }
+        threads[index].isPinned = isPinned
+        threads[index].updatedAt = now
+        return threads[index]
+    }
+
     static func archiveThread(
         _ id: UUID,
         threads: inout [ChatThread],

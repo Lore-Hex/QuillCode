@@ -14906,3 +14906,31 @@ Validation:
 - `swift test --filter WorkspaceSurfaceTests/testSurfaceIncludesTopBarSidebarComposerAndCommands` (1 test, 0 failures)
 - `swift test --quiet` (3,145 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+
+## 2026-07-03 Thread Pin Slash Command Parity Slice
+
+Overall grade after this slice: **A+ for idempotent thread-pin command routing**.
+The selected-thread Pin/Unpin affordance now exists as command-palette actions
+and slash commands while reusing the same persisted thread lifecycle path as
+sidebar row actions.
+
+Code quality changes:
+
+- Added `thread-pin` and `thread-unpin` to the thread command catalog with
+  conservative selected-thread availability: pin requires a live unpinned,
+  unarchived thread; unpin requires a live pinned thread.
+- Added `/pin`, `/pin-chat`, `/unpin`, and `/unpin-chat` aliases that route
+  through the normal workspace command planner and executor.
+- Added `WorkspaceThreadLifecycleEngine.setPinThread` plus
+  `QuillCodeWorkspaceModel.setPinThread` so command execution is idempotent and
+  cannot accidentally toggle the wrong way.
+- Mirrored command registration, command routing, slash registration, and
+  availability in the HTML/Playwright harness.
+- Tightened command-planner guards so a stale selected-thread ID cannot produce
+  a pin action without a live selected thread payload.
+
+Validation:
+
+- `swift test --filter 'SlashThreadCommandParserTests|WorkspaceCommandPlanTests|WorkspaceCommandActionPlannerTests|WorkspaceCommandSurfaceBuilderTests|WorkspaceSurfaceTests|WorkspaceThreadLifecycleEngineTests|WorkspaceThreadLifecycleIntegrationTests|WorkspaceRenderedCommandRoutingParityTests|WorkspaceSlashRegistryHarnessParityTests'` (77 tests, 0 failures)
+- `swift test --quiet` (3,147 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)

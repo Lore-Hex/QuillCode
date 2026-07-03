@@ -9,6 +9,8 @@ enum SlashThreadCommandParser {
              "compact", "compact-context", "context-compact",
              "rename", "rename-chat", "title",
              "duplicate", "duplicate-chat", "copy-chat",
+             "pin", "pin-chat",
+             "unpin", "unpin-chat",
              "archive", "archive-chat",
              "unarchive", "unarchive-chat":
             return true
@@ -34,6 +36,10 @@ enum SlashThreadCommandParser {
             return value.isEmpty ? .invalid("Usage: /rename New chat title") : .renameThread(value)
         case "duplicate", "duplicate-chat", "copy-chat":
             return .workspaceCommand("thread-duplicate")
+        case "pin", "pin-chat":
+            return .workspaceCommand("thread-pin")
+        case "unpin", "unpin-chat":
+            return .workspaceCommand("thread-unpin")
         case "archive", "archive-chat":
             return .workspaceCommand("thread-archive")
         case "unarchive", "unarchive-chat":

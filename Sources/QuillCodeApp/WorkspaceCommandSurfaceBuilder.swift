@@ -115,6 +115,15 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         return WorkspaceTurnRevertPlanner.latestPlan(in: selectedThread) != nil
     }
 
+    private var selectedThreadCanPin: Bool {
+        guard let selectedThread else { return false }
+        return !selectedThread.isPinned && !selectedThread.isArchived
+    }
+
+    private var selectedThreadCanUnpin: Bool {
+        selectedThread?.isPinned == true
+    }
+
     private var selectedProjectIsRemote: Bool {
         selectedProject?.isRemote == true
     }
@@ -130,6 +139,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             selectedThreadHasMessages: selectedThreadHasMessages,
             selectedThreadCanClear: selectedThreadCanClear,
             selectedThreadCanRevertLatestTurn: selectedThreadCanRevertLatestTurn,
+            selectedThreadCanPin: selectedThreadCanPin,
+            selectedThreadCanUnpin: selectedThreadCanUnpin,
             hasAnySidebarThread: sidebarItemCount > 0,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             hasSidebarSelection: !selectedSidebarThreads.isEmpty,
