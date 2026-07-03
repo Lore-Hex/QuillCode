@@ -19,7 +19,10 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
 
     func testWorkspaceModelDelegatesSlashCommandDispatchPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let composerText = [
+            try Self.appSourceText(named: "WorkspaceModelComposer.swift"),
+            try Self.appSourceText(named: "WorkspaceModelComposerCommands.swift")
+        ].joined(separator: "\n")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandDispatchPlanner.swift")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let plannerTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandDispatchPlannerTests.swift")
@@ -58,7 +61,10 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
         let schedulerText = try Self.appSourceText(named: "WorkspaceSubagentScheduler.swift")
         let runnerText = try Self.appSourceText(named: "WorkspaceSubagentSlashCommandRunner.swift")
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let composerText = [
+            try Self.appSourceText(named: "WorkspaceModelComposer.swift"),
+            try Self.appSourceText(named: "WorkspaceModelComposerCommands.swift")
+        ].joined(separator: "\n")
         let slashParserText = try Self.appSourceText(named: "WorkspaceSubagentRunRequest.swift")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let schedulerTests = try Self.appTestSourceText(named: "WorkspaceSubagentSchedulerTests.swift")

@@ -98,12 +98,29 @@ struct QuillCodeComposerView: View {
     private var composerSurface: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !composer.followUpQueue.isEmpty {
-                followUpQueueChips
+                QuillCodeFollowUpQueueView(
+                    items: composer.followUpQueue,
+                    onDelete: onDeleteFollowUp
+                )
             }
 
             HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
-                composerField
-                composerAction
+                QuillCodeComposerTextField(
+                    placeholder: composer.placeholder,
+                    draft: $draft,
+                    isFocused: isFocused,
+                    onDownArrow: handleDownArrow,
+                    onUpArrow: handleUpArrow,
+                    onTab: handleTab,
+                    onReturn: handleReturn,
+                    onSend: onSend
+                )
+                QuillCodeComposerActionButton(
+                    isSending: composer.isSending,
+                    canSendDraft: canSendDraft,
+                    onSend: onSend,
+                    onStop: onStop
+                )
             }
 
             composerAccessoryBar
@@ -124,50 +141,6 @@ struct QuillCodeComposerView: View {
             return QuillCodePalette.blue.opacity(0.34)
         }
         return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
-    }
-
-    /// The queued follow-up chips shown above the input while a run is live. Each chip shows
-    /// the queued prompt and a delete button that removes it before it drains. Stacked one per
-    /// row (oldest first) so a long queued prompt stays readable and the drain order is clear.
-    private var followUpQueueChips: some View {
-        VStack(alignment: .leading, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-            ForEach(composer.followUpQueue) { item in
-                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                    Text(item.text)
-                        .font(.callout)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .foregroundStyle(QuillCodePalette.blue)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button {
-                        onDeleteFollowUp(item.id)
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.caption2.weight(.bold))
-                            .quillCodeIconButtonTarget(size: 22, radius: 6)
-                    }
-                    .buttonStyle(QuillCodePressableButtonStyle())
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .help("Remove queued follow-up")
-                    .accessibilityLabel("Remove queued follow-up")
-                    .accessibilityIdentifier("quillcode-followup-delete")
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(QuillCodePalette.blue.opacity(0.12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(QuillCodePalette.blue.opacity(0.3), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("quillcode-followup-chip")
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Queued follow-ups")
     }
 
     /// Catalog model suggestions for the `/model ` sub-search. Takes precedence over the general
@@ -215,101 +188,50 @@ struct QuillCodeComposerView: View {
         .accessibilityLabel("Composer model and safety controls")
     }
 
-    private var composerField: some View {
-        TextField(composer.placeholder, text: $draft, axis: .vertical)
-            .textFieldStyle(.plain)
-            .font(.body)
-            .lineLimit(1...5)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 8)
-            .quillCodeTextEntryTarget()
-            // Never locks during a run: typing stays enabled so a follow-up can be entered and
-            // queued (Enter enqueues while the run is live, drains at the next turn boundary).
-            .focused(isFocused)
-            .onKeyPress(.downArrow) {
-                if !modelCommandSuggestions.isEmpty {
-                    activeModelCommandIndex = min(activeModelCommandIndex + 1, modelCommandSuggestions.count - 1)
-                    return .handled
-                }
-                if !slashSuggestions.isEmpty {
-                    activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, slashSuggestions.count - 1)
-                    return .handled
-                }
-                if !fileMentionSuggestions.isEmpty {
-                    activeFileMentionIndex = min(activeFileMentionIndex + 1, fileMentionSuggestions.count - 1)
-                    return .handled
-                }
-                return recallNewerHistory() ? .handled : .ignored
-            }
-            .onKeyPress(.upArrow) {
-                if !modelCommandSuggestions.isEmpty {
-                    activeModelCommandIndex = max(activeModelCommandIndex - 1, 0)
-                    return .handled
-                }
-                if !slashSuggestions.isEmpty {
-                    activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
-                    return .handled
-                }
-                if !fileMentionSuggestions.isEmpty {
-                    activeFileMentionIndex = max(activeFileMentionIndex - 1, 0)
-                    return .handled
-                }
-                return recallOlderHistory() ? .handled : .ignored
-            }
-            .onKeyPress(.tab) {
-                if acceptActiveModelCommand() { return .handled }
-                if acceptActiveSlashSuggestion(force: true) { return .handled }
-                if acceptActiveFileMention(force: true) { return .handled }
-                return .ignored
-            }
-            .onKeyPress(.return) {
-                if acceptActiveModelCommand() { return .handled }
-                if acceptActiveSlashSuggestion(force: false) { return .handled }
-                if acceptActiveFileMention(force: false) { return .handled }
-                return .ignored
-            }
-            .onSubmit(onSend)
-            .accessibilityLabel("Message")
-            .accessibilityIdentifier("quillcode-composer-input")
+    private func handleDownArrow() -> KeyPress.Result {
+        if !modelCommandSuggestions.isEmpty {
+            activeModelCommandIndex = min(activeModelCommandIndex + 1, modelCommandSuggestions.count - 1)
+            return .handled
+        }
+        if !slashSuggestions.isEmpty {
+            activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, slashSuggestions.count - 1)
+            return .handled
+        }
+        if !fileMentionSuggestions.isEmpty {
+            activeFileMentionIndex = min(activeFileMentionIndex + 1, fileMentionSuggestions.count - 1)
+            return .handled
+        }
+        return recallNewerHistory() ? .handled : .ignored
     }
 
-    @ViewBuilder
-    private var composerAction: some View {
-        if composer.isSending {
-            Button(action: onStop) {
-                Label("Stop", systemImage: "stop.fill")
-                    .font(.headline)
-                    .quillCodeTextButtonTarget(
-                        minWidth: 90,
-                        minHeight: 46,
-                        radius: QuillCodeMetrics.composerControlRadius
-                    )
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-            .background(QuillCodePalette.red)
-            .foregroundStyle(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
-            .keyboardShortcut(.cancelAction)
-            .help("Stop the current run")
-            .accessibilityIdentifier("quillcode-stop-button")
-        } else {
-            Button(action: onSend) {
-                Image(systemName: "arrow.up")
-                    .font(.headline.weight(.semibold))
-                    .quillCodeIconButtonTarget(
-                        size: 46,
-                        radius: QuillCodeMetrics.composerControlRadius
-                    )
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-            .background(canSendDraft ? QuillCodePalette.blue : QuillCodePalette.background.opacity(0.72))
-            .foregroundStyle(canSendDraft ? Color.white : QuillCodePalette.muted)
-            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
-            .disabled(!canSendDraft)
-            .help("Send")
-            .accessibilityLabel("Send message")
-            .accessibilityIdentifier("quillcode-send-button")
+    private func handleUpArrow() -> KeyPress.Result {
+        if !modelCommandSuggestions.isEmpty {
+            activeModelCommandIndex = max(activeModelCommandIndex - 1, 0)
+            return .handled
         }
+        if !slashSuggestions.isEmpty {
+            activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
+            return .handled
+        }
+        if !fileMentionSuggestions.isEmpty {
+            activeFileMentionIndex = max(activeFileMentionIndex - 1, 0)
+            return .handled
+        }
+        return recallOlderHistory() ? .handled : .ignored
+    }
+
+    private func handleTab() -> KeyPress.Result {
+        if acceptActiveModelCommand() { return .handled }
+        if acceptActiveSlashSuggestion(force: true) { return .handled }
+        if acceptActiveFileMention(force: true) { return .handled }
+        return .ignored
+    }
+
+    private func handleReturn() -> KeyPress.Result {
+        if acceptActiveModelCommand() { return .handled }
+        if acceptActiveSlashSuggestion(force: false) { return .handled }
+        if acceptActiveFileMention(force: false) { return .handled }
+        return .ignored
     }
 
     private func acceptActiveModelCommand() -> Bool {

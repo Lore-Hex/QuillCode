@@ -35,7 +35,7 @@ public struct RunSpendFusePolicy: Sendable, Hashable {
     public var modelCatalog: [ModelInfo]
 
     public init?(fuseUSD: Double?, modelCatalog: [ModelInfo]) {
-        guard let fuseUSD, fuseUSD.isFinite, fuseUSD > 0 else { return nil }
+        guard let fuseUSD = RunSpendLedger.normalizedFuse(fuseUSD) else { return nil }
         self.fuseUSD = fuseUSD
         self.modelCatalog = modelCatalog
     }
@@ -53,15 +53,11 @@ public struct RunSpendFusePolicy: Sendable, Hashable {
     }
 
     public func spendSummary(for thread: ChatThread) -> RunSpendFuseSummary {
-        thread.events
-            .compactMap(ModelTokenUsageEvent.record(from:))
-            .reduce(RunSpendFuseSummary()) { summary, record in
-                let model = modelInfo(for: record.modelID ?? thread.model)
-                guard let price = price(usage: record.usage, model: model) else {
-                    return summary.adding(unpricedCalls: 1)
-                }
-                return summary.adding(totalUSD: price, pricedCalls: 1)
-            }
+        RunSpendLedger(
+            thread: thread,
+            modelCatalog: modelCatalog,
+            fuseUSD: fuseUSD
+        ).summary
     }
 
     private func approvalRequest(summary: RunSpendFuseSummary, bucket: Int) -> ApprovalRequest {
@@ -149,26 +145,8 @@ public struct RunSpendFusePolicy: Sendable, Hashable {
         try? JSONHelpers.decode(RunSpendFuseApprovalPayload.self, from: request.toolCall.argumentsJSON)
     }
 
-    private func modelInfo(for modelID: String?) -> ModelInfo? {
-        let canonical = TrustedRouterDefaults.canonicalModelID(modelID ?? "")
-        return modelCatalog.first { TrustedRouterDefaults.canonicalModelID($0.id) == canonical }
-    }
-
-    private func price(usage: ModelTokenUsage, model: ModelInfo?) -> Double? {
-        guard let inputPrice = model?.capabilities.inputPricePerMillionTokens,
-              let outputPrice = model?.capabilities.outputPricePerMillionTokens
-        else {
-            return nil
-        }
-        return (Double(usage.promptTokens) * inputPrice + Double(usage.completionTokens) * outputPrice) / 1_000_000
-    }
-
     public static func costLabel(_ value: Double) -> String {
-        let safe = max(0, value)
-        if safe > 0, safe < 0.01 {
-            return String(format: "$%.4f", safe)
-        }
-        return String(format: "$%.2f", safe)
+        RunSpendLedger.costLabel(value)
     }
 
     private static let epsilon = 0.000_000_001

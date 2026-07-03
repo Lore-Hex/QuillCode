@@ -357,12 +357,16 @@ final class MorningTriageTests: XCTestCase {
         XCTAssertEqual(ThreadReturnWatermarkRecord.unseenCount(in: thread), 2)
     }
 
-    func testUnseenCountStaleWatermarkIsZeroNeverNegative() {
+    func testUnseenCountStaleWatermarkIsZeroNeverNegative() throws {
         var thread = threadWithMessages(4)
         // Point the watermark at an item that isn't in the timeline.
         let payload = ThreadReturnWatermarkRecord.Payload(lastSeenItemID: "message-does-not-exist")
-        let json = try! JSONHelpers.encodePretty(payload)
-        thread.events.append(ThreadEvent(kind: .notice, summary: ThreadReturnWatermarkRecord.eventSummary, payloadJSON: json))
+        let json = try JSONHelpers.encodePretty(payload)
+        thread.events.append(ThreadEvent(
+            kind: .notice,
+            summary: ThreadReturnWatermarkRecord.eventSummary,
+            payloadJSON: json
+        ))
         XCTAssertEqual(ThreadReturnWatermarkRecord.unseenCount(in: thread), 0)
     }
 

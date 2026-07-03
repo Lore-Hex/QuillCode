@@ -354,116 +354,6 @@ extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: progress.agentStatus)
     }
 
-    /// Turns any self-heals the retry decorator performed during the run (recorded off the main actor)
-    /// into visible "Self-healing" thread notices on the run's thread. Drained once the run ends —
-    /// NOT per progress tick, because each tick's `updateThreadFromAgentRun` replaces the thread with
-    /// the agent's authoritative copy and would clobber a model-appended notice. The channel is always
-    /// drained so a stale event never bleeds into a later run; the notices are appended only when the
-    /// run's thread is still selected (a thread switch drops them — they are purely informational).
-    func drainSelfHealingNotices(expectedThreadID: UUID?) {
-        guard let channel = retryEventChannel else { return }
-        let events = channel.drain()
-        guard !events.isEmpty,
-              let thread = selectedThread,
-              thread.id == expectedThreadID
-        else { return }
-        mutateSelectedThread { thread in
-            for event in events {
-                thread.events.append(ThreadEvent(
-                    kind: .notice,
-                    summary: SelfHealingNoticePlanner.noticeSummary(attempt: event.attempt, kind: event.kind)
-                ))
-            }
-        }
-        if let thread = selectedThread {
-            threadPersistence.save(thread)
-        }
-    }
-
-    private func executeBrowserToolForAgent(_ call: ToolCall, workspaceRoot: URL) -> ToolResult? {
-        let result = mutateBrowserState { browser, lastError in
-            WorkspaceBrowserToolExecutor.execute(
-                call,
-                workspaceRoot: workspaceRoot,
-                browser: &browser,
-                lastError: &lastError,
-                domainPolicy: root.config.browserDomainPolicy
-            )
-        }
-        refreshTopBar(agentStatus: root.topBar.agentStatus)
-        return result
-    }
-
-    private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) async {
-        let action = WorkspaceSlashCommandDispatchPlanner.action(
-            for: command,
-            userText: originalPrompt,
-            statusText: statusText()
-        )
-        await runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)
-        composer.isSending = false
-        refreshTopBar(agentStatus: Task.isCancelled
-            ? TopBarAgentStatusLabel.stopped
-            : TopBarAgentStatusLabel.idle
-        )
-    }
-
-    func runThreadFollowUpSlashCommand(_ scheduleText: String, originalPrompt: String) {
-        appendScheduledAutomationTranscript(
-            createThreadFollowUpAutomation(matching: scheduleText),
-            success: {
-                WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled(
-                    userText: originalPrompt,
-                    scheduleDescription: $0
-                )
-            },
-            failure: {
-                WorkspaceSlashCommandTranscriptPlanner.threadFollowUpFailed(
-                    userText: originalPrompt,
-                    message: $0
-                )
-            }
-        )
-    }
-
-    func runWorkspaceScheduleSlashCommand(_ scheduleText: String, originalPrompt: String) {
-        appendScheduledAutomationTranscript(
-            createWorkspaceScheduleAutomation(matching: scheduleText),
-            success: {
-                WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled(
-                    userText: originalPrompt,
-                    scheduleDescription: $0
-                )
-            },
-            failure: {
-                WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleFailed(
-                    userText: originalPrompt,
-                    message: $0
-                )
-            }
-        )
-    }
-
-    private func appendScheduledAutomationTranscript(
-        _ automation: QuillAutomation?,
-        success: (String) -> WorkspaceLocalCommandTranscript,
-        failure: (String?) -> WorkspaceLocalCommandTranscript
-    ) {
-        let transcript = automation
-            .map { success($0.scheduleDescription) }
-            ?? failure(lastError)
-        appendLocalCommandTranscript(transcript)
-    }
-
-    func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
-        if selectedThread == nil {
-            _ = newChat()
-        }
-        mutateSelectedThread { thread in
-            WorkspaceLocalCommandTranscriptAppender.append(transcript, to: &thread)
-        }
-    }
-
     private func finishCancelledSend(userPrompt: String, threadID: UUID) {
         let terminal = WorkspaceAgentSendTerminalPlanner.cancelled(composer: composer)
         mutateThread(threadID) { thread in
@@ -481,15 +371,6 @@ extension QuillCodeWorkspaceModel {
         composer = plan.composer
         setLastError(plan.lastError)
         refreshTopBar(agentStatus: plan.agentStatus)
-    }
-
-    private func statusText() -> String {
-        WorkspaceStatusTextBuilder.statusText(for: WorkspaceStatusContextBuilder.context(
-            root: root,
-            selectedProject: selectedProject,
-            selectedThread: selectedThread,
-            fallbackThreadContext: workspaceThreadContext(root.selectedProjectID)
-        ))
     }
 
     private func syncThreadContext(into thread: inout ChatThread) {

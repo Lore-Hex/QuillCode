@@ -3,7 +3,10 @@ import XCTest
 final class ParityWorkspaceStatusModelGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let composerText = [
+            try Self.appSourceText(named: "WorkspaceModelComposer.swift"),
+            try Self.appSourceText(named: "WorkspaceModelComposerCommands.swift")
+        ].joined(separator: "\n")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceStatusTextBuilder.swift")
         let contextBuilderText = try Self.appSourceText(named: "WorkspaceStatusContextBuilder.swift")

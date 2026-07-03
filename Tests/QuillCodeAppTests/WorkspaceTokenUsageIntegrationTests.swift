@@ -81,7 +81,10 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         XCTAssertEqual(receipts.map(\.title), ["Thread spend", "Acme Agent"])
         XCTAssertEqual(receipts.first?.detail, "$0.0050 across 1 model call · fuse $1.00")
         XCTAssertEqual(receipts.first?.statusLabel, "Within fuse")
-        XCTAssertEqual(receipts.last?.detail, "acme/agent · 1.5k ctx · ↑1k ↓500 · $0.0050 (in $0.0020, out $0.0030)")
+        XCTAssertEqual(
+            receipts.last?.detail,
+            "acme/agent · 1.5k ctx · ↑1k ↓500 · $0.0050 (in $0.0020, out $0.0030)"
+        )
         XCTAssertEqual(receipts.last?.statusLabel, "Logged")
         XCTAssertEqual(section.title, "Run Receipts")
         XCTAssertEqual(section.itemTestID, "activity-run-receipt")
@@ -118,6 +121,44 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
 
         XCTAssertEqual(summary?.detail, "$0.01 across 1 model call · fuse $0.01")
         XCTAssertEqual(summary?.statusLabel, "Review")
+    }
+
+    func testRunReceiptLedgerUsesFirstCatalogMatchWhenCatalogHasDuplicateAliases() {
+        let thread = ChatThread(
+            title: "Costed run",
+            events: [usageEvent(prompt: 1_000, completion: 0, modelID: "trustedrouter/fast")]
+        )
+
+        let ledger = RunSpendLedger(
+            thread: thread,
+            modelCatalog: [
+                ModelInfo(
+                    id: "tr/fast",
+                    provider: "TrustedRouter",
+                    displayName: "Nike 1.0",
+                    category: "Fast",
+                    capabilities: ModelCapabilities(
+                        inputPricePerMillionTokens: 1.0,
+                        outputPricePerMillionTokens: 1.0
+                    )
+                ),
+                ModelInfo(
+                    id: "trustedrouter/fast",
+                    provider: "TrustedRouter",
+                    displayName: "Duplicate Nike",
+                    category: "Fast",
+                    capabilities: ModelCapabilities(
+                        inputPricePerMillionTokens: 100.0,
+                        outputPricePerMillionTokens: 100.0
+                    )
+                )
+            ],
+            fuseUSD: 0.01
+        )
+
+        XCTAssertEqual(ledger.receipts.first?.modelName, "Nike 1.0")
+        XCTAssertEqual(ledger.totalUSD, 0.001, accuracy: 0.000001)
+        XCTAssertFalse(ledger.blocksNextRun)
     }
 
     func testActivityRunReceiptsKeepLegacyUnpricedUsageAuditable() throws {
