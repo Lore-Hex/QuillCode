@@ -4475,6 +4475,7 @@
       { usage: '/unpin', title: 'Unpin chat', detail: 'Remove the current thread from the pinned section.', insertText: '/unpin', aliases: ['unpin-chat'] },
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
       { usage: '/unarchive', title: 'Unarchive chat', detail: 'Restore the current archived thread.', insertText: '/unarchive', aliases: ['unarchive-chat'] },
+      { usage: '/delete', title: 'Delete chat', detail: 'Remove the current chat from QuillCode without touching project files.', insertText: '/delete', aliases: ['delete-chat', 'remove-chat'] },
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
@@ -15130,6 +15131,9 @@
         return;
       } else if (/^\/(unarchive|unarchive-chat)\b/i.test(text)) {
         runSidebarThreadAction('unarchive', state.sidebar.selectedThreadID);
+        return;
+      } else if (/^\/(delete|delete-chat|remove-chat)\b/i.test(text)) {
+        runSidebarThreadAction('delete', state.sidebar.selectedThreadID);
         return;
       } else if (/^\/(terminal|term|shell)\b/i.test(text)) {
         const argument = text.replace(/^\/(terminal|term|shell)\b/i, '').trim().toLowerCase();

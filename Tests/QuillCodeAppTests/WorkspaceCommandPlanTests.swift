@@ -265,6 +265,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .action(.threadUnpin)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "thread-delete"),
+            .action(.threadDelete)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "thread-revert-latest"),
             .action(.threadRevertLatest)
         )

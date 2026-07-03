@@ -12,7 +12,8 @@ enum SlashThreadCommandParser {
              "pin", "pin-chat",
              "unpin", "unpin-chat",
              "archive", "archive-chat",
-             "unarchive", "unarchive-chat":
+             "unarchive", "unarchive-chat",
+             "delete", "delete-chat", "remove-chat":
             return true
         default:
             return false
@@ -44,6 +45,8 @@ enum SlashThreadCommandParser {
             return .workspaceCommand("thread-archive")
         case "unarchive", "unarchive-chat":
             return .workspaceCommand("thread-unarchive")
+        case "delete", "delete-chat", "remove-chat":
+            return .workspaceCommand("thread-delete")
         default:
             return .unknown(command)
         }

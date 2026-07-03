@@ -15,7 +15,8 @@ final class ParitySlashThreadMemoryParserGateTests: QuillCodeParityTestCase {
             "enum SlashThreadCommandParser",
             "Usage: /rename New chat title",
             "thread-clear",
-            "thread-duplicate"
+            "thread-duplicate",
+            "thread-delete"
         ].forEach { Self.assertSource(parserText, contains: $0) }
         [
             "testSupportsThreadLifecycleAliases",
@@ -27,6 +28,7 @@ final class ParitySlashThreadMemoryParserGateTests: QuillCodeParityTestCase {
             "Usage: /rename New chat title",
             "thread-clear",
             "thread-duplicate",
+            "thread-delete",
             "compact-context"
         ].forEach { Self.assertSource(slashText, excludes: $0) }
     }
