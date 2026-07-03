@@ -82,4 +82,74 @@ final class AgentRunNotificationPlannerTests: XCTestCase {
         )
         XCTAssertTrue(note?.body.contains("Your task") == true, note?.body ?? "")
     }
+
+    // MARK: - Run-integrity badge (#875)
+
+    func testVerifiedBadgeIsRecordedButDoesNotShoutInTitle() {
+        let note = AgentRunNotificationPlanner.notification(
+            threadTitle: "Add tests",
+            threadID: threadID,
+            didFail: false,
+            pendingApprovalSummary: nil,
+            finalAnswer: "Added 6 tests.",
+            integrity: .verified
+        )
+        XCTAssertEqual(note?.integrity, .verified)
+        // A clean run does not need a loud badge in the title.
+        XCTAssertEqual(note?.title, "QuillCode finished")
+    }
+
+    func testUnverifiedBadgeStampsTheTitle() {
+        let note = AgentRunNotificationPlanner.notification(
+            threadTitle: "Add tests",
+            threadID: threadID,
+            didFail: false,
+            pendingApprovalSummary: nil,
+            finalAnswer: "Added 6 tests; tests pass.",
+            integrity: .unverified
+        )
+        XCTAssertEqual(note?.integrity, .unverified)
+        XCTAssertTrue(note?.title.hasPrefix("[UNVERIFIED]") == true, note?.title ?? "")
+    }
+
+    func testRedBadgeStampsTheTitle() {
+        let note = AgentRunNotificationPlanner.notification(
+            threadTitle: "Fix parser",
+            threadID: threadID,
+            didFail: false,
+            pendingApprovalSummary: nil,
+            finalAnswer: "Pushed.",
+            integrity: .red
+        )
+        XCTAssertEqual(note?.integrity, .red)
+        XCTAssertTrue(note?.title.hasPrefix("[RED]") == true, note?.title ?? "")
+    }
+
+    func testRedBadgeSurfacesEvenWithNoFinalAnswer() {
+        // A silent RED run (no assistant answer text) must still notify with the badge.
+        let note = AgentRunNotificationPlanner.notification(
+            threadTitle: "Fix parser",
+            threadID: threadID,
+            didFail: false,
+            pendingApprovalSummary: nil,
+            finalAnswer: nil,
+            integrity: .red
+        )
+        XCTAssertEqual(note?.integrity, .red)
+        XCTAssertTrue(note?.title.hasPrefix("[RED]") == true, note?.title ?? "")
+    }
+
+    func testBadgeDoesNotOverrideApprovalGate() {
+        // The approval gate is more urgent than the honesty stamp — it must win and stay unstamped.
+        let note = AgentRunNotificationPlanner.notification(
+            threadTitle: "Task",
+            threadID: threadID,
+            didFail: false,
+            pendingApprovalSummary: "host.shell.run",
+            finalAnswer: nil,
+            integrity: .red
+        )
+        XCTAssertEqual(note?.kind, .needsApproval)
+        XCTAssertEqual(note?.title, "QuillCode needs your approval")
+    }
 }

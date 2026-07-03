@@ -183,6 +183,9 @@ extension QuillCodeWorkspaceModel {
         // Surface any self-heal that happened during the run, pinned to the RUN's thread — not whatever
         // thread happens to be selected now, so a mid-run thread switch never misattributes the notice.
         drainSelfHealingNotices(expectedThreadID: runThreadID)
+        // Stamp the run-integrity verdict onto the run's thread (persisted, so the Activity badge is
+        // stable across reloads) BEFORE the finish notification reads it back.
+        recordRunIntegrityIfNeeded(outcome: outcome, expectedThreadID: runThreadID)
         notifyRunFinishedIfNeeded(outcome: outcome)
     }
 

@@ -36,6 +36,17 @@ struct QuillCodeActivityPaneView: View {
                     .lineLimit(1)
             }
             Spacer()
+            if let integrity = activity.integrityBadge {
+                Text(integrity.badgeLabel)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(integrityColor(integrity))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(integrityColor(integrity).opacity(0.14))
+                    .clipShape(Capsule())
+                    .help(activity.integrityDetail)
+                    .accessibilityLabel("Run integrity: \(integrity.badgeLabel). \(activity.integrityDetail)")
+            }
             Text(activity.statusLabel)
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(QuillCodePalette.blue)
@@ -43,6 +54,14 @@ struct QuillCodeActivityPaneView: View {
                 .padding(.vertical, 4)
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .clipShape(Capsule())
+        }
+    }
+
+    private func integrityColor(_ verdict: RunIntegrityVerdict) -> Color {
+        switch verdict {
+        case .verified: return QuillCodePalette.green
+        case .unverified: return QuillCodePalette.yellow
+        case .red: return QuillCodePalette.red
         }
     }
 

@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeApp
 
 final class WorkspaceModelRunNotificationTests: XCTestCase {
@@ -23,6 +24,28 @@ final class WorkspaceModelRunNotificationTests: XCTestCase {
         let note = try XCTUnwrap(box.value, "a finished run should fire a come-back notification")
         XCTAssertEqual(note.kind, .finished)
         XCTAssertFalse(note.body.isEmpty)
+    }
+
+    @MainActor
+    func testCompletedRunRecordsAStableIntegrityVerdict() async throws {
+        // #875: after a completed run, the integrity verdict is stamped onto the run's thread as a
+        // persisted notice, so the Activity badge is stable across reloads.
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        _ = model.addProject(path: root, name: "Demo")
+        _ = model.newChat()
+        model.setDraft("run whoami")
+        await model.submitComposer(workspaceRoot: root)
+
+        let thread = try XCTUnwrap(model.selectedThread)
+        let recorded = try XCTUnwrap(
+            RunIntegrityRecord.latest(in: thread),
+            "a completed run should have a recorded integrity verdict"
+        )
+        // The benign whoami run makes no unbacked claims and leaves no failing test -> VERIFIED.
+        XCTAssertEqual(recorded.verdict, .verified)
+        // Exactly one integrity notice — repeated runs must not accumulate stale badges.
+        XCTAssertEqual(thread.events.filter { RunIntegrityRecord.isRecord($0) }.count, 1)
     }
 
     @MainActor

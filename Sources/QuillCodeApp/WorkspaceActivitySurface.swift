@@ -17,6 +17,11 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     public private(set) var artifacts: [ToolArtifactState]
     public private(set) var finalAnswer: String?
     public private(set) var handoffSummary: String?
+    /// The run-integrity badge (VERIFIED / UNVERIFIED / RED) once the run's transcript has been scanned,
+    /// else nil (a fresh / in-flight run has no verdict yet). The honesty stamp on the run.
+    public private(set) var integrityBadge: RunIntegrityVerdict?
+    /// The one-line reason behind the badge, for a tooltip / detail line. Empty when no badge.
+    public private(set) var integrityDetail: String
     public private(set) var sections: [ActivitySectionSurface]
 
     public init(
@@ -36,6 +41,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         artifacts: [ToolArtifactState] = [],
         finalAnswer: String? = nil,
         handoffSummary: String? = nil,
+        integrityBadge: RunIntegrityVerdict? = nil,
+        integrityDetail: String = "",
         collapsedSectionIDs: Set<ActivitySectionKind> = []
     ) {
         self.isVisible = isVisible
@@ -44,6 +51,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.statusLabel = statusLabel
         self.taskTitle = taskTitle
         self.taskSubtitle = taskSubtitle
+        self.integrityBadge = integrityBadge
+        self.integrityDetail = integrityDetail
         self.planItems = planItems
         self.contextItems = contextItems
         self.recentSteps = recentSteps
@@ -95,6 +104,9 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         )
         let artifacts = WorkspaceActivitySurfaceBuilder.uniqueArtifacts(from: toolCards)
         let finalAnswer = WorkspaceActivitySurfaceBuilder.finalAnswer(for: thread)
+        // Prefer a verdict already recorded on the thread (stable across reloads); the badge is nil for a
+        // run that has not been scanned yet so the Activity header stays quiet until "finished".
+        let integrity = RunIntegrityRecord.latest(in: thread)
         let planItems = WorkspaceActivitySurfaceBuilder.authoredPlanItems(for: thread)
             ?? WorkspaceActivitySurfaceBuilder.planItems(
                 for: thread,
@@ -132,6 +144,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
                 finalAnswer: finalAnswer,
                 agentStatus: agentStatus
             ),
+            integrityBadge: integrity?.verdict,
+            integrityDetail: integrity?.summary ?? "",
             collapsedSectionIDs: collapsedSectionIDs
         )
     }
@@ -152,6 +166,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         case artifacts
         case finalAnswer
         case handoffSummary
+        case integrityBadge
+        case integrityDetail
         case sections
     }
 
@@ -173,6 +189,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
         self.finalAnswer = try container.decodeIfPresent(String.self, forKey: .finalAnswer)
         self.handoffSummary = try container.decodeIfPresent(String.self, forKey: .handoffSummary)
+        self.integrityBadge = try container.decodeIfPresent(RunIntegrityVerdict.self, forKey: .integrityBadge)
+        self.integrityDetail = try container.decodeIfPresent(String.self, forKey: .integrityDetail) ?? ""
         self.sections = try container.decodeIfPresent([ActivitySectionSurface].self, forKey: .sections)
             ?? WorkspaceActivitySurfaceBuilder.sections(
                 planItems: planItems,

@@ -14486,3 +14486,36 @@ Validation:
 - `swift test` (2,865 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
 - `git diff --check`
+
+## 2026-07-02 Run Integrity Scanner A+ Pass
+
+Overall grade after this slice: **A+ for run-integrity reporting and scanner
+architecture**. The feature adds VERIFIED / UNVERIFIED / RED run badges, and
+this pass keeps the implementation from landing as one large mixed-purpose core
+file.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `RunIntegrityScanner.swift` | A+ | Scanner now owns only bounded transcript scanning and rule evaluation. |
+| `RunIntegrityReport.swift` | A+ | Verdict, reasons, and summary text live with the report model. |
+| `RunIntegrityRecord.swift` | A+ | Notice-event persistence is isolated from scanner control flow. |
+| `RunIntegrityLexicons.swift` | A+ | Test-command and success-claim phrase matching are data-driven and separately auditable. |
+| `RunIntegrityScannerTests.swift` | A+ | Fixture corpus keeps precision/robustness coverage without force-try or audit-noise markers. |
+
+Code quality changes:
+
+- Split the initial run-integrity implementation into focused report,
+  persistence, lexicon, and scanner files.
+- Removed force-try serialization from the core test and made the round-trip
+  assertion throwing.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; every module and every
+  file row remains A+.
+
+Validation:
+
+- `swift test --filter 'RunIntegrityScannerTests|AgentRunNotificationPlannerTests|WorkspaceActivityIntegrityBadgeTests|WorkspaceModelRunNotificationTests|WorkspaceRunNotificationBuilderTests|WorkspaceComposerIntegrationTests|WorkspaceMCPIntegrationTests'` (79 tests, 0 failures)
+- `swift test` (2,905 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`

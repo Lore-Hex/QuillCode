@@ -311,8 +311,10 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertFalse(model.composer.isSending)
         XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "streamed response")
-        XCTAssertEqual(model.selectedThread?.events.map(\.kind), [.message, .notice, .message])
+        // The trailing .notice is the post-run integrity stamp (#875), appended to every completed run.
+        XCTAssertEqual(model.selectedThread?.events.map(\.kind), [.message, .notice, .message, .notice])
         XCTAssertEqual(model.selectedThread?.events[1].summary, AgentRunner.streamingNotice)
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, RunIntegrityRecord.eventSummary)
     }
 
     func testCancellingComposerRunStopsStateAndRecordsNotice() async throws {

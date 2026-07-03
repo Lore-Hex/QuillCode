@@ -17,6 +17,10 @@ enum WorkspaceRunNotificationBuilder {
         verification: VerificationVerdict? = nil
     ) -> AgentRunNotification? {
         let pending = pendingApproval(in: thread)
+        // The run-integrity badge is the honesty stamp on the transcript: prefer a verdict already
+        // recorded on the thread (stable across reloads), else scan the transcript now.
+        let integrity = RunIntegrityRecord.latest(in: thread)?.verdict
+            ?? RunIntegrityScanner.verdict(for: thread)
         return AgentRunNotificationPlanner.notification(
             threadTitle: thread.title,
             threadID: thread.id,
@@ -26,7 +30,8 @@ enum WorkspaceRunNotificationBuilder {
             pendingApprovalRequestID: pending?.id,
             didEditFiles: WorkspaceTurnRevertPlanner.threadMadeEdits(thread),
             hasVerificationAction: LocalEnvironmentActionMatcher.verificationAction(in: localActions) != nil,
-            verification: verification
+            verification: verification,
+            integrity: integrity
         )
     }
 

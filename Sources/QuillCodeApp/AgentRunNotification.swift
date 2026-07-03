@@ -32,15 +32,28 @@ public struct AgentRunNotification: Sendable, Hashable, Identifiable {
     /// The blocked approval's request id, set only for `.needsApproval`, so the notification's
     /// Approve/Skip actions can decide the exact gate without opening the app.
     public var approvalRequestID: String?
+    /// The run-integrity badge (VERIFIED / UNVERIFIED / RED) from the post-run transcript scan, when one
+    /// was computed. Independent of `kind`: `kind` reports the run's outcome and the project verify gate;
+    /// `integrity` is the honesty stamp on the transcript itself (unbacked "tests pass" claims, standing
+    /// failures). Surfaced in the title so the user sees the stamp without opening the app.
+    public var integrity: RunIntegrityVerdict?
 
     public var id: String { "\(threadID.uuidString)-\(kind.rawValue)" }
 
-    public init(kind: Kind, title: String, body: String, threadID: UUID, approvalRequestID: String? = nil) {
+    public init(
+        kind: Kind,
+        title: String,
+        body: String,
+        threadID: UUID,
+        approvalRequestID: String? = nil,
+        integrity: RunIntegrityVerdict? = nil
+    ) {
         self.kind = kind
         self.title = title
         self.body = body
         self.threadID = threadID
         self.approvalRequestID = approvalRequestID
+        self.integrity = integrity
     }
 }
 
@@ -58,7 +71,8 @@ public enum AgentRunNotificationPlanner {
         pendingApprovalRequestID: String? = nil,
         didEditFiles: Bool = false,
         hasVerificationAction: Bool = false,
-        verification: VerificationVerdict? = nil
+        verification: VerificationVerdict? = nil,
+        integrity: RunIntegrityVerdict? = nil
     ) -> AgentRunNotification? {
         let title = displayTitle(rawTitle)
         if let approval = trimmedNonEmpty(pendingApprovalSummary) {
@@ -88,17 +102,46 @@ public enum AgentRunNotificationPlanner {
             hasVerificationAction: hasVerificationAction,
             verification: verification
         ) {
-            return verificationNotification
+            return stamped(verificationNotification, integrity: integrity)
         }
         if let answer = trimmedNonEmpty(finalAnswer) {
-            return AgentRunNotification(
-                kind: .finished,
-                title: "QuillCode finished",
-                body: summaryLine(title: title, answer: answer),
-                threadID: threadID
+            return stamped(
+                AgentRunNotification(
+                    kind: .finished,
+                    title: "QuillCode finished",
+                    body: summaryLine(title: title, answer: answer),
+                    threadID: threadID
+                ),
+                integrity: integrity
+            )
+        }
+        // Even a run with no final answer text gets a badge if the scanner flagged a problem, so a
+        // silent RED/UNVERIFIED run is never suppressed entirely.
+        if let integrity, integrity != .verified {
+            return stamped(
+                AgentRunNotification(
+                    kind: .finished,
+                    title: "QuillCode finished",
+                    body: title,
+                    threadID: threadID
+                ),
+                integrity: integrity
             )
         }
         return nil
+    }
+
+    /// Attaches the run-integrity badge to a notification: records it on the `integrity` field and, for
+    /// a non-`verified` stamp, prefixes the title with the badge so the honesty verdict is visible at a
+    /// glance. A `verified` stamp is recorded but does not shout in the title (the run is already fine).
+    static func stamped(_ notification: AgentRunNotification, integrity: RunIntegrityVerdict?) -> AgentRunNotification {
+        guard let integrity else { return notification }
+        var stamped = notification
+        stamped.integrity = integrity
+        if integrity != .verified {
+            stamped.title = "[\(integrity.badgeLabel)] \(notification.title)"
+        }
+        return stamped
     }
 
     private static func verificationNotification(
