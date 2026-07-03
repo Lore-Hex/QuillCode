@@ -78,7 +78,11 @@ final class WorkspaceSlashRegistryHarnessParityTests: XCTestCase {
             #"/^\/(undo|revert|revert-latest|undo-edit)\b/i"#,
             #"/^\/(archive|archive-chat)\b/i"#,
             #"/^\/(unarchive|unarchive-chat)\b/i"#,
-            #"/^\/(delete|delete-chat|remove-chat)\b/i"#
+            #"/^\/(delete|delete-chat|remove-chat)\b/i"#,
+            #"/^\/(fork-last|fork-from-last)\b/i"#,
+            #"/^\/(fork-summary|fork-with-summary)\b/i"#,
+            #"/^\/(fork-full|fork-full-context)\b/i"#,
+            #"/^\/fork\b/i"#
         ].forEach { pattern in
             XCTAssertTrue(
                 harness.contains(pattern),
@@ -89,6 +93,14 @@ final class WorkspaceSlashRegistryHarnessParityTests: XCTestCase {
             harness.contains("runSidebarThreadAction('delete', state.sidebar.selectedThreadID);"),
             "Harness /delete should execute the same selected-thread delete route as the command palette."
         )
+        [
+            "runCommand('fork-from-last');",
+            "runCommand('fork-with-summary');",
+            "runCommand('fork-full-context');",
+            "Usage: /fork [last|summary|full]"
+        ].forEach { expected in
+            XCTAssertTrue(harness.contains(expected), "Harness /fork should include \(expected).")
+        }
     }
 
     // MARK: - /model trigger-rule parity

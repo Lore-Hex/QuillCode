@@ -73,6 +73,20 @@ extension SlashCommandCatalog {
             aliases: ["delete-chat", "remove-chat"]
         ),
         slashDefinition(
+            "/fork last|summary|full",
+            "Fork chat",
+            "Create a continuation from the current chat using the latest turn, a summary, or full context.",
+            insert: "/fork ",
+            aliases: [
+                "fork-last",
+                "fork-from-last",
+                "fork-summary",
+                "fork-with-summary",
+                "fork-full",
+                "fork-full-context"
+            ]
+        ),
+        slashDefinition(
             "/compact",
             "Compact context",
             "Create a shorter continuation thread from the latest turns.",

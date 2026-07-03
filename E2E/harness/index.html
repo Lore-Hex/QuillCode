@@ -4476,6 +4476,7 @@
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
       { usage: '/unarchive', title: 'Unarchive chat', detail: 'Restore the current archived thread.', insertText: '/unarchive', aliases: ['unarchive-chat'] },
       { usage: '/delete', title: 'Delete chat', detail: 'Remove the current chat from QuillCode without touching project files.', insertText: '/delete', aliases: ['delete-chat', 'remove-chat'] },
+      { usage: '/fork last|summary|full', title: 'Fork chat', detail: 'Create a continuation from the current chat using the latest turn, a summary, or full context.', insertText: '/fork ', aliases: ['fork-last', 'fork-from-last', 'fork-summary', 'fork-with-summary', 'fork-full', 'fork-full-context'] },
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
@@ -15134,6 +15135,31 @@
         return;
       } else if (/^\/(delete|delete-chat|remove-chat)\b/i.test(text)) {
         runSidebarThreadAction('delete', state.sidebar.selectedThreadID);
+        return;
+      } else if (/^\/(fork-last|fork-from-last)\b/i.test(text)) {
+        runCommand('fork-from-last');
+        return;
+      } else if (/^\/(fork-summary|fork-with-summary)\b/i.test(text)) {
+        runCommand('fork-with-summary');
+        return;
+      } else if (/^\/(fork-full|fork-full-context)\b/i.test(text)) {
+        runCommand('fork-full-context');
+        return;
+      } else if (/^\/fork\b/i.test(text)) {
+        const mode = text.replace(/^\/fork\b/i, '').trim().toLowerCase();
+        if (!mode || ['last', 'latest', 'latest-turn', 'from-last'].includes(mode)) {
+          runCommand('fork-from-last');
+          return;
+        }
+        if (['summary', 'summarized', 'summarized-context', 'compact'].includes(mode)) {
+          runCommand('fork-with-summary');
+          return;
+        }
+        if (['full', 'full-context', 'all'].includes(mode)) {
+          runCommand('fork-full-context');
+          return;
+        }
+        addMessage('assistant', 'Usage: /fork [last|summary|full]');
         return;
       } else if (/^\/(terminal|term|shell)\b/i.test(text)) {
         const argument = text.replace(/^\/(terminal|term|shell)\b/i, '').trim().toLowerCase();
