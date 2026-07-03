@@ -111,6 +111,17 @@ final class TranscriptNavigationAnchorsTests: XCTestCase {
         }
     }
 
+    func testPullRequestCheckoutIsADiff() {
+        // `gh pr checkout` switches the working tree to the PR head branch and wholesale-rewrites
+        // differing files on disk — the single most impactful working-tree change in a PR flow. It
+        // is the one host.git.pr.* tool that counts as a diff (the rest are PR metadata).
+        let anchors = TranscriptNavigationAnchors.derive(from: surface(toolCards: [
+            card(id: "t1", title: "host.git.pr.checkout", status: .done)
+        ]))
+        XCTAssertEqual(anchors.lastDiffAnchorID, "timeline-tool-t1")
+        XCTAssertTrue(anchors.hasDiff)
+    }
+
     func testSuccessfulReadWithPathArtifactIsNotADiff() {
         // host.file.read returns the read file's absolute path as an artifact, which the artifact
         // classifier labels `.file`. It must NOT be treated as a diff (it read, did not write).

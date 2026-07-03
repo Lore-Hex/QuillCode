@@ -52,12 +52,17 @@ public enum WorkspaceTurnRevertPlanner {
     /// a `git diff`. This is the precise scope of the transcript's "Last diff" affordance (doc:
     /// "most recent file write/patch"), NOT the broader "any non-read side effect": it deliberately
     /// EXCLUDES repo/remote ops that leave working-tree file bytes unchanged —
-    /// - `host.git.pr.*` (PR metadata: reviewers, labels, comments, merge, review threads),
+    /// - most `host.git.pr.*` (PR metadata: reviewers, labels, comments, merge, review threads),
     /// - `host.git.push` (uploads already-committed history),
     /// - `host.git.commit` / `host.git.stage` / `host.git.stage_hunk` (record/stage content that is
     ///   already on disk; they do not change working-tree file bytes),
     /// - `host.git.worktree.*` (create/remove/prune a worktree — not a content diff),
     /// - `host.shell.run` (opaque; may or may not write files, so we do not claim it as a diff).
+    ///
+    /// `host.git.pr.checkout` is the one PR tool that IS included: it runs `gh pr checkout`, which
+    /// switches the working tree to the PR's head branch and wholesale-rewrites every differing file
+    /// on disk — a real working-tree content change, and often the single most impactful one in a
+    /// PR-review flow. (The rest of `host.git.pr.*` only touch PR metadata.)
     ///
     /// This is the SINGLE SOURCE OF TRUTH shared by the native classifier and, mirrored id-for-id,
     /// the HTML/Playwright harness. `WorkspaceTurnRevertDiffToolParityTests` enumerates every
@@ -69,11 +74,12 @@ public enum WorkspaceTurnRevertPlanner {
     /// planner uses to decide whether a turn's undo is *partial* — there, over-claiming mutation is
     /// the safe direction; here, precision to file-content changes is what the label promises).
     public static let workingTreeDiffToolNames: Set<String> = [
-        ToolDefinition.applyPatch.name,       // host.apply_patch
-        revertTurnToolName,                   // host.git.revert_turn (dynamic; reverse-applies a patch)
-        ToolDefinition.fileWrite.name,        // host.file.write
-        ToolDefinition.gitRestore.name,       // host.git.restore
-        ToolDefinition.gitRestoreHunk.name    // host.git.restore_hunk
+        ToolDefinition.applyPatch.name,             // host.apply_patch
+        revertTurnToolName,                         // host.git.revert_turn (dynamic; reverse-applies a patch)
+        ToolDefinition.fileWrite.name,              // host.file.write
+        ToolDefinition.gitRestore.name,             // host.git.restore
+        ToolDefinition.gitRestoreHunk.name,         // host.git.restore_hunk
+        ToolDefinition.gitPullRequestCheckout.name  // host.git.pr.checkout (switches branch → rewrites files on disk)
     ]
 
     /// Whether a tool run rewrote tracked file content in the working tree — the "Last diff"

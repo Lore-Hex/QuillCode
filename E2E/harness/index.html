@@ -8746,16 +8746,18 @@
     // WorkspaceTurnRevertPlanner.workingTreeDiffToolNames; WorkspaceTurnRevertDiffToolParityTests
     // enumerates every tool id and fails CI if the two sides diverge (so this cross-language mirror
     // cannot silently rot). Deliberately EXCLUDES repo/remote ops that leave working-tree bytes
-    // unchanged: host.git.pr.* (PR metadata), host.git.push (already-committed history),
+    // unchanged: most host.git.pr.* (PR metadata), host.git.push (already-committed history),
     // host.git.commit / stage / stage_hunk (record/stage existing content), host.git.worktree.*
-    // (not a content diff), host.shell.run (opaque). We never infer a diff from file/path artifacts
-    // (reads emit those too).
+    // (not a content diff), host.shell.run (opaque). host.git.pr.checkout is the exception — it
+    // switches the working tree to the PR head branch and rewrites differing files on disk. We
+    // never infer a diff from file/path artifacts (reads emit those too).
     const DIFF_PRODUCING_TOOL_NAMES = new Set([
       'host.apply_patch',
       'host.git.revert_turn',   // dynamic tool (no static definition); reverse-applies a patch
       'host.file.write',
       'host.git.restore',
-      'host.git.restore_hunk'
+      'host.git.restore_hunk',
+      'host.git.pr.checkout'    // switches branch → rewrites files on disk
     ]);
     function isDiffProducingToolName(rawTitle) {
       const name = String(rawTitle || '').trim();

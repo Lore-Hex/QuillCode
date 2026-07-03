@@ -79,6 +79,8 @@ test('last diff ignores read-only file tools even though they emit path artifact
   // Write a file (a real diff), then read it back SUCCESSFULLY. The successful read carries the
   // file's absolute path as an artifact (kind 'file'), but a read is not a diff.
   await send(page, 'write hello to a file');
+  // Wait for the write card (the mock completes the turn asynchronously) before reading the anchor.
+  await expect(page.getByTestId('tool-card').filter({ hasText: 'host.file.write' })).toBeVisible();
   const diffAnchorAfterWrite = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
   expect(diffAnchorAfterWrite).toBeTruthy();
 
@@ -133,6 +135,8 @@ test('repo-only ops (commit) do not retarget last diff — only working-tree wri
   // Apply a patch (a working-tree diff), then commit. A commit records already-written content and
   // does NOT change working-tree file bytes, so "Last diff" must stay pinned to the patch.
   await send(page, 'apply patch to fix the bug');
+  // Wait for the patch card before reading the anchor (the mock completes the turn asynchronously).
+  await expect(page.getByTestId('tool-card').filter({ hasText: 'host.apply_patch' })).toBeVisible();
   const diffAnchorAfterPatch = await page.getByTestId('transcript-jump-last-diff').getAttribute('data-anchor-id');
   expect(diffAnchorAfterPatch).toBeTruthy();
 

@@ -12,13 +12,15 @@ import QuillCodeTools
 /// fails CI instead of silently drifting.
 final class WorkspaceTurnRevertDiffToolParityTests: XCTestCase {
     /// The exact, intended working-tree-diff set. Both the Swift predicate and the harness must
-    /// agree with this, id-for-id.
+    /// agree with this, id-for-id. `host.git.pr.checkout` is included because `gh pr checkout`
+    /// switches the working tree to the PR head branch and rewrites differing files on disk.
     private let expectedDiffToolIDs: Set<String> = [
         "host.apply_patch",
         "host.git.revert_turn",
         "host.file.write",
         "host.git.restore",
-        "host.git.restore_hunk"
+        "host.git.restore_hunk",
+        "host.git.pr.checkout"
     ]
 
     /// Repo/remote ops that are registered non-`read` tools but leave working-tree file bytes
