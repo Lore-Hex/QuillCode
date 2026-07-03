@@ -4,6 +4,7 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
     case plan
     case changes
     case context
+    case runReceipts
     case recent
     case subagents
     case handoff
@@ -21,6 +22,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
             return "Changes"
         case .context:
             return "Context"
+        case .runReceipts:
+            return "Run Receipts"
         case .recent:
             return "Recent"
         case .subagents:
@@ -48,6 +51,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
             return "No file changes yet"
         case .context:
             return "No context compaction yet"
+        case .runReceipts:
+            return "No run receipts yet"
         case .recent:
             return "No task events yet"
         case .subagents:
@@ -75,6 +80,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
             return "activity-change"
         case .context:
             return "activity-context"
+        case .runReceipts:
+            return "activity-run-receipt"
         case .recent:
             return "activity-step"
         case .subagents:
@@ -98,7 +105,7 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .plan:
             return true
-        case .changes, .context, .handoff, .instructionReview, .latestAnswer:
+        case .changes, .context, .runReceipts, .handoff, .instructionReview, .latestAnswer:
             return false
         case .recent, .subagents, .tools, .sources, .artifacts:
             return true

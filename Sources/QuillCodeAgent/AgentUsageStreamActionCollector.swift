@@ -29,7 +29,7 @@ extension AgentRunner {
 
         thread = draftThread
         if let latestUsage {
-            thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage))
+            thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage, modelID: thread.model))
             thread.updatedAt = Date()
             await onProgress?(thread)
         }

@@ -19,6 +19,20 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.browserAllowedDomains, [])
         XCTAssertEqual(config.browserBlockedDomains, [])
         XCTAssertEqual(config.notificationPreferences, QuillCodeNotificationPreferences())
+        XCTAssertEqual(config.runSpendFuseUSD, 1.0)
+    }
+
+    func testAppConfigDecodesAndNormalizesRunSpendFuse() throws {
+        let config = try JSONHelpers.decode(AppConfig.self, from: """
+        {
+          "runSpendFuseUSD": 0.25
+        }
+        """)
+
+        XCTAssertEqual(config.runSpendFuseUSD, 0.25)
+        XCTAssertNil(AppConfig(runSpendFuseUSD: 0).runSpendFuseUSD)
+        XCTAssertNil(AppConfig(runSpendFuseUSD: -1).runSpendFuseUSD)
+        XCTAssertNil(AppConfig(runSpendFuseUSD: .infinity).runSpendFuseUSD)
     }
 
     func testAppConfigNormalizesComputerUseApprovals() {

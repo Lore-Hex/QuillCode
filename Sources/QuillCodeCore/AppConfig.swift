@@ -55,6 +55,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var browserAllowedDomains: [String]
     public var browserBlockedDomains: [String]
     public var notificationPreferences: QuillCodeNotificationPreferences
+    public var runSpendFuseUSD: Double?
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -69,6 +70,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case browserAllowedDomains
         case browserBlockedDomains
         case notificationPreferences
+        case runSpendFuseUSD
     }
 
     public init(
@@ -83,7 +85,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         computerUseApprovedAppNames: [String] = [],
         browserAllowedDomains: [String] = [],
         browserBlockedDomains: [String] = [],
-        notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences()
+        notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
+        runSpendFuseUSD: Double? = 1.0
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -103,6 +106,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.browserAllowedDomains = browserPolicy.allowedDomains
         self.browserBlockedDomains = browserPolicy.blockedDomains
         self.notificationPreferences = notificationPreferences
+        self.runSpendFuseUSD = Self.normalizedRunSpendFuse(runSpendFuseUSD)
     }
 
     public init(
@@ -128,7 +132,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
             computerUseApprovedAppNames: computerUseApprovedAppNames,
             browserAllowedDomains: [],
             browserBlockedDomains: [],
-            notificationPreferences: QuillCodeNotificationPreferences()
+            notificationPreferences: QuillCodeNotificationPreferences(),
+            runSpendFuseUSD: 1.0
         )
     }
 
@@ -157,7 +162,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
             computerUseApprovedAppNames: [],
             browserAllowedDomains: [],
             browserBlockedDomains: [],
-            notificationPreferences: QuillCodeNotificationPreferences()
+            notificationPreferences: QuillCodeNotificationPreferences(),
+            runSpendFuseUSD: 1.0
         )
     }
 
@@ -202,7 +208,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
             notificationPreferences: try container.decodeIfPresent(
                 QuillCodeNotificationPreferences.self,
                 forKey: .notificationPreferences
-            ) ?? QuillCodeNotificationPreferences()
+            ) ?? QuillCodeNotificationPreferences(),
+            runSpendFuseUSD: try container.decodeIfPresent(Double.self, forKey: .runSpendFuseUSD) ?? 1.0
         )
     }
 
@@ -216,6 +223,11 @@ public struct AppConfig: Codable, Sendable, Hashable {
             normalized.append(modelID)
         }
         return normalized
+    }
+
+    private static func normalizedRunSpendFuse(_ value: Double?) -> Double? {
+        guard let value, value.isFinite, value > 0 else { return nil }
+        return value
     }
 
     private static func normalizedComputerUseApprovals(_ values: [String]) -> [String] {

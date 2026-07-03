@@ -179,6 +179,8 @@ public extension QuillCodeWorkspaceModel {
                 memories: activeSources.memories,
                 agentStatus: topBarState.agentStatus,
                 changeFiles: review.files,
+                modelCatalog: root.modelCatalog,
+                runSpendFuseUSD: root.config.runSpendFuseUSD,
                 collapsedSectionIDs: activity.collapsedSectionIDs,
                 dismissedInstructionDiagnosticIDs: dismissedInstructionDiagnosticIDs
             ),

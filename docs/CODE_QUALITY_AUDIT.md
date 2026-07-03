@@ -14519,3 +14519,40 @@ Validation:
 - `swift test` (2,905 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
 - `git diff --check`
+
+## 2026-07-02 Run Receipts Cost Ledger A+ Pass
+
+Overall grade after this slice: **A+ across every source and test module** on
+the current branch. This pass adds the first auditable spend ledger surface
+without pushing pricing logic into transport, safety, or SwiftUI views.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `ModelTokenUsage.swift` | A+ | Usage events now persist a backward-compatible model-aware record while preserving legacy usage payload decoding. |
+| `AgentUsageStreamActionCollector.swift` | A+ | Streaming usage records attach the active thread model at the source of truth. |
+| `WorkspaceRunReceiptSurfaceBuilder.swift` | A+ | A focused pure builder prices receipts from catalog metadata and keeps summary, per-call, legacy, and fuse-copy rules out of view code. |
+| `WorkspaceActivitySurface.swift` | A+ | Activity derives Run Receipts beside the existing section builder contract and keeps Codable compatibility for older surfaces. |
+| `AppConfig.swift` | A+ | `runSpendFuseUSD` normalizes invalid values to disabled while older config payloads default to the safe visible fuse. |
+
+Code quality changes:
+
+- Added `ModelTokenUsageRecord` so cost accounting knows which model generated
+  each usage event, with a legacy decode path for old transcript notices.
+- Added Activity Run Receipts rows for model-call cost, thread total, unpriced
+  legacy usage, and normalized spend-fuse status.
+- Kept pricing pure and catalog-driven: no hardcoded provider prices, no
+  transport coupling, and no UI-only cost math.
+- Added focused tests for model-aware usage records, streaming usage model IDs,
+  priced Activity receipts, fuse crossing, legacy unpriced receipts, and config
+  compatibility.
+- Regenerated `docs/CODE_QUALITY_FILE_GRADES.md`; every individual file and
+  every module row remains A+.
+
+Validation:
+
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (0 non-A+ rows)
+- `swift test --filter 'ModelTokenUsageTests|WorkspaceTokenUsageIntegrationTests|AgentStreamingTests|AppConfigCompatibilityTests|WorkspaceActivityIntegrationTests|WorkspaceActivitySurfaceTests|WorkspaceHTMLChromeRendererTests|WorkspaceSurfaceTests'` (51 tests, 0 failures)
+- `swift test --quiet` (2,910 tests, 2 skipped, 0 failures)
+- `git diff --check`
