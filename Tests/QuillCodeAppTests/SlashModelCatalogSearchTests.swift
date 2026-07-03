@@ -239,4 +239,30 @@ final class SlashSkillCommandPlannerTests: XCTestCase {
         let plan = WorkspaceComposerSubmissionPlanner.plan(draft: "/skill")
         XCTAssertEqual(plan, .slash(command: .invalid(SlashSkillCommandPlanner.usage), originalPrompt: "/skill"))
     }
+
+    // MARK: - MAJOR 2 regression: a COMPLETE `/skill <name>` must not keep the command suggested
+    // (which blocked Enter-submit of the command's own documented example).
+
+    func testCompletedSkillInvocationYieldsNoSlashSuggestions() {
+        // The bug: `/skill code-review` matched the `/skill name` definition via the DETAIL text
+        // ("...for example /skill code-review"), keeping the popup open so Enter re-accepted `/skill `
+        // and dropped `code-review`. The score fix suppresses the free-text fallback once the query
+        // has whitespace (an argument is being typed), so a fully-typed invocation shows nothing.
+        XCTAssertTrue(SlashCommandCatalog.suggestions(for: "/skill code-review").isEmpty)
+        XCTAssertTrue(SlashCommandCatalog.suggestions(for: "/skill deep-research").isEmpty)
+    }
+
+    func testPartialSkillStillSuggestsTheCommand() {
+        // Typing just the command word (no argument) still surfaces the `/skill name` row so it is
+        // discoverable and Tab-completable.
+        let usages = SlashCommandCatalog.suggestions(for: "/skill").map(\.usage)
+        XCTAssertTrue(usages.contains("/skill name"))
+    }
+
+    func testMultiWordUsagePrefixStillMatchesWithAnArgumentBeingTyped() {
+        // The whitespace guard must not break structural multi-word usages: `/worktree c` (partial,
+        // has a space) still prefix-matches `/worktree create path`.
+        let usages = SlashCommandCatalog.suggestions(for: "/worktree c").map(\.usage)
+        XCTAssertTrue(usages.contains("/worktree create path"))
+    }
 }

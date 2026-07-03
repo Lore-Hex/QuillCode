@@ -96,3 +96,20 @@ test('mock harness registers /skill as a one-line command in the / popup', async
   await page.keyboard.press('Tab');
   await expect(message).toHaveValue('/skill ');
 });
+
+test('mock harness SUBMITS /skill code-review on Enter and runs the skill', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  // The command's OWN documented example must submit on Enter — not re-complete to a bare `/skill `.
+  await message.fill('/skill code-review');
+  // Once a full argument is typed the slash popup must be gone (so Enter submits, not re-accepts).
+  await expect(page.getByTestId('slash-suggestions')).toHaveCount(0);
+  await page.keyboard.press('Enter');
+
+  // The turn ran: the composer cleared, and the skill was loaded + followed.
+  await expect(message).toHaveValue('');
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.skill.load');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"name": "code-review"');
+  await expect(page.getByTestId('message').last()).toContainText('Loaded the code-review skill');
+});

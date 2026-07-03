@@ -20,7 +20,13 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
     var permissionRules: (any PermissionRulesProviding)? = nil
 
-    func configuredRunner(from runner: AgentRunner) -> AgentRunner {
+    /// Configures a per-send runner. `modelID` pins THIS run's LLM client to the selected model —
+    /// the thread's model — so `/model`, the top-bar picker, and the `/model` popup all take effect
+    /// on the very next turn. The live runner is built once at sign-in with `config.defaultModel`;
+    /// without this per-turn override a model switch would only reach the request after a Settings
+    /// save or re-sign-in (the pre-existing dead-writer gap). A nil/empty `modelID` (or a mock
+    /// client that can't override) leaves the client's model untouched — same model as before.
+    func configuredRunner(from runner: AgentRunner, modelID: String? = nil) -> AgentRunner {
         var activeRunner = runner
         activeRunner.baseToolDefinitions = baseToolDefinitions
         activeRunner.additionalToolDefinitions = additionalToolDefinitions
@@ -34,6 +40,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
                 base: runner.safety,
                 rules: permissionRules
             )
+        }
+        if let modelID {
+            activeRunner.llm = overridingModelIfSupported(activeRunner.llm, modelID: modelID)
         }
         return activeRunner
     }

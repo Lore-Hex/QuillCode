@@ -336,6 +336,17 @@ struct QuillCodeComposerView: View {
         guard !slashSuggestions.isEmpty else { return false }
         let index = min(max(activeSlashSuggestionIndex, 0), slashSuggestions.count - 1)
         let suggestion = slashSuggestions[index]
+        // Tab (force) always completes. On Enter (non-force), never RE-accept a completion the user
+        // has already typed PAST: if the draft already begins with the space-terminated insertText
+        // and carries an argument (e.g. `/skill code-review` vs the `/skill ` insert), re-accepting
+        // would reset the draft to the bare command and DROP the argument, blocking submission.
+        // Enter then falls through to submit the fully-typed command instead.
+        if !force,
+           suggestion.insertText.hasSuffix(" "),
+           draft.hasPrefix(suggestion.insertText),
+           draft.count > suggestion.insertText.count {
+            return false
+        }
         guard force || draft != suggestion.insertText || suggestion.insertText.hasSuffix(" ") else {
             return false
         }

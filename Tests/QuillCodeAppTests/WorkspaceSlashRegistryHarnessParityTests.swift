@@ -91,6 +91,25 @@ final class WorkspaceSlashRegistryHarnessParityTests: XCTestCase {
                       "Harness must end the sub-search on a newline (matches native).")
     }
 
+    // MARK: - Slash keyword-fallback parity (the /skill Enter-submit fix)
+
+    /// Once the query has whitespace (an argument is being typed), NEITHER surface may keep a command
+    /// suggested via the low-weight free-text (detail/title) fallback — otherwise a fully-typed
+    /// `/skill code-review` stays suggested and Enter re-accepts the bare `/skill `, blocking submit.
+    func testKeywordFallbackIsSuppressedOnceAnArgumentIsTyped() throws {
+        // Native behavior (authoritative): a completed invocation of the command's own example
+        // yields NO suggestions, so Enter submits it.
+        XCTAssertTrue(SlashCommandCatalog.suggestions(for: "/skill code-review").isEmpty)
+        // ...but a partial command word still suggests it, and multi-word usages still prefix-match.
+        XCTAssertTrue(SlashCommandCatalog.suggestions(for: "/skill").map(\.usage).contains("/skill name"))
+        XCTAssertTrue(SlashCommandCatalog.suggestions(for: "/worktree c").map(\.usage).contains("/worktree create path"))
+
+        // The harness encodes the same whitespace guard before the free-text fallback.
+        let harness = try harnessSource()
+        XCTAssertTrue(harness.contains("if (query.includes(' ')) return null;"),
+                      "Harness must suppress the keyword fallback once the query has whitespace (matches native).")
+    }
+
     // MARK: - /model price-formatting parity
 
     /// The price label the two surfaces render must agree for present / one-sided / missing / zero /

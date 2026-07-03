@@ -4533,6 +4533,11 @@
       if (usage.startsWith(query)) return 120;
       if (definition.aliases.some(alias => normalizeSlashText(alias).startsWith(query))) return 110;
       if (usage.includes(query)) return 90;
+      // Mirrors Swift: the low-weight free-text (title/detail/alias) fallback is a KEYWORD search
+      // that only applies while typing the command word. Once the query has whitespace the user is
+      // typing an ARGUMENT (`/skill foo`), so a stray hit inside the detail's own usage-example must
+      // not keep the command live (that blocked Enter-submit of a fully-typed `/skill code-review`).
+      if (query.includes(' ')) return null;
       const searchable = [definition.usage, definition.title, definition.detail, ...definition.aliases]
         .map(normalizeSlashText);
       return searchable.some(value => value.includes(query)) ? 70 : null;
@@ -4860,6 +4865,15 @@
       if (!suggestions.length) return false;
       clampSlashActiveIndex(suggestions);
       const suggestion = suggestions[state.composer.slashActiveIndex];
+      // Mirrors Swift: on Enter (non-force), never re-accept a completion the user has typed PAST —
+      // if the draft already begins with the space-terminated insertText and carries an argument,
+      // re-accepting would reset to the bare command and drop the argument, blocking submit.
+      if (!force
+        && suggestion.insertText.endsWith(' ')
+        && state.composer.draft.startsWith(suggestion.insertText)
+        && state.composer.draft.length > suggestion.insertText.length) {
+        return false;
+      }
       if (!force && state.composer.draft === suggestion.insertText && !suggestion.insertText.endsWith(' ')) {
         return false;
       }
@@ -15000,6 +15014,27 @@
           addMessage('assistant', `Mode set to ${nextMode}.`);
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode plan, /mode review, or /mode read-only');
+        }
+      } else if (/^\/(skill|skills)\b/i.test(text)) {
+        // Mirrors native: `/skill name` runs a normal agent turn that loads + follows the skill via
+        // host.skill.load. A bare `/skill` shows usage. The skill name is sanitized to a bare token.
+        const skillName = text
+          .replace(/^\/(skill|skills)\b/i, '')
+          .trim()
+          .split(/\s+/)[0]
+          ?.replace(/[/\\]/g, '')
+          .replace(/\.\./g, '') || '';
+        if (!skillName) {
+          addMessage('assistant', 'Usage: /skill name (for example /skill code-review)');
+        } else {
+          addToolCard({
+            title: 'host.skill.load',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ name: skillName }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, name: skillName }, null, 2)
+          });
+          addMessage('assistant', `Loaded the ${skillName} skill and followed its instructions.`);
         }
       } else if (/^\/(rename|rename-chat|title)\b/i.test(text)) {
         const nextTitle = text.replace(/^\/(rename|rename-chat|title)\b/i, '').trim();

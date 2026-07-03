@@ -58,13 +58,19 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         WorkspaceAgentSendSession(
             prompt: prompt,
             thread: thread,
-            runner: configuredRunner,
+            // Pin this run to the THREAD's selected model so a `/model` switch (popup, typed, or
+            // top-bar picker) takes effect on the next turn without a Settings save/re-sign-in, and
+            // so each thread runs on its own model.
+            runner: configuredRunner(modelID: thread.model),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage
         )
     }
 
-    private var configuredRunner: AgentRunner {
+    /// Builds the per-send runner, retargeting its LLM client at `modelID` (the thread's model).
+    /// Internal (not private) so tests can assert the run path actually points at the selected
+    /// model — the run-path is the load-bearing part of `/model`, not the persisted field alone.
+    func configuredRunner(modelID: String?) -> AgentRunner {
         var runner = WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
             config: config,
@@ -77,7 +83,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             mcpToolExecutionOverride: mcpToolExecutionOverride,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             permissionRules: permissionRules
-        ).configuredRunner(from: baseRunner)
+        ).configuredRunner(from: baseRunner, modelID: modelID)
         // Attach the (opt-in) per-workspace LSP coordinator so writes get diagnostics-after-write +
         // format-on-save and the host.lsp.* tools work. The coordinator is cached per workspace so the
         // language server persists across sends; nil (feature off / remote project) leaves the runner
