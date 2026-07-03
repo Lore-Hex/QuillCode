@@ -15,48 +15,48 @@ import Foundation
 ///
 /// Nothing here is UI: the count and the jump target are pure functions of (timeline, marker),
 /// and the marker itself round-trips through `Codable` for persistence.
-public struct TranscriptNewTurnsMarker: Codable, Sendable, Equatable {
+struct TranscriptNewTurnsMarker: Codable, Sendable, Equatable {
     /// The timeline-item id of the last item the user saw, or `nil` if the thread was never
     /// viewed (so there is nothing "new" to announce).
-    public var lastSeenItemID: String?
+    var lastSeenItemID: String?
 
-    public init(lastSeenItemID: String? = nil) {
+    init(lastSeenItemID: String? = nil) {
         self.lastSeenItemID = lastSeenItemID
     }
 
     /// Mark the whole current timeline as seen — its last item becomes the new watermark. Calling
     /// this on an empty timeline leaves the marker unchanged (there is nothing to have seen).
-    public mutating func markSeen(timeline: [TranscriptTimelineItemSurface]) {
+    mutating func markSeen(timeline: [TranscriptTimelineItemSurface]) {
         guard let last = timeline.last else { return }
         lastSeenItemID = last.id
     }
 
     /// Convenience for `TranscriptSurface` callers.
-    public mutating func markSeen(transcript: TranscriptSurface) {
+    mutating func markSeen(transcript: TranscriptSurface) {
         markSeen(timeline: transcript.timelineItems)
     }
 }
 
 /// The derived "N new turns" pill state for one thread: how many unseen items there are and which
 /// item the pill should scroll to. Absent (`nil`) when there is nothing to show.
-public struct TranscriptNewTurnsPill: Sendable, Equatable {
+struct TranscriptNewTurnsPill: Sendable, Equatable {
     /// How many unseen items there are (always ≥ 1 when a pill exists).
-    public var count: Int
+    var count: Int
     /// The id of the first unseen item — where the pill scrolls the user on tap.
-    public var firstUnseenItemID: String
+    var firstUnseenItemID: String
 
-    public init(count: Int, firstUnseenItemID: String) {
+    init(count: Int, firstUnseenItemID: String) {
         self.count = count
         self.firstUnseenItemID = firstUnseenItemID
     }
 
     /// User-facing label, correctly singular/plural.
-    public var label: String {
+    var label: String {
         count == 1 ? "1 new turn" : "\(count) new turns"
     }
 }
 
-public enum TranscriptNewTurnsResolver {
+enum TranscriptNewTurnsResolver {
     /// Resolve the pill for a thread given its current timeline and the persisted marker.
     ///
     /// Returns `nil` (no pill) when:
@@ -67,7 +67,7 @@ public enum TranscriptNewTurnsResolver {
     /// Otherwise returns a pill whose `count` is the number of items after the marked one and
     /// whose `firstUnseenItemID` is the first of those. The count can never be negative: it is a
     /// suffix length of the array.
-    public static func resolve(
+    static func resolve(
         timeline: [TranscriptTimelineItemSurface],
         marker: TranscriptNewTurnsMarker
     ) -> TranscriptNewTurnsPill? {
@@ -86,7 +86,7 @@ public enum TranscriptNewTurnsResolver {
         )
     }
 
-    public static func resolve(
+    static func resolve(
         transcript: TranscriptSurface,
         marker: TranscriptNewTurnsMarker
     ) -> TranscriptNewTurnsPill? {
@@ -104,7 +104,7 @@ public enum TranscriptNewTurnsResolver {
 /// This is deliberately separate from SwiftUI: `observe`, `leave`, and `markSeen` are the three
 /// state transitions, `pill(for:)` is a pure read, and it is all directly unit-testable. The
 /// native view drives these from `.onAppear` / `.onChange(of: threadID)` / the pill tap.
-public struct TranscriptNewTurnsTracker: Equatable {
+struct TranscriptNewTurnsTracker: Equatable {
     /// The acknowledged watermark per thread — the last item the user has seen.
     private var markers: [UUID: TranscriptNewTurnsMarker] = [:]
     /// The most recently observed tail (last timeline-item id) per thread, updated on every
@@ -112,30 +112,30 @@ public struct TranscriptNewTurnsTracker: Equatable {
     /// they had on screen at that moment (not what the thread later grows to in the background).
     private var observedTails: [UUID: String] = [:]
 
-    public init() {}
+    init() {}
 
     /// Record the current transcript for `threadID` (the foreground thread on this render). This
     /// updates the observed tail but does NOT move the acknowledged watermark, so a thread that
     /// grew in the background still resolves to a pill when the user returns to it.
-    public mutating func observe(threadID: UUID?, timeline: [TranscriptTimelineItemSurface]) {
+    mutating func observe(threadID: UUID?, timeline: [TranscriptTimelineItemSurface]) {
         guard let threadID, let tail = timeline.last?.id else { return }
         observedTails[threadID] = tail
     }
 
-    public mutating func observe(threadID: UUID?, transcript: TranscriptSurface) {
+    mutating func observe(threadID: UUID?, transcript: TranscriptSurface) {
         observe(threadID: threadID, timeline: transcript.timelineItems)
     }
 
     /// The user is leaving `threadID`: advance its acknowledged watermark to the last tail we
     /// observed while it was foreground. On return, only turns added *after* this point are "new".
-    public mutating func leave(threadID: UUID?) {
+    mutating func leave(threadID: UUID?) {
         guard let threadID, let tail = observedTails[threadID] else { return }
         markers[threadID, default: TranscriptNewTurnsMarker()].lastSeenItemID = tail
     }
 
     /// Explicitly mark `threadID` seen up to the given timeline's end — used on pill tap, when the
     /// user has acknowledged the new turns.
-    public mutating func markSeen(threadID: UUID?, timeline: [TranscriptTimelineItemSurface]) {
+    mutating func markSeen(threadID: UUID?, timeline: [TranscriptTimelineItemSurface]) {
         guard let threadID else { return }
         markers[threadID, default: TranscriptNewTurnsMarker()].markSeen(timeline: timeline)
         if let tail = timeline.last?.id {
@@ -143,13 +143,13 @@ public struct TranscriptNewTurnsTracker: Equatable {
         }
     }
 
-    public mutating func markSeen(threadID: UUID?, transcript: TranscriptSurface) {
+    mutating func markSeen(threadID: UUID?, transcript: TranscriptSurface) {
         markSeen(threadID: threadID, timeline: transcript.timelineItems)
     }
 
     /// The pill for `threadID` given its current timeline, using that thread's acknowledged
     /// watermark. `nil` (no pill) for a never-left thread or one with nothing new.
-    public func pill(
+    func pill(
         for threadID: UUID?,
         timeline: [TranscriptTimelineItemSurface]
     ) -> TranscriptNewTurnsPill? {
@@ -157,7 +157,7 @@ public struct TranscriptNewTurnsTracker: Equatable {
         return TranscriptNewTurnsResolver.resolve(timeline: timeline, marker: marker)
     }
 
-    public func pill(for threadID: UUID?, transcript: TranscriptSurface) -> TranscriptNewTurnsPill? {
+    func pill(for threadID: UUID?, transcript: TranscriptSurface) -> TranscriptNewTurnsPill? {
         pill(for: threadID, timeline: transcript.timelineItems)
     }
 }

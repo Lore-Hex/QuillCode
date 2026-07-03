@@ -11,25 +11,25 @@ import QuillCodeTools
 /// SwiftUI transcript, the HTML render, and the Playwright harness all agree on which item the
 /// jump targets. No force-unwraps; a transcript with no error (or no diff) yields `nil`, and the
 /// UI is expected to disable the corresponding affordance.
-public struct TranscriptNavigationAnchors: Sendable, Equatable {
+struct TranscriptNavigationAnchors: Sendable, Equatable {
     /// The timeline-item id of the most recent error turn, or `nil` if the transcript has none.
-    public var lastErrorAnchorID: String?
+    var lastErrorAnchorID: String?
     /// The timeline-item id of the most recent diff turn, or `nil` if the transcript has none.
-    public var lastDiffAnchorID: String?
+    var lastDiffAnchorID: String?
 
-    public init(lastErrorAnchorID: String? = nil, lastDiffAnchorID: String? = nil) {
+    init(lastErrorAnchorID: String? = nil, lastDiffAnchorID: String? = nil) {
         self.lastErrorAnchorID = lastErrorAnchorID
         self.lastDiffAnchorID = lastDiffAnchorID
     }
 
-    public var hasError: Bool { lastErrorAnchorID != nil }
-    public var hasDiff: Bool { lastDiffAnchorID != nil }
+    var hasError: Bool { lastErrorAnchorID != nil }
+    var hasDiff: Bool { lastDiffAnchorID != nil }
 
-    public static func derive(from transcript: TranscriptSurface) -> TranscriptNavigationAnchors {
+    static func derive(from transcript: TranscriptSurface) -> TranscriptNavigationAnchors {
         derive(timeline: transcript.timelineItems)
     }
 
-    public static func derive(timeline: [TranscriptTimelineItemSurface]) -> TranscriptNavigationAnchors {
+    static func derive(timeline: [TranscriptTimelineItemSurface]) -> TranscriptNavigationAnchors {
         var lastError: String?
         var lastDiff: String?
         // Single forward pass; the last hit in timeline order is the most recent, so we simply

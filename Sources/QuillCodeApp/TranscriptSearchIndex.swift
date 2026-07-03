@@ -14,60 +14,60 @@ import Foundation
 /// single left-to-right scan of the searchable text — O(text length) per item, O(total
 /// transcript length) per keystroke. There is no quadratic backtracking and no per-keystroke
 /// re-derivation of the timeline itself (the caller passes the already-built timeline).
-public struct TranscriptSearchIndex: Sendable, Equatable {
+struct TranscriptSearchIndex: Sendable, Equatable {
     /// A contiguous run of matched characters inside one timeline item's searchable text,
     /// expressed as a character offset + length (not `String.Index`, so it survives being
     /// carried across the Swift/JS boundary and is easy to assert on).
-    public struct MatchRange: Sendable, Equatable, Hashable {
-        public var start: Int
-        public var length: Int
+    struct MatchRange: Sendable, Equatable, Hashable {
+        var start: Int
+        var length: Int
 
-        public init(start: Int, length: Int) {
+        init(start: Int, length: Int) {
             self.start = start
             self.length = length
         }
     }
 
     /// One matching timeline item, in timeline order.
-    public struct Match: Sendable, Equatable, Identifiable {
-        public var id: String { timelineItemID }
-        public var timelineItemID: String
-        public var label: String
+    struct Match: Sendable, Equatable, Identifiable {
+        var id: String { timelineItemID }
+        var timelineItemID: String
+        var label: String
         /// Every occurrence of the query inside this item's searchable text, left to right.
         /// Always non-empty for a `Match` (an item with zero occurrences is not a match).
-        public var ranges: [MatchRange]
+        var ranges: [MatchRange]
 
-        public init(timelineItemID: String, label: String, ranges: [MatchRange]) {
+        init(timelineItemID: String, label: String, ranges: [MatchRange]) {
             self.timelineItemID = timelineItemID
             self.label = label
             self.ranges = ranges
         }
     }
 
-    public var matches: [Match]
+    var matches: [Match]
 
-    public init(matches: [Match]) {
+    init(matches: [Match]) {
         self.matches = matches
     }
 
     /// Whether the query matched nothing (either blank or genuinely absent).
-    public var isEmpty: Bool { matches.isEmpty }
+    var isEmpty: Bool { matches.isEmpty }
 
-    public var count: Int { matches.count }
+    var count: Int { matches.count }
 
     /// The total number of individual highlighted occurrences across all items.
-    public var totalOccurrences: Int { matches.reduce(0) { $0 + $1.ranges.count } }
+    var totalOccurrences: Int { matches.reduce(0) { $0 + $1.ranges.count } }
 
     /// Build the index for `query` against `transcript`'s timeline. A blank query (empty or
     /// whitespace-only) yields an empty index — searching for nothing matches nothing, which
     /// is the expected "no highlight, no status" state.
-    public static func build(transcript: TranscriptSurface, query: String) -> TranscriptSearchIndex {
+    static func build(transcript: TranscriptSurface, query: String) -> TranscriptSearchIndex {
         build(timeline: transcript.timelineItems, query: query)
     }
 
     /// Timeline-based overload so callers that already have the ordered items (or want to test
     /// the pure logic) do not have to construct a whole `TranscriptSurface`.
-    public static func build(
+    static func build(
         timeline: [TranscriptTimelineItemSurface],
         query: String
     ) -> TranscriptSearchIndex {
@@ -155,30 +155,30 @@ public struct TranscriptSearchIndex: Sendable, Equatable {
 /// A wrap-around cursor over a fixed match count. Keeps "which match is active" and the
 /// next/prev/clamp arithmetic in one tested place so the SwiftUI view, the desktop coordinator,
 /// and the harness cannot drift on off-by-one or negative-modulo bugs.
-public struct TranscriptSearchCursor: Sendable, Equatable {
-    public private(set) var activeIndex: Int
-    public let count: Int
+struct TranscriptSearchCursor: Sendable, Equatable {
+    private(set) var activeIndex: Int
+    let count: Int
 
-    public init(activeIndex: Int = 0, count: Int) {
+    init(activeIndex: Int = 0, count: Int) {
         self.count = max(0, count)
         self.activeIndex = Self.clamp(activeIndex, count: self.count)
     }
 
     /// The 1-based position for status text ("3 of 12"), or 0 when there are no matches.
-    public var humanPosition: Int { count == 0 ? 0 : activeIndex + 1 }
+    var humanPosition: Int { count == 0 ? 0 : activeIndex + 1 }
 
-    public mutating func next() {
+    mutating func next() {
         guard count > 0 else { return }
         activeIndex = (activeIndex + 1) % count
     }
 
-    public mutating func previous() {
+    mutating func previous() {
         guard count > 0 else { return }
         activeIndex = (activeIndex - 1 + count) % count
     }
 
     /// Reset to the first match — used when the query changes so the user starts at the top.
-    public mutating func reset() {
+    mutating func reset() {
         activeIndex = 0
     }
 
