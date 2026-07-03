@@ -35,6 +35,14 @@ final class SlashThreadCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/clear"), .workspaceCommand("thread-clear"))
     }
 
+    func testUndoAliasesMapToLatestTurnRevertCommand() {
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "undo", argument: ""), .workspaceCommand("thread-revert-latest"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "revert", argument: ""), .workspaceCommand("thread-revert-latest"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "revert-latest", argument: ""), .workspaceCommand("thread-revert-latest"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "undo-edit", argument: ""), .workspaceCommand("thread-revert-latest"))
+        XCTAssertEqual(SlashCommandParser.parse("/undo"), .workspaceCommand("thread-revert-latest"))
+    }
+
     func testRenameAliasesTrimTitlesAndValidateRequiredTitle() {
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "rename", argument: "  Launch Plan  "), .renameThread("Launch Plan"))
         XCTAssertEqual(SlashThreadCommandParser.parse(name: "rename-chat", argument: "\nFix CI\t"), .renameThread("Fix CI"))

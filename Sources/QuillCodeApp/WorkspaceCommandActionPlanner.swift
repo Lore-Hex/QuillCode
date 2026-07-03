@@ -30,6 +30,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case removeProject(projectID: UUID)
     case duplicateThread(threadID: UUID)
     case clearThread(threadID: UUID)
+    case revertLatestTurn
     case archiveThread(threadID: UUID)
     case unarchiveThread(threadID: UUID)
     case deleteThread(threadID: UUID)
@@ -111,6 +112,12 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return selectedThreadID.map { .duplicateThread(threadID: $0) }
         case .threadClear:
             return selectedThreadID.map { .clearThread(threadID: $0) }
+        case .threadRevertLatest:
+            guard selectedProject?.isRemote != true,
+                  let selectedThread,
+                  WorkspaceTurnRevertPlanner.latestPlan(in: selectedThread) != nil
+            else { return nil }
+            return .revertLatestTurn
         case .threadArchive:
             return selectedThreadID.map { .archiveThread(threadID: $0) }
         case .threadUnarchive:

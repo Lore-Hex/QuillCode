@@ -2,7 +2,7 @@ import Foundation
 
 extension QuillCodeWorkspaceModel {
     @discardableResult
-    func runWorkspaceCommandAction(_ action: WorkspaceCommandAction) -> Bool {
+    func runWorkspaceCommandAction(_ action: WorkspaceCommandAction, workspaceRoot: URL) -> Bool {
         guard let effect = WorkspaceCommandActionPlanner(
             selectedProjectID: root.selectedProjectID,
             selectedProject: selectedProject,
@@ -11,11 +11,11 @@ extension QuillCodeWorkspaceModel {
         ).effect(for: action) else {
             return false
         }
-        return runWorkspaceCommandActionEffect(effect)
+        return runWorkspaceCommandActionEffect(effect, workspaceRoot: workspaceRoot)
     }
 
     @discardableResult
-    func runWorkspaceCommandActionEffect(_ effect: WorkspaceCommandActionEffect) -> Bool {
+    func runWorkspaceCommandActionEffect(_ effect: WorkspaceCommandActionEffect, workspaceRoot: URL) -> Bool {
         switch effect {
         case .newChat:
             _ = newChat()
@@ -84,6 +84,8 @@ extension QuillCodeWorkspaceModel {
             return duplicateThread(threadID) != nil
         case .clearThread(let threadID):
             return clearThread(threadID)
+        case .revertLatestTurn:
+            return runLatestTurnRevert(workspaceRoot: workspaceRoot)
         case .archiveThread(let threadID):
             archiveThread(threadID)
             return true

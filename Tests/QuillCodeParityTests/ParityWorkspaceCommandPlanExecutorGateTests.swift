@@ -10,7 +10,7 @@ final class ParityWorkspaceCommandPlanExecutorGateTests: QuillCodeParityTestCase
             "WorkspaceCommandPlan(commandID: commandID)",
             "func runWorkspaceCommandPlan(",
             "switch plan",
-            "return runWorkspaceCommandAction(action)"
+            "return runWorkspaceCommandAction(action, workspaceRoot: workspaceRoot)"
         ])
         Self.assertSource(modelText, excludesAll: [
             "WorkspaceCommandPlan(commandID: commandID)",

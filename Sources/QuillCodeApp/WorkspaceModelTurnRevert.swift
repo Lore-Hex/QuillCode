@@ -4,6 +4,18 @@ import QuillCodeTools
 
 @MainActor
 public extension QuillCodeWorkspaceModel {
+    @discardableResult
+    func runLatestTurnRevert(workspaceRoot: URL) -> Bool {
+        guard let thread = selectedThread,
+              let plan = WorkspaceTurnRevertPlanner.latestPlan(in: thread)
+        else {
+            setLastError("This turn can no longer be reverted.")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
+            return false
+        }
+        return runTurnRevert(turnMessageID: plan.turnMessageID, workspaceRoot: workspaceRoot)
+    }
+
     /// Reverts a turn's `apply_patch` edits via the honest reverse-patch engine, records the
     /// result as a transcript tool run, and — on success — refreshes the diff so the review
     /// pane reflects the reverted tree. Returns whether the revert applied. Never restores

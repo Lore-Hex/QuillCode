@@ -5,6 +5,7 @@ enum SlashThreadCommandParser {
         switch normalizedName(name) {
         case "new", "new-chat", "newchat",
              "clear", "clear-chat", "reset-chat",
+             "undo", "revert", "revert-latest", "undo-edit",
              "compact", "compact-context", "context-compact",
              "rename", "rename-chat", "title",
              "duplicate", "duplicate-chat", "copy-chat",
@@ -25,6 +26,8 @@ enum SlashThreadCommandParser {
             return .newChat
         case "clear", "clear-chat", "reset-chat":
             return .workspaceCommand("thread-clear")
+        case "undo", "revert", "revert-latest", "undo-edit":
+            return .workspaceCommand("thread-revert-latest")
         case "compact", "compact-context", "context-compact":
             return .workspaceCommand("compact-context")
         case "rename", "rename-chat", "title":

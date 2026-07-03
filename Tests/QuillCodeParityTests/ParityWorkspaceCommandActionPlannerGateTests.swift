@@ -19,11 +19,11 @@ final class ParityWorkspaceCommandActionPlannerGateTests: QuillCodeParityTestCas
         ])
         Self.assertSource(
             planExecutorText,
-            contains: "return runWorkspaceCommandAction(action)"
+            contains: "return runWorkspaceCommandAction(action, workspaceRoot: workspaceRoot)"
         )
         Self.assertSource(modelText, excludesAll: [
             "WorkspaceCommandActionPlanner(",
-            "runWorkspaceCommandAction(action)",
+            "runWorkspaceCommandAction(action, workspaceRoot:",
             "runWorkspaceCommandActionEffect",
             "case .toggleTerminal:",
             "case .projectNewChat:",

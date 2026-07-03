@@ -257,6 +257,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .action(.threadBulkArchive)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "thread-revert-latest"),
+            .action(.threadRevertLatest)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "fork-with-summary"),
             .action(.forkWithSummary)
         )

@@ -4001,6 +4001,7 @@
         { id: 'thread-rename', title: 'Rename chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'title'], isEnabled: false },
         { id: 'thread-duplicate', title: 'Duplicate chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'copy'], isEnabled: false },
         { id: 'thread-clear', title: 'Clear chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'reset', 'context', 'transcript'], isEnabled: false },
+        { id: 'thread-revert-latest', title: 'Undo latest edit', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'undo', 'revert', 'latest', 'edit'], isEnabled: false },
         { id: 'thread-archive', title: 'Archive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'hide'], isEnabled: false },
         { id: 'thread-unarchive', title: 'Unarchive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'restore'], isEnabled: false },
         { id: 'thread-delete', title: 'Delete chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'remove'], isEnabled: false },
@@ -4465,6 +4466,7 @@
       { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
       { usage: '/new', title: 'New chat', detail: 'Start a fresh thread in the selected project.', insertText: '/new', aliases: ['new-chat', 'newchat'] },
       { usage: '/clear', title: 'Clear chat', detail: 'Reset this thread transcript and queued follow-ups without deleting the chat.', insertText: '/clear', aliases: ['clear-chat', 'reset-chat'] },
+      { usage: '/undo', title: 'Undo latest edit', detail: 'Reverse the latest revertable file edits from the current thread.', insertText: '/undo', aliases: ['revert', 'revert-latest', 'undo-edit'] },
       { usage: '/rename title', title: 'Rename chat', detail: 'Rename the current thread.', insertText: '/rename ', aliases: ['rename-chat', 'title'] },
       { usage: '/duplicate', title: 'Duplicate chat', detail: 'Copy the current thread into a new one.', insertText: '/duplicate', aliases: ['duplicate-chat', 'copy-chat'] },
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
@@ -6244,6 +6246,7 @@
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
+        command.id === 'thread-revert-latest' ? { ...command, isEnabled: hasThread && latestRevertableTurnID() !== null } :
         command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThread.isArchived } :
         command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && selectedThread.isArchived } :
         command.id === 'thread-delete' ? { ...command, isEnabled: hasThread } :
@@ -9535,6 +9538,23 @@
       render();
     }
 
+    function latestRevertableTurnID() {
+      const message = [...state.transcript.messages]
+        .reverse()
+        .find(message => message.revert?.turnMessageID);
+      return message?.revert?.turnMessageID || null;
+    }
+
+    function runMockLatestTurnRevert() {
+      const turnID = latestRevertableTurnID();
+      if (!turnID) {
+        addMessage('assistant', 'This turn can no longer be reverted.');
+        render();
+        return;
+      }
+      runMockTurnRevert(turnID);
+    }
+
     function usePromptAsDraft(prompt) {
       state.composer.draft = String(prompt || '');
       state.composer.canSend = state.composer.draft.trim().length > 0;
@@ -12051,6 +12071,7 @@
       'thread-clear',
       'thread-delete',
       'thread-duplicate',
+      'thread-revert-latest',
       'thread-rename',
       'thread-selection-clear',
       'thread-selection-select-all',
@@ -12303,6 +12324,10 @@
       }
       if (commandID === 'thread-clear') {
         clearSelectedThreadTranscript();
+        return;
+      }
+      if (commandID === 'thread-revert-latest') {
+        runMockLatestTurnRevert();
         return;
       }
       if (commandID === 'thread-archive') {
@@ -15074,6 +15099,9 @@
         return;
       } else if (/^\/(clear|clear-chat|reset-chat)\b/i.test(text)) {
         clearSelectedThreadTranscript();
+        return;
+      } else if (/^\/(undo|revert|revert-latest|undo-edit)\b/i.test(text)) {
+        runMockLatestTurnRevert();
         return;
       } else if (/^\/(archive|archive-chat)\b/i.test(text)) {
         runSidebarThreadAction('archive', state.sidebar.selectedThreadID);
