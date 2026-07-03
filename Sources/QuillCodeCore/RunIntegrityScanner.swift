@@ -86,8 +86,13 @@ public enum RunIntegrityScanner {
     /// `ToolResult`. We only keep steps whose tool is a shell/command runner.
     struct CommandStep: Sendable, Hashable {
         var command: String
-        var isTestCommand: Bool
+        /// The parsed test-command identity, or nil when this is not a test/verify command. Its `scope`
+        /// key is what "re-run the SAME test" matches on, so an unrelated suite passing cannot clear an
+        /// unrelated suite's failure.
+        var test: TestCommandLexicon.Match?
         var succeeded: Bool
+
+        var isTestCommand: Bool { test != nil }
     }
 
     static func commandSteps(in thread: ChatThread) -> [CommandStep] {
@@ -109,7 +114,7 @@ public enum RunIntegrityScanner {
                 let command = shellCommand(from: call)
                 steps.append(CommandStep(
                     command: command,
-                    isTestCommand: TestCommandLexicon.looksLikeTestCommand(command),
+                    test: TestCommandLexicon.classify(command),
                     // A completed event means ok; a failed event OR an explicit non-ok result means not.
                     succeeded: event.kind == .toolCompleted && (result?.ok ?? true)
                 ))
@@ -123,8 +128,9 @@ public enum RunIntegrityScanner {
     // MARK: - Rule 1: standing test failure (RED)
 
     static func standingTestFailure(in steps: [CommandStep]) -> RunIntegrityReason? {
-        // Find the LAST failing test command; if it was re-run green afterward the failure was
-        // addressed and does not redden the run.
+        // Find the LAST failing test command; if that SAME test (same scope) was re-run green afterward
+        // the failure was addressed and does not redden the run. An UNRELATED suite passing does NOT
+        // clear it — that would hide a real standing failure (the trust hole).
         guard let lastFailIndex = steps.lastIndex(where: { $0.isTestCommand && !$0.succeeded }),
               !hasLaterGreenRerun(ofFailureAt: lastFailIndex, in: steps) else {
             return nil
@@ -146,13 +152,19 @@ public enum RunIntegrityScanner {
         )
     }
 
-    /// Whether a later step re-runs the failed test green — either any passing test command, or a
-    /// passing run of the exact same command string. The single source of truth for "the failure was
+    /// Whether a later step re-runs the failed test green: a later SUCCESS of the SAME test scope (or a
+    /// passing run of the exact same command string). The single source of truth for "the failure was
     /// addressed", shared by the RED rule and the informational re-run-green reason so they never drift.
+    /// Deliberately scope-matched — a green run of a DIFFERENT suite must not vouch for the failed one.
     static func hasLaterGreenRerun(ofFailureAt failIndex: Int, in steps: [CommandStep]) -> Bool {
-        let failedCommand = steps[failIndex].command
+        let failed = steps[failIndex]
         return steps[(failIndex + 1)...].contains { later in
-            later.succeeded && (later.isTestCommand || sameCommand(later.command, failedCommand))
+            guard later.succeeded else { return false }
+            if sameCommand(later.command, failed.command) { return true }
+            guard let laterScope = later.test?.scope, let failedScope = failed.test?.scope else {
+                return false
+            }
+            return laterScope == failedScope
         }
     }
 
@@ -161,38 +173,41 @@ public enum RunIntegrityScanner {
     /// A test command that was queued but for which no matching result event was ever recorded — the
     /// test the run set out to run never actually reported back.
     ///
-    /// Uses a single "pending" slot, tracking only the most recent queued command; this is deliberate.
-    /// The agent's tool loop is strictly sequential (queue → run → result before the next queue), so the
-    /// slot is exactly right there. If tools were ever emitted interleaved/in parallel, a later queue
-    /// would clobber an earlier dangling test — under-reporting a skip (a false NEGATIVE), never
-    /// inventing one. That direction is consistent with the high-precision bias: silence beats a false
-    /// yellow.
+    /// The result event carries only the `ToolResult`, not its command, so a skip cannot be cleared by
+    /// command-name match. Instead we model the whole queue↔result pairing as a STACK: every queued tool
+    /// is pushed; each result pops the MOST-RECENTLY queued unresolved tool. This is exactly right for
+    /// the agent's strictly sequential tool loop (queue → running → result before the next queue): if a
+    /// test was queued but its result never appeared before the NEXT command was queued, that test was
+    /// abandoned — it sits at the bottom of the stack while later commands push/pop above it, so an
+    /// unrelated later command can never resolve it. Any still-pending test at the end is a genuine skip.
     static func skippedTest(in thread: ChatThread) -> RunIntegrityReason? {
-        var pendingTestCommand: String?
+        // Stack of EVERY queued tool call not yet resolved. We must track all tools (not just shell
+        // ones), because a result event is anonymous — pairing it only against shell commands would let
+        // an unrelated tool's result resolve a dangling shell test. `isTest` marks the ones that matter.
+        var pending: [(command: String, isTest: Bool)] = []
         var scanned = 0
         for event in thread.events {
             if scanned >= maxToolStepsScanned { break }
             switch event.kind {
             case .toolQueued:
-                guard let call = decodeCall(event.payloadJSON), isCommandTool(call.name) else {
-                    pendingTestCommand = nil
-                    continue
-                }
-                let command = shellCommand(from: call)
-                pendingTestCommand = TestCommandLexicon.looksLikeTestCommand(command) ? command : nil
+                guard let call = decodeCall(event.payloadJSON) else { continue }
+                let command = isCommandTool(call.name) ? shellCommand(from: call) : ""
+                let isTest = isCommandTool(call.name) && TestCommandLexicon.classify(command) != nil
+                pending.append((command, isTest))
             case .toolRunning:
                 continue
             case .toolCompleted, .toolFailed:
                 scanned += 1
-                pendingTestCommand = nil
+                // Resolve the most-recently queued unresolved tool (its own result, by sequential order).
+                if !pending.isEmpty { pending.removeLast() }
             default:
                 continue
             }
         }
-        guard let dangling = pendingTestCommand else { return nil }
+        guard let dangling = pending.first(where: { $0.isTest }) else { return nil }
         return RunIntegrityReason(
             rule: .skippedTest,
-            detail: "A test command was started but never completed: \(shortCommand(dangling))."
+            detail: "A test command was started but never completed: \(shortCommand(dangling.command))."
         )
     }
 

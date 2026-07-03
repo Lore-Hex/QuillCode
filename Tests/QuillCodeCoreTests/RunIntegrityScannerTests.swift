@@ -188,11 +188,19 @@ final class RunIntegrityScannerTests: XCTestCase {
         XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
     }
 
-    /// 11. A test failure followed by a DIFFERENT test command passing counts as re-run green (any test
-    /// passing after the failure clears the standing-failure flag).
-    func testDifferentTestCommandPassingClearsFailure() {
-        var events = shell("pytest tests/unit", exitCode: 1, stdout: "1 failed")
-        events += shell("pytest tests/integration", exitCode: 0, stdout: "5 passed")
+    /// 11. TRUST HOLE GUARD: a failing suite followed by a DIFFERENT suite passing stays RED — an
+    /// unrelated green run must NOT vouch for the failed one (only a same-scope re-run clears it).
+    func testDifferentTestSuitePassingDoesNotClearFailure() {
+        var events = shell("pytest tests/auth", exitCode: 1, stdout: "1 failed")
+        events += shell("pytest tests/utils", exitCode: 0, stdout: "5 passed")
+        let run = thread(events: events)
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .red)
+    }
+
+    /// 11b. The SAME suite re-run green DOES clear the standing failure (same scope key).
+    func testSameTestSuiteRerunGreenClearsFailure() {
+        var events = shell("pytest tests/auth", exitCode: 1, stdout: "1 failed")
+        events += shell("pytest tests/auth -v", exitCode: 0, stdout: "5 passed")
         let run = thread(events: events)
         XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
     }
@@ -203,6 +211,223 @@ final class RunIntegrityScannerTests: XCTestCase {
         events += shell("swift test", exitCode: 1, stdout: "1 failed")
         let run = thread(events: events)
         XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .red)
+    }
+
+    // MARK: - Fail-on-revert fixtures for the adversarial-review defects (#875)
+
+    /// BLOCKER: a runner NAME buried in arguments (not command position) must not classify the command
+    /// as a test. `grep -rn pytest .` exits 1 on no match on a genuinely-good run — must stay VERIFIED.
+    func testRunnerNameInArgumentsIsNotATestCommand() {
+        for cmd in ["grep -rn pytest .", "which pytest", "grep -q 'go test' Makefile", "echo swift test"] {
+            let run = thread(events: shell(cmd, exitCode: 1))
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(run).verdict, .verified,
+                "‘\(cmd)’ (runner only in args) exiting nonzero must NOT be RED"
+            )
+            XCTAssertNil(TestCommandLexicon.classify(cmd), "‘\(cmd)’ must not classify as a test command")
+        }
+    }
+
+    /// BLOCKER (positive side): the same runner in COMMAND position IS a test command.
+    func testRunnerInCommandPositionIsATestCommand() {
+        for cmd in [
+            "pytest tests/", "cd foo && pytest -q", "FOO=1 sudo pytest", "npx jest --ci",
+            "poetry run pytest",
+            // A wrapper flag whose value slot is actually the real (short) program must not swallow it.
+            "time -p go test", "nice -n 10 swift test", "env FOO=1 pytest",
+        ] {
+            XCTAssertNotNil(TestCommandLexicon.classify(cmd), "‘\(cmd)’ should classify as a test command")
+        }
+    }
+
+    /// MAJOR: substring success-claim matches must not fire on incidental prose. "install green-tea-cli"
+    /// contains "all green" as a raw substring but is NOT a claim -> stays VERIFIED.
+    func testSubstringClaimInProseIsNotUnverified() {
+        for prose in [
+            "I ran install green-tea-cli to set up the toolchain.",
+            "Added a small green badge to the header.",
+            "The prechecks pass through to the validator now.",
+            "This wall greenhouse layout renders fine.",
+        ] {
+            let run = thread(assistantText: [prose], events: [])
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(run).verdict, .verified,
+                "incidental prose ‘\(prose)’ must NOT read as a success claim"
+            )
+        }
+    }
+
+    /// MAJOR (recall): real test invocations that aren't the literal first token must be RECOGNIZED as
+    /// backing a claim, so an honest run isn't flagged UNVERIFIED.
+    func testUnusualButRealTestInvocationsBackAClaim() {
+        let invocations = [
+            "xcodebuild -scheme App test",
+            "./scripts/test.sh",
+            "bin/rails test",
+            "make check",
+            "npm run test:unit",
+            "bundle exec rspec",
+        ]
+        for cmd in invocations {
+            let run = thread(
+                assistantText: ["Done — all tests pass."],
+                events: shell(cmd, exitCode: 0, stdout: "ok")
+            )
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(run).verdict, .verified,
+                "‘\(cmd)’ passing should back the claim (VERIFIED), not read as UNVERIFIED"
+            )
+        }
+    }
+
+    /// MINOR: a skipped test followed by a later UNRELATED completed command must stay UNVERIFIED — the
+    /// unrelated command must not clear the pending skip.
+    func testSkippedTestSurvivesLaterUnrelatedCommand() {
+        var events = danglingShell("pytest tests/auth")
+        events += shell("git status", exitCode: 0, stdout: "clean")
+        events += shell("cat README.md", exitCode: 0, stdout: "# Project")
+        let run = thread(events: events)
+        let report = RunIntegrityScanner.scan(run)
+        XCTAssertEqual(report.verdict, .unverified)
+        XCTAssertEqual(report.reasons.first?.rule, .skippedTest)
+    }
+
+    // MARK: - Fail-on-revert fixtures for the SECOND adversarial-review pass (#875)
+
+    /// BLOCKER: a suite selected by an ATTACHED-VALUE flag must get a DISTINCT scope, so an unrelated
+    /// green suite cannot clear a red one. Covers cargo `--test=`, jest `--testPathPattern=`, pytest
+    /// `-k`, and separated forms.
+    func testSelectorFlagSuitesGetDistinctScopes() {
+        let cases: [(fail: String, pass: String)] = [
+            ("cargo test --test=auth_it", "cargo test --test=utils_it"),
+            ("cargo test --package=auth", "cargo test --package=utils"),
+            ("jest --testPathPattern=auth", "jest --testPathPattern=utils"),
+            ("jest --testNamePattern=auth", "jest --testNamePattern=utils"),
+            ("vitest --testNamePattern=auth", "vitest --testNamePattern=utils"),
+            ("pytest -kauth", "pytest -kutils"),
+            ("pytest -k auth", "pytest -k utils"),
+            ("pytest -k=auth", "pytest -k=utils"),
+        ]
+        for (fail, pass) in cases {
+            var events = shell(fail, exitCode: 1, stdout: "1 failed")
+            events += shell(pass, exitCode: 0, stdout: "5 passed")
+            let run = thread(events: events)
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(run).verdict, .red,
+                "‘\(fail)’ failing then ‘\(pass)’ passing (different suites) must stay RED"
+            )
+        }
+    }
+
+    /// BLOCKER (positive side): the SAME selector-flagged suite re-run green DOES clear the failure.
+    func testSameSelectorSuiteRerunGreenClears() {
+        var events = shell("cargo test --test=auth_it", exitCode: 1, stdout: "1 failed")
+        events += shell("cargo test --test=auth_it -- --nocapture", exitCode: 0, stdout: "ok")
+        let run = thread(events: events)
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// BLOCKER (whole class): a value-bearing selector NOT on any enumerated whitelist must still make
+    /// distinct scopes — Maven `-Dtest=`, `-Dit.test=`, Gradle `-Dtest.single=`, and a totally unknown
+    /// `--customselector=`. Proves the inverted "include unknown value-flags" default. A green unrelated
+    /// suite must NOT clear a red one.
+    func testUnknownValueBearingSelectorsGetDistinctScopes() {
+        let cases: [(fail: String, pass: String)] = [
+            ("mvn test -Dtest=AuthTest", "mvn test -Dtest=UtilsTest"),
+            ("mvn test -Dtest=AuthTest#login", "mvn test -Dtest=UtilsTest#parse"),
+            ("mvn verify -Dit.test=AuthIT", "mvn verify -Dit.test=UtilsIT"),
+            ("gradle test -Dtest.single=AuthTest", "gradle test -Dtest.single=UtilsTest"),
+            ("mvn test -q -Dtest=AuthTest", "mvn test -q -Dtest=UtilsTest"),
+            ("pytest --customselector=auth", "pytest --customselector=utils"),
+            ("pytest --customselector auth", "pytest --customselector utils"),
+        ]
+        for (fail, pass) in cases {
+            var events = shell(fail, exitCode: 1, stdout: "1 failed")
+            events += shell(pass, exitCode: 0, stdout: "ok")
+            let run = thread(events: events)
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(run).verdict, .red,
+                "‘\(fail)’ fail then ‘\(pass)’ pass (different unknown-selector suites) must stay RED"
+            )
+        }
+    }
+
+    /// BLOCKER (positive side): the SAME Maven suite re-run green DOES clear, and a re-run differing ONLY
+    /// by a benign non-selecting flag (`-v`, `--quiet`) still clears — benign flags never change scope.
+    func testBenignFlagDifferenceStillClears() {
+        // Same -Dtest suite, second run adds -q: still same scope -> clears.
+        var mvn = shell("mvn test -Dtest=AuthTest", exitCode: 1, stdout: "1 failed")
+        mvn += shell("mvn test -q -Dtest=AuthTest", exitCode: 0, stdout: "ok")
+        XCTAssertEqual(RunIntegrityScanner.scan(thread(events: mvn)).verdict, .verified)
+
+        // Positional suite, second run adds -v: still clears (the canonical benign-flag case).
+        var py = shell("pytest tests/auth", exitCode: 1, stdout: "1 failed")
+        py += shell("pytest -v tests/auth", exitCode: 0, stdout: "ok")
+        XCTAssertEqual(RunIntegrityScanner.scan(thread(events: py)).verdict, .verified)
+    }
+
+    /// BLOCKER (build-config selectors): flags that change WHICH tests compile/run — `cargo test
+    /// --release` (cfg(debug_assertions)) and `--all-features` (cfg(feature=…)) — must NOT be treated as
+    /// benign, so a bare-config green run does not clear a different-config red run.
+    func testBuildConfigFlagsAreScopeSignificant() {
+        for withFlag in ["cargo test --release", "cargo test --all-features"] {
+            var events = shell("cargo test", exitCode: 1, stdout: "1 failed")
+            events += shell(withFlag, exitCode: 0, stdout: "ok")
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(thread(events: events)).verdict, .red,
+                "‘cargo test’ fail then ‘\(withFlag)’ pass (different build config) must stay RED"
+            )
+        }
+    }
+
+    /// MAJOR: `command -v pytest` (and `which`/`type`) is a PRESENCE PROBE — exit 1 means "not
+    /// installed", never a test failure. Must stay VERIFIED and never classify as a test.
+    func testPresenceProbeIsNotATest() {
+        for cmd in ["command -v pytest", "command -V pytest", "which pytest", "type pytest", "hash pytest"] {
+            let run = thread(events: shell(cmd, exitCode: 1))
+            XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "‘\(cmd)’ exit-1 must stay VERIFIED")
+            XCTAssertNil(TestCommandLexicon.classify(cmd), "‘\(cmd)’ must not classify as a test command")
+        }
+        // But actually RUNNING via `command pytest` IS a test.
+        XCTAssertNotNil(TestCommandLexicon.classify("command pytest tests/"))
+    }
+
+    /// MAJOR (recall): `python -m pytest` / `python3 -m unittest` are standard test invocations where the
+    /// runner is the module after `-m`, not argv[0]. A failing one must be RED.
+    func testPythonModuleInvocationIsRecognized() {
+        for cmd in ["python -m pytest", "python3 -m pytest tests/", "python -m unittest", "py -m pytest"] {
+            XCTAssertNotNil(TestCommandLexicon.classify(cmd), "‘\(cmd)’ should classify as a test command")
+        }
+        let red = thread(events: shell("python -m pytest tests/auth", exitCode: 1, stdout: "1 failed"))
+        XCTAssertEqual(RunIntegrityScanner.scan(red).verdict, .red)
+        // `python -m http.server` (non-test module) must NOT classify.
+        XCTAssertNil(TestCommandLexicon.classify("python -m http.server"))
+        // python -m pytest suites are scope-distinct.
+        var events = shell("python -m pytest tests/auth", exitCode: 1, stdout: "1 failed")
+        events += shell("python -m pytest tests/utils", exitCode: 0, stdout: "ok")
+        XCTAssertEqual(RunIntegrityScanner.scan(thread(events: events)).verdict, .red)
+    }
+
+    /// MAJOR: the segment splitter must be QUOTE-AWARE — an operator inside a quoted argument of a
+    /// non-runner command must NOT be carved into a synthetic runner segment (which would false-RED).
+    func testQuotedOperatorDoesNotInventATest() {
+        for cmd in [
+            #"echo "run && pytest tests""#,
+            #"git commit -m "fix; pytest later""#,
+            #"echo 'a | pytest b'"#,
+            #"printf "swift test\n""#,
+        ] {
+            XCTAssertNil(TestCommandLexicon.classify(cmd), "‘\(cmd)’ (quoted runner) must NOT be a test command")
+            let run = thread(events: shell(cmd, exitCode: 1))
+            XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "‘\(cmd)’ exit-1 must stay VERIFIED")
+        }
+        // A REAL &&-chained test outside quotes still classifies.
+        XCTAssertNotNil(TestCommandLexicon.classify("cd repo && pytest tests/"))
+        // Unbalanced quotes: conservative — do not manufacture a test segment.
+        XCTAssertNil(TestCommandLexicon.classify(#"echo "oops && pytest"#))
+        // Backtick / command substitution containing an operator + runner must not split into a test.
+        XCTAssertNil(TestCommandLexicon.classify("echo `pytest && true`"))
+        XCTAssertNil(TestCommandLexicon.classify(#"echo "$(pytest || true)""#))
     }
 
     // MARK: - Robustness (must never crash, always deterministic)
@@ -287,23 +512,47 @@ final class RunIntegrityScannerTests: XCTestCase {
     // MARK: - Lexicon precision
 
     func testTestCommandLexicon() {
-        XCTAssertTrue(TestCommandLexicon.looksLikeTestCommand("swift test"))
-        XCTAssertTrue(TestCommandLexicon.looksLikeTestCommand("cd foo && pytest -q tests/"))
-        XCTAssertTrue(TestCommandLexicon.looksLikeTestCommand("npm test"))
-        XCTAssertTrue(TestCommandLexicon.looksLikeTestCommand("cargo test --all"))
-        XCTAssertFalse(TestCommandLexicon.looksLikeTestCommand("ls -la"))
-        XCTAssertFalse(TestCommandLexicon.looksLikeTestCommand("test -f foo"))
-        // Word-boundary: an embedded token in a longer identifier must not match.
-        XCTAssertFalse(TestCommandLexicon.looksLikeTestCommand("run mypytesting_helper"))
-        XCTAssertFalse(TestCommandLexicon.looksLikeTestCommand(""))
+        // Command-position runners / driver subcommands classify.
+        for cmd in [
+            "swift test", "cd foo && pytest -q tests/", "npm test", "cargo test --all",
+            "go test ./...", "make check", "xcodebuild -scheme App test", "./scripts/test.sh",
+            "bin/rails test", "npm run test:unit", "bundle exec rspec", "poetry run pytest",
+        ] {
+            XCTAssertTrue(TestCommandLexicon.looksLikeTestCommand(cmd), "‘\(cmd)’ should be a test command")
+        }
+        // NOT test commands: non-runners, runner only in args, non-test driver subcommands.
+        for cmd in [
+            "ls -la", "test -f foo", "run mypytesting_helper", "",
+            "grep -rn pytest .", "which pytest", "grep -q 'go test' Makefile", "echo swift test",
+            "go build ./...", "make build", "cargo build", "npm run lint",
+            // test-looking token as a FILE arg, not the subcommand.
+            "go run test.go", "make build test-data", "cargo run --bin test-harness",
+        ] {
+            XCTAssertFalse(TestCommandLexicon.looksLikeTestCommand(cmd), "‘\(cmd)’ should NOT be a test command")
+        }
+    }
+
+    /// Scope keys distinguish suites (so a green util suite can't clear a red auth suite) but ignore
+    /// flags (so a re-run with extra flags still matches).
+    func testTestCommandScopeIdentity() {
+        let auth = TestCommandLexicon.classify("pytest tests/auth")?.scope
+        let authVerbose = TestCommandLexicon.classify("pytest tests/auth -v")?.scope
+        let utils = TestCommandLexicon.classify("pytest tests/utils")?.scope
+        XCTAssertEqual(auth, authVerbose)
+        XCTAssertNotEqual(auth, utils)
     }
 
     func testSuccessClaimLexiconAnchoring() {
         XCTAssertNotNil(SuccessClaimLexicon.matchedClaim(in: "all tests pass"))
         XCTAssertNotNil(SuccessClaimLexicon.matchedClaim(in: "the suite is green — everything passes"))
+        XCTAssertNotNil(SuccessClaimLexicon.matchedClaim(in: "all green now"))
         // Incidental verb "pass" must not match.
         XCTAssertNil(SuccessClaimLexicon.matchedClaim(in: "please pass the config to the builder"))
         XCTAssertNil(SuccessClaimLexicon.matchedClaim(in: ""))
+        // Substring-inside-a-word must not match (word-boundary anchoring).
+        XCTAssertNil(SuccessClaimLexicon.matchedClaim(in: "install green-tea-cli"))
+        XCTAssertNil(SuccessClaimLexicon.matchedClaim(in: "a small green badge"))
+        XCTAssertNil(SuccessClaimLexicon.matchedClaim(in: "prechecks pass through the validator"))
     }
 
     /// Guard: the Core-local shell tool name must match the real ToolDefinition (they live in different
