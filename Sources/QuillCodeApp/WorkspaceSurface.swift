@@ -118,7 +118,8 @@ public extension QuillCodeWorkspaceModel {
             activeSidebarSavedSearchID: activeSidebarSavedSearchID,
             sidebarSavedSearches: sidebarSavedSearches,
             selectionIsActive: sidebarSelection.isActive,
-            selectedThreadIDs: sidebarSelectedThreadIDs
+            selectedThreadIDs: sidebarSelectedThreadIDs,
+            attentionCursorID: attentionCursorID
         ).surface()
         let topBar = WorkspaceTopBarSurfaceBuilder(
             topBarState: topBarState,

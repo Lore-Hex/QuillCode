@@ -45,9 +45,14 @@ extension QuillCodeWorkspaceModel {
         openAttentionDigest(for: threadID)
     }
 
-    /// Open the digest for a specific thread (also used when the user clicks a row).
+    /// Open the digest for a specific thread (also used when the user clicks a row). This is a genuine
+    /// OPEN: it selects the thread in the workspace (which persists the OUTGOING thread's watermark via
+    /// the normal leave path) and presents the digest. The opened thread keeps its own unseen badge until
+    /// the user later leaves it. Also parks the preview cursor on this row so closing the digest lands
+    /// the cursor here.
     public func openAttentionDigest(for threadID: UUID) {
         guard root.threads.contains(where: { $0.id == threadID }) else { return }
+        attentionCursorID = threadID
         selectThread(threadID)
         attentionDigestThreadID = threadID
     }
@@ -72,16 +77,19 @@ extension QuillCodeWorkspaceModel {
     // MARK: - Internals
 
     /// The thread the Attention cursor should anchor to. When a digest is open, that thread wins so the
-    /// cursor stays put; otherwise the sidebar's selected thread anchors it (so click and keyboard agree).
+    /// cursor stays put; otherwise the dedicated preview cursor anchors it. This is intentionally NOT the
+    /// workspace's selected thread — the cursor is preview/navigation, decoupled from thread selection —
+    /// so moving it never touches a return watermark.
     private var attentionCursorThreadID: UUID? {
-        attentionDigestThreadID ?? root.selectedThreadID
+        attentionDigestThreadID ?? attentionCursorID
     }
 
-    /// Move the cursor by selecting the target thread in the workspace, so the sidebar highlight and the
-    /// Attention cursor stay in sync. A nil target (empty section) is a no-op.
+    /// Move the PREVIEW cursor to `threadID`. This only updates the session-only cursor field — it does
+    /// NOT select the thread in the workspace and does NOT advance any return watermark. Moving the
+    /// triage cursor is a preview, not "I have read this thread"; the passed-over threads keep their
+    /// unseen-turn badges intact. A nil target (empty section) clears the cursor.
     private func setAttentionCursor(_ threadID: UUID?) {
-        guard let threadID else { return }
-        selectThread(threadID)
+        attentionCursorID = threadID
     }
 
     /// Persist the CURRENTLY selected thread's morning-triage return watermark up to its current tail,

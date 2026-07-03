@@ -109,6 +109,59 @@ final class AttentionSectionSurfaceTests: XCTestCase {
         XCTAssertEqual(m.attentionModel.selectedThreadID, id(2))
     }
 
+    /// A RED thread with `unseen` unseen turns after a persisted watermark.
+    private func redThreadWithUnseen(id threadID: UUID, unseen: Int, updatedAt: TimeInterval) -> ChatThread {
+        var thread = threadWithVerdict(.red, id: threadID, title: "t", updatedAt: Date(timeIntervalSince1970: updatedAt))
+        thread.messages.append(ChatMessage(role: .user, content: "go"))
+        thread.messages.append(ChatMessage(role: .assistant, content: "started"))
+        ThreadReturnWatermarkRecord.markSeen(&thread) // caught up to here
+        for i in 0..<unseen {
+            thread.messages.append(ChatMessage(role: .assistant, content: "overnight \(i)"))
+        }
+        return thread
+    }
+
+    /// The regression for the "cursoring zeroes passed-over badges" MAJOR: moving the j/k cursor is
+    /// preview/navigation and must NOT advance any thread's watermark or change the workspace selection.
+    /// Every thread's unseen count survives cursor movement.
+    func testCursorMovementDoesNotAdvanceWatermarksOrChangeSelection() {
+        let a = redThreadWithUnseen(id: id(1), unseen: 2, updatedAt: 300)
+        let b = redThreadWithUnseen(id: id(2), unseen: 3, updatedAt: 200)
+        let c = redThreadWithUnseen(id: id(3), unseen: 4, updatedAt: 100)
+        // No thread selected in the workspace — the cursor is purely the Attention preview.
+        let m = model([a, b, c], selected: nil)
+
+        XCTAssertEqual(m.surface().sidebar.attention.rows.map(\.unseenCount), [2, 3, 4])
+
+        // Scroll the cursor all the way down and back up.
+        m.attentionMoveDown(); m.attentionMoveDown(); m.attentionMoveUp(); m.attentionMoveUp()
+
+        // The workspace selection never moved (cursor is decoupled).
+        XCTAssertNil(m.root.selectedThreadID)
+        // Every thread's persisted watermark is untouched → unseen counts unchanged.
+        for tid in [id(1), id(2), id(3)] {
+            let thread = m.root.threads.first { $0.id == tid }!
+            XCTAssertGreaterThan(ThreadReturnWatermarkRecord.unseenCount(in: thread), 0)
+        }
+        XCTAssertEqual(m.surface().sidebar.attention.rows.map(\.unseenCount).sorted(), [2, 3, 4])
+    }
+
+    func testOpeningThenLeavingAThreadClearsOnlyThatBadge() {
+        let a = redThreadWithUnseen(id: id(1), unseen: 2, updatedAt: 300)
+        let b = redThreadWithUnseen(id: id(2), unseen: 3, updatedAt: 200)
+        let m = model([a, b], selected: nil)
+
+        // Open A (a genuine read) — A is now selected; its own badge stays until we leave it.
+        m.openAttentionDigest(for: id(1))
+        XCTAssertEqual(m.root.selectedThreadID, id(1))
+        XCTAssertEqual(ThreadReturnWatermarkRecord.unseenCount(in: m.root.threads.first { $0.id == id(1) }!), 2)
+
+        // Open B — this LEAVES A, advancing A's watermark; A's badge clears, B keeps its own.
+        m.openAttentionDigest(for: id(2))
+        XCTAssertEqual(ThreadReturnWatermarkRecord.unseenCount(in: m.root.threads.first { $0.id == id(1) }!), 0)
+        XCTAssertEqual(ThreadReturnWatermarkRecord.unseenCount(in: m.root.threads.first { $0.id == id(2) }!), 3)
+    }
+
     // MARK: - HTML render parity of shape
 
     func testHTMLRendererEmitsAttentionSection() {

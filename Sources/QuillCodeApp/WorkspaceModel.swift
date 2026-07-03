@@ -75,6 +75,13 @@ public final class QuillCodeWorkspaceModel {
     /// digest is showing. Session-only presentation state; the digest content itself is rebuilt from the
     /// thread's persisted records on every surface pass.
     public internal(set) var attentionDigestThreadID: UUID?
+    /// The morning-triage Attention section's PREVIEW cursor — which row j/k highlight (issue #877).
+    /// This is deliberately a SEPARATE, session-only, navigation-only field: moving the cursor is a
+    /// preview, NOT "I have read this thread." It must never touch the workspace thread selection or any
+    /// return watermark — only an explicit open (Enter / click → digest) does that. Keeping it distinct
+    /// is what prevents j/k from zeroing the passed-over threads' unseen-turn badges. Nil means "no
+    /// explicit cursor yet" — the pure model then defaults it to the first (highest-severity) row.
+    public internal(set) var attentionCursorID: UUID?
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),

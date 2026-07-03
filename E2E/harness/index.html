@@ -3719,6 +3719,9 @@
       },
       // Morning-triage inbox (issue #877): the thread whose return digest card is open, or null.
       attentionDigestThreadID: null,
+      // The Attention section's preview cursor — which row j/k highlight. Distinct from the workspace
+      // selection so cursoring never advances a watermark (native mirrors this with attentionCursorID).
+      attentionCursorID: null,
       transcript: {
         messages: [],
         toolCards: [],
@@ -9023,19 +9026,37 @@
     // Build the ranked attention rows from the sidebar items (mirrors AttentionModel.build + rank):
     // include a thread iff it has an attention-worthy verdict AND its triage state is pending; sort by
     // severity desc, then updatedAt desc, then threadID asc (total, deterministic).
+    // Unseen-turn count derived from the persisted watermark (mirrors ThreadReturnWatermarkRecord.
+    // unseenCount): turns after the last-seen turn, never negative.
+    function attentionUnseenCount(item) {
+      const turns = Math.max(0, item.attentionMessageTurns || 0);
+      const lastSeen = item.attentionLastSeenTurn;
+      if (turns === 0 || lastSeen === null || lastSeen === undefined) return 0;
+      return Math.max(0, turns - 1 - lastSeen);
+    }
+    // Advance a thread's return watermark to its tail — mirrors persistOutgoingReturnWatermark, run when
+    // the user LEAVES a thread (an actual open/read), never on cursor preview.
+    function attentionMarkThreadSeen(threadID) {
+      const item = state.sidebar.items.find(entry => entry.id === threadID);
+      if (!item || !item.attentionMessageTurns) return;
+      item.attentionLastSeenTurn = item.attentionMessageTurns - 1;
+    }
     function attentionRows() {
       return state.sidebar.items
         .filter(item => verdictNeedsAttention(item.integrityVerdict) && (item.triageState || 'pending') === 'pending')
-        .map(item => ({
-          threadID: item.id,
-          title: item.title,
-          verdict: item.integrityVerdict,
-          badgeLabel: triageBadgeLabel[item.integrityVerdict],
-          summary: item.verdictSummary || '',
-          unseenCount: Math.max(0, item.unseenCount || 0),
-          unseenLabel: (item.unseenCount || 0) > 0 ? `${Math.max(0, item.unseenCount)} new` : null,
-          updatedAt: item.updatedAt || ''
-        }))
+        .map(item => {
+          const unseen = attentionUnseenCount(item);
+          return {
+            threadID: item.id,
+            title: item.title,
+            verdict: item.integrityVerdict,
+            badgeLabel: triageBadgeLabel[item.integrityVerdict],
+            summary: item.verdictSummary || '',
+            unseenCount: unseen,
+            unseenLabel: unseen > 0 ? `${unseen} new` : null,
+            updatedAt: item.updatedAt || ''
+          };
+        })
         .sort((lhs, rhs) => {
           if (triageSeverity[lhs.verdict] !== triageSeverity[rhs.verdict]) {
             return triageSeverity[rhs.verdict] - triageSeverity[lhs.verdict];
@@ -9046,12 +9067,13 @@
           return lhs.threadID < rhs.threadID ? -1 : (lhs.threadID > rhs.threadID ? 1 : 0);
         });
     }
-    // The cursor thread id: the open digest thread if any, else the sidebar's selected thread, clamped to
-    // an actual attention row (falling back to the first row) — mirrors AttentionModel's init selection.
+    // The cursor thread id: the open digest thread if any, else the dedicated PREVIEW cursor
+    // (attentionCursorID), clamped to an actual attention row (falling back to the first row). It is NOT
+    // the workspace's selected thread — mirrors native, so moving the cursor never advances a watermark.
     function attentionSelectedThreadID() {
       const rows = attentionRows();
       if (!rows.length) return null;
-      const preferred = state.attentionDigestThreadID || state.sidebar.selectedThreadID;
+      const preferred = state.attentionDigestThreadID || state.attentionCursorID;
       return rows.some(row => row.threadID === preferred) ? preferred : rows[0].threadID;
     }
     function attentionSelectRelative(delta) {
@@ -9060,7 +9082,10 @@
       const current = attentionSelectedThreadID();
       const index = Math.max(0, rows.findIndex(row => row.threadID === current));
       const clamped = Math.min(rows.length - 1, Math.max(0, index + delta));
-      selectThread(rows[clamped].threadID);
+      // Move the PREVIEW cursor only — do NOT selectThread (which would advance the outgoing thread's
+      // watermark and zero its unseen badge). Opening (Enter/click) is the only path that reads a thread.
+      state.attentionCursorID = rows[clamped].threadID;
+      render();
     }
     function attentionMoveDown() { attentionSelectRelative(1); }
     function attentionMoveUp() { attentionSelectRelative(-1); }
@@ -9071,6 +9096,10 @@
     }
     function openAttentionDigest(threadID) {
       if (!state.sidebar.items.some(item => item.id === threadID)) return;
+      // A genuine open: park the preview cursor here and select the thread. selectThread persists the
+      // OUTGOING thread's watermark (the one being left), never this incoming one — so the opened thread
+      // keeps its unseen badge until the user later leaves it.
+      state.attentionCursorID = threadID;
       selectThread(threadID);
       state.attentionDigestThreadID = threadID;
       render();
@@ -9086,13 +9115,11 @@
       const item = state.sidebar.items.find(entry => entry.id === threadID);
       if (item) item.triageState = triageState;
       if (state.attentionDigestThreadID === threadID) state.attentionDigestThreadID = null;
-      // Advance the cursor to whatever slid into place (or the first remaining row).
+      // Advance the PREVIEW cursor to whatever slid into place (or the first remaining row) — cursor only,
+      // no selectThread, so the passed-over threads keep their unseen badges.
       const remaining = attentionRows();
-      if (remaining.length) {
-        selectThread(remaining[0].threadID);
-      } else {
-        render();
-      }
+      state.attentionCursorID = remaining.length ? remaining[0].threadID : null;
+      render();
     }
     function attentionAcknowledgeSelected() { attentionTriageSelected('acknowledged'); }
     function attentionDismissSelected() { attentionTriageSelected('dismissed'); }
@@ -9105,7 +9132,7 @@
       if (!item) return null;
       const verdict = verdictNeedsAttention(item.integrityVerdict) || item.integrityVerdict === 'verified'
         ? item.integrityVerdict : null;
-      const unseen = Math.max(0, item.unseenCount || 0);
+      const unseen = attentionUnseenCount(item);
       const seamLabel = unseen === 0 ? null : (unseen === 1 ? '1 unseen turn' : `${unseen} unseen turns`);
       return {
         threadID,
@@ -14287,6 +14314,10 @@
         // Leaving a thread means the user has seen it up to its current end — advance that
         // thread's "N new turns" watermark before we swap the transcript out.
         markTranscriptSeen();
+        // Mirror native persistOutgoingReturnWatermark: advance the OUTGOING thread's morning-triage
+        // return watermark too, so a thread genuinely read (opened) loses its unseen badge. This runs
+        // only on a real thread switch — never on Attention cursor preview (which no longer selectThreads).
+        if (outgoing) attentionMarkThreadSeen(outgoing);
         saveSelectedThreadSnapshot(outgoing);
         stashComposerDraft(outgoing);
         restoreComposerDraft(threadID);
@@ -15419,16 +15450,26 @@
     // it likewise never fires from the composer; this guard is that section-scoping's behavioral mirror.
     // They require no modifiers and only apply when the Attention section actually has rows.
     function attentionTriageContextIsActive() {
-      // Never while focus is in an editable field (composer, search box, terminal entry, etc.). The
-      // native surface scopes the keys to the sidebar section, which is not an editable field.
+      // The section must actually exist with rows to act on.
+      if (!attentionRows().length) return false;
+      // MINOR parity: native scopes these keys to the Attention section view via .onKeyPress, so they
+      // fire only when that section is the active context. Mirror that here rather than firing for ANY
+      // non-editable focus:
       const active = document.activeElement;
+      // Never while focus is in an editable field (composer, search box, terminal entry, etc.).
       if (active) {
         if (active.isContentEditable) return false;
         const tag = active.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
       }
-      // Only when the Attention section is actually present with rows to act on.
-      return attentionRows().length > 0;
+      // The Attention section is scoped to the sidebar; when the digest is open its own key handlers
+      // (and the backdrop) own the interaction, so cursor/triage keys should not fire from underneath it.
+      if (state.attentionDigestThreadID) return false;
+      // Focus must be the section's context: the body/no-focus (nothing else claims the keys) or an
+      // element inside the sidebar (where the Attention section lives) — not an unrelated focused control.
+      if (!active || active === document.body) return true;
+      const sidebar = document.querySelector('[data-testid="sidebar"]');
+      return !!(sidebar && sidebar.contains(active));
     }
     function handleAttentionTriageKeydown(event) {
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
@@ -15475,25 +15516,38 @@
     // Test hook (issue #877): seed the sidebar with threads carrying morning-triage verdict stamps so
     // Playwright can drive the Attention section deterministically. Each spec: { id, title, verdict,
     // summary, unseenCount, reasons, outcome, updatedAt? }.
+    //
+    // The unseen count is WATERMARK-DERIVED (not a fixed field): a thread gets a message-turn count and a
+    // `attentionLastSeenTurn` watermark, and unseen = turns after the watermark. This is what lets
+    // Playwright catch the "cursoring zeroes passed-over badges" class of bug — if navigation wrongly
+    // advanced a thread's watermark, its derived unseen count would drop, and the test would see it.
     window.__quillCodeTestSeedAttentionThreads = function(specs) {
       state.sidebar.selectedThreadID = null;
       state.attentionDigestThreadID = null;
-      state.sidebar.items = (specs || []).map((spec, index) => ({
-        id: spec.id,
-        title: spec.title,
-        subtitle: state.topBar.modelLabel,
-        searchText: '',
-        updatedAt: spec.updatedAt || new Date(Date.now() - index * 1000).toISOString(),
-        isSelected: false,
-        isPinned: false,
-        isArchived: false,
-        integrityVerdict: spec.verdict || null,
-        verdictSummary: spec.summary || '',
-        unseenCount: Math.max(0, spec.unseenCount || 0),
-        triageState: spec.triageState || 'pending',
-        digestReasons: spec.reasons || [],
-        digestOutcome: spec.outcome || 'No final answer recorded.'
-      }));
+      state.attentionCursorID = null;
+      state.sidebar.items = (specs || []).map((spec, index) => {
+        const unseen = Math.max(0, spec.unseenCount || 0);
+        // Give the thread enough turns to carry `unseen` unseen turns after the watermark. The watermark
+        // index sits `unseen` turns before the tail; unseen === attentionMessageTurns - 1 - lastSeenTurn.
+        const attentionMessageTurns = unseen + 1;
+        return {
+          id: spec.id,
+          title: spec.title,
+          subtitle: state.topBar.modelLabel,
+          searchText: '',
+          updatedAt: spec.updatedAt || new Date(Date.now() - index * 1000).toISOString(),
+          isSelected: false,
+          isPinned: false,
+          isArchived: false,
+          integrityVerdict: spec.verdict || null,
+          verdictSummary: spec.summary || '',
+          attentionMessageTurns,
+          attentionLastSeenTurn: attentionMessageTurns - 1 - unseen,
+          triageState: spec.triageState || 'pending',
+          digestReasons: spec.reasons || [],
+          digestOutcome: spec.outcome || 'No final answer recorded.'
+        };
+      });
       render();
     };
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;

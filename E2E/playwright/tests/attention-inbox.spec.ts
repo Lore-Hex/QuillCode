@@ -76,6 +76,56 @@ test('j/k move the triage cursor and clamp at the ends', async ({ page }) => {
   await expect(attentionRow(page, 't-red-a')).toHaveAttribute('data-cursor', 'true');
 });
 
+// Regression (fail-on-revert) for the "cursoring zeroes passed-over badges" MAJOR: moving the j/k
+// preview cursor across threads must NOT advance any thread's watermark, so their unseen-turn badges
+// survive. The badge must clear ONLY when the thread is genuinely opened (and then left). The harness
+// unseen count is watermark-derived, so a regression here (cursor → selectThread → mark-seen) would zero
+// the badge and fail this test.
+test('moving the j/k cursor never clears the passed-over threads unseen badges', async ({ page }) => {
+  await page.goto(harnessURL());
+  await seedAttention(page, [
+    { id: 't-a', title: 'red a', verdict: 'red', unseenCount: 2 },
+    { id: 't-b', title: 'red b', verdict: 'red', unseenCount: 3 },
+    { id: 't-c', title: 'red c', verdict: 'red', unseenCount: 4 }
+  ]);
+  // All three show their seeded unseen badges.
+  await expect(attentionRow(page, 't-a').getByTestId('attention-unseen')).toHaveText('2 new');
+  await expect(attentionRow(page, 't-b').getByTestId('attention-unseen')).toHaveText('3 new');
+  await expect(attentionRow(page, 't-c').getByTestId('attention-unseen')).toHaveText('4 new');
+
+  // Scroll the cursor all the way down and back up — pure preview, nothing read.
+  await page.keyboard.press('j'); // a -> b
+  await page.keyboard.press('j'); // b -> c
+  await page.keyboard.press('k'); // c -> b
+  await page.keyboard.press('k'); // b -> a
+  await expect(attentionRow(page, 't-a')).toHaveAttribute('data-cursor', 'true');
+
+  // Every badge is UNCHANGED — cursoring read nothing.
+  await expect(attentionRow(page, 't-a').getByTestId('attention-unseen')).toHaveText('2 new');
+  await expect(attentionRow(page, 't-b').getByTestId('attention-unseen')).toHaveText('3 new');
+  await expect(attentionRow(page, 't-c').getByTestId('attention-unseen')).toHaveText('4 new');
+});
+
+test('opening a thread then leaving it clears only that thread badge', async ({ page }) => {
+  await page.goto(harnessURL());
+  await seedAttention(page, [
+    { id: 't-a', title: 'red a', verdict: 'red', unseenCount: 2 },
+    { id: 't-b', title: 'red b', verdict: 'red', unseenCount: 3 }
+  ]);
+  // Open A's digest (a genuine read of A). Its own badge stays until we leave it; B is untouched.
+  await attentionRow(page, 't-a').click();
+  await expect(page.getByTestId('attention-digest')).toBeVisible();
+  await page.getByTestId('attention-digest-close').click();
+  await expect(attentionRow(page, 't-b').getByTestId('attention-unseen')).toHaveText('3 new');
+
+  // Now open B — this LEAVES A (a real thread switch), so A's watermark advances and A's badge clears.
+  await attentionRow(page, 't-b').click();
+  await page.getByTestId('attention-digest-close').click();
+  await expect(attentionRow(page, 't-a').getByTestId('attention-unseen')).toHaveCount(0);
+  // B keeps its badge (we're on it, haven't left it).
+  await expect(attentionRow(page, 't-b').getByTestId('attention-unseen')).toHaveText('3 new');
+});
+
 test('Enter opens the return digest with verdict, reasons, and the unseen seam', async ({ page }) => {
   await page.goto(harnessURL());
   await seedAttention(page, [

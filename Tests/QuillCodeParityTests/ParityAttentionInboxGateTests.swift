@@ -143,13 +143,16 @@ final class ParityAttentionInboxGateTests: QuillCodeParityTestCase {
         let harness = try harnessText()
         // The triage guard must be its OWN function, NOT a reuse of focusAllowsTabShortcut (which treats
         // the composer as shortcut-allowed — the exact bug). It must block INPUT / TEXTAREA / SELECT /
-        // contentEditable and only fire when the Attention section has rows.
+        // contentEditable, require the section to have rows, and (MINOR parity) be scoped to the
+        // Attention section's context rather than firing for ANY non-editable focus.
         Self.assertSource(harness, containsAll: [
             "function attentionTriageContextIsActive()",
             "if (!attentionTriageContextIsActive()) return false;",
             "active.isContentEditable",
             "tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'",
-            "return attentionRows().length > 0;"
+            "if (!attentionRows().length) return false;",
+            #"document.querySelector('[data-testid="sidebar"]')"#,
+            "sidebar.contains(active)"
         ])
         // Fail-on-revert: the triage keydown handler must NOT gate on focusAllowsTabShortcut (the buggy
         // guard that let the keys fire in the composer).
@@ -159,6 +162,44 @@ final class ParityAttentionInboxGateTests: QuillCodeParityTestCase {
             to: "\n    }"
         )
         Self.assertSource(triageHandler, excludes: "focusAllowsTabShortcut")
+    }
+
+    // MARK: - Cursor is preview-only (the "cursoring zeroes badges" MAJOR defense)
+
+    func testCursorMovementIsDecoupledFromSelectionInBothSurfaces() throws {
+        // Native: attentionMoveDown/Up route through setAttentionCursor, which sets the dedicated
+        // attentionCursorID field — NOT selectThread (which would advance the outgoing watermark).
+        let modelSource = try Self.appSourceText(named: "WorkspaceModelMorningTriage.swift")
+        Self.assertSource(modelSource, contains: "private func setAttentionCursor(_ threadID: UUID?) {")
+        let setCursorBody = try slice(
+            of: modelSource,
+            from: "private func setAttentionCursor(_ threadID: UUID?) {",
+            to: "\n    }"
+        )
+        Self.assertSource(setCursorBody, contains: "attentionCursorID = threadID")
+        Self.assertSource(setCursorBody, excludes: "selectThread(")
+
+        // The surface builds the Attention cursor from attentionCursorID, not the workspace selection.
+        let builder = try Self.appSourceText(named: "WorkspaceNavigationSurfaceBuilder.swift")
+        Self.assertSource(builder, contains: "AttentionModel.build(from: threads, selectedThreadID: attentionCursorID)")
+
+        // Harness: cursor movement sets state.attentionCursorID and does NOT selectThread.
+        let harness = try harnessText()
+        let selectRelative = try slice(
+            of: harness,
+            from: "function attentionSelectRelative(delta) {",
+            to: "\n    }"
+        )
+        Self.assertSource(selectRelative, contains: "state.attentionCursorID = rows[clamped].threadID;")
+        // Must not CALL selectThread (a comment may mention it; a call has a paren).
+        Self.assertSource(selectRelative, excludes: "selectThread(")
+        // And the harness derives unseen from a watermark (so Playwright can catch a badge-zeroing bug),
+        // advancing it only on a genuine leave.
+        Self.assertSource(harness, containsAll: [
+            "function attentionUnseenCount(item)",
+            "function attentionMarkThreadSeen(threadID)",
+            "if (outgoing) attentionMarkThreadSeen(outgoing);"
+        ])
     }
 
     /// Extract the substring from the first occurrence of `from` up to the next occurrence of `to`.
