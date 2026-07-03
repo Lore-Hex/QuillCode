@@ -31,6 +31,20 @@ class SafetyPolicyTestCase: XCTestCase {
         host: .local,
         risk: .append
     )
+    let gitFetch = ToolDefinition(
+        name: "host.git.fetch",
+        description: "Fetch remote refs",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
+    let gitPull = ToolDefinition(
+        name: "host.git.pull",
+        description: "Pull latest changes",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .destructive
+    )
     let gitStatus = ToolDefinition(
         name: "host.git.status",
         description: "Get git status",

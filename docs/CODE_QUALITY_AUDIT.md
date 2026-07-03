@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-07-03 Structured Git Sync A+ Pass
+
+Overall grade after this slice: **A+ across every generated file/module row**, with the human architecture review
+focused on the new Git fetch/pull parity boundary.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Whole architecture | A+ | Git sync is exposed as structured local/SSH tools, command-palette actions, slash commands, prompt guidance, mock LLM routing, safety policy, and harness behavior without adding a parallel ad hoc shell path. |
+| `QuillCodeTools` | A+ | `GitFetchOptions` and `GitPullOptions` centralize validation plus argv assembly, so local execution and SSH planning share the same remote/branch/default semantics. |
+| `QuillCodeApp` | A+ | Slash parsing rejects ambiguous fetch/pull arguments, requires an explicit target for non-fast-forward pulls, and routes visible UI, command palette, and remote planning through canonical tool names. |
+| `QuillCodeAgent` | A+ | TrustedRouter prompt guidance and mock LLM fixtures prefer `host.git.fetch`/`host.git.pull`, avoiding empty shell calls for common sync requests. |
+| `QuillCodeSafety` | A+ | Auto mode allows user-requested fetch/pull while preserving guard tests that generic “run” intent is not blanket permission for mutating Git sync. |
+| E2E harness | A+ | The static harness exposes Git fetch/pull commands and deterministic tool-card/final-answer behavior for UI parity testing. |
+
+Validation:
+
+- `swift test --filter GitLocalToolExecutorTests --filter GitToolRouterTests --filter WorkspaceCommandPlanTests --filter SlashWorkspaceCommandParserTests --filter WorkspaceCommandSurfaceBuilderTests --filter WorkspaceRemoteProjectToolExecutorTests --filter WorkspaceSurfaceTests --filter SafetyGeneralPolicyTests` (99 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (0 non-A+ rows)
+- `git diff --check`
+- `swift test --quiet` (3,154 tests, 2 skipped, 0 failures)
+
 ## 2026-07-03 UI Surface Ownership A+ Pass
 
 Overall grade after this slice: **A+ across every generated file/module row**. The

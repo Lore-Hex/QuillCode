@@ -190,6 +190,20 @@ extension SlashCommandCatalog {
             aliases: ["gitstatus", "git status"]
         ),
         slashDefinition(
+            "/git fetch",
+            "Fetch latest refs",
+            "Fetch from the selected project's remote without changing the working tree.",
+            insert: "/git fetch",
+            aliases: ["git fetch origin", "fetch"]
+        ),
+        slashDefinition(
+            "/git pull",
+            "Pull latest changes",
+            "Pull the selected project's latest upstream changes with --ff-only by default.",
+            insert: "/git pull",
+            aliases: ["git sync", "pull latest"]
+        ),
+        slashDefinition(
             "/memories",
             "Show memories",
             "Show loaded global and project memories.",

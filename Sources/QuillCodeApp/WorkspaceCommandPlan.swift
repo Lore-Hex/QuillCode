@@ -69,6 +69,8 @@ enum WorkspaceCommandPlan: Equatable {
     private static let toolNameByCommandID: [String: String] = [
         "git-status": ToolDefinition.gitStatus.name,
         "git-diff": ToolDefinition.gitDiff.name,
+        "git-fetch": ToolDefinition.gitFetch.name,
+        "git-pull": ToolDefinition.gitPull.name,
         "git-worktree-list": ToolDefinition.gitWorktreeList.name
     ].merging(WorkspacePullRequestCommandCatalog.toolNameByCommandID) { local, _ in local }
 

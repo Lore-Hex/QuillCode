@@ -15,6 +15,8 @@ enum WorkspaceRemoteProjectToolCatalog {
     private static let gitToolDefinitions: [ToolDefinition] = [
         .gitStatus,
         .gitDiff,
+        .gitFetch,
+        .gitPull,
         .gitStage,
         .gitRestore,
         .gitStageHunk,

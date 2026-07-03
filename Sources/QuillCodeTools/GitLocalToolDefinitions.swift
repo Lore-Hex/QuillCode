@@ -17,6 +17,27 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let gitFetch = gitTool(
+        name: "host.git.fetch",
+        description: "Fetch updates from a named git remote without changing the working tree.",
+        parametersJSON: GitToolParameterSchema.object(properties: [
+            "remote": .string(description: "Remote to fetch from. Defaults to origin."),
+            "prune": .boolean(description: "Prune deleted remote-tracking branches.")
+        ]),
+        risk: .append
+    )
+
+    static let gitPull = gitTool(
+        name: "host.git.pull",
+        description: "Pull latest git changes for the project, using fast-forward only by default.",
+        parametersJSON: GitToolParameterSchema.object(properties: [
+            "remote": .string(description: "Remote to pull from. Omit to use the configured upstream."),
+            "branch": .string(description: "Branch to pull. If set without remote, origin is used."),
+            "ffOnly": .boolean(description: "Use --ff-only. Defaults to true.")
+        ]),
+        risk: .destructive
+    )
+
     static let gitStage = gitTool(
         name: "host.git.stage",
         description: "Stage one file path inside the project.",

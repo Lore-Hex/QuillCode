@@ -39,6 +39,10 @@ enum WorkspaceToolCardSubtitleBuilder {
             return nil
         case ToolDefinition.gitDiff.name:
             return arguments.bool("staged") == true ? "staged diff" : "working tree"
+        case ToolDefinition.gitFetch.name:
+            return gitSyncDetail(arguments)
+        case ToolDefinition.gitPull.name:
+            return gitSyncDetail(arguments) ?? "ff-only"
         case ToolDefinition.gitCommit.name:
             return sanitized(arguments.string("message"))
         case ToolDefinition.gitPush.name:
@@ -107,6 +111,10 @@ enum WorkspaceToolCardSubtitleBuilder {
     }
 
     private static func pushDetail(_ arguments: ToolArguments) -> String? {
+        gitSyncDetail(arguments)
+    }
+
+    private static func gitSyncDetail(_ arguments: ToolArguments) -> String? {
         let remote = sanitized(arguments.string("remote"))
         let branch = sanitized(arguments.string("branch"))
         switch (remote, branch) {

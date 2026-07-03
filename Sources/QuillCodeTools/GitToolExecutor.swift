@@ -26,6 +26,19 @@ public struct GitToolExecutor: Sendable {
         local.diff(cwd: cwd, staged: staged)
     }
 
+    public func fetch(cwd: URL, remote: String? = nil, prune: Bool = false) -> ToolResult {
+        local.fetch(cwd: cwd, remote: remote, prune: prune)
+    }
+
+    public func pull(
+        cwd: URL,
+        remote: String? = nil,
+        branch: String? = nil,
+        ffOnly: Bool = true
+    ) -> ToolResult {
+        local.pull(cwd: cwd, remote: remote, branch: branch, ffOnly: ffOnly)
+    }
+
     public func stage(cwd: URL, path: String) -> ToolResult {
         local.stage(cwd: cwd, path: path)
     }

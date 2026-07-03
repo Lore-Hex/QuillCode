@@ -202,6 +202,14 @@ struct StaticSafetyPolicy: Sendable {
             allowedToolNames: ["git.push", "git.status"]
         ),
         .init(
+            requestTriggers: ["fetch", "fetch latest"],
+            allowedToolNames: ["git.fetch", "git.status"]
+        ),
+        .init(
+            requestTriggers: ["pull", "pull latest", "sync"],
+            allowedToolNames: ["git.pull", "git.fetch", "git.status"]
+        ),
+        .init(
             requestTriggers: ["worktree"],
             allowedToolNames: ["git.worktree", "git.status", "git.diff"]
         )
