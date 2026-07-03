@@ -327,6 +327,59 @@ final class RunIntegrityScannerTests: XCTestCase {
         XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
     }
 
+    /// BLOCKER (whole class): a value-bearing selector NOT on any enumerated whitelist must still make
+    /// distinct scopes — Maven `-Dtest=`, `-Dit.test=`, Gradle `-Dtest.single=`, and a totally unknown
+    /// `--customselector=`. Proves the inverted "include unknown value-flags" default. A green unrelated
+    /// suite must NOT clear a red one.
+    func testUnknownValueBearingSelectorsGetDistinctScopes() {
+        let cases: [(fail: String, pass: String)] = [
+            ("mvn test -Dtest=AuthTest", "mvn test -Dtest=UtilsTest"),
+            ("mvn test -Dtest=AuthTest#login", "mvn test -Dtest=UtilsTest#parse"),
+            ("mvn verify -Dit.test=AuthIT", "mvn verify -Dit.test=UtilsIT"),
+            ("gradle test -Dtest.single=AuthTest", "gradle test -Dtest.single=UtilsTest"),
+            ("mvn test -q -Dtest=AuthTest", "mvn test -q -Dtest=UtilsTest"),
+            ("pytest --customselector=auth", "pytest --customselector=utils"),
+            ("pytest --customselector auth", "pytest --customselector utils"),
+        ]
+        for (fail, pass) in cases {
+            var events = shell(fail, exitCode: 1, stdout: "1 failed")
+            events += shell(pass, exitCode: 0, stdout: "ok")
+            let run = thread(events: events)
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(run).verdict, .red,
+                "‘\(fail)’ fail then ‘\(pass)’ pass (different unknown-selector suites) must stay RED"
+            )
+        }
+    }
+
+    /// BLOCKER (positive side): the SAME Maven suite re-run green DOES clear, and a re-run differing ONLY
+    /// by a benign non-selecting flag (`-v`, `--quiet`) still clears — benign flags never change scope.
+    func testBenignFlagDifferenceStillClears() {
+        // Same -Dtest suite, second run adds -q: still same scope -> clears.
+        var mvn = shell("mvn test -Dtest=AuthTest", exitCode: 1, stdout: "1 failed")
+        mvn += shell("mvn test -q -Dtest=AuthTest", exitCode: 0, stdout: "ok")
+        XCTAssertEqual(RunIntegrityScanner.scan(thread(events: mvn)).verdict, .verified)
+
+        // Positional suite, second run adds -v: still clears (the canonical benign-flag case).
+        var py = shell("pytest tests/auth", exitCode: 1, stdout: "1 failed")
+        py += shell("pytest -v tests/auth", exitCode: 0, stdout: "ok")
+        XCTAssertEqual(RunIntegrityScanner.scan(thread(events: py)).verdict, .verified)
+    }
+
+    /// BLOCKER (build-config selectors): flags that change WHICH tests compile/run — `cargo test
+    /// --release` (cfg(debug_assertions)) and `--all-features` (cfg(feature=…)) — must NOT be treated as
+    /// benign, so a bare-config green run does not clear a different-config red run.
+    func testBuildConfigFlagsAreScopeSignificant() {
+        for withFlag in ["cargo test --release", "cargo test --all-features"] {
+            var events = shell("cargo test", exitCode: 1, stdout: "1 failed")
+            events += shell(withFlag, exitCode: 0, stdout: "ok")
+            XCTAssertEqual(
+                RunIntegrityScanner.scan(thread(events: events)).verdict, .red,
+                "‘cargo test’ fail then ‘\(withFlag)’ pass (different build config) must stay RED"
+            )
+        }
+    }
+
     /// MAJOR: `command -v pytest` (and `which`/`type`) is a PRESENCE PROBE — exit 1 means "not
     /// installed", never a test failure. Must stay VERIFIED and never classify as a test.
     func testPresenceProbeIsNotATest() {

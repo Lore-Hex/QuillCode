@@ -424,10 +424,12 @@ public enum TestCommandLexicon {
         return stripped.split(separator: "/").last.map(String.init) ?? stripped
     }
 
-    /// Selector flags whose VALUE names the specific suite/target being run. Their value MUST enter the
-    /// scope key — otherwise `cargo test --test=auth_it` and `--test=utils_it` collapse to the same
-    /// scope and an unrelated green run falsely clears a red one (the trust hole). Both attached
-    /// (`--test=auth`) and separated (`--test auth`, `-k auth`) forms are handled.
+    /// Known selector flags whose VALUE names the specific suite/target. This is a POSITIVE hint list for
+    /// the *separated* form (`--test auth`, `-k auth`) — but it is deliberately NOT the gate for whether
+    /// a value enters the scope: an enumerated whitelist can never be complete (every framework has its
+    /// own selector syntax — Maven `-Dtest=`, Gradle `-Dtest.single=`, …). The real gate is the inverted
+    /// default in `scopeKey`: ANY unrecognized value-bearing `-`-token is scope-significant. This list
+    /// only tells the SEPARATED-form parser which flags take a following positional as their value.
     static let selectorFlags: Set<String> = [
         "--test", "--package", "-p", "--bin", "--example", "--features",
         "--testpathpattern", "--testnamepattern", "--config", "-c",
@@ -435,60 +437,115 @@ public enum TestCommandLexicon {
         "--project", "--spec", "--grep", "-g", "--name", "--tests", "--run",
     ]
 
-    /// Identity for same-scope re-run matching: runner + the target-ish arguments (positional paths AND
-    /// selector-flag VALUES) normalized. Two invocations of the same suite share a scope; two different
-    /// suites — whether selected positionally (`pytest tests/auth` vs `tests/utils`) or by flag
-    /// (`cargo test --test=auth` vs `--test=utils`, `pytest -k auth` vs `-k utils`) — do NOT.
+    /// The ONLY flags ignored by `scopeKey` — an explicit allowlist of UNAMBIGUOUSLY-benign, non-selecting
+    /// flags (verbosity / output / color) that never change WHICH tests run, so a re-run that differs only
+    /// by one of these still matches the same scope and legitimately clears a standing failure. Everything
+    /// NOT on this list is treated as potentially suite-selecting (see `scopeKey`'s inverted default).
     ///
-    /// CONSERVATIVE: non-selector flags are ignored (so a bare re-run with extra `-v` still matches), but
-    /// every selector value is INCLUDED. When in doubt we prefer MORE distinct scopes — a scope that is
-    /// too fine only means the RED rule falls back to exact-command identity (which never falsely
-    /// clears), whereas a scope that is too coarse would hide a standing failure.
+    /// Kept DELIBERATELY SMALL and unambiguous: any short flag whose letter means "select a suite/test"
+    /// in SOME framework (`-s` = suite, `-x` = ...) is intentionally EXCLUDED so it stays scope-
+    /// significant. Excluding a truly-benign flag only over-distinguishes (a safe false-RED at worst);
+    /// wrongly INCLUDING a selecting flag here would be a false-CLEAR, so when in doubt we leave it off.
+    static let benignNonSelectingFlags: Set<String> = [
+        "-v", "-vv", "-vvv", "-q", "-qq",
+        "--verbose", "--quiet", "--silent", "--color", "--no-color", "--colour", "--no-colour",
+        "--nocolor", "--help", "--version", "--full-trace", "--show-output",
+        // Output-capture flags — control DISPLAY of test output, never which tests run.
+        "--nocapture", "--no-capture", "--capture", "--tb",
+    ]
+
+    /// Identity for same-scope re-run matching: runner + the scope-significant arguments (positional
+    /// paths AND selector-flag VALUES) normalized. Two invocations of the same suite share a scope; two
+    /// different suites — selected positionally (`pytest tests/auth` vs `tests/utils`), by a known flag
+    /// (`cargo test --test=auth` vs `--test=utils`, `pytest -k auth` vs `-k utils`), OR by ANY OTHER
+    /// value-bearing flag (`mvn test -Dtest=AuthTest` vs `-Dtest=UtilsTest`, `--customselector=x` vs
+    /// `=y`) — do NOT share a scope.
+    ///
+    /// INVERTED DEFAULT (the key precision rule for the CLEAR side, which must NEVER falsely clear a
+    /// standing failure): an enumerated selector whitelist can never be complete — every framework has
+    /// its own single-test syntax. So DROPPING an unrecognized `-`-token is the UNSAFE default (it
+    /// under-distinguishes → collapses distinct suites → a green run clears an unrelated red one). We
+    /// therefore INCLUDE, by default, any `-`-token that carries a VALUE (attached `=`, short-form value,
+    /// or a `-flag value` pair) as scope-significant. Only an explicit allowlist of known-benign,
+    /// non-selecting flags (verbosity / output / color — `benignNonSelectingFlags`) is ignored, so a
+    /// re-run differing only by `-v`/`-q`/etc. still matches and legitimately clears. When in doubt we
+    /// INCLUDE (over-distinguish → at worst a false-RED, the safe direction) — NEVER drop a value.
     static func scopeKey(runner: String, tokens: [String]) -> String {
         var parts: [String] = []
         let args = Array(tokens.dropFirst())
         var index = 0
         while index < args.count {
             let token = args[index]
-            if token.hasPrefix("-") {
-                // Attached form: `--test=auth`, `-kauth`, `-k=auth`.
-                if let (flag, value) = attachedSelector(token) {
-                    parts.append("\(flag)=\(value)")
-                    index += 1
-                    continue
-                }
-                // Separated form: `--test auth`, `-k auth`.
-                if selectorFlags.contains(token), index + 1 < args.count, !args[index + 1].hasPrefix("-") {
-                    parts.append("\(token)=\(args[index + 1])")
-                    index += 2
-                    continue
-                }
-                index += 1 // a non-selector flag — ignored
+            guard token.hasPrefix("-") else {
+                // Positional target (path, scheme name, subcommand) — always scope-significant.
+                parts.append(token)
+                index += 1
                 continue
             }
-            // Positional target (path, scheme name, subcommand).
+
+            // `--` is the POSIX end-of-options separator, not a selector — never scope-significant.
+            if token == "--" {
+                index += 1
+                continue
+            }
+
+            // Attached-value form: `--test=auth`, `-Dtest=AuthTest`, `--customselector=x`, `-kEXPR`,
+            // `-k=EXPR`. Any such flag whose base is NOT benign is scope-significant and included.
+            if let (flag, value) = attachedFlagValue(token) {
+                if !benignNonSelectingFlags.contains(flag) {
+                    parts.append("\(flag)=\(value)")
+                }
+                index += 1
+                continue
+            }
+
+            // Bare value-less flag on the benign allowlist → ignore (does not select a suite).
+            if benignNonSelectingFlags.contains(token) {
+                index += 1
+                continue
+            }
+
+            // Separated form `-flag value`: a known selector, OR — by the inverted default — any
+            // non-benign flag followed by a non-flag token, which we treat as a value-bearing selector we
+            // could not classify. Include flag+value and consume both.
+            if index + 1 < args.count, !args[index + 1].hasPrefix("-") {
+                parts.append("\(token)=\(args[index + 1])")
+                index += 2
+                continue
+            }
+
+            // A bare, value-less, non-benign flag: include the flag token itself so two commands that
+            // differ by such a flag still get distinct scopes (include-when-in-doubt), without consuming
+            // a following token.
             parts.append(token)
             index += 1
         }
         return "\(runner)|\(parts.joined(separator: " "))"
     }
 
-    /// Parses an attached-value selector flag: `--test=auth` → ("--test", "auth"); `-kauth` →
-    /// ("-k", "auth"); `-k=auth` → ("-k", "auth"). Returns nil for non-selector or valueless flags.
-    static func attachedSelector(_ token: String) -> (flag: String, value: String)? {
-        // Long form `--flag=value`.
+    /// Parses ANY attached-value flag into (base-flag, value), regardless of whether it is a known
+    /// selector — `--test=auth` → ("--test","auth"); `-Dtest=AuthTest` → ("-dtest","authtest");
+    /// `--customselector=x` → ("--customselector","x"); `-kEXPR` → ("-k","expr"); `-k=EXPR` →
+    /// ("-k","expr"). Returns nil only for a flag with no attached value. The caller decides whether the
+    /// base flag is benign (ignored) or scope-significant (included).
+    static func attachedFlagValue(_ token: String) -> (flag: String, value: String)? {
+        // Long / `-D`-style form with `=`: `--flag=value`, `-Dtest=Class`.
         if token.hasPrefix("--"), let eq = token.firstIndex(of: "=") {
             let flag = String(token[token.startIndex..<eq])
             let value = String(token[token.index(after: eq)...])
-            if selectorFlags.contains(flag), !value.isEmpty { return (flag, value) }
-            return nil
+            return value.isEmpty ? nil : (flag, value)
         }
-        // Short form `-kVALUE` or `-k=VALUE`.
+        if token.hasPrefix("-"), !token.hasPrefix("--"), let eq = token.firstIndex(of: "=") {
+            // `-Dtest=X`, `-k=EXPR`: base is everything up to `=` (e.g. `-dtest`, `-k`).
+            let flag = String(token[token.startIndex..<eq])
+            let value = String(token[token.index(after: eq)...])
+            return value.isEmpty || flag.count < 2 ? nil : (flag, value)
+        }
+        // Short glued form `-kVALUE` (no `=`): base is the first two chars, value the rest. Only when
+        // the value part is non-empty. (`-Dtest` with no `=` has value "test" glued — also captured.)
         if token.hasPrefix("-"), !token.hasPrefix("--"), token.count > 2 {
-            let flag = String(token.prefix(2)) // e.g. "-k"
-            guard selectorFlags.contains(flag) else { return nil }
-            var value = String(token.dropFirst(2))
-            if value.hasPrefix("=") { value = String(value.dropFirst()) }
+            let flag = String(token.prefix(2)) // e.g. "-k", "-d"
+            let value = String(token.dropFirst(2))
             if !value.isEmpty { return (flag, value) }
         }
         return nil
