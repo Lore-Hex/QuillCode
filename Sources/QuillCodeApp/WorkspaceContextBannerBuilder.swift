@@ -13,6 +13,8 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
         let usedPercent = contextUsedPercent(for: thread)
         guard usedPercent >= effectiveWarningThresholdPercent else { return nil }
         let hasProviderUsage = Self.latestProviderUsage(for: thread) != nil
+        let progress = Self.contextSummaryProgress(for: thread)
+        let contextCommandIsEnabled = progress == nil
 
         return ContextBannerSurface(
             usedPercent: usedPercent,
@@ -20,10 +22,15 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
             subtitle: hasProviderUsage
                 ? "Provider-reported token usage is near the limit. Compact the thread, start fresh, or fork with latest, summarized, or full visible context."
                 : "Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.",
+            progress: progress,
             newThreadCommand: WorkspaceCommandSurface(id: "new-chat", title: "New thread"),
-            forkCommand: WorkspaceThreadForkStrategy.latestTurn.command(),
-            forkCommands: WorkspaceThreadForkStrategy.allCases.map { $0.command() },
-            compactCommand: WorkspaceCommandSurface(id: "compact-context", title: "Compact context")
+            forkCommand: WorkspaceThreadForkStrategy.latestTurn.command(isEnabled: contextCommandIsEnabled),
+            forkCommands: WorkspaceThreadForkStrategy.allCases.map { $0.command(isEnabled: contextCommandIsEnabled) },
+            compactCommand: WorkspaceCommandSurface(
+                id: "compact-context",
+                title: progress?.activeCommandID == "compact-context" ? "Compacting..." : "Compact context",
+                isEnabled: contextCommandIsEnabled
+            )
         )
     }
 
@@ -47,6 +54,45 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
 
     static func latestProviderUsage(for thread: ChatThread) -> ModelTokenUsage? {
         thread.events.reversed().compactMap(ModelTokenUsageEvent.usage(from:)).first
+    }
+
+    static func contextSummaryProgress(for thread: ChatThread) -> ContextBannerProgressSurface? {
+        for event in thread.events.reversed() where event.kind == .notice {
+            switch event.summary {
+            case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact):
+                return ContextBannerProgressSurface(
+                    activeCommandID: "compact-context",
+                    title: "Compacting context",
+                    detail: "Preparing a durable continuation summary before starting the compacted thread."
+                )
+            case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary):
+                return ContextBannerProgressSurface(
+                    activeCommandID: WorkspaceThreadForkStrategy.summarizedContext.commandID,
+                    title: "Summarizing fork",
+                    detail: "Preparing a fork-ready context summary before opening the new thread."
+                )
+            case WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: WorkspaceContextSummaryOutcome(summaryOverride: "", source: .model),
+                purpose: .compact
+            ),
+            WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: WorkspaceContextSummaryOutcome(summaryOverride: "", source: .model),
+                purpose: .forkSummary
+            ),
+            WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: WorkspaceContextSummaryOutcome(summaryOverride: nil, source: .deterministicFallback),
+                purpose: .compact
+            ),
+            WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: WorkspaceContextSummaryOutcome(summaryOverride: nil, source: .deterministicFallback),
+                purpose: .forkSummary
+            ):
+                return nil
+            default:
+                continue
+            }
+        }
+        return nil
     }
 
     private var effectiveTokenBudget: Int {

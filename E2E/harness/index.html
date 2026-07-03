@@ -2530,6 +2530,39 @@
       font-size: 12px;
       font-weight: 700;
     }
+    .context-banner-progress {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 2px 9px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 12px;
+      background: rgba(65,184,232,.10);
+      border: 1px solid rgba(65,184,232,.24);
+    }
+    .context-banner-progress::before {
+      content: "";
+      width: 13px;
+      height: 13px;
+      grid-row: 1 / span 2;
+      border-radius: 999px;
+      border: 2px solid rgba(65,184,232,.25);
+      border-top-color: var(--blue);
+      animation: spin .8s linear infinite;
+    }
+    .context-banner-progress span {
+      justify-self: start;
+      color: #9ee8ff;
+      background: rgba(65,184,232,.14);
+    }
+    .context-banner-progress strong {
+      min-width: 0;
+      font-size: 13px;
+    }
+    .context-banner-progress p {
+      grid-column: 2;
+      font-size: 12px;
+    }
     .context-banner div { display: flex; gap: 8px; flex-wrap: wrap; }
     .context-banner button {
       min-height: var(--hit-target);
@@ -3818,6 +3851,7 @@
         // one per turn boundary. Mirrors Swift ComposerSurface.followUpQueue / ChatThread.followUpQueue.
         followUpQueue: []
       },
+      contextSummaryProgress: null,
       settings: {
         isOpen: false,
         apiBaseURL: 'https://api.trustedrouter.com/v1',
@@ -6344,12 +6378,21 @@
       return {
         usedPercent,
         title: `${usedPercent >= 100 ? 'Context limit reached' : 'Approaching context limit'} (${usedPercent}% used)`,
-        subtitle: 'Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.'
+        subtitle: 'Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.',
+        progress: state.contextSummaryProgress
       };
     }
 
     function renderContextBanner(banner) {
       if (!banner) return '';
+      const contextDisabled = banner.progress ? ' disabled' : '';
+      const compactTitle = banner.progress?.activeCommandID === 'compact-context' ? 'Compacting...' : 'Compact context';
+      const progress = banner.progress ? `
+          <div class="context-banner-progress" data-testid="context-banner-progress" data-active-command-id="${escapeHTML(banner.progress.activeCommandID)}">
+            <span data-testid="context-banner-progress-status">${escapeHTML(banner.progress.statusLabel)}</span>
+            <strong data-testid="context-banner-progress-title">${escapeHTML(banner.progress.title)}</strong>
+            <p data-testid="context-banner-progress-detail">${escapeHTML(banner.progress.detail)}</p>
+          </div>` : '';
       return `
         <section class="context-banner" data-testid="context-banner" aria-label="Context limit warning">
           <header>
@@ -6357,12 +6400,13 @@
             <span data-testid="context-banner-percent">${escapeHTML(banner.usedPercent)}%</span>
           </header>
           <p data-testid="context-banner-subtitle">${escapeHTML(banner.subtitle)}</p>
+          ${progress}
           <div>
-            <button type="button" class="hit-target-text" data-testid="context-compact" data-command-id="compact-context">Compact context</button>
+            <button type="button" class="hit-target-text" data-testid="context-compact" data-command-id="compact-context"${contextDisabled}>${escapeHTML(compactTitle)}</button>
             <button type="button" class="hit-target-text" data-testid="context-new-thread" data-command-id="new-chat">New thread</button>
-            <button type="button" class="hit-target-text" data-testid="context-fork-last" data-command-id="fork-from-last">Fork from last</button>
-            <button type="button" class="hit-target-text" data-testid="context-fork-summary" data-command-id="fork-with-summary">Fork summary</button>
-            <button type="button" class="hit-target-text" data-testid="context-fork-full" data-command-id="fork-full-context">Fork full</button>
+            <button type="button" class="hit-target-text" data-testid="context-fork-last" data-command-id="fork-from-last"${contextDisabled}>Fork from last</button>
+            <button type="button" class="hit-target-text" data-testid="context-fork-summary" data-command-id="fork-with-summary"${contextDisabled}>Fork summary</button>
+            <button type="button" class="hit-target-text" data-testid="context-fork-full" data-command-id="fork-full-context"${contextDisabled}>Fork full</button>
           </div>
         </section>`;
     }
@@ -10383,10 +10427,37 @@
       };
     }
 
+    function contextSummaryProgress(kind) {
+      return kind === 'compact'
+        ? {
+            activeCommandID: 'compact-context',
+            title: 'Compacting context',
+            detail: 'Preparing a durable continuation summary before starting the compacted thread.',
+            statusLabel: 'Running'
+          }
+        : {
+            activeCommandID: 'fork-with-summary',
+            title: 'Summarizing fork',
+            detail: 'Preparing a fork-ready context summary before opening the new thread.',
+            statusLabel: 'Running'
+          };
+    }
+
+    function runContextSummaryTransition(kind, finish) {
+      if (state.contextSummaryProgress) return;
+      state.contextSummaryProgress = contextSummaryProgress(kind);
+      render();
+      window.setTimeout(() => {
+        state.contextSummaryProgress = null;
+        finish();
+      }, 350);
+    }
+
     function insertDerivedThread({ title, messages, contextItems = [] }) {
       const previousLocation = currentWorkspaceLocation();
       const threadID = `thread-${state.nextThreadIndex++}`;
 
+      state.contextSummaryProgress = null;
       state.sidebar.selectedThreadID = threadID;
       state.sidebar.items = [{
         id: threadID,
@@ -10431,19 +10502,21 @@
       const latestIDs = new Set(latestMessages.map(message => message.id));
       const olderMessages = visibleMessages.filter(message => !latestIDs.has(message.id));
       if (strategy === 'summary') {
-        const summaryText = contextSummaryLines({
-          sourceTitle,
-          olderMessages,
-          recentMessages: latestMessages,
-          kind: 'fork'
-        }).join('\n');
-        insertDerivedThread({
-          title: `Fork summary: ${sourceTitle}`,
-          messages: [
-            { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryText },
-            ...latestMessages
-          ],
-          contextItems: [contextActivityItem({ kind: 'fork', sourceTitle, summaryText })]
+        runContextSummaryTransition('fork', () => {
+          const summaryText = contextSummaryLines({
+            sourceTitle,
+            olderMessages,
+            recentMessages: latestMessages,
+            kind: 'fork'
+          }).join('\n');
+          insertDerivedThread({
+            title: `Fork summary: ${sourceTitle}`,
+            messages: [
+              { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryText },
+              ...latestMessages
+            ],
+            contextItems: [contextActivityItem({ kind: 'fork', sourceTitle, summaryText })]
+          });
         });
         return;
       }
@@ -10474,13 +10547,15 @@
         recentMessages,
         kind: 'compact'
       }).join('\n');
-      insertDerivedThread({
-        title: `Compact: ${sourceTitle}`,
-        messages: [
-          { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryText },
-          ...recentMessages
-        ],
-        contextItems: [contextActivityItem({ kind: 'compact', sourceTitle, summaryText })]
+      runContextSummaryTransition('compact', () => {
+        insertDerivedThread({
+          title: `Compact: ${sourceTitle}`,
+          messages: [
+            { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryText },
+            ...recentMessages
+          ],
+          contextItems: [contextActivityItem({ kind: 'compact', sourceTitle, summaryText })]
+        });
       });
     }
 

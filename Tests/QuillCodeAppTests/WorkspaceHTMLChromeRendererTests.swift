@@ -249,6 +249,34 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="context-compact""#))
     }
 
+    func testHTMLRendererIncludesContextSummaryProgress() throws {
+        let thread = ChatThread(
+            title: "Long context",
+            messages: [
+                .init(role: .user, content: String(repeating: "token ", count: 26_000))
+            ],
+            events: [
+                ThreadEvent(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="context-banner-progress""#))
+        XCTAssertTrue(html.contains(#"data-testid="context-banner-progress-title">Summarizing fork"#))
+        XCTAssertTrue(html.contains(#"data-active-command-id="fork-with-summary""#))
+        XCTAssertTrue(html.contains(#"data-testid="context-fork-summary""#))
+        XCTAssertTrue(html.contains(#"data-command-id="fork-with-summary""#))
+        XCTAssertTrue(html.contains(#"disabled aria-disabled="true">Fork summary"#))
+    }
+
     func testHTMLRendererIncludesRuntimeIssue() throws {
         let model = QuillCodeWorkspaceModel()
         model.setAgentStatus("Failed", lastError: "TrustedRouter returned an empty response.")

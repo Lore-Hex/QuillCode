@@ -14666,3 +14666,38 @@ Validation:
 - `swift test --quiet` (2,969 tests, 3 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
 - `git diff --check`
+
+## 2026-07-02 Context Summary Progress A+ Pass
+
+Overall grade after this slice: **A+ for context-banner UX state and replayable
+surface architecture**. Context compact/fork-summary clicks no longer feel like
+dead buttons while a model-backed summary is being prepared; the banner now
+shows an explicit running strip and disables competing context-move actions.
+
+Module and file grade highlights:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| `ContextBannerSurface` | A+ | Adds a backward-compatible optional progress DTO instead of renderer-local state. |
+| `WorkspaceContextBannerBuilder` | A+ | Derives running/finished state from existing source-thread notices, keeping progress replayable and cleanup-free. |
+| `QuillCodeContextBannerView` | A | Renders a compact spinner/status strip with bounded text and accessibility copy. |
+| `WorkspaceHTMLTranscriptRenderer` | A+ | Shares disabled command state and progress markup with the Swift surface contract. |
+| `E2E/harness/index.html` | A | Adds a short asynchronous compact/fork-summary transition so Playwright proves the in-flight state, not only the final derived thread. |
+
+Code quality changes:
+
+- Added `ContextBannerProgressSurface` with `activeCommandID`, title, detail,
+  and status label.
+- Disabled Compact/Fork context actions while a summary start notice is newer
+  than the latest finish notice; New thread remains available.
+- Rendered progress consistently in SwiftUI and static HTML.
+- Added Swift builder/renderer tests and Playwright coverage for visible
+  progress plus disabled competing actions.
+
+Validation:
+
+- `swift test --filter WorkspaceContextBannerBuilderTests` (11 tests, 0 failures)
+- `swift test --filter 'WorkspaceContextBannerBuilderTests|WorkspaceHTMLChromeRendererTests/testHTMLRendererIncludesContextSummaryProgress|WorkspaceHTMLChromeRendererTests/testHTMLRendererIncludesContextBanner'` (13 tests, 0 failures)
+- `npm test -- workspace-state.spec.ts -g "context pressure"` from `E2E/playwright` (1 test, 0 failures)
+- `npm test -- workspace-state.spec.ts interaction-audit.spec.ts` from `E2E/playwright` (8 tests, 0 failures)
+- `git diff --check`

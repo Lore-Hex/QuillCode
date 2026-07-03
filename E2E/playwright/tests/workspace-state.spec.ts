@@ -167,6 +167,10 @@ test('mock harness shows context pressure banner and compacts or forks from late
 
   await page.getByTestId('context-compact').click();
 
+  await expect(page.getByTestId('context-banner-progress')).toBeVisible();
+  await expect(page.getByTestId('context-banner-progress-title')).toContainText('Compacting context');
+  await expect(page.getByTestId('context-compact')).toBeDisabled();
+  await expect(page.getByTestId('context-fork-summary')).toBeDisabled();
   await expect(page.getByTestId('top-bar-title')).toContainText('Compact:');
   await expect(page.getByTestId('context-banner')).toHaveCount(0);
   await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
@@ -190,6 +194,10 @@ test('mock harness shows context pressure banner and compacts or forks from late
 
   await page.getByTestId('context-fork-summary').click();
 
+  await expect(page.getByTestId('context-banner-progress')).toBeVisible();
+  await expect(page.getByTestId('context-banner-progress-title')).toContainText('Summarizing fork');
+  await expect(page.getByTestId('context-fork-last')).toBeDisabled();
+  await expect(page.getByTestId('context-fork-full')).toBeDisabled();
   await expect(page.getByTestId('top-bar-title')).toContainText('Fork summary:');
   await expect(page.getByTestId('context-banner')).toHaveCount(0);
   await expect(page.getByTestId('message').first()).toContainText('Context forked from');

@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+- Context summary progress is derived from thread notices instead of stored as a separate workspace flag.
+  Compact and fork-summary already append source-thread start/finish notices, so `ContextBannerSurface` reads the
+  latest matching notice to show a running strip and disable competing context-move actions. This keeps the visible
+  "clicked and work is happening" state replayable from persisted thread history and avoids a second cleanup path when
+  the continuation thread is inserted.
 - Nested instruction diagnostics should distinguish normal scope layering from real cleanup work. A nested `AGENTS.md`,
   `.quillcode/rules.md`, or `.quillcode/instructions.md` that only adds scoped guidance is no longer flagged just
   because broader instructions exist; Codex-style nested rule files are expected. Activity now flags a nested overlap

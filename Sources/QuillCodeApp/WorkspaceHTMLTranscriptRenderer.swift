@@ -375,21 +375,33 @@ enum WorkspaceHTMLTranscriptRenderer {
                 command.title,
                 testID: testID,
                 commandID: command.id,
-                hitTargetKind: .text
+                hitTargetKind: .text,
+                disabled: !command.isEnabled
             )
         }.joined(separator: "\n            ")
         let compactButton = WorkspaceHTMLPrimitives.commandButton(
             banner.compactCommand.title,
             testID: "context-compact",
             commandID: banner.compactCommand.id,
-            hitTargetKind: .text
+            hitTargetKind: .text,
+            disabled: !banner.compactCommand.isEnabled
         )
         let newThreadButton = WorkspaceHTMLPrimitives.commandButton(
             banner.newThreadCommand.title,
             testID: "context-new-thread",
             commandID: banner.newThreadCommand.id,
-            hitTargetKind: .text
+            hitTargetKind: .text,
+            disabled: !banner.newThreadCommand.isEnabled
         )
+        let progress = banner.progress.map { progress in
+            """
+              <div class="context-banner-progress" data-testid="context-banner-progress" data-active-command-id="\(escape(progress.activeCommandID))">
+                <span data-testid="context-banner-progress-status">\(escape(progress.statusLabel))</span>
+                <strong data-testid="context-banner-progress-title">\(escape(progress.title))</strong>
+                <p data-testid="context-banner-progress-detail">\(escape(progress.detail))</p>
+              </div>
+            """
+        } ?? ""
         return """
         <section class="context-banner" data-testid="context-banner" aria-label="Context limit warning">
           <header>
@@ -397,6 +409,7 @@ enum WorkspaceHTMLTranscriptRenderer {
             <span data-testid="context-banner-percent">\(banner.usedPercent)%</span>
           </header>
           <p data-testid="context-banner-subtitle">\(escape(banner.subtitle))</p>
+          \(progress)
           <div>
             \(compactButton)
             \(newThreadButton)
