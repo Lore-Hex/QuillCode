@@ -164,4 +164,31 @@ final class GitPatchToolExecutorTurnTests: XCTestCase {
         try initializeGitRepo(at: root)
         XCTAssertFalse(GitPatchToolExecutor().restoreTurnPatch(cwd: root, patches: ["   "]).ok)
     }
+
+    func testRestoreTurnPatchRejectsSymlinkEscapePathsBeforeApplying() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let outside = parent.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try initializeGitRepo(at: root)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+        let patch = """
+        diff --git a/escape/evil.txt b/escape/evil.txt
+        new file mode 100644
+        --- /dev/null
+        +++ b/escape/evil.txt
+        @@ -0,0 +1 @@
+        +pwned
+        """
+
+        let result = GitPatchToolExecutor().restoreTurnPatch(cwd: root, patches: [patch])
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outside.appendingPathComponent("evil.txt").path))
+    }
 }

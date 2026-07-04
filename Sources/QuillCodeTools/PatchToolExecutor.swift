@@ -165,10 +165,7 @@ public struct PatchToolExecutor: Sendable {
 
     private static func isUnsafeDiffPath(_ rawPath: String, workspaceRoot: URL?) -> Bool {
         if rawPath == "/dev/null" { return false }
-        var path = rawPath
-        if path.hasPrefix("a/") || path.hasPrefix("b/") {
-            path.removeFirst(2)
-        }
+        let path = normalizedDiffPath(rawPath)
         // Lexical rejects (fast path, and the only check available for a remote patch).
         if path.hasPrefix("/") || path == ".." || path.hasPrefix("../") || path.contains("/../") {
             return true
@@ -176,9 +173,13 @@ public struct PatchToolExecutor: Sendable {
         // Local patch: also reject a target that escapes via a symlink inside the workspace, matching
         // FileToolExecutor / GitInputValidator. (Remote patches rely on the remote git apply.)
         if let workspaceRoot {
-            return !WorkspaceBoundary.isWithin(workspaceRoot.appendingPathComponent(path), root: workspaceRoot)
+            return WorkspaceBoundary.safeRelativePath(path, root: workspaceRoot) == nil
         }
         return false
+    }
+
+    private static func normalizedDiffPath(_ rawPath: String) -> String {
+        DiffHeaderPathParser.strippingDiffPrefix(rawPath)
     }
 
     private func shellQuote(_ value: String) -> String {

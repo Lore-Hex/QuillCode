@@ -59,4 +59,30 @@ final class PatchToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("unsafe path") == true, "expected validator rejection, got: \(result.error ?? "")")
         XCTAssertFalse(FileManager.default.fileExists(atPath: outside.appendingPathComponent("evil.txt").path))
     }
+
+    func testApplyPatchRejectsQuotedSymlinkEscapePaths() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let outside = parent.appendingPathComponent("outside dir")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape dir"),
+            withDestinationURL: outside
+        )
+        let patch = """
+        diff --git "a/escape dir/evil file.txt" "b/escape dir/evil file.txt"
+        new file mode 100644
+        --- /dev/null
+        +++ "b/escape dir/evil file.txt"
+        @@ -0,0 +1 @@
+        +pwned
+        """
+
+        let result = PatchToolExecutor(workspaceRoot: root).apply(unifiedDiff: patch)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("unsafe path") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outside.appendingPathComponent("evil file.txt").path))
+    }
 }

@@ -9,6 +9,32 @@ import Foundation
 /// escape. Every gate must also check the symlink-resolved path; centralizing it here keeps the
 /// validators consistent rather than each re-deriving (and drifting on) the boundary.
 public enum WorkspaceBoundary {
+    public static func safeURL(_ path: String, root: URL) -> URL? {
+        let standardizedRoot = root.standardizedFileURL
+        let candidate = path.hasPrefix("/")
+            ? URL(fileURLWithPath: path)
+            : standardizedRoot.appendingPathComponent(path)
+        guard isWithin(candidate, root: standardizedRoot) else {
+            return nil
+        }
+        return candidate.standardizedFileURL
+    }
+
+    public static func safeRelativePath(_ path: String, root: URL) -> String? {
+        let standardizedRoot = root.standardizedFileURL
+        guard let url = safeURL(path, root: standardizedRoot) else {
+            return nil
+        }
+        if url.path == standardizedRoot.path {
+            return "."
+        }
+        let rootPath = standardizedRoot.path.hasSuffix("/") ? standardizedRoot.path : "\(standardizedRoot.path)/"
+        guard url.path.hasPrefix(rootPath) else {
+            return nil
+        }
+        return String(url.path.dropFirst(rootPath.count))
+    }
+
     /// Whether `candidate` resolves to a location inside (or equal to) `root`, enforcing both the
     /// lexical and the symlink-resolved boundary. Both sides are symlink-resolved for the second check
     /// because the workspace root itself is often a symlink on macOS (`/tmp` -> `/private/tmp`,

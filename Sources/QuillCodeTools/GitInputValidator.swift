@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 public enum GitInputValidator {
     public static let safeNameCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-"
@@ -29,20 +30,9 @@ public enum GitInputValidator {
             throw GitToolError.emptyPath
         }
 
-        let root = cwd.standardizedFileURL
-        let candidate = trimmed.hasPrefix("/")
-            ? URL(fileURLWithPath: trimmed)
-            : root.appendingPathComponent(trimmed)
-        let standardized = candidate.standardizedFileURL
-        let rootPath = root.path.hasSuffix("/") ? root.path : "\(root.path)/"
-        // Shared workspace boundary: lexical AND symlink-resolved, so a symlink inside the workspace
-        // pointing outside cannot let a staged/restored path escape (matches FileToolExecutor).
-        guard WorkspaceBoundary.isWithin(candidate, root: cwd) else {
+        guard let relativePath = WorkspaceBoundary.safeRelativePath(trimmed, root: cwd) else {
             throw GitToolError.outsideWorkspace(path)
         }
-        guard standardized.path != root.path else {
-            return "."
-        }
-        return String(standardized.path.dropFirst(rootPath.count))
+        return relativePath
     }
 }
