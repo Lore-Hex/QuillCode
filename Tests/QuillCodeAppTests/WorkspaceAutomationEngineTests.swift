@@ -400,7 +400,7 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
             title: "Launch plan",
             projectID: UUID(),
             mode: .review,
-            model: "/synth",
+            model: "/prometheus",
             messages: [
                 .init(role: .user, content: "Latest question"),
                 .init(role: .assistant, content: "Latest answer")
@@ -441,7 +441,7 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(draft.thread.title, "Follow-up: Launch plan")
         XCTAssertEqual(draft.thread.projectID, projectID)
         XCTAssertEqual(draft.thread.mode, .review)
-        XCTAssertEqual(draft.thread.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(draft.thread.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(draft.thread.messages, source.messages)
         XCTAssertEqual(draft.thread.events.map(\.summary), [
             "Automation ran: Follow up: Launch plan",

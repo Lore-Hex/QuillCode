@@ -24,7 +24,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
             instructions: [instruction],
             memories: [memory],
             mode: .review,
-            model: TrustedRouterDefaults.synthModel,
+            model: TrustedRouterDefaults.prometheusModel,
             agentStatus: "Running"
         )
 
@@ -34,7 +34,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
         Instructions: 1 instruction file loaded
         Memories: 1 memory
         Mode: Review
-        Model: Synth (/synth)
+        Model: Prometheus 1.0 (/prometheus)
         Agent: Running
         """)
     }
@@ -77,10 +77,10 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
     }
 
     func testModelLabelsPreferBrandingForRecommendedModels() {
-        XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel("trustedrouter/fusion"), "Synth")
-        XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel("trustedrouter/fusion"), "Synth (/synth)")
-        XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel(TrustedRouterDefaults.synthCodeModel), "Synth Code")
-        XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel(TrustedRouterDefaults.synthCodeModel), "Synth Code (/synth-code)")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel("trustedrouter/fusion"), "Prometheus 1.0")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel("trustedrouter/fusion"), "Prometheus 1.0 (/prometheus)")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel(TrustedRouterDefaults.platoModel), "Plato 1.0")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel(TrustedRouterDefaults.platoModel), "Plato 1.0 (/plato)")
         XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel("anthropic/claude-opus-4.1"), "anthropic/claude-opus-4.1")
         XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel("anthropic/claude-opus-4.1"), "anthropic/claude-opus-4.1")
     }

@@ -18,17 +18,17 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         var config = AppConfig(defaultModel: TrustedRouterDefaults.fastModel)
         var thread = ChatThread(model: TrustedRouterDefaults.fastModel)
 
-        let modelID = WorkspaceConfigurationEngine.setModel(" /synth ", config: &config)
+        let modelID = WorkspaceConfigurationEngine.setModel(" /prometheus ", config: &config)
         WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
 
-        XCTAssertEqual(modelID, TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(thread.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(modelID, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.prometheusModel)
     }
 
     func testModelUpdatesNormalizeBrandedDefaultName() {
-        var config = AppConfig(defaultModel: TrustedRouterDefaults.synthModel)
-        var thread = ChatThread(model: TrustedRouterDefaults.synthModel)
+        var config = AppConfig(defaultModel: TrustedRouterDefaults.prometheusModel)
+        var thread = ChatThread(model: TrustedRouterDefaults.prometheusModel)
 
         let modelID = WorkspaceConfigurationEngine.setModel(" Nike 1.0 ", config: &config)
         WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
@@ -39,8 +39,8 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
     }
 
     func testBlankModelFallsBackToDefault() {
-        var config = AppConfig(defaultModel: TrustedRouterDefaults.synthModel)
-        var thread = ChatThread(model: TrustedRouterDefaults.synthModel)
+        var config = AppConfig(defaultModel: TrustedRouterDefaults.prometheusModel)
+        var thread = ChatThread(model: TrustedRouterDefaults.prometheusModel)
 
         let modelID = WorkspaceConfigurationEngine.setModel("   ", config: &config)
         WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
@@ -51,19 +51,19 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
     }
 
     func testFavoriteToggleCanonicalizesDedupesAndRejectsBlank() {
-        var config = AppConfig(favoriteModels: ["/synth", "z-ai/glm-5.2"])
+        var config = AppConfig(favoriteModels: ["/prometheus", "z-ai/glm-5.2"])
 
         XCTAssertFalse(WorkspaceConfigurationEngine.toggleFavorite("  ", config: &config))
-        XCTAssertEqual(config.favoriteModels, [TrustedRouterDefaults.synthModel, "z-ai/glm-5.2"])
+        XCTAssertEqual(config.favoriteModels, [TrustedRouterDefaults.prometheusModel, "z-ai/glm-5.2"])
 
         XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite(" tr/fast ", config: &config))
         XCTAssertEqual(config.favoriteModels, [
-            TrustedRouterDefaults.synthModel,
+            TrustedRouterDefaults.prometheusModel,
             "z-ai/glm-5.2",
             TrustedRouterDefaults.fastModel
         ])
 
-        XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite("/synth", config: &config))
+        XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite("/prometheus", config: &config))
         XCTAssertEqual(config.favoriteModels, [
             "z-ai/glm-5.2",
             TrustedRouterDefaults.fastModel
@@ -74,14 +74,18 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         XCTAssertNil(WorkspaceConfigurationEngine.normalizedCatalog(from: []))
 
         let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: [
-            ModelInfo(id: " /synth ", provider: "tr", displayName: "", category: ""),
-            ModelInfo(id: " /synth-code ", provider: "tr", displayName: "Synth Code", category: ""),
+            ModelInfo(id: " /prometheus ", provider: "tr", displayName: "", category: ""),
+            ModelInfo(id: " /plato ", provider: "tr", displayName: "Plato 1.0", category: ""),
             ModelInfo(id: "vendor/model", provider: "vendor", displayName: "Model", category: "Vendor")
         ])
 
-        XCTAssertEqual(catalog?.first?.id, TrustedRouterDefaults.socratesModel)
-        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthModel && $0.displayName == "Synth" } == true)
-        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthCodeModel && $0.displayName == "Synth Code" } == true)
+        XCTAssertEqual(catalog?.first?.id, TrustedRouterDefaults.fastModel)
+        XCTAssertTrue(catalog?.contains {
+            $0.id == TrustedRouterDefaults.prometheusModel && $0.displayName == "Prometheus 1.0"
+        } == true)
+        XCTAssertTrue(catalog?.contains {
+            $0.id == TrustedRouterDefaults.platoModel && $0.displayName == "Plato 1.0"
+        } == true)
         XCTAssertTrue(catalog?.contains { $0.id == "vendor/model" } == true)
     }
 
@@ -89,7 +93,7 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         let thread = ChatThread(mode: .auto, model: TrustedRouterDefaults.fastModel)
         var root = QuillCodeRootState(threads: [thread], selectedThreadID: thread.id)
         let config = AppConfig(
-            defaultModel: "/synth",
+            defaultModel: "/prometheus",
             mode: .readOnly,
             apiBaseURL: "https://api.trustedrouter.test/v1",
             developerOverrideEnabled: true,
@@ -110,6 +114,6 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         XCTAssertEqual(root.config.computerUseApprovedAppNames, ["Terminal"])
         XCTAssertTrue(root.trustedRouterAPIKeyConfigured)
         XCTAssertEqual(root.threads[selectedIndex].mode, .readOnly)
-        XCTAssertEqual(root.threads[selectedIndex].model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(root.threads[selectedIndex].model, TrustedRouterDefaults.prometheusModel)
     }
 }

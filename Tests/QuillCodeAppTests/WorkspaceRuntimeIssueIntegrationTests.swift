@@ -66,12 +66,12 @@ final class WorkspaceRuntimeIssueIntegrationTests: XCTestCase {
 
     func testRuntimeIssueNormalizesTrustedRouterRateLimit() throws {
         let config = AppConfig(
-            defaultModel: TrustedRouterDefaults.synthModel,
+            defaultModel: TrustedRouterDefaults.prometheusModel,
             apiBaseURL: "https://api.trustedrouter.test/v1"
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: config,
-            topBar: TopBarState(model: TrustedRouterDefaults.synthModel),
+            topBar: TopBarState(model: TrustedRouterDefaults.prometheusModel),
             trustedRouterAPIKeyConfigured: true
         ))
 

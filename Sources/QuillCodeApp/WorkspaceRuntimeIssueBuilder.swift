@@ -153,7 +153,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
                 title: "Model response was malformed",
                 message: "The selected model did not follow QuillCode's action schema. " +
                     "Try \(TrustedRouterDefaults.fastModelDisplayName), " +
-                    "\(TrustedRouterDefaults.synthModelDisplayName), or another coding model.",
+                    "\(TrustedRouterDefaults.prometheusModelDisplayName), or another coding model.",
                 actionLabel: "Switch model",
                 recovery: .modelPicker(reason: .malformedModelAction)
             )

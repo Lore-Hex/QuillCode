@@ -36,11 +36,11 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
-                for: .model("/synth"),
-                userText: "/model /synth",
+                for: .model("/prometheus"),
+                userText: "/model /prometheus",
                 statusText: "unused"
             ),
-            .setModel("/synth", userText: "/model /synth")
+            .setModel("/prometheus", userText: "/model /prometheus")
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
@@ -81,11 +81,11 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
-                for: .remember("Use Synth"),
-                userText: "/remember Use Synth",
+                for: .remember("Use Prometheus 1.0"),
+                userText: "/remember Use Prometheus 1.0",
                 statusText: "unused"
             ),
-            .remember("Use Synth", userText: "/remember Use Synth")
+            .remember("Use Prometheus 1.0", userText: "/remember Use Prometheus 1.0")
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(

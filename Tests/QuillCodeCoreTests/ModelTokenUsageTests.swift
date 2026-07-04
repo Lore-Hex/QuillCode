@@ -38,12 +38,12 @@ final class ModelTokenUsageTests: XCTestCase {
 
     func testUsageEventRoundTripsThroughThreadEventPayload() throws {
         let usage = ModelTokenUsage(promptTokens: 10, completionTokens: 2, totalTokens: 12)
-        let event = ModelTokenUsageEvent.event(usage: usage, modelID: " /synth ")
+        let event = ModelTokenUsageEvent.event(usage: usage, modelID: " /prometheus ")
 
         XCTAssertEqual(event.kind, .notice)
         XCTAssertEqual(event.summary, ModelTokenUsageEvent.summary)
         XCTAssertEqual(ModelTokenUsageEvent.usage(from: event), usage)
-        XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.modelID, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.modelID, TrustedRouterDefaults.prometheusModel)
     }
 
     func testUsageEventReadsLegacyUsagePayload() throws {

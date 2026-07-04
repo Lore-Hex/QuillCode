@@ -155,7 +155,15 @@ enum SlashModelCatalogSearch {
 
     private static func score(_ option: ModelOptionSurface, query: String) -> Int? {
         guard !query.isEmpty else { return 50 }
-        let fields = [option.id, option.provider, option.displayName, option.detailTitle, option.category]
+        let fields = [
+            option.id,
+            option.provider,
+            option.displayName,
+            option.detailTitle,
+            option.category,
+            option.metadataSummary,
+            option.capabilitySummary
+        ]
             .map(normalize)
         if fields.contains(where: { $0.hasPrefix(query) }) { return 120 }
         // Allow multi-term substring matching ("moon k2") so the popup mirrors the picker's search.

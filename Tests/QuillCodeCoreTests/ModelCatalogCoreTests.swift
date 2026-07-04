@@ -102,23 +102,27 @@ final class ModelCatalogCoreTests: XCTestCase {
 
     func testTrustedRouterDefaults() {
         XCTAssertEqual(TrustedRouterDefaults.fastModel, "trustedrouter/fast")
-        XCTAssertEqual(TrustedRouterDefaults.synthModel, "tr/synth")
-        XCTAssertEqual(TrustedRouterDefaults.synthCodeModel, "tr/synth-code")
-        XCTAssertEqual(TrustedRouterDefaults.synthSlashAlias, "/synth")
-        XCTAssertEqual(TrustedRouterDefaults.synthCodeSlashAlias, "/synth-code")
+        XCTAssertEqual(TrustedRouterDefaults.zeusModel, "trustedrouter/zeus")
+        XCTAssertEqual(TrustedRouterDefaults.prometheusModel, "trustedrouter/fusion")
+        XCTAssertEqual(TrustedRouterDefaults.socratesModel, "trustedrouter/socrates")
+        XCTAssertEqual(TrustedRouterDefaults.aristotleModel, "trustedrouter/aristotle")
+        XCTAssertEqual(TrustedRouterDefaults.platoModel, "trustedrouter/plato")
+        XCTAssertEqual(TrustedRouterDefaults.prometheusSlashAlias, "/prometheus")
+        XCTAssertEqual(TrustedRouterDefaults.platoSlashAlias, "/plato")
         XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.fastModel), "Nike 1.0")
-        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthModel), "Synth")
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.zeusModel), "Zeus 1.0")
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.prometheusModel), "Prometheus 1.0")
         XCTAssertEqual(
-            TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthCodeModel),
-            "Synth Code"
+            TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.platoModel),
+            "Plato 1.0"
         )
-        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.synthModel), "/synth")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.prometheusModel), "/prometheus")
         XCTAssertEqual(
-            TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.synthCodeModel),
-            "/synth-code"
+            TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.platoModel),
+            "/plato"
         )
-        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID("trustedrouter/fusion"), "/synth")
-        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID("trustedrouter/fusion-code"), "/synth-code")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID("trustedrouter/fusion"), "/prometheus")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID("trustedrouter/plato"), "/plato")
         XCTAssertEqual(
             TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.fastModel),
             "trustedrouter/fast"
@@ -127,58 +131,59 @@ final class ModelCatalogCoreTests: XCTestCase {
         XCTAssertEqual(
             TrustedRouterDefaults.recommendedModelIDs,
             [
-                TrustedRouterDefaults.socratesModel,
                 TrustedRouterDefaults.fastModel,
-                TrustedRouterDefaults.synthModel,
-                TrustedRouterDefaults.synthCodeModel
+                TrustedRouterDefaults.zeusModel,
+                TrustedRouterDefaults.prometheusModel,
+                TrustedRouterDefaults.socratesModel,
+                TrustedRouterDefaults.aristotleModel,
+                TrustedRouterDefaults.platoModel
             ]
         )
         XCTAssertEqual(
             TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.socratesModel),
-            "Socrates 1.1"
+            "Socrates 1.0"
         )
         XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.socratesModel), "/socrates")
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("socrates-1.1"), TrustedRouterDefaults.socratesModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("socrates-1.0"), TrustedRouterDefaults.socratesModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/socrates"), TrustedRouterDefaults.socratesModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider("tr"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider(" TR "), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Nike 1.0"), TrustedRouterDefaults.fastModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fast"), TrustedRouterDefaults.fastModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth"), TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Synth"), TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/synth"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Deep Research"), TrustedRouterDefaults.zeusModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/zeus"), TrustedRouterDefaults.zeusModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/prometheus"), TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Prometheus 1.0"), TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/prometheus"), TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/prometheus"), TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: "/prometheus"), TrustedRouterDefaults.trustedRouterProvider)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/fusion"), TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("FUSION"), "FUSION")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion"), TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fusion"), "/fusion")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("synth"), "synth")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/synth"), "/synth")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth"), "tr/synth")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/plato"), TrustedRouterDefaults.platoModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Plato 1.0"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(
-            TrustedRouterDefaults.canonicalModelID(TrustedRouterDefaults.synthSlashAlias),
-            TrustedRouterDefaults.synthModel
+            TrustedRouterDefaults.canonicalModelID("trustedrouter/plato"),
+            TrustedRouterDefaults.platoModel
         )
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/plato"), TrustedRouterDefaults.platoModel)
+        XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: "/plato"), TrustedRouterDefaults.trustedRouterProvider)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/plato"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(
-            TrustedRouterDefaults.provider(fromModelID: TrustedRouterDefaults.synthSlashAlias),
-            TrustedRouterDefaults.trustedRouterProvider
+            TrustedRouterDefaults.canonicalModelID("trustedrouter/plato"),
+            TrustedRouterDefaults.platoModel
         )
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/fusion"), TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("FUSION"), TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion"), TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fusion"), TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth-code"), TrustedRouterDefaults.synthCodeModel)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Synth Code"), TrustedRouterDefaults.synthCodeModel)
-        XCTAssertEqual(
-            TrustedRouterDefaults.canonicalModelID("trustedrouter/synth-code"),
-            TrustedRouterDefaults.synthCodeModel
-        )
-        XCTAssertEqual(
-            TrustedRouterDefaults.canonicalModelID(TrustedRouterDefaults.synthCodeSlashAlias),
-            TrustedRouterDefaults.synthCodeModel
-        )
-        XCTAssertEqual(
-            TrustedRouterDefaults.provider(fromModelID: TrustedRouterDefaults.synthCodeSlashAlias),
-            TrustedRouterDefaults.trustedRouterProvider
-        )
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/fusion-code"), TrustedRouterDefaults.synthCodeModel)
-        XCTAssertEqual(
-            TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion-code"),
-            TrustedRouterDefaults.synthCodeModel
-        )
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fusion-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/plato"), TrustedRouterDefaults.platoModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("synth-code"), "synth-code")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("fusion-code"), "fusion-code")
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Aristotle"), TrustedRouterDefaults.aristotleModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("smart"), TrustedRouterDefaults.aristotleModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Plato"), TrustedRouterDefaults.platoModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("oss coding"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
         XCTAssertLessThan(
@@ -188,9 +193,9 @@ final class ModelCatalogCoreTests: XCTestCase {
                 displayName: "Nike 1.0"
             ),
             TrustedRouterDefaults.modelSortKey(
-                id: TrustedRouterDefaults.synthModel,
+                id: TrustedRouterDefaults.prometheusModel,
                 provider: "tr",
-                displayName: "Synth"
+                displayName: "Prometheus 1.0"
             )
         )
         XCTAssertLessThan(
@@ -202,10 +207,10 @@ final class ModelCatalogCoreTests: XCTestCase {
     func testModelCatalogNormalizationDeduplicatesAliasesAndSortsDefaultsFirst() {
         let catalog = TrustedRouterDefaults.normalizedModelCatalog([
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
-            .init(id: "/synth", provider: "trustedrouter", displayName: "Synth Alias", category: "Recommended"),
+            .init(id: "/prometheus", provider: "trustedrouter", displayName: "Prometheus 1.0 Alias", category: "Recommended"),
             .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Legacy Fusion", category: "Recommended"),
-            .init(id: "/synth-code", provider: "trustedrouter", displayName: "Synth Code Alias", category: "Recommended"),
-            .init(id: "/fusion-code", provider: "trustedrouter", displayName: "Legacy Fusion Code", category: "Recommended"),
+            .init(id: "/plato", provider: "trustedrouter", displayName: "Plato 1.0 Alias", category: "Recommended"),
+            .init(id: "tr/plato", provider: "trustedrouter", displayName: "Plato Alias", category: "Recommended"),
             .init(id: "tr/fast", provider: "tr", displayName: "Fast Alias", category: "Recommended")
         ])
 
@@ -215,9 +220,9 @@ final class ModelCatalogCoreTests: XCTestCase {
         )
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.socratesModel }.count, 1)
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
-        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthModel }.count, 1)
-        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthCodeModel }.count, 1)
-        XCTAssertFalse(catalog.contains { $0.id.contains("fusion") })
+        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.prometheusModel }.count, 1)
+        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.platoModel }.count, 1)
+        XCTAssertFalse(catalog.contains { ["/prometheus", "tr/prometheus", "tr/fusion", "/plato", "tr/plato"].contains($0.id) })
         XCTAssertFalse(catalog.contains { $0.displayName.contains("Fusion") })
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
     }

@@ -108,7 +108,7 @@ final class WorkspaceProjectContextRefresherTests: XCTestCase {
             request: request,
             projectID: projectID,
             mode: .review,
-            model: TrustedRouterDefaults.synthModel,
+            model: TrustedRouterDefaults.prometheusModel,
             projects: projects,
             globalMemories: globalMemories
         )
@@ -116,7 +116,7 @@ final class WorkspaceProjectContextRefresherTests: XCTestCase {
         XCTAssertEqual(worktreeContext.branch, request.branch)
         XCTAssertEqual(worktreeContext.projectID, projectID)
         XCTAssertEqual(worktreeContext.mode, .review)
-        XCTAssertEqual(worktreeContext.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(worktreeContext.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(worktreeContext.instructions.map(\.title), ["Project instruction"])
         XCTAssertEqual(worktreeContext.memories.map(\.title), ["Global memory", "Project memory"])
 

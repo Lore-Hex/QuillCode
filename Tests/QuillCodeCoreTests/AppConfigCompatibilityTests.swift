@@ -14,7 +14,7 @@ final class AppConfigCompatibilityTests: XCTestCase {
         }
         """)
 
-        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(config.favoriteModels, [])
         XCTAssertEqual(config.browserAllowedDomains, [])
         XCTAssertEqual(config.browserBlockedDomains, [])
@@ -110,7 +110,7 @@ final class AppConfigCompatibilityTests: XCTestCase {
           "updatedAt": "\(date)"
         }
         """)
-        XCTAssertEqual(thread.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(thread.instructions, [])
         XCTAssertEqual(thread.memories, [])
     }

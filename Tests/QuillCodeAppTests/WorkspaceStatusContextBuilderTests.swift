@@ -40,7 +40,7 @@ final class WorkspaceStatusContextBuilderTests: XCTestCase {
         let root = QuillCodeRootState(
             topBar: TopBarState(
                 projectName: "Fallback Project",
-                model: TrustedRouterDefaults.synthModel,
+                model: TrustedRouterDefaults.prometheusModel,
                 mode: .review,
                 agentStatus: "Running"
             )
@@ -58,7 +58,7 @@ final class WorkspaceStatusContextBuilderTests: XCTestCase {
         XCTAssertEqual(context.instructions, [instruction])
         XCTAssertEqual(context.memories, [memory])
         XCTAssertEqual(context.mode, .review)
-        XCTAssertEqual(context.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(context.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(context.agentStatus, "Running")
     }
 

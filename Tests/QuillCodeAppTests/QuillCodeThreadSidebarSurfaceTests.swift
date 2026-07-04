@@ -4,12 +4,12 @@ import QuillCodeCore
 
 final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
     func testSidebarSurfaceFiltersGroupsAndLabelsSelection() {
-        let selectedThread = ChatThread(title: "Run whoami", model: TrustedRouterDefaults.synthModel)
+        let selectedThread = ChatThread(title: "Run whoami", model: TrustedRouterDefaults.prometheusModel)
         var pinnedThread = ChatThread(title: "Review git diff", model: "z-ai/glm-5.2", isPinned: true)
         pinnedThread.messages = [
             .init(role: .user, content: "Can you inspect the browser preview?")
         ]
-        var archivedThread = ChatThread(title: "Old release plan", model: TrustedRouterDefaults.synthModel)
+        var archivedThread = ChatThread(title: "Old release plan", model: TrustedRouterDefaults.prometheusModel)
         archivedThread.isArchived = true
 
         let surface = SidebarSurface(

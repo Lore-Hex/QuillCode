@@ -43,7 +43,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
             title: "Investigate issue",
             projectID: projectID,
             mode: .readOnly,
-            model: "/synth",
+            model: "/prometheus",
             messages: [
                 .init(role: .user, content: "old question"),
                 .init(role: .assistant, content: "old answer"),
@@ -58,7 +58,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
         XCTAssertEqual(fork.title, "Fork: Investigate issue")
         XCTAssertEqual(fork.projectID, projectID)
         XCTAssertEqual(fork.mode, .readOnly)
-        XCTAssertEqual(fork.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(fork.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(fork.messages.map(\.content), ["latest question", "latest answer"])
         XCTAssertFalse(fork.messages.contains { $0.role == .tool })
         XCTAssertEqual(fork.events.first?.summary, "Forked from Investigate issue")

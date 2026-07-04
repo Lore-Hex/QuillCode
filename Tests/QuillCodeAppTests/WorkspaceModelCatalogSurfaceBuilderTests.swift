@@ -8,7 +8,7 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
     func testModelLabelUsesBrandedCatalogNameOrCanonicalFallback() {
         let known = WorkspaceModelCatalogSurfaceBuilder(
             catalog: defaultCatalog,
-            selectedModelID: "tr/synth",
+            selectedModelID: "tr/prometheus",
             defaultModelID: TrustedRouterDefaults.defaultModel,
             favoriteModelIDs: [],
             recentModelIDs: []
@@ -21,7 +21,7 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
             recentModelIDs: []
         )
 
-        XCTAssertEqual(known.modelLabel(), TrustedRouterDefaults.synthModelDisplayName)
+        XCTAssertEqual(known.modelLabel(), TrustedRouterDefaults.prometheusModelDisplayName)
         XCTAssertEqual(unknown.modelLabel(), "custom/edge-model")
     }
 
@@ -31,10 +31,10 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
                 ModelInfo(id: "tr/fast", provider: "tr", displayName: "", category: ""),
                 ModelInfo(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
             ],
-            selectedModelID: " /synth ",
+            selectedModelID: " /prometheus ",
             defaultModelID: "tr/fast",
-            favoriteModelIDs: [" /synth ", "tr/synth"],
-            recentModelIDs: ["moonshotai/kimi-k2.6", "/synth", "moonshotai/kimi-k2.6"],
+            favoriteModelIDs: [" /prometheus ", "tr/prometheus"],
+            recentModelIDs: ["moonshotai/kimi-k2.6", "/prometheus", "moonshotai/kimi-k2.6"],
             recentLimit: 4
         )
 
@@ -42,7 +42,7 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(categories.prefix(3).map(\.category), ["Favorites", "Recent", "Recommended"])
 
         let favorite = try XCTUnwrap(categories.first)
-        XCTAssertEqual(favorite.models.map(\.id), [TrustedRouterDefaults.synthModel])
+        XCTAssertEqual(favorite.models.map(\.id), [TrustedRouterDefaults.prometheusModel])
         XCTAssertEqual(favorite.models.first?.badges, ["Favorite", "Current", "Recommended"])
         XCTAssertTrue(favorite.models.first?.isFavorite == true)
 

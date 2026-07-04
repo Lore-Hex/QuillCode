@@ -67,7 +67,7 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
 
         for modelID in [
             TrustedRouterDefaults.fastModel,
-            TrustedRouterDefaults.synthModel,
+            TrustedRouterDefaults.prometheusModel,
             TrustedRouterDefaults.socratesModel,
             TrustedRouterDefaults.safetyPrimaryCatalogModel,
             TrustedRouterDefaults.safetyFallbackCatalogModel,
@@ -206,7 +206,7 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
 
         for modelID in [
             TrustedRouterDefaults.fastModel,
-            TrustedRouterDefaults.synthModel,
+            TrustedRouterDefaults.prometheusModel,
             "z-ai/glm-5.2",
             "gemini/gemini-2.5-pro"
         ] {

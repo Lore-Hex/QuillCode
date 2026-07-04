@@ -45,10 +45,10 @@ final class WorkspaceModelCommandPersistenceIntegrationTests: XCTestCase {
 
         // `setModel` is exactly what the `/model` popup accept invokes via `onSetModel`. It returns
         // the canonical id, writes the thread, and persists — the whole live-writer chain.
-        let resolved = model.setModel("tr/synth")
-        XCTAssertEqual(resolved, TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(model.selectedThread?.model, TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(try threadStore.load(thread.id).model, TrustedRouterDefaults.synthModel)
+        let resolved = model.setModel("tr/prometheus")
+        XCTAssertEqual(resolved, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(model.selectedThread?.model, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(try threadStore.load(thread.id).model, TrustedRouterDefaults.prometheusModel)
     }
 
     func testPerThreadModelIsIndependentAcrossThreads() throws {
@@ -64,9 +64,9 @@ final class WorkspaceModelCommandPersistenceIntegrationTests: XCTestCase {
             threadStore: threadStore
         )
 
-        model.setModel("tr/synth")
+        model.setModel("tr/prometheus")
         // Only the selected thread changed; the other keeps its own model (per-thread storage).
-        XCTAssertEqual(try threadStore.load(first.id).model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(try threadStore.load(first.id).model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(try threadStore.load(second.id).model, TrustedRouterDefaults.defaultModel)
     }
 
@@ -87,12 +87,12 @@ final class WorkspaceModelCommandPersistenceIntegrationTests: XCTestCase {
         )
 
         // Switch model, then run a normal turn.
-        model.setModel("tr/synth")
+        model.setModel("tr/prometheus")
         model.setDraft("do the thing")
         await model.submitComposer(workspaceRoot: root)
 
-        // The run's client was retargeted at the selected model (Synth), not the build-time default.
-        XCTAssertEqual(recorder.lastRunModel, TrustedRouterDefaults.synthModel)
+        // The run's client was retargeted at the selected model (Prometheus 1.0), not the build-time default.
+        XCTAssertEqual(recorder.lastRunModel, TrustedRouterDefaults.prometheusModel)
         XCTAssertNotEqual(recorder.lastRunModel, TrustedRouterDefaults.defaultModel)
     }
 
@@ -113,13 +113,13 @@ final class WorkspaceModelCommandPersistenceIntegrationTests: XCTestCase {
             threadStore: threadStore
         )
 
-        // First thread switches to Synth and runs → run uses Synth.
-        model.setModel("tr/synth")
+        // First thread switches to Prometheus 1.0 and runs → run uses Prometheus 1.0.
+        model.setModel("tr/prometheus")
         model.setDraft("first turn")
         await model.submitComposer(workspaceRoot: root)
-        XCTAssertEqual(recorder.lastRunModel, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(recorder.lastRunModel, TrustedRouterDefaults.prometheusModel)
 
-        // Switch to the second (still-default) thread and run → run uses the DEFAULT, not Synth.
+        // Switch to the second (still-default) thread and run → run uses the DEFAULT, not Prometheus 1.0.
         model.selectThread(second.id)
         model.setDraft("second turn")
         await model.submitComposer(workspaceRoot: root)

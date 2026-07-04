@@ -11,11 +11,8 @@ extension ModelOptionSurface {
             return summary
         }
         let canonicalModelID = TrustedRouterDefaults.canonicalModelID(modelID)
-        if canonicalModelID == TrustedRouterDefaults.defaultModel {
-            return "Fast everyday agent"
-        }
-        if canonicalModelID == TrustedRouterDefaults.synthModel {
-            return "Deeper planning and review"
+        if let summary = TrustedRouterDefaults.recommendedSummaries[canonicalModelID] {
+            return summary
         }
         if category == TrustedRouterDefaults.safetyCategory {
             return "Auto safety reviewer"
@@ -45,17 +42,9 @@ extension ModelOptionSurface {
         if !facts.isEmpty {
             return facts.joined(separator: " · ")
         }
-        if modelID == TrustedRouterDefaults.defaultModel {
-            return [
-                TrustedRouterDefaults.fastModelDisplayName,
-                "is the fast default for coding, shell, and file-editing turns."
-            ].joined(separator: " ")
-        }
-        if modelID == TrustedRouterDefaults.synthModel {
-            return [
-                TrustedRouterDefaults.synthModelDisplayName,
-                "is the balanced model for deeper coding and review turns."
-            ].joined(separator: " ")
+        let canonicalModelID = TrustedRouterDefaults.canonicalModelID(modelID)
+        if let summary = TrustedRouterDefaults.recommendedCapabilitySummaries[canonicalModelID] {
+            return summary
         }
         if badges.contains("Recommended") {
             return "Recommended model profile available through TrustedRouter."

@@ -12,14 +12,14 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             instructionSources: [],
             memoryLabel: "Memory",
             memorySources: [],
-            modelLabel: TrustedRouterDefaults.synthModelDisplayName,
-            selectedModelID: TrustedRouterDefaults.synthModel,
+            modelLabel: TrustedRouterDefaults.prometheusModelDisplayName,
+            selectedModelID: TrustedRouterDefaults.prometheusModel,
             modelCategories: [
                 ModelCategorySurface(category: "Favorites", models: [
                     modelOption(
-                        id: TrustedRouterDefaults.synthModel,
+                        id: TrustedRouterDefaults.prometheusModel,
                         provider: TrustedRouterDefaults.trustedRouterProvider,
-                        displayName: TrustedRouterDefaults.synthModelDisplayName,
+                        displayName: TrustedRouterDefaults.prometheusModelDisplayName,
                         category: "Recommended",
                         isFavorite: true,
                         badges: ["Favorite", "Current", "Recommended"]
@@ -52,7 +52,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(topBar.filteredModelCategories(matching: "").map(\.category), ["Favorites", "Recent", "Coding"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "favorite").map(\.category), ["Favorites"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").map(\.category), ["Recent"])
-        XCTAssertEqual(filteredModelIDs(topBar, query: "favorite synth"), [TrustedRouterDefaults.synthModel])
+        XCTAssertEqual(filteredModelIDs(topBar, query: "favorite prometheus"), [TrustedRouterDefaults.prometheusModel])
         XCTAssertEqual(filteredModelIDs(topBar, query: "recent moon k2"), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(filteredModelIDs(topBar, query: "coding"), ["acme/code-pro"])
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
@@ -72,9 +72,9 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             ]),
             ModelCategorySurface(category: "Recent", models: [
                 modelOption(
-                    id: TrustedRouterDefaults.synthModel,
+                    id: TrustedRouterDefaults.prometheusModel,
                     provider: TrustedRouterDefaults.trustedRouterProvider,
-                    displayName: TrustedRouterDefaults.synthModelDisplayName,
+                    displayName: TrustedRouterDefaults.prometheusModelDisplayName,
                     category: "Recommended",
                     badges: ["Recent"]
                 )
@@ -109,8 +109,8 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             [TrustedRouterDefaults.defaultModel]
         )
         XCTAssertEqual(
-            ModelCategorySearchFilter.filter(categories, matching: "recent synth").flatMap(\.models).map(\.id),
-            [TrustedRouterDefaults.synthModel]
+            ModelCategorySearchFilter.filter(categories, matching: "recent prometheus").flatMap(\.models).map(\.id),
+            [TrustedRouterDefaults.prometheusModel]
         )
     }
 
@@ -177,7 +177,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(option.metadataSummary, "Fast everyday agent")
         XCTAssertEqual(
             option.capabilitySummary,
-            "\(TrustedRouterDefaults.fastModelDisplayName) is the fast default for coding, shell, and file-editing turns."
+            "\(TrustedRouterDefaults.fastModelDisplayName) is the fast default for everyday coding, shell, and file-editing turns."
         )
         XCTAssertEqual(option.modelInfo.id, TrustedRouterDefaults.defaultModel)
         XCTAssertEqual(option.modelInfo.displayName, TrustedRouterDefaults.fastModelDisplayName)
@@ -201,12 +201,12 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         let data = try XCTUnwrap(json.data(using: .utf8))
         let option = try JSONDecoder().decode(ModelOptionSurface.self, from: data)
 
-        XCTAssertEqual(option.id, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(option.id, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(option.isFavorite, false)
         XCTAssertEqual(option.badges, [])
-        XCTAssertEqual(option.detailTitle, TrustedRouterDefaults.synthModelDisplayName)
-        XCTAssertEqual(option.metadataSummary, "Deeper planning and review")
-        XCTAssertEqual(option.metadataRows.first { $0.label == "Model ID" }?.value, "/synth")
+        XCTAssertEqual(option.detailTitle, TrustedRouterDefaults.prometheusModelDisplayName)
+        XCTAssertEqual(option.metadataSummary, "Freedom, OSS, deep research")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Model ID" }?.value, "/prometheus")
         XCTAssertEqual(option.metadataRows.first { $0.label == "State" }?.value, "Current")
         XCTAssertTrue(option.metadataDetails.contains("Current selection"))
     }

@@ -95,12 +95,12 @@ final class ParityWorkspacePlaywrightChromeSpecGateTests: QuillCodeParityTestCas
         )
         let statusFlowNames = [
             "reports workspace status from composer with branded default model",
-            "reports Synth status with preferred slash alias after model switch"
+            "reports Prometheus status with preferred slash alias after model switch"
         ]
 
         XCTAssertTrue(statusSpecText.contains("harnessURL()"), "Focused status flows should reuse the shared harness URL helper.")
         XCTAssertTrue(statusSpecText.contains("Model: Nike 1.0 (trustedrouter/fast)"), "Status E2E should cover the branded default model output.")
-        XCTAssertTrue(statusSpecText.contains("Model: Synth (/synth)"), "Status E2E should cover the preferred Synth slash alias output.")
+        XCTAssertTrue(statusSpecText.contains("Model: Prometheus 1.0 (/prometheus)"), "Status E2E should cover the preferred Prometheus 1.0 slash alias output.")
         XCTAssertTrue(statusSpecText.contains("top-bar-subtitle"), "Status E2E should cover the top-bar state seen by real users.")
         for flowName in statusFlowNames {
             XCTAssertTrue(statusSpecText.contains(flowName), "\(flowName) should live in status.spec.ts.")

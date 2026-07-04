@@ -214,17 +214,17 @@ final class AuxiliaryModelSelectorTests: XCTestCase {
     func testFallsBackToSessionModelWhenCatalogHasNoPrices() {
         let selection = AuxiliaryModelSelector.selection(
             models: TrustedRouterModelCatalog.defaultModels,
-            sessionModelID: "tr/synth"
+            sessionModelID: "tr/prometheus"
         )
 
-        XCTAssertEqual(selection.modelID, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(selection.modelID, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(selection.source, .sessionModelFallback)
     }
 
     func testFallbackCanonicalizesAndDefaultsTheSessionModel() {
         XCTAssertEqual(
-            AuxiliaryModelSelector.selection(models: [], sessionModelID: "/fusion").modelID,
-            TrustedRouterDefaults.synthModel
+            AuxiliaryModelSelector.selection(models: [], sessionModelID: "/prometheus").modelID,
+            TrustedRouterDefaults.prometheusModel
         )
         XCTAssertEqual(
             AuxiliaryModelSelector.selection(models: [], sessionModelID: " ").modelID,

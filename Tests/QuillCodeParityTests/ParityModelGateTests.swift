@@ -11,32 +11,22 @@ final class ParityModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(modelInfoText.contains("public struct ModelSortKey"), "Model sort policy inputs should live beside model catalog records.")
         XCTAssertTrue(defaultsText.contains("public enum TrustedRouterDefaults"), "TrustedRouter defaults should live in their own named core file.")
         XCTAssertTrue(defaultsText.contains("Nike 1.0"), "User-facing default model branding should stay with TrustedRouter defaults.")
-        XCTAssertTrue(defaultsText.contains("Synth"), "User-facing fallback model branding should stay with TrustedRouter defaults.")
+        ["Zeus 1.0", "Prometheus 1.0", "Socrates 1.0", "Aristotle 1.0", "Plato 1.0"].forEach {
+            XCTAssertTrue(defaultsText.contains($0), "\($0) branding should stay with TrustedRouter defaults.")
+        }
         XCTAssertTrue(defaultsText.contains("normalizedModelCatalog"), "Model catalog normalization should stay with TrustedRouter defaults.")
         XCTAssertFalse(modelsText.contains("public struct ModelInfo"), "General domain models should not own model catalog records.")
         XCTAssertFalse(modelsText.contains("public struct ModelSortKey"), "General domain models should not own model sort records.")
         XCTAssertFalse(modelsText.contains("public enum TrustedRouterDefaults"), "General domain models should not own TrustedRouter defaults.")
         XCTAssertFalse(modelsText.contains("Nike 1.0"), "General domain models should not own model branding copy.")
-        XCTAssertFalse(modelsText.contains("Synth"), "General domain models should not own model branding copy.")
+        XCTAssertFalse(modelsText.contains("Prometheus 1.0"), "General domain models should not own model branding copy.")
     }
 
-    func testSynthBrandingIsPreferredOutsideTrustedRouterAliasBoundary() throws {
-        let sourceRoot = Self.packageRoot().appendingPathComponent("Sources")
-        let allowedAliasFile = "TrustedRouterDefaults.swift"
-        let sourceFiles = try FileManager.default
-            .subpathsOfDirectory(atPath: sourceRoot.path)
-            .filter { $0.hasSuffix(".swift") }
-
-        let leakingFiles = try sourceFiles.compactMap { relativePath -> String? in
-            guard !relativePath.hasSuffix(allowedAliasFile) else { return nil }
-            let source = try String(contentsOf: sourceRoot.appendingPathComponent(relativePath), encoding: .utf8)
-            return source.contains("Fusion") || source.contains("fusion") ? relativePath : nil
+    func testRemovedSynthAliasesDoNotReturn() throws {
+        let defaultsText = try Self.coreSourceText(named: "TrustedRouterDefaults.swift")
+        for removedAlias in ["tr/synth", "/synth", "trustedrouter/synth", "synth-code", "fusion-code"] {
+            XCTAssertFalse(defaultsText.contains(#""\#(removedAlias)""#), "\(removedAlias) should not be a hidden model alias.")
         }
-
-        XCTAssertTrue(
-            leakingFiles.isEmpty,
-            "Fusion should stay a hidden legacy alias in \(allowedAliasFile); app surfaces should prefer Synth. Leaks: \(leakingFiles.joined(separator: ", "))"
-        )
     }
 
     func testAppConfigLivesOutsideGeneralDomainModels() throws {

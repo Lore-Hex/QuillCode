@@ -2,9 +2,11 @@ import Foundation
 
 public enum TrustedRouterDefaults {
     public static let fastModel = "trustedrouter/fast"
-    public static let synthModel = "tr/synth"
-    public static let synthCodeModel = "tr/synth-code"
-    public static let socratesModel = "tr/socrates"
+    public static let zeusModel = "trustedrouter/zeus"
+    public static let prometheusModel = "trustedrouter/fusion"
+    public static let socratesModel = "trustedrouter/socrates"
+    public static let aristotleModel = "trustedrouter/aristotle"
+    public static let platoModel = "trustedrouter/plato"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.trustedrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
@@ -16,14 +18,25 @@ public enum TrustedRouterDefaults {
     public static let currentCategory = "Current"
     public static let trustedRouterProvider = "trustedrouter"
     public static let fastModelDisplayName = "Nike 1.0"
-    public static let synthModelDisplayName = "Synth"
-    public static let synthCodeModelDisplayName = "Synth Code"
-    public static let socratesModelDisplayName = "Socrates 1.1"
-    public static let synthSlashAlias = "/synth"
-    public static let synthCodeSlashAlias = "/synth-code"
+    public static let zeusModelDisplayName = "Zeus 1.0"
+    public static let prometheusModelDisplayName = "Prometheus 1.0"
+    public static let socratesModelDisplayName = "Socrates 1.0"
+    public static let aristotleModelDisplayName = "Aristotle 1.0"
+    public static let platoModelDisplayName = "Plato 1.0"
+    public static let zeusSlashAlias = "/zeus"
+    public static let prometheusSlashAlias = "/prometheus"
     public static let socratesSlashAlias = "/socrates"
+    public static let aristotleSlashAlias = "/aristotle"
+    public static let platoSlashAlias = "/plato"
     public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
-    public static let recommendedModelIDs = [socratesModel, fastModel, synthModel, synthCodeModel]
+    public static let recommendedModelIDs = [
+        fastModel,
+        zeusModel,
+        prometheusModel,
+        socratesModel,
+        aristotleModel,
+        platoModel
+    ]
     public static let modelIDAliases: [String: String] = [
         "fast": fastModel,
         "/fast": fastModel,
@@ -32,48 +45,89 @@ public enum TrustedRouterDefaults {
         "/nike": fastModel,
         "nike 1.0": fastModel,
         "trustedrouter/nike": fastModel,
-        "tr/synth": synthModel,
-        "synth": synthModel,
-        synthSlashAlias: synthModel,
-        "trustedrouter/synth": synthModel,
-        "fusion": synthModel,
-        "/fusion": synthModel,
-        "tr/fusion": synthModel,
-        "trustedrouter/fusion": synthModel,
-        "tr/synth-code": synthCodeModel,
-        "synth-code": synthCodeModel,
-        "synth code": synthCodeModel,
-        synthCodeSlashAlias: synthCodeModel,
-        "trustedrouter/synth-code": synthCodeModel,
-        "fusion-code": synthCodeModel,
-        "/fusion-code": synthCodeModel,
-        "tr/fusion-code": synthCodeModel,
-        "trustedrouter/fusion-code": synthCodeModel,
+        "tr/nike": fastModel,
+        "zeus": zeusModel,
+        "/zeus": zeusModel,
+        "zeus 1.0": zeusModel,
+        "zeus-1.0": zeusModel,
+        "trustedrouter/zeus": zeusModel,
+        "tr/zeus": zeusModel,
+        "deep research": zeusModel,
+        "deep-research": zeusModel,
+        "trustedrouter/deep-research": zeusModel,
+        "tr/deep-research": zeusModel,
+        "prometheus": prometheusModel,
+        "/prometheus": prometheusModel,
+        "prometheus 1.0": prometheusModel,
+        "prometheus-1.0": prometheusModel,
+        "trustedrouter/prometheus": prometheusModel,
+        "tr/prometheus": prometheusModel,
+        "tr/fusion": prometheusModel,
         "tr/socrates": socratesModel,
         "socrates": socratesModel,
-        "socrates 1.1": socratesModel,
-        "socrates-1.1": socratesModel,
+        "socrates 1.0": socratesModel,
+        "socrates-1.0": socratesModel,
         socratesSlashAlias: socratesModel,
-        "trustedrouter/socrates": socratesModel
+        "trustedrouter/socrates": socratesModel,
+        "aristotle": aristotleModel,
+        "/aristotle": aristotleModel,
+        "aristotle 1.0": aristotleModel,
+        "aristotle-1.0": aristotleModel,
+        "trustedrouter/aristotle": aristotleModel,
+        "tr/aristotle": aristotleModel,
+        "smart": aristotleModel,
+        "trustedrouter/smart": aristotleModel,
+        "tr/smart": aristotleModel,
+        "plato": platoModel,
+        "/plato": platoModel,
+        "plato 1.0": platoModel,
+        "plato-1.0": platoModel,
+        "trustedrouter/plato": platoModel,
+        "tr/plato": platoModel,
+        "oss coding": platoModel,
+        "oss-coding": platoModel,
+        "freedom oss coding agent": platoModel
     ]
     public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
     public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
     public static let safetyReviewerModelIDs = [safetyPrimaryCatalogModel, safetyFallbackCatalogModel]
 
     public static let bundledModelCatalog: [ModelInfo] = [
-        .init(id: socratesModel, provider: trustedRouterProvider, displayName: socratesModelDisplayName, category: recommendedCategory),
         .init(id: fastModel, provider: trustedRouterProvider, displayName: fastModelDisplayName, category: recommendedCategory),
-        .init(id: synthModel, provider: trustedRouterProvider, displayName: synthModelDisplayName, category: recommendedCategory),
-        .init(id: synthCodeModel, provider: trustedRouterProvider, displayName: synthCodeModelDisplayName, category: recommendedCategory),
+        .init(id: zeusModel, provider: trustedRouterProvider, displayName: zeusModelDisplayName, category: recommendedCategory),
+        .init(id: prometheusModel, provider: trustedRouterProvider, displayName: prometheusModelDisplayName, category: recommendedCategory),
+        .init(id: socratesModel, provider: trustedRouterProvider, displayName: socratesModelDisplayName, category: recommendedCategory),
+        .init(id: aristotleModel, provider: trustedRouterProvider, displayName: aristotleModelDisplayName, category: recommendedCategory),
+        .init(id: platoModel, provider: trustedRouterProvider, displayName: platoModelDisplayName, category: recommendedCategory),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
     ]
 
     public static let recommendedDisplayNames: [String: String] = [
-        socratesModel: socratesModelDisplayName,
         fastModel: fastModelDisplayName,
-        synthModel: synthModelDisplayName,
-        synthCodeModel: synthCodeModelDisplayName
+        zeusModel: zeusModelDisplayName,
+        prometheusModel: prometheusModelDisplayName,
+        socratesModel: socratesModelDisplayName,
+        aristotleModel: aristotleModelDisplayName,
+        platoModel: platoModelDisplayName
+    ]
+
+    public static let recommendedSummaries: [String: String] = [
+        fastModel: "Fast everyday agent",
+        zeusModel: "Deep research agent",
+        prometheusModel: "Freedom, OSS, deep research",
+        socratesModel: "Coding agent",
+        aristotleModel: "Smart general agent",
+        platoModel: "Freedom, OSS coding agent"
+    ]
+
+    public static let recommendedCapabilitySummaries: [String: String] = [
+        fastModel: "Nike 1.0 is the fast default for everyday coding, shell, and file-editing turns.",
+        zeusModel: "Zeus 1.0 is built for deep research turns that need broad synthesis.",
+        prometheusModel: "Prometheus 1.0 is the freedom-oriented OSS deep research model.",
+        socratesModel: "Socrates 1.0 is the coding-agent model for implementation-heavy work.",
+        aristotleModel: "Aristotle 1.0 is the smart general model for harder reasoning turns.",
+        platoModel: "Plato 1.0 is the freedom-oriented OSS coding-agent model."
     ]
 
     public static func canonicalProvider(_ provider: String) -> String {
@@ -113,12 +167,16 @@ public enum TrustedRouterDefaults {
 
     public static func preferredDisplayModelID(_ modelID: String) -> String {
         switch canonicalModelID(modelID) {
-        case synthModel:
-            return synthSlashAlias
-        case synthCodeModel:
-            return synthCodeSlashAlias
+        case zeusModel:
+            return zeusSlashAlias
+        case prometheusModel:
+            return prometheusSlashAlias
         case socratesModel:
             return socratesSlashAlias
+        case aristotleModel:
+            return aristotleSlashAlias
+        case platoModel:
+            return platoSlashAlias
         default:
             return canonicalModelID(modelID)
         }

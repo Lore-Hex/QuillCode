@@ -35,7 +35,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         let issue = WorkspaceRuntimeIssueBuilder(
             config: AppConfig(authMode: .developerOverride),
             hasStoredAPIKey: false,
-            modelID: TrustedRouterDefaults.synthModel,
+            modelID: TrustedRouterDefaults.prometheusModel,
             agentStatus: QuillCodeRuntimeStatusLabel.developerKeyNeeded
         ).surface()
 
@@ -47,7 +47,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
             commandID: "settings"
         ))
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Authentication" }?.value, "Developer override")
-        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Model" }?.value, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Model" }?.value, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider" }?.value, "trustedrouter")
     }
 
@@ -134,7 +134,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertEqual(issue?.actionLabel, "Switch model")
         XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(route: .modelPicker, reason: .malformedModelAction))
         XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.fastModelDisplayName) == true)
-        XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.synthModelDisplayName) == true)
+        XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.prometheusModelDisplayName) == true)
     }
 
     func testRejectedKeyIssueUsesSettingsRecoveryTelemetry() {

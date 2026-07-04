@@ -11,7 +11,7 @@ final class WorkspaceTopBarStateBuilderTests: XCTestCase {
             title: "Fix parser",
             projectID: projectID,
             mode: .review,
-            model: TrustedRouterDefaults.synthModel
+            model: TrustedRouterDefaults.prometheusModel
         )
         let root = QuillCodeRootState(
             config: AppConfig(defaultModel: TrustedRouterDefaults.defaultModel, mode: .auto),
@@ -37,7 +37,7 @@ final class WorkspaceTopBarStateBuilderTests: XCTestCase {
         XCTAssertEqual(state.appName, "QuillCode")
         XCTAssertEqual(state.projectName, "Thread Project")
         XCTAssertEqual(state.threadTitle, "Fix parser")
-        XCTAssertEqual(state.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(state.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(state.mode, AgentMode.review)
         XCTAssertEqual(state.agentStatus, TopBarAgentStatusLabel.running)
         XCTAssertEqual(state.computerUseStatus.message, "Computer Use ready")

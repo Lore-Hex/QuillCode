@@ -5,7 +5,7 @@ import QuillComputerUseKit
 
 final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
     func testBuildsThreadTopBarWithSourcesRuntimeIssueAndComputerUseState() {
-        let thread = ChatThread(title: "Ship QuillCode", model: TrustedRouterDefaults.synthModel)
+        let thread = ChatThread(title: "Ship QuillCode", model: TrustedRouterDefaults.prometheusModel)
         let instructions = [
             ProjectInstruction(
                 path: "AGENTS.md",
@@ -34,7 +34,7 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
             topBarState: TopBarState(
                 appName: "QuillCode",
                 projectName: "QuillCode",
-                model: TrustedRouterDefaults.synthModel,
+                model: TrustedRouterDefaults.prometheusModel,
                 mode: .review,
                 agentStatus: TopBarAgentStatusLabel.streaming,
                 computerUseStatus: .permissionStatus(
@@ -48,9 +48,9 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
             memories: memories,
             modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([
                 ModelInfo(
-                    id: TrustedRouterDefaults.synthModel,
+                    id: TrustedRouterDefaults.prometheusModel,
                     provider: TrustedRouterDefaults.trustedRouterProvider,
-                    displayName: TrustedRouterDefaults.synthModelDisplayName,
+                    displayName: TrustedRouterDefaults.prometheusModelDisplayName,
                     category: "Recommended",
                     capabilities: ModelCapabilities(status: "available")
                 ),
@@ -71,17 +71,17 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
 
         XCTAssertEqual(topBar.appName, "QuillCode")
         XCTAssertEqual(topBar.primaryTitle, "Ship QuillCode")
-        XCTAssertEqual(topBar.subtitle, "QuillCode - Auto - Synth")
+        XCTAssertEqual(topBar.subtitle, "QuillCode - Auto - Prometheus 1.0")
         XCTAssertEqual(topBar.instructionLabel, "1 instruction file loaded")
         XCTAssertEqual(topBar.instructionSources, ["AGENTS.md"])
         XCTAssertEqual(topBar.memoryLabel, "1 memory")
         XCTAssertEqual(topBar.memorySources, ["memories/preference.md"])
-        XCTAssertEqual(topBar.modelLabel, TrustedRouterDefaults.synthModelDisplayName)
+        XCTAssertEqual(topBar.modelLabel, TrustedRouterDefaults.prometheusModelDisplayName)
         XCTAssertTrue(topBar.modelCatalogStatusLabel.contains("Live TrustedRouter catalog"))
         XCTAssertTrue(topBar.modelCatalogStatusDetail?.contains("Provider, pricing, modality") == true)
         XCTAssertEqual(topBar.modelProviderHealthLabel, "Provider health: 1 provider needs attention")
         XCTAssertTrue(topBar.modelProviderHealthDetail?.contains("acme: degraded") == true)
-        XCTAssertEqual(topBar.selectedModelID, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(topBar.selectedModelID, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(topBar.modeLabel, "Review")
         XCTAssertEqual(topBar.agentStatus, TopBarAgentStatusLabel.streaming)
         XCTAssertEqual(topBar.runtimeIssueLabel, "Rate limited")
@@ -113,7 +113,7 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
     }
 
     func testBuildsModelCatalogWithFavoritesAndUnarchivedRecents() throws {
-        let favoriteModelID = TrustedRouterDefaults.synthModel
+        let favoriteModelID = TrustedRouterDefaults.prometheusModel
         let recentModelID = "moonshotai/kimi-k2.6"
         let archivedRecent = ChatThread(
             title: "Archived",

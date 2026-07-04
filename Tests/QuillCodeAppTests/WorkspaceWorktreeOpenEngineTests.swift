@@ -25,7 +25,7 @@ final class WorkspaceWorktreeOpenEngineTests: XCTestCase {
             branch: " feature/login ",
             projectID: projectID,
             mode: .review,
-            model: TrustedRouterDefaults.synthModel,
+            model: TrustedRouterDefaults.prometheusModel,
             instructions: [instruction],
             memories: [memory]
         )
@@ -40,7 +40,7 @@ final class WorkspaceWorktreeOpenEngineTests: XCTestCase {
         XCTAssertEqual(opened.thread.title, "Worktree: feature/login")
         XCTAssertEqual(opened.thread.projectID, projectID)
         XCTAssertEqual(opened.thread.mode, .review)
-        XCTAssertEqual(opened.thread.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(opened.thread.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(opened.thread.instructions, [instruction])
         XCTAssertEqual(opened.thread.memories, [memory])
         XCTAssertEqual(opened.thread.messages.map(\.content), [
