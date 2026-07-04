@@ -57,23 +57,27 @@ test('mock harness surfaces the branch and ahead/behind chip after a git status'
   await expect(page.getByTestId('top-bar-branch')).toHaveCount(0);
 });
 
-test('mock harness surfaces the token-usage chip after a turn completes', async ({ page }) => {
+test('mock harness surfaces the prominent token budget meter after a turn completes', async ({ page }) => {
   await page.goto(harnessURL());
 
-  // No usage chip until a turn reports usage.
+  // No token budget meter until a thread exists and a turn reports usage.
+  await expect(page.getByTestId('top-bar-token-budget')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-usage')).toHaveCount(0);
 
   await page.getByLabel('Message').fill('Run the tests');
   await page.getByRole('button', { name: 'Send' }).click();
 
-  await expect(page.getByTestId('top-bar-usage')).toBeVisible();
-  await expect(page.getByTestId('top-bar-usage')).toContainText('ctx');
-  await expect(page.getByTestId('top-bar-usage')).toContainText('↑');
+  await expect(page.getByTestId('top-bar-token-budget')).toBeVisible();
+  await expect(page.getByTestId('top-bar-token-budget-primary')).toContainText(/\/ .* tokens/);
+  await expect(page.getByTestId('top-bar-token-budget-secondary')).toContainText('left');
+  await expect(page.getByTestId('top-bar-token-budget-secondary')).toContainText('%');
+  await expect(page.getByTestId('top-bar-usage')).toHaveCount(0);
   // Additive: the existing subtitle is unchanged.
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode');
 
-  // The chip is per-thread, so a fresh thread shows nothing until its own first turn.
+  // The meter is per-thread, so a fresh thread shows nothing until its own first turn.
   await page.getByTestId('new-chat-button').click();
+  await expect(page.getByTestId('top-bar-token-budget')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-usage')).toHaveCount(0);
 });
 

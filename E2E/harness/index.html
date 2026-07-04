@@ -237,9 +237,15 @@
     .topbar-title-group {
       min-width: 0;
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 10px;
       text-align: left;
+    }
+    .topbar-title-copy {
+      flex: 1 1 220px;
+      min-width: 120px;
+      display: grid;
+      gap: 2px;
     }
     .topbar-branch-chip,
     .topbar-usage-chip,
@@ -258,8 +264,72 @@
       color: var(--green);
       background: rgba(66, 214, 119, 0.10);
     }
+    .topbar-token-budget {
+      flex: 0 0 min(260px, 28vw);
+      min-width: 210px;
+      display: grid;
+      gap: 5px;
+      padding: 7px 10px;
+      border-radius: 13px;
+      background: rgba(65, 184, 232, 0.11);
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .topbar-token-budget[data-tone="warning"] {
+      background: rgba(247, 184, 79, 0.13);
+    }
+    .topbar-token-budget[data-tone="critical"] {
+      background: rgba(255, 91, 82, 0.13);
+    }
+    .topbar-token-budget-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+    }
+    .topbar-token-budget-label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .topbar-token-budget strong {
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar-token-budget-meter {
+      height: 4px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .topbar-token-budget-meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+    }
+    .topbar-token-budget[data-tone="warning"] .topbar-token-budget-meter span {
+      background: var(--yellow);
+    }
+    .topbar-token-budget[data-tone="critical"] .topbar-token-budget-meter span {
+      background: var(--red);
+    }
+    .topbar-token-budget p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .topbar strong { font-size: 17px; }
-    .topbar-title-group strong {
+    .topbar-title-copy strong {
       flex: 0 1 auto;
       min-width: 0;
       overflow: hidden;
@@ -3641,6 +3711,7 @@
         subtitle: 'QuillCode - Not started',
         branchStatusLabel: null,
         usageStatusLabel: null,
+        tokenBudget: null,
         spendStatusLabel: null,
         spendStatusDetail: null,
         instructionLabel: '1 instruction file loaded',
@@ -4407,6 +4478,25 @@
       if (state.runtimeIssue?.severity === 'error') return 'error';
       if (state.runtimeIssue) return 'warning';
       return topBarStatusTone();
+    }
+
+    function renderTopBarTokenBudget() {
+      const budget = state.topBar.tokenBudget;
+      if (!budget) return '';
+      const usedPercent = Number(budget.usedPercent || 0);
+      const tone = usedPercent >= 100 ? 'critical' : usedPercent >= 80 ? 'warning' : 'normal';
+      const progressPercent = Math.max(0, Math.min(100, Number(budget.progressPercent || usedPercent || 0)));
+      return `
+        <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="${escapeHTML(tone)}" title="${escapeHTML(budget.detailLabel || '')}" aria-label="${escapeHTML(budget.detailLabel || '')}">
+          <div class="topbar-token-budget-row">
+            <span class="topbar-token-budget-label">Tokens</span>
+            <strong data-testid="top-bar-token-budget-primary">${escapeHTML(budget.primaryLabel || '')}</strong>
+          </div>
+          <div class="topbar-token-budget-meter" aria-hidden="true">
+            <span style="width: ${progressPercent}%"></span>
+          </div>
+          <p data-testid="top-bar-token-budget-secondary">${escapeHTML(budget.secondaryLabel || '')}</p>
+        </section>`;
     }
 
     function topBarOverflowTestID(commandID) {
@@ -6219,6 +6309,7 @@
       state.topBar.primaryTitle = 'QuillCode';
       state.topBar.subtitle = `${project.name} - Not started`;
       state.topBar.usageStatusLabel = null;
+      state.topBar.tokenBudget = null;
       state.topBar.spendStatusLabel = null;
       state.topBar.spendStatusDetail = null;
       emptyTranscriptSurface();
@@ -7539,11 +7630,14 @@
             </div>
             <div class="topbar-sidebar-slot">${topBarNavigation}</div>
             <div class="topbar-title-group" data-testid="top-bar-title-group">
-              <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
-              <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
+              <div class="topbar-title-copy">
+                <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
+                <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
+              </div>
               ${state.topBar.branchStatusLabel ? `<span class="topbar-branch-chip" data-testid="top-bar-branch" title="${escapeHTML(state.topBar.branchStatusLabel)}">${escapeHTML(state.topBar.branchStatusLabel)}</span>` : ''}
+              ${renderTopBarTokenBudget()}
               ${state.topBar.spendStatusLabel ? `<span class="topbar-spend-chip" data-testid="top-bar-spend" title="${escapeHTML(state.topBar.spendStatusDetail || state.topBar.spendStatusLabel)}">${escapeHTML(state.topBar.spendStatusLabel)}</span>` : ''}
-              ${!state.topBar.spendStatusLabel && state.topBar.usageStatusLabel ? `<span class="topbar-usage-chip" data-testid="top-bar-usage" title="${escapeHTML(state.topBar.usageStatusLabel)}">${escapeHTML(state.topBar.usageStatusLabel)}</span>` : ''}
+              ${!state.topBar.tokenBudget && !state.topBar.spendStatusLabel && state.topBar.usageStatusLabel ? `<span class="topbar-usage-chip" data-testid="top-bar-usage" title="${escapeHTML(state.topBar.usageStatusLabel)}">${escapeHTML(state.topBar.usageStatusLabel)}</span>` : ''}
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
@@ -10978,6 +11072,7 @@
       state.topBar.primaryTitle = 'QuillCode';
       // The usage chip is per-thread; a fresh thread has no usage until its first turn.
       state.topBar.usageStatusLabel = null;
+      state.topBar.tokenBudget = null;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - Not started`;
       recordWorkspaceNavigation(previousLocation);
@@ -15082,10 +15177,10 @@
       const halted = ['Failed', 'Stopped'].includes(state.topBar.agentStatus);
       if (!halted) {
         state.topBar.agentStatus = 'Idle';
-        // Mirrors native: the model reports token usage at the end of a turn, surfaced as
-        // the quiet top-bar usage chip. The chip is derived per-thread, so a fresh thread
-        // shows nothing until its first turn completes.
+        // Mirrors native: model usage is attached at turn end, then surfaced as a prominent
+        // per-thread token budget meter. A fresh thread stays empty until its first turn.
         state.topBar.usageStatusLabel = mockTokenUsageLabel();
+        state.topBar.tokenBudget = mockTokenBudget();
       }
       syncSelectedThreadSearchText();
       // Drain the next queued follow-up as the next turn — but only after a turn that finished
@@ -15114,9 +15209,7 @@
       return trim(Math.round((value / 1000000) * 10) / 10) + 'm';
     }
 
-    // A mock per-thread token-usage label estimated from the transcript (chars/4), formatted
-    // exactly like WorkspaceTokenUsageLabelBuilder.label (Swift): "<ctx> ctx · ↑<in> ↓<out>".
-    function mockTokenUsageLabel() {
+    function mockTokenCounts() {
       let prompt = 0;
       let completion = 0;
       for (const item of transcriptTimelineItems()) {
@@ -15128,8 +15221,46 @@
           prompt += Math.ceil((transcriptCopyText(item) || '').length / 4);
         }
       }
-      if (prompt + completion === 0) return null;
-      return `${abbreviateTokens(prompt + completion)} ctx · ↑${abbreviateTokens(prompt)} ↓${abbreviateTokens(completion)}`;
+      return { prompt, completion, total: prompt + completion };
+    }
+
+    // A mock per-thread token-usage label estimated from the transcript (chars/4), formatted
+    // exactly like WorkspaceTokenUsageLabelBuilder.label (Swift): "<ctx> ctx · ↑<in> ↓<out>".
+    function mockTokenUsageLabel() {
+      const counts = mockTokenCounts();
+      if (counts.total === 0) return null;
+      return `${abbreviateTokens(counts.total)} ctx · ↑${abbreviateTokens(counts.prompt)} ↓${abbreviateTokens(counts.completion)}`;
+    }
+
+    function decimalTokens(count) {
+      return String(Math.max(0, count)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    function selectedModelContextWindowTokens() {
+      const selectedModel = state.topBar.modelCategories
+        .flatMap(category => category.models || [])
+        .find(model => model.id === state.topBar.selectedModelID);
+      const tokens = selectedModel?.capabilities?.contextWindowTokens;
+      return Number.isFinite(tokens) && tokens > 0 ? tokens : 32000;
+    }
+
+    function mockTokenBudget() {
+      const counts = mockTokenCounts();
+      if (counts.total === 0) return null;
+      const limit = selectedModelContextWindowTokens();
+      const remaining = Math.max(0, limit - counts.total);
+      const usedPercent = Math.max(0, Math.round((counts.total / limit) * 100));
+      return {
+        usedTokens: counts.total,
+        limitTokens: limit,
+        remainingTokens: remaining,
+        usedPercent,
+        progressPercent: Math.max(0, Math.min(100, usedPercent)),
+        primaryLabel: `${abbreviateTokens(counts.total)} / ${abbreviateTokens(limit)} tokens`,
+        secondaryLabel: `${abbreviateTokens(remaining)} left · ${usedPercent}% · estimated`,
+        detailLabel: `Estimated token budget: ${decimalTokens(counts.total)} used of ${decimalTokens(limit)} · ${decimalTokens(remaining)} left · ${usedPercent}% used`,
+        sourceLabel: 'Estimated'
+      };
     }
 
     function completeMockAgentTurn(text) {

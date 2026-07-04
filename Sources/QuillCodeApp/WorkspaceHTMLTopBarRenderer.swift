@@ -8,9 +8,12 @@ enum WorkspaceHTMLTopBarRenderer {
           <div class="topbar-sidebar-slot" aria-hidden="true"></div>
           \(renderNavigationControls(commands: commands))
           <div class="topbar-title-group" data-testid="top-bar-title-group">
-            <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
-            <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
+            <div class="topbar-title-copy">
+              <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
+              <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
+            </div>
             \(renderBranchStatus(topBar))
+            \(renderTokenBudget(topBar))
             \(renderSpendStatus(topBar))
             \(renderUsageStatus(topBar))
           </div>
@@ -41,10 +44,33 @@ enum WorkspaceHTMLTopBarRenderer {
     }
 
     private static func renderUsageStatus(_ topBar: TopBarSurface) -> String {
-        guard topBar.spendStatusLabel == nil,
+        guard topBar.tokenBudget == nil,
+              topBar.spendStatusLabel == nil,
               let usageStatusLabel = topBar.usageStatusLabel
         else { return "" }
         return #"<span class="topbar-usage-chip" data-testid="top-bar-usage" title="\#(escape(usageStatusLabel))">\#(escape(usageStatusLabel))</span>"#
+    }
+
+    private static func renderTokenBudget(_ topBar: TopBarSurface) -> String {
+        guard let budget = topBar.tokenBudget else { return "" }
+        return """
+        <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="\(escape(tokenBudgetTone(budget)))" title="\(escape(budget.detailLabel))" aria-label="\(escape(budget.detailLabel))">
+          <div class="topbar-token-budget-row">
+            <span class="topbar-token-budget-label">Tokens</span>
+            <strong data-testid="top-bar-token-budget-primary">\(escape(budget.primaryLabel))</strong>
+          </div>
+          <div class="topbar-token-budget-meter" aria-hidden="true">
+            <span style="width: \(budget.progressPercent)%"></span>
+          </div>
+          <p data-testid="top-bar-token-budget-secondary">\(escape(budget.secondaryLabel))</p>
+        </section>
+        """
+    }
+
+    private static func tokenBudgetTone(_ budget: TokenBudgetSurface) -> String {
+        if budget.usedPercent >= 100 { return "critical" }
+        if budget.usedPercent >= 80 { return "warning" }
+        return "normal"
     }
 
     private static func renderSpendStatus(_ topBar: TopBarSurface) -> String {
