@@ -246,15 +246,15 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertTrue(model.currentToolCards.isEmpty)
     }
 
-    func testSlashModelLegacyFusionAliasWritesPreferredSynthTranscript() async throws {
+    func testSlashModelPrometheusAliasWritesBrandedTranscript() async throws {
         let model = QuillCodeWorkspaceModel()
 
-        model.setDraft("/model /fusion")
+        model.setDraft("/model /prometheus")
         await model.submitComposer(workspaceRoot: try makeQuillCodeTestDirectory())
 
-        XCTAssertEqual(model.root.config.defaultModel, TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(model.selectedThread?.model, TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Model set to Synth (/synth).")
+        XCTAssertEqual(model.root.config.defaultModel, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(model.selectedThread?.model, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Model set to Prometheus 1.0 (/prometheus).")
         XCTAssertTrue(model.currentToolCards.isEmpty)
     }
 

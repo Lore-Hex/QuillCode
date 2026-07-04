@@ -21,19 +21,19 @@ test('mock harness reports workspace status from composer with branded default m
   await expect(statusMessage).toContainText('Agent: Idle');
 });
 
-test('mock harness reports Synth status with preferred slash alias after model switch', async ({ page }) => {
+test('mock harness reports Prometheus status with preferred slash alias after model switch', async ({ page }) => {
   await page.goto(harnessURL());
 
   await page.getByTestId('model-picker-button').click();
-  await page.locator('[data-testid="model-option"][data-model-id="tr/synth"]').click();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('Synth');
+  await page.locator('[data-testid="model-option"][data-model-id="trustedrouter/fusion"]').click();
+  await expect(page.getByTestId('model-picker-button')).toHaveText('Prometheus 1.0');
 
   await page.getByLabel('Message').fill('/status');
   await page.getByRole('button', { name: 'Send' }).click();
 
-  await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Auto - Synth');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Auto - Prometheus 1.0');
   const statusMessage = page.getByTestId('message').filter({ hasText: 'Project: QuillCode' });
-  await expect(statusMessage).toContainText('Model: Synth (/synth)');
+  await expect(statusMessage).toContainText('Model: Prometheus 1.0 (/prometheus)');
 });
 
 test('mock harness surfaces the branch and ahead/behind chip after a git status', async ({ page }) => {

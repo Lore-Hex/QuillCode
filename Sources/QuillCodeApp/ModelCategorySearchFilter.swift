@@ -57,6 +57,8 @@ enum ModelCategorySearchFilter {
             option.displayName,
             option.category,
             option.detailTitle,
+            option.metadataSummary,
+            option.capabilitySummary,
             option.metadataDetails.joined(separator: " "),
             searchableMetadataRows(option.metadataRows),
             option.badges.joined(separator: " ")

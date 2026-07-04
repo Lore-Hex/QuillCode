@@ -153,10 +153,10 @@ test('mock harness opens model picker from malformed model issue', async ({ page
 
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-search')).toBeFocused();
-  await page.getByTestId('model-search').fill('synth');
+  await page.getByTestId('model-search').fill('deep research');
   await expect(page.getByTestId('model-option')).toHaveCount(2);
-  await expect(page.getByTestId('model-option').nth(0)).toContainText('Synth');
-  await expect(page.getByTestId('model-option').nth(1)).toContainText('Synth Code');
+  await expect(page.getByTestId('model-option').nth(0)).toContainText('Zeus 1.0');
+  await expect(page.getByTestId('model-option').nth(1)).toContainText('Prometheus 1.0');
 });
 
 test('mock harness surfaces rate limits with model-switch recovery and diagnostics', async ({ page }) => {

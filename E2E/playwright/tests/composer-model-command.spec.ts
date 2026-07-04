@@ -15,10 +15,10 @@ test('mock harness browses the model catalog with pricing from the /model popup'
   await message.fill('/model ');
   await expect(page.getByTestId('model-command-suggestions')).toBeVisible();
   await expect(page.getByTestId('slash-suggestions')).toHaveCount(0);
-  // Empty query lists the catalog head in catalog order (Socrates first).
+  // Empty query lists the catalog head in catalog order (Nike first).
   const rows = page.getByTestId('model-command-suggestion');
-  await expect(rows.first()).toContainText('Socrates 1.1');
-  await expect(page.getByTestId('model-command-price').first()).toContainText('$3 in / $15 out per 1M');
+  await expect(rows.first()).toContainText('Nike 1.0');
+  await expect(page.getByTestId('model-command-price').first()).toContainText('$0.8 in / $4 out per 1M');
   // The current (default) model is flagged with a Current badge and shows its price.
   const current = page.locator('[data-testid="model-command-suggestion"][data-current="true"]');
   await expect(current).toContainText('Nike 1.0');
@@ -41,22 +41,22 @@ test('mock harness keyboard-navigates and selects a model from the /model popup'
   await page.goto(harnessURL());
 
   const message = page.getByLabel('Message');
-  await message.fill('/model synth');
+  await message.fill('/model deep research');
   const rows = page.getByTestId('model-command-suggestion');
-  await expect(rows).toHaveCount(2); // Synth + Synth Code
-  await expect(page.locator('[data-testid="model-command-suggestion"][data-selected="true"]')).toContainText('Synth');
+  await expect(rows).toHaveCount(2); // Zeus + Prometheus
+  await expect(page.locator('[data-testid="model-command-suggestion"][data-selected="true"]')).toContainText('Zeus 1.0');
 
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('[data-testid="model-command-suggestion"][data-selected="true"]')).toContainText('Synth Code');
+  await expect(page.locator('[data-testid="model-command-suggestion"][data-selected="true"]')).toContainText('Prometheus 1.0');
 
   // Clamp at the bottom: another ArrowDown does not wrap past the last row's index via keyboard.
   await page.keyboard.press('ArrowUp');
-  await expect(page.locator('[data-testid="model-command-suggestion"][data-selected="true"]')).toContainText('Synth');
+  await expect(page.locator('[data-testid="model-command-suggestion"][data-selected="true"]')).toContainText('Zeus 1.0');
 
   // Enter selects: the model switches (picker label updates) and the composer clears — the command
   // never sends as a message.
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('model-picker-button')).toHaveText('Synth');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('Zeus 1.0');
   await expect(message).toHaveValue('');
   await expect(page.getByTestId('model-command-suggestions')).toHaveCount(0);
   // No user message was sent for the /model command.

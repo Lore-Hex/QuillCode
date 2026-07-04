@@ -55,7 +55,7 @@ final class ParitySlashSessionParserGateTests: QuillCodeParityTestCase {
         Self.assertSource(slashText, contains: "SlashModelCommandParser.parse(argument)")
         [
             "enum SlashModelCommandParser",
-            "Usage: /model /synth"
+            "Usage: /model nike or /model provider/model"
         ].forEach { Self.assertSource(parserText, contains: $0) }
         [
             "testModelParsingTrimsModelArgument",
@@ -63,7 +63,7 @@ final class ParitySlashSessionParserGateTests: QuillCodeParityTestCase {
         ].forEach { Self.assertSource(parserTests, contains: $0) }
         [
             ".model(argument)",
-            "Usage: /model /synth"
+            "Usage: /model nike or /model provider/model"
         ].forEach { Self.assertSource(slashText, excludes: $0) }
     }
 }

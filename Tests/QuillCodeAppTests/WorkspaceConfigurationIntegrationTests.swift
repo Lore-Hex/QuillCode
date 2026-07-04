@@ -58,7 +58,7 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
     func testToggleModelFavoriteUpdatesConfigAndSurface() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(favoriteModels: ["provider/old"]),
-            topBar: TopBarState(model: TrustedRouterDefaults.synthModel),
+            topBar: TopBarState(model: TrustedRouterDefaults.prometheusModel),
             modelCatalog: TrustedRouterModelCatalog.defaultModels
         ))
 
@@ -152,7 +152,7 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         XCTAssertEqual(model.surface().automations.workflows.map(\.title), ["Ship follow-up"])
         XCTAssertEqual(model.surface().automations.workflows.first?.scheduleLabel, "Tomorrow at 9:00 AM")
 
-        let nextConfig = AppConfig(defaultModel: TrustedRouterDefaults.synthModel, mode: .auto)
+        let nextConfig = AppConfig(defaultModel: TrustedRouterDefaults.prometheusModel, mode: .auto)
         try QuillCodeWorkspaceBootstrap(paths: paths).saveConfig(nextConfig)
         XCTAssertEqual(try ConfigStore(fileURL: paths.configFile).load(), nextConfig)
     }

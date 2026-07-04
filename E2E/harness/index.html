@@ -3652,10 +3652,12 @@
           {
             category: 'Recommended',
             models: [
-              { id: 'tr/socrates', provider: 'trustedrouter', displayName: 'Socrates 1.1', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 3, outputPricePerMillionTokens: 15 } },
               { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'], capabilities: { inputPricePerMillionTokens: 0.8, outputPricePerMillionTokens: 4 } },
-              { id: 'tr/synth', provider: 'trustedrouter', displayName: 'Synth', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } },
-              { id: 'tr/synth-code', provider: 'trustedrouter', displayName: 'Synth Code', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } }
+              { id: 'trustedrouter/zeus', provider: 'trustedrouter', displayName: 'Zeus 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 2, outputPricePerMillionTokens: 10 } },
+              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Prometheus 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } },
+              { id: 'trustedrouter/socrates', provider: 'trustedrouter', displayName: 'Socrates 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 3, outputPricePerMillionTokens: 15 } },
+              { id: 'trustedrouter/aristotle', provider: 'trustedrouter', displayName: 'Aristotle 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 2.5, outputPricePerMillionTokens: 12.5 } },
+              { id: 'trustedrouter/plato', provider: 'trustedrouter', displayName: 'Plato 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } }
             ]
           },
           {
@@ -4611,10 +4613,29 @@
       '/fast': 'trustedrouter/fast',
       'tr/fast': 'trustedrouter/fast',
       'trustedrouter/nike': 'trustedrouter/fast',
-      'synth': 'tr/synth',
-      '/synth': 'tr/synth',
-      'trustedrouter/synth': 'tr/synth',
-      'fusion': 'tr/synth'
+      'nike': 'trustedrouter/fast',
+      '/nike': 'trustedrouter/fast',
+      'tr/nike': 'trustedrouter/fast',
+      'zeus': 'trustedrouter/zeus',
+      '/zeus': 'trustedrouter/zeus',
+      'tr/zeus': 'trustedrouter/zeus',
+      'deep research': 'trustedrouter/zeus',
+      'prometheus': 'trustedrouter/fusion',
+      '/prometheus': 'trustedrouter/fusion',
+      'tr/prometheus': 'trustedrouter/fusion',
+      'trustedrouter/prometheus': 'trustedrouter/fusion',
+      'tr/fusion': 'trustedrouter/fusion',
+      'socrates': 'trustedrouter/socrates',
+      '/socrates': 'trustedrouter/socrates',
+      'tr/socrates': 'trustedrouter/socrates',
+      'aristotle': 'trustedrouter/aristotle',
+      '/aristotle': 'trustedrouter/aristotle',
+      'tr/aristotle': 'trustedrouter/aristotle',
+      'smart': 'trustedrouter/aristotle',
+      'plato': 'trustedrouter/plato',
+      '/plato': 'trustedrouter/plato',
+      'tr/plato': 'trustedrouter/plato',
+      'oss coding': 'trustedrouter/plato'
     };
 
     function canonicalModelID(id) {
@@ -4628,7 +4649,15 @@
 
     function modelCommandScore(option, query) {
       if (!query) return 50;
-      const fields = [option.id, option.provider, option.displayName, option.detailTitle || option.displayName, option.category || '']
+      const fields = [
+        option.id,
+        option.provider,
+        option.displayName,
+        option.detailTitle || option.displayName,
+        option.category || '',
+        modelMetadataSummary(option, option.category || ''),
+        modelCapabilitySummary(option, option.category || '')
+      ]
         .map(normalizeModelField);
       if (fields.some(field => field.startsWith(query))) return 120;
       const haystack = fields.join(' ');
@@ -8598,10 +8627,12 @@
     }
 
     function modelDisplayLabel(model) {
-      if (model.id === 'tr/socrates') return 'Socrates 1.1';
       if (model.id === 'trustedrouter/fast') return 'Nike 1.0';
-      if (model.id === 'tr/synth') return 'Synth';
-      if (model.id === 'tr/synth-code') return 'Synth Code';
+      if (model.id === 'trustedrouter/zeus') return 'Zeus 1.0';
+      if (model.id === 'trustedrouter/fusion') return 'Prometheus 1.0';
+      if (model.id === 'trustedrouter/socrates') return 'Socrates 1.0';
+      if (model.id === 'trustedrouter/aristotle') return 'Aristotle 1.0';
+      if (model.id === 'trustedrouter/plato') return 'Plato 1.0';
       if (model.provider === 'trustedrouter') return model.id;
       return `${model.provider}/${model.displayName}`;
     }
@@ -8616,43 +8647,69 @@
         '/nike': 'trustedrouter/fast',
         'nike 1.0': 'trustedrouter/fast',
         'trustedrouter/nike': 'trustedrouter/fast',
-        synth: 'tr/synth',
-        '/synth': 'tr/synth',
-        'trustedrouter/synth': 'tr/synth',
-        fusion: 'tr/synth',
-        '/fusion': 'tr/synth',
-        'tr/fusion': 'tr/synth',
-        'trustedrouter/fusion': 'tr/synth',
-        'synth-code': 'tr/synth-code',
-        'synth code': 'tr/synth-code',
-        '/synth-code': 'tr/synth-code',
-        'trustedrouter/synth-code': 'tr/synth-code',
-        'fusion-code': 'tr/synth-code',
-        '/fusion-code': 'tr/synth-code',
-        'tr/fusion-code': 'tr/synth-code',
-        'trustedrouter/fusion-code': 'tr/synth-code',
-        socrates: 'tr/socrates',
-        '/socrates': 'tr/socrates',
-        'socrates 1.1': 'tr/socrates',
-        'socrates-1.1': 'tr/socrates',
-        'trustedrouter/socrates': 'tr/socrates'
+        'tr/nike': 'trustedrouter/fast',
+        zeus: 'trustedrouter/zeus',
+        '/zeus': 'trustedrouter/zeus',
+        'zeus 1.0': 'trustedrouter/zeus',
+        'zeus-1.0': 'trustedrouter/zeus',
+        'trustedrouter/zeus': 'trustedrouter/zeus',
+        'tr/zeus': 'trustedrouter/zeus',
+        'deep research': 'trustedrouter/zeus',
+        'deep-research': 'trustedrouter/zeus',
+        prometheus: 'trustedrouter/fusion',
+        '/prometheus': 'trustedrouter/fusion',
+        'prometheus 1.0': 'trustedrouter/fusion',
+        'prometheus-1.0': 'trustedrouter/fusion',
+        'trustedrouter/prometheus': 'trustedrouter/fusion',
+        'tr/prometheus': 'trustedrouter/fusion',
+        'tr/fusion': 'trustedrouter/fusion',
+        'trustedrouter/fusion': 'trustedrouter/fusion',
+        socrates: 'trustedrouter/socrates',
+        '/socrates': 'trustedrouter/socrates',
+        'socrates 1.0': 'trustedrouter/socrates',
+        'socrates-1.0': 'trustedrouter/socrates',
+        'trustedrouter/socrates': 'trustedrouter/socrates',
+        'tr/socrates': 'trustedrouter/socrates',
+        aristotle: 'trustedrouter/aristotle',
+        '/aristotle': 'trustedrouter/aristotle',
+        'aristotle 1.0': 'trustedrouter/aristotle',
+        'aristotle-1.0': 'trustedrouter/aristotle',
+        'trustedrouter/aristotle': 'trustedrouter/aristotle',
+        'tr/aristotle': 'trustedrouter/aristotle',
+        smart: 'trustedrouter/aristotle',
+        'trustedrouter/smart': 'trustedrouter/aristotle',
+        'tr/smart': 'trustedrouter/aristotle',
+        plato: 'trustedrouter/plato',
+        '/plato': 'trustedrouter/plato',
+        'plato 1.0': 'trustedrouter/plato',
+        'plato-1.0': 'trustedrouter/plato',
+        'trustedrouter/plato': 'trustedrouter/plato',
+        'tr/plato': 'trustedrouter/plato',
+        'oss coding': 'trustedrouter/plato',
+        'oss-coding': 'trustedrouter/plato',
+        'freedom oss coding agent': 'trustedrouter/plato'
       };
       return aliases[normalized] || String(modelID || '').trim();
     }
 
     function preferredDisplayModelID(modelID) {
       const canonical = canonicalModelID(modelID);
-      if (canonical === 'tr/socrates') return '/socrates';
-      if (canonical === 'tr/synth') return '/synth';
-      if (canonical === 'tr/synth-code') return '/synth-code';
+      if (canonical === 'trustedrouter/zeus') return '/zeus';
+      if (canonical === 'trustedrouter/fusion') return '/prometheus';
+      if (canonical === 'trustedrouter/socrates') return '/socrates';
+      if (canonical === 'trustedrouter/aristotle') return '/aristotle';
+      if (canonical === 'trustedrouter/plato') return '/plato';
       return canonical;
     }
 
     function statusModelLabel(modelID) {
       const canonical = canonicalModelID(modelID);
       if (canonical === 'trustedrouter/fast') return `Nike 1.0 (${preferredDisplayModelID(canonical)})`;
-      if (canonical === 'tr/synth') return `Synth (${preferredDisplayModelID(canonical)})`;
-      if (canonical === 'tr/synth-code') return `Synth Code (${preferredDisplayModelID(canonical)})`;
+      if (canonical === 'trustedrouter/zeus') return `Zeus 1.0 (${preferredDisplayModelID(canonical)})`;
+      if (canonical === 'trustedrouter/fusion') return `Prometheus 1.0 (${preferredDisplayModelID(canonical)})`;
+      if (canonical === 'trustedrouter/socrates') return `Socrates 1.0 (${preferredDisplayModelID(canonical)})`;
+      if (canonical === 'trustedrouter/aristotle') return `Aristotle 1.0 (${preferredDisplayModelID(canonical)})`;
+      if (canonical === 'trustedrouter/plato') return `Plato 1.0 (${preferredDisplayModelID(canonical)})`;
       return canonical;
     }
 
@@ -8724,10 +8781,12 @@
 
     function modelMetadataSummary(model, categoryName) {
       if (model.metadataSummary) return model.metadataSummary;
-      if (model.id === 'tr/socrates') return 'Leading frontier model';
       if (model.id === 'trustedrouter/fast') return 'Fast everyday agent';
-      if (model.id === 'tr/synth') return 'Deeper planning and review';
-      if (model.id === 'tr/synth-code') return 'Code-focused model';
+      if (model.id === 'trustedrouter/zeus') return 'Deep research agent';
+      if (model.id === 'trustedrouter/fusion') return 'Freedom, OSS, deep research';
+      if (model.id === 'trustedrouter/socrates') return 'Coding agent';
+      if (model.id === 'trustedrouter/aristotle') return 'Smart general agent';
+      if (model.id === 'trustedrouter/plato') return 'Freedom, OSS coding agent';
       const category = model.category || categoryName || 'Models';
       if (category === 'Safety') return 'Auto safety reviewer';
       return `${category} model`;
@@ -8735,10 +8794,12 @@
 
     function modelCapabilitySummary(model, categoryName) {
       if (model.capabilitySummary) return model.capabilitySummary;
-      if (model.id === 'tr/socrates') return 'Socrates 1.1 is the leading model for the most demanding coding and reasoning turns.';
-      if (model.id === 'trustedrouter/fast') return 'Nike 1.0 is the fast default for coding, shell, and file-editing turns.';
-      if (model.id === 'tr/synth') return 'Synth is the balanced model for deeper coding and review turns.';
-      if (model.id === 'tr/synth-code') return 'Synth Code is the code-focused model for implementation-heavy turns.';
+      if (model.id === 'trustedrouter/fast') return 'Nike 1.0 is the fast default for everyday coding, shell, and file-editing turns.';
+      if (model.id === 'trustedrouter/zeus') return 'Zeus 1.0 is built for deep research turns that need broad synthesis.';
+      if (model.id === 'trustedrouter/fusion') return 'Prometheus 1.0 is the freedom-oriented OSS deep research model.';
+      if (model.id === 'trustedrouter/socrates') return 'Socrates 1.0 is the coding-agent model for implementation-heavy work.';
+      if (model.id === 'trustedrouter/aristotle') return 'Aristotle 1.0 is the smart general model for harder reasoning turns.';
+      if (model.id === 'trustedrouter/plato') return 'Plato 1.0 is the freedom-oriented OSS coding-agent model.';
       if ((model.badges || []).includes('Recommended')) return 'Recommended model profile available through TrustedRouter.';
       const category = model.category || categoryName || 'Models';
       if (category === 'Safety') return 'Lightweight reviewer model for Auto safety decisions.';
@@ -15101,7 +15162,7 @@
         state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
-          message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Synth, or another coding model.",
+          message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Socrates 1.0, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (/^\/status\b/i.test(text)) {

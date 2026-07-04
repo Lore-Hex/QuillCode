@@ -16,10 +16,10 @@ final class SlashModelCatalogSearchTests: XCTestCase {
                 outputPricePerMillionTokens: 4
             )
         )
-        let synth = ModelInfo(
-            id: "tr/synth",
+        let prometheus = ModelInfo(
+            id: TrustedRouterDefaults.prometheusModel,
             provider: "trustedrouter",
-            displayName: "Synth",
+            displayName: "Prometheus 1.0",
             category: "Recommended",
             capabilities: ModelCapabilities(
                 inputPricePerMillionTokens: 1.5,
@@ -37,7 +37,7 @@ final class SlashModelCatalogSearchTests: XCTestCase {
                 category: "Recommended",
                 models: [
                     ModelOptionSurface(model: priced, selectedModelID: "trustedrouter/fast"),
-                    ModelOptionSurface(model: synth, selectedModelID: "trustedrouter/fast")
+                    ModelOptionSurface(model: prometheus, selectedModelID: "trustedrouter/fast")
                 ]
             ),
             ModelCategorySurface(
@@ -52,7 +52,7 @@ final class SlashModelCatalogSearchTests: XCTestCase {
     func testQueryTriggersOnlyAfterModelSpace() {
         XCTAssertEqual(SlashModelCatalogSearch.query(in: "/model "), "")
         XCTAssertEqual(SlashModelCatalogSearch.query(in: "/model fast"), "fast")
-        XCTAssertEqual(SlashModelCatalogSearch.query(in: "  /model synth  "), "synth")
+        XCTAssertEqual(SlashModelCatalogSearch.query(in: "  /model prometheus  "), "prometheus")
         XCTAssertEqual(SlashModelCatalogSearch.query(in: "/models kimi"), "kimi")
     }
 
@@ -94,8 +94,8 @@ final class SlashModelCatalogSearchTests: XCTestCase {
     }
 
     func testPrefixMatchOutranksSubstring() {
-        let suggestions = SlashModelCatalogSearch.suggestions(for: "/model synth", categories: categories())
-        XCTAssertEqual(suggestions.first?.modelID, "tr/synth")
+        let suggestions = SlashModelCatalogSearch.suggestions(for: "/model prom", categories: categories())
+        XCTAssertEqual(suggestions.first?.modelID, TrustedRouterDefaults.prometheusModel)
     }
 
     func testMultiTermSubstringMatch() {

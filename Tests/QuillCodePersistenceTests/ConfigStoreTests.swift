@@ -6,7 +6,7 @@ final class ConfigStoreTests: PersistenceTestCase {
     func testConfigRoundTrips() throws {
         let store = try makeConfigStore()
         let config = AppConfig(
-            defaultModel: "/synth",
+            defaultModel: "/prometheus",
             mode: .auto,
             apiBaseURL: "https://api.trustedrouter.com/v1",
             developerOverrideEnabled: true
@@ -15,7 +15,7 @@ final class ConfigStoreTests: PersistenceTestCase {
         try store.save(config)
 
         XCTAssertEqual(try store.load(), config)
-        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.prometheusModel)
     }
 
     func testConfigDefaultsToOAuthAuthMode() throws {
@@ -31,7 +31,7 @@ final class ConfigStoreTests: PersistenceTestCase {
     func testConfigRoundTripsTrustedRouterAccountProfile() throws {
         let store = try makeConfigStore()
         let config = AppConfig(
-            defaultModel: TrustedRouterDefaults.synthModel,
+            defaultModel: TrustedRouterDefaults.prometheusModel,
             mode: .auto,
             apiBaseURL: "https://api.trustedrouter.com/v1",
             authMode: .oauth,
@@ -143,7 +143,7 @@ final class ConfigStoreTests: PersistenceTestCase {
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """
-        default_model = "/synth"
+        default_model = "/prometheus"
         mode = "auto"
         api_base_url = "https://api.trustedrouter.com/v1"
         auth_mode = "oauth"
@@ -154,7 +154,7 @@ final class ConfigStoreTests: PersistenceTestCase {
 
         XCTAssertEqual(loaded.authMode, .oauth)
         XCTAssertFalse(loaded.developerOverrideEnabled)
-        XCTAssertEqual(loaded.defaultModel, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(loaded.defaultModel, TrustedRouterDefaults.prometheusModel)
     }
 }
 

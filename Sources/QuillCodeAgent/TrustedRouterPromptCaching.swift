@@ -48,7 +48,7 @@ public enum TrustedRouterPromptCaching {
     static let anthropicProviderFamily = "anthropic"
 
     /// True when `modelID` routes to a provider family that understands `cache_control`
-    /// (Anthropic). Router-native meta-models (`trustedrouter/fast`, `tr/synth`, …) and other
+    /// (Anthropic). Router-native meta-models (`trustedrouter/fast`, `trustedrouter/fusion`, …) and other
     /// provider families return false so their requests stay byte-identical.
     public static func supportsCacheBreakpoints(modelID: String) -> Bool {
         TrustedRouterDefaults.provider(fromModelID: modelID)

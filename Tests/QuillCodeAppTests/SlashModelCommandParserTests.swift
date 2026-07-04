@@ -3,12 +3,12 @@ import XCTest
 
 final class SlashModelCommandParserTests: XCTestCase {
     func testModelParsingTrimsModelArgument() {
-        XCTAssertEqual(SlashModelCommandParser.parse("  /synth  "), .model("/synth"))
+        XCTAssertEqual(SlashModelCommandParser.parse("  /prometheus  "), .model("/prometheus"))
         XCTAssertEqual(SlashModelCommandParser.parse("\nprovider/model\t"), .model("provider/model"))
     }
 
     func testEmptyModelReturnsUsageMessage() {
-        let expected = SlashCommand.invalid("Usage: /model /synth or /model provider/model")
+        let expected = SlashCommand.invalid("Usage: /model nike or /model provider/model")
 
         XCTAssertEqual(SlashModelCommandParser.parse(""), expected)
         XCTAssertEqual(SlashModelCommandParser.parse("   "), expected)
@@ -16,7 +16,7 @@ final class SlashModelCommandParserTests: XCTestCase {
     }
 
     func testTopLevelModelCommandDelegatesToModelParser() {
-        XCTAssertEqual(SlashCommandParser.parse("/model /synth"), .model("/synth"))
+        XCTAssertEqual(SlashCommandParser.parse("/model /prometheus"), .model("/prometheus"))
         XCTAssertEqual(SlashCommandParser.parse("/model trustedrouter/fast"), .model("trustedrouter/fast"))
     }
 }

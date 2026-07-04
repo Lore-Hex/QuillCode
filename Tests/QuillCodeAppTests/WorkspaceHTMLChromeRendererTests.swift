@@ -299,10 +299,10 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
     }
 
     func testHTMLRendererGroupsPinnedTodayAndArchivedChats() {
-        var pinned = ChatThread(title: "Pinned chat", model: TrustedRouterDefaults.synthModel)
+        var pinned = ChatThread(title: "Pinned chat", model: TrustedRouterDefaults.prometheusModel)
         pinned.isPinned = true
         let recent = ChatThread(title: "Recent chat", model: "z-ai/glm-5.2")
-        var archived = ChatThread(title: "Archived chat", model: TrustedRouterDefaults.synthModel)
+        var archived = ChatThread(title: "Archived chat", model: TrustedRouterDefaults.prometheusModel)
         archived.isArchived = true
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: [recent, pinned, archived],

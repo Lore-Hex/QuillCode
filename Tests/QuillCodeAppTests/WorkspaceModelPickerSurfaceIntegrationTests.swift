@@ -11,7 +11,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
             topBar: TopBarState(model: "acme/code-pro")
         ))
         model.setModelCatalog([
-            recommendedSynthModel(),
+            recommendedPrometheusModel(),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "acme/fast", provider: "acme", displayName: "Fast", category: "Coding")
         ])
@@ -32,28 +32,31 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
 
     func testTopBarFiltersModelCatalogByProviderCategoryAndModel() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
-            config: AppConfig(defaultModel: TrustedRouterDefaults.synthModel),
-            topBar: TopBarState(model: TrustedRouterDefaults.synthModel)
+            config: AppConfig(defaultModel: TrustedRouterDefaults.prometheusModel),
+            topBar: TopBarState(model: TrustedRouterDefaults.prometheusModel)
         ))
         model.setModelCatalog([
-            recommendedSynthModel(),
+            recommendedPrometheusModel(),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
         ])
 
         let topBar = model.surface().topBar
 
-        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "coding"), ["acme/code-pro"])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "acme coding"), ["acme/code-pro"])
         XCTAssertEqual(filteredModelIDs(in: topBar, matching: "moon k2"), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(
-            filteredModelIDs(in: topBar, matching: "synth"),
-            [TrustedRouterDefaults.synthModel, TrustedRouterDefaults.synthCodeModel]
+            filteredModelIDs(in: topBar, matching: "prometheus"),
+            [TrustedRouterDefaults.prometheusModel]
         )
         XCTAssertEqual(
-            filteredModelIDs(in: topBar, matching: "tr/synth-code"),
-            [TrustedRouterDefaults.synthCodeModel]
+            filteredModelIDs(in: topBar, matching: "plato oss coding"),
+            [TrustedRouterDefaults.platoModel]
         )
-        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "default model"), [TrustedRouterDefaults.synthModel])
+        XCTAssertEqual(
+            filteredModelIDs(in: topBar, matching: "state default prometheus"),
+            [TrustedRouterDefaults.prometheusModel]
+        )
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
@@ -144,7 +147,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertEqual(defaultOption.detailTitle, "Nike 1.0")
         XCTAssertEqual(
             defaultOption.capabilitySummary,
-            "Nike 1.0 is the fast default for coding, shell, and file-editing turns."
+            "Nike 1.0 is the fast default for everyday coding, shell, and file-editing turns."
         )
         XCTAssertTrue(defaultOption.metadataDetails.contains("Provider: trustedrouter"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Model ID: trustedrouter/fast"))
@@ -171,7 +174,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(
-                defaultModel: TrustedRouterDefaults.synthModel,
+                defaultModel: TrustedRouterDefaults.prometheusModel,
                 favoriteModels: [" z-ai/glm-5.2 ", "z-ai/glm-5.2"]
             ),
             threads: [older, newer],
@@ -199,11 +202,11 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         topBar.filteredModelCategories(matching: query).flatMap(\.models).map(\.id)
     }
 
-    private func recommendedSynthModel() -> ModelInfo {
+    private func recommendedPrometheusModel() -> ModelInfo {
         ModelInfo(
-            id: TrustedRouterDefaults.synthModel,
+            id: TrustedRouterDefaults.prometheusModel,
             provider: "trustedrouter",
-            displayName: TrustedRouterDefaults.synthModelDisplayName,
+            displayName: TrustedRouterDefaults.prometheusModelDisplayName,
             category: "Recommended"
         )
     }
