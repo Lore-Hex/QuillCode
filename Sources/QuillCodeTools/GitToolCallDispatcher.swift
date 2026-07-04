@@ -10,6 +10,8 @@ struct GitToolCallDispatcher: Sendable {
         .gitDiff,
         .gitFetch,
         .gitPull,
+        .gitBranchList,
+        .gitBranchSwitch,
         .gitStage,
         .gitRestore,
         .gitStageHunk,
@@ -63,6 +65,15 @@ struct GitToolCallDispatcher: Sendable {
                 remote: args.string("remote"),
                 branch: args.string("branch"),
                 ffOnly: args.bool("ffOnly") ?? true
+            )
+        case ToolDefinition.gitBranchList.name:
+            return git.listBranches(cwd: workspaceRoot, includeRemote: args.bool("includeRemote") ?? true)
+        case ToolDefinition.gitBranchSwitch.name:
+            return git.switchBranch(
+                cwd: workspaceRoot,
+                branch: try args.requiredString("branch"),
+                create: args.bool("create") ?? false,
+                startPoint: args.string("startPoint")
             )
         case ToolDefinition.gitStage.name:
             return git.stage(cwd: workspaceRoot, path: try args.requiredString("path"))
@@ -201,10 +212,7 @@ struct GitToolCallDispatcher: Sendable {
                 base: args.string("base")
             )
         case ToolDefinition.gitWorktreeOpen.name:
-            return git.openWorktree(
-                cwd: workspaceRoot,
-                path: try args.requiredString("path")
-            )
+            return git.openWorktree(cwd: workspaceRoot, path: try args.requiredString("path"))
         case ToolDefinition.gitWorktreeRemove.name:
             return git.removeWorktree(
                 cwd: workspaceRoot,

@@ -39,6 +39,19 @@ public struct GitToolExecutor: Sendable {
         local.pull(cwd: cwd, remote: remote, branch: branch, ffOnly: ffOnly)
     }
 
+    public func listBranches(cwd: URL, includeRemote: Bool = true) -> ToolResult {
+        local.listBranches(cwd: cwd, includeRemote: includeRemote)
+    }
+
+    public func switchBranch(
+        cwd: URL,
+        branch: String,
+        create: Bool = false,
+        startPoint: String? = nil
+    ) -> ToolResult {
+        local.switchBranch(cwd: cwd, branch: branch, create: create, startPoint: startPoint)
+    }
+
     public func stage(cwd: URL, path: String) -> ToolResult {
         local.stage(cwd: cwd, path: path)
     }

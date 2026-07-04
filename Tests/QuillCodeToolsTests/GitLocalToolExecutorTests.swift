@@ -95,6 +95,46 @@ final class GitLocalToolExecutorTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "before\n")
     }
 
+    func testBranchListIncludesCurrentAndRemoteBranchesByDefault() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let remote = parent.appendingPathComponent("remote.git")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try initializeGitRepo(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init --bare '\(remote.path)'", cwd: parent)).ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git remote add origin '\(remote.path)'", cwd: root)).ok)
+        try "hello\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "Add hello").ok)
+        XCTAssertTrue(GitToolExecutor().push(cwd: root, remote: "origin", setUpstream: true).ok)
+
+        let result = GitToolExecutor().listBranches(cwd: root)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(result.stdout.contains("*\t"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("origin/"), result.stdout)
+    }
+
+    func testSwitchBranchCreatesAndSwitchesToNewBranchFromStartPoint() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let git = GitToolExecutor()
+
+        let result = git.switchBranch(cwd: root, branch: "feature/quill", create: true, startPoint: "HEAD")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(currentBranchName(in: root), "feature/quill")
+    }
+
+    func testSwitchBranchRejectsUnsafeNamesAndStartPointWithoutCreate() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let git = GitToolExecutor()
+
+        XCTAssertFalse(git.switchBranch(cwd: root, branch: "--detach").ok)
+        let startPointWithoutCreate = git.switchBranch(cwd: root, branch: "main", startPoint: "HEAD")
+        XCTAssertFalse(startPointWithoutCreate.ok)
+        XCTAssertTrue(startPointWithoutCreate.error?.contains("startPoint can only be used") == true)
+    }
+
     func testCommitRejectsEmptyMessage() throws {
         let result = GitToolExecutor().commit(cwd: try makeTempDirectory(), message: " ")
 

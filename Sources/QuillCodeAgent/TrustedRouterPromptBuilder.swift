@@ -110,6 +110,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to pull, sync, or update the current git branch from a remote, use \
         host.git.pull instead of host.shell.run. Omit "ffOnly" unless the user explicitly requests a \
         non-fast-forward pull; the default is safe fast-forward-only behavior.
+        - If the user asks to list git branches, use host.git.branch.list instead of host.shell.run.
+        - If the user asks to switch or check out a git branch, use host.git.branch.switch with "branch".
+        - If the user asks to create a git branch, use host.git.branch.switch with "branch" and \
+        "create": true; include "startPoint" only when the user gives a base/ref.
         - If the user asks to push or publish a git branch, use host.git.push instead of host.shell.run.
         - If the user asks to open or create a pull request/PR, use host.git.pr.create instead of host.shell.run.
         - host.git.pr.create should include a non-empty "title" unless you set "fill": true.
@@ -245,7 +249,14 @@ public struct TrustedRouterPromptBuilder: Sendable {
     /// approved by the `.readOnly` safety arm), and the prompt can never drift to naming a tool the
     /// mode would block. `host.shell.run` is deliberately absent: it is the only shell tool and is
     /// `.destructive`, so it is blocked in read-only and is named only in the negative below.
-    static let readOnlyUsableTools: [ToolDefinition] = [.fileRead, .fileList, .fileSearch, .gitStatus, .gitDiff]
+    static let readOnlyUsableTools: [ToolDefinition] = [
+        .fileRead,
+        .fileList,
+        .fileSearch,
+        .gitStatus,
+        .gitDiff,
+        .gitBranchList
+    ]
 
     static let readOnlyModePrompt: String = {
         let usable = readOnlyUsableTools.map(\.name).joined(separator: ", ")

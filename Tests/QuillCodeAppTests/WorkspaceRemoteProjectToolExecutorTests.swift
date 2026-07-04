@@ -16,6 +16,8 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(names.contains(ToolDefinition.gitStatus.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitFetch.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPull.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitBranchList.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitBranchSwitch.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestList.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestLifecycle.name))
@@ -220,6 +222,26 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             "git pull --ff-only 'origin' 'main'"
         )
         XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitBranchList.name, arguments: [:]),
+            "git branch --all --format='%(HEAD)%09%(refname:short)%09%(upstream:short)'"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitBranchList.name, arguments: ["includeRemote": false]),
+            "git branch --format='%(HEAD)%09%(refname:short)%09%(upstream:short)'"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitBranchSwitch.name, arguments: ["branch": "feature/quill"]),
+            "git switch 'feature/quill'"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitBranchSwitch.name, arguments: [
+                "branch": "feature/quill",
+                "create": true,
+                "startPoint": "origin/main"
+            ]),
+            "git switch -c 'feature/quill' 'origin/main'"
+        )
+        XCTAssertEqual(
             try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: ["path": "notes/plan.txt"]),
             "git add -- 'notes/plan.txt'"
         )
@@ -239,6 +261,15 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
     func testRemoteGitBasicBuilderRejectsUnsafeInputs() {
         XCTAssertThrowsError(
             try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: ["path": "../outside.txt"])
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitBranchSwitch.name, arguments: ["branch": "--detach"])
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitBranchSwitch.name, arguments: [
+                "branch": "main",
+                "startPoint": "HEAD"
+            ])
         )
         XCTAssertThrowsError(
             try remoteBasicGitCommand(name: ToolDefinition.gitCommit.name, arguments: ["message": "  \n"])

@@ -52,6 +52,13 @@ class SafetyPolicyTestCase: XCTestCase {
         host: .local,
         risk: .read
     )
+    let gitBranchSwitch = ToolDefinition(
+        name: "host.git.branch.switch",
+        description: "Switch git branch",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .destructive
+    )
     let gitPullRequestCreate = ToolDefinition(
         name: "host.git.pr.create",
         description: "Create pull request",

@@ -44,6 +44,19 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("https://trustedrouter.com/choose"))
     }
 
+    func testPromptPrefersStructuredGitBranchToolsOverShell() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .shellRun,
+            .gitBranchList,
+            .gitBranchSwitch
+        ])
+
+        XCTAssertTrue(prompt.contains("use host.git.branch.list instead of host.shell.run"))
+        XCTAssertTrue(prompt.contains("use host.git.branch.switch with \"branch\""))
+        XCTAssertTrue(prompt.contains("\"create\": true"))
+        XCTAssertTrue(prompt.contains("include \"startPoint\" only when the user gives a base/ref"))
+    }
+
     func testMessagesIncludeProjectInstructionsAsSystemContext() {
         let thread = ChatThread(
             messages: [.init(role: .user, content: "status")],
