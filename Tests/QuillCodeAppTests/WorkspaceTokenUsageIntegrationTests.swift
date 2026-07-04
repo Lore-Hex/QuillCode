@@ -18,7 +18,11 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
     func testUsageChipReflectsLatestProviderUsageOfSelectedThread() {
         let thread = ChatThread(title: "Work", events: [usageEvent(prompt: 500, completion: 347)])
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id))
-        XCTAssertEqual(model.surface().topBar.usageStatusLabel, "847 ctx · ↑500 ↓347")
+        let topBar = model.surface().topBar
+
+        XCTAssertEqual(topBar.usageStatusLabel, "847 ctx · ↑500 ↓347")
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "847 / 32k tokens")
+        XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "31.2k left · 3% · ↑500 ↓347 · provider reported")
     }
 
     func testUsesTheMostRecentUsageEvent() {
@@ -27,13 +31,20 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
             usageEvent(prompt: 900, completion: 600)
         ])
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id))
-        XCTAssertEqual(model.surface().topBar.usageStatusLabel, "1.5k ctx · ↑900 ↓600")
+        let topBar = model.surface().topBar
+
+        XCTAssertEqual(topBar.usageStatusLabel, "1.5k ctx · ↑900 ↓600")
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "1.5k / 32k tokens")
     }
 
     func testNoUsageChipWithoutAUsageEvent() {
         let thread = ChatThread(title: "Fresh")
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id))
-        XCTAssertNil(model.surface().topBar.usageStatusLabel)
+        let topBar = model.surface().topBar
+
+        XCTAssertNil(topBar.usageStatusLabel)
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "0 / 32k tokens")
+        XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "32k left · 0% · estimated")
     }
 
     func testUsageChipIsDerivedPerThreadAndDoesNotBleed() {
@@ -43,10 +54,12 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
             root: QuillCodeRootState(threads: [used, fresh], selectedThreadID: used.id)
         )
         XCTAssertEqual(model.surface().topBar.usageStatusLabel, "150 ctx · ↑100 ↓50")
+        XCTAssertEqual(model.surface().topBar.tokenBudget?.primaryLabel, "150 / 32k tokens")
 
         // Selecting the fresh thread shows no usage even though another thread has it.
         model.selectThread(fresh.id)
         XCTAssertNil(model.surface().topBar.usageStatusLabel)
+        XCTAssertEqual(model.surface().topBar.tokenBudget?.primaryLabel, "0 / 32k tokens")
     }
 
     func testActivityShowsPricedRunReceiptsFromModelCatalog() throws {
@@ -96,6 +109,8 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
             "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500"
         )
         XCTAssertNil(topBar.usageStatusLabel)
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "1.5k / 32k tokens")
+        XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "30.5k left · 5% · ↑1k ↓500 · provider reported")
     }
 
     func testActivityRunReceiptsFlagSpendFuseCrossing() {

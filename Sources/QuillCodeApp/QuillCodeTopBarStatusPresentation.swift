@@ -82,6 +82,9 @@ extension TopBarSurface {
 
     var topBarHelpText: String {
         var parts = [subtitle, agentStatusPresentation.accessibilityLabel]
+        if let tokenBudget {
+            parts.append(tokenBudget.detailLabel)
+        }
         if let runtimeIssuePresentation {
             parts.append("Issue: \(runtimeIssuePresentation.label)")
         }
@@ -97,9 +100,12 @@ extension TopBarSurface {
         if let branchStatusLabel {
             parts.append("branch: \(branchStatusLabel)")
         }
+        if let tokenBudget {
+            parts.append("token budget: \(tokenBudget.detailLabel)")
+        }
         if let spendStatusLabel {
             parts.append("spend: \(spendStatusLabel)")
-        } else if let usageStatusLabel {
+        } else if tokenBudget == nil, let usageStatusLabel {
             parts.append("token usage: \(usageStatusLabel)")
         }
         if let runtimeIssuePresentation {

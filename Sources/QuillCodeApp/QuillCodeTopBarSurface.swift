@@ -28,6 +28,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     /// Pre-formatted token-usage chip (e.g. `847 ctx · ↑500 ↓347`), or nil when the model
     /// has not reported usage for this thread. Renderers display this string as-is.
     public var usageStatusLabel: String?
+    /// Prominent context-window budget meter. Uses provider-reported usage when available and
+    /// falls back to a local estimate so the user can see used/limit/left before the first reply.
+    public var tokenBudget: TokenBudgetSurface?
     /// Pre-formatted spend chip (e.g. `Spend $0.0050 / $1.00`), or nil when the thread has no
     /// priced provider usage. When present, renderers prefer this over the raw token-usage chip.
     public var spendStatusLabel: String?
@@ -59,6 +62,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         showsComputerUseSetup: Bool,
         branchStatusLabel: String? = nil,
         usageStatusLabel: String? = nil,
+        tokenBudget: TokenBudgetSurface? = nil,
         spendStatusLabel: String? = nil,
         spendStatusDetail: String? = nil,
         canNavigateBack: Bool = false,
@@ -86,6 +90,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.showsComputerUseSetup = showsComputerUseSetup
         self.branchStatusLabel = branchStatusLabel
         self.usageStatusLabel = usageStatusLabel
+        self.tokenBudget = tokenBudget
         self.spendStatusLabel = spendStatusLabel
         self.spendStatusDetail = spendStatusDetail
         self.canNavigateBack = canNavigateBack
@@ -94,6 +99,40 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
 
     public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {
         ModelCategorySearchFilter.filter(modelCategories, matching: query)
+    }
+}
+
+public struct TokenBudgetSurface: Codable, Sendable, Hashable {
+    public var usedTokens: Int
+    public var limitTokens: Int
+    public var remainingTokens: Int
+    public var usedPercent: Int
+    public var progressPercent: Int
+    public var primaryLabel: String
+    public var secondaryLabel: String
+    public var detailLabel: String
+    public var sourceLabel: String
+
+    public init(
+        usedTokens: Int,
+        limitTokens: Int,
+        remainingTokens: Int,
+        usedPercent: Int,
+        progressPercent: Int,
+        primaryLabel: String,
+        secondaryLabel: String,
+        detailLabel: String,
+        sourceLabel: String
+    ) {
+        self.usedTokens = max(0, usedTokens)
+        self.limitTokens = max(1, limitTokens)
+        self.remainingTokens = max(0, remainingTokens)
+        self.usedPercent = max(0, usedPercent)
+        self.progressPercent = min(100, max(0, progressPercent))
+        self.primaryLabel = primaryLabel
+        self.secondaryLabel = secondaryLabel
+        self.detailLabel = detailLabel
+        self.sourceLabel = sourceLabel
     }
 }
 

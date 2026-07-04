@@ -333,6 +333,26 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             topBar.topBarHelpText,
             "Ready. Agent status: Running. Issue: Rate limited"
         )
+
+        topBar.tokenBudget = TokenBudgetSurface(
+            usedTokens: 42,
+            limitTokens: 32_000,
+            remainingTokens: 31_958,
+            usedPercent: 0,
+            progressPercent: 0,
+            primaryLabel: "42 / 32k tokens",
+            secondaryLabel: "32k left · 0% · estimated",
+            detailLabel: "Estimated token budget: 42 used of 32,000 · 31,958 left · 0% used",
+            sourceLabel: "Estimated"
+        )
+        XCTAssertEqual(
+            topBar.topBarAccessibilityLabel,
+            "Project, Ready, Agent status: Running, branch: main ↑2, token budget: Estimated token budget: 42 used of 32,000 · 31,958 left · 0% used, spend: Spend $0.0050 / $1.00, issue: Rate limited"
+        )
+        XCTAssertEqual(
+            topBar.topBarHelpText,
+            "Ready. Agent status: Running. Estimated token budget: 42 used of 32,000 · 31,958 left · 0% used. Issue: Rate limited"
+        )
     }
 
     private func filteredModelIDs(_ topBar: TopBarSurface, query: String) -> [String] {

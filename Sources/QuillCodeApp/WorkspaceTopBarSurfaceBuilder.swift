@@ -32,6 +32,11 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
                 for: WorkspaceContextBannerBuilder.latestProviderUsage(for: thread)
             )
         }
+        let tokenBudget = WorkspaceTokenBudgetSurfaceBuilder(
+            thread: thread,
+            selectedModelID: topBarState.model,
+            modelCatalog: self.modelCatalog
+        ).surface()
         return TopBarSurface(
             appName: topBarState.appName,
             primaryTitle: thread?.title ?? "QuillCode",
@@ -61,6 +66,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
                 return label.isEmpty ? nil : label
             },
             usageStatusLabel: spendStatus == nil ? usageStatusLabel : nil,
+            tokenBudget: tokenBudget,
             spendStatusLabel: spendStatus?.label,
             spendStatusDetail: spendStatus?.detail,
             canNavigateBack: canNavigateBack,
