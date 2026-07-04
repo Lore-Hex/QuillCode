@@ -133,6 +133,7 @@ public extension QuillCodeWorkspaceModel {
             favoriteModelIDs: root.config.favoriteModels,
             recentThreads: root.threads,
             runtimeIssue: runtimeIssue,
+            runSpendFuseUSD: root.config.runSpendFuseUSD,
             canNavigateBack: navigationHistory.canGoBack,
             canNavigateForward: navigationHistory.canGoForward
         ).surface()

@@ -323,6 +323,16 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             "Project, Ready, Agent status: Running, branch: main ↑2, token usage: 42 ctx, issue: Rate limited"
         )
         XCTAssertTrue(topBar.showsActivityHairline)
+
+        topBar.spendStatusLabel = "Spend $0.0050 / $1.00"
+        XCTAssertEqual(
+            topBar.topBarAccessibilityLabel,
+            "Project, Ready, Agent status: Running, branch: main ↑2, spend: Spend $0.0050 / $1.00, issue: Rate limited"
+        )
+        XCTAssertEqual(
+            topBar.topBarHelpText,
+            "Ready. Agent status: Running. Issue: Rate limited"
+        )
     }
 
     private func filteredModelIDs(_ topBar: TopBarSurface, query: String) -> [String] {

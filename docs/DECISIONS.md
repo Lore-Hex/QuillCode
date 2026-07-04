@@ -2,12 +2,16 @@
 
 ## 2026-07-04
 
-- QuillCode carries the Lore-Hex/LLM-advisor knowledge as built-in agent guidance rather than requiring a separately
-  installed Codex skill. The guidance stays compact and live-data-first: use TrustedRouter MCP/catalog/docs and AI IQ
-  benchmark data when current facts matter, then recommend 2-5 concrete model choices with model IDs, cost/speed
-  estimates, quality signals, privacy/provider caveats, prompt-cache fit, and setup steps. Privacy guidance names the
-  TrustedRouter routes and filters explicitly (`trustedrouter/zdr`, `trustedrouter/e2e`, `trustedrouter/eu`,
-  `provider.data_collection = "deny"`, `provider.jurisdiction = "us"`) while rejecting invented EU jurisdiction filters.
+- QuillCode keeps TrustedRouter model-advisor guidance as a compact skill-backed pointer in the base prompt instead of
+  carrying the full Lore-Hex/LLM-advisor playbook on every request. The prompt names the live-data-first behavior,
+  concise 2-5 option recommendations, key privacy filters, and secret-handling guardrails; detailed model-selection
+  knowledge belongs in on-demand skills/docs loaded through the skill harness. `docs/SKILL_HARNESS.md` now documents the
+  broader pattern: index skill names/descriptions cheaply, load `SKILL.md` only when invoked or clearly relevant, then
+  read referenced workflow files only as needed.
+- The top bar's usage chip is cost-aware without becoming a billing dashboard. Threads with priced provider usage show a
+  compact spend/fuse chip such as `Spend $0.0050 / $1.00`, with token usage and unpriced-call detail in the tooltip; if
+  model pricing is unavailable, the top bar keeps showing the raw token-usage chip. This keeps Codex-like chrome clear
+  while avoiding fake precision when the model catalog lacks prices.
 - Model discovery should remain useful even when TrustedRouter's authenticated `/v1/models` endpoint is unavailable or
   the user has not signed in yet. `TrustedRouterModelCatalogClient` now falls back to the public TrustedRouter model
   catalog page, preserving the branded Recommended defaults while adding provider rows such as MiniMax to picker search.

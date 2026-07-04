@@ -24,24 +24,20 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
     func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
 
-        XCTAssertTrue(prompt.contains("Built-in TrustedRouter model advisor"))
-        XCTAssertTrue(prompt.contains("https://trustedrouter.com/mcp"))
-        XCTAssertTrue(prompt.contains("https://www.aiiq.org/api/mcp"))
-        XCTAssertTrue(prompt.contains("2-5 concrete choices"))
-        XCTAssertTrue(prompt.contains("input_tokens * input_price_per_1m / 1_000_000"))
+        XCTAssertTrue(prompt.contains("TrustedRouter model advice is skill-backed"))
+        XCTAssertTrue(prompt.contains("prefer live catalog/account"))
+        XCTAssertTrue(prompt.contains("installed skills"))
+        XCTAssertTrue(prompt.contains("2-5 option recommendations"))
         XCTAssertTrue(prompt.contains("trustedrouter/zdr"))
-        XCTAssertTrue(prompt.contains("provider.data_collection = \"deny\""))
         XCTAssertTrue(prompt.contains("trustedrouter/e2e"))
-        XCTAssertTrue(prompt.contains("https://api-europe-west4.quillrouter.com/v1"))
+        XCTAssertTrue(prompt.contains("provider.data_collection = \"deny\""))
         XCTAssertTrue(prompt.contains("provider.jurisdiction = \"us\""))
-        XCTAssertTrue(prompt.contains("Do not invent provider.jurisdiction = \"eu\""))
-        XCTAssertTrue(prompt.contains("trustedrouter/auto"))
-        XCTAssertTrue(prompt.contains("trustedrouter/cheap"))
-        XCTAssertTrue(prompt.contains("trustedrouter/fast / Nike 1.0"))
-        XCTAssertTrue(prompt.contains("Prometheus 1.0"))
-        XCTAssertTrue(prompt.contains("trustedrouter/openpatcher-s1"))
-        XCTAssertTrue(prompt.contains("prompt-cache"))
-        XCTAssertTrue(prompt.contains("https://trustedrouter.com/choose"))
+        XCTAssertTrue(prompt.lowercased().contains("do not invent provider.jurisdiction = \"eu\""))
+        XCTAssertLessThan(
+            TrustedRouterPromptBuilder.trustedRouterModelAdvisorPrompt.count,
+            900,
+            "Detailed model-advisor knowledge belongs in on-demand skills/docs, not the base prompt."
+        )
     }
 
     func testPromptPrefersStructuredGitBranchToolsOverShell() {

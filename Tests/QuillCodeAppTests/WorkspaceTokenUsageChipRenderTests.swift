@@ -3,7 +3,11 @@ import XCTest
 import QuillCodeCore
 
 final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
-    private func makeTopBar(usageStatusLabel: String?) -> TopBarSurface {
+    private func makeTopBar(
+        usageStatusLabel: String?,
+        spendStatusLabel: String? = nil,
+        spendStatusDetail: String? = nil
+    ) -> TopBarSurface {
         TopBarSurface(
             appName: "QuillCode",
             primaryTitle: "Investigate CI",
@@ -19,7 +23,9 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             agentStatus: "Idle",
             computerUseLabel: "Computer Use unavailable",
             showsComputerUseSetup: false,
-            usageStatusLabel: usageStatusLabel
+            usageStatusLabel: usageStatusLabel,
+            spendStatusLabel: spendStatusLabel,
+            spendStatusDetail: spendStatusDetail
         )
     }
 
@@ -38,10 +44,14 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         let encoded = try JSONEncoder().encode(makeTopBar(usageStatusLabel: "847 ctx · ↑500 ↓347"))
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         object.removeValue(forKey: "usageStatusLabel")
+        object.removeValue(forKey: "spendStatusLabel")
+        object.removeValue(forKey: "spendStatusDetail")
         let legacy = try JSONSerialization.data(withJSONObject: object)
 
         let decoded = try JSONDecoder().decode(TopBarSurface.self, from: legacy)
         XCTAssertNil(decoded.usageStatusLabel)
+        XCTAssertNil(decoded.spendStatusLabel)
+        XCTAssertNil(decoded.spendStatusDetail)
     }
 
     func testHTMLRendererEmitsUsageChipOnlyWhenSet() {
@@ -52,5 +62,22 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
 
         let withoutUsage = WorkspaceHTMLTopBarRenderer.render(makeTopBar(usageStatusLabel: nil), commands: [])
         XCTAssertFalse(withoutUsage.contains(#"data-testid="top-bar-usage""#))
+    }
+
+    func testHTMLRendererPrefersSpendChipOverUsageChip() {
+        let html = WorkspaceHTMLTopBarRenderer.render(
+            makeTopBar(
+                usageStatusLabel: "1.5k ctx · ↑1k ↓500",
+                spendStatusLabel: "Spend $0.0050 / $1.00",
+                spendStatusDetail: "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500"
+            ),
+            commands: []
+        )
+
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-spend""#))
+        XCTAssertTrue(html.contains("Spend $0.0050 / $1.00"))
+        XCTAssertTrue(html.contains("Latest usage: 1.5k ctx · ↑1k ↓500"))
+        XCTAssertTrue(html.contains("topbar-spend-chip"))
+        XCTAssertFalse(html.contains(#"data-testid="top-bar-usage""#))
     }
 }

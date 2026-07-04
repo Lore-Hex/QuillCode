@@ -77,6 +77,7 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
 
         let receipts = model.surface().activity.runReceiptItems
         let section = try XCTUnwrap(model.surface().activity.sections.first { $0.kind == .runReceipts })
+        let topBar = model.surface().topBar
 
         XCTAssertEqual(receipts.map(\.title), ["Thread spend", "Acme Agent"])
         XCTAssertEqual(receipts.first?.detail, "$0.0050 across 1 model call · fuse $1.00")
@@ -89,6 +90,12 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         XCTAssertEqual(section.title, "Run Receipts")
         XCTAssertEqual(section.itemTestID, "activity-run-receipt")
         XCTAssertEqual(section.countLabel, "2 items")
+        XCTAssertEqual(topBar.spendStatusLabel, "Spend $0.0050 / $1.00")
+        XCTAssertEqual(
+            topBar.spendStatusDetail,
+            "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500"
+        )
+        XCTAssertNil(topBar.usageStatusLabel)
     }
 
     func testActivityRunReceiptsFlagSpendFuseCrossing() {
