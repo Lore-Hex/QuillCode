@@ -159,7 +159,13 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
 
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
-        let bootstrap = QuillCodeWorkspaceBootstrap(paths: paths)
+        let bootstrap = QuillCodeWorkspaceBootstrap(
+            paths: paths,
+            runtimeFactory: QuillCodeRuntimeFactory(
+                paths: paths,
+                environment: ["QUILLCODE_API_KEY_FILE": paths.home.appendingPathComponent("missing.key").path]
+            )
+        )
 
         XCTAssertFalse(bootstrap.hasTrustedRouterAPIKey())
         try bootstrap.saveTrustedRouterAPIKey("  sk-tr-v1-test  ")

@@ -1,5 +1,13 @@
 # QuillCode Decisions
 
+## 2026-07-04
+
+- Model discovery should remain useful even when TrustedRouter's authenticated `/v1/models` endpoint is unavailable or
+  the user has not signed in yet. `TrustedRouterModelCatalogClient` now falls back to the public TrustedRouter model
+  catalog page, preserving the branded Recommended defaults while adding provider rows such as MiniMax to picker search.
+  The desktop runtime also reads `~/.quill.code.keyfile` and explicit key-file environment variables for local smoke
+  testing, so a developer can chat live and refresh the model catalog without re-entering credentials in Settings.
+
 ## 2026-07-02
 
 - Context summary progress is derived from thread notices instead of stored as a separate workspace flag.

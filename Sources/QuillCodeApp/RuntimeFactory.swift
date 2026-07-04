@@ -4,6 +4,10 @@ import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeSafety
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 public enum QuillCodeRuntimeMode: String, Codable, Sendable, Hashable {
     case mock
     case trustedRouter
@@ -37,13 +41,16 @@ public struct QuillCodeRuntime: Sendable {
 public struct QuillCodeRuntimeFactory: Sendable {
     public var paths: QuillCodePaths
     public var environment: [String: String]
+    public var modelCatalogURLSession: URLSession
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        modelCatalogURLSession: URLSession = .shared
     ) {
         self.paths = paths
         self.environment = environment
+        self.modelCatalogURLSession = modelCatalogURLSession
     }
 
     public func makeRuntime(config: AppConfig) -> QuillCodeRuntime {
@@ -135,13 +142,11 @@ public struct QuillCodeRuntimeFactory: Sendable {
             return TrustedRouterModelCatalog()
         }
         let key = configuredAPIKey() ?? (try? sessionStore().apiKey())
-        guard key?.isEmpty == false else {
-            return TrustedRouterModelCatalog()
-        }
         do {
             return try await TrustedRouterModelCatalogClient(
                 apiKey: key,
-                baseURL: config.apiBaseURL
+                baseURL: config.apiBaseURL,
+                urlSession: modelCatalogURLSession
             ).fetch()
         } catch {
             return TrustedRouterModelCatalog(status: .fallbackAfterFailure(String(describing: error)))
@@ -164,7 +169,23 @@ public struct QuillCodeRuntimeFactory: Sendable {
         if let key, !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return key
         }
+        if let key = configuredAPIKeyFileContents() {
+            return key
+        }
         return nil
+    }
+
+    private func configuredAPIKeyFileContents() -> String? {
+        let explicitPath = environment["QUILLCODE_API_KEY_FILE"] ?? environment["QUILLCODE_LIVE_KEY_FILE"]
+        let fileURL: URL
+        if let explicitPath, !explicitPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fileURL = URL(fileURLWithPath: explicitPath.expandingTildeInPath)
+        } else {
+            fileURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".quill.code.keyfile")
+        }
+        guard let contents = try? String(contentsOf: fileURL, encoding: .utf8) else { return nil }
+        let key = contents.trimmingCharacters(in: .whitespacesAndNewlines)
+        return key.isEmpty ? nil : key
     }
 
     private func sessionStore() -> SecretTrustedRouterSessionStore {
@@ -181,5 +202,11 @@ public struct QuillCodeRuntimeFactory: Sendable {
             mode: .mock,
             statusLabel: status
         )
+    }
+}
+
+private extension String {
+    var expandingTildeInPath: String {
+        NSString(string: self).expandingTildeInPath
     }
 }

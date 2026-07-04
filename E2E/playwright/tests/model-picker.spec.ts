@@ -8,7 +8,7 @@ test('mock harness searches and selects models from the composer', async ({ page
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-catalog-status')).toHaveText('Bundled catalog');
   await expect(page.getByTestId('model-provider-health')).toHaveText('Provider health unavailable');
-  await expect(page.getByTestId('model-result-count')).toHaveText('8 models available');
+  await expect(page.getByTestId('model-result-count')).toHaveText('9 models available');
   await expect(page.getByTestId('model-option').first()).toContainText('Nike 1.0');
   await expect(page.getByTestId('model-option-summary').first()).toContainText('Fast everyday agent');
   await expect(page.getByTestId('model-detail-button').nth(0)).toHaveAttribute('aria-expanded', 'true');
@@ -16,7 +16,7 @@ test('mock harness searches and selects models from the composer', async ({ page
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'trustedrouter/fast' })).toBeVisible();
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'Current, Default, Recommended' }))
     .toBeVisible();
-  await expect(page.getByTestId('model-option')).toHaveCount(8);
+  await expect(page.getByTestId('model-option')).toHaveCount(9);
 
   await page.getByTestId('model-detail-button').nth(3).click();
   await expect(page.getByTestId('model-detail-button').nth(3)).toHaveAttribute('aria-expanded', 'true');
@@ -37,7 +37,7 @@ test('mock harness searches and selects models from the composer', async ({ page
   await page.getByTestId('model-favorite-button').nth(1).click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-category').first()).toContainText('Favorites');
-  await expect(page.getByTestId('model-option')).toHaveCount(9);
+  await expect(page.getByTestId('model-option')).toHaveCount(10);
   await expect(page.getByTestId('model-favorite-button').first())
     .toHaveAttribute('aria-label', 'Remove favorite model');
 
@@ -50,6 +50,12 @@ test('mock harness searches and selects models from the composer', async ({ page
   await expect(page.getByTestId('model-option')).toHaveCount(1);
   await expect(page.getByTestId('model-option')).toContainText('moonshotai/Kimi K2.6');
 
+  await page.getByTestId('model-search').fill('minimax');
+  await expect(page.getByTestId('model-result-count')).toHaveText('1 model for "minimax"');
+  await expect(page.getByTestId('model-option')).toHaveCount(1);
+  await expect(page.getByTestId('model-option')).toContainText('MiniMax M3');
+
+  await page.getByTestId('model-search').fill('moon k2');
   await page.getByTestId('model-option').click();
   await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/Kimi K2.6');
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
@@ -61,7 +67,7 @@ test('mock harness searches and selects models from the composer', async ({ page
   await expect(page.getByTestId('model-empty')).toBeVisible();
   await page.getByTestId('model-clear-search').first().click();
   await expect(page.getByTestId('model-search')).toBeFocused();
-  await expect(page.getByTestId('model-result-count')).toHaveText('9 models available');
+  await expect(page.getByTestId('model-result-count')).toHaveText('10 models available');
 });
 
 test('mock harness supports keyboard navigation in the model picker', async ({ page }) => {

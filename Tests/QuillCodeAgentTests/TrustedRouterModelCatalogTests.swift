@@ -134,6 +134,70 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         XCTAssertNil(brokenModel.capabilities.releaseDate)
     }
 
+    func testPublicCatalogParserIncludesMiniMaxAndExcludesSyntheticRoutes() throws {
+        let html = """
+        <script type="application/ld+json">
+        {"@type":"ItemList","itemListElement":[
+        {"url":"https://trustedrouter.com/models/minimax/minimax-m3","name":"MiniMax M3"},
+        {"url":"https://trustedrouter.com/models/minimax/minimax-m3","name":"MiniMax M3 Duplicate"},
+        {"url":"https://trustedrouter.com/models/trustedrouter/synth","name":"Synth"},
+        {"url":"https://trustedrouter.com/models/trustedrouter/synth-code","name":"Synth Code"},
+        {"url":"https://trustedrouter.com/models/trustedrouter/fusion-code","name":"Fusion Code"},
+        {"url":"https://trustedrouter.com/models/z-ai/glm-5.2","name":"GLM 5.2"}
+        ]}
+        </script>
+        """
+
+        let models = TrustedRouterModelCatalogClient.publicCatalogModels(fromHTML: html)
+
+        let miniMax = try XCTUnwrap(models.first { $0.id == "minimax/minimax-m3" })
+        XCTAssertEqual(miniMax.displayName, "MiniMax M3")
+        XCTAssertEqual(miniMax.provider, "minimax")
+        XCTAssertEqual(miniMax.category, "minimax")
+        XCTAssertEqual(models.filter { $0.id == "minimax/minimax-m3" }.count, 1)
+        XCTAssertTrue(models.contains { $0.id == "z-ai/glm-5.2" })
+        XCTAssertFalse(models.contains { $0.id == "trustedrouter/synth" })
+        XCTAssertFalse(models.contains { $0.id == "trustedrouter/synth-code" })
+        XCTAssertFalse(models.contains { $0.id == "trustedrouter/fusion-code" })
+    }
+
+    func testCatalogFetchFallsBackToPublicTrustedRouterCatalogWhenJSONEndpointFails() async throws {
+        ModelCatalogURLProtocol.handler = { request in
+            if request.url?.host == "api.trustedrouter.test" {
+                XCTAssertEqual(request.url?.path, "/v1/models")
+                return (
+                    HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":{"message":"route not found"}}"#.utf8)
+                )
+            }
+            XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/models")
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data("""
+                <script type="application/ld+json">
+                {"@type":"ItemList","itemListElement":[
+                {"url":"https://trustedrouter.com/models/minimax/minimax-m3","name":"MiniMax M3"},
+                {"url":"https://trustedrouter.com/models/openai/gpt-5.5","name":"GPT 5.5"}
+                ]}
+                </script>
+                """.utf8)
+            )
+        }
+        let client = TrustedRouterModelCatalogClient(
+            apiKey: "sk-test",
+            baseURL: "https://api.trustedrouter.test/v1",
+            urlSession: ModelCatalogURLProtocol.session()
+        )
+
+        let catalog = try await client.fetch()
+
+        XCTAssertEqual(catalog.status.source, .publicTrustedRouter)
+        XCTAssertTrue(catalog.status.failureMessage?.contains("Authenticated JSON catalog failed") == true)
+        XCTAssertTrue(catalog.models.contains { $0.id == "minimax/minimax-m3" })
+        XCTAssertTrue(catalog.models.contains { $0.id == "openai/gpt-5.5" })
+        XCTAssertEqual(catalog.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+    }
+
     func testNormalizedCatalogBackfillsLiveCapabilitiesIntoBundledEntries() throws {
         // The bundled curated entries (empty capabilities) dedup-shadow same-canonical-ID live rows.
         // The live row's capabilities must be backfilled, or canonical models — including the default

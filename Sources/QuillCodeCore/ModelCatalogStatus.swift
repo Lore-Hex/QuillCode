@@ -3,6 +3,7 @@ import Foundation
 public enum ModelCatalogSource: String, Codable, Sendable, Hashable {
     case bundled
     case liveTrustedRouter
+    case publicTrustedRouter
     case fallbackAfterFailure
 }
 
@@ -27,6 +28,13 @@ public struct ModelCatalogStatus: Codable, Sendable, Hashable {
         ModelCatalogStatus(source: .liveTrustedRouter, fetchedAt: fetchedAt)
     }
 
+    public static func publicTrustedRouter(
+        fetchedAt: Date = Date(),
+        note: String? = nil
+    ) -> ModelCatalogStatus {
+        ModelCatalogStatus(source: .publicTrustedRouter, fetchedAt: fetchedAt, failureMessage: note)
+    }
+
     public static func fallbackAfterFailure(
         _ failureMessage: String?,
         fetchedAt: Date = Date()
@@ -44,6 +52,8 @@ public struct ModelCatalogStatus: Codable, Sendable, Hashable {
             return "Bundled catalog"
         case .liveTrustedRouter:
             return "Live TrustedRouter catalog · \(freshnessLabel(now: now, staleAfter: staleAfter))"
+        case .publicTrustedRouter:
+            return "Public TrustedRouter catalog · \(freshnessLabel(now: now, staleAfter: staleAfter))"
         case .fallbackAfterFailure:
             return "Bundled fallback · refresh failed"
         }
@@ -55,6 +65,9 @@ public struct ModelCatalogStatus: Codable, Sendable, Hashable {
             return "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog."
         case .liveTrustedRouter:
             return "Provider, pricing, modality, and health metadata last refreshed \(freshnessLabel(now: now, staleAfter: staleAfter))."
+        case .publicTrustedRouter:
+            let suffix = failureMessage.map { " \($0)" } ?? ""
+            return "Loaded the public TrustedRouter model catalog \(freshnessLabel(now: now, staleAfter: staleAfter)).\(suffix)"
         case .fallbackAfterFailure:
             let suffix = failureMessage.map { ": \($0)" } ?? "."
             return "The latest TrustedRouter model refresh failed\(suffix)"

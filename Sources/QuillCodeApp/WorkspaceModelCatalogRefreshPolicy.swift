@@ -18,11 +18,12 @@ public struct WorkspaceModelCatalogRefreshPolicy: Sendable, Hashable {
         hasTrustedRouterAPIKey: Bool,
         now: Date = Date()
     ) -> Bool {
-        guard hasTrustedRouterAPIKey else { return false }
         switch status.source {
         case .bundled:
             return true
         case .liveTrustedRouter:
+            return hasTrustedRouterAPIKey && isStale(status.fetchedAt, now: now, threshold: staleAfter)
+        case .publicTrustedRouter:
             return isStale(status.fetchedAt, now: now, threshold: staleAfter)
         case .fallbackAfterFailure:
             return isStale(status.fetchedAt, now: now, threshold: retryAfterFailure)

@@ -5,16 +5,21 @@ import QuillCodeCore
 final class WorkspaceModelCatalogRefreshPolicyTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 2_000)
 
-    func testDoesNotRefreshWithoutTrustedRouterKey() {
+    func testRefreshesBundledAndPublicCatalogsWithoutTrustedRouterKey() {
         let policy = WorkspaceModelCatalogRefreshPolicy()
 
-        XCTAssertFalse(policy.shouldRefresh(
+        XCTAssertTrue(policy.shouldRefresh(
             status: .bundled,
             hasTrustedRouterAPIKey: false,
             now: now
         ))
         XCTAssertFalse(policy.shouldRefresh(
             status: .liveTrustedRouter(fetchedAt: now.addingTimeInterval(-7_200)),
+            hasTrustedRouterAPIKey: false,
+            now: now
+        ))
+        XCTAssertTrue(policy.shouldRefresh(
+            status: .publicTrustedRouter(fetchedAt: now.addingTimeInterval(-7_200)),
             hasTrustedRouterAPIKey: false,
             now: now
         ))
@@ -43,6 +48,16 @@ final class WorkspaceModelCatalogRefreshPolicyTests: XCTestCase {
             hasTrustedRouterAPIKey: true,
             now: now
         ))
+        XCTAssertFalse(policy.shouldRefresh(
+            status: .publicTrustedRouter(fetchedAt: now.addingTimeInterval(-59)),
+            hasTrustedRouterAPIKey: false,
+            now: now
+        ))
+        XCTAssertTrue(policy.shouldRefresh(
+            status: .publicTrustedRouter(fetchedAt: now.addingTimeInterval(-60)),
+            hasTrustedRouterAPIKey: false,
+            now: now
+        ))
     }
 
     func testRetriesFailedRefreshAfterShortBackoff() {
@@ -69,6 +84,11 @@ final class WorkspaceModelCatalogRefreshPolicyTests: XCTestCase {
             now: now
         ))
         XCTAssertTrue(policy.shouldRefresh(
+            status: ModelCatalogStatus(source: .publicTrustedRouter),
+            hasTrustedRouterAPIKey: false,
+            now: now
+        ))
+        XCTAssertTrue(policy.shouldRefresh(
             status: ModelCatalogStatus(source: .fallbackAfterFailure, failureMessage: "timeout"),
             hasTrustedRouterAPIKey: true,
             now: now
@@ -79,6 +99,11 @@ final class WorkspaceModelCatalogRefreshPolicyTests: XCTestCase {
         XCTAssertTrue(WorkspaceModelCatalogRefreshPolicy(staleAfter: -Double.infinity).shouldRefresh(
             status: .liveTrustedRouter(fetchedAt: now),
             hasTrustedRouterAPIKey: true,
+            now: now
+        ))
+        XCTAssertTrue(WorkspaceModelCatalogRefreshPolicy(staleAfter: -Double.infinity).shouldRefresh(
+            status: .publicTrustedRouter(fetchedAt: now),
+            hasTrustedRouterAPIKey: false,
             now: now
         ))
         XCTAssertTrue(WorkspaceModelCatalogRefreshPolicy(retryAfterFailure: Double.nan).shouldRefresh(
@@ -94,6 +119,11 @@ final class WorkspaceModelCatalogRefreshPolicyTests: XCTestCase {
         XCTAssertFalse(policy.shouldRefresh(
             status: .liveTrustedRouter(fetchedAt: now.addingTimeInterval(1)),
             hasTrustedRouterAPIKey: true,
+            now: now
+        ))
+        XCTAssertFalse(policy.shouldRefresh(
+            status: .publicTrustedRouter(fetchedAt: now.addingTimeInterval(1)),
+            hasTrustedRouterAPIKey: false,
             now: now
         ))
         XCTAssertFalse(policy.shouldRefresh(
