@@ -21,6 +21,29 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("do not pipe remote content into a shell"))
     }
 
+    func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("Built-in TrustedRouter model advisor"))
+        XCTAssertTrue(prompt.contains("https://trustedrouter.com/mcp"))
+        XCTAssertTrue(prompt.contains("https://www.aiiq.org/api/mcp"))
+        XCTAssertTrue(prompt.contains("2-5 concrete choices"))
+        XCTAssertTrue(prompt.contains("input_tokens * input_price_per_1m / 1_000_000"))
+        XCTAssertTrue(prompt.contains("trustedrouter/zdr"))
+        XCTAssertTrue(prompt.contains("provider.data_collection = \"deny\""))
+        XCTAssertTrue(prompt.contains("trustedrouter/e2e"))
+        XCTAssertTrue(prompt.contains("https://api-europe-west4.quillrouter.com/v1"))
+        XCTAssertTrue(prompt.contains("provider.jurisdiction = \"us\""))
+        XCTAssertTrue(prompt.contains("Do not invent provider.jurisdiction = \"eu\""))
+        XCTAssertTrue(prompt.contains("trustedrouter/auto"))
+        XCTAssertTrue(prompt.contains("trustedrouter/cheap"))
+        XCTAssertTrue(prompt.contains("trustedrouter/fast / Nike 1.0"))
+        XCTAssertTrue(prompt.contains("Prometheus 1.0"))
+        XCTAssertTrue(prompt.contains("trustedrouter/openpatcher-s1"))
+        XCTAssertTrue(prompt.contains("prompt-cache"))
+        XCTAssertTrue(prompt.contains("https://trustedrouter.com/choose"))
+    }
+
     func testMessagesIncludeProjectInstructionsAsSystemContext() {
         let thread = ChatThread(
             messages: [.init(role: .user, content: "status")],
