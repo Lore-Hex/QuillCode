@@ -2,6 +2,12 @@
 
 ## 2026-07-04
 
+- QuillCode carries the Lore-Hex/LLM-advisor knowledge as built-in agent guidance rather than requiring a separately
+  installed Codex skill. The guidance stays compact and live-data-first: use TrustedRouter MCP/catalog/docs and AI IQ
+  benchmark data when current facts matter, then recommend 2-5 concrete model choices with model IDs, cost/speed
+  estimates, quality signals, privacy/provider caveats, prompt-cache fit, and setup steps. Privacy guidance names the
+  TrustedRouter routes and filters explicitly (`trustedrouter/zdr`, `trustedrouter/e2e`, `trustedrouter/eu`,
+  `provider.data_collection = "deny"`, `provider.jurisdiction = "us"`) while rejecting invented EU jurisdiction filters.
 - Model discovery should remain useful even when TrustedRouter's authenticated `/v1/models` endpoint is unavailable or
   the user has not signed in yet. `TrustedRouterModelCatalogClient` now falls back to the public TrustedRouter model
   catalog page, preserving the branded Recommended defaults while adding provider rows such as MiniMax to picker search.
