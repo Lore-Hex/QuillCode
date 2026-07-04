@@ -28,6 +28,11 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     /// Pre-formatted token-usage chip (e.g. `847 ctx · ↑500 ↓347`), or nil when the model
     /// has not reported usage for this thread. Renderers display this string as-is.
     public var usageStatusLabel: String?
+    /// Pre-formatted spend chip (e.g. `Spend $0.0050 / $1.00`), or nil when the thread has no
+    /// priced provider usage. When present, renderers prefer this over the raw token-usage chip.
+    public var spendStatusLabel: String?
+    /// Tooltip/accessibility detail for `spendStatusLabel`, including unpriced-call and token context.
+    public var spendStatusDetail: String?
     public var canNavigateBack: Bool
     public var canNavigateForward: Bool
 
@@ -54,6 +59,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         showsComputerUseSetup: Bool,
         branchStatusLabel: String? = nil,
         usageStatusLabel: String? = nil,
+        spendStatusLabel: String? = nil,
+        spendStatusDetail: String? = nil,
         canNavigateBack: Bool = false,
         canNavigateForward: Bool = false
     ) {
@@ -79,6 +86,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.showsComputerUseSetup = showsComputerUseSetup
         self.branchStatusLabel = branchStatusLabel
         self.usageStatusLabel = usageStatusLabel
+        self.spendStatusLabel = spendStatusLabel
+        self.spendStatusDetail = spendStatusDetail
         self.canNavigateBack = canNavigateBack
         self.canNavigateForward = canNavigateForward
     }

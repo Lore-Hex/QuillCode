@@ -242,7 +242,8 @@
       text-align: left;
     }
     .topbar-branch-chip,
-    .topbar-usage-chip {
+    .topbar-usage-chip,
+    .topbar-spend-chip {
       flex: 0 0 auto;
       font-size: 12px;
       font-weight: 600;
@@ -252,6 +253,10 @@
       border-radius: 7px;
       padding: 2px 7px;
       white-space: nowrap;
+    }
+    .topbar-spend-chip {
+      color: var(--green);
+      background: rgba(66, 214, 119, 0.10);
     }
     .topbar strong { font-size: 17px; }
     .topbar-title-group strong {
@@ -3636,6 +3641,8 @@
         subtitle: 'QuillCode - Not started',
         branchStatusLabel: null,
         usageStatusLabel: null,
+        spendStatusLabel: null,
+        spendStatusDetail: null,
         instructionLabel: '1 instruction file loaded',
         instructionSources: ['AGENTS.md'],
         modelLabel: 'Nike 1.0',
@@ -6198,6 +6205,8 @@
       state.topBar.primaryTitle = 'QuillCode';
       state.topBar.subtitle = `${project.name} - Not started`;
       state.topBar.usageStatusLabel = null;
+      state.topBar.spendStatusLabel = null;
+      state.topBar.spendStatusDetail = null;
       emptyTranscriptSurface();
       return true;
     }
@@ -7519,7 +7528,8 @@
               <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
               <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
               ${state.topBar.branchStatusLabel ? `<span class="topbar-branch-chip" data-testid="top-bar-branch" title="${escapeHTML(state.topBar.branchStatusLabel)}">${escapeHTML(state.topBar.branchStatusLabel)}</span>` : ''}
-              ${state.topBar.usageStatusLabel ? `<span class="topbar-usage-chip" data-testid="top-bar-usage" title="${escapeHTML(state.topBar.usageStatusLabel)}">${escapeHTML(state.topBar.usageStatusLabel)}</span>` : ''}
+              ${state.topBar.spendStatusLabel ? `<span class="topbar-spend-chip" data-testid="top-bar-spend" title="${escapeHTML(state.topBar.spendStatusDetail || state.topBar.spendStatusLabel)}">${escapeHTML(state.topBar.spendStatusLabel)}</span>` : ''}
+              ${!state.topBar.spendStatusLabel && state.topBar.usageStatusLabel ? `<span class="topbar-usage-chip" data-testid="top-bar-usage" title="${escapeHTML(state.topBar.usageStatusLabel)}">${escapeHTML(state.topBar.usageStatusLabel)}</span>` : ''}
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">

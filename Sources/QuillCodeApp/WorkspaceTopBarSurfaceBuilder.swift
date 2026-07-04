@@ -13,12 +13,25 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var favoriteModelIDs: [String]
     var recentThreads: [ChatThread]
     var runtimeIssue: RuntimeIssueSurface?
+    var runSpendFuseUSD: Double? = nil
     var canNavigateBack: Bool = false
     var canNavigateForward: Bool = false
 
     func surface() -> TopBarSurface {
         let modelCatalog = modelCatalogBuilder()
         let providerHealth = modelCatalog.providerHealthSummary()
+        let spendStatus = thread.flatMap {
+            WorkspaceTopBarSpendStatusBuilder.status(
+                thread: $0,
+                modelCatalog: self.modelCatalog,
+                runSpendFuseUSD: runSpendFuseUSD
+            )
+        }
+        let usageStatusLabel = thread.flatMap { thread in
+            WorkspaceTokenUsageLabelBuilder.label(
+                for: WorkspaceContextBannerBuilder.latestProviderUsage(for: thread)
+            )
+        }
         return TopBarSurface(
             appName: topBarState.appName,
             primaryTitle: thread?.title ?? "QuillCode",
@@ -47,11 +60,9 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
                 let label = status.compactLabel
                 return label.isEmpty ? nil : label
             },
-            usageStatusLabel: thread.flatMap { thread in
-                WorkspaceTokenUsageLabelBuilder.label(
-                    for: WorkspaceContextBannerBuilder.latestProviderUsage(for: thread)
-                )
-            },
+            usageStatusLabel: spendStatus == nil ? usageStatusLabel : nil,
+            spendStatusLabel: spendStatus?.label,
+            spendStatusDetail: spendStatus?.detail,
             canNavigateBack: canNavigateBack,
             canNavigateForward: canNavigateForward
         )

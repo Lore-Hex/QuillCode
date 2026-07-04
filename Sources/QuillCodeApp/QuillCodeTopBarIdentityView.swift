@@ -22,25 +22,30 @@ struct QuillCodeTopBarIdentityView: View {
                     .accessibilityHidden(true)
             }
 
-            if let usageStatusLabel = topBar.usageStatusLabel {
+            if let spendStatusLabel = topBar.spendStatusLabel {
+                statusChip(spendStatusLabel, tint: QuillCodePalette.green)
+                    .help(topBar.spendStatusDetail ?? spendStatusLabel)
+                    .accessibilityLabel("Thread spend: \(spendStatusLabel)")
+            } else if let usageStatusLabel = topBar.usageStatusLabel {
                 statusChip(usageStatusLabel)
-                    .accessibilityHidden(true)
+                    .help(usageStatusLabel)
+                    .accessibilityLabel("Token usage: \(usageStatusLabel)")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func statusChip(_ label: String) -> some View {
+    private func statusChip(_ label: String, tint: Color = QuillCodePalette.muted) -> some View {
         Text(label)
             .font(.caption.monospacedDigit().weight(.semibold))
-            .foregroundStyle(QuillCodePalette.muted)
+            .foregroundStyle(tint)
             .lineLimit(1)
             .truncationMode(.middle)
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(QuillCodePalette.background.opacity(0.6))
+                    .fill(tint.opacity(0.10))
             )
     }
 }

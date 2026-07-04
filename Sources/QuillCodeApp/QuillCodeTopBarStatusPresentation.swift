@@ -97,7 +97,9 @@ extension TopBarSurface {
         if let branchStatusLabel {
             parts.append("branch: \(branchStatusLabel)")
         }
-        if let usageStatusLabel {
+        if let spendStatusLabel {
+            parts.append("spend: \(spendStatusLabel)")
+        } else if let usageStatusLabel {
             parts.append("token usage: \(usageStatusLabel)")
         }
         if let runtimeIssuePresentation {
