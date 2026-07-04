@@ -31,7 +31,10 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         )
     }
 
-    private func makeTokenBudget(usedPercent: Int = 3) -> TokenBudgetSurface {
+    private func makeTokenBudget(
+        usedPercent: Int = 3,
+        quotaLimits: [TokenQuotaLimitSurface] = []
+    ) -> TokenBudgetSurface {
         TokenBudgetSurface(
             usedTokens: 847,
             limitTokens: 32_000,
@@ -41,7 +44,8 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             primaryLabel: "847 / 32k tokens",
             secondaryLabel: "31.2k left · \(max(0, usedPercent))% · provider reported",
             detailLabel: "Provider reported token budget: 847 used of 32,000 · 31,153 left · \(max(0, usedPercent))% used",
-            sourceLabel: "Provider reported"
+            sourceLabel: "Provider reported",
+            quotaLimits: quotaLimits
         )
     }
 
@@ -66,6 +70,36 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         XCTAssertEqual(decoded.tokenBudget?.primaryLabel, "847 / 32k tokens")
         XCTAssertEqual(decoded.tokenBudget?.remainingTokens, 31_153)
         XCTAssertEqual(decoded.tokenBudget?.sourceLabel, "Provider reported")
+        XCTAssertTrue(decoded.tokenBudget?.visibleQuotaLimits.isEmpty == true)
+    }
+
+    func testTopBarRoundTripsTokenBudgetQuotaLimits() throws {
+        let topBar = makeTopBar(
+            usageStatusLabel: nil,
+            tokenBudget: makeTokenBudget(
+                quotaLimits: [
+                    TokenQuotaLimitSurface(
+                        periodLabel: "Day",
+                        usageLabel: "12k / 100k",
+                        detailLabel: "Daily quota: 12,000 used of 100,000"
+                    ),
+                    TokenQuotaLimitSurface(
+                        periodLabel: "Month",
+                        usageLabel: "$2 / $20",
+                        detailLabel: "Monthly spend: $2 used of $20"
+                    )
+                ]
+            )
+        )
+
+        let decoded = try JSONDecoder().decode(TopBarSurface.self, from: JSONEncoder().encode(topBar))
+
+        XCTAssertEqual(decoded.tokenBudget?.visibleQuotaLimits.map(\.compactLabel), ["Day 12k / 100k", "Month $2 / $20"])
+        XCTAssertEqual(decoded.tokenBudget?.quotaSummaryLabel, "Day 12k / 100k · Month $2 / $20")
+        XCTAssertEqual(
+            decoded.tokenBudget?.accessibilityLabel,
+            "Provider reported token budget: 847 used of 32,000 · 31,153 left · 3% used · Quota limits: Day 12k / 100k · Month $2 / $20"
+        )
     }
 
     func testTopBarDecodesLegacyJSONWithoutUsageKey() throws {
@@ -108,7 +142,36 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget-primary">847 / 32k tokens"#))
         XCTAssertTrue(html.contains("31.2k left · 3% · provider reported"))
         XCTAssertTrue(html.contains("topbar-token-budget"))
+        XCTAssertFalse(html.contains(#"data-testid="top-bar-token-quota-limits""#))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-usage""#))
+    }
+
+    func testHTMLRendererEmitsQuotaLimitsWhenSupplied() {
+        let html = WorkspaceHTMLTopBarRenderer.render(
+            makeTopBar(
+                usageStatusLabel: nil,
+                tokenBudget: makeTokenBudget(
+                    quotaLimits: [
+                        TokenQuotaLimitSurface(
+                            periodLabel: "Day",
+                            usageLabel: "12k / 100k",
+                            detailLabel: "Daily quota: 12,000 used of 100,000"
+                        ),
+                        TokenQuotaLimitSurface(
+                            periodLabel: "Week",
+                            usageLabel: "$4 / $50",
+                            detailLabel: "Weekly spend: $4 used of $50"
+                        )
+                    ]
+                )
+            ),
+            commands: []
+        )
+
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-token-quota-limits""#))
+        XCTAssertTrue(html.contains("Day 12k / 100k"))
+        XCTAssertTrue(html.contains("Week $4 / $50"))
+        XCTAssertTrue(html.contains("Quota limits: Day 12k / 100k · Week $4 / $50"))
     }
 
     func testHTMLRendererMarksTokenBudgetWarningAndCriticalTones() {

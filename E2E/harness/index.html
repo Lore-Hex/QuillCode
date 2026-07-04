@@ -26,7 +26,7 @@
       --hit-target: 44px;
       --hit-target-clearance: 8px;
       --control-cluster-gap: 10px;
-      --workspace-sidebar-width: 272px;
+      --workspace-sidebar-width: 280px;
     }
     * { box-sizing: border-box; }
     .visually-hidden {
@@ -265,12 +265,12 @@
       background: rgba(66, 214, 119, 0.10);
     }
     .topbar-token-budget {
-      flex: 0 0 min(260px, 28vw);
-      min-width: 210px;
+      flex: 0 0 min(286px, 30vw);
+      min-width: 226px;
       display: grid;
-      gap: 5px;
-      padding: 7px 10px;
-      border-radius: 13px;
+      gap: 6px;
+      padding: 8px 12px 9px;
+      border-radius: 16px;
       background: rgba(65, 184, 232, 0.11);
       color: var(--text);
       font-variant-numeric: tabular-nums;
@@ -327,6 +327,32 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .topbar-token-quota-row {
+      min-width: 0;
+      display: flex;
+      gap: 4px;
+      overflow: hidden;
+    }
+    .topbar-token-quota-row span {
+      min-width: 0;
+      padding: 2px 6px;
+      border-radius: 999px;
+      overflow: hidden;
+      color: var(--blue);
+      background: rgba(65, 184, 232, 0.12);
+      font-size: 10px;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar-token-budget[data-tone="warning"] .topbar-token-quota-row span {
+      color: var(--yellow);
+      background: rgba(247, 184, 79, 0.13);
+    }
+    .topbar-token-budget[data-tone="critical"] .topbar-token-quota-row span {
+      color: var(--red);
+      background: rgba(255, 91, 82, 0.13);
     }
     .topbar strong { font-size: 17px; }
     .topbar-title-copy strong {
@@ -911,7 +937,7 @@
       box-shadow: var(--shadow-border);
     }
     .sidebar {
-      padding: 8px 8px 8px 18px;
+      padding: 12px 14px;
       overflow: auto;
       border-right: 1px solid rgba(255,255,255,.07);
       display: flex;
@@ -4486,8 +4512,15 @@
       const usedPercent = Number(budget.usedPercent || 0);
       const tone = usedPercent >= 100 ? 'critical' : usedPercent >= 80 ? 'warning' : 'normal';
       const progressPercent = Math.max(0, Math.min(100, Number(budget.progressPercent || usedPercent || 0)));
+      const quotaLimits = Array.isArray(budget.quotaLimits) ? budget.quotaLimits.slice(0, 3) : [];
+      const quotaSummary = quotaLimits.map(limit => `${limit.periodLabel || ''} ${limit.usageLabel || ''}`.trim()).filter(Boolean).join(' · ');
+      const detailLabel = [budget.detailLabel || '', quotaSummary ? `Quota limits: ${quotaSummary}` : ''].filter(Boolean).join(' · ');
+      const quotaRow = quotaLimits.length ? `
+          <div class="topbar-token-quota-row" data-testid="top-bar-token-quota-limits">
+            ${quotaLimits.map(limit => `<span title="${escapeHTML(limit.detailLabel || '')}">${escapeHTML(`${limit.periodLabel || ''} ${limit.usageLabel || ''}`.trim())}</span>`).join('')}
+          </div>` : '';
       return `
-        <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="${escapeHTML(tone)}" title="${escapeHTML(budget.detailLabel || '')}" aria-label="${escapeHTML(budget.detailLabel || '')}">
+        <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="${escapeHTML(tone)}" title="${escapeHTML(detailLabel)}" aria-label="${escapeHTML(detailLabel)}">
           <div class="topbar-token-budget-row">
             <span class="topbar-token-budget-label">Tokens</span>
             <strong data-testid="top-bar-token-budget-primary">${escapeHTML(budget.primaryLabel || '')}</strong>
@@ -4496,6 +4529,7 @@
             <span style="width: ${progressPercent}%"></span>
           </div>
           <p data-testid="top-bar-token-budget-secondary">${escapeHTML(budget.secondaryLabel || '')}</p>
+          ${quotaRow}
         </section>`;
     }
 
@@ -15259,7 +15293,8 @@
         primaryLabel: `${abbreviateTokens(counts.total)} / ${abbreviateTokens(limit)} tokens`,
         secondaryLabel: `${abbreviateTokens(remaining)} left · ${usedPercent}% · estimated`,
         detailLabel: `Estimated token budget: ${decimalTokens(counts.total)} used of ${decimalTokens(limit)} · ${decimalTokens(remaining)} left · ${usedPercent}% used`,
-        sourceLabel: 'Estimated'
+        sourceLabel: 'Estimated',
+        quotaLimits: []
       };
     }
 

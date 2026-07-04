@@ -118,7 +118,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     computedStyleProperties(page, '#message', ['transition-property']),
     computedStyleProperties(page, '[data-testid="top-bar-title"]', ['text-wrap']),
     computedStyleProperties(page, '[data-testid="agent-status"]', ['font-variant-numeric']),
-    computedStyleProperties(page, '[data-testid="sidebar"]', ['border-radius']),
+    computedStyleProperties(page, '[data-testid="sidebar"]', ['border-radius', 'padding-left', 'padding-right']),
     computedStyleProperties(page, '[data-testid="sidebar-tools-button"]', ['min-height', 'transition-property']),
     computedStyleProperties(page, '[data-testid="sidebar-search-button"]', ['min-height', 'transition-property']),
     computedStyleProperties(page, '[data-testid="settings-button"]', ['width', 'min-height']),
@@ -147,6 +147,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     sidebarSettingsWidth: parseFloat(sidebarSettingsButtonStyle.width),
     sidebarSettingsMinHeight: parseFloat(sidebarSettingsButtonStyle['min-height']),
     sidebarRadius: parseFloat(sidebarStyle['border-radius']),
+    sidebarPaddingLeft: parseFloat(sidebarStyle['padding-left']),
+    sidebarPaddingRight: parseFloat(sidebarStyle['padding-right']),
     emptyStarterMinHeight: parseFloat(emptyStarterStyle['min-height']),
     emptyStarterTransitionProperty: emptyStarterStyle['transition-property'],
     emptyStarterRadius: parseFloat(emptyStarterStyle['border-radius'])
@@ -178,6 +180,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.titleTextWrap).toContain('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeLessThanOrEqual(4);
+  expect(polish.sidebarPaddingLeft).toBe(14);
+  expect(polish.sidebarPaddingRight).toBe(14);
   expect(polish.emptyStarterMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.emptyStarterTransitionProperty).toContain('transform');
   expect(polish.emptyStarterTransitionProperty).toContain('box-shadow');

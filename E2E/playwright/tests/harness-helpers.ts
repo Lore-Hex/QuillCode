@@ -40,6 +40,12 @@ export async function openSidebarTools(page: Page) {
 }
 
 export async function clickSidebarTool(page: Page, testID: string) {
+  const visibleSidebarTarget = page.getByTestId(testID).first();
+  if (await visibleSidebarTarget.isVisible().catch(() => false)) {
+    await visibleSidebarTarget.click();
+    return;
+  }
+
   await openSidebarTools(page);
   await page.getByTestId(testID).click();
 }

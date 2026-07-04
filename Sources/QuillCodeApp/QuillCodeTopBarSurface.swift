@@ -112,6 +112,9 @@ public struct TokenBudgetSurface: Codable, Sendable, Hashable {
     public var secondaryLabel: String
     public var detailLabel: String
     public var sourceLabel: String
+    /// Optional account/provider quota periods, such as day/week/month. The context-window budget
+    /// is always shown above; these only render when real quota data is supplied.
+    public var quotaLimits: [TokenQuotaLimitSurface]?
 
     public init(
         usedTokens: Int,
@@ -122,7 +125,8 @@ public struct TokenBudgetSurface: Codable, Sendable, Hashable {
         primaryLabel: String,
         secondaryLabel: String,
         detailLabel: String,
-        sourceLabel: String
+        sourceLabel: String,
+        quotaLimits: [TokenQuotaLimitSurface] = []
     ) {
         self.usedTokens = max(0, usedTokens)
         self.limitTokens = max(1, limitTokens)
@@ -133,6 +137,41 @@ public struct TokenBudgetSurface: Codable, Sendable, Hashable {
         self.secondaryLabel = secondaryLabel
         self.detailLabel = detailLabel
         self.sourceLabel = sourceLabel
+        self.quotaLimits = quotaLimits.isEmpty ? nil : quotaLimits
+    }
+
+    public var visibleQuotaLimits: [TokenQuotaLimitSurface] {
+        quotaLimits ?? []
+    }
+
+    public var quotaSummaryLabel: String? {
+        let summary = visibleQuotaLimits.map(\.compactLabel).joined(separator: " · ")
+        return summary.isEmpty ? nil : summary
+    }
+
+    public var accessibilityLabel: String {
+        var parts = [detailLabel]
+        if let quotaSummaryLabel {
+            parts.append("Quota limits: \(quotaSummaryLabel)")
+        }
+        return parts.joined(separator: " · ")
+    }
+}
+
+public struct TokenQuotaLimitSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { periodLabel }
+    public var periodLabel: String
+    public var usageLabel: String
+    public var detailLabel: String
+
+    public init(periodLabel: String, usageLabel: String, detailLabel: String) {
+        self.periodLabel = periodLabel
+        self.usageLabel = usageLabel
+        self.detailLabel = detailLabel
+    }
+
+    public var compactLabel: String {
+        "\(periodLabel) \(usageLabel)"
     }
 }
 
