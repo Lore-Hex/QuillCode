@@ -12,6 +12,10 @@ enum AgentGitReadRequestParser {
            hasTool(ToolDefinition.gitStatus.name, in: tools) {
             return ToolCall(name: ToolDefinition.gitStatus.name, argumentsJSON: "{}")
         }
+        if isBranchListRequest(lower),
+           hasTool(ToolDefinition.gitBranchList.name, in: tools) {
+            return ToolCall(name: ToolDefinition.gitBranchList.name, argumentsJSON: "{}")
+        }
         return nil
     }
 
@@ -38,6 +42,14 @@ enum AgentGitReadRequestParser {
             return true
         }
         return tokens.contains("status") && (tokens.contains("git") || tokens.contains("repo"))
+    }
+
+    private static func isBranchListRequest(_ lower: String) -> Bool {
+        let tokens = tokenizeWords(lower)
+        if lower.contains("git branch") || lower.contains("list branches") || lower.contains("show branches") {
+            return true
+        }
+        return tokens.contains("branches") && (tokens.contains("git") || tokens.contains("repo"))
     }
 
     private static func tokenizeWords(_ lower: String) -> Set<String> {

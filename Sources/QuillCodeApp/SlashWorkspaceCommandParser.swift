@@ -8,6 +8,7 @@ enum SlashWorkspaceCommandParser {
              "git-status", "gitstatus",
              "git",
              "init", "init-project",
+             "branch", "branches",
              "worktree", "worktrees", "wt":
             return true
         default:
@@ -27,6 +28,8 @@ enum SlashWorkspaceCommandParser {
             return SlashGitCommandParser.parse(argument)
         case "init", "init-project":
             return .workspaceCommand("project-init")
+        case "branch", "branches":
+            return SlashBranchCommandParser.parse(argument)
         case "worktree", "worktrees", "wt":
             return SlashWorktreeCommandParser.parse(argument)
         default:

@@ -97,6 +97,24 @@ final class SafetyGeneralPolicyTests: SafetyPolicyTestCase {
         )
     }
 
+    func testAutoApprovesExplicitBranchSwitchIntent() async {
+        await assertVerdict(
+            .approve,
+            tool: gitBranchSwitch,
+            argumentsJSON: #"{"branch":"feature/quill"}"#,
+            userMessage: "switch to the feature/quill branch"
+        )
+    }
+
+    func testAutoDoesNotTreatRunAsBlanketIntentForBranchSwitch() async {
+        await assertVerdict(
+            .clarify,
+            tool: gitBranchSwitch,
+            argumentsJSON: #"{"branch":"feature/quill"}"#,
+            userMessage: "run the tests"
+        )
+    }
+
     func testAutoDoesNotTreatExecuteAsBlanketIntentForPullRequestMerge() async {
         await assertVerdict(
             .clarify,

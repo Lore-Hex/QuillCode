@@ -23,6 +23,7 @@ public enum GitToolError: Error, CustomStringConvertible {
     case invalidPullRequestLabel(String)
     case emptyBranch
     case invalidGitName(String)
+    case branchStartPointRequiresCreate
     case noCurrentBranch
     case outsideWorkspace(String)
     case mainWorkspaceWorktreePath
@@ -80,6 +81,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git branch is required."
         case .invalidGitName(let value):
             return "Git remote or branch contains unsupported characters: \(value)"
+        case .branchStartPointRequiresCreate:
+            return "Git branch startPoint can only be used when create is true."
         case .noCurrentBranch:
             return "Git push needs a branch, but the current checkout has no branch."
         case .outsideWorkspace(let path):

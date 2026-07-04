@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 final class SlashWorkspaceCommandParserTests: XCTestCase {
@@ -9,6 +10,8 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("git-status"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("git"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("branch"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("branches"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktree"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktrees"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("wt"))
@@ -68,6 +71,63 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(
             SlashCommandParser.parse("/git pull origin main extra"),
             .invalid("Unexpected git pull argument 'extra'. Try /git pull [remote] [branch].")
+        )
+    }
+
+    func testBranchAliasesListAndSwitchBranches() throws {
+        XCTAssertEqual(SlashCommandParser.parse("/branch"), .workspaceCommand("git-branch-list"))
+        XCTAssertEqual(SlashCommandParser.parse("/branches"), .workspaceCommand("git-branch-list"))
+        guard case .toolCall(let listCall) = SlashCommandParser.parse("/branch list --local") else {
+            return XCTFail("Expected branch list tool call.")
+        }
+        XCTAssertEqual(listCall.name, ToolDefinition.gitBranchList.name)
+        XCTAssertEqual(try ToolArguments(listCall.argumentsJSON).bool("includeRemote"), false)
+
+        guard case .toolCall(let switchCall) = SlashCommandParser.parse("/branch switch feature/quill") else {
+            return XCTFail("Expected branch switch tool call.")
+        }
+        XCTAssertEqual(switchCall.name, ToolDefinition.gitBranchSwitch.name)
+        XCTAssertEqual(try ToolArguments(switchCall.argumentsJSON).string("branch"), "feature/quill")
+
+        guard case .toolCall(let shorthandCall) = SlashCommandParser.parse("/branch feature/quick") else {
+            return XCTFail("Expected branch shorthand switch tool call.")
+        }
+        XCTAssertEqual(shorthandCall.name, ToolDefinition.gitBranchSwitch.name)
+        XCTAssertEqual(try ToolArguments(shorthandCall.argumentsJSON).string("branch"), "feature/quick")
+    }
+
+    func testBranchCreateParsesBranchAndStartPoint() throws {
+        guard case .toolCall(let call) = SlashCommandParser.parse("/branch create feature/quill --from origin/main") else {
+            return XCTFail("Expected branch create tool call.")
+        }
+
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.gitBranchSwitch.name)
+        XCTAssertEqual(arguments.string("branch"), "feature/quill")
+        XCTAssertEqual(arguments.bool("create"), true)
+        XCTAssertEqual(arguments.string("startPoint"), "origin/main")
+    }
+
+    func testBranchSubcommandsRejectAmbiguousArguments() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/branch list extra"),
+            .invalid("Unknown branch list option 'extra'. Try /branch list [--local].")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/branch switch one two"),
+            .invalid("Too many branch switch arguments. Branch names cannot contain spaces.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/branch create"),
+            .invalid("Missing branch name. Try /branch create feature/name --from main.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/branch create feature --from"),
+            .invalid("Missing start point after --from.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/branch unknown extra"),
+            .invalid("Unknown branch command. Try /branch list, /branch switch name, or /branch create name.")
         )
     }
 

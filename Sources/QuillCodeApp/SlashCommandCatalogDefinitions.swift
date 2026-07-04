@@ -204,6 +204,26 @@ extension SlashCommandCatalog {
             aliases: ["git sync", "pull latest"]
         ),
         slashDefinition(
+            "/branch",
+            "List branches",
+            "List local and remote-tracking branches for the selected project.",
+            aliases: ["branches", "git branch"]
+        ),
+        slashDefinition(
+            "/branch switch name",
+            "Switch branch",
+            "Switch the selected project to an existing branch.",
+            insert: "/branch switch ",
+            aliases: ["branch checkout", "git switch"]
+        ),
+        slashDefinition(
+            "/branch create name",
+            "Create branch",
+            "Create and switch to a new branch. Add --from ref to choose the start point.",
+            insert: "/branch create ",
+            aliases: ["branch new", "git switch -c"]
+        ),
+        slashDefinition(
             "/memories",
             "Show memories",
             "Show loaded global and project memories.",

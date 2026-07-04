@@ -4084,6 +4084,8 @@
         { id: 'git-diff', title: 'Review diff', shortcut: '', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
         { id: 'git-fetch', title: 'Fetch latest refs', shortcut: '', category: 'Git', keywords: ['git', 'fetch', 'sync', 'remote', 'latest', 'refs'], isEnabled: true },
         { id: 'git-pull', title: 'Pull latest changes', shortcut: '', category: 'Git', keywords: ['git', 'pull', 'sync', 'remote', 'latest', 'ff-only'], isEnabled: true },
+        { id: 'git-branch-list', title: 'List branches', shortcut: '', category: 'Git', keywords: ['git', 'branch', 'branches', 'switch', 'remote'], isEnabled: true },
+        { id: 'git-branch-switch', title: 'Switch branch', shortcut: '', category: 'Git', keywords: ['git', 'branch', 'checkout', 'switch', 'create'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'review'], isEnabled: true },
         { id: 'git-pr-fill', title: 'Create pull request from commits', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'fill', 'autofill', 'branch', 'commits'], isEnabled: true },
         { id: 'git-pr-list', title: 'List pull requests', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'list', 'pull requests', 'open prs', 'review'], isEnabled: true },
@@ -4509,6 +4511,9 @@
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
       { usage: '/git fetch', title: 'Fetch latest refs', detail: 'Fetch from the selected project remote without changing the working tree.', insertText: '/git fetch', aliases: ['git fetch origin', 'fetch'] },
       { usage: '/git pull', title: 'Pull latest changes', detail: 'Pull the selected project with --ff-only by default.', insertText: '/git pull', aliases: ['git sync', 'pull latest'] },
+      { usage: '/branch', title: 'List branches', detail: 'List local and remote-tracking branches for the selected project.', insertText: '/branch', aliases: ['branches', 'git branch'] },
+      { usage: '/branch switch name', title: 'Switch branch', detail: 'Switch the selected project to an existing branch.', insertText: '/branch switch ', aliases: ['branch checkout', 'git switch'] },
+      { usage: '/branch create name', title: 'Create branch', detail: 'Create and switch to a new branch.', insertText: '/branch create ', aliases: ['branch new', 'git switch -c'] },
       { usage: '/memories', title: 'Show memories', detail: 'Show loaded global and project memories.', insertText: '/memories', aliases: ['memory'] },
       { usage: '/remember text', title: 'Add memory', detail: 'Save an explicit global memory after redaction checks.', insertText: '/remember ', aliases: [] },
       { usage: '/worktrees', title: 'List worktrees', detail: 'List git worktrees for the selected project.', insertText: '/worktrees', aliases: ['worktree', 'wt'] },
@@ -5629,6 +5634,8 @@
         'host.apply_patch',
         'host.git.status',
         'host.git.diff',
+        'host.git.branch.list',
+        'host.git.branch.switch',
         'host.git.stage',
         'host.git.restore',
         'host.git.stage_hunk',
@@ -5737,6 +5744,13 @@
       if (pathTools.has(toolName)) return toolCardSanitized(args.path);
       if (toolName === 'host.apply_patch') return 'patch';
       if (toolName === 'host.git.diff') return args.staged === true ? 'staged diff' : 'working tree';
+      if (toolName === 'host.git.branch.list') return args.includeRemote === false ? 'local only' : 'local and remote';
+      if (toolName === 'host.git.branch.switch') {
+        const branch = toolCardSanitized(args.branch);
+        if (args.create === true && branch && args.startPoint) return `${branch} from ${toolCardSanitized(args.startPoint)}`;
+        if (args.create === true && branch) return `create ${branch}`;
+        return branch || '';
+      }
       if (toolName === 'host.git.commit') return toolCardSanitized(args.message);
       if (toolName === 'host.git.push') {
         const remote = toolCardSanitized(args.remote);
@@ -11399,6 +11413,19 @@
       render();
     }
 
+    function runGitBranchListAction() {
+      const stdout = '*\tmain\torigin/main\n \tfeature/quill\torigin/feature/quill\n \tremotes/origin/main\t\n';
+      addToolCard({
+        title: 'host.git.branch.list',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      addMessage('assistant', 'Git branches:\n' + stdout);
+      render();
+    }
+
     function runGitPullRequestFillAction() {
       ensureThread('Create pull request from commits');
       const url = 'https://github.com/Lore-Hex/QuillCode/pull/77';
@@ -12147,6 +12174,8 @@
       'git-diff',
       'git-fetch',
       'git-pull',
+      'git-branch-list',
+      'git-branch-switch',
       'git-pr-checks',
       'git-pr-checkout',
       'git-pr-comment',
@@ -12604,6 +12633,17 @@
       }
       if (commandID === 'git-pull') {
         runGitPullAction();
+        return;
+      }
+      if (commandID === 'git-branch-list') {
+        runGitBranchListAction();
+        return;
+      }
+      if (commandID === 'git-branch-switch') {
+        state.composer.draft = '/branch switch ';
+        state.composer.canSend = true;
+        render();
+        focusComposerAtDraftEnd();
         return;
       }
       if (commandID === 'toggle-terminal') {

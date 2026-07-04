@@ -71,6 +71,7 @@ enum WorkspaceCommandPlan: Equatable {
         "git-diff": ToolDefinition.gitDiff.name,
         "git-fetch": ToolDefinition.gitFetch.name,
         "git-pull": ToolDefinition.gitPull.name,
+        "git-branch-list": ToolDefinition.gitBranchList.name,
         "git-worktree-list": ToolDefinition.gitWorktreeList.name
     ].merging(WorkspacePullRequestCommandCatalog.toolNameByCommandID) { local, _ in local }
 
@@ -86,6 +87,7 @@ enum WorkspaceCommandPlan: Equatable {
         "memory-add": "/remember ",
         "add-ssh-project": "/ssh user@host:/absolute/path",
         "git-worktree-create": "Create a git worktree named ",
+        "git-branch-switch": "/branch switch ",
         "git-worktree-open": "Open git worktree at ",
         "git-worktree-remove": "Remove git worktree at "
     ].merging(WorkspacePullRequestCommandCatalog.draftByCommandID) { local, _ in local }

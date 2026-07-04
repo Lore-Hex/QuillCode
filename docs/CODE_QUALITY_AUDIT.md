@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-07-04 Structured Git Branch Lifecycle A+ Pass
+
+Overall grade after this slice: **A+ for the structured Git branch lifecycle
+boundary**, with the implementation layered onto the existing Git sync and
+worktree architecture instead of introducing shell-only shortcuts.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Whole architecture | A+ | Branch lifecycle is exposed through the same local/SSH Remote tool, slash command, command-palette, prompt, mock LLM, safety, subtitle, and harness boundaries as the rest of structured Git. |
+| `QuillCodeTools` | A+ | `host.git.branch.list` and `host.git.branch.switch` use shared bounded Git name validation, argv execution, and dispatcher routing; start points are rejected unless create-and-switch is explicit. |
+| `QuillCodeApp` | A+ | `/branch`, `/branches`, `/branch switch`, and `/branch create --from` parse to canonical tool calls and share the remote command builder instead of duplicating SSH shell behavior. |
+| `QuillCodeAgent` | A+ | Prompt guidance and the mock LLM prefer branch tools over raw shell, protecting common requests from empty shell-argument regressions. |
+| `QuillCodeSafety` | A+ | Auto approval is scoped to explicit branch/checkout/switch intent and keeps generic “run” wording as a clarification path. |
+| E2E harness | A+ | Command palette and slash suggestions expose branch list/switch/create, with deterministic tool-card/final-answer behavior for Playwright coverage. |
+
+Validation so far:
+
+- `swift test --filter GitLocalToolExecutorTests --filter GitToolRouterTests --filter SlashWorkspaceCommandParserTests --filter WorkspaceCommandPlanTests --filter WorkspaceRemoteProjectToolExecutorTests --filter SafetyGeneralPolicyTests --filter TrustedRouterPromptBuilderTests --filter MockLLMClientGitBranchTests` (110 tests, 0 failures)
+- `swift test --filter WorkspaceSurfaceTests` (6 tests, 0 failures)
+- `swift test --quiet` (3,178 tests, 2 skipped, 0 failures)
+- After rebasing onto `origin/main` at `6053e203`: `swift test --filter GitLocalToolExecutorTests --filter GitToolRouterTests --filter SlashWorkspaceCommandParserTests --filter WorkspaceCommandPlanTests --filter WorkspaceRemoteProjectToolExecutorTests --filter SafetyGeneralPolicyTests --filter TrustedRouterPromptBuilderTests --filter MockLLMClientGitBranchTests --filter WorkspaceSurfaceTests` (117 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (0 non-A+ rows)
+- `git diff --check`
+
 ## 2026-07-03 Visual UI Smoke A+ Pass
 
 Overall grade after this slice: **A+ across every generated file/module row**. This pass adds a real-DOM

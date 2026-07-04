@@ -63,6 +63,10 @@ enum QuillCodeCommandIconCatalog {
             return "arrow.down.circle"
         case "git-pull":
             return "arrow.down.doc"
+        case "git-branch-list":
+            return "arrow.triangle.branch"
+        case "git-branch-switch":
+            return "arrow.triangle.swap"
         case "git-worktree-list":
             return "point.3.connected.trianglepath.dotted"
         case "git-worktree-create":

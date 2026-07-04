@@ -133,6 +133,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-diff",
             "git-fetch",
             "git-pull",
+            "git-branch-list",
+            "git-branch-switch",
             "git-pr-create",
             "git-pr-fill",
             "git-pr-list",
