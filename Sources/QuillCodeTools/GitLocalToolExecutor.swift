@@ -50,6 +50,43 @@ public struct GitLocalToolExecutor: Sendable {
         }
     }
 
+    public func listBranches(cwd: URL, includeRemote: Bool = true) -> ToolResult {
+        var arguments = ["branch"]
+        if includeRemote {
+            arguments.append("--all")
+        }
+        arguments.append("--format=%(HEAD)%09%(refname:short)%09%(upstream:short)")
+        return runGit(arguments, cwd: cwd, timeoutSeconds: 15)
+    }
+
+    public func switchBranch(
+        cwd: URL,
+        branch: String,
+        create: Bool = false,
+        startPoint: String? = nil
+    ) -> ToolResult {
+        do {
+            let branchName = try GitInputValidator.safeName(branch)
+            let resolvedStartPoint = try GitInputValidator.trimmedNonEmpty(startPoint).map(GitInputValidator.safeName)
+            guard create || resolvedStartPoint == nil else {
+                throw GitToolError.branchStartPointRequiresCreate
+            }
+
+            var arguments = ["switch"]
+            if create {
+                arguments += ["-c", branchName]
+                if let resolvedStartPoint {
+                    arguments.append(resolvedStartPoint)
+                }
+            } else {
+                arguments.append(branchName)
+            }
+            return runGit(arguments, cwd: cwd, timeoutSeconds: 30)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func stage(cwd: URL, path: String) -> ToolResult {
         do {
             return runGit(["add", "--", try GitInputValidator.safeRelativePath(path, cwd: cwd)], cwd: cwd, timeoutSeconds: 20)

@@ -9,6 +9,8 @@ enum WorkspaceRemoteGitBasicCommandBuilder {
         ToolDefinition.gitDiff.name,
         ToolDefinition.gitFetch.name,
         ToolDefinition.gitPull.name,
+        ToolDefinition.gitBranchList.name,
+        ToolDefinition.gitBranchSwitch.name,
         ToolDefinition.gitStage.name,
         ToolDefinition.gitRestore.name,
         ToolDefinition.gitCommit.name
@@ -24,6 +26,24 @@ enum WorkspaceRemoteGitBasicCommandBuilder {
             return try fetchCommand(arguments: args)
         case ToolDefinition.gitPull.name:
             return try pullCommand(arguments: args)
+        case ToolDefinition.gitBranchList.name:
+            let allFlag = args.bool("includeRemote") == false ? "" : " --all"
+            return "git branch\(allFlag) --format='%(HEAD)%09%(refname:short)%09%(upstream:short)'"
+        case ToolDefinition.gitBranchSwitch.name:
+            let branch = try GitInputValidator.safeName(try args.requiredString("branch"))
+            let create = args.bool("create") == true
+            let startPoint = try GitInputValidator.trimmedNonEmpty(args.string("startPoint")).map(GitInputValidator.safeName)
+            guard create || startPoint == nil else {
+                throw GitToolError.branchStartPointRequiresCreate
+            }
+            if create {
+                let quotedBranch = WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(branch)
+                if let startPoint {
+                    return "git switch -c \(quotedBranch) \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(startPoint))"
+                }
+                return "git switch -c \(quotedBranch)"
+            }
+            return "git switch \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(branch))"
         case ToolDefinition.gitStage.name:
             let path = try WorkspaceRemoteProjectPath.relativePath(try args.requiredString("path"))
             return "git add -- \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(path))"

@@ -31,6 +31,20 @@ enum WorkspaceGitCommandCatalog {
                 keywords: ["git", "pull", "sync", "remote", "latest", "ff-only"],
                 isEnabled: hasWorkspaceOrRemoteProject
             ),
+            WorkspaceCommandSurface(
+                id: "git-branch-list",
+                title: "List branches",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["git", "branch", "branches", "switch", "remote"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
+                id: "git-branch-switch",
+                title: "Switch branch",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["git", "branch", "checkout", "switch", "create"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
         ]
 
         let worktreeCommands = [

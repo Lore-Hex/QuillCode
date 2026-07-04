@@ -38,6 +38,29 @@ public extension ToolDefinition {
         risk: .destructive
     )
 
+    static let gitBranchList = gitTool(
+        name: "host.git.branch.list",
+        description: "List local branches and, by default, remote-tracking branches for the project.",
+        parametersJSON: GitToolParameterSchema.object(properties: [
+            "includeRemote": .boolean(description: "Include remote-tracking branches. Defaults to true.")
+        ]),
+        risk: .read
+    )
+
+    static let gitBranchSwitch = gitTool(
+        name: "host.git.branch.switch",
+        description: "Switch to an existing git branch, or create and switch to a new branch from an optional start point.",
+        parametersJSON: GitToolParameterSchema.object(
+            properties: [
+                "branch": .string(description: "Branch name to switch to or create."),
+                "create": .boolean(description: "Create the branch before switching. Defaults to false."),
+                "startPoint": .string(description: "Optional start point used only when create is true.")
+            ],
+            required: ["branch"]
+        ),
+        risk: .destructive
+    )
+
     static let gitStage = gitTool(
         name: "host.git.stage",
         description: "Stage one file path inside the project.",

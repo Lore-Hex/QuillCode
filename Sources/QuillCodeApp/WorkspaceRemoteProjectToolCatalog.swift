@@ -17,6 +17,8 @@ enum WorkspaceRemoteProjectToolCatalog {
         .gitDiff,
         .gitFetch,
         .gitPull,
+        .gitBranchList,
+        .gitBranchSwitch,
         .gitStage,
         .gitRestore,
         .gitStageHunk,

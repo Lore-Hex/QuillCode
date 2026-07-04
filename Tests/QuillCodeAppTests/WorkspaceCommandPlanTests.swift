@@ -22,6 +22,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .runTool(name: ToolDefinition.gitPull.name)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-branch-list"),
+            .runTool(name: ToolDefinition.gitBranchList.name)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-pr-view"),
             .runTool(name: ToolDefinition.gitPullRequestView.name)
         )
@@ -82,6 +86,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-worktree-remove"),
             .setDraft("Remove git worktree at ")
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-branch-switch"),
+            .setDraft("/branch switch ")
         )
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-worktree-open"),

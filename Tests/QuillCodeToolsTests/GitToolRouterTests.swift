@@ -15,6 +15,8 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pull"))
         XCTAssertTrue(definitions.contains("host.git.stage_hunk"))
         XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
+        XCTAssertTrue(definitions.contains("host.git.branch.list"))
+        XCTAssertTrue(definitions.contains("host.git.branch.switch"))
         XCTAssertTrue(definitions.contains("host.git.commit"))
         XCTAssertTrue(definitions.contains("host.git.push"))
         XCTAssertTrue(definitions.contains("host.git.pr.list"))
@@ -45,6 +47,8 @@ final class GitToolRouterTests: XCTestCase {
         let gitDefinitions = GitToolCallDispatcher.definitions.map(\.name)
 
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitStatus.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitBranchList.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitBranchSwitch.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestList.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeOpen.name))
@@ -118,6 +122,17 @@ final class GitToolRouterTests: XCTestCase {
         ))
 
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+    }
+
+    func testToolRouterRoutesGitBranchSwitch() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.gitBranchSwitch.name,
+            argumentsJSON: #"{"branch":"feature/router","create":true,"startPoint":"HEAD"}"#
+        ))
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(currentBranchName(in: root), "feature/router")
     }
 
     private func schemaDictionary(for definition: ToolDefinition) throws -> [String: Any] {

@@ -43,6 +43,10 @@ enum WorkspaceToolCardSubtitleBuilder {
             return gitSyncDetail(arguments)
         case ToolDefinition.gitPull.name:
             return gitSyncDetail(arguments) ?? "ff-only"
+        case ToolDefinition.gitBranchList.name:
+            return arguments.bool("includeRemote") == false ? "local only" : "local and remote"
+        case ToolDefinition.gitBranchSwitch.name:
+            return branchSwitchDetail(arguments)
         case ToolDefinition.gitCommit.name:
             return sanitized(arguments.string("message"))
         case ToolDefinition.gitPush.name:
@@ -127,6 +131,17 @@ enum WorkspaceToolCardSubtitleBuilder {
         case (nil, nil):
             return nil
         }
+    }
+
+    private static func branchSwitchDetail(_ arguments: ToolArguments) -> String? {
+        let branch = sanitized(arguments.string("branch"))
+        guard arguments.bool("create") == true else {
+            return branch
+        }
+        if let startPoint = sanitized(arguments.string("startPoint")), let branch {
+            return "\(branch) from \(startPoint)"
+        }
+        return branch.map { "create \($0)" }
     }
 
     private static func pullRequestListDetail(_ arguments: ToolArguments) -> String? {
