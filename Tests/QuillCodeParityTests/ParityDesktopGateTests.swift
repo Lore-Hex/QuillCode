@@ -7,7 +7,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
 
         Self.assertSource(text, contains: "MenuBarExtra")
-        XCTAssertTrue(text.contains(#"systemImage: "q.circle.fill""#), "Menu-bar widget should use a visible QuillCode symbol.")
+        Self.assertSource(text, contains: "QuillCodeMenuBarIcon.image")
+        let menuIconText = try Self.desktopSourceText(named: "QuillCodeMenuBarIcon.swift")
+        Self.assertSource(menuIconText, contains: "QuillCodeMenuBarTemplate")
+        Self.assertSource(menuIconText, contains: "isTemplate = true")
         for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Open Browser Session", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
             Self.assertSource(text, contains: label)
         }

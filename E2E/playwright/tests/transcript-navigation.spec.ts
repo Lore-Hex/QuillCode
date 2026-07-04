@@ -2,8 +2,12 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { harnessURL } from './harness-helpers';
 
 async function send(page: Page, text: string) {
-  await page.getByLabel('Message').fill(text);
-  await page.getByRole('button', { name: 'Send' }).click();
+  const message = page.getByLabel('Message');
+  const sendButton = page.getByRole('button', { name: 'Send' });
+  await message.fill(text);
+  await expect(message).toHaveValue(text);
+  await expect(sendButton).toBeEnabled();
+  await sendButton.click();
 }
 
 function lastDiffJump(page: Page) {
