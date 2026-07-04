@@ -3,7 +3,16 @@ import QuillCodeCore
 import QuillCodePersistence
 @testable import QuillCodeApp
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 final class WorkspaceRuntimeFactoryTests: XCTestCase {
+    override func tearDown() {
+        RuntimeFactoryCatalogURLProtocol.reset()
+        super.tearDown()
+    }
+
     func testUsesTrustedRouterWhenEnvironmentKeyExists() throws {
         let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
         try paths.ensure()
@@ -28,6 +37,21 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         )
 
         XCTAssertTrue(runtimeFactory.hasTrustedRouterAPIKey())
+    }
+
+    func testKeyFileCountsAsTrustedRouterCredential() throws {
+        let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
+        try paths.ensure()
+        let keyFile = paths.home.appendingPathComponent("trustedrouter.key")
+        try "sk-test-from-file\n".write(to: keyFile, atomically: true, encoding: .utf8)
+
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_API_KEY_FILE": keyFile.path]
+        )
+
+        XCTAssertTrue(runtimeFactory.hasTrustedRouterAPIKey())
+        XCTAssertEqual(runtimeFactory.makeRuntime(config: AppConfig()).mode, .trustedRouter)
     }
 
     func testUsesTrustedRouterWhenSecretExists() throws {
@@ -63,17 +87,73 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         XCTAssertFalse(runtime.contextSummaryGenerator.isModelBacked)
     }
 
-    func testModelCatalogFallsBackWithoutKey() async throws {
+    func testModelCatalogFetchesPublicCatalogWithoutKey() async throws {
         let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
         try paths.ensure()
+        RuntimeFactoryCatalogURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/models")
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data("""
+                <script type="application/ld+json">
+                {"@type":"ItemList","itemListElement":[
+                {"url":"https://trustedrouter.com/models/minimax/minimax-m3","name":"MiniMax M3"},
+                {"url":"https://trustedrouter.com/models/anthropic/claude-sonnet-5","name":"Claude Sonnet 5"}
+                ]}
+                </script>
+                """.utf8)
+            )
+        }
 
-        let catalog = await QuillCodeRuntimeFactory(paths: paths, environment: [:])
-            .fetchModelCatalog(config: AppConfig())
+        let catalog = await QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_API_KEY_FILE": paths.home.appendingPathComponent("missing.key").path],
+            modelCatalogURLSession: RuntimeFactoryCatalogURLProtocol.session()
+        ).fetchModelCatalog(config: AppConfig())
 
         XCTAssertEqual(catalog.defaultModelID, TrustedRouterDefaults.defaultModel)
-        XCTAssertEqual(catalog.status.source, .bundled)
+        XCTAssertEqual(catalog.status.source, .publicTrustedRouter)
         XCTAssertTrue(catalog.models.contains { $0.id == "trustedrouter/fast" })
         XCTAssertTrue(catalog.models.contains { $0.id == TrustedRouterDefaults.prometheusModel })
-        XCTAssertTrue(catalog.models.contains { $0.id == "z-ai/glm-5.2" })
+        XCTAssertTrue(catalog.models.contains { $0.id == "minimax/minimax-m3" })
     }
+}
+
+private final class RuntimeFactoryCatalogURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    static func session() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RuntimeFactoryCatalogURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    static func reset() {
+        handler = nil
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }
