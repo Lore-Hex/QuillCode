@@ -46,11 +46,19 @@ APP_BUNDLE="$OUTPUT_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+APP_ICON_SOURCE="$ROOT_DIR/Resources/AppIcon/QuillCode.icns"
+MENU_BAR_ICON_SOURCE="$ROOT_DIR/Resources/MenuBar/QuillCodeMenuBarTemplate.png"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$SOURCE_EXECUTABLE" "$MACOS_DIR/$APP_NAME"
 chmod 755 "$MACOS_DIR/$APP_NAME"
+if [[ -f "$APP_ICON_SOURCE" ]]; then
+  cp "$APP_ICON_SOURCE" "$RESOURCES_DIR/QuillCode.icns"
+fi
+if [[ -f "$MENU_BAR_ICON_SOURCE" ]]; then
+  cp "$MENU_BAR_ICON_SOURCE" "$RESOURCES_DIR/QuillCodeMenuBarTemplate.png"
+fi
 
 cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -63,6 +71,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>$APP_NAME</string>
   <key>CFBundleIdentifier</key>
   <string>$BUNDLE_ID</string>
+  <key>CFBundleIconFile</key>
+  <string>QuillCode</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>

@@ -5,12 +5,17 @@ import QuillCodeApp
 
 @main
 struct QuillCodeDesktopApp: App {
-    @StateObject private var controller = QuillCodeDesktopController()
+    @StateObject private var controller: QuillCodeDesktopController
 
     init() {
+        let controller = QuillCodeDesktopController()
+        _controller = StateObject(wrappedValue: controller)
+
         guard let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) else {
             if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
                 QuillCodeDesktopWindowSmokeLaunch.schedule(windowRequest)
+            } else {
+                QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
             }
             return
         }
@@ -48,7 +53,8 @@ struct QuillCodeDesktopApp: App {
                 }
             )
         } label: {
-            Label("QuillCode", systemImage: "q.circle.fill")
+            Image(nsImage: QuillCodeMenuBarIcon.image)
+                .accessibilityLabel("QuillCode")
         }
     }
 }
