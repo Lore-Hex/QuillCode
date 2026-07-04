@@ -10,7 +10,15 @@ public enum QuillCodeMetrics {
     public static let controlClusterSpacing: CGFloat = 10
     public static let denseControlClusterSpacing: CGFloat = 8
     public static let topBarHeight: CGFloat = 44
+    public static let topBarTokenBudgetMinWidth: CGFloat = 226
+    public static let topBarTokenBudgetMaxWidth: CGFloat = 286
+    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 12
+    public static let topBarTokenBudgetVerticalPadding: CGFloat = 8
     public static let sidebarWidth: CGFloat = 280
+    public static let sidebarLeadingInset: CGFloat = 14
+    public static let sidebarTrailingInset: CGFloat = 14
+    public static let sidebarVerticalInset: CGFloat = 12
+    public static let sidebarSectionSpacing: CGFloat = 10
     public static let composerSurfaceRadius: CGFloat = 12
     public static let composerControlRadius: CGFloat = 10
     public static let toolCardMinimumHeight: CGFloat = 74

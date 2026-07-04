@@ -54,7 +54,7 @@ enum WorkspaceHTMLTopBarRenderer {
     private static func renderTokenBudget(_ topBar: TopBarSurface) -> String {
         guard let budget = topBar.tokenBudget else { return "" }
         return """
-        <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="\(escape(tokenBudgetTone(budget)))" title="\(escape(budget.detailLabel))" aria-label="\(escape(budget.detailLabel))">
+        <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="\(escape(tokenBudgetTone(budget)))" title="\(escape(budget.accessibilityLabel))" aria-label="\(escape(budget.accessibilityLabel))">
           <div class="topbar-token-budget-row">
             <span class="topbar-token-budget-label">Tokens</span>
             <strong data-testid="top-bar-token-budget-primary">\(escape(budget.primaryLabel))</strong>
@@ -63,8 +63,18 @@ enum WorkspaceHTMLTopBarRenderer {
             <span style="width: \(budget.progressPercent)%"></span>
           </div>
           <p data-testid="top-bar-token-budget-secondary">\(escape(budget.secondaryLabel))</p>
+          \(renderQuotaLimits(budget))
         </section>
         """
+    }
+
+    private static func renderQuotaLimits(_ budget: TokenBudgetSurface) -> String {
+        let quotaLimits = budget.visibleQuotaLimits.prefix(3)
+        guard !quotaLimits.isEmpty else { return "" }
+        let chips = quotaLimits.map { quota in
+            #"<span title="\#(escape(quota.detailLabel))">\#(escape(quota.compactLabel))</span>"#
+        }.joined(separator: "")
+        return #"<div class="topbar-token-quota-row" data-testid="top-bar-token-quota-limits">\#(chips)</div>"#
     }
 
     private static func tokenBudgetTone(_ budget: TokenBudgetSurface) -> String {

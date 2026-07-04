@@ -71,6 +71,7 @@ test('mock harness surfaces the prominent token budget meter after a turn comple
   await expect(page.getByTestId('top-bar-token-budget-primary')).toContainText(/\/ .* tokens/);
   await expect(page.getByTestId('top-bar-token-budget-secondary')).toContainText('left');
   await expect(page.getByTestId('top-bar-token-budget-secondary')).toContainText('%');
+  await expect(page.getByTestId('top-bar-token-quota-limits')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-usage')).toHaveCount(0);
   // Additive: the existing subtitle is unchanged.
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode');

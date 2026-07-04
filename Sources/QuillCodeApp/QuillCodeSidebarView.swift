@@ -15,7 +15,7 @@ struct QuillCodeSidebarView: View {
     var onOpenAttentionDigest: (UUID) -> Void = { _ in }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: QuillCodeMetrics.sidebarSectionSpacing) {
             QuillCodeSidebarActionsView(commands: commands, onCommand: onCommand)
             if showsThreadHeader {
                 Divider()
@@ -63,7 +63,10 @@ struct QuillCodeSidebarView: View {
             Spacer(minLength: 0)
             QuillCodeSidebarUtilityActionsView(commands: commands, onCommand: onCommand)
         }
-        .padding(14)
+        .padding(.top, QuillCodeMetrics.sidebarVerticalInset)
+        .padding(.bottom, QuillCodeMetrics.sidebarVerticalInset)
+        .padding(.leading, QuillCodeMetrics.sidebarLeadingInset)
+        .padding(.trailing, QuillCodeMetrics.sidebarTrailingInset)
         .background(QuillCodePalette.sidebar)
     }
 

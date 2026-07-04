@@ -30,6 +30,8 @@ final class WorkspaceTokenBudgetSurfaceBuilderTests: XCTestCase {
             budget.detailLabel,
             "Provider reported token budget: 847 used of 128,000 · 127,153 left · 1% used · input 500 · output 347"
         )
+        XCTAssertTrue(budget.visibleQuotaLimits.isEmpty)
+        XCTAssertNil(budget.quotaSummaryLabel)
     }
 
     func testEstimatesBudgetBeforeProviderUsageArrives() throws {

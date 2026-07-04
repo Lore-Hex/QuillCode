@@ -27,8 +27,8 @@ struct QuillCodeTopBarIdentityView: View {
 
             if let tokenBudget = topBar.tokenBudget {
                 tokenBudgetView(tokenBudget)
-                    .help(tokenBudget.detailLabel)
-                    .accessibilityLabel(tokenBudget.detailLabel)
+                    .help(tokenBudget.accessibilityLabel)
+                    .accessibilityLabel(tokenBudget.accessibilityLabel)
                     .layoutPriority(1)
             } else if topBar.spendStatusLabel == nil,
                       let usageStatusLabel = topBar.usageStatusLabel {
@@ -61,7 +61,7 @@ struct QuillCodeTopBarIdentityView: View {
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Tokens")
                     .font(.caption2.weight(.bold))
@@ -90,12 +90,34 @@ struct QuillCodeTopBarIdentityView: View {
                 .foregroundStyle(QuillCodePalette.muted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
+
+            if !budget.visibleQuotaLimits.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(budget.visibleQuotaLimits.prefix(3), id: \.id) { quota in
+                        Text(quota.compactLabel)
+                            .font(.caption2.monospacedDigit().weight(.bold))
+                            .foregroundStyle(tokenBudgetTint(for: budget))
+                            .lineLimit(1)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(tokenBudgetTint(for: budget).opacity(0.12))
+                            )
+                    }
+                }
+                .lineLimit(1)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .frame(minWidth: 210, maxWidth: 260, alignment: .leading)
+        .padding(.horizontal, QuillCodeMetrics.topBarTokenBudgetHorizontalPadding)
+        .padding(.vertical, QuillCodeMetrics.topBarTokenBudgetVerticalPadding)
+        .frame(
+            minWidth: QuillCodeMetrics.topBarTokenBudgetMinWidth,
+            maxWidth: QuillCodeMetrics.topBarTokenBudgetMaxWidth,
+            alignment: .leading
+        )
         .background(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(tokenBudgetTint(for: budget).opacity(0.11))
         )
     }
