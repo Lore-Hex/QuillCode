@@ -60,6 +60,7 @@ Drive the QuillCode test harness with mock LLM:
 - reuse a user message as the focused composer draft without mutating transcript history
 - mark assistant responses Helpful or Not helpful and preserve the selected state after rerender
 - retry the latest assistant answer and verify it reuses the latest user turn without duplicating Retry buttons on older answers
+- recover from a transient TrustedRouter/runtime failure with the visible Retry action, proving the issue clears and the original actionable turn dispatches a concrete nonempty tool call
 - edit file
 - review diff, post-patch review refresh, and file/line/range review notes
 - Auto approve/deny/clarify
@@ -81,6 +82,7 @@ Drive the QuillCode test harness with mock LLM:
 
 - Real-world smoke must include natural file-reading such as "What is in README.md?" and prove it routes through `host.file.read`, not shell `cat` fallback or passive chat.
 - Real-world smoke must include natural workspace listing such as "Can you list the files here?" and prove it routes through `host.file.list`, not shell `ls` fallback or passive chat.
+- Real-world smoke must include a transient runtime failure plus visible Retry recovery and prove the retried turn dispatches a concrete nonempty tool call instead of leaving the thread in draft-only limbo.
 - Real-world smoke must include natural workspace text search such as "Where is SmokeSearchSymbol defined?" and prove it routes through `host.file.search`, not shell grep fallback or passive chat.
 - Real-world smoke must include the first-run "Review changes" starter card and prove it creates a user turn, dispatches `host.git.diff`, renders final diff text, clears the composer, and does not leave the user in draft-only limbo.
 - Real-world smoke must include `/git-status` and `/diff` slash shortcuts and prove they dispatch `host.git.status`/`host.git.diff`, render final chat text, clear the composer, and avoid passive "I'll check/review" copy.
