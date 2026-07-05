@@ -15107,3 +15107,32 @@ Validation:
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
 - `rg -n "\| (A-|A |B\+|B-|B |C\+|C-|C |D\+|D-|D |F) \|" docs/CODE_QUALITY_FILE_GRADES.md` (no non-A+ grade rows)
 - `git diff --check`
+
+## 2026-07-04 Linux Browser Live-DOM Capture Slice
+
+Overall grade after this slice: **A+ for desktop browser adapter parity**.
+Linux desktop builds now have a real browser-process live-DOM capture path
+instead of falling back directly to metadata-only snapshots.
+
+Code quality changes:
+
+- Added `ChromiumBrowserLiveDOMCapturer` as a focused desktop adapter that finds
+  Chromium/Chrome-compatible executables, runs bounded headless `--dump-dom`
+  capture with an isolated temporary profile, and parses the dumped rendered HTML
+  into the existing `BrowserLiveDOMSnapshot` contract.
+- Kept the app model free of platform branches: macOS still defaults to the
+  WebKit adapter, Linux maps `DesktopBrowserLiveDOMCapturer` to the Chromium
+  adapter, and the desktop controller only receives `BrowserLiveDOMCapturing`.
+- Added fake-runner desktop tests for invocation shape, DOM parsing,
+  missing-browser fallback, browser-process failures, and unsupported schemes.
+- Extended the desktop browser parity gate so Chromium support cannot disappear
+  or leak process/WebKit details into `QuillCodeDesktopController`.
+- Updated parity docs to mark Linux browser-process live-DOM capture as
+  implemented while keeping visible Linux session control and richer
+  bidirectional sync as pending.
+
+Validation:
+
+- `swift test --filter ChromiumBrowserLiveDOMCapturerTests` (6 tests, 0 failures)
+- `swift test --filter ParityDesktopBrowserAdapterGateTests` (2 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
