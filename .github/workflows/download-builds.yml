@@ -1,0 +1,138 @@
+name: Download Builds
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  schedule:
+    - cron: "17 10 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: download-builds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set build metadata
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            echo "QUILLCODE_BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "QUILLCODE_BUILD_VERSION=0.1.0" >> "$GITHUB_ENV"
+          fi
+          echo "QUILLCODE_BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+      - name: Package macOS app and CLI
+        env:
+          QUILLCODE_DOWNLOAD_DIST_DIR: ${{ runner.temp }}/quillcode-macos-downloads
+        run: scripts/package-macos-downloads.sh
+      - name: Upload macOS downloads
+        uses: actions/upload-artifact@v4
+        with:
+          name: quillcode-macos-downloads
+          path: ${{ runner.temp }}/quillcode-macos-downloads/assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set build metadata
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            echo "QUILLCODE_BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "QUILLCODE_BUILD_VERSION=0.1.0" >> "$GITHUB_ENV"
+          fi
+          echo "QUILLCODE_BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+      - name: Package Linux CLI
+        env:
+          QUILLCODE_DOWNLOAD_DIST_DIR: /tmp/quillcode-linux-downloads
+        run: scripts/package-linux-downloads.sh
+      - name: Upload Linux downloads
+        uses: actions/upload-artifact@v4
+        with:
+          name: quillcode-linux-downloads
+          path: /tmp/quillcode-linux-downloads/assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [macos, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/downloaded-artifacts
+      - name: Prepare release assets
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          find "$RUNNER_TEMP/downloaded-artifacts" -maxdepth 3 -type f -print -exec cp {} "$RUNNER_TEMP/release-assets/" \;
+          (
+            cd "$RUNNER_TEMP/release-assets"
+            sha256sum * > SHASUMS256.txt
+          )
+          find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -print | sort
+      - name: Publish tester or tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            RELEASE_TITLE="QuillCode ${GITHUB_REF_NAME}"
+            PRERELEASE_FLAG=()
+            LATEST_FLAG=(--latest)
+          else
+            RELEASE_TAG="tester-latest"
+            RELEASE_TITLE="QuillCode Tester Build"
+            PRERELEASE_FLAG=(--prerelease)
+            LATEST_FLAG=(--latest=false)
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$RELEASE_TAG" --force
+          fi
+
+          cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
+          Automated QuillCode tester build.
+
+          Commit: \`${GITHUB_SHA}\`
+          Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Downloads:
+          - \`QuillCode-macOS-*.zip\`: macOS app bundle for testers.
+          - \`quill-code-macOS-*.tar.gz\`: macOS CLI.
+          - \`quill-code-linux-*.tar.gz\`: Linux CLI.
+          - \`SHASUMS256.txt\`: checksum manifest for every asset.
+
+          macOS tester note: this build is ad-hoc signed but not notarized yet. If Gatekeeper blocks first launch, use right-click > Open. Computer Use still requires normal macOS Screen Recording and Accessibility permissions.
+          NOTES
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              "${PRERELEASE_FLAG[@]}"
+          else
+            gh release create "$RELEASE_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --target "$GITHUB_SHA" \
+              "${PRERELEASE_FLAG[@]}" \
+              "${LATEST_FLAG[@]}"
+          fi
+
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/* --clobber

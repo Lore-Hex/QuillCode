@@ -7,6 +7,8 @@ CONFIGURATION="${QUILLCODE_MACOS_APP_CONFIGURATION:-debug}"
 APP_NAME="${QUILLCODE_MACOS_APP_NAME:-QuillCode}"
 BUNDLE_ID="${QUILLCODE_MACOS_BUNDLE_ID:-co.lorehex.QuillCode}"
 MINIMUM_SYSTEM_VERSION="${QUILLCODE_MACOS_MINIMUM_SYSTEM_VERSION:-14.0}"
+VERSION="${QUILLCODE_MACOS_APP_VERSION:-0.1.0}"
+BUILD_NUMBER="${QUILLCODE_MACOS_BUILD_NUMBER:-1}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -82,9 +84,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>$VERSION</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$BUILD_NUMBER</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MINIMUM_SYSTEM_VERSION</string>
   <key>LSApplicationCategoryType</key>

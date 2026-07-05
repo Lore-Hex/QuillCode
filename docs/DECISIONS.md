@@ -2,6 +2,11 @@
 
 ## 2026-07-04
 
+- Tester distribution uses one moving GitHub prerelease, `tester-latest`, plus normal version tags. The **Download
+  Builds** workflow publishes macOS app, macOS CLI, and Linux CLI archives as short-retention workflow artifacts and
+  refreshes the stable tester release after successful `main` builds so early testers can use one download URL while
+  maintainers can still cut immutable `v*` releases for public announcements. The macOS tester app is ad-hoc signed
+  and explicitly not notarized until Apple signing/notarization credentials are configured.
 - QuillCode keeps TrustedRouter model-advisor guidance as a compact skill-backed pointer in the base prompt instead of
   carrying the full Lore-Hex/LLM-advisor playbook on every request. The prompt names the live-data-first behavior,
   concise 2-5 option recommendations, key privacy filters, and secret-handling guardrails; detailed model-selection
