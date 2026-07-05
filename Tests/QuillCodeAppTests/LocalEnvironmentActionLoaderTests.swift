@@ -144,4 +144,23 @@ final class LocalEnvironmentActionLoaderTests: XCTestCase {
         XCTAssertEqual(actions[0].title, "One")
         XCTAssertEqual(actions[0].command, #"sh '.quillcode/actions/one.sh'"#)
     }
+
+    func testUnsafeConfiguredDirectoryDoesNotStopLaterSafeDirectories() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let safeDirectory = root.appendingPathComponent("scripts/actions")
+        try FileManager.default.createDirectory(at: safeDirectory, withIntermediateDirectories: true)
+        try "printf safe".write(
+            to: safeDirectory.appendingPathComponent("safe.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let actions = LocalEnvironmentActionLoader.load(
+            from: root,
+            directories: ["../escape", "scripts/actions"]
+        )
+
+        XCTAssertEqual(actions.map(\.relativePath), ["scripts/actions/safe.sh"])
+        XCTAssertEqual(actions.map(\.title), ["Safe"])
+    }
 }

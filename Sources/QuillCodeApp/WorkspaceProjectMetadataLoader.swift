@@ -5,6 +5,7 @@ import QuillCodeTools
 enum WorkspaceProjectMetadataLoader {
     static func loadLocal(from projectRoot: URL) -> WorkspaceProjectMetadata {
         let root = projectRoot.standardizedFileURL
+        let configuration = WorkspaceProjectConfigurationLoader.load(from: root)
         let installedManifests = ProjectExtensionManifestLoader.load(from: root)
         let marketplaceManifests = ProjectExtensionManifestLoader.loadMarketplace(
             from: root,
@@ -15,7 +16,11 @@ enum WorkspaceProjectMetadataLoader {
         )
         return WorkspaceProjectMetadata(
             instructions: ProjectInstructionLoader.load(from: root),
-            localActions: LocalEnvironmentActionLoader.load(from: root),
+            localActions: LocalEnvironmentActionLoader.load(
+                from: root,
+                directories: configuration.localActionDirectories,
+                maxActions: configuration.maxLocalActions
+            ),
             extensionManifests: installedManifests + marketplaceManifests + bundledMarketplaceManifests,
             memories: MemoryNoteLoader.loadProject(from: root)
         )

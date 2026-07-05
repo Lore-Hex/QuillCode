@@ -1,5 +1,14 @@
 # QuillCode Decisions
 
+## 2026-07-05
+
+- Project `.quillcode/config.toml` starts as a bounded source-derived configuration layer, not another persisted app-state
+  object. `WorkspaceProjectConfigurationLoader` currently lets repositories add local action directories and cap discovered
+  local actions while keeping `.quillcode/actions` and `.quillcode/local-env` enabled by default. Unsafe, absolute, parent
+  traversing, oversized, or malformed directory entries are ignored independently so one bad project config row cannot hide
+  later safe actions. The loaded configuration is consumed only by `WorkspaceProjectMetadataLoader`, keeping `ProjectRef`
+  persistence stable and avoiding another project metadata fork.
+
 ## 2026-07-04
 
 - Native desktop smoke should prove the browser feature through a deterministic local HTML page before broader live-site
