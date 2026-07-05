@@ -8,7 +8,7 @@ final class ParityInteractionTargetHarnessGateTests: QuillCodeParityTestCase {
             harnessText,
             containsAll: [
                 "--hit-target-clearance: 8px",
-                "--control-cluster-gap: 10px",
+                "--control-cluster-gap: 8px",
                 ".model-category { display: grid; gap: var(--hit-target-clearance); }",
                 ".model-actions {",
                 ".browser-nav-controls {",

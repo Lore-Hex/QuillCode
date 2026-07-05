@@ -26,7 +26,7 @@ struct QuillCodeSidebarActionsView: View {
                     .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
                     .quillCodeSidebarRowChrome(background: primaryCommandBackground(command))
                 }
-                .buttonStyle(QuillCodePressableButtonStyle())
+                .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
                 .disabled(!command.isEnabled)
                 .accessibilityIdentifier("quillcode-sidebar-command-\(command.id)")
             }

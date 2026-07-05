@@ -72,9 +72,9 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let buttonTargetText = try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift")
 
         [
-            "static let sidebarVisibleRowHeight: CGFloat = 29",
-            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 12",
-            "static let sidebarVisibleRowRadius: CGFloat = 7"
+            "static let sidebarVisibleRowHeight: CGFloat = 27",
+            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 14",
+            "static let sidebarVisibleRowRadius: CGFloat = 8"
         ].forEach { Self.assertSource(designText, contains: $0) }
         [
             primaryActionsText,
@@ -88,6 +88,8 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.sidebarVisibleRowRadius")
         Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.sidebarVisibleRowHeight")
         Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.minimumHitTarget")
+        Self.assertSource(threadRowText, contains: "HStack(spacing: QuillCodeMetrics.minimumTargetClearance)")
+        Self.assertSource(projectRowText, contains: "HStack(spacing: QuillCodeMetrics.minimumTargetClearance)")
         Self.assertSource(threadRowText, contains: ".quillCodeIconButtonTarget")
         Self.assertSource(projectRowText, contains: ".quillCodeIconButtonTarget")
     }

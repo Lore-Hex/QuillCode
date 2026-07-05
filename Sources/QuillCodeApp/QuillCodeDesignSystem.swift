@@ -10,18 +10,18 @@ public enum QuillCodeMetrics {
     public static let controlClusterSpacing: CGFloat = 8
     public static let denseControlClusterSpacing: CGFloat = 6
     public static let topBarHeight: CGFloat = 40
-    public static let topBarTokenBudgetMinWidth: CGFloat = 328
-    public static let topBarTokenBudgetMaxWidth: CGFloat = 460
-    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 9
-    public static let topBarTokenBudgetVerticalPadding: CGFloat = 4
+    public static let topBarTokenBudgetMinWidth: CGFloat = 300
+    public static let topBarTokenBudgetMaxWidth: CGFloat = 420
+    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 10
+    public static let topBarTokenBudgetVerticalPadding: CGFloat = 5
     public static let sidebarWidth: CGFloat = 280
-    public static let sidebarLeadingInset: CGFloat = 10
-    public static let sidebarTrailingInset: CGFloat = 10
-    public static let sidebarVerticalInset: CGFloat = 6
-    public static let sidebarSectionSpacing: CGFloat = 5
-    public static let sidebarVisibleRowHeight: CGFloat = 29
-    public static let sidebarVisibleRowHorizontalPadding: CGFloat = 12
-    public static let sidebarVisibleRowRadius: CGFloat = 7
+    public static let sidebarLeadingInset: CGFloat = 12
+    public static let sidebarTrailingInset: CGFloat = 12
+    public static let sidebarVerticalInset: CGFloat = 5
+    public static let sidebarSectionSpacing: CGFloat = 4
+    public static let sidebarVisibleRowHeight: CGFloat = 27
+    public static let sidebarVisibleRowHorizontalPadding: CGFloat = 14
+    public static let sidebarVisibleRowRadius: CGFloat = 8
     public static let composerSurfaceRadius: CGFloat = 12
     public static let composerControlRadius: CGFloat = 10
     public static let toolCardMinimumHeight: CGFloat = 74
@@ -60,17 +60,32 @@ func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ update
 public struct QuillCodePressableButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init() {}
+    private let enforcesMinimumHitTarget: Bool
+
+    public init(enforcesMinimumHitTarget: Bool = true) {
+        self.enforcesMinimumHitTarget = enforcesMinimumHitTarget
+    }
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .frame(
-                minWidth: QuillCodeMetrics.minimumHitTarget,
-                minHeight: QuillCodeMetrics.minimumHitTarget
-            )
+            .quillCodeOptionalPressableFrame(enforcesMinimumHitTarget: enforcesMinimumHitTarget)
             .contentShape(Rectangle())
             .scaleEffect(!reduceMotion && configuration.isPressed ? QuillCodeMetrics.pressScale : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func quillCodeOptionalPressableFrame(enforcesMinimumHitTarget: Bool) -> some View {
+        if enforcesMinimumHitTarget {
+            frame(
+                minWidth: QuillCodeMetrics.minimumHitTarget,
+                minHeight: QuillCodeMetrics.minimumHitTarget
+            )
+        } else {
+            self
+        }
     }
 }
 

@@ -8,7 +8,7 @@ struct QuillCodeSidebarThreadRowView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+        HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
             selectionToggle
             threadButton
             actionsMenu
@@ -53,7 +53,7 @@ struct QuillCodeSidebarThreadRowView: View {
             }
             .quillCodeSidebarRowChrome(background: item.isSelected ? QuillCodePalette.selection : Color.clear)
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
     }
 
     private var actionsMenu: some View {

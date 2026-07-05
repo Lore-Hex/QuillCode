@@ -6,7 +6,7 @@ struct QuillCodeProjectRowView: View {
     var onProjectAction: (ProjectItemActionSurface) -> Void
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+        HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
             projectButton
             projectActionMenu
         }
@@ -27,7 +27,7 @@ struct QuillCodeProjectRowView: View {
             }
             .quillCodeSidebarRowChrome(background: project.isSelected ? QuillCodePalette.selection : Color.clear)
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
     }
 
     private var projectTitleRow: some View {
