@@ -50,6 +50,12 @@
   Shortcuts panel, and routes the desktop menu action through the same Markdown
   transcript exporter used by visible Copy conversation and Export Markdown
   actions.
+- Obvious branch-list, branch-switch, and branch-create prompts now route
+  through deterministic immediate action preflight before a provider call, using
+  the same parser as the mock LLM. Live TrustedRouter smoke covers branch-list
+  and transcript integrity permits legitimate zero-argument read tools such as
+  branch-list, worktree-list, and browser-inspect while still rejecting empty
+  shell/file/write actions.
 - Run receipts now persist model-aware token usage events, price usage from the
   live model catalog when pricing metadata is available, and render a Run
   Receipts section in Activity with per-call rows, thread total, unpriced legacy

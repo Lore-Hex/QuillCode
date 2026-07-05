@@ -110,6 +110,13 @@ run_scenario \
   "+after"
 
 run_scenario \
+  "git-branch-list" \
+  "List git branches in this repo." \
+  "Running live TrustedRouter git-branch-list smoke with $MODEL" \
+  validate_expected_outputs \
+  "quillcode-smoke-branch"
+
+run_scenario \
   "file-write-explicit" \
   "Create \`live-smoke.txt\` in this workspace with exactly this content: \`quillcode_live_file_smoke\`." \
   "Running live TrustedRouter file-write smoke with $MODEL" \
@@ -212,7 +219,7 @@ begin_scenario \
   "transcript-integrity" \
   "Validate persisted thread transcripts" \
   "Checking persisted live smoke transcripts"
-assert_saved_transcripts_match_live_smoke_expectations 17 3
+assert_saved_transcripts_match_live_smoke_expectations 18 3
 finish_scenario "" ""
 
 write_artifact_manifest 0 "completed"

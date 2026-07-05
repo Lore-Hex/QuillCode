@@ -62,6 +62,100 @@ final class AgentImmediateGitActionTests: XCTestCase {
         XCTAssertNoAssistantMessageContains("I'll review", in: result)
     }
 
+    func testBranchListExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try makeInitialCommit(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git branch quillcode-smoke-branch", cwd: root)).ok)
+        let runner = preflightFailingAgentRunner()
+
+        let result = try await runner.send("List git branches.", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        try assertSingleSuccessfulToolResult(in: result)
+        let call = try queuedToolCall(in: result)
+        XCTAssertEqual(call.name, ToolDefinition.gitBranchList.name)
+        XCTAssertEqual(call.argumentsJSON, "{}")
+        XCTAssertTrue(result.thread.messages.last?.content.contains("quillcode-smoke-branch") == true)
+        XCTAssertNoAssistantMessageContains("I'll list", in: result)
+    }
+
+    func testBranchSwitchExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try makeInitialCommit(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git branch quillcode-smoke-branch", cwd: root)).ok)
+        let runner = preflightFailingAgentRunner()
+
+        let result = try await runner.send(
+            "Switch to branch quillcode-smoke-branch.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        try assertSingleSuccessfulToolResult(in: result)
+        let call = try queuedToolCall(in: result)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.gitBranchSwitch.name)
+        XCTAssertEqual(arguments.string("branch"), "quillcode-smoke-branch")
+        XCTAssertNil(arguments.bool("create"))
+        let current = ShellToolExecutor().run(.init(command: "git branch --show-current", cwd: root))
+        XCTAssertEqual(current.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "quillcode-smoke-branch")
+        XCTAssertNoAssistantMessageContains("I'll switch", in: result)
+    }
+
+    func testExplicitGitCheckoutExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try makeInitialCommit(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git branch quillcode-smoke-branch", cwd: root)).ok)
+        let runner = preflightFailingAgentRunner()
+
+        let result = try await runner.send(
+            "git checkout quillcode-smoke-branch",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        try assertSingleSuccessfulToolResult(in: result)
+        let call = try queuedToolCall(in: result)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.gitBranchSwitch.name)
+        XCTAssertEqual(arguments.string("branch"), "quillcode-smoke-branch")
+        let current = ShellToolExecutor().run(.init(command: "git branch --show-current", cwd: root))
+        XCTAssertEqual(current.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "quillcode-smoke-branch")
+    }
+
+    func testBranchParserDoesNotStealPullRequestCheckoutPrompts() throws {
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "checkout PR #42"))
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "git checkout PR #42"))
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "checkout pull request 42"))
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "switch to PR 42"))
+    }
+
+    func testCreateBranchExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try makeInitialCommit(at: root)
+        let runner = preflightFailingAgentRunner()
+
+        let result = try await runner.send(
+            "Create branch feature/quill from HEAD.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        try assertSingleSuccessfulToolResult(in: result)
+        let call = try queuedToolCall(in: result)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.gitBranchSwitch.name)
+        XCTAssertEqual(arguments.string("branch"), "feature/quill")
+        XCTAssertEqual(arguments.bool("create"), true)
+        XCTAssertEqual(arguments.string("startPoint"), "HEAD")
+        let current = ShellToolExecutor().run(.init(command: "git branch --show-current", cwd: root))
+        XCTAssertEqual(current.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "feature/quill")
+        XCTAssertNoAssistantMessageContains("I'll create", in: result)
+    }
+
     func testCommitChangesExecutesImmediately() async throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
@@ -99,5 +193,11 @@ final class AgentImmediateGitActionTests: XCTestCase {
 
         try assertSingleSuccessfulToolResult(in: result)
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.push") }.count, 3)
+    }
+
+    private func makeInitialCommit(at root: URL) throws {
+        try "baseline\n".write(to: root.appendingPathComponent("baseline.txt"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "baseline.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "Add baseline").ok)
     }
 }

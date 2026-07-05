@@ -22,6 +22,10 @@ enum AgentImmediateActionPlanner {
             return .tool(gitReadCall)
         }
 
+        if let gitBranchMutationCall = AgentGitBranchMutationRequestParser.toolCall(for: request, tools: tools) {
+            return .tool(gitBranchMutationCall)
+        }
+
         if let workspaceDiagnostic = AgentWorkspaceDiagnosticRequestParser.toolCall(for: request, tools: tools) {
             return .tool(workspaceDiagnostic)
         }

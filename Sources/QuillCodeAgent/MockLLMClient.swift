@@ -213,7 +213,7 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
-        if let branchArguments = Self.extractBranchSwitchArguments(from: request),
+        if let branchArguments = AgentGitBranchMutationRequestParser.arguments(from: request),
            tools.contains(where: { $0.name == ToolDefinition.gitBranchSwitch.name }) {
             return .tool(.init(
                 name: ToolDefinition.gitBranchSwitch.name,
@@ -238,46 +238,6 @@ public struct MockLLMClient: LLMClient {
         }
 
         return .say("I can inspect and edit this project, run shell commands, review git diffs, and use Computer Use as the platform backends come online.")
-    }
-
-    private static func extractBranchSwitchArguments(from request: String) -> [String: Any]? {
-        let lower = request.lowercased()
-        let tokens = request.split { $0.isWhitespace }.map(String.init)
-        guard lower.contains("branch") || lower.contains("git switch") || lower.contains("checkout") else {
-            return nil
-        }
-
-        if lower.contains("create") || lower.contains("new branch") || lower.contains("git switch -c") {
-            guard let branch = tokenAfterPreferredMarkers(["branch", "-c"], in: tokens) else {
-                return nil
-            }
-            var arguments: [String: Any] = ["branch": branch, "create": true]
-            if let startPoint = tokenAfterPreferredMarkers(["from", "--from", "--start-point"], in: tokens) {
-                arguments["startPoint"] = startPoint
-            }
-            return arguments
-        }
-
-        if lower.contains("switch") || lower.contains("checkout") {
-            guard let branch = tokenAfterPreferredMarkers(["branch", "to", "checkout", "switch"], in: tokens) else {
-                return nil
-            }
-            return ["branch": branch]
-        }
-        return nil
-    }
-
-    private static func tokenAfterPreferredMarkers(_ markers: [String], in tokens: [String]) -> String? {
-        for marker in markers {
-            for (index, token) in tokens.enumerated() where token.lowercased() == marker {
-                guard index + 1 < tokens.count else { continue }
-                let candidate = tokens[index + 1].trimmingCharacters(in: .punctuationCharacters)
-                if !candidate.isEmpty {
-                    return candidate
-                }
-            }
-        }
-        return nil
     }
 
     private static func isSubagentProgressRequest(_ lowercasedRequest: String) -> Bool {

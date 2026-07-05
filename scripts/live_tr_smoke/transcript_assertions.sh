@@ -56,7 +56,13 @@ assert_saved_transcripts_match_live_smoke_expectations() {
       [queued_calls[] | .argumentsJSON | fromjson];
     def bad_empty_argument_calls:
       [queued_calls[]
-        | select(.name != "host.git.status" and .name != "host.git.diff")
+        | select(
+            .name != "host.git.status"
+            and .name != "host.git.diff"
+            and .name != "host.git.branch.list"
+            and .name != "host.git.worktree.list"
+            and .name != "host.browser.inspect"
+          )
         | select((.argumentsJSON | fromjson | length) == 0)];
     def completed_results:
       [.events[]? | select(.kind == "toolCompleted") | .payloadJSON | fromjson];
