@@ -180,7 +180,9 @@ struct QuillCodeComposerView: View {
     }
 
     private var canSendDraft: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !composer.isSending
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !composer.isSending
+            && modelCommandEmptyCopy == nil
     }
 
     private var composerAccessoryBar: some View {
@@ -246,6 +248,7 @@ struct QuillCodeComposerView: View {
 
     private func handleReturn() -> KeyPress.Result {
         if acceptActiveModelCommand() { return .handled }
+        if modelCommandEmptyCopy != nil { return .handled }
         if acceptActiveSlashSuggestion(force: false) { return .handled }
         if acceptActiveFileMention(force: false) { return .handled }
         return .ignored
