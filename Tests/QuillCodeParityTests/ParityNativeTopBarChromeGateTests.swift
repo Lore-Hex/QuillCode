@@ -19,15 +19,15 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
         [
             "static let sidebarWidth",
             "static let topBarHeight: CGFloat = 40",
-            "static let topBarHorizontalPadding: CGFloat = 10",
+            "static let topBarHorizontalPadding: CGFloat = 8",
             "static let topBarNavigationLeadingPadding: CGFloat = 76",
-            "static let topBarTokenBudgetMinWidth: CGFloat = 400",
-            "static let topBarTokenBudgetVerticalPadding: CGFloat = 4"
+            "static let topBarTokenBudgetMinWidth: CGFloat = 360",
+            "static let topBarTokenBudgetVerticalPadding: CGFloat = 3"
         ].forEach { Self.assertSource(designText, contains: $0) }
         [
-            "Text(\"Context\")",
-            "font(.system(size: 17, weight: .semibold).monospacedDigit())",
-            "font(.system(size: 15, weight: .medium).monospacedDigit())",
+            "Text(\"Tokens\")",
+            "font(.system(size: 16.5, weight: .semibold).monospacedDigit())",
+            "font(.system(size: 14, weight: .medium).monospacedDigit())",
             "tokenBudgetRemainingLabel"
         ].forEach { Self.assertSource(identityText, contains: $0) }
         assertTopBarCompositionAvoidsBusyChrome(topBarViewText)

@@ -4,16 +4,16 @@ struct QuillCodeTopBarIdentityView: View {
     var topBar: TopBarSurface
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: 9) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(topBar.primaryTitle)
-                    .font(.system(size: 15.5, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
                 Text(topBar.subtitle)
-                    .font(.system(size: 12.75, weight: .medium))
+                    .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -61,39 +61,32 @@ struct QuillCodeTopBarIdentityView: View {
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline, spacing: 9) {
-                Text("Context")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                Text(budget.primaryLabel)
-                    .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(QuillCodePalette.text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.92)
-                Spacer(minLength: 4)
-                Text("\(budget.usedPercent)%")
-                    .font(.system(size: 15, weight: .semibold).monospacedDigit())
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("Tokens")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+            Text(budget.primaryLabel)
+                .font(.system(size: 16.5, weight: .semibold).monospacedDigit())
+                .foregroundStyle(QuillCodePalette.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.95)
+            tokenBudgetProgressBar(budget)
+                .frame(width: 92, height: 5)
+                .alignmentGuide(.firstTextBaseline) { dimensions in
+                    dimensions[VerticalAlignment.center]
+                }
+            Text(tokenBudgetRemainingLabel(budget))
+                .font(.system(size: 14, weight: .medium).monospacedDigit())
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.95)
+
+            if let quotaLabel = tokenBudgetQuotaLabel(budget) {
+                Text(quotaLabel)
+                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
                     .foregroundStyle(tokenBudgetTint(for: budget))
                     .lineLimit(1)
-            }
-
-            HStack(spacing: 9) {
-                tokenBudgetProgressBar(budget)
-                    .frame(height: 5)
-                Text(tokenBudgetRemainingLabel(budget))
-                    .font(.system(size: 15, weight: .medium).monospacedDigit())
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.92)
-
-                if let quotaLabel = tokenBudgetQuotaLabel(budget) {
-                    Text(quotaLabel)
-                        .font(.system(size: 14.5, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(tokenBudgetTint(for: budget))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.92)
-                }
+                    .minimumScaleFactor(0.95)
             }
         }
         .padding(.horizontal, QuillCodeMetrics.topBarTokenBudgetHorizontalPadding)
@@ -105,10 +98,10 @@ struct QuillCodeTopBarIdentityView: View {
         )
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(tokenBudgetTint(for: budget).opacity(0.070))
+                .fill(tokenBudgetTint(for: budget).opacity(0.055))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.075), lineWidth: 1)
                 )
         )
     }
@@ -126,11 +119,12 @@ struct QuillCodeTopBarIdentityView: View {
     }
 
     private func tokenBudgetRemainingLabel(_ budget: TokenBudgetSurface) -> String {
-        budget.secondaryLabel
+        let compactParts = budget.secondaryLabel
             .components(separatedBy: " · ")
-            .first
-            .map { $0.isEmpty ? budget.secondaryLabel : $0 }
-            ?? budget.secondaryLabel
+            .prefix(2)
+            .filter { !$0.isEmpty }
+        let compactLabel = compactParts.joined(separator: " · ")
+        return compactLabel.isEmpty ? budget.secondaryLabel : compactLabel
     }
 
     private func tokenBudgetQuotaLabel(_ budget: TokenBudgetSurface) -> String? {
