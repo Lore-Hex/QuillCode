@@ -191,7 +191,7 @@ enum WorkspaceHTMLToolCardRenderer {
             <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
               <img src="\(escape(src))" alt="\(escape(artifact.label))" loading="lazy">
               <figcaption>
-                <small data-testid="tool-card-image-preview-type">\(escape(preview.typeLabel)) · \(escape(preview.extensionLabel))</small>
+                <small data-testid="tool-card-image-preview-type">\(escape(preview.typeLine))</small>
                 <strong data-testid="tool-card-image-preview-label">\(escape(artifact.label))</strong>
                 <small data-testid="tool-card-image-preview-detail">\(escape(preview.detail))</small>
               </figcaption>

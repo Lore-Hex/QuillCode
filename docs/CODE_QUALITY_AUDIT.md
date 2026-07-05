@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-07-05 Artifact Image Dimensions A+ Pass
+
+Overall grade after this slice: **A+ for bounded artifact metadata layering**.
+Local image artifact dimensions now improve screenshot/generated-image preview
+usefulness without putting filesystem or decoding work in the view layer.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Whole architecture | A+ | The preview surface still flows through `ToolArtifactState`; renderers read a plain `typeLine` and do not touch files. |
+| `ToolArtifactImageMetadataReader` | A+ | Header reads are capped at 64 KiB, restricted to local file artifacts, and limited to PNG/GIF/JPEG width-height parsing. |
+| Native/HTML renderers | A+ | SwiftUI and static HTML share the same `ToolArtifactImagePreview.typeLine`, preventing label drift. |
+| Tests/parity gates | A+ | Unit tests cover local PNG metadata, direct GIF/JPEG header parsing, URL refusal, and HTML rendering; the parity gate keeps metadata parsing in the focused builder seam. |
+| Documentation | A+ | Decisions and the parity matrix document what is implemented and keep full embedded document/media rendering pending. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeToolCardSurfaceTests|WorkspaceHTMLToolCardRendererTests|ParityWorkspaceToolCardModelGateTests'`
+- `swift test --quiet`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
 ## 2026-07-04 Native Browser Smoke A+ Pass
 
 Overall grade after this slice: **A+ release-gate coverage for browser inspection**. This closes the native browser

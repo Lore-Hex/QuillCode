@@ -25,7 +25,8 @@ enum ToolArtifactImagePreviewBuilder {
         }
         return ToolArtifactImagePreview(
             extensionLabel: imagePreviewExtension(for: value),
-            detail: ToolArtifactValueClassifier.detail(for: value, kind: kind)
+            detail: ToolArtifactValueClassifier.detail(for: value, kind: kind),
+            dimensionsLabel: ToolArtifactImageMetadataReader.dimensionsLabel(for: value, kind: kind)
         )
     }
 
