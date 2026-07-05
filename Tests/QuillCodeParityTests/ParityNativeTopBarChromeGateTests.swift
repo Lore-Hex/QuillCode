@@ -28,7 +28,8 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
             "Text(\"Tokens\")",
             "font(.system(size: 16.5, weight: .semibold).monospacedDigit())",
             "font(.system(size: 14, weight: .medium).monospacedDigit())",
-            "tokenBudgetRemainingLabel"
+            "tokenBudgetRemainingLabel",
+            "visibleQuotaLimits.prefix(3)"
         ].forEach { Self.assertSource(identityText, contains: $0) }
         assertTopBarCompositionAvoidsBusyChrome(topBarViewText)
     }
