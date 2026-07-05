@@ -14,6 +14,12 @@ Direct asset links for the current tester channel:
 - [macOS CLI: `quill-code-macOS-arm64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz)
 - [Linux CLI: `quill-code-linux-x86_64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-linux-x86_64.tar.gz)
 - [Checksums: `SHASUMS256.txt`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/SHASUMS256.txt)
+- [Build manifest: `latest-tester-build.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json)
+
+The build manifest is intended for the website, updater experiments, and support
+scripts. It records the build channel, tag, commit, workflow run URL, version,
+build number, and per-asset download URL, size, platform, architecture, and
+SHA-256 digest.
 
 ## Build Cadence
 
@@ -64,6 +70,10 @@ Then watch it:
 ```bash
 gh run list --repo Lore-Hex/QuillCode --workflow download-builds.yml --limit 1
 ```
+
+The workflow publishes the same `latest-tester-build.json` schema for manual,
+scheduled, `main`, and `v*` tag builds. For `v*` tags, the channel is `stable`;
+for `tester-latest`, the channel is `tester`.
 
 ## Local Packaging
 

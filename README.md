@@ -25,8 +25,8 @@ This initial repository contains the compile-stable foundation:
 Download the latest automated tester build from
 [QuillCode Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest).
 The tester release is refreshed after every successful `main` push and nightly;
-see [Downloadable Builds](docs/DOWNLOADS.md) for direct app/CLI links and tester
-notes.
+see [Downloadable Builds](docs/DOWNLOADS.md) for direct app/CLI links, the
+machine-readable build manifest, and tester notes.
 
 ```bash
 swift test
