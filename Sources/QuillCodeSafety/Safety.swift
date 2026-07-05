@@ -252,7 +252,7 @@ public struct AutoSafetyReviewer: SafetyReviewer {
             var rationale: String
             var userIntentMatched: Bool
         }
-        let data = Data(json.trimmingCharacters(in: .whitespacesAndNewlines).utf8)
+        let data = Data(Self.reviewJSONPayload(from: json).utf8)
         let decoded = try JSONDecoder().decode(Wire.self, from: data)
         return SafetyReview(
             verdict: decoded.verdict,
@@ -260,6 +260,29 @@ public struct AutoSafetyReviewer: SafetyReviewer {
             reviewerModel: model,
             userIntentMatched: decoded.userIntentMatched
         )
+    }
+
+    private static func reviewJSONPayload(from response: String) -> String {
+        let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("```"), trimmed.hasSuffix("```") else {
+            return trimmed
+        }
+
+        var lines = trimmed.components(separatedBy: .newlines)
+        guard
+            let first = lines.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+            first == "```" || first.lowercased() == "```json",
+            let last = lines.last?.trimmingCharacters(in: .whitespacesAndNewlines),
+            last == "```"
+        else {
+            return trimmed
+        }
+
+        lines.removeFirst()
+        lines.removeLast()
+        return lines
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func combinedErrorSummary(primary: Error, fallback: Error) -> String {

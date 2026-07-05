@@ -8,6 +8,10 @@
   destruction, persistent security weakening, and irreversible disk/account changes. This keeps cheap reviewer models
   from over-blocking normal coding work while preserving the product rule that the tool call must match the user's
   latest request.
+- Auto safety reviewer parsing accepts only raw JSON or a whole-response fenced `json` block. Some cheap reviewer
+  models wrap otherwise valid strict JSON in Markdown fences despite the prompt, and treating that as malformed makes
+  Auto fall back to the static floor unnecessarily. The parser still rejects prose-wrapped JSON instead of scraping
+  arbitrary text because safety decisions should be deterministic and easy to audit.
 - Auto safety should approve common read-only diagnostics by command shape, not by broad shell trust.
   `StaticSafetyReadOnlyShellPolicy` now recognizes single-command requests for identity, date/time, hostname,
   OS/kernel, uptime, process listing, memory, and disk usage when the latest user request asks for that class of
