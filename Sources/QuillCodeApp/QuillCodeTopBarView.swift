@@ -23,7 +23,7 @@ struct QuillCodeTopBarView: View {
                 )
                     .layoutPriority(2)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, QuillCodeMetrics.topBarHorizontalPadding)
             .frame(minHeight: QuillCodeMetrics.topBarHeight)
 
             if showsActivityHairline {
@@ -43,6 +43,7 @@ struct QuillCodeTopBarView: View {
     private var leadingNavigationSlot: some View {
         if leadingInset > 0 {
             navigationControls
+                .padding(.leading, leadingNavigationPadding)
                 .frame(width: leadingInset, alignment: .leading)
         } else {
             navigationControls
@@ -55,6 +56,16 @@ struct QuillCodeTopBarView: View {
 
     private var showsActivityHairline: Bool {
         topBar.showsActivityHairline
+    }
+
+    private var leadingNavigationPadding: CGFloat {
+        max(
+            0,
+            min(
+                QuillCodeMetrics.topBarNavigationLeadingPadding,
+                leadingInset - QuillCodeMetrics.minimumHitTarget * 2
+            )
+        )
     }
 
     private var navigationControls: some View {

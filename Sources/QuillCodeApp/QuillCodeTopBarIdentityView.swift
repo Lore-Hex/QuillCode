@@ -61,47 +61,38 @@ struct QuillCodeTopBarIdentityView: View {
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
-                Text("Tokens")
-                    .font(.system(size: 14.5, weight: .semibold))
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
+                Text("Context")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(budget.primaryLabel)
-                    .font(.system(size: 17.5, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 17, weight: .semibold).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.90)
+                    .minimumScaleFactor(0.92)
                 Spacer(minLength: 4)
                 Text("\(budget.usedPercent)%")
-                    .font(.system(size: 14.5, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 15, weight: .semibold).monospacedDigit())
                     .foregroundStyle(tokenBudgetTint(for: budget))
                     .lineLimit(1)
             }
 
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(QuillCodePalette.panel.opacity(0.85))
-                    Capsule()
-                        .fill(tokenBudgetTint(for: budget).opacity(0.82))
-                        .frame(width: proxy.size.width * CGFloat(budget.progressPercent) / 100)
-                }
-            }
-            .frame(height: 4)
-
-            HStack(spacing: 7) {
-                Text(budget.secondaryLabel)
-                    .font(.system(size: 14.5, weight: .medium).monospacedDigit())
+            HStack(spacing: 9) {
+                tokenBudgetProgressBar(budget)
+                    .frame(height: 5)
+                Text(tokenBudgetRemainingLabel(budget))
+                    .font(.system(size: 15, weight: .medium).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.90)
+                    .minimumScaleFactor(0.92)
 
-                if !budget.visibleQuotaLimits.isEmpty {
-                    Text(budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · "))
-                        .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                if let quotaLabel = tokenBudgetQuotaLabel(budget) {
+                    Text(quotaLabel)
+                        .font(.system(size: 14.5, weight: .semibold).monospacedDigit())
                         .foregroundStyle(tokenBudgetTint(for: budget))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.94)
+                        .minimumScaleFactor(0.92)
                 }
             }
         }
@@ -114,12 +105,37 @@ struct QuillCodeTopBarIdentityView: View {
         )
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(tokenBudgetTint(for: budget).opacity(0.075))
+                .fill(tokenBudgetTint(for: budget).opacity(0.070))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
+    }
+
+    private func tokenBudgetProgressBar(_ budget: TokenBudgetSurface) -> some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(QuillCodePalette.panel.opacity(0.86))
+                Capsule()
+                    .fill(tokenBudgetTint(for: budget).opacity(0.86))
+                    .frame(width: proxy.size.width * CGFloat(budget.progressPercent) / 100)
+            }
+        }
+    }
+
+    private func tokenBudgetRemainingLabel(_ budget: TokenBudgetSurface) -> String {
+        budget.secondaryLabel
+            .components(separatedBy: " · ")
+            .first
+            .map { $0.isEmpty ? budget.secondaryLabel : $0 }
+            ?? budget.secondaryLabel
+    }
+
+    private func tokenBudgetQuotaLabel(_ budget: TokenBudgetSurface) -> String? {
+        let quotaSummary = budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · ")
+        return quotaSummary.isEmpty ? nil : quotaSummary
     }
 
     private func tokenBudgetTint(for budget: TokenBudgetSurface) -> Color {

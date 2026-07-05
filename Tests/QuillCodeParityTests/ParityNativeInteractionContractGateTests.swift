@@ -122,6 +122,7 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
             "Tool cards contain actions and disclosure controls, so they must preserve child click targets instead of combining the whole card."
         )
         let sidebarUsesNamedHitTargetSpacing = [
+            "HStack(spacing: QuillCodeMetrics.sidebarControlSpacing)",
             "HStack(spacing: QuillCodeMetrics.minimumTargetClearance)",
             "HStack(spacing: QuillCodeMetrics.controlClusterSpacing)",
             "HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing)"

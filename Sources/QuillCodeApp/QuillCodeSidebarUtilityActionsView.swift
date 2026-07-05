@@ -13,7 +13,7 @@ struct QuillCodeSidebarUtilityActionsView: View {
     }
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
+        HStack(spacing: QuillCodeMetrics.sidebarControlSpacing) {
             toolsMenu
             if let settingsCommand {
                 settingsButton(settingsCommand)
@@ -50,7 +50,8 @@ struct QuillCodeSidebarUtilityActionsView: View {
                     alignment: .center
                 )
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+        .quillCodeSidebarRowTarget(alignment: .center)
         .help("Tools")
         .accessibilityIdentifier("quillcode-sidebar-tools-button")
     }
@@ -71,7 +72,8 @@ struct QuillCodeSidebarUtilityActionsView: View {
                 alignment: .center
             )
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+        .quillCodeSidebarRowTarget(alignment: .center)
         .disabled(!command.isEnabled)
         .help(QuillCodeSidebarCommandPresentation.displayTitle(for: command))
         .accessibilityLabel(QuillCodeSidebarCommandPresentation.displayTitle(for: command))
