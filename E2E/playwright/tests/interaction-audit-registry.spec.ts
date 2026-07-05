@@ -139,7 +139,7 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await page.getByTestId('extensions-button').click();
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
   await page.getByTestId('extension-start').click();
-  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Ready');
+  await expect(page.getByTestId('extension-item').nth(3)).toContainText('Ready');
   await expectCriticalTargetRegistry('extensions pane', [
     { label: 'install extension', locator: page.getByTestId('extension-install'), expectedKind: 'form-action' },
     { label: 'stop MCP server', locator: page.getByTestId('extension-stop'), expectedKind: 'form-action' },

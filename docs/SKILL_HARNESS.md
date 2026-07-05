@@ -72,6 +72,10 @@ verified package installer.
 
 ## Useful External Packs
 
+- [`Lore-Hex/BurstyRouter`](https://github.com/Lore-Hex/BurstyRouter): good fit for a local-first LLM routing skill.
+  The default catalog entry is intentionally tiny: it advertises a local server plus TrustedRouter burst-overflow path
+  without loading routing instructions into every prompt. Once the repo publishes a `SKILL.md` package, wire its install
+  command so `host.skill.load` can load the full playbook on demand.
 - [`browser-use/browser-use` skills](https://github.com/browser-use/browser-use/tree/main/skills): good fit for a
   browser automation skill pack. Its `browser-use` skill is a compact entry point for CDP control, and it keeps optional
   domain/interaction skills out of the default path until needed.
