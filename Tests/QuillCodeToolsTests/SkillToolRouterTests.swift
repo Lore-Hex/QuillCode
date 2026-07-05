@@ -29,6 +29,8 @@ final class SkillToolRouterTests: XCTestCase {
         XCTAssertEqual(definition.host, .local)
         XCTAssertEqual(definition.risk, .read)
         XCTAssertTrue(definition.parametersJSON.contains("\"name\""))
+        XCTAssertTrue(definition.parametersJSON.contains("\"minLength\": 1"))
+        XCTAssertTrue(definition.parametersJSON.contains("no slashes or .. segments"))
         XCTAssertTrue(definition.parametersJSON.contains("required"))
         XCTAssertNoThrow(try JSONSerialization.jsonObject(with: Data(definition.parametersJSON.utf8)))
     }
