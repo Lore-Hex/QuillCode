@@ -50,6 +50,18 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         XCTAssertEqual(thread.model, TrustedRouterDefaults.defaultModel)
     }
 
+    func testRetiredRawModelFallsBackToDefault() {
+        var config = AppConfig(defaultModel: TrustedRouterDefaults.prometheusModel)
+        var thread = ChatThread(model: TrustedRouterDefaults.prometheusModel)
+
+        let modelID = WorkspaceConfigurationEngine.setModel("tr/synth", config: &config)
+        WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
+
+        XCTAssertEqual(modelID, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.defaultModel)
+    }
+
     func testFavoriteToggleCanonicalizesDedupesAndRejectsBlank() {
         var config = AppConfig(favoriteModels: ["/prometheus", "z-ai/glm-5.2"])
 

@@ -164,6 +164,10 @@ final class ModelCatalogCoreTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("synth"), "synth")
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/synth"), "/synth")
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth"), "tr/synth")
+        XCTAssertTrue(TrustedRouterDefaults.isRetiredRawModelID("synth"))
+        XCTAssertTrue(TrustedRouterDefaults.isRetiredRawModelID("tr/synth"))
+        XCTAssertEqual(TrustedRouterDefaults.normalizedDefaultModelID("synth"), TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(TrustedRouterDefaults.normalizedDefaultModelID("tr/synth"), TrustedRouterDefaults.defaultModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/plato"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Plato 1.0"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(

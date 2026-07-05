@@ -15,6 +15,15 @@ final class SlashModelCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/model"), expected)
     }
 
+    func testRetiredRawModelNamesAreRejected() {
+        let expected = SlashCommand.invalid(
+            "The raw synth model type is no longer a named endpoint. Use /model nike, /model prometheus, or a provider/model from TrustedRouter."
+        )
+
+        XCTAssertEqual(SlashModelCommandParser.parse("synth"), expected)
+        XCTAssertEqual(SlashCommandParser.parse("/model tr/synth"), expected)
+    }
+
     func testTopLevelModelCommandDelegatesToModelParser() {
         XCTAssertEqual(SlashCommandParser.parse("/model /prometheus"), .model("/prometheus"))
         XCTAssertEqual(SlashCommandParser.parse("/model trustedrouter/fast"), .model("trustedrouter/fast"))
