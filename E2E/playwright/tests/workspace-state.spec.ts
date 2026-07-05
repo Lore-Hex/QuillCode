@@ -100,6 +100,27 @@ test('mock harness shows model-authored subagent progress in Activity', async ({
   await expect(page.getByTestId('activity-subagent-section')).toContainText('2 items');
 });
 
+test('mock harness parses slash subagents into named activity rows', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/subagents validate release | Explorer: inspect scope | Verifier after Explorer: run smoke');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.subagents.update');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"objective": "validate release"');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"name": "Explorer"');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"name": "Verifier"');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"dependsOn"');
+  await expect(page.getByText('Updated subagent progress.')).toBeVisible();
+
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-subagent')).toHaveCount(2);
+  await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Explorer');
+  await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Done');
+  await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Verifier');
+  await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Done');
+});
+
 test('mock harness dismisses instruction diagnostics from Activity review and sources', async ({ page }) => {
   await page.goto(harnessURL());
 
