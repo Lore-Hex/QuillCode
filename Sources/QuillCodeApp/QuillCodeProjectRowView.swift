@@ -27,7 +27,7 @@ struct QuillCodeProjectRowView: View {
             }
             .quillCodeSidebarRowChrome(background: project.isSelected ? QuillCodePalette.selection : Color.clear)
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
     }
 
     private var projectTitleRow: some View {

@@ -53,7 +53,7 @@ struct QuillCodeSidebarThreadRowView: View {
             }
             .quillCodeSidebarRowChrome(background: item.isSelected ? QuillCodePalette.selection : Color.clear)
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
     }
 
     private var actionsMenu: some View {

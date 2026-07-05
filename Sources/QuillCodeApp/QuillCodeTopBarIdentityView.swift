@@ -61,16 +61,21 @@ struct QuillCodeTopBarIdentityView: View {
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text("Tokens")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(budget.primaryLabel)
-                    .font(.system(size: 15.5, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.96)
+                    .minimumScaleFactor(0.94)
+                Spacer(minLength: 4)
+                Text("\(budget.usedPercent)%")
+                    .font(.system(size: 13.5, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(tokenBudgetTint(for: budget))
+                    .lineLimit(1)
             }
 
             GeometryReader { proxy in
@@ -86,17 +91,17 @@ struct QuillCodeTopBarIdentityView: View {
 
             HStack(spacing: 7) {
                 Text(budget.secondaryLabel)
-                    .font(.system(size: 14, weight: .medium).monospacedDigit())
+                    .font(.system(size: 13.5, weight: .medium).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.96)
+                    .minimumScaleFactor(0.94)
 
                 if !budget.visibleQuotaLimits.isEmpty {
                     Text(budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · "))
-                        .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 13.5, weight: .semibold).monospacedDigit())
                         .foregroundStyle(tokenBudgetTint(for: budget))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.96)
+                        .minimumScaleFactor(0.94)
                 }
             }
         }

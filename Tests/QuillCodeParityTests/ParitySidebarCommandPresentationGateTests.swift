@@ -72,9 +72,9 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let buttonTargetText = try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift")
 
         [
-            "static let sidebarVisibleRowHeight: CGFloat = 29",
-            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 12",
-            "static let sidebarVisibleRowRadius: CGFloat = 7"
+            "static let sidebarVisibleRowHeight: CGFloat = 27",
+            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 14",
+            "static let sidebarVisibleRowRadius: CGFloat = 8"
         ].forEach { Self.assertSource(designText, contains: $0) }
         [
             primaryActionsText,
