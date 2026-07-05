@@ -4,16 +4,16 @@ struct QuillCodeTopBarIdentityView: View {
     var topBar: TopBarSurface
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 9) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(topBar.primaryTitle)
-                    .font(.headline.weight(.semibold))
+                    .font(.system(size: 15.5, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
                 Text(topBar.subtitle)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -48,30 +48,29 @@ struct QuillCodeTopBarIdentityView: View {
 
     private func statusChip(_ label: String, tint: Color = QuillCodePalette.muted) -> some View {
         Text(label)
-            .font(.caption.monospacedDigit().weight(.medium))
+            .font(.system(size: 12.5, weight: .medium).monospacedDigit())
             .foregroundStyle(tint)
             .lineLimit(1)
             .truncationMode(.middle)
-            .padding(.horizontal, 7)
+            .padding(.horizontal, 8)
             .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(tint.opacity(0.10))
             )
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Tokens")
-                    .font(.caption.weight(.semibold))
+                Text("Context")
+                    .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.muted)
-                    .textCase(.uppercase)
                 Text(budget.primaryLabel)
-                    .font(.callout.monospacedDigit().weight(.semibold))
+                    .font(.system(size: 13.5, weight: .semibold).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.88)
+                    .minimumScaleFactor(0.92)
             }
 
             GeometryReader { proxy in
@@ -87,17 +86,17 @@ struct QuillCodeTopBarIdentityView: View {
 
             HStack(spacing: 6) {
                 Text(budget.secondaryLabel)
-                    .font(.caption.monospacedDigit().weight(.medium))
+                    .font(.system(size: 12.5, weight: .medium).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.88)
+                    .minimumScaleFactor(0.92)
 
                 if !budget.visibleQuotaLimits.isEmpty {
                     Text(budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · "))
-                        .font(.caption.monospacedDigit().weight(.medium))
+                        .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
                         .foregroundStyle(tokenBudgetTint(for: budget))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.88)
+                        .minimumScaleFactor(0.92)
                 }
             }
         }
@@ -109,7 +108,7 @@ struct QuillCodeTopBarIdentityView: View {
             alignment: .leading
         )
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(tokenBudgetTint(for: budget).opacity(0.11))
         )
     }

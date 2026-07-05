@@ -24,11 +24,13 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
             return "Model did not return a valid QuillCode action JSON object: \(text)"
         case .emptyToolArguments(let toolName):
             return "Model returned an empty argument object for \(toolName)."
-        case .streamingHTTPError(let statusCode, let body, _):
-            return TrustedRouterErrorBodyFormatter.streamingMessage(
+        case .streamingHTTPError(let statusCode, let body, let rateLimit):
+            let message = TrustedRouterErrorBodyFormatter.streamingMessage(
                 statusCode: statusCode,
                 body: body
             )
+            guard let diagnosticSummary = rateLimit?.diagnosticSummary else { return message }
+            return "\(message) \(diagnosticSummary)"
         }
     }
 }

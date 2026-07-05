@@ -10,10 +10,8 @@ struct QuillCodeProjectRowView: View {
             projectButton
             projectActionMenu
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 2)
         .padding(.vertical, 0)
-        .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: QuillCodeProjectListMetrics.rowCornerRadius, style: .continuous))
     }
 
     private var projectButton: some View {
@@ -27,6 +25,17 @@ struct QuillCodeProjectRowView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
+            .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
+                alignment: .leading
+            )
+            .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
+            .clipShape(RoundedRectangle(
+                cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
+                style: .continuous
+            ))
             .quillCodeFullRowButtonTarget()
         }
         .buttonStyle(QuillCodePressableButtonStyle())

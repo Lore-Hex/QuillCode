@@ -31,6 +31,23 @@ public struct HTTPRateLimitDetails: Sendable, Hashable {
         return nil
     }
 
+    /// Compact, parseable guidance for UI/runtime diagnostics. The retry loop consumes the typed
+    /// fields above; this string exists so errors that cross less-structured seams still preserve
+    /// provider quota evidence for Settings, top-bar quota rows, and smoke artifacts.
+    public var diagnosticSummary: String? {
+        var parts: [String] = []
+        if let retryAfter {
+            parts.append("retry-after: \(Self.durationLabel(retryAfter))")
+        }
+        if let remaining {
+            parts.append("x-ratelimit-remaining: \(max(0, remaining))")
+        }
+        if let resetAfter {
+            parts.append("x-ratelimit-reset: \(Self.durationLabel(resetAfter))")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
     /// Parses the recognized rate-limit headers (case-insensitively) out of a response header map.
     /// Returns nil when no recognized header parses, so "no guidance" stays cheap to represent.
     /// `now` is injected so the absolute-date header forms are deterministic in tests.
@@ -126,6 +143,15 @@ public struct HTTPRateLimitDetails: Sendable, Hashable {
     private static func boundedDelaySeconds(_ seconds: Double) -> Double? {
         guard seconds.isFinite else { return nil }
         return min(max(0, seconds), maxDelaySeconds)
+    }
+
+    private static func durationLabel(_ duration: Duration) -> String {
+        let seconds = max(0, duration.inSeconds)
+        if seconds == seconds.rounded() {
+            return "\(Int(seconds))s"
+        }
+        let rounded = (seconds * 10).rounded() / 10
+        return String(format: "%.1fs", rounded)
     }
 
     /// `Retry-After` arrives as delta-seconds ("120") or an HTTP-date

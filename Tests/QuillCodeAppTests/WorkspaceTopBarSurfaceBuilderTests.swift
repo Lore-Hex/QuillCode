@@ -112,6 +112,59 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(topBar.showsComputerUseSetup)
     }
 
+    func testProjectsRateLimitRuntimeIssueIntoTokenQuotaRows() throws {
+        let thread = ChatThread(
+            title: "Quota",
+            model: TrustedRouterDefaults.fastModel,
+            events: [
+                ModelTokenUsageEvent.event(usage: ModelTokenUsage(promptTokens: 100, completionTokens: 25))
+            ]
+        )
+        let runtimeIssue = RuntimeIssueSurface(
+            severity: .warning,
+            title: "TrustedRouter rate limit reached",
+            message: "Wait for reset or switch models.",
+            recovery: RuntimeRecoveryTelemetry(route: .modelPicker, reason: .rateLimited),
+            diagnostics: [
+                RuntimeDiagnosticSurface(label: "Provider status", value: "Rate limited"),
+                RuntimeDiagnosticSurface(label: "Rate limit remaining", value: "0"),
+                RuntimeDiagnosticSurface(label: "Rate limit reset", value: "120s"),
+            ]
+        )
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(
+                model: TrustedRouterDefaults.fastModel,
+                computerUseStatus: .permissionStatus(
+                    screenRecordingGranted: true,
+                    accessibilityGranted: true
+                )
+            ),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: [
+                ModelInfo(
+                    id: TrustedRouterDefaults.fastModel,
+                    provider: TrustedRouterDefaults.trustedRouterProvider,
+                    displayName: TrustedRouterDefaults.fastModelDisplayName,
+                    category: "Recommended",
+                    capabilities: ModelCapabilities(contextWindowTokens: 8_000)
+                ),
+            ],
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: runtimeIssue
+        ).surface()
+
+        let budget = try XCTUnwrap(topBar.tokenBudget)
+        XCTAssertEqual(budget.visibleQuotaLimits.map(\.compactLabel), ["Quota 0 left", "Reset 2m"])
+        XCTAssertEqual(topBar.runtimeIssueLabel, "TrustedRouter rate limit reached")
+        XCTAssertTrue(budget.accessibilityLabel.contains("Quota limits: Quota 0 left · Reset 2m"))
+    }
+
     func testBuildsModelCatalogWithFavoritesAndUnarchivedRecents() throws {
         let favoriteModelID = TrustedRouterDefaults.prometheusModel
         let recentModelID = "moonshotai/kimi-k2.6"

@@ -35,7 +35,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
         let tokenBudget = WorkspaceTokenBudgetSurfaceBuilder(
             thread: thread,
             selectedModelID: topBarState.model,
-            modelCatalog: self.modelCatalog
+            modelCatalog: self.modelCatalog,
+            quotaLimits: WorkspaceQuotaLimitSurfaceBuilder(runtimeIssue: runtimeIssue).quotaLimits()
         ).surface()
         return TopBarSurface(
             appName: topBarState.appName,

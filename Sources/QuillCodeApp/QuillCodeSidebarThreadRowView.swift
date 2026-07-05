@@ -13,10 +13,8 @@ struct QuillCodeSidebarThreadRowView: View {
             threadButton
             actionsMenu
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 2)
         .padding(.vertical, 0)
-        .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     @ViewBuilder
@@ -46,12 +44,24 @@ struct QuillCodeSidebarThreadRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     .font(.callout.weight(.medium))
+                    .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
                 Text(item.subtitle)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
+            .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
+                alignment: .leading
+            )
+            .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
+            .clipShape(RoundedRectangle(
+                cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
+                style: .continuous
+            ))
             .quillCodeFullRowButtonTarget()
         }
         .buttonStyle(QuillCodePressableButtonStyle())

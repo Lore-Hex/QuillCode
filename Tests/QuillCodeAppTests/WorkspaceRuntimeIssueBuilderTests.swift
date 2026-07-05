@@ -67,7 +67,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
             modelID: "deepseek/deepseek-v4-flash",
             agentStatus: "Failed",
             lastError: "HTTP 429 rate limit. retry-after: 45 x-ratelimit-remaining: 0 " +
-                "sk-testSecret123456 Bearer abcdefghijklmnop"
+                "x-ratelimit-reset: 120s sk-testSecret123456 Bearer abcdefghijklmnop"
         ).surface()
 
         XCTAssertEqual(issue?.title, "TrustedRouter rate limit reached")
@@ -76,6 +76,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider status" }?.value, "Rate limited")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Retry after" }?.value, "45s")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Rate limit remaining" }?.value, "0")
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Rate limit reset" }?.value, "120s")
 
         let lastError = issue?.diagnostics.first { $0.label == "Last error" }?.value ?? ""
         XCTAssertTrue(lastError.contains("sk-...redacted"))

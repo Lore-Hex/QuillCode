@@ -16,7 +16,7 @@ struct QuillCodeSidebarThreadListView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             ScrollView {
-                LazyVStack(spacing: 5) {
+                LazyVStack(spacing: 2) {
                     ForEach(sections) { section in
                         QuillCodeSidebarThreadSectionView(
                             section: section,

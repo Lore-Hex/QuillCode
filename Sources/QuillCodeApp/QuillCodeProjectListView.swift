@@ -58,7 +58,7 @@ struct QuillCodeProjectListView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             ScrollView {
-                LazyVStack(spacing: 4) {
+                LazyVStack(spacing: 2) {
                     ForEach(projects.items) { project in
                         QuillCodeProjectRowView(
                             project: project,

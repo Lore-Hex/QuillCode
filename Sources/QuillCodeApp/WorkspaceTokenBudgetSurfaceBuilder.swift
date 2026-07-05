@@ -5,6 +5,7 @@ struct WorkspaceTokenBudgetSurfaceBuilder: Sendable, Hashable {
     var selectedModelID: String
     var modelCatalog: [ModelInfo]
     var fallbackTokenBudget: Int = WorkspaceContextBannerBuilder.defaultTokenBudget
+    var quotaLimits: [TokenQuotaLimitSurface] = []
 
     func surface() -> TokenBudgetSurface? {
         guard let thread else { return nil }
@@ -43,7 +44,8 @@ struct WorkspaceTokenBudgetSurfaceBuilder: Sendable, Hashable {
                 usage: usage,
                 sourceLabel: sourceLabel
             ),
-            sourceLabel: sourceLabel
+            sourceLabel: sourceLabel,
+            quotaLimits: quotaLimits
         )
     }
 

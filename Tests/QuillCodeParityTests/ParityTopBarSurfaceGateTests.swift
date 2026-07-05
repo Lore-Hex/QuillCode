@@ -30,16 +30,24 @@ final class ParityTopBarSurfaceGateTests: QuillCodeParityTestCase {
     func testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
+        let quotaBuilderText = try Self.appSourceText(named: "WorkspaceQuotaLimitSurfaceBuilder.swift")
 
         Self.assertSource(surfaceText, contains: "WorkspaceTopBarSurfaceBuilder(")
         [
             "struct WorkspaceTopBarSurfaceBuilder",
             "func surface() -> TopBarSurface",
-            "recentModelIDs()"
+            "recentModelIDs()",
+            "WorkspaceQuotaLimitSurfaceBuilder(runtimeIssue:"
         ].forEach { Self.assertSource(builderText, contains: $0) }
         [
+            "struct WorkspaceQuotaLimitSurfaceBuilder",
+            "func quotaLimits() -> [TokenQuotaLimitSurface]",
+            ".rateLimited"
+        ].forEach { Self.assertSource(quotaBuilderText, contains: $0) }
+        [
             "TopBarSurface(",
-            "private func modelCatalogBuilder"
+            "private func modelCatalogBuilder",
+            "TokenQuotaLimitSurface("
         ].forEach { Self.assertSource(surfaceText, excludes: $0) }
     }
 

@@ -63,6 +63,31 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         Self.assertSource(sidebarText, excludes: "maxProjectListHeight")
     }
 
+    func testNativeSidebarUsesCompactVisibleRowsInsideAuditedTargets() throws {
+        let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+        let primaryActionsText = try Self.appSourceText(named: "QuillCodeSidebarActionsView.swift")
+        let utilityActionsText = try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
+        let threadRowText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
+        let projectRowText = try Self.appSourceText(named: "QuillCodeProjectRowView.swift")
+
+        [
+            "static let sidebarVisibleRowHeight: CGFloat = 30",
+            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 12",
+            "static let sidebarVisibleRowRadius: CGFloat = 8"
+        ].forEach { Self.assertSource(designText, contains: $0) }
+        [
+            primaryActionsText,
+            utilityActionsText,
+            threadRowText,
+            projectRowText
+        ].forEach { source in
+            Self.assertSource(source, contains: "QuillCodeMetrics.sidebarVisibleRowHorizontalPadding")
+            Self.assertSource(source, contains: "QuillCodeMetrics.sidebarVisibleRowHeight")
+            Self.assertSource(source, contains: "QuillCodeMetrics.sidebarVisibleRowRadius")
+            Self.assertSource(source, contains: ".quillCodeFullRowButtonTarget")
+        }
+    }
+
     private var horizontalFilterScrollNeedle: String {
         "ScrollView(.horizontal, showsIndicators: false) {\n            HStack(spacing: 6)"
     }

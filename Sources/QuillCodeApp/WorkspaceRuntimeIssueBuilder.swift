@@ -185,6 +185,12 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
         ) {
             diagnostics.append(RuntimeDiagnosticSurface(label: "Rate limit remaining", value: remaining))
         }
+        if let reset = firstCapture(
+            in: error,
+            pattern: #"(?i)\bx[-_]?ratelimit[-_]?reset\b\s*[:=]?\s*([0-9]+(?:\.[0-9]+)?\s*(?:ms|s|sec|secs|second|seconds)?)"#
+        ) {
+            diagnostics.append(RuntimeDiagnosticSurface(label: "Rate limit reset", value: reset))
+        }
         return diagnostics
     }
 
