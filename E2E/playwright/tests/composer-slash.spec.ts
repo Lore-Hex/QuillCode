@@ -110,6 +110,11 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await page.keyboard.press('Enter');
   await expect(message).toHaveValue('/workspace-check in ');
 
+  await message.fill('/suba');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('/subagents objective | Name: role');
+  await page.keyboard.press('Enter');
+  await expect(message).toHaveValue('/subagents ');
+
   await message.fill('/workt');
   await page.getByTestId('slash-suggestion').first().click();
   await expect(message).toHaveValue('/worktrees');

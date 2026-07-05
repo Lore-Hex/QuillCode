@@ -4652,6 +4652,7 @@
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
+      { usage: '/subagents objective | Name: role', title: 'Run subagents', detail: 'Fan out a local parallel subagent workflow and show replayable progress in Activity.', insertText: '/subagents ', aliases: ['subagent', 'parallel agents', 'agents'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
       { usage: '/init', title: 'Initialize AGENTS.md', detail: 'Scaffold a starter AGENTS.md for the project from its build and test commands.', insertText: '/init', aliases: ['init-project', 'scaffold', 'agents'] },
@@ -9787,6 +9788,102 @@
       state.hasAgentsMd = true;
       addMessage('assistant', "Created AGENTS.md from the project's build and test commands. Edit it to add project specifics.");
       render();
+    }
+
+    function isSubagentRequest(text) {
+      return /^\/(subagents?|parallel|agents)\b/i.test(text.trim())
+        || text.toLowerCase().includes('subagent');
+    }
+
+    function defaultMockSubagentUpdate() {
+      return {
+        objective: 'Coordinate parallel review of the current task.',
+        subagents: [
+          {
+            name: 'Explorer',
+            role: 'Map the code and identify relevant files.',
+            status: 'completed',
+            summary: 'Found the Activity surface and tool routing seams.'
+          },
+          {
+            name: 'Verifier',
+            role: 'Run focused validation and report failures.',
+            status: 'running',
+            summary: 'Preparing smoke coverage.'
+          }
+        ]
+      };
+    }
+
+    function parseMockSubagentSlash(text) {
+      const match = text.trim().match(/^\/(?:subagents?|parallel|agents)\b\s*(.*)$/i);
+      if (!match) return null;
+      const segments = match[1]
+        .split('|')
+        .map(segment => segment.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+      if (segments.length < 2) {
+        return {
+          error: 'Usage: /subagents objective | Name: worker role | Verifier: worker role.'
+        };
+      }
+      const objective = segments[0].replace(/^x\d+\s+/i, '').trim() || segments[0];
+      const subagents = segments.slice(1, 7).map((segment, index) => {
+        const [rawName, ...roleParts] = segment.split(':');
+        const role = (roleParts.join(':').trim() || segment).slice(0, 160);
+        const namePart = (roleParts.length ? rawName : `Worker ${index + 1}`).trim();
+        const dependencySplit = namePart.split(/\s+after\s+/i);
+        const displayName = (dependencySplit[0] || `Worker ${index + 1}`).trim();
+        const groupPath = displayName.includes('/')
+          ? displayName.split('/').slice(0, -1).filter(Boolean)
+          : [];
+        const dependsOn = (dependencySplit[1] || '')
+          .split(',')
+          .map(value => value.trim())
+          .filter(Boolean);
+        return {
+          name: displayName || `Worker ${index + 1}`,
+          groupPath,
+          role,
+          dependsOn,
+          status: 'completed',
+          summary: `Completed ${role}.`
+        };
+      });
+      return { objective, subagents };
+    }
+
+    function subagentStatusLabel(status) {
+      if (status === 'completed') return 'Done';
+      if (status === 'cancelled') return 'Cancelled';
+      if (status === 'failed') return 'Failed';
+      if (status === 'blocked') return 'Blocked';
+      return 'Running';
+    }
+
+    function runMockSubagentAction(text) {
+      const parsed = parseMockSubagentSlash(text);
+      if (parsed?.error) {
+        addMessage('assistant', parsed.error);
+        render();
+        return;
+      }
+      const update = parsed || defaultMockSubagentUpdate();
+      state.activity.authoredSubagents = update.subagents.map((subagent, index) => ({
+        id: `subagent-${index}-${subagent.name}`,
+        title: subagent.groupPath?.length ? subagent.name.split('/').pop() : subagent.name,
+        detail: `${subagent.role} - ${subagent.summary} - Goal: ${update.objective}`,
+        kind: 'subagent',
+        statusLabel: subagentStatusLabel(subagent.status)
+      }));
+      addToolCard({
+        title: 'host.subagents.update',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify(update, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
+      });
+      addMessage('assistant', 'Updated subagent progress.');
     }
 
     function runMockTurnRevert(turnID) {
@@ -15669,39 +15766,8 @@
           outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
         });
         addMessage('assistant', 'Updated the task plan.');
-      } else if (text.toLowerCase().includes('subagent')) {
-        const update = {
-          objective: 'Coordinate parallel review of the current task.',
-          subagents: [
-            {
-              name: 'Explorer',
-              role: 'Map the code and identify relevant files.',
-              status: 'completed',
-              summary: 'Found the Activity surface and tool routing seams.'
-            },
-            {
-              name: 'Verifier',
-              role: 'Run focused validation and report failures.',
-              status: 'running',
-              summary: 'Preparing smoke coverage.'
-            }
-          ]
-        };
-        state.activity.authoredSubagents = update.subagents.map((subagent, index) => ({
-          id: `subagent-${index}-${subagent.name}`,
-          title: subagent.name,
-          detail: `${subagent.role} - ${subagent.summary} - Goal: ${update.objective}`,
-          kind: 'subagent',
-          statusLabel: subagent.status === 'completed' ? 'Done' : 'Running'
-        }));
-        addToolCard({
-          title: 'host.subagents.update',
-          subtitle: 'Completed',
-          status: 'done',
-          inputJSON: JSON.stringify(update, null, 2),
-          outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
-        });
-        addMessage('assistant', 'Updated subagent progress.');
+      } else if (isSubagentRequest(text)) {
+        runMockSubagentAction(text);
       } else if (text.toLowerCase().includes('handoff')) {
         const update = {
           summary: 'Current task state is ready for continuation.',
