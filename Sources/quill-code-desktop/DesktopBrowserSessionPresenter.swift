@@ -114,6 +114,7 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         tabs[id] = tab
         updateWindowTitle()
         emitSessionUpdate()
+        emitRenderedSessionUpdate(for: id, webView: webView)
     }
 
     func sync(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -197,7 +198,33 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         }
     }
 
-    private func emitSessionUpdate() {
+    private func emitRenderedSessionUpdate(for id: UUID, webView: WKWebView) {
+        Task { @MainActor [weak self, weak webView] in
+            guard let self,
+                  let webView,
+                  let tab = tabs[id],
+                  tab.webView === webView
+            else {
+                return
+            }
+            do {
+                let snapshot = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
+                    from: webView,
+                    fallbackURL: tab.snapshot.url
+                )
+                guard let currentTab = tabs[id],
+                      currentTab.webView === webView
+                else {
+                    return
+                }
+                emitSessionUpdate(liveDOMSnapshots: [id: snapshot])
+            } catch {
+                // URL/title sync above is still useful; rendered DOM is best-effort for visible sessions.
+            }
+        }
+    }
+
+    private func emitSessionUpdate(liveDOMSnapshots: [UUID: BrowserLiveDOMSnapshot] = [:]) {
         let activeID = selectedTabID()
         let updates = tabView.tabViewItems.compactMap { item -> BrowserSessionTabUpdate? in
             guard let id = tabID(for: item),
@@ -209,7 +236,8 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
                 id: id,
                 title: title,
                 url: url,
-                isActive: id == activeID
+                isActive: id == activeID,
+                liveDOMSnapshot: liveDOMSnapshots[id]
             )
         }
         guard !updates.isEmpty else { return }

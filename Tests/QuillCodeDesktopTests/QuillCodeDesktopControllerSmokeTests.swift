@@ -272,15 +272,24 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
                     id: tabID,
                     title: "Signed-in dashboard",
                     url: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
-                    isActive: true
+                    isActive: true,
+                    liveDOMSnapshot: BrowserLiveDOMSnapshot(
+                        finalURL: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+                        title: "Rendered Dashboard",
+                        visibleText: "Signed in dashboard ready",
+                        outline: ["H1: Rendered Dashboard"],
+                        viewportDescription: "1120x760 @2x"
+                    )
                 )
             ],
             activeTabID: tabID
         ))
 
         XCTAssertEqual(controller.surface.browser.currentURL, "https://example.com/dashboard")
-        XCTAssertEqual(controller.surface.browser.title, "Signed-in dashboard")
+        XCTAssertEqual(controller.surface.browser.title, "Rendered Dashboard")
         XCTAssertEqual(controller.surface.browser.statusLabel, "Synced from browser session")
+        XCTAssertEqual(controller.surface.browser.snapshot?.inspectionDepth, .liveDOMSnapshot)
+        XCTAssertEqual(controller.surface.browser.snapshot?.textSnippet, "Signed in dashboard ready")
         XCTAssertEqual(controller.browserAddressDraft, "https://example.com/dashboard")
     }
 

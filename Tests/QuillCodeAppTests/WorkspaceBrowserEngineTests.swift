@@ -160,6 +160,48 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         XCTAssertEqual(browser.title, "Docs")
     }
 
+    func testSessionUpdateCanCarryRenderedLiveDOMFromVisibleBrowserSession() throws {
+        var browser = BrowserState()
+        let tabID = browser.selectedTabID
+        WorkspaceBrowserEngine.openPage(
+            try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+            state: &browser,
+            updateHistory: true
+        )
+
+        XCTAssertTrue(WorkspaceBrowserEngine.applySessionUpdate(
+            BrowserSessionUpdate(
+                tabs: [
+                    BrowserSessionTabUpdate(
+                        id: tabID,
+                        title: "Metadata title",
+                        url: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+                        isActive: true,
+                        liveDOMSnapshot: BrowserLiveDOMSnapshot(
+                            finalURL: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+                            title: "Rendered Dashboard",
+                            visibleText: "Signed in dashboard ready",
+                            outline: ["H1: Rendered Dashboard", "Button: Deploy"],
+                            html: "<html><head><title>Rendered Dashboard</title></head><body><h1>Rendered Dashboard</h1><button>Deploy</button></body></html>",
+                            viewportDescription: "1440x900 @2x"
+                        )
+                    )
+                ],
+                activeTabID: tabID
+            ),
+            state: &browser
+        ))
+
+        XCTAssertEqual(browser.currentURL, "https://example.com/dashboard")
+        XCTAssertEqual(browser.title, "Rendered Dashboard")
+        XCTAssertEqual(browser.status, "Synced from browser session")
+        XCTAssertEqual(browser.snapshot?.inspectionDepth, .liveDOMSnapshot)
+        XCTAssertEqual(browser.snapshot?.summary, "Captured a live DOM snapshot from the rendered browser session.")
+        XCTAssertTrue(browser.snapshot?.details.contains("Viewport: 1440x900 @2x") == true)
+        XCTAssertEqual(browser.snapshot?.outline, ["H1: Rendered Dashboard", "Button: Deploy"])
+        XCTAssertEqual(browser.snapshot?.textSnippet, "Signed in dashboard ready")
+    }
+
     func testSessionUpdateAddsExternallyCreatedVisibleSessionTab() throws {
         var browser = BrowserState()
         let initialTabID = browser.selectedTabID
