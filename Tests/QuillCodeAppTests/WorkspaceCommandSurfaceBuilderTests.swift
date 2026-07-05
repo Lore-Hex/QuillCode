@@ -22,6 +22,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("workspace-back", in: commands).isEnabled, false)
         XCTAssertEqual(try command("workspace-forward", in: commands).isEnabled, false)
         XCTAssertEqual(try command("find-in-chat", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("copy-conversation", in: commands).shortcut, "Cmd+Shift+C")
+        XCTAssertEqual(try command("copy-conversation", in: commands).isEnabled, false)
         XCTAssertEqual(try command("toggle-sidebar", in: commands).isEnabled, true)
         XCTAssertEqual(try command("project-new-chat", in: commands).isEnabled, false)
         XCTAssertEqual(try command("git-status", in: commands).isEnabled, false)

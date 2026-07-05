@@ -17,6 +17,13 @@ extension QuillCodeDesktopController {
         }
     }
 
+    func copyCurrentConversation() {
+        guard let markdown = TranscriptMarkdownExporter.clipboardMarkdown(for: surface.transcript) else {
+            return
+        }
+        copyTranscriptItem(id: "conversation", text: markdown)
+    }
+
     func exportCurrentConversationMarkdown() {
         guard let markdown = TranscriptMarkdownExporter.exportableMarkdown(for: surface.transcript) else {
             return

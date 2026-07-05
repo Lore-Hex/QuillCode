@@ -62,4 +62,10 @@ final class WorkspaceShortcutRegistryTests: XCTestCase {
         XCTAssertEqual(WorkspaceShortcutRegistry.shortcut(for: "browser-back")?.displayLabel, "Cmd+[")
         XCTAssertEqual(WorkspaceShortcutRegistry.shortcut(for: "browser-forward")?.displayLabel, "Cmd+]")
     }
+
+    func testConversationCopyIsKeyboardReachableWithoutStealingPlainCopy() {
+        let shortcut = WorkspaceShortcutRegistry.shortcut(for: "copy-conversation")
+
+        XCTAssertEqual(shortcut?.displayLabel, "Cmd+Shift+C")
+    }
 }
