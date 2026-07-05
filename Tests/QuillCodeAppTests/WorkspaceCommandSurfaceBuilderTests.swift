@@ -198,6 +198,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             id: "plugin:github",
             kind: .plugin,
             name: "GitHub",
+            summary: "PR workflow helpers.",
             version: "1.2.0",
             sourceURL: "https://github.com/Lore-Hex/quillcode-github",
             relativePath: ".quillcode/plugins/github.json",
@@ -244,6 +245,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("git-status", in: commands).isEnabled, true)
         XCTAssertEqual(try command("extension-install:plugin:github", in: commands).isEnabled, true)
         XCTAssertEqual(try command("extension-update:plugin:github", in: commands).isEnabled, true)
+        XCTAssertTrue(try command("extension-install:plugin:github", in: commands).keywords.contains("PR workflow helpers."))
         XCTAssertEqual(try command("mcp-start:mcp_server:filesystem", in: commands).isEnabled, false)
         XCTAssertEqual(try command("mcp-stop:mcp_server:filesystem", in: commands).isEnabled, true)
         XCTAssertEqual(try command("mcp-resource:mcp_server:filesystem:0", in: commands).title, "Read README")

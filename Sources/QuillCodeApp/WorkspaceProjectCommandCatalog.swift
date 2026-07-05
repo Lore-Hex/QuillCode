@@ -144,6 +144,7 @@ enum WorkspaceProjectCommandCatalog {
             action.rawValue,
             manifest.kind.title,
             manifest.name,
+            manifest.summary,
             manifest.version ?? "",
             manifest.sourceURL ?? ""
         ].filter { !$0.isEmpty }
