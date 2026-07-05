@@ -23,26 +23,38 @@ extension AgentRunner {
             return action
         }
 
-        if let usageStreamingLLM = llm as? any UsageStreamingLLMClient {
-            return try await nextUsageStreamingAction(
-                from: usageStreamingLLM,
-                thread: &thread,
-                userMessage: userMessage,
-                tools: tools,
-                onProgress: onProgress
-            )
-        }
+        do {
+            if let usageStreamingLLM = llm as? any UsageStreamingLLMClient {
+                return try await nextUsageStreamingAction(
+                    from: usageStreamingLLM,
+                    thread: &thread,
+                    userMessage: userMessage,
+                    tools: tools,
+                    onProgress: onProgress
+                )
+            }
 
-        if let streamingLLM = llm as? any StreamingLLMClient {
-            return try await nextTextStreamingAction(
-                from: streamingLLM,
-                thread: &thread,
-                userMessage: userMessage,
-                tools: tools,
-                onProgress: onProgress
-            )
-        }
+            if let streamingLLM = llm as? any StreamingLLMClient {
+                return try await nextTextStreamingAction(
+                    from: streamingLLM,
+                    thread: &thread,
+                    userMessage: userMessage,
+                    tools: tools,
+                    onProgress: onProgress
+                )
+            }
 
-        return try await llm.nextAction(thread: thread, userMessage: userMessage, tools: tools)
+            return try await llm.nextAction(thread: thread, userMessage: userMessage, tools: tools)
+        } catch TrustedRouterAgentError.emptyToolArguments(let toolName) {
+            if let action = AgentImmediateActionPlanner.action(for: userMessage, tools: tools) {
+                AgentImmediateActionWriteReadMarker.markIfNeeded(
+                    action,
+                    thread: thread,
+                    workspaceRoot: workspaceRoot
+                )
+                return action
+            }
+            throw TrustedRouterAgentError.emptyToolArguments(toolName)
+        }
     }
 }
