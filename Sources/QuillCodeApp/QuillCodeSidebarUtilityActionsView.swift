@@ -42,11 +42,11 @@ struct QuillCodeSidebarUtilityActionsView: View {
             }
         } label: {
             Label("Tools", systemImage: "wrench.and.screwdriver")
-                .font(.system(size: 13.5, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .imageScale(.medium)
                 .foregroundStyle(QuillCodePalette.muted)
                 .quillCodeSidebarRowChrome(
-                    background: QuillCodePalette.panel.opacity(0.34),
+                    background: Color.clear,
                     alignment: .center
                 )
         }
@@ -63,11 +63,11 @@ struct QuillCodeSidebarUtilityActionsView: View {
                 QuillCodeSidebarCommandPresentation.displayTitle(for: command),
                 systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
             )
-            .font(.system(size: 13.5, weight: .medium))
+            .font(.system(size: 13, weight: .medium))
             .imageScale(.medium)
             .foregroundStyle(settingsForeground(command))
             .quillCodeSidebarRowChrome(
-                background: QuillCodePalette.panel.opacity(0.34),
+                background: Color.clear,
                 alignment: .center
             )
         }

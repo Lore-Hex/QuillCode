@@ -44,7 +44,7 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         )
 
         Self.assertSource(savedFilterText, contains: "LazyVGrid(")
-        Self.assertSource(savedFilterText, contains: ".adaptive(minimum: 100)")
+        Self.assertSource(savedFilterText, contains: ".adaptive(minimum: 86)")
         Self.assertSource(savedFilterText, excludes: horizontalFilterScrollNeedle)
         Self.assertSource(harnessText, contains: "flex-wrap: wrap;")
         Self.assertSource(harnessText, excludes: ".sidebar-filter-bar::-webkit-scrollbar")
@@ -72,9 +72,9 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let buttonTargetText = try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift")
 
         [
-            "static let sidebarVisibleRowHeight: CGFloat = 27",
-            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 16",
-            "static let sidebarVisibleRowRadius: CGFloat = 8"
+            "static let sidebarVisibleRowHeight: CGFloat = 30",
+            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 12",
+            "static let sidebarVisibleRowRadius: CGFloat = 7"
         ].forEach { Self.assertSource(designText, contains: $0) }
         [
             primaryActionsText,

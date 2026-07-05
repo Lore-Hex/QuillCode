@@ -43,11 +43,11 @@ struct QuillCodeSidebarThreadRowView: View {
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.system(size: 13.5, weight: .medium))
+                    .font(.system(size: 13.25, weight: .medium))
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
                 Text(item.subtitle)
-                    .font(.system(size: 11.5, weight: .regular))
+                    .font(.system(size: 11.25, weight: .regular))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
