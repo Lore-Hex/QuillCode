@@ -82,6 +82,40 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.browser.statusLabel, "Synced from browser session")
     }
 
+    func testVisibleBrowserSessionUpdateRefreshesRenderedSnapshotInSurface() throws {
+        let model = QuillCodeWorkspaceModel()
+        XCTAssertTrue(model.openBrowserPreview("example.com/dashboard"))
+        let tabID = model.browser.selectedTabID
+
+        XCTAssertTrue(model.applyBrowserSessionUpdate(BrowserSessionUpdate(
+            tabs: [
+                BrowserSessionTabUpdate(
+                    id: tabID,
+                    title: "Dashboard",
+                    url: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+                    isActive: true,
+                    liveDOMSnapshot: BrowserLiveDOMSnapshot(
+                        finalURL: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+                        title: "Rendered Dashboard",
+                        visibleText: "Signed in dashboard ready",
+                        outline: ["H1: Rendered Dashboard", "Button: Deploy"],
+                        viewportDescription: "1280x720 @2x"
+                    )
+                )
+            ],
+            activeTabID: tabID
+        )))
+
+        let surface = model.surface()
+        XCTAssertEqual(surface.browser.currentURL, "https://example.com/dashboard")
+        XCTAssertEqual(surface.browser.title, "Rendered Dashboard")
+        XCTAssertEqual(surface.browser.snapshot?.inspectionDepth, .liveDOMSnapshot)
+        XCTAssertEqual(surface.browser.snapshot?.inspectionDepthLabel, "Live DOM snapshot")
+        XCTAssertEqual(surface.browser.snapshot?.textSnippet, "Signed in dashboard ready")
+        XCTAssertEqual(surface.browser.snapshot?.outline, ["H1: Rendered Dashboard", "Button: Deploy"])
+        XCTAssertTrue(surface.browser.snapshot?.details.contains("Viewport: 1280x720 @2x") == true)
+    }
+
     func testBrowserPreviewNormalizesURLsAndStoresComments() throws {
         let root = try makeTempDirectory()
         let previewFile = root.appendingPathComponent("preview.html")

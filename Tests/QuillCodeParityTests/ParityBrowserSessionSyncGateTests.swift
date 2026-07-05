@@ -24,6 +24,7 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         for expected in [
             "public struct BrowserSessionUpdate",
             "public struct BrowserSessionTabUpdate",
+            "public var liveDOMSnapshot",
             "tabs.first { $0.isActive }?.id"
         ] {
             Self.assertSource(updateText, contains: expected)
@@ -56,6 +57,11 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
             engineTests,
             contains: "testSessionUpdateSyncsVisibleBrowserNavigationBackIntoSelectedTab"
         )
+        Self.assertSource(
+            engineTests,
+            contains: "testSessionUpdateCanCarryRenderedLiveDOMFromVisibleBrowserSession"
+        )
         Self.assertSource(integrationTests, contains: "testVisibleBrowserSessionUpdateRefreshesModelAndSurface")
+        Self.assertSource(integrationTests, contains: "testVisibleBrowserSessionUpdateRefreshesRenderedSnapshotInSurface")
     }
 }

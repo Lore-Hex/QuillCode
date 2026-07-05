@@ -195,16 +195,25 @@ struct WorkspaceBrowserEngine {
 
         var tab = state.tabs[index]
         var changed = false
-        let url = update.url.absoluteString
-        if tab.currentURL != url {
-            tab.currentURL = url
-            tab.addressDraft = url
-            tab.snapshot = BrowserInspector.snapshot(for: update.url)
-            appendHistory(url, history: &tab.history, historyIndex: &tab.historyIndex)
+        let displayURL = update.liveDOMSnapshot?.finalURL ?? update.url
+        let urlString = displayURL.absoluteString
+        if tab.currentURL != urlString {
+            tab.currentURL = urlString
+            tab.addressDraft = urlString
+            tab.snapshot = snapshot(for: update, displayURL: displayURL)
+            appendHistory(urlString, history: &tab.history, historyIndex: &tab.historyIndex)
+            changed = true
+        } else if update.liveDOMSnapshot != nil {
+            tab.snapshot = snapshot(for: update, displayURL: displayURL)
             changed = true
         }
 
-        let title = sessionTitle(update.title, fallbackURL: update.url)
+        let title: String
+        if update.liveDOMSnapshot != nil, let snapshot = tab.snapshot {
+            title = Self.title(from: snapshot, fallbackURL: displayURL)
+        } else {
+            title = sessionTitle(update.title, fallbackURL: displayURL)
+        }
         if tab.title != title {
             tab.title = title
             changed = true
@@ -215,6 +224,16 @@ struct WorkspaceBrowserEngine {
             state.tabs[index] = tab
         }
         return changed
+    }
+
+    private static func snapshot(
+        for update: BrowserSessionTabUpdate,
+        displayURL: URL
+    ) -> BrowserSnapshotState {
+        if let liveDOMSnapshot = update.liveDOMSnapshot {
+            return BrowserInspector.snapshot(for: liveDOMSnapshot, originalURL: update.url)
+        }
+        return BrowserInspector.snapshot(for: displayURL)
     }
 
     private static func loadSelectedTab(into state: inout BrowserState) {

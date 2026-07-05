@@ -5,12 +5,20 @@ public struct BrowserSessionTabUpdate: Sendable, Hashable, Identifiable {
     public var title: String
     public var url: URL
     public var isActive: Bool
+    public var liveDOMSnapshot: BrowserLiveDOMSnapshot?
 
-    public init(id: UUID, title: String, url: URL, isActive: Bool) {
+    public init(
+        id: UUID,
+        title: String,
+        url: URL,
+        isActive: Bool,
+        liveDOMSnapshot: BrowserLiveDOMSnapshot? = nil
+    ) {
         self.id = id
         self.title = title
         self.url = url
         self.isActive = isActive
+        self.liveDOMSnapshot = liveDOMSnapshot
     }
 }
 

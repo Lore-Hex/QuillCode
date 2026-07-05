@@ -15266,3 +15266,30 @@ Validation:
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
 - `rg -n "\| (A-|A |B\+|B-|B |C\+|C-|C |D\+|D-|D |F) \|" docs/CODE_QUALITY_FILE_GRADES.md` (no non-A+ rows)
 - `git diff --check`
+
+## 2026-07-05 Visible Browser Live-DOM Sync Slice
+
+Overall grade after this slice: **A+ browser-session sync boundary, A+ desktop DOM extraction reuse**.
+The macOS visible browser session now sends rendered DOM evidence back to the
+workspace model instead of limiting reverse sync to URL/title metadata.
+
+Code quality changes:
+
+- Added `DesktopBrowserLiveDOMSnapshotExtractor` as the shared WebKit DOM
+  extraction helper for both offscreen live-DOM capture and the visible browser
+  session window.
+- Extended `BrowserSessionTabUpdate` with an optional `BrowserLiveDOMSnapshot`
+  payload while keeping URL/title-only updates backward-compatible and free of
+  AppKit/WebKit types.
+- Updated `WorkspaceBrowserEngine.applySessionUpdate` to prefer live-DOM
+  snapshots when present, while preserving visible-tab title behavior for
+  metadata-only session updates.
+- Updated the visible WebKit session presenter to emit an immediate metadata
+  update on navigation completion and a best-effort rendered-DOM update after
+  JavaScript extraction succeeds.
+- Added app, integration, desktop-controller, and parity coverage so rendered
+  visible-session updates cannot regress back to metadata-only snapshots.
+
+Validation:
+
+- `swift test --filter 'WorkspaceBrowserEngineTests|WorkspaceBrowserIntegrationTests|QuillCodeDesktopControllerSmokeTests/testDesktopControllerAppliesVisibleBrowserSessionUpdates|ParityBrowserSessionSyncGateTests|ParityDesktopBrowserAdapterGateTests'` (29 tests, 0 failures)
