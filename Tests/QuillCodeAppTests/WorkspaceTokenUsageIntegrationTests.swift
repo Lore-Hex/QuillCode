@@ -15,6 +15,33 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         )
     }
 
+    private func usageEvent(prompt: Int, completion: Int, modelID: String, createdAt: Date) throws -> ThreadEvent {
+        ThreadEvent(
+            kind: .notice,
+            createdAt: createdAt,
+            summary: ModelTokenUsageEvent.summary,
+            payloadJSON: try JSONHelpers.encodePretty(ModelTokenUsageRecord(
+                usage: ModelTokenUsage(promptTokens: prompt, completionTokens: completion),
+                modelID: modelID
+            ))
+        )
+    }
+
+    private func pricedModelCatalog() -> [ModelInfo] {
+        [
+            ModelInfo(
+                id: "acme/agent",
+                provider: "acme",
+                displayName: "Acme Agent",
+                category: "Custom",
+                capabilities: ModelCapabilities(
+                    inputPricePerMillionTokens: 2.0,
+                    outputPricePerMillionTokens: 6.0
+                )
+            )
+        ]
+    }
+
     func testUsageChipReflectsLatestProviderUsageOfSelectedThread() {
         let thread = ChatThread(title: "Work", events: [usageEvent(prompt: 500, completion: 347)])
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id))
@@ -72,18 +99,7 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
                 config: AppConfig(runSpendFuseUSD: 1.0),
                 threads: [thread],
                 selectedThreadID: thread.id,
-                modelCatalog: [
-                    ModelInfo(
-                        id: "acme/agent",
-                        provider: "acme",
-                        displayName: "Acme Agent",
-                        category: "Custom",
-                        capabilities: ModelCapabilities(
-                            inputPricePerMillionTokens: 2.0,
-                            outputPricePerMillionTokens: 6.0
-                        )
-                    )
-                ]
+                modelCatalog: pricedModelCatalog()
             ),
             activity: ActivityState(isVisible: true)
         )
@@ -123,18 +139,7 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
                 config: AppConfig(runSpendFuseUSD: 0.01),
                 threads: [thread],
                 selectedThreadID: thread.id,
-                modelCatalog: [
-                    ModelInfo(
-                        id: "acme/agent",
-                        provider: "acme",
-                        displayName: "Acme Agent",
-                        category: "Custom",
-                        capabilities: ModelCapabilities(
-                            inputPricePerMillionTokens: 2.0,
-                            outputPricePerMillionTokens: 6.0
-                        )
-                    )
-                ]
+                modelCatalog: pricedModelCatalog()
             ),
             activity: ActivityState(isVisible: true)
         )
@@ -181,6 +186,61 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         XCTAssertEqual(ledger.receipts.first?.modelName, "Nike 1.0")
         XCTAssertEqual(ledger.totalUSD, 0.001, accuracy: 0.000001)
         XCTAssertFalse(ledger.blocksNextRun)
+    }
+
+    func testSpendHistoryQuotaBuilderBucketsPricedReceiptsByLocalPeriod() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_735_257_600) // 2024-12-27 00:00:00 UTC.
+        let yesterday = now.addingTimeInterval(-86_400)
+        let lastMonth = now.addingTimeInterval(-35 * 86_400)
+        let current = ChatThread(title: "Today", events: [
+            try usageEvent(prompt: 1_000, completion: 500, modelID: "acme/agent", createdAt: now)
+        ])
+        let older = ChatThread(title: "Earlier", events: [
+            try usageEvent(prompt: 2_000, completion: 0, modelID: "acme/agent", createdAt: yesterday),
+            try usageEvent(prompt: 9_000, completion: 9_000, modelID: "acme/agent", createdAt: lastMonth)
+        ])
+
+        let rows = WorkspaceSpendHistoryQuotaBuilder(
+            threads: [current, older],
+            modelCatalog: pricedModelCatalog(),
+            calendar: calendar,
+            now: now
+        ).quotaLimits()
+
+        XCTAssertEqual(rows.map(\.compactLabel), [
+            "Today $0.0050",
+            "Week $0.0090",
+            "Month $0.0090"
+        ])
+        XCTAssertEqual(rows.last?.detailLabel, "Local priced model spend month: $0.0090")
+    }
+
+    func testTopBarShowsLocalDayWeekMonthSpendHistoryRows() throws {
+        let now = Date()
+        let current = ChatThread(title: "Costed run", events: [
+            try usageEvent(prompt: 1_000, completion: 500, modelID: "acme/agent", createdAt: now)
+        ])
+        let other = ChatThread(title: "Other costed run", events: [
+            try usageEvent(prompt: 500, completion: 0, modelID: "acme/agent", createdAt: now)
+        ])
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [current, other],
+                selectedThreadID: current.id,
+                modelCatalog: pricedModelCatalog()
+            )
+        )
+
+        let quotaRows = try XCTUnwrap(model.surface().topBar.tokenBudget?.visibleQuotaLimits)
+
+        XCTAssertEqual(quotaRows.map(\.periodLabel), ["Today", "Week", "Month"])
+        XCTAssertEqual(quotaRows.map(\.usageLabel), ["$0.0060", "$0.0060", "$0.0060"])
+        XCTAssertEqual(
+            model.surface().topBar.tokenBudget?.quotaSummaryLabel,
+            "Today $0.0060 · Week $0.0060 · Month $0.0060"
+        )
     }
 
     func testActivityRunReceiptsKeepLegacyUnpricedUsageAuditable() throws {

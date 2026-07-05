@@ -36,7 +36,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             thread: thread,
             selectedModelID: topBarState.model,
             modelCatalog: self.modelCatalog,
-            quotaLimits: WorkspaceQuotaLimitSurfaceBuilder(runtimeIssue: runtimeIssue).quotaLimits()
+            quotaLimits: quotaLimitSurfaces()
         ).surface()
         return TopBarSurface(
             appName: topBarState.appName,
@@ -90,5 +90,13 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             .filter { !$0.isArchived }
             .sorted { $0.updatedAt > $1.updatedAt }
             .map(\.model)
+    }
+
+    private func quotaLimitSurfaces() -> [TokenQuotaLimitSurface] {
+        WorkspaceQuotaLimitSurfaceBuilder(runtimeIssue: runtimeIssue).quotaLimits()
+            + WorkspaceSpendHistoryQuotaBuilder(
+                threads: recentThreads,
+                modelCatalog: modelCatalog
+            ).quotaLimits()
     }
 }
