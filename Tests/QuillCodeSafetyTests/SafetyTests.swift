@@ -154,6 +154,60 @@ final class SafetyShellPolicyTests: SafetyPolicyTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoApprovesCommonReadOnlyDiagnosticsWithoutRunVerb() async {
+        let cases: [(command: String, request: String)] = [
+            ("date", "What time is it on this machine?"),
+            ("hostname", "What is the hostname?"),
+            ("uname -a", "What OS is this running?"),
+            ("uptime", "How long has it been running?"),
+            ("ps aux", "Show running processes."),
+            ("free -h", "How much memory is available?"),
+            ("vm_stat", "Show memory usage."),
+            ("df -h /", "How much disk space is free?")
+        ]
+
+        let reviewer = StaticSafetyReviewer()
+        for testCase in cases {
+            let call = ToolCall(
+                name: shellRun.name,
+                argumentsJSON: #"{"cmd":"\#(testCase.command)"}"#
+            )
+            let review = await reviewer.review(.init(
+                mode: .auto,
+                userMessage: testCase.request,
+                toolCall: call,
+                toolDefinition: shellRun,
+                recentMessages: [.init(role: .user, content: testCase.request)]
+            ))
+            XCTAssertEqual(review.verdict, ApprovalVerdict.approve, testCase.command)
+        }
+    }
+
+    func testAutoDoesNotTreatReadOnlyDiagnosticIntentAsBlanketShellApproval() async {
+        let reviewer = StaticSafetyReviewer()
+        let riskyCalls: [(command: String, request: String)] = [
+            ("ps aux && touch should-not-run", "Show running processes."),
+            ("date; touch should-not-run", "What time is it?"),
+            ("env", "Show environment variables."),
+            ("printenv", "How much memory is available?")
+        ]
+
+        for testCase in riskyCalls {
+            let call = ToolCall(
+                name: shellRun.name,
+                argumentsJSON: #"{"cmd":"\#(testCase.command)"}"#
+            )
+            let review = await reviewer.review(.init(
+                mode: .auto,
+                userMessage: testCase.request,
+                toolCall: call,
+                toolDefinition: shellRun,
+                recentMessages: [.init(role: .user, content: testCase.request)]
+            ))
+            XCTAssertEqual(review.verdict, ApprovalVerdict.clarify, testCase.command)
+        }
+    }
+
     func testAutoDoesNotTreatReadOnlyShellIntentAsBlanketShellApproval() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"ls -la && cat ~/.ssh/id_rsa"}"#)

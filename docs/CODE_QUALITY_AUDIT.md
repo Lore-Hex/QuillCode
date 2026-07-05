@@ -1,5 +1,24 @@
 # Code Quality Audit
 
+## 2026-07-05 Read-Only Diagnostic Safety A+ Pass
+
+Overall grade after this slice: **A+ for bounded Auto-mode diagnostic approvals**.
+Common system-state questions now run like Codex without turning "show me" wording
+into a blanket shell bypass.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Whole architecture | A+ | The change stays inside `StaticSafetyReadOnlyShellPolicy`; the hard-deny floor, permission rules, and model reviewer transport stay unchanged. |
+| Command matching | A+ | Each approval requires a single read-only command shape plus matching user intent for identity, time, host, OS, uptime, process, memory, or disk diagnostics. |
+| Safety boundaries | A+ | Shell composition, redirects, command substitutions, env dumps, unsafe paths, and unrelated tool families still clarify or deny through existing gates. |
+| Tests | A+ | Positive and negative policy tests cover the new diagnostic approvals and prove they are not a blanket shell approval. |
+
+Validation:
+
+- `swift test --filter 'SafetyShellPolicyTests|SafetyGeneralPolicyTests|SafetyDownloadPolicyTests'`
+
 ## 2026-07-05 Artifact Image Dimensions A+ Pass
 
 Overall grade after this slice: **A+ for bounded artifact metadata layering**.
