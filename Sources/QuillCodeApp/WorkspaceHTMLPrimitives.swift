@@ -210,6 +210,29 @@ enum WorkspaceHTMLPrimitives {
         """
     }
 
+    /// Renders structured summary content. Callers must escape user/model text before
+    /// building `trustedHTML`.
+    static func summaryContent(
+        trustedHTML: String,
+        testID: String? = nil,
+        hitTargetKind: WorkspaceHTMLHitTargetKind = .row,
+        classes: [String] = [],
+        ariaLabel: String? = nil,
+        title: String? = nil,
+        attributes: [(String, String?)] = []
+    ) -> String {
+        """
+        <summary\(elementAttributes(
+            testID: testID,
+            hitTargetKind: hitTargetKind,
+            classes: classes,
+            ariaLabel: ariaLabel,
+            title: title,
+            attributes: attributes
+        ))>\(trustedHTML)</summary>
+        """
+    }
+
     private static func elementAttributes(
         testID: String?,
         hitTargetKind: WorkspaceHTMLHitTargetKind = .text,

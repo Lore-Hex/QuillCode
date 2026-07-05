@@ -37,8 +37,16 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
             "HTML hit-target attributes should derive classes and data-hit-target-kind from typed semantic target kinds."
         )
         XCTAssertTrue(
-            toolCardText.contains(#"class="tool-details""#),
-            "Tool-card details disclosures should opt into the harness hit-target styling."
+            primitivesText.contains("static func summaryContent("),
+            "Disclosure summaries that need structured affordance content should still use the shared summary primitive."
+        )
+        XCTAssertTrue(
+            toolCardText.contains(#"class="tool-details""#)
+                && toolCardText.contains("WorkspaceHTMLPrimitives.summaryContent(")
+                && toolCardText.contains(#"classes: ["tool-details-summary"]"#)
+                && toolCardText.contains(#"tool-details-summary-chevron"#)
+                && toolCardText.contains(#"tool-details-summary-label"#),
+            "Tool-card details disclosures should render a structured full-row target instead of a tiny native marker."
         )
         XCTAssertTrue(
             toolCardText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link, classes: ["artifact-chip"])"#),
@@ -153,6 +161,14 @@ final class ParityHTMLInteractionPrimitiveGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             harnessText.contains("details > summary"),
             "Disclosure summaries should keep a minimum click target in the harness."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".tool-details summary::-webkit-details-marker")
+                && harnessText.contains(".tool-details summary::marker")
+                && harnessText.contains(".tool-details-summary-chevron")
+                && harnessText.contains(".tool-details[open] .tool-details-summary-chevron")
+                && harnessText.contains(".tool-details-summary-hint"),
+            "Tool-card detail rows should hide browser markers and show QuillCode-owned full-row affordance styling."
         )
         XCTAssertTrue(
             harnessText.contains(#".activity-section [data-testid="activity-section-toggle"]"#)

@@ -92,11 +92,27 @@ enum WorkspaceHTMLToolCardRenderer {
         let isOpen = card.opensDetailsByDefault
         return """
         <details class="tool-details" data-testid="tool-card-details"\(isOpen ? " open" : "")>
-          \(WorkspaceHTMLPrimitives.summary(detailsLabel(for: card, isOpen: isOpen), hitTargetKind: .row))
+          \(WorkspaceHTMLPrimitives.summaryContent(
+              trustedHTML: detailsSummaryHTML(for: card, isOpen: isOpen),
+              hitTargetKind: .row,
+              classes: ["tool-details-summary"],
+              ariaLabel: detailsLabel(for: card, isOpen: isOpen)
+          ))
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
           \(renderDetailsCopyAction(for: card, copyID: copyID))
         </details>
+        """
+    }
+
+    private static func detailsSummaryHTML(for card: ToolCardState, isOpen: Bool) -> String {
+        let hint = !isOpen && card.status == .done
+            ? #"<span class="tool-details-summary-hint">Raw tool data</span>"#
+            : ""
+        return """
+        <span class="tool-details-summary-chevron" aria-hidden="true">›</span>
+        <span class="tool-details-summary-label">\(escape(detailsLabel(for: card, isOpen: isOpen)))</span>
+        \(hint)
         """
     }
 
