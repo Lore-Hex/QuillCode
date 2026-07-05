@@ -44,6 +44,31 @@ final class HTTPRateLimitDetailsTests: XCTestCase {
         XCTAssertEqual(details?.remaining, 0)
     }
 
+    func testDiagnosticSummaryPreservesQuotaGuidanceForUISeams() throws {
+        let details = try XCTUnwrap(HTTPRateLimitDetails.parse(
+            headers: [
+                "Retry-After": "45",
+                "x-ratelimit-remaining-requests": "0",
+                "x-ratelimit-reset-requests": "120",
+            ],
+            now: now
+        ))
+
+        XCTAssertEqual(
+            details.diagnosticSummary,
+            "retry-after: 45s x-ratelimit-remaining: 0 x-ratelimit-reset: 120s"
+        )
+
+        let error = TrustedRouterAgentError.streamingHTTPError(
+            statusCode: 429,
+            body: "Rate limit exceeded",
+            rateLimit: details
+        )
+        XCTAssertTrue(error.description.contains("retry-after: 45s"))
+        XCTAssertTrue(error.description.contains("x-ratelimit-remaining: 0"))
+        XCTAssertTrue(error.description.contains("x-ratelimit-reset: 120s"))
+    }
+
     func testHeaderWhitespaceAndNewlinesAreTrimmed() throws {
         let details = try XCTUnwrap(HTTPRateLimitDetails.parse(
             headers: [" Retry-After\n": "\t42\n"],

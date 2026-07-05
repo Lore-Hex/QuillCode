@@ -81,6 +81,41 @@ final class WorkspaceTokenBudgetSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(budget.secondaryLabel, "32k left · 0% · ↑12 ↓8 · provider reported")
     }
 
+    func testCarriesQuotaLimitsWhenRuntimeSuppliesThem() throws {
+        let thread = ChatThread(
+            title: "Quota",
+            model: "trustedrouter/fast",
+            events: [
+                ModelTokenUsageEvent.event(usage: ModelTokenUsage(promptTokens: 100, completionTokens: 25))
+            ]
+        )
+        let quotas = [
+            TokenQuotaLimitSurface(
+                periodLabel: "Quota",
+                usageLabel: "0 left",
+                detailLabel: "Provider rate-limit quota: 0 remaining"
+            ),
+            TokenQuotaLimitSurface(
+                periodLabel: "Reset",
+                usageLabel: "2m",
+                detailLabel: "Provider rate-limit reset or retry window: 120s"
+            ),
+        ]
+
+        let budget = try XCTUnwrap(
+            WorkspaceTokenBudgetSurfaceBuilder(
+                thread: thread,
+                selectedModelID: "trustedrouter/fast",
+                modelCatalog: [model(id: "trustedrouter/fast", contextWindowTokens: 8_000)],
+                quotaLimits: quotas
+            ).surface()
+        )
+
+        XCTAssertEqual(budget.visibleQuotaLimits, quotas)
+        XCTAssertEqual(budget.quotaSummaryLabel, "Quota 0 left · Reset 2m")
+        XCTAssertTrue(budget.accessibilityLabel.contains("Quota limits: Quota 0 left · Reset 2m"))
+    }
+
     func testReturnsNilWithoutASelectedThread() {
         let budget = WorkspaceTokenBudgetSurfaceBuilder(
             thread: nil,
