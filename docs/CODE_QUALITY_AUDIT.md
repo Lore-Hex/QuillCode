@@ -15182,3 +15182,31 @@ Validation:
 - `swift test --filter ChromiumBrowserLiveDOMCapturerTests` (6 tests, 0 failures)
 - `swift test --filter ParityDesktopBrowserAdapterGateTests` (2 tests, 0 failures)
 - `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md` (all modules and files A+)
+
+## 2026-07-05 Appshot Artifact Preview Slice
+
+Overall grade after this slice: **A appshot renderer parity, A+ artifact-helper ownership**.
+The artifact preview system now treats `.appshot.json` as a bounded embedded
+preview source instead of only a generic document-like JSON bundle.
+
+Code quality changes:
+
+- Added `ToolArtifactAppshotPreviewBuilder` as the only parser for local
+  `.appshot.json` metadata, with a 128 KB cap, regular-file checks, no network
+  screenshot fetching, and same-directory local image-like screenshot-path
+  resolution.
+- Added `ToolArtifactAppshotPreview` to the public artifact surface while
+  keeping generic document preview derivation and raw text previewing separate.
+- Extended SwiftUI and static HTML tool-card renderers to show appshot title,
+  summary, app, viewport, window count, captured timestamp, and screenshot
+  thumbnail metadata without changing the generic tool-card card model.
+- Mirrored the same appshot metadata contract in the Playwright harness and
+  focused artifact spec.
+- Extended the tool-card parity gate so appshot parsing stays in a focused
+  helper instead of migrating into `WorkspaceModel`, card reducers, or broad
+  renderers.
+
+Validation:
+
+- `swift test --filter 'QuillCodeToolCardSurfaceTests|WorkspaceHTMLToolCardRendererTests|ParityWorkspaceToolCardModelGateTests'` (14 tests, 0 failures)
+- `npm test -- tests/artifacts.spec.ts` (4 tests, 0 failures)

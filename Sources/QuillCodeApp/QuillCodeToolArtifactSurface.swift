@@ -57,6 +57,53 @@ public struct ToolArtifactDocumentPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var appLabel: String?
+    public var summary: String?
+    public var capturedAt: String?
+    public var viewportLabel: String?
+    public var windowCount: Int?
+    public var screenshotURL: String?
+
+    public var metadataLines: [String] {
+        [
+            appLabel.map { "App: \($0)" },
+            viewportLabel.map { "Viewport: \($0)" },
+            windowCount.map { "\($0) window\($0 == 1 ? "" : "s")" },
+            capturedAt.map { "Captured: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil
+            || appLabel != nil
+            || summary != nil
+            || capturedAt != nil
+            || viewportLabel != nil
+            || windowCount != nil
+            || screenshotURL != nil
+    }
+
+    public init(
+        title: String? = nil,
+        appLabel: String? = nil,
+        summary: String? = nil,
+        capturedAt: String? = nil,
+        viewportLabel: String? = nil,
+        windowCount: Int? = nil,
+        screenshotURL: String? = nil
+    ) {
+        self.title = title
+        self.appLabel = appLabel
+        self.summary = summary
+        self.capturedAt = capturedAt
+        self.viewportLabel = viewportLabel
+        self.windowCount = windowCount
+        self.screenshotURL = screenshotURL
+    }
+}
+
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
@@ -92,6 +139,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var documentPreview: ToolArtifactDocumentPreview? {
         ToolArtifactDocumentPreviewBuilder.documentPreview(for: value, kind: kind)
+    }
+    public var appshotPreview: ToolArtifactAppshotPreview? {
+        ToolArtifactAppshotPreviewBuilder.appshotPreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {

@@ -94,7 +94,17 @@ struct QuillCodeArtifactDocumentPreview: View {
         }
     }
 
+    @ViewBuilder
     private var content: some View {
+        if let appshotPreview = artifact.appshotPreview,
+           preview?.kind == .appshot {
+            appshotContent(appshotPreview)
+        } else {
+            documentContent
+        }
+    }
+
+    private var documentContent: some View {
         HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -139,6 +149,94 @@ struct QuillCodeArtifactDocumentPreview: View {
             radius: 18,
             stroke: Color.white.opacity(0.08),
             shadow: false
+        )
+    }
+
+    private func appshotContent(_ appshotPreview: ToolArtifactAppshotPreview) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
+                appshotThumbnail(appshotPreview)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(typeLine)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .lineLimit(1)
+                    Text(appshotPreview.title ?? artifact.label)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.text)
+                        .lineLimit(1)
+                    Text(appshotPreview.summary ?? preview?.detail ?? artifact.detail)
+                        .font(.caption2)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 4)
+                if artifactURL != nil {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .accessibilityHidden(true)
+                }
+            }
+            if !appshotPreview.metadataLines.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(appshotPreview.metadataLines, id: \.self) { line in
+                        Text(line)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.leading, 2)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .quillCodeSurface(
+            fill: Color.white.opacity(0.05),
+            radius: 18,
+            stroke: Color.white.opacity(0.08),
+            shadow: false
+        )
+    }
+
+    @ViewBuilder
+    private func appshotThumbnail(_ appshotPreview: ToolArtifactAppshotPreview) -> some View {
+        if let screenshotURL = appshotPreview.screenshotURL.flatMap(URL.init(string:)) {
+            AsyncImage(url: screenshotURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure, .empty:
+                    appshotFallbackThumbnail
+                @unknown default:
+                    appshotFallbackThumbnail
+                }
+            }
+            .frame(width: 92, height: 58)
+            .clipped()
+            .background(Color.black.opacity(0.22))
+            .quillCodeImageOutline(radius: 10)
+        } else {
+            appshotFallbackThumbnail
+        }
+    }
+
+    private var appshotFallbackThumbnail: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(QuillCodePalette.blue.opacity(0.14))
+            Image(systemName: preview?.systemImage ?? "camera.viewfinder")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.blue)
+                .accessibilityHidden(true)
+        }
+        .frame(width: 92, height: 58)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
     }
 
