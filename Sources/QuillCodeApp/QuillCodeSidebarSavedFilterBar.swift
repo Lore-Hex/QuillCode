@@ -36,7 +36,7 @@ struct QuillCodeSidebarSavedFilterBar: View {
                 filterCountBadge(filter)
             }
             .lineLimit(1)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .frame(minWidth: 66, minHeight: 28)
             .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
             .background(filter.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.55))

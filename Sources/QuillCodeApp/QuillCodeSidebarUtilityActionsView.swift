@@ -43,12 +43,19 @@ struct QuillCodeSidebarUtilityActionsView: View {
         } label: {
             Label("Tools", systemImage: "wrench.and.screwdriver")
                 .font(.callout.weight(.medium))
-                .padding(.horizontal, 10)
-                .frame(maxWidth: .infinity, minHeight: 32, alignment: .center)
+                .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
+                    alignment: .center
+                )
                 .foregroundStyle(QuillCodePalette.muted)
                 .background(QuillCodePalette.panel.opacity(0.50))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
+                .clipShape(RoundedRectangle(
+                    cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
+                    style: .continuous
+                ))
+                .quillCodeFullRowButtonTarget(alignment: .center, radius: QuillCodeMetrics.sidebarVisibleRowRadius)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Tools")
@@ -64,12 +71,19 @@ struct QuillCodeSidebarUtilityActionsView: View {
                 systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
             )
             .font(.callout.weight(.medium))
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 32, alignment: .center)
+            .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
+                alignment: .center
+            )
             .foregroundStyle(settingsForeground(command))
             .background(QuillCodePalette.panel.opacity(0.50))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
+            .clipShape(RoundedRectangle(
+                cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
+                style: .continuous
+            ))
+            .quillCodeFullRowButtonTarget(alignment: .center, radius: QuillCodeMetrics.sidebarVisibleRowRadius)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(!command.isEnabled)

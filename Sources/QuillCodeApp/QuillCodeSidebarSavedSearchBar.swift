@@ -66,7 +66,7 @@ struct QuillCodeSidebarSavedSearchBar: View {
                 Spacer(minLength: 0)
                 savedSearchCountBadge(savedSearch)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .frame(minWidth: 124, minHeight: 30, alignment: .leading)
             .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
             .background(savedSearch.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.45))
