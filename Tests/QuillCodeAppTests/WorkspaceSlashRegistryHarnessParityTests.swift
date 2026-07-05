@@ -12,12 +12,11 @@ final class WorkspaceSlashRegistryHarnessParityTests: XCTestCase {
     // MARK: - Command set parity
 
     /// The PR sub-catalog is enumerated per-subcommand natively but collapsed to a single `/pr` row
-    /// in the harness; `/init`, `/subagents`, and `/env schedule` are native-only local commands the
-    /// mock harness does not model. These are long-standing, PRE-EXISTING divergences — every OTHER
-    /// command must match one-for-one between the two surfaces so a new registry entry (like the
-    /// #879 `/model` and `/skill` rows) can never land on only one side unnoticed.
+    /// in the harness; `/subagents` and `/env schedule` are native-only local commands the mock
+    /// harness does not model. These are long-standing, PRE-EXISTING divergences — every OTHER command
+    /// must match one-for-one between the two surfaces so a new registry entry (like the #879 `/model`
+    /// and `/skill` rows) can never land on only one side unnoticed.
     private static let nativeOnlyUsages: Set<String> = [
-        "/init",
         "/subagents objective | Name: role",
         "/env schedule name when"
     ]
