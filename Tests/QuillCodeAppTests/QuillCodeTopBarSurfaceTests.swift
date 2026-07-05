@@ -3,6 +3,44 @@ import QuillCodeCore
 @testable import QuillCodeApp
 
 final class QuillCodeTopBarSurfaceTests: XCTestCase {
+    func testModelPickerEmptyStateExplainsBundledCatalogScope() {
+        let copy = ModelPickerEmptyStateCopy.copy(
+            query: "minimax",
+            catalogSource: .bundled,
+            catalogStatusDetail: "Using built-in recommended models."
+        )
+
+        XCTAssertEqual(copy.title, "No bundled model matches")
+        XCTAssertTrue(copy.detail.contains("Sign in or refresh TrustedRouter"))
+        XCTAssertTrue(copy.detail.contains("\"minimax\""))
+        XCTAssertEqual(copy.footnote, "Using built-in recommended models.")
+    }
+
+    func testModelPickerEmptyStateExplainsRefreshFallback() {
+        let copy = ModelPickerEmptyStateCopy.copy(
+            query: "claude",
+            catalogSource: .fallbackAfterFailure,
+            catalogStatusDetail: "The latest TrustedRouter model refresh failed: offline"
+        )
+
+        XCTAssertEqual(copy.title, "No fallback model matches")
+        XCTAssertTrue(copy.detail.contains("last TrustedRouter refresh failed"))
+        XCTAssertTrue(copy.detail.contains("\"claude\""))
+        XCTAssertEqual(copy.footnote, "The latest TrustedRouter model refresh failed: offline")
+    }
+
+    func testModelPickerEmptyStateUsesPlainSearchHintForLiveCatalog() {
+        let copy = ModelPickerEmptyStateCopy.copy(
+            query: "unknown",
+            catalogSource: .liveTrustedRouter,
+            catalogStatusDetail: nil
+        )
+
+        XCTAssertEqual(copy.title, "No TrustedRouter model matches")
+        XCTAssertEqual(copy.detail, "Try a provider, category, model name, capability, or state.")
+        XCTAssertNil(copy.footnote)
+    }
+
     func testTopBarFiltersModelCategoriesByMetadataFavoritesAndRecents() {
         let topBar = TopBarSurface(
             appName: "QuillCode",

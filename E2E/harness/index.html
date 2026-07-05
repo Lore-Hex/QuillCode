@@ -762,6 +762,10 @@
     .model-empty strong {
       color: var(--text);
     }
+    .model-empty small {
+      color: var(--muted);
+      line-height: 1.35;
+    }
     .settings-panel,
     .search-panel {
       position: fixed;
@@ -3987,6 +3991,7 @@
         instructionSources: ['AGENTS.md'],
         modelLabel: 'Nike 1.0',
         selectedModelID: 'trustedrouter/fast',
+        modelCatalogSource: 'bundled',
         modelCatalogStatusLabel: 'Bundled catalog',
         modelCatalogStatusDetail: "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog.",
         modelProviderHealthLabel: 'Provider health unavailable',
@@ -8182,6 +8187,7 @@
       const modelResultSummary = modelSearchQuery
         ? `${filteredModelCount} ${filteredModelCount === 1 ? 'model' : 'models'} for "${modelSearchQuery}"`
         : `${filteredModelCount} ${filteredModelCount === 1 ? 'model' : 'models'} available`;
+      const modelEmpty = modelEmptyCopy(modelSearchQuery);
       const modelResults = filteredModelCategories.length ? `
         <div class="model-results" data-testid="model-results">
           ${filteredModelCategories.map(category => `
@@ -8212,8 +8218,9 @@
             </section>`).join('')}
         </div>` : `
         <div class="model-empty" data-testid="model-empty">
-          <strong>No models match</strong>
-          <span>Try a provider, category, model name, or state.</span>
+          <strong data-testid="model-empty-title">${escapeHTML(modelEmpty.title)}</strong>
+          <span data-testid="model-empty-detail">${escapeHTML(modelEmpty.detail)}</span>
+          ${modelEmpty.footnote ? `<small data-testid="model-empty-footnote">${escapeHTML(modelEmpty.footnote)}</small>` : ''}
           ${modelSearchQuery ? '<button class="model-clear-search hit-target-text" type="button" data-testid="model-clear-search">Clear search</button>' : ''}
         </div>`;
       const modelBrowser = state.topBar.modelPickerOpen ? `
@@ -9316,6 +9323,32 @@
           })
         }))
         .filter(category => category.models.length > 0);
+    }
+
+    function modelEmptyCopy(query) {
+      const normalizedQuery = String(query || '').trim();
+      const queryLabel = normalizedQuery ? `"${normalizedQuery}"` : 'that query';
+      const source = state.topBar.modelCatalogSource || 'bundled';
+      const footnote = state.topBar.modelCatalogStatusDetail || '';
+      if (source === 'bundled') {
+        return {
+          title: 'No bundled model matches',
+          detail: `The built-in catalog is intentionally small. Sign in or refresh TrustedRouter to search live provider models for ${queryLabel}.`,
+          footnote
+        };
+      }
+      if (source === 'fallbackAfterFailure') {
+        return {
+          title: 'No fallback model matches',
+          detail: `The last TrustedRouter refresh failed, so QuillCode is searching the bundled fallback catalog for ${queryLabel}.`,
+          footnote
+        };
+      }
+      return {
+        title: 'No TrustedRouter model matches',
+        detail: 'Try a provider, category, model name, capability, or state.',
+        footnote
+      };
     }
 
     function filteredModels() {
