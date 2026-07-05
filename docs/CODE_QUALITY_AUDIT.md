@@ -15312,3 +15312,30 @@ Code quality changes:
 Validation:
 
 - `swift test --filter 'WorkspaceBrowserEngineTests|WorkspaceBrowserIntegrationTests|QuillCodeDesktopControllerSmokeTests/testDesktopControllerAppliesVisibleBrowserSessionUpdates|ParityBrowserSessionSyncGateTests|ParityDesktopBrowserAdapterGateTests'` (29 tests, 0 failures)
+
+## 2026-07-05 Persisted Composer Drafts Slice
+
+Overall grade after this slice: **A+ draft lifecycle ownership, A persistence boundary**.
+This closes the documented session-only draft gap without turning unsent text
+into transcript content or recency noise.
+
+Code quality changes:
+
+- Added `ChatThread.composerDraft` as an optional, backward-compatible JSON
+  field for non-empty per-thread composer drafts.
+- Added `WorkspaceModelComposerDraftPersistence` so draft writes, clears, and
+  selected-thread reload restoration share one model-owned boundary.
+- Preserved live model-owned draft state across agent progress/completion
+  snapshots, which are based on stale send-start thread copies.
+- Cleared persisted drafts through send, slash-submit, follow-up enqueue, and
+  clear-thread paths; clear-thread now handles draft-only threads.
+- Kept draft persistence from bumping `updatedAt`, so typing in a draft does
+  not reorder the sidebar.
+
+Validation:
+
+- `swift test --filter WorkspaceComposerDraftIntegrationTests` (8 tests, 0 failures)
+- `swift test --filter JSONThreadStoreTests` (5 tests, 0 failures)
+- `swift test --filter WorkspaceThreadLifecycleEngineTests` (15 tests, 0 failures)
+- `swift test --filter WorkspaceModelCommandPersistenceIntegrationTests` (7 tests, 0 failures)
+- `swift test` (3,246 tests, 2 skipped, 0 failures)

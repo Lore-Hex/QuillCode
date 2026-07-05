@@ -54,6 +54,11 @@ extension QuillCodeWorkspaceModel {
     }
 
     func updateThreadFromAgentRun(_ thread: ChatThread) {
+        var thread = thread
+        // Agent sessions operate on a send-start thread snapshot. Composer drafts are UI/model-owned
+        // state, so progress and completion snapshots must never resurrect a draft that was sent,
+        // cleared, or edited while the run was active.
+        thread.composerDraft = root.threads.first { $0.id == thread.id }?.composerDraft ?? thread.composerDraft
         let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
             thread,
             threads: &root.threads,

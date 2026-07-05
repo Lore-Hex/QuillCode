@@ -13,6 +13,7 @@ extension QuillCodeWorkspaceModel {
 
     public func setDraft(_ draft: String) {
         composer.draft = draft
+        persistCurrentComposerDraft()
     }
 
     @discardableResult
@@ -20,7 +21,7 @@ extension QuillCodeWorkspaceModel {
         guard let draft = WorkspaceRetryPlanner.retryDraft(in: selectedThread) else {
             return false
         }
-        composer.draft = draft
+        setDraft(draft)
         setLastError(nil)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
@@ -115,7 +116,7 @@ extension QuillCodeWorkspaceModel {
             return nil
         case .slash(let command, let originalPrompt):
             composer.draft = ""
-            threadDrafts = ComposerDraftStore.cleared(draftThreadID, drafts: threadDrafts)
+            clearComposerDraft(for: draftThreadID)
             setLastError(nil)
             await handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
             return nil
@@ -174,10 +175,14 @@ extension QuillCodeWorkspaceModel {
             thread: thread,
             composer: composer
         )
-        updateThreadFromAgentRun(sendStart.thread)
-        threadPersistence.save(sendStart.thread)
+        clearComposerDraft(for: draftThreadID)
+        var startedThread = sendStart.thread
+        if let liveThread = root.threads.first(where: { $0.id == startedThread.id }) {
+            startedThread.composerDraft = liveThread.composerDraft
+        }
+        updateThreadFromAgentRun(startedThread)
+        threadPersistence.save(startedThread)
         applyComposerSendLifecycle(sendStart.lifecycle)
-        threadDrafts = ComposerDraftStore.cleared(draftThreadID, drafts: threadDrafts)
         onStarted?()
 
         let outcome = await runAgentSession(
@@ -186,6 +191,9 @@ extension QuillCodeWorkspaceModel {
             onProgressUpdated: onProgressUpdated
         )
         finishAgentSend(outcome, runThreadID: sendStart.threadID)
+        if draftThreadID != nil, Self.normalizedComposerDraft(composer.draft) == nil {
+            clearComposerDraft(for: draftThreadID)
+        }
         return AgentTurnResult(threadID: sendStart.threadID, completed: outcome.didComplete)
     }
 
@@ -259,11 +267,13 @@ extension QuillCodeWorkspaceModel {
         if completion.shouldRefreshMemoryContext {
             refreshThreadMemoryContext(&thread)
         }
-        // The follow-up queue is model-owned: the agent's completion copy carries a stale snapshot
-        // (captured at send-start). `updateThreadFromAgentRun` preserves the live queue in memory;
-        // carry that same live queue onto the copy we persist so disk matches memory (a mid-run
-        // enqueue survives to disk, and a drained item's removal is not resurrected).
-        thread.followUpQueue = root.threads.first { $0.id == thread.id }?.followUpQueue ?? thread.followUpQueue
+        // These fields are model-owned: the agent's completion copy carries a stale snapshot
+        // (captured at send-start). `updateThreadFromAgentRun` preserves the live values in memory;
+        // carry those same values onto the copy we persist so disk matches memory.
+        if let liveThread = root.threads.first(where: { $0.id == thread.id }) {
+            thread.followUpQueue = liveThread.followUpQueue
+            thread.composerDraft = liveThread.composerDraft
+        }
         updateThreadFromAgentRun(thread)
         try threadPersistence.saveOrThrow(thread)
         // A completed run may have created, moved, or deleted files; keep composer

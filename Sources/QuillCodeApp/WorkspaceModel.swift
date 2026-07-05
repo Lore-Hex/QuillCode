@@ -68,8 +68,8 @@ public final class QuillCodeWorkspaceModel {
     /// when a different project becomes the active context (mirrors the branch chip), so a
     /// stale changed-set never boosts the wrong project's mentions across a switch.
     public internal(set) var changedFilePathsProjectID: UUID?
-    /// Transient per-thread unsent composer drafts, stashed on thread switch and
-    /// restored on selection so drafts never bleed across threads. Session-only.
+    /// In-memory front buffer for per-thread composer drafts during rapid thread switches.
+    /// `ChatThread.composerDraft` is the cross-launch source of truth.
     public internal(set) var threadDrafts: [UUID: String] = [:]
     /// The thread whose morning-triage return digest card is currently open (issue #877), or nil when no
     /// digest is showing. Session-only presentation state; the digest content itself is rebuilt from the
@@ -155,6 +155,7 @@ public final class QuillCodeWorkspaceModel {
         if let computerUseBackend {
             self.root.topBar.computerUseStatus = computerUseBackend.status
         }
+        restorePersistedSelectedComposerDraftIfNeeded()
         syncTerminalSessionToSelectedProject()
         refreshTopBar()
         refreshFileMentionIndex()

@@ -93,7 +93,7 @@ extension QuillCodeWorkspaceModel {
             return false
         }
 
-        threadDrafts = ComposerDraftStore.cleared(id, drafts: threadDrafts)
+        clearComposerDraft(for: id)
         persistChangedThread(result.changedThread)
         return true
     }

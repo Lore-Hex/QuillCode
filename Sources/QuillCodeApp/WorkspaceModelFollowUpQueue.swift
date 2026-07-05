@@ -30,7 +30,7 @@ extension QuillCodeWorkspaceModel {
         }
         if appended {
             composer.draft = ""
-            threadDrafts = ComposerDraftStore.cleared(root.selectedThreadID, drafts: threadDrafts)
+            clearComposerDraft(for: root.selectedThreadID)
         }
         return appended
     }

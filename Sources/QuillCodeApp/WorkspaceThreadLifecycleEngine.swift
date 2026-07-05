@@ -142,7 +142,10 @@ struct WorkspaceThreadLifecycleEngine {
         now: Date = Date()
     ) -> ClearResult? {
         guard let index = threads.firstIndex(where: { $0.id == id }),
-              !threads[index].messages.isEmpty || !threads[index].events.isEmpty || !threads[index].followUpQueue.isEmpty
+              !threads[index].messages.isEmpty
+                || !threads[index].events.isEmpty
+                || !threads[index].followUpQueue.isEmpty
+                || threads[index].composerDraft != nil
         else {
             return nil
         }
@@ -150,6 +153,7 @@ struct WorkspaceThreadLifecycleEngine {
         threads[index].messages = []
         threads[index].events = []
         threads[index].followUpQueue = []
+        threads[index].composerDraft = nil
         threads[index].updatedAt = now
         return ClearResult(changedThread: threads[index])
     }
