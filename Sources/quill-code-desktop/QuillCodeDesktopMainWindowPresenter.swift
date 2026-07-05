@@ -57,6 +57,9 @@ final class QuillCodeDesktopMainWindowPresenter: NSObject, NSWindowDelegate {
             defer: false
         )
         window.title = "QuillCode"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
         window.contentView = NSHostingView(rootView: rootView)
         placeOnPrimaryVisibleScreen(window)
         window.delegate = self

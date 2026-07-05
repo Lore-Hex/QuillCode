@@ -50,18 +50,6 @@ struct QuillCodeMessageBubble: View {
                             QuillCodeMessageRetryButton(action: onRetry)
                                 .accessibilityIdentifier("message-retry")
                         }
-                        QuillCodeMessageFeedbackButton(
-                            label: "Helpful",
-                            systemImage: "hand.thumbsup",
-                            isSelected: message.feedback == .helpful,
-                            action: { onFeedback(.helpful) }
-                        )
-                        QuillCodeMessageFeedbackButton(
-                            label: "Not helpful",
-                            systemImage: "hand.thumbsdown",
-                            isSelected: message.feedback == .notHelpful,
-                            action: { onFeedback(.notHelpful) }
-                        )
                     }
                 }
                 .accessibilityIdentifier("message-actions-\(timelineItemID)")

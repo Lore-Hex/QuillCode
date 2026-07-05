@@ -14,7 +14,7 @@ struct QuillCodeTopBarView: View {
                 identityGroup
                     .layoutPriority(3)
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 10)
 
                 QuillCodeTopBarActionClusterView(
                     topBar: topBar,
@@ -23,7 +23,7 @@ struct QuillCodeTopBarView: View {
                 )
                     .layoutPriority(2)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 10)
             .frame(minHeight: QuillCodeMetrics.topBarHeight)
 
             if showsActivityHairline {

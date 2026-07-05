@@ -37,17 +37,11 @@ struct QuillCodeTopBarNavigationView: View {
             onCommand(command)
         } label: {
             Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .bold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.42))
                 .accessibilityHidden(true)
         }
         .quillCodeIconButtonTarget()
-        .background(QuillCodePalette.selection.opacity(command.isEnabled ? 0.18 : 0.12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(QuillCodePalette.selection.opacity(command.isEnabled ? 0.34 : 0.24), lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(!command.isEnabled)
         .help(command.isEnabled ? command.title : "\(accessibilityLabel) unavailable")

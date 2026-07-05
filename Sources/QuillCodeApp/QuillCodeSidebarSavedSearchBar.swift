@@ -66,10 +66,12 @@ struct QuillCodeSidebarSavedSearchBar: View {
                 Spacer(minLength: 0)
                 savedSearchCountBadge(savedSearch)
             }
-            .quillCodeCapsuleButtonTarget(minWidth: 124, alignment: .leading)
+            .padding(.horizontal, 8)
+            .frame(minWidth: 124, minHeight: 30, alignment: .leading)
             .foregroundStyle(savedSearch.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
             .background(savedSearch.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.45))
             .clipShape(Capsule())
+            .quillCodeCapsuleButtonTarget(minWidth: 124, alignment: .leading)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .accessibilityLabel(savedSearch.accessibilityLabel)

@@ -10,7 +10,8 @@ struct QuillCodeProjectRowView: View {
             projectButton
             projectActionMenu
         }
-        .padding(10)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 0)
         .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: QuillCodeProjectListMetrics.rowCornerRadius, style: .continuous))
     }
@@ -19,7 +20,7 @@ struct QuillCodeProjectRowView: View {
         Button {
             onSelectProject(project.id)
         } label: {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 projectTitleRow
                 Text(project.path)
                     .font(.caption)
@@ -34,7 +35,7 @@ struct QuillCodeProjectRowView: View {
     private var projectTitleRow: some View {
         HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Text(project.name)
-                .font(.callout.weight(.semibold))
+                .font(.callout.weight(.medium))
                 .lineLimit(1)
             if project.isRemote {
                 Text(project.connectionKindLabel)

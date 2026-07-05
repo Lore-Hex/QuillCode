@@ -10,15 +10,15 @@ public enum QuillCodeMetrics {
     public static let controlClusterSpacing: CGFloat = 10
     public static let denseControlClusterSpacing: CGFloat = 8
     public static let topBarHeight: CGFloat = 44
-    public static let topBarTokenBudgetMinWidth: CGFloat = 226
-    public static let topBarTokenBudgetMaxWidth: CGFloat = 286
-    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 12
-    public static let topBarTokenBudgetVerticalPadding: CGFloat = 8
+    public static let topBarTokenBudgetMinWidth: CGFloat = 252
+    public static let topBarTokenBudgetMaxWidth: CGFloat = 336
+    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 10
+    public static let topBarTokenBudgetVerticalPadding: CGFloat = 6
     public static let sidebarWidth: CGFloat = 280
-    public static let sidebarLeadingInset: CGFloat = 14
-    public static let sidebarTrailingInset: CGFloat = 14
-    public static let sidebarVerticalInset: CGFloat = 12
-    public static let sidebarSectionSpacing: CGFloat = 10
+    public static let sidebarLeadingInset: CGFloat = 10
+    public static let sidebarTrailingInset: CGFloat = 10
+    public static let sidebarVerticalInset: CGFloat = 6
+    public static let sidebarSectionSpacing: CGFloat = 7
     public static let composerSurfaceRadius: CGFloat = 12
     public static let composerControlRadius: CGFloat = 10
     public static let toolCardMinimumHeight: CGFloat = 74
@@ -26,6 +26,8 @@ public enum QuillCodeMetrics {
     public static let toolCardHeaderHeight: CGFloat = 44
     public static let toolCardRawDetailsMaxHeight: CGFloat = 240
     public static let toolCardRadius: CGFloat = 20
+    public static let settingsCardRadius: CGFloat = 14
+    public static let dialogRadius: CGFloat = 16
     public static let pressScale: CGFloat = 0.96
 }
 
@@ -171,6 +173,10 @@ extension View {
     func quillCodeImageOutline(radius: CGFloat) -> some View {
         modifier(QuillCodeImageOutlineModifier(radius: radius))
     }
+
+    func quillCodeSettingsCard(tint: Color = QuillCodePalette.blue) -> some View {
+        modifier(QuillCodeSettingsCardModifier(tint: tint))
+    }
 }
 
 private struct QuillCodeSurfaceModifier: ViewModifier {
@@ -206,5 +212,29 @@ private struct QuillCodeImageOutlineModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
             )
+    }
+}
+
+private struct QuillCodeSettingsCardModifier: ViewModifier {
+    var tint: Color
+
+    func body(content: Content) -> some View {
+        content
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous)
+                    .fill(QuillCodePalette.panel.opacity(0.82))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+            )
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous)
+                    .fill(tint.opacity(0.70))
+                    .frame(width: 2)
+                    .padding(.vertical, 10)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous))
     }
 }

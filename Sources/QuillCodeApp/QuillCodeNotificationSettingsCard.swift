@@ -39,14 +39,7 @@ struct QuillCodeNotificationSettingsCard: View {
             .quillCodeSwitchRowTarget()
             .accessibilityIdentifier("quillcode-notifications-automations")
         }
-        .padding(14)
-        .background(QuillCodePalette.panel.opacity(0.72))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(QuillCodePalette.blue.opacity(0.20), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.10), radius: 14, x: 0, y: 7)
+        .quillCodeSettingsCard(tint: statusTint)
     }
 
     private var header: some View {
@@ -64,8 +57,8 @@ struct QuillCodeNotificationSettingsCard: View {
             Text(settings.notificationStatusLabel)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(statusTint.opacity(0.16))
                 .foregroundStyle(statusTint)
                 .clipShape(Capsule())

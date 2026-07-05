@@ -14,14 +14,7 @@ struct QuillCodeComputerUseSettingsCard: View {
             restartHint
             refreshAction
         }
-        .padding(14)
-        .background(QuillCodePalette.panel.opacity(0.72))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(statusTint.opacity(0.28), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
+        .quillCodeSettingsCard(tint: statusTint)
     }
 
     private var statusTint: Color {
@@ -43,8 +36,8 @@ struct QuillCodeComputerUseSettingsCard: View {
             Text(settings.computerUseStatusLabel)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(statusTint.opacity(0.16))
                 .foregroundStyle(statusTint)
                 .clipShape(Capsule())
@@ -70,7 +63,7 @@ struct QuillCodeComputerUseSettingsCard: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
         }
-        .padding(10)
+        .padding(9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(QuillCodePalette.background.opacity(0.48))
         .overlay(
@@ -158,7 +151,7 @@ private struct QuillCodePermissionRow: View {
                 .disabled(!requirement.command.isEnabled)
             }
         }
-        .padding(10)
+        .padding(9)
         .background(Color.black.opacity(0.16))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)

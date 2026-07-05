@@ -4,8 +4,8 @@ struct QuillCodeTopBarIdentityView: View {
     var topBar: TopBarSurface
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(topBar.primaryTitle)
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.text)
@@ -48,7 +48,7 @@ struct QuillCodeTopBarIdentityView: View {
 
     private func statusChip(_ label: String, tint: Color = QuillCodePalette.muted) -> some View {
         Text(label)
-            .font(.caption.monospacedDigit().weight(.semibold))
+            .font(.caption.monospacedDigit().weight(.medium))
             .foregroundStyle(tint)
             .lineLimit(1)
             .truncationMode(.middle)
@@ -61,17 +61,17 @@ struct QuillCodeTopBarIdentityView: View {
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Tokens")
-                    .font(.caption2.weight(.bold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                     .textCase(.uppercase)
                 Text(budget.primaryLabel)
-                    .font(.caption.monospacedDigit().weight(.bold))
+                    .font(.callout.monospacedDigit().weight(.semibold))
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .minimumScaleFactor(0.88)
             }
 
             GeometryReader { proxy in
@@ -83,30 +83,22 @@ struct QuillCodeTopBarIdentityView: View {
                         .frame(width: proxy.size.width * CGFloat(budget.progressPercent) / 100)
                 }
             }
-            .frame(height: 4)
+            .frame(height: 3)
 
-            Text(budget.secondaryLabel)
-                .font(.caption2.monospacedDigit().weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
+            HStack(spacing: 6) {
+                Text(budget.secondaryLabel)
+                    .font(.caption.monospacedDigit().weight(.medium))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.88)
 
-            if !budget.visibleQuotaLimits.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(budget.visibleQuotaLimits.prefix(3), id: \.id) { quota in
-                        Text(quota.compactLabel)
-                            .font(.caption2.monospacedDigit().weight(.bold))
-                            .foregroundStyle(tokenBudgetTint(for: budget))
-                            .lineLimit(1)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(tokenBudgetTint(for: budget).opacity(0.12))
-                            )
-                    }
+                if !budget.visibleQuotaLimits.isEmpty {
+                    Text(budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · "))
+                        .font(.caption.monospacedDigit().weight(.medium))
+                        .foregroundStyle(tokenBudgetTint(for: budget))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.88)
                 }
-                .lineLimit(1)
             }
         }
         .padding(.horizontal, QuillCodeMetrics.topBarTokenBudgetHorizontalPadding)

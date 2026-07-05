@@ -19,7 +19,7 @@ struct QuillCodeSidebarUtilityActionsView: View {
                 settingsButton(settingsCommand)
             }
         }
-        .padding(.top, 10)
+        .padding(.top, 6)
     }
 
     private var toolsMenu: some View {
@@ -42,11 +42,13 @@ struct QuillCodeSidebarUtilityActionsView: View {
             }
         } label: {
             Label("Tools", systemImage: "wrench.and.screwdriver")
-                .font(.callout.weight(.semibold))
-                .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
+                .font(.callout.weight(.medium))
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .center)
                 .foregroundStyle(QuillCodePalette.muted)
                 .background(QuillCodePalette.panel.opacity(0.50))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Tools")
@@ -61,11 +63,13 @@ struct QuillCodeSidebarUtilityActionsView: View {
                 QuillCodeSidebarCommandPresentation.displayTitle(for: command),
                 systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
             )
-            .font(.callout.weight(.semibold))
-            .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
+            .font(.callout.weight(.medium))
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 32, alignment: .center)
             .foregroundStyle(settingsForeground(command))
             .background(QuillCodePalette.panel.opacity(0.50))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(!command.isEnabled)
