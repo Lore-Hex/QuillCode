@@ -23,7 +23,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/jperla/trusted-router-swift.git", from: "0.4.1")
+        .package(url: "https://github.com/Lore-Hex/trusted-router-swift.git", from: "0.4.1")
     ],
     targets: [
         .target(name: "QuillCodeCore"),

@@ -1,10 +1,10 @@
 {
-  "originHash" : "389d35d9f96ceb765b4060d6dc9c07fe717e6d851aa0e2d3cf5a67f57ddda763",
+  "originHash" : "695f3f546179c353f8ec6810117a5a673c03ede3492d0b215859abb0d944cd4b",
   "pins" : [
     {
       "identity" : "trusted-router-swift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/jperla/trusted-router-swift.git",
+      "location" : "https://github.com/Lore-Hex/trusted-router-swift.git",
       "state" : {
         "revision" : "410cb034ce5a20b62f209d03d46a256cafe7b54f",
         "version" : "0.4.1"
