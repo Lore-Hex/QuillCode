@@ -79,10 +79,25 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/release-assets"
           find "$RUNNER_TEMP/downloaded-artifacts" -maxdepth 3 -type f -print -exec cp {} "$RUNNER_TEMP/release-assets/" \;
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            RELEASE_CHANNEL="stable"
+          else
+            RELEASE_TAG="tester-latest"
+            RELEASE_CHANNEL="tester"
+          fi
           (
             cd "$RUNNER_TEMP/release-assets"
-            sha256sum * > SHASUMS256.txt
+            find . -maxdepth 1 -type f ! -name SHASUMS256.txt -printf '%P\0' | sort -z | xargs -0 sha256sum > SHASUMS256.txt
           )
+          scripts/build-download-manifest.py \
+            --assets-dir "$RUNNER_TEMP/release-assets" \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --channel "$RELEASE_CHANNEL" \
+            --commit "$GITHUB_SHA" \
+            --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --output "$RUNNER_TEMP/release-assets/latest-tester-build.json"
           find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -print | sort
       - name: Publish tester or tagged release
         env:
@@ -117,6 +132,7 @@ jobs:
           - \`quill-code-macOS-*.tar.gz\`: macOS CLI.
           - \`quill-code-linux-*.tar.gz\`: Linux CLI.
           - \`SHASUMS256.txt\`: checksum manifest for every asset.
+          - \`latest-tester-build.json\`: machine-readable build metadata, download URLs, sizes, and SHA-256 digests.
 
           macOS tester note: this build is ad-hoc signed but not notarized yet. If Gatekeeper blocks first launch, use right-click > Open. Computer Use still requires normal macOS Screen Recording and Accessibility permissions.
           NOTES

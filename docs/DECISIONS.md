@@ -12,6 +12,10 @@
   refreshes the stable tester release after successful `main` builds so early testers can use one download URL while
   maintainers can still cut immutable `v*` releases for public announcements. The macOS tester app is ad-hoc signed
   and explicitly not notarized until Apple signing/notarization credentials are configured.
+- Tester releases also publish `latest-tester-build.json` as a machine-readable download manifest. The manifest records
+  channel, tag, commit, workflow run, version/build metadata, and per-asset URL/size/platform/arch/SHA-256 fields so the
+  website, support scripts, and future in-app updater experiments can consume the same stable tester channel without
+  scraping GitHub release HTML.
 - QuillCode keeps TrustedRouter model-advisor guidance as a compact skill-backed pointer in the base prompt instead of
   carrying the full Lore-Hex/LLM-advisor playbook on every request. The prompt names the live-data-first behavior,
   concise 2-5 option recommendations, key privacy filters, and secret-handling guardrails; detailed model-selection
