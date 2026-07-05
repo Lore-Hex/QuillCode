@@ -60,12 +60,19 @@ public struct ToolArtifactDocumentPreview: Codable, Sendable, Hashable {
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
+    public var dimensionsLabel: String?
     public var detail: String
     public var systemImage: String { "photo" }
+    public var typeLine: String {
+        [typeLabel, extensionLabel, dimensionsLabel]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
 
-    public init(extensionLabel: String, detail: String) {
+    public init(extensionLabel: String, detail: String, dimensionsLabel: String? = nil) {
         self.typeLabel = "Image"
         self.extensionLabel = extensionLabel
+        self.dimensionsLabel = dimensionsLabel
         self.detail = detail
     }
 }

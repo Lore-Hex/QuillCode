@@ -42,6 +42,22 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(nonImageData.textPreview)
     }
 
+    func testLocalImageArtifactReadsBoundedHeaderDimensions() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let pngFile = directory.appendingPathComponent("screenshot.png")
+        try pngHeader(width: 1280, height: 720).write(to: pngFile)
+
+        let imageFile = ToolArtifactState(value: pngFile.path)
+
+        XCTAssertEqual(imageFile.imagePreview?.dimensionsLabel, "1280 x 720 px")
+        XCTAssertEqual(imageFile.imagePreview?.typeLine, "Image · PNG · 1280 x 720 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: gifHeader(width: 320, height: 240))?.label, "320 x 240 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: jpegHeader(width: 640, height: 480))?.label, "640 x 480 px")
+
+        let urlImage = ToolArtifactState(value: "https://example.com/screenshot.png")
+        XCTAssertNil(urlImage.imagePreview?.dimensionsLabel)
+    }
+
     func testArtifactStateDerivesDocumentPreviews() {
         let pdfFile = ToolArtifactState(value: "/tmp/quillcode/reports/briefing.pdf")
         XCTAssertEqual(pdfFile.kind, .file)
@@ -88,5 +104,46 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: appshotFile.path))
         XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: binaryFile.path))
         XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: "https://example.com/hello.txt"))
+    }
+
+    private func pngHeader(width: UInt32, height: UInt32) -> Data {
+        var bytes: [UInt8] = [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52
+        ]
+        bytes.append(contentsOf: bigEndianBytes(width))
+        bytes.append(contentsOf: bigEndianBytes(height))
+        bytes.append(contentsOf: [0x08, 0x02, 0x00, 0x00, 0x00])
+        return Data(bytes)
+    }
+
+    private func gifHeader(width: UInt16, height: UInt16) -> Data {
+        var bytes = Array("GIF89a".utf8)
+        bytes.append(UInt8(width & 0x00FF))
+        bytes.append(UInt8(width >> 8))
+        bytes.append(UInt8(height & 0x00FF))
+        bytes.append(UInt8(height >> 8))
+        return Data(bytes)
+    }
+
+    private func jpegHeader(width: UInt16, height: UInt16) -> Data {
+        Data([
+            0xFF, 0xD8,
+            0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00,
+            0xFF, 0xC0, 0x00, 0x0B, 0x08,
+            UInt8(height >> 8), UInt8(height & 0x00FF),
+            UInt8(width >> 8), UInt8(width & 0x00FF),
+            0x01, 0x01, 0x11, 0x00
+        ])
+    }
+
+    private func bigEndianBytes(_ value: UInt32) -> [UInt8] {
+        [
+            UInt8((value >> 24) & 0xFF),
+            UInt8((value >> 16) & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8(value & 0xFF)
+        ]
     }
 }

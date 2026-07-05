@@ -151,6 +151,37 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-detail">/tmp/quillcode-preview"#))
     }
 
+    func testHTMLRendererIncludesLocalImageDimensionsWhenReadable() throws {
+        let root = try makeTempDirectory()
+        let screenshot = root.appendingPathComponent("screenshot.png")
+        try pngHeader(width: 1024, height: 768).write(to: screenshot)
+        let call = ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")
+        let result = ToolResult(ok: true, stdout: "captured screenshot\n", artifacts: [screenshot.path])
+        let thread = ChatThread(
+            title: "Screenshot",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.computer.screenshot queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.computer.screenshot completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · PNG · 1024 x 768 px"#))
+    }
+
     func testHTMLRendererIncludesDocumentArtifactPreview() throws {
         let documentPath = "/tmp/quillcode-preview/reports/briefing.pdf"
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"briefing.pdf"}"#)
@@ -232,5 +263,25 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
 
         XCTAssertLessThan(userIndex, toolIndex)
         XCTAssertLessThan(toolIndex, answerIndex)
+    }
+
+    private func pngHeader(width: UInt32, height: UInt32) -> Data {
+        var bytes: [UInt8] = [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52
+        ]
+        bytes.append(contentsOf: [
+            UInt8((width >> 24) & 0xFF),
+            UInt8((width >> 16) & 0xFF),
+            UInt8((width >> 8) & 0xFF),
+            UInt8(width & 0xFF),
+            UInt8((height >> 24) & 0xFF),
+            UInt8((height >> 16) & 0xFF),
+            UInt8((height >> 8) & 0xFF),
+            UInt8(height & 0xFF),
+            0x08, 0x02, 0x00, 0x00, 0x00
+        ])
+        return Data(bytes)
     }
 }

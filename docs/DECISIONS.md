@@ -6,6 +6,10 @@
   workflows afterward. The train therefore dispatches both `ci.yml` and `download-builds.yml` explicitly after a
   successful merge. This keeps `main` validated and refreshes `tester-latest` without requiring a maintainer to
   remember a manual tester-build run after agent PRs land.
+- Tool-card image previews read only bounded local file headers for dimensions. `ToolArtifactImageMetadataReader`
+  handles PNG, GIF, and JPEG width/height from the first 64 KiB and refuses URLs/non-file artifacts. The preview
+  builders surface a plain `dimensionsLabel`, keeping SwiftUI/HTML renderers filesystem-free and avoiding a general
+  image-decoding dependency while making Computer Use screenshots and generated local images easier to inspect.
 - Project `.quillcode/config.toml` starts as a bounded source-derived configuration layer, not another persisted app-state
   object. `WorkspaceProjectConfigurationLoader` currently lets repositories add local action directories and cap discovered
   local actions while keeping `.quillcode/actions` and `.quillcode/local-env` enabled by default. Unsafe, absolute, parent

@@ -190,7 +190,7 @@ struct QuillCodeArtifactImagePreview: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 if let preview = artifact.imagePreview {
-                    Text("\(preview.typeLabel) · \(preview.extensionLabel)")
+                    Text(preview.typeLine)
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(QuillCodePalette.blue)
                         .lineLimit(1)
@@ -229,7 +229,7 @@ struct QuillCodeArtifactImagePreview: View {
         guard let preview = artifact.imagePreview else {
             return "Image preview \(artifact.label)"
         }
-        return "\(preview.typeLabel) \(preview.extensionLabel) preview \(artifact.label)"
+        return "\(preview.typeLine) preview \(artifact.label)"
     }
 
     private var fallback: some View {

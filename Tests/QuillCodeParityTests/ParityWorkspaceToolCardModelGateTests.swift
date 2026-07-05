@@ -7,6 +7,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let toolArtifactSurfaceText = try Self.appSourceText(named: "QuillCodeToolArtifactSurface.swift")
         let artifactValueClassifierText = try Self.appSourceText(named: "ToolArtifactValueClassifier.swift")
         let artifactImagePreviewText = try Self.appSourceText(named: "ToolArtifactImagePreviewBuilder.swift")
+        let artifactImageMetadataText = try Self.appSourceText(named: "ToolArtifactImageMetadataReader.swift")
         let artifactDocumentPreviewText = try Self.appSourceText(named: "ToolArtifactDocumentPreviewBuilder.swift")
         let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
         let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
@@ -24,6 +25,14 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
         Self.assertSource(artifactImagePreviewText, contains: "enum ToolArtifactImagePreviewBuilder")
+        Self.assertSource(artifactImagePreviewText, contains: "ToolArtifactImageMetadataReader.dimensionsLabel")
+        Self.assertSource(artifactImageMetadataText, containsAll: [
+            "enum ToolArtifactImageMetadataReader",
+            "maximumHeaderBytes",
+            "pngDimensions",
+            "gifDimensions",
+            "jpegDimensions"
+        ])
         Self.assertSource(artifactDocumentPreviewText, contains: "enum ToolArtifactDocumentPreviewBuilder")
         Self.assertSource(artifactTextPreviewText, contains: "enum ToolArtifactTextPreviewBuilder")
         Self.assertSource(toolCardReducerText, containsAll: [
