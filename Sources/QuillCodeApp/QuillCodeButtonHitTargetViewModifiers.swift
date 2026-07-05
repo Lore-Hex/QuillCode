@@ -70,6 +70,25 @@ extension View {
         ))
     }
 
+    public func quillCodeSidebarRowTarget(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .leading,
+        radius: CGFloat = QuillCodeMetrics.sidebarVisibleRowRadius
+    ) -> some View {
+        modifier(QuillCodeSidebarRowTargetModifier(
+            minHeight: minHeight,
+            alignment: alignment,
+            radius: radius
+        ))
+    }
+
+    public func quillCodeSidebarIconButtonTarget(
+        size: CGFloat = QuillCodeMetrics.sidebarIconTargetSize,
+        radius: CGFloat = QuillCodeMetrics.sidebarVisibleRowRadius
+    ) -> some View {
+        modifier(QuillCodeSidebarIconButtonTargetModifier(size: size, radius: radius))
+    }
+
     public func quillCodeCapsuleButtonTarget(
         minWidth: CGFloat? = nil,
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
@@ -104,12 +123,39 @@ private struct QuillCodeSidebarRowChromeModifier: ViewModifier {
         }
         .frame(
             maxWidth: .infinity,
-            minHeight: QuillCodeMetrics.minimumHitTarget,
+            minHeight: QuillCodeMetrics.sidebarInteractionRowHeight,
             alignment: alignment
         )
         .contentShape(RoundedRectangle(
             cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
             style: .continuous
         ))
+    }
+}
+
+private struct QuillCodeSidebarRowTargetModifier: ViewModifier {
+    var minHeight: CGFloat
+    var alignment: Alignment
+    var radius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .frame(
+                maxWidth: .infinity,
+                minHeight: minHeight,
+                alignment: alignment
+            )
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+}
+
+private struct QuillCodeSidebarIconButtonTargetModifier: ViewModifier {
+    var size: CGFloat
+    var radius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .frame(width: size, height: size)
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }

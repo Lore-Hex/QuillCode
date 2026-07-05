@@ -8,12 +8,11 @@ struct QuillCodeSidebarThreadRowView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
+        HStack(spacing: QuillCodeMetrics.sidebarControlSpacing) {
             selectionToggle
             threadButton
             actionsMenu
         }
-        .padding(.horizontal, 2)
         .padding(.vertical, 0)
     }
 
@@ -26,9 +25,9 @@ struct QuillCodeSidebarThreadRowView: View {
                 Image(systemName: item.isBulkSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(item.isBulkSelected ? QuillCodePalette.blue : QuillCodePalette.muted)
-                    .quillCodeIconButtonTarget()
+                    .quillCodeSidebarIconButtonTarget()
             }
-            .buttonStyle(QuillCodePressableButtonStyle())
+            .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
             .accessibilityLabel(item.isBulkSelected ? "Deselect \(item.title)" : "Select \(item.title)")
         }
     }
@@ -68,10 +67,10 @@ struct QuillCodeSidebarThreadRowView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .quillCodeIconButtonTarget()
+                .quillCodeSidebarIconButtonTarget()
                 .foregroundStyle(QuillCodePalette.muted)
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
         .help("Thread actions")
         .accessibilityLabel("Thread actions for \(item.title)")
     }

@@ -8,6 +8,8 @@ struct SwiftSourceInteractionTargetAudit {
         "quillCodeIconButtonTarget",
         "quillCodeFullRowButtonTarget",
         "quillCodeSidebarRowChrome",
+        "quillCodeSidebarRowTarget",
+        "quillCodeSidebarIconButtonTarget",
         "quillCodeCapsuleButtonTarget",
         "quillCodeFormActionTarget",
         "quillCodeLinkTarget",
@@ -88,11 +90,12 @@ struct SwiftSourceInteractionTargetAudit {
             }
 
             if line.contains(".labelStyle(.iconOnly)"),
-               !window(in: lines, around: index, radius: 10).contains("quillCodeIconButtonTarget") {
+               !window(in: lines, around: index, radius: 10).contains("quillCodeIconButtonTarget"),
+               !window(in: lines, around: index, radius: 10).contains("quillCodeSidebarIconButtonTarget") {
                 violations.append("\(relativePath):\(index + 1) icon-only control lacks icon hit target")
             }
 
-            if line.contains("quillCodeIconButtonTarget"),
+            if line.contains("quillCodeIconButtonTarget") || line.contains("quillCodeSidebarIconButtonTarget"),
                !isSharedHitTargetImplementation(relativePath),
                !hasIconTargetName(in: iconTargetNameScope(
                     in: lines,
@@ -219,6 +222,8 @@ struct SwiftSourceInteractionTargetAudit {
             "quillCodeIconButtonTarget",
             "quillCodeFullRowButtonTarget",
             "quillCodeSidebarRowChrome",
+            "quillCodeSidebarRowTarget",
+            "quillCodeSidebarIconButtonTarget",
             "quillCodeCapsuleButtonTarget",
             "quillCodeFormActionTarget"
         ].contains { sourceWindow.contains($0) }
@@ -230,6 +235,8 @@ struct SwiftSourceInteractionTargetAudit {
             "quillCodeIconButtonTarget",
             "quillCodeFullRowButtonTarget",
             "quillCodeSidebarRowChrome",
+            "quillCodeSidebarRowTarget",
+            "quillCodeSidebarIconButtonTarget",
             "quillCodeCapsuleButtonTarget",
             "quillCodeFormActionTarget"
         ].contains { sourceWindow.contains($0) }

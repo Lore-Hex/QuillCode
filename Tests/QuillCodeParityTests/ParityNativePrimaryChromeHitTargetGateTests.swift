@@ -42,7 +42,7 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
         Self.assertSource(sidebarText, contains: ".quillCodeSidebarRowChrome")
         Self.assertSource(sidebarText, contains: ".quillCodeTextButtonTarget(minWidth: 56)")
         Self.assertSource(sidebarRowsText, contains: ".quillCodeSidebarRowChrome")
-        Self.assertSource(sidebarRowsText, contains: ".quillCodeIconButtonTarget()")
+        Self.assertSource(sidebarRowsText, contains: ".quillCodeSidebarIconButtonTarget()")
         for expected in [
             ".quillCodeTextButtonTarget(",
             "minWidth: 90",

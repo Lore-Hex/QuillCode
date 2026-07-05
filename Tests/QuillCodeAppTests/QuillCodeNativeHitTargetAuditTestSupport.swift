@@ -214,6 +214,8 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
             ".quillCodeIconButtonTarget",
             ".quillCodeFullRowButtonTarget",
             ".quillCodeSidebarRowChrome",
+            ".quillCodeSidebarRowTarget",
+            ".quillCodeSidebarIconButtonTarget",
             ".quillCodeCapsuleButtonTarget"
         ]
         let platformMenuItemMarker = ".quillCodePlatformMenuItemTarget"

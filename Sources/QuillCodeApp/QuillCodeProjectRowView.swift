@@ -6,11 +6,10 @@ struct QuillCodeProjectRowView: View {
     var onProjectAction: (ProjectItemActionSurface) -> Void
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
+        HStack(spacing: QuillCodeMetrics.sidebarControlSpacing) {
             projectButton
             projectActionMenu
         }
-        .padding(.horizontal, 2)
         .padding(.vertical, 0)
     }
 
@@ -61,10 +60,10 @@ struct QuillCodeProjectRowView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .quillCodeIconButtonTarget()
+                .quillCodeSidebarIconButtonTarget()
                 .foregroundStyle(QuillCodePalette.muted)
         }
-        .buttonStyle(QuillCodePressableButtonStyle())
+        .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
     }
 
     private var projectActionMenuGeometryReason: String {
