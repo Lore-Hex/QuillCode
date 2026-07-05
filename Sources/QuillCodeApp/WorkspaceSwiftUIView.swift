@@ -179,7 +179,7 @@ public struct QuillCodeWorkspaceView: View {
                     onSetMode: actions.onSetMode,
                     onSetModel: actions.onSetModel,
                     onToggleModelFavorite: actions.onToggleModelFavorite,
-                    onSend: actions.onSend,
+                    onSend: handleComposerSend,
                     onRunTerminalCommand: actions.onRunTerminalCommand,
                     onTerminalHistoryPrevious: actions.onTerminalHistoryPrevious,
                     onTerminalHistoryNext: actions.onTerminalHistoryNext,
@@ -368,6 +368,24 @@ public struct QuillCodeWorkspaceView: View {
 
     private func retryWorktreePrunePreview() {
         worktreeDialogs.retryPrunePreview(loadPreview: actions.onPreviewWorktreePrune)
+    }
+
+    private func handleComposerSend() {
+        guard case .slash(.workspaceCommand(let commandID), _) =
+            WorkspaceComposerSubmissionPlanner.plan(draft: draft),
+            commandID == "search" || commandID == "find-in-chat"
+        else {
+            actions.onSend()
+            return
+        }
+
+        draft = ""
+        if commandID == "search" {
+            searchQuery = ""
+            isSearchPresented = true
+        } else {
+            isFindPresented = true
+        }
     }
 }
 

@@ -3,7 +3,8 @@ import Foundation
 enum SlashWorkspaceCommandParser {
     static func supports(_ name: String) -> Bool {
         switch normalizedName(name) {
-        case "browser", "preview",
+        case "search", "find",
+             "browser", "preview",
              "diff", "changes",
              "git-status", "gitstatus",
              "git",
@@ -18,6 +19,10 @@ enum SlashWorkspaceCommandParser {
 
     static func parse(name: String, argument: String = "") -> SlashCommand {
         switch normalizedName(name) {
+        case "search":
+            return .workspaceCommand("search")
+        case "find":
+            return .workspaceCommand("find-in-chat")
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
         case "diff", "changes":

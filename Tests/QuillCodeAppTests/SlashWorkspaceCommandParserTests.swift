@@ -5,6 +5,8 @@ import QuillCodeTools
 
 final class SlashWorkspaceCommandParserTests: XCTestCase {
     func testSupportsWorkspaceAliases() {
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("search"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("find"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("browser"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preview"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
@@ -16,6 +18,13 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktrees"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("wt"))
         XCTAssertFalse(SlashWorkspaceCommandParser.supports("project"))
+    }
+
+    func testSearchAndFindAliasesOpenExistingWorkspaceCommands() {
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "search"), .workspaceCommand("search"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "find"), .workspaceCommand("find-in-chat"))
+        XCTAssertEqual(SlashCommandParser.parse("/search"), .workspaceCommand("search"))
+        XCTAssertEqual(SlashCommandParser.parse("/find"), .workspaceCommand("find-in-chat"))
     }
 
     func testBrowserAliasesToggleBrowserPane() {
