@@ -2639,6 +2639,43 @@
       font-size: 11px;
       font-weight: 650;
     }
+    .artifact-pdf-preview {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
+      margin-top: 2px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .artifact-pdf-preview strong {
+      min-width: 0;
+      max-width: 100%;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+    .artifact-pdf-preview div {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    .artifact-pdf-preview small {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
     .artifact-preview {
       margin: 0;
       display: grid;
@@ -6160,7 +6197,8 @@
         detail,
         imagePreview: artifactImagePreview(value, kind, detail),
         documentPreview,
-        appshotPreview: artifactAppshotPreview(value, kind, documentPreview)
+        appshotPreview: artifactAppshotPreview(value, kind, documentPreview),
+        pdfPreview: artifactPDFPreview(value, kind, documentPreview)
       };
     }
 
@@ -6320,6 +6358,63 @@
         Number.isInteger(preview.windowCount) ? String(preview.windowCount) : null
       ].some(Boolean);
       return hasDisplayContent ? preview : null;
+    }
+
+    function artifactPDFPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'pdf') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || content.length > 512 * 1024) return null;
+      const versionMatch = content.match(/%PDF-(\d+\.\d+)/);
+      const titleMatch = content.match(/\/Title\s*\((.{1,240}?)\)/s);
+      const pageTypeMatches = content.match(/\/Type\s*\/Page(?![A-Za-z])/g) || [];
+      const countMatches = [...content.matchAll(/\/Count\s+(\d{1,6})/g)]
+        .map(match => Number.parseInt(match[1], 10))
+        .filter(count => Number.isFinite(count) && count > 0);
+      const pageCount = pageTypeMatches.length || (countMatches.length ? Math.max(...countMatches) : null);
+      const preview = {
+        title: titleMatch ? unescapePDFLiteral(titleMatch[1]) : null,
+        versionLabel: versionMatch ? `PDF ${versionMatch[1]}` : null,
+        pageCount,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated: false
+      };
+      preview.metadataLines = [
+        preview.versionLabel ? `Version: ${preview.versionLabel}` : null,
+        Number.isInteger(preview.pageCount) ? `${preview.pageCount} page${preview.pageCount === 1 ? '' : 's'}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      const hasDisplayContent = [
+        preview.title,
+        preview.versionLabel,
+        Number.isInteger(preview.pageCount) ? String(preview.pageCount) : null,
+        preview.byteSizeLabel
+      ].some(Boolean);
+      return hasDisplayContent ? preview : null;
+    }
+
+    function unescapePDFLiteral(value) {
+      return String(value || '')
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')')
+        .replace(/\\n/g, ' ')
+        .replace(/\\r/g, ' ')
+        .replace(/\\t/g, ' ')
+        .trim() || null;
+    }
+
+    function byteSizeLabel(byteCount) {
+      if (!Number.isFinite(byteCount) || byteCount <= 0) return null;
+      if (byteCount === 1) return '1 byte';
+      if (byteCount < 1024) return `${byteCount} bytes`;
+      const kilobytes = byteCount / 1024;
+      if (kilobytes < 1024) return `${formatByteValue(kilobytes)} KB`;
+      return `${formatByteValue(kilobytes / 1024)} MB`;
+    }
+
+    function formatByteValue(value) {
+      const rounded = Math.round(value * 10) / 10;
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
     }
 
     function appshotString(root, keys) {
@@ -7508,6 +7603,20 @@
       };
       const renderDocumentPreviews = artifacts => {
         const previews = (artifacts || []).filter(artifact => artifact.documentPreview);
+        const renderPDFPreview = preview => {
+          if (!preview) return '';
+          const title = preview.title
+            ? `<strong data-testid="tool-card-pdf-preview-title">${escapeHTML(preview.title)}</strong>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-pdf-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return title || metadata ? `
+                <div class="artifact-pdf-preview" data-testid="tool-card-pdf-preview">
+                  ${title}
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderAppshotPreview = preview => {
           if (!preview) return '';
           const image = preview.screenshotURL
@@ -7546,6 +7655,7 @@
                   <small data-testid="tool-card-document-preview-detail">${escapeHTML(preview.detail)}</small>
                 </figcaption>
                 ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
+                ${renderPDFPreview(artifact.pdfPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
               </figure>`;
             }).join('')}
@@ -16056,6 +16166,16 @@
         addMessage('assistant', `Downloaded to \`${path}\`.`);
       } else if (text.toLowerCase().includes('pdf') || text.toLowerCase().includes('document artifact')) {
         const path = '/mock/QuillCode/reports/briefing.pdf';
+        state.mockFiles[path] = [
+          '%PDF-1.7',
+          '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+          '2 0 obj << /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >> endobj',
+          '3 0 obj << /Type /Page /Parent 2 0 R >> endobj',
+          '4 0 obj << /Type /Page /Parent 2 0 R >> endobj',
+          '5 0 obj << /Title (Quarterly Plan) >> endobj',
+          'trailer << /Info 5 0 R >>',
+          '%%EOF'
+        ].join('\n');
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',

@@ -90,6 +90,31 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertTrue(textFile.hasTextPreview)
     }
 
+    func testArtifactStateDerivesPDFPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let pdfFile = directory.appendingPathComponent("briefing.pdf")
+        let pdfBytes = pdfFixture(title: "Quarterly Plan", pageCount: 2)
+        try pdfBytes.write(to: pdfFile, atomically: true, encoding: .isoLatin1)
+
+        let artifact = ToolArtifactState(value: pdfFile.path)
+        let preview = try XCTUnwrap(artifact.pdfPreview)
+        let byteCount = pdfBytes.data(using: .isoLatin1)?.count ?? 0
+
+        XCTAssertEqual(preview.title, "Quarterly Plan")
+        XCTAssertEqual(preview.versionLabel, "PDF 1.7")
+        XCTAssertEqual(preview.pageCount, 2)
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Version: PDF 1.7",
+            "2 pages",
+            "Size: \(byteCount) bytes"
+        ])
+
+        let remotePDF = ToolArtifactState(value: "https://example.com/briefing.pdf")
+        XCTAssertNil(remotePDF.pdfPreview)
+    }
+
     func testArtifactStateDerivesAppshotPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let appshotFile = directory.appendingPathComponent("checkout.appshot.json")
@@ -182,5 +207,25 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             UInt8((value >> 8) & 0xFF),
             UInt8(value & 0xFF)
         ]
+    }
+
+    private func pdfFixture(title: String, pageCount: Int) -> String {
+        let pageObjects = (0..<pageCount)
+            .map { index in
+                "\(index + 3) 0 obj << /Type /Page /Parent 2 0 R >> endobj"
+            }
+            .joined(separator: "\n")
+        let kids = (0..<pageCount)
+            .map { "\($0 + 3) 0 R" }
+            .joined(separator: " ")
+        return """
+        %PDF-1.7
+        1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+        2 0 obj << /Type /Pages /Count \(pageCount) /Kids [\(kids)] >> endobj
+        \(pageObjects)
+        9 0 obj << /Title (\(title)) >> endobj
+        trailer << /Info 9 0 R >>
+        %%EOF
+        """
     }
 }

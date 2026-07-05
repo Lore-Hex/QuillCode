@@ -10,6 +10,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactImageMetadataText = try Self.appSourceText(named: "ToolArtifactImageMetadataReader.swift")
         let artifactDocumentPreviewText = try Self.appSourceText(named: "ToolArtifactDocumentPreviewBuilder.swift")
         let artifactAppshotPreviewText = try Self.appSourceText(named: "ToolArtifactAppshotPreviewBuilder.swift")
+        let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
         let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
         let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
         let toolCardReducerText = try Self.appSourceText(named: "WorkspaceToolCardEventReducer.swift")
@@ -22,8 +23,10 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "ToolArtifactImagePreviewBuilder.imagePreview",
             "ToolArtifactDocumentPreviewBuilder.documentPreview",
             "ToolArtifactAppshotPreviewBuilder.appshotPreview",
+            "ToolArtifactPDFPreviewBuilder.pdfPreview",
             "public struct ToolArtifactDocumentPreview",
             "public struct ToolArtifactAppshotPreview",
+            "public struct ToolArtifactPDFPreview",
             "public struct ToolArtifactImagePreview"
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
@@ -42,6 +45,12 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "byteLimit",
             "appshotRoot",
             "screenshotURL"
+        ])
+        Self.assertSource(artifactPDFPreviewText, containsAll: [
+            "enum ToolArtifactPDFPreviewBuilder",
+            "byteLimit",
+            "parsedPageCount",
+            "parsedTitle"
         ])
         Self.assertSource(artifactTextPreviewText, contains: "enum ToolArtifactTextPreviewBuilder")
         Self.assertSource(toolCardReducerText, containsAll: [

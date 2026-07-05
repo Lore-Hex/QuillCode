@@ -99,6 +99,9 @@ struct QuillCodeArtifactDocumentPreview: View {
         if let appshotPreview = artifact.appshotPreview,
            preview?.kind == .appshot {
             appshotContent(appshotPreview)
+        } else if let pdfPreview = artifact.pdfPreview,
+                  preview?.kind == .pdf {
+            pdfContent(pdfPreview)
         } else {
             documentContent
         }
@@ -144,6 +147,70 @@ struct QuillCodeArtifactDocumentPreview: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
+        .quillCodeSurface(
+            fill: Color.white.opacity(0.05),
+            radius: 18,
+            stroke: Color.white.opacity(0.08),
+            shadow: false
+        )
+    }
+
+    private func pdfContent(_ pdfPreview: ToolArtifactPDFPreview) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(QuillCodePalette.blue.opacity(0.14))
+                    Image(systemName: preview?.systemImage ?? "doc.richtext")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .accessibilityHidden(true)
+                }
+                .frame(width: 44, height: 52)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(typeLine)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .lineLimit(1)
+                    Text(pdfPreview.title ?? artifact.label)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.text)
+                        .lineLimit(1)
+                    Text(preview?.detail ?? artifact.detail)
+                        .font(.caption2)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                if artifactURL != nil {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .accessibilityHidden(true)
+                }
+            }
+            if !pdfPreview.metadataLines.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(pdfPreview.metadataLines, id: \.self) { line in
+                        Text(line)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(1)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.05))
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
         .quillCodeSurface(
             fill: Color.white.opacity(0.05),
             radius: 18,
