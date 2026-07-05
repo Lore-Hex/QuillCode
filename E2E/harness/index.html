@@ -952,9 +952,12 @@
     .sidebar-threads-zone,
     .sidebar-projects-zone {
       display: grid;
+    }
+    .sidebar-threads-zone {
       gap: 5px;
     }
     .sidebar-projects-zone {
+      gap: var(--hit-target-clearance);
       margin-top: 7px;
     }
     .sidebar h2 { margin: 0 0 8px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
@@ -1151,7 +1154,7 @@
     .sidebar-actions {
       display: grid;
       gap: 1px;
-      margin-bottom: 6px;
+      margin-bottom: var(--hit-target-clearance);
     }
     .sidebar-action {
       width: 100%;
@@ -1181,7 +1184,7 @@
       color: var(--muted);
     }
     .sidebar-action[data-command-id="new-chat"] {
-      background: rgba(255,255,255,.044);
+      background: transparent;
       border-color: transparent;
       box-shadow: none;
     }

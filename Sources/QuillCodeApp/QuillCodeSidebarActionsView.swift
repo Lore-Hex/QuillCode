@@ -19,6 +19,10 @@ struct QuillCodeSidebarActionsView: View {
                     sidebarCommandLabel(command)
                 }
                 .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+                .quillCodeFullRowButtonTarget(
+                    minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
+                    radius: QuillCodeMetrics.sidebarVisibleRowRadius
+                )
                 .disabled(!command.isEnabled)
                 .accessibilityIdentifier("quillcode-sidebar-command-\(command.id)")
             }
@@ -41,10 +45,6 @@ struct QuillCodeSidebarActionsView: View {
 
             Spacer(minLength: 0)
         }
-        .quillCodeSidebarRowChrome(background: primaryCommandBackground(command))
-    }
-
-    private func primaryCommandBackground(_ command: WorkspaceCommandSurface) -> Color {
-        command.id == "new-chat" ? QuillCodePalette.selection.opacity(0.55) : Color.clear
+        .quillCodeSidebarRowChrome()
     }
 }
