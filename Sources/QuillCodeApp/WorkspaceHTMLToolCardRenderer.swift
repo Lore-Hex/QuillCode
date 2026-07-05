@@ -160,6 +160,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let openLink = artifact.href.map {
                 #"<a\#(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
             } ?? ""
+            let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             return """
             <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">
               <span class="artifact-document-icon" aria-hidden="true">\(documentIcon(for: preview.kind))</span>
@@ -169,6 +170,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 <small data-testid="tool-card-document-preview-detail">\(escape(preview.detail))</small>
               </figcaption>
               \(openLink)
+              \(appshotPreview)
             </figure>
             """
         }.joined(separator: "\n")
@@ -202,6 +204,35 @@ enum WorkspaceHTMLToolCardRenderer {
         return """
         <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
           \(previews)
+        </div>
+        """
+    }
+
+    private static func renderAppshotPreview(_ preview: ToolArtifactAppshotPreview?) -> String {
+        guard let preview else { return "" }
+        let image = preview.screenshotURL.map {
+            #"<img class="artifact-appshot-image" data-testid="tool-card-appshot-preview-image" src="\#(escape($0))" alt="Appshot screenshot" loading="lazy">"#
+        } ?? ""
+        let title = preview.title.map {
+            #"<strong data-testid="tool-card-appshot-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let summary = preview.summary.map {
+            #"<small data-testid="tool-card-appshot-preview-summary">\#(escape($0))</small>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-appshot-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !image.isEmpty || !title.isEmpty || !summary.isEmpty || !metadata.isEmpty else {
+            return ""
+        }
+        return """
+        <div class="artifact-appshot-preview" data-testid="tool-card-appshot-preview">
+          \(image)
+          <div>
+            \(title)
+            \(summary)
+            \(metadata)
+          </div>
         </div>
         """
     }

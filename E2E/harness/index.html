@@ -2598,6 +2598,47 @@
       font-size: 12px;
       font-weight: 750;
     }
+    .artifact-appshot-preview {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(112px, 170px) minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 2px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .artifact-appshot-preview > div {
+      min-width: 0;
+      display: grid;
+      align-content: center;
+      gap: 3px;
+    }
+    .artifact-appshot-image {
+      width: 100%;
+      height: 92px;
+      object-fit: cover;
+      border-radius: 10px;
+      background: rgba(0,0,0,.26);
+      outline: 1px solid rgba(255,255,255,.10);
+      outline-offset: -1px;
+    }
+    .artifact-appshot-preview strong,
+    .artifact-appshot-preview small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .artifact-appshot-preview strong {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .artifact-appshot-preview small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
     .artifact-preview {
       margin: 0;
       display: grid;
@@ -6113,11 +6154,13 @@
         textPreview: isImagePreview ? null : artifactTextPreview(value, kind)
       };
       const detail = artifactDetail(artifact);
+      const documentPreview = artifactDocumentPreview(value, kind, detail);
       return {
         ...artifact,
         detail,
         imagePreview: artifactImagePreview(value, kind, detail),
-        documentPreview: artifactDocumentPreview(value, kind, detail)
+        documentPreview,
+        appshotPreview: artifactAppshotPreview(value, kind, documentPreview)
       };
     }
 
@@ -6238,6 +6281,118 @@
         detail,
         icon: documentKind.icon
       };
+    }
+
+    function artifactAppshotPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'appshot') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || content.length > 128 * 1024) return null;
+      let root;
+      try {
+        root = JSON.parse(content);
+      } catch {
+        return null;
+      }
+      if (!root || Array.isArray(root) || typeof root !== 'object') return null;
+      const preview = {
+        title: appshotString(root, ['title', 'name']),
+        appLabel: appshotAppLabel(root),
+        summary: appshotString(root, ['summary', 'description']),
+        capturedAt: appshotString(root, ['capturedAt', 'createdAt', 'timestamp']),
+        viewportLabel: appshotViewportLabel(root),
+        windowCount: Array.isArray(root.windows) ? root.windows.length : null,
+        screenshotURL: appshotScreenshotURL(root, path)
+      };
+      preview.metadataLines = [
+        preview.appLabel ? `App: ${preview.appLabel}` : null,
+        preview.viewportLabel ? `Viewport: ${preview.viewportLabel}` : null,
+        Number.isInteger(preview.windowCount) ? `${preview.windowCount} window${preview.windowCount === 1 ? '' : 's'}` : null,
+        preview.capturedAt ? `Captured: ${preview.capturedAt}` : null
+      ].filter(Boolean);
+      const hasDisplayContent = [
+        preview.title,
+        preview.appLabel,
+        preview.summary,
+        preview.capturedAt,
+        preview.viewportLabel,
+        preview.screenshotURL,
+        Number.isInteger(preview.windowCount) ? String(preview.windowCount) : null
+      ].some(Boolean);
+      return hasDisplayContent ? preview : null;
+    }
+
+    function appshotString(root, keys) {
+      for (const key of keys) {
+        const value = appshotStringValue(root[key], ['value', 'text', 'name']);
+        if (value) return value;
+      }
+      return null;
+    }
+
+    function appshotAppLabel(root) {
+      return appshotString(root, ['app', 'appName', 'application', 'bundleIdentifier'])
+        || appshotStringValue(root.app, ['name', 'displayName', 'bundleIdentifier']);
+    }
+
+    function appshotStringValue(value, nestedKeys = []) {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed || null;
+      }
+      if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+      if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+      for (const key of nestedKeys) {
+        const nested = appshotStringValue(value[key], []);
+        if (nested) return nested;
+      }
+      return null;
+    }
+
+    function appshotViewportLabel(root) {
+      const viewport = root.viewport && typeof root.viewport === 'object' && !Array.isArray(root.viewport)
+        ? root.viewport
+        : root;
+      const width = appshotDimension(viewport.width);
+      const height = appshotDimension(viewport.height);
+      return width && height ? `${width} x ${height}` : null;
+    }
+
+    function appshotDimension(value) {
+      const number = typeof value === 'string' ? Number(value.trim()) : value;
+      return Number.isInteger(number) && number > 0 ? number : null;
+    }
+
+    function appshotScreenshotURL(root, appshotPath) {
+      for (const key of ['screenshot', 'screenshotPath', 'image', 'imagePath', 'thumbnail', 'thumbnailPath', 'preview', 'previewImage']) {
+        const value = appshotStringValue(root[key], ['path', 'url', 'file', 'imagePath']);
+        const url = appshotImageURL(value, appshotPath);
+        if (url) return url;
+      }
+      return null;
+    }
+
+    function appshotImageURL(value, appshotPath) {
+      if (!value || value.includes('://') && !value.startsWith('file://')) return null;
+      const appshotDirectory = appshotPath.split('/').slice(0, -1).join('/');
+      let path;
+      if (value.startsWith('file://')) {
+        try {
+          path = new URL(value).pathname;
+        } catch {
+          return null;
+        }
+      } else if (value.startsWith('/')) {
+        path = value;
+      } else {
+        try {
+          path = new URL(value, `file://${appshotDirectory}/`).pathname;
+        } catch {
+          return null;
+        }
+      }
+      if (path !== appshotDirectory && !path.startsWith(`${appshotDirectory}/`)) return null;
+      return artifactIsImagePreview(path, 'file') ? `file://${path}` : null;
     }
 
     const textPreviewExtensions = new Set([
@@ -7353,6 +7508,30 @@
       };
       const renderDocumentPreviews = artifacts => {
         const previews = (artifacts || []).filter(artifact => artifact.documentPreview);
+        const renderAppshotPreview = preview => {
+          if (!preview) return '';
+          const image = preview.screenshotURL
+            ? `<img class="artifact-appshot-image" data-testid="tool-card-appshot-preview-image" src="${escapeHTML(preview.screenshotURL)}" alt="Appshot screenshot" loading="lazy">`
+            : '';
+          const title = preview.title
+            ? `<strong data-testid="tool-card-appshot-preview-title">${escapeHTML(preview.title)}</strong>`
+            : '';
+          const summary = preview.summary
+            ? `<small data-testid="tool-card-appshot-preview-summary">${escapeHTML(preview.summary)}</small>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-appshot-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return image || title || summary || metadata ? `
+                <div class="artifact-appshot-preview" data-testid="tool-card-appshot-preview">
+                  ${image}
+                  <div>
+                    ${title}
+                    ${summary}
+                    ${metadata}
+                  </div>
+                </div>` : '';
+        };
         return previews.length ? `
           <div class="tool-artifact-document-previews" data-testid="tool-card-document-previews" aria-label="Document previews">
             ${previews.map(artifact => {
@@ -7367,6 +7546,7 @@
                   <small data-testid="tool-card-document-preview-detail">${escapeHTML(preview.detail)}</small>
                 </figcaption>
                 ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
+                ${renderAppshotPreview(artifact.appshotPreview)}
               </figure>`;
             }).join('')}
           </div>` : '';
@@ -15889,7 +16069,12 @@
         state.mockFiles[path] = JSON.stringify({
           app: 'QuillCode',
           title: 'Checkout flow',
+          summary: 'Captured checkout page after payment details were entered.',
+          screenshotPath: 'checkout.png',
           viewport: { width: 1440, height: 1000 },
+          windows: [
+            { title: 'Checkout', app: 'QuillCode' }
+          ],
           capturedAt: '2026-06-21T12:00:00Z'
         }, null, 2);
         addToolCard({

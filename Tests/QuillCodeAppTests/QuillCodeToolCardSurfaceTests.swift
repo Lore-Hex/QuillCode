@@ -90,6 +90,43 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertTrue(textFile.hasTextPreview)
     }
 
+    func testArtifactStateDerivesAppshotPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let appshotFile = directory.appendingPathComponent("checkout.appshot.json")
+        try """
+        {
+          "app": {"displayName": "QuillCode"},
+          "title": "Checkout flow",
+          "summary": "Captured checkout page after payment details were entered.",
+          "screenshotPath": "checkout.png",
+          "viewport": {"width": 1440, "height": 1000},
+          "windows": [{"title": "Checkout"}],
+          "capturedAt": "2026-06-21T12:00:00Z"
+        }
+        """.write(to: appshotFile, atomically: true, encoding: .utf8)
+
+        let appshotBundle = ToolArtifactState(value: appshotFile.path)
+        let preview = try XCTUnwrap(appshotBundle.appshotPreview)
+
+        XCTAssertEqual(preview.title, "Checkout flow")
+        XCTAssertEqual(preview.appLabel, "QuillCode")
+        XCTAssertEqual(preview.summary, "Captured checkout page after payment details were entered.")
+        let expectedScreenshotURL = directory
+            .appendingPathComponent("checkout.png")
+            .standardizedFileURL
+            .absoluteString
+        XCTAssertEqual(preview.screenshotURL, expectedScreenshotURL)
+        XCTAssertEqual(preview.viewportLabel, "1440 x 1000")
+        XCTAssertEqual(preview.windowCount, 1)
+        XCTAssertEqual(preview.capturedAt, "2026-06-21T12:00:00Z")
+        XCTAssertEqual(preview.metadataLines, [
+            "App: QuillCode",
+            "Viewport: 1440 x 1000",
+            "1 window",
+            "Captured: 2026-06-21T12:00:00Z"
+        ])
+    }
+
     func testArtifactTextPreviewBuilderReadsLocalTextFilesOnly() throws {
         let directory = try makeQuillCodeTestDirectory()
         let textFile = directory.appendingPathComponent("hello.txt")

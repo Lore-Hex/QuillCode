@@ -9,6 +9,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactImagePreviewText = try Self.appSourceText(named: "ToolArtifactImagePreviewBuilder.swift")
         let artifactImageMetadataText = try Self.appSourceText(named: "ToolArtifactImageMetadataReader.swift")
         let artifactDocumentPreviewText = try Self.appSourceText(named: "ToolArtifactDocumentPreviewBuilder.swift")
+        let artifactAppshotPreviewText = try Self.appSourceText(named: "ToolArtifactAppshotPreviewBuilder.swift")
         let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
         let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
         let toolCardReducerText = try Self.appSourceText(named: "WorkspaceToolCardEventReducer.swift")
@@ -20,7 +21,9 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "ToolArtifactValueClassifier.kind",
             "ToolArtifactImagePreviewBuilder.imagePreview",
             "ToolArtifactDocumentPreviewBuilder.documentPreview",
+            "ToolArtifactAppshotPreviewBuilder.appshotPreview",
             "public struct ToolArtifactDocumentPreview",
+            "public struct ToolArtifactAppshotPreview",
             "public struct ToolArtifactImagePreview"
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
@@ -34,6 +37,12 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "jpegDimensions"
         ])
         Self.assertSource(artifactDocumentPreviewText, contains: "enum ToolArtifactDocumentPreviewBuilder")
+        Self.assertSource(artifactAppshotPreviewText, containsAll: [
+            "enum ToolArtifactAppshotPreviewBuilder",
+            "byteLimit",
+            "appshotRoot",
+            "screenshotURL"
+        ])
         Self.assertSource(artifactTextPreviewText, contains: "enum ToolArtifactTextPreviewBuilder")
         Self.assertSource(toolCardReducerText, containsAll: [
             "struct WorkspaceToolCardEventReducer",

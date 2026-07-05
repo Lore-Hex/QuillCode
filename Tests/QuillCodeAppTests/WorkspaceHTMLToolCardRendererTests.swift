@@ -217,9 +217,23 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
     }
 
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
-        let appshotPath = "/tmp/quillcode-preview/appshots/checkout.appshot.json"
+        let root = try makeTempDirectory()
+        let appshots = root.appendingPathComponent("appshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: appshots, withIntermediateDirectories: true)
+        let appshot = appshots.appendingPathComponent("checkout.appshot.json")
+        try """
+        {
+          "app": "QuillCode",
+          "title": "Checkout flow",
+          "summary": "Captured checkout page after payment details were entered.",
+          "screenshotPath": "checkout.png",
+          "viewport": {"width": 1440, "height": 1000},
+          "windows": [{"title": "Checkout"}],
+          "capturedAt": "2026-06-21T12:00:00Z"
+        }
+        """.write(to: appshot, atomically: true, encoding: .utf8)
         let call = ToolCall(name: "host.appshot.capture", argumentsJSON: #"{"name":"checkout"}"#)
-        let result = ToolResult(ok: true, stdout: "Captured checkout.appshot.json\n", artifacts: [appshotPath])
+        let result = ToolResult(ok: true, stdout: "Captured checkout.appshot.json\n", artifacts: [appshot.path])
         let thread = ChatThread(
             title: "Appshot artifact",
             events: [
@@ -246,7 +260,16 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-kind="appshot""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Appshot · APPSHOT"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">checkout.appshot.json"#))
-        XCTAssertTrue(html.contains(#"href="file:///tmp/quillcode-preview/appshots/checkout.appshot.json""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-title">Checkout flow"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-summary">Captured checkout page after payment details were entered."#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">App: QuillCode"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">Viewport: 1440 x 1000"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">1 window"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">Captured: 2026-06-21T12:00:00Z"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-image""#))
+        XCTAssertTrue(html.contains(#"src="\#(appshots.appendingPathComponent("checkout.png").standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(appshot.standardizedFileURL.absoluteString)""#))
         XCTAssertFalse(html.contains(#"data-testid="tool-card-text-preview-label">checkout.appshot.json"#))
     }
 

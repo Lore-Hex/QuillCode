@@ -160,6 +160,21 @@ test('mock harness renders appshot artifact previews from tool cards', async ({ 
   await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Appshot · APPSHOT');
   await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('checkout.appshot.json');
   await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/appshots');
+  await expect(page.getByTestId('tool-card-appshot-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-appshot-preview-title')).toHaveText('Checkout flow');
+  await expect(page.getByTestId('tool-card-appshot-preview-summary')).toHaveText(
+    'Captured checkout page after payment details were entered.'
+  );
+  await expect(page.getByTestId('tool-card-appshot-preview-meta')).toHaveText([
+    'App: QuillCode',
+    'Viewport: 1440 x 1000',
+    '1 window',
+    'Captured: 2026-06-21T12:00:00Z'
+  ]);
+  await expect(page.getByTestId('tool-card-appshot-preview-image')).toHaveAttribute(
+    'src',
+    'file:///mock/QuillCode/appshots/checkout.png'
+  );
   await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/appshots/checkout.appshot.json');
   await expect(page.getByTestId('tool-card-text-previews')).toHaveCount(0);
   await expect(page.getByText('Captured appshot `checkout.appshot.json`.')).toBeVisible();
