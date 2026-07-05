@@ -19,7 +19,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Composer",
                 label: "Send message",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "send-button"
             ),
             contract(
@@ -46,7 +46,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Top bar",
                 label: "More workspace actions",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "top-bar-overflow"
             ),
             contract(
@@ -64,7 +64,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Project header",
                 label: "Clear project",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "project-clear-button"
             ),
             contract(

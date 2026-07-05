@@ -118,7 +118,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Browser",
                 label: "Browser icon action",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "browser-icon-action"
             ),
             contract(

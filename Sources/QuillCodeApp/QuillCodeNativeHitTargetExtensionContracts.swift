@@ -41,7 +41,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Memories",
                 label: "Memory row action",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "memory-row-action"
             )
         ]

@@ -11,7 +11,7 @@ struct QuillCodeSidebarActionsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 0) {
             ForEach(visibleCommands) { command in
                 Button {
                     onCommand(command)
@@ -20,7 +20,8 @@ struct QuillCodeSidebarActionsView: View {
                         QuillCodeSidebarCommandPresentation.displayTitle(for: command),
                         systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
                     )
-                    .font(.callout.weight(.medium))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .imageScale(.medium)
                     .labelStyle(.titleAndIcon)
                     .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
                     .quillCodeSidebarRowChrome(background: primaryCommandBackground(command))
@@ -33,6 +34,6 @@ struct QuillCodeSidebarActionsView: View {
     }
 
     private func primaryCommandBackground(_ command: WorkspaceCommandSurface) -> Color {
-        command.id == "new-chat" ? QuillCodePalette.panel.opacity(0.74) : Color.clear
+        command.id == "new-chat" ? QuillCodePalette.panel.opacity(0.38) : Color.clear
     }
 }

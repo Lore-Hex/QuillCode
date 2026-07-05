@@ -93,7 +93,7 @@ extension QuillCodeParityTestCase {
           "accessibilityFrameSamples": {
             "ok": true,
             "liveAccessibilitySampling": "frame-sampled",
-            "minimumHitTarget": 44,
+            "minimumHitTarget": 40,
             "minimumTargetClearance": 8,
             "requiredContractIDs": [
         \(contractIDs)

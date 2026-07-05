@@ -4,7 +4,7 @@ struct QuillCodeTopBarIdentityView: View {
     var topBar: TopBarSurface
 
     var body: some View {
-        HStack(alignment: .center, spacing: 9) {
+        HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(topBar.primaryTitle)
                     .font(.system(size: 15.5, weight: .semibold))
@@ -13,7 +13,7 @@ struct QuillCodeTopBarIdentityView: View {
                     .truncationMode(.tail)
 
                 Text(topBar.subtitle)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: 12.75, weight: .medium))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -48,29 +48,29 @@ struct QuillCodeTopBarIdentityView: View {
 
     private func statusChip(_ label: String, tint: Color = QuillCodePalette.muted) -> some View {
         Text(label)
-            .font(.system(size: 12.5, weight: .medium).monospacedDigit())
+            .font(.system(size: 13, weight: .medium).monospacedDigit())
             .foregroundStyle(tint)
             .lineLimit(1)
             .truncationMode(.middle)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(tint.opacity(0.10))
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(tint.opacity(0.08))
             )
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Context")
-                    .font(.system(size: 13, weight: .semibold))
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text("Tokens")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(budget.primaryLabel)
-                    .font(.system(size: 14.5, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 15.5, weight: .semibold).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.94)
+                    .minimumScaleFactor(0.96)
             }
 
             GeometryReader { proxy in
@@ -82,21 +82,21 @@ struct QuillCodeTopBarIdentityView: View {
                         .frame(width: proxy.size.width * CGFloat(budget.progressPercent) / 100)
                 }
             }
-            .frame(height: 3)
+            .frame(height: 4)
 
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Text(budget.secondaryLabel)
-                    .font(.system(size: 13, weight: .medium).monospacedDigit())
+                    .font(.system(size: 14, weight: .medium).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.94)
+                    .minimumScaleFactor(0.96)
 
                 if !budget.visibleQuotaLimits.isEmpty {
                     Text(budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · "))
-                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 14, weight: .semibold).monospacedDigit())
                         .foregroundStyle(tokenBudgetTint(for: budget))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.94)
+                        .minimumScaleFactor(0.96)
                 }
             }
         }
@@ -108,8 +108,12 @@ struct QuillCodeTopBarIdentityView: View {
             alignment: .leading
         )
         .background(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(tokenBudgetTint(for: budget).opacity(0.11))
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(tokenBudgetTint(for: budget).opacity(0.075))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
         )
     }
 

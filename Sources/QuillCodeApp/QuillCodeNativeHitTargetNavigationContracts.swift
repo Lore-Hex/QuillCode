@@ -18,7 +18,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Sidebar thread list",
                 label: "Thread row action",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "sidebar-thread-action"
             )
         ]
@@ -32,7 +32,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Transcript",
                 label: "Message action",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "message-action"
             ),
             contract(
@@ -158,7 +158,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Model picker",
                 label: "Model option action",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "model-picker-option-action"
             )
         ]

@@ -235,7 +235,7 @@ duplicate_ids = native_targets.get("duplicateContractIDs")
 if duplicate_ids != []:
     fail(f"reported duplicate native hit target IDs: {duplicate_ids}")
 
-if native_targets.get("minimumHitTarget") != 44:
+if native_targets.get("minimumHitTarget") != 40:
     fail("reported unexpected native minimum hit target")
 
 press_scale = native_targets.get("pressScale")

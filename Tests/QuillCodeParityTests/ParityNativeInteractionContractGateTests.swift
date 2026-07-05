@@ -27,8 +27,8 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
         ].joined(separator: "\n")
 
         XCTAssertTrue(
-            designText.contains("static let minimumHitTarget: CGFloat = 44"),
-            "Native controls should use the same 44 pt target baseline as the rendered harness."
+            designText.contains("static let minimumHitTarget: CGFloat = 40"),
+            "Native controls should keep a 40 pt desktop target baseline while allowing Codex-dense chrome."
         )
         XCTAssertTrue(
             designText.contains("var kind: QuillCodeNativeHitTargetKind")
@@ -92,12 +92,12 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
                 && designText.contains("case destructive")
                 && designText.contains("minWidth: CGFloat = QuillCodeMetrics.compactTextButtonMinWidth")
                 && designText.contains(".contentShape(RoundedRectangle"),
-            "Native action buttons should use one shared tone-aware style that owns the visible surface, 44 pt minimum, press feedback, and tappable shape."
+            "Native action buttons should use one shared tone-aware style that owns the visible surface, 40 pt minimum, press feedback, and tappable shape."
         )
         XCTAssertTrue(
-            designText.contains("static let controlClusterSpacing: CGFloat = 10")
-                && designText.contains("static let denseControlClusterSpacing: CGFloat = 8"),
-            "Dense control groups should use named spacing metrics that still clear adjacent 44 pt hit targets instead of overlap-prone magic numbers."
+            designText.contains("static let controlClusterSpacing: CGFloat = 8")
+                && designText.contains("static let denseControlClusterSpacing: CGFloat = 6"),
+            "Dense control groups should use named spacing metrics that still clear adjacent 40 pt hit targets instead of overlap-prone magic numbers."
         )
     }
 
@@ -124,7 +124,7 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             topBarText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
                 && composerText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
-                && sidebarText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
+                && sidebarText.contains("HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing)")
                 && modelRowsText.contains("HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing)"),
             "High-risk adjacent controls should use named hit-target spacing metrics, not local magic numbers."
         )
@@ -352,7 +352,7 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
             smokeScriptText.contains(#""nativeHitTargets""#)
                 && smokeScriptText.contains("json.load")
                 && smokeScriptText.contains(#"native_targets.get("isValid") is not True"#)
-                && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 44"#)
+                && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 40"#)
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
                 && smokeScriptText.contains("duplicateContractIDs")
                 && smokeScriptText.contains("missingRequiredSurfaceKinds")

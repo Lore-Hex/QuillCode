@@ -78,7 +78,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Browser",
                 label: "New tab",
                 kind: .icon,
-                minWidth: 44,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                 testID: "browser-new-tab"
             ),
             contract(
@@ -162,7 +162,7 @@ extension QuillCodeNativeHitTargetAudit {
                     surface: "Memories",
                     label: "Edit memory",
                     kind: .icon,
-                    minWidth: 44,
+                    minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                     testID: "memory-edit"
                 )
             )
@@ -175,7 +175,7 @@ extension QuillCodeNativeHitTargetAudit {
                     surface: "Memories",
                     label: "Forget memory",
                     kind: .icon,
-                    minWidth: 44,
+                    minWidth: Double(QuillCodeMetrics.minimumHitTarget),
                     testID: "memory-delete"
                 )
             )
