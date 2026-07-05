@@ -2825,6 +2825,7 @@
       display: flex;
       align-items: center;
       justify-content: flex-start;
+      gap: 8px;
       min-height: var(--hit-target);
       padding: 0 12px;
       border-radius: 10px;
@@ -2839,9 +2840,40 @@
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
+    .tool-details summary::-webkit-details-marker {
+      display: none;
+    }
+    .tool-details summary::marker {
+      content: "";
+    }
     .tool-details summary:hover {
       background: rgba(65,184,232,.075);
       box-shadow: var(--shadow-border-hover);
+    }
+    .tool-details-summary-chevron {
+      display: inline-grid;
+      width: 16px;
+      min-width: 16px;
+      place-items: center;
+      font-size: 16px;
+      line-height: 1;
+      transform-origin: center;
+      transition-property: transform, opacity;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+      opacity: .92;
+    }
+    .tool-details[open] .tool-details-summary-chevron {
+      transform: rotate(90deg);
+    }
+    .tool-details-summary-label {
+      min-width: 0;
+    }
+    .tool-details-summary-hint {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
     .review-pane {
       align-self: flex-start;
