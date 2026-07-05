@@ -114,7 +114,6 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
             onOpenWorktree: { _ in },
             onRemoveWorktree: { _ in },
             onCopyTranscriptItem: { _, _ in },
-            onMessageFeedback: { _, _ in },
             onCommand: { _ in }
         )
         .frame(width: 1280, height: 900)
@@ -235,8 +234,7 @@ private struct RenderedTranscriptExcerpt: View {
                         onCopy: {},
                         onUseAsDraft: {},
                         canRetry: false,
-                        onRetry: {},
-                        onFeedback: { _ in }
+                        onRetry: {}
                     )
                 } else if let card = item.toolCard {
                     QuillCodeToolCardView(card: card)

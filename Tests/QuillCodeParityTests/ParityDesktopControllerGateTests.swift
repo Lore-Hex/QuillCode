@@ -165,12 +165,10 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, contains: "workspaceActionCoordinator.runToolCardAction")
         Self.assertSource(controllerText, contains: "workspaceActionCoordinator.runReviewAction")
         Self.assertSource(controllerText, contains: "workspaceActionCoordinator.addReviewComment")
-        Self.assertSource(controllerText, contains: "workspaceActionCoordinator.setMessageFeedback")
         Self.assertSource(controllerText, contains: "workspaceActionCoordinator.runWorkspaceCommand")
         Self.assertSource(actionCoordinatorText, contains: "model.runToolCardAction")
         Self.assertSource(actionCoordinatorText, contains: "model.runReviewAction")
         Self.assertSource(actionCoordinatorText, contains: "model.addReviewComment")
-        Self.assertSource(actionCoordinatorText, contains: "model.setMessageFeedback")
         Self.assertSource(actionCoordinatorText, contains: "model.runWorkspaceCommand")
         Self.assertSource(actionCoordinatorText, contains: "model.activeWorkspaceRoot ?? fallback")
         Self.assertSource(actionCoordinatorText, contains: "WorkspaceActivitySourceCommand")
@@ -180,7 +178,6 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, excludes: "model.runToolCardAction")
         Self.assertSource(controllerText, excludes: "model.runReviewAction")
         Self.assertSource(controllerText, excludes: "model.addReviewComment")
-        Self.assertSource(controllerText, excludes: "model.setMessageFeedback")
         Self.assertSource(controllerText, excludes: "model.runWorkspaceCommand")
     }
 

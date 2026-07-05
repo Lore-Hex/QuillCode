@@ -29,7 +29,6 @@ struct QuillCodeTranscriptView: View {
     var onRevertTurn: (UUID) -> Void = { _ in }
     var onUseMessageAsDraft: (String) -> Void
     var onSubmitStarterAction: (String) -> Void
-    var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -219,9 +218,6 @@ struct QuillCodeTranscriptView: View {
                             if let retryLastTurnCommand {
                                 onContextCommand(retryLastTurnCommand)
                             }
-                        },
-                        onFeedback: { value in
-                            onMessageFeedback(message.id, value)
                         },
                         onRevertTurn: onRevertTurn
                     )

@@ -6,21 +6,18 @@ public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
     public var role: ChatRole
     public var text: String
     public var accessibilityLabel: String
-    public var feedback: MessageFeedbackValue?
     /// Present on the user message that began a turn whose `apply_patch` edits can be
     /// reverted, so the UI can offer a "Revert this turn's edits" affordance there.
     public var revert: MessageRevertSurface?
 
     public init(
         message: ChatMessage,
-        feedback: MessageFeedbackValue? = nil,
         revert: MessageRevertSurface? = nil
     ) {
         self.id = message.id
         self.role = message.role
         self.text = message.content
         self.accessibilityLabel = "\(message.role.rawValue): \(message.content)"
-        self.feedback = feedback
         self.revert = revert
     }
 }

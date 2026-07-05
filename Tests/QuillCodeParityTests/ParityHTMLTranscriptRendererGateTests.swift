@@ -64,7 +64,6 @@ final class ParityHTMLTranscriptRendererGateTests: QuillCodeParityTestCase {
             "private static func renderTranscript",
             "private static func renderRuntimeIssue",
             "private static func renderTimelineItem",
-            "private static func renderMessageFeedbackActions",
             "private static func renderContextBanner",
             "private static func renderComposer",
             #"data-testid="message-feedback-up""#,
