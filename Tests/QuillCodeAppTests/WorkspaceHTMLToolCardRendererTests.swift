@@ -183,9 +183,15 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
     }
 
     func testHTMLRendererIncludesDocumentArtifactPreview() throws {
-        let documentPath = "/tmp/quillcode-preview/reports/briefing.pdf"
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let document = reports.appendingPathComponent("briefing.pdf")
+        let pdfBytes = pdfFixture(title: "Quarterly Plan", pageCount: 2)
+        try pdfBytes.write(to: document, atomically: true, encoding: .isoLatin1)
+        let byteCount = pdfBytes.data(using: .isoLatin1)?.count ?? 0
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"briefing.pdf"}"#)
-        let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf\n", artifacts: [documentPath])
+        let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf\n", artifacts: [document.path])
         let thread = ChatThread(
             title: "Document artifact",
             events: [
@@ -213,7 +219,12 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-kind="pdf""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">PDF · PDF"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">briefing.pdf"#))
-        XCTAssertTrue(html.contains(#"href="file:///tmp/quillcode-preview/reports/briefing.pdf""#))
+        XCTAssertTrue(html.contains(#"href="\#(document.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-title">Quarterly Plan"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">Version: PDF 1.7"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">2 pages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">Size: \#(byteCount) bytes"#))
     }
 
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
@@ -306,5 +317,25 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
             0x08, 0x02, 0x00, 0x00, 0x00
         ])
         return Data(bytes)
+    }
+
+    private func pdfFixture(title: String, pageCount: Int) -> String {
+        let pageObjects = (0..<pageCount)
+            .map { index in
+                "\(index + 3) 0 obj << /Type /Page /Parent 2 0 R >> endobj"
+            }
+            .joined(separator: "\n")
+        let kids = (0..<pageCount)
+            .map { "\($0 + 3) 0 R" }
+            .joined(separator: " ")
+        return """
+        %PDF-1.7
+        1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+        2 0 obj << /Type /Pages /Count \(pageCount) /Kids [\(kids)] >> endobj
+        \(pageObjects)
+        9 0 obj << /Title (\(title)) >> endobj
+        trailer << /Info 9 0 R >>
+        %%EOF
+        """
     }
 }

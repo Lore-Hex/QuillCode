@@ -15210,3 +15210,27 @@ Validation:
 
 - `swift test --filter 'QuillCodeToolCardSurfaceTests|WorkspaceHTMLToolCardRendererTests|ParityWorkspaceToolCardModelGateTests'` (14 tests, 0 failures)
 - `npm test -- tests/artifacts.spec.ts` (4 tests, 0 failures)
+
+## 2026-07-05 PDF Artifact Metadata Preview Slice
+
+Overall grade after this slice: **A PDF metadata parity, A+ artifact-helper ownership**.
+This advances the remaining artifact-renderer parity work without claiming a
+full PDF page renderer.
+
+Code quality changes:
+
+- Added `ToolArtifactPDFPreviewBuilder`, a focused local-file-only parser that
+  reads a bounded PDF prefix, extracts title, PDF version, page count for
+  bounded files, and a deterministic file-size label.
+- Extended `ToolArtifactState`, SwiftUI tool cards, static HTML tool cards, and
+  the Playwright harness with the same PDF preview model.
+- Added focused Swift surface, static HTML, and Playwright coverage so a PDF
+  artifact proves embedded preview metadata on every current UI surface.
+- Kept remote PDFs as structured open cards only. Network fetching, text
+  extraction, and page rendering stay out of the synchronous artifact value
+  model until a dedicated renderer service exists.
+
+Validation:
+
+- `swift test --filter 'QuillCodeToolCardSurfaceTests|WorkspaceHTMLToolCardRendererTests|ParityWorkspaceToolCardModelGateTests'` (15 tests, 0 failures)
+- `npm test -- tests/artifacts.spec.ts` (4 tests, 0 failures)

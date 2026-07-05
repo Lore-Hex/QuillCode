@@ -160,6 +160,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let openLink = artifact.href.map {
                 #"<a\#(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
             } ?? ""
+            let pdfPreview = renderPDFPreview(artifact.pdfPreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             return """
             <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">
@@ -170,6 +171,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 <small data-testid="tool-card-document-preview-detail">\(escape(preview.detail))</small>
               </figcaption>
               \(openLink)
+              \(pdfPreview)
               \(appshotPreview)
             </figure>
             """
@@ -204,6 +206,27 @@ enum WorkspaceHTMLToolCardRenderer {
         return """
         <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
           \(previews)
+        </div>
+        """
+    }
+
+    private static func renderPDFPreview(_ preview: ToolArtifactPDFPreview?) -> String {
+        guard let preview else { return "" }
+        let title = preview.title.map {
+            #"<strong data-testid="tool-card-pdf-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-pdf-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !title.isEmpty || !metadata.isEmpty else {
+            return ""
+        }
+        return """
+        <div class="artifact-pdf-preview" data-testid="tool-card-pdf-preview">
+          \(title)
+          <div>
+            \(metadata)
+          </div>
         </div>
         """
     }

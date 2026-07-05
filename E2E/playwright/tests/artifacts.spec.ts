@@ -126,6 +126,13 @@ test('mock harness renders document artifact previews from tool cards', async ({
   await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('briefing.pdf');
   await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/reports');
   await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/reports/briefing.pdf');
+  await expect(page.getByTestId('tool-card-pdf-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-pdf-preview-title')).toHaveText('Quarterly Plan');
+  await expect(page.getByTestId('tool-card-pdf-preview-meta')).toContainText([
+    'Version: PDF 1.7',
+    '2 pages',
+    /Size: \d+ bytes/
+  ]);
   const [documentCardStyle, documentIconStyle] = await Promise.all([
     computedStyleProperties(page, '[data-testid="tool-card-document-preview"]', [
       'border-radius',

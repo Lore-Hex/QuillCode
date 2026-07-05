@@ -104,6 +104,45 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPDFPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var versionLabel: String?
+    public var pageCount: Int?
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            versionLabel.map { "Version: \($0)" },
+            pageCount.map { "\($0) page\($0 == 1 ? "" : "s")" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 512 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil
+            || versionLabel != nil
+            || pageCount != nil
+            || byteSizeLabel != nil
+            || isTruncated
+    }
+
+    public init(
+        title: String? = nil,
+        versionLabel: String? = nil,
+        pageCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.title = title
+        self.versionLabel = versionLabel
+        self.pageCount = pageCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
@@ -142,6 +181,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var appshotPreview: ToolArtifactAppshotPreview? {
         ToolArtifactAppshotPreviewBuilder.appshotPreview(for: value, kind: kind)
+    }
+    public var pdfPreview: ToolArtifactPDFPreview? {
+        ToolArtifactPDFPreviewBuilder.pdfPreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {
