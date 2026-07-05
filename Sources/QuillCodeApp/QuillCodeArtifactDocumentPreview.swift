@@ -1,0 +1,224 @@
+import SwiftUI
+
+struct QuillCodeArtifactDocumentPreview: View {
+    var artifact: ToolArtifactState
+
+    @ViewBuilder
+    var body: some View {
+        if let url = artifactURL {
+            Link(destination: url) {
+                content
+                    .quillCodeLinkTarget(minWidth: 160, alignment: .leading, radius: 18)
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+        } else {
+            content
+                .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(accessibilityLabel)
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let appshotPreview = artifact.appshotPreview,
+           preview?.kind == .appshot {
+            appshotContent(appshotPreview)
+        } else if let pdfPreview = artifact.pdfPreview,
+                  preview?.kind == .pdf {
+            metadataContent(
+                title: pdfPreview.title ?? artifact.label,
+                metadataLines: pdfPreview.metadataLines
+            )
+        } else if let officePreview = artifact.officePreview {
+            metadataContent(title: artifact.label, metadataLines: officePreview.metadataLines)
+        } else {
+            genericContent
+        }
+    }
+
+    private var genericContent: some View {
+        previewSurface(minHeight: 74) {
+            header(
+                thumbnail: { iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "doc") },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+        }
+    }
+
+    private func metadataContent(title: String, metadataLines: [String]) -> some View {
+        previewSurface(minHeight: 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "doc.richtext")
+                },
+                title: title,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(metadataLines)
+        }
+    }
+
+    private func appshotContent(_ appshotPreview: ToolArtifactAppshotPreview) -> some View {
+        previewSurface(minHeight: 96) {
+            header(
+                thumbnail: { appshotThumbnail(appshotPreview) },
+                title: appshotPreview.title ?? artifact.label,
+                subtitle: appshotPreview.summary ?? preview?.detail ?? artifact.detail,
+                subtitleLineLimit: 2
+            )
+            appshotMetadata(appshotPreview.metadataLines)
+        }
+    }
+
+    private func previewSurface<Content: View>(
+        minHeight: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            content()
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+        .quillCodeSurface(
+            fill: Color.white.opacity(0.05),
+            radius: 18,
+            stroke: Color.white.opacity(0.08),
+            shadow: false
+        )
+    }
+
+    private func header<Thumbnail: View>(
+        @ViewBuilder thumbnail: () -> Thumbnail,
+        title: String,
+        subtitle: String,
+        subtitleLineLimit: Int = 1
+    ) -> some View {
+        HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
+            thumbnail()
+            VStack(alignment: .leading, spacing: 4) {
+                Text(typeLine)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .lineLimit(1)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.text)
+                    .lineLimit(1)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(subtitleLineLimit)
+            }
+            Spacer(minLength: 4)
+            externalLinkIcon
+        }
+    }
+
+    @ViewBuilder
+    private var externalLinkIcon: some View {
+        if artifactURL != nil {
+            Image(systemName: "arrow.up.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func iconThumbnail(width: CGFloat, height: CGFloat, systemImage: String) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(QuillCodePalette.blue.opacity(0.14))
+            Image(systemName: systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.blue)
+                .accessibilityHidden(true)
+        }
+        .frame(width: width, height: height)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func appshotThumbnail(_ appshotPreview: ToolArtifactAppshotPreview) -> some View {
+        if let screenshotURL = appshotPreview.screenshotURL.flatMap(URL.init(string:)) {
+            AsyncImage(url: screenshotURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure, .empty:
+                    appshotFallbackThumbnail
+                @unknown default:
+                    appshotFallbackThumbnail
+                }
+            }
+            .frame(width: 92, height: 58)
+            .clipped()
+            .background(Color.black.opacity(0.22))
+            .quillCodeImageOutline(radius: 10)
+        } else {
+            appshotFallbackThumbnail
+        }
+    }
+
+    private var appshotFallbackThumbnail: some View {
+        iconThumbnail(width: 92, height: 58, systemImage: preview?.systemImage ?? "camera.viewfinder")
+    }
+
+    @ViewBuilder
+    private func metadataPills(_ lines: [String]) -> some View {
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(lines, id: \.self) { line in
+                    Text(line)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.05))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func appshotMetadata(_ lines: [String]) -> some View {
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(lines, id: \.self) { line in
+                    Text(line)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.leading, 2)
+        }
+    }
+
+    private var preview: ToolArtifactDocumentPreview? {
+        artifact.documentPreview
+    }
+
+    private var typeLine: String {
+        guard let preview else { return "Document" }
+        return "\(preview.typeLabel) · \(preview.extensionLabel)"
+    }
+
+    private var artifactURL: URL? {
+        artifact.href.flatMap(URL.init(string:))
+    }
+
+    private var accessibilityLabel: String {
+        "\(typeLine) preview \(artifact.label)"
+    }
+}

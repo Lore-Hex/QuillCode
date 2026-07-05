@@ -2725,7 +2725,8 @@
       font-size: 11px;
       font-weight: 650;
     }
-    .artifact-pdf-preview {
+    .artifact-pdf-preview,
+    .artifact-office-preview {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
@@ -2736,7 +2737,8 @@
       padding-top: 8px;
       border-top: 1px solid rgba(255,255,255,.08);
     }
-    .artifact-pdf-preview strong {
+    .artifact-pdf-preview strong,
+    .artifact-office-preview strong {
       min-width: 0;
       max-width: 100%;
       color: var(--text);
@@ -2744,13 +2746,15 @@
       font-weight: 750;
       overflow-wrap: anywhere;
     }
-    .artifact-pdf-preview div {
+    .artifact-pdf-preview div,
+    .artifact-office-preview div {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
       min-width: 0;
     }
-    .artifact-pdf-preview small {
+    .artifact-pdf-preview small,
+    .artifact-office-preview small {
       display: inline-flex;
       align-items: center;
       min-height: 24px;
@@ -4079,6 +4083,7 @@
         '/mock/QuillCode/Sources/Agent.swift': 'struct AgentRunner {\n  func run() {}\n}\n',
         '/mock/QuillCode/Sources/App.swift': 'struct App {\n  static let title = "QuillCode"\n}\n'
       },
+      mockOfficePackages: {},
       // Workspace-relative paths with uncommitted changes (mirrors model.changedFilePaths),
       // populated from a successful git status run; boosts/badges changed @ mentions.
       changedFilePaths: [],
@@ -6347,7 +6352,8 @@
         imagePreview: artifactImagePreview(value, kind, detail),
         documentPreview,
         appshotPreview: artifactAppshotPreview(value, kind, documentPreview),
-        pdfPreview: artifactPDFPreview(value, kind, documentPreview)
+        pdfPreview: artifactPDFPreview(value, kind, documentPreview),
+        officePreview: artifactOfficePreview(value, kind, documentPreview)
       };
     }
 
@@ -6540,6 +6546,57 @@
         preview.byteSizeLabel
       ].some(Boolean);
       return hasDisplayContent ? preview : null;
+    }
+
+    function artifactOfficePreview(value, kind, documentPreview) {
+      if (kind !== 'file' || !['document', 'spreadsheet', 'presentation'].includes(documentPreview?.kind)) {
+        return null;
+      }
+      const extension = artifactPreviewExtension(value);
+      if (!['docx', 'xlsx', 'pptx'].includes(extension)) return null;
+      const path = artifactFilePath(value);
+      const packageInfo = path ? state.mockOfficePackages[path] : null;
+      const fileNames = Array.isArray(packageInfo?.fileNames) ? packageInfo.fileNames : null;
+      if (!fileNames) return null;
+
+      const worksheetCount = extension === 'xlsx'
+        ? fileNames.filter(fileName =>
+          fileName.startsWith('xl/worksheets/sheet')
+          && fileName.endsWith('.xml')
+          && !fileName.includes('/_rels/')
+        ).length
+        : null;
+      const slideCount = extension === 'pptx'
+        ? fileNames.filter(fileName =>
+          fileName.startsWith('ppt/slides/slide')
+          && fileName.endsWith('.xml')
+          && !fileName.includes('/_rels/')
+        ).length
+        : null;
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const preview = {
+        formatLabel: 'Office Open XML',
+        entryCount: fileNames.length,
+        worksheetCount: worksheetCount || null,
+        slideCount: slideCount || null,
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        Number.isInteger(preview.entryCount)
+          ? `${preview.entryCount} package ${preview.entryCount === 1 ? 'entry' : 'entries'}`
+          : null,
+        Number.isInteger(preview.worksheetCount)
+          ? `${preview.worksheetCount} sheet${preview.worksheetCount === 1 ? '' : 's'}`
+          : null,
+        Number.isInteger(preview.slideCount)
+          ? `${preview.slideCount} slide${preview.slideCount === 1 ? '' : 's'}`
+          : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
     }
 
     function unescapePDFLiteral(value) {
@@ -7784,6 +7841,16 @@
                   <div>${metadata}</div>
                 </div>` : '';
         };
+        const renderOfficePreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-office-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-office-preview">
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderAppshotPreview = preview => {
           if (!preview) return '';
           const image = preview.screenshotURL
@@ -7823,6 +7890,7 @@
                 </figcaption>
                 ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
                 ${renderPDFPreview(artifact.pdfPreview)}
+                ${renderOfficePreview(artifact.officePreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
               </figure>`;
             }).join('')}
@@ -16345,6 +16413,27 @@
           }, null, 2)
         });
         addMessage('assistant', `Downloaded to \`${path}\`.`);
+      } else if (text.toLowerCase().includes('spreadsheet') || text.toLowerCase().includes('xlsx')) {
+        const path = '/mock/QuillCode/reports/budget.xlsx';
+        const fileNames = [
+          '[Content_Types].xml',
+          '_rels/.rels',
+          'xl/workbook.xml',
+          'xl/_rels/workbook.xml.rels',
+          'xl/worksheets/sheet1.xml',
+          'xl/worksheets/sheet2.xml',
+          'xl/styles.xml'
+        ];
+        state.mockFiles[path] = 'PK\u0003\u0004mock xlsx package';
+        state.mockOfficePackages[path] = { fileNames, sizeBytes: 4096 };
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `budget.xlsx`.');
       } else if (text.toLowerCase().includes('pdf') || text.toLowerCase().includes('document artifact')) {
         const path = '/mock/QuillCode/reports/briefing.pdf';
         state.mockFiles[path] = [

@@ -15234,3 +15234,35 @@ Validation:
 
 - `swift test --filter 'QuillCodeToolCardSurfaceTests|WorkspaceHTMLToolCardRendererTests|ParityWorkspaceToolCardModelGateTests'` (15 tests, 0 failures)
 - `npm test -- tests/artifacts.spec.ts` (4 tests, 0 failures)
+
+## 2026-07-05 Office Artifact Metadata Preview Slice
+
+Overall grade after this slice: **A Office metadata parity, A+ bounded-parser ownership**.
+This adds useful document/spreadsheet/presentation artifact inspection while
+staying inside the synchronous tool-card preview budget.
+
+Code quality changes:
+
+- Added `ToolArtifactOfficePreviewBuilder`, a local-file-only Office Open XML
+  parser that inspects ZIP central-directory records without decompression,
+  network fetches, or shelling out.
+- Extracted `ToolArtifactByteSizeFormatter` so PDF and Office previews share
+  deterministic byte-size labeling.
+- Extended `ToolArtifactState`, SwiftUI tool cards, static HTML tool cards, and
+  the Playwright harness with the same Office preview model.
+- Added focused Swift and Playwright coverage for spreadsheet worksheet counts,
+  presentation slide counts, remote URL rejection, and static HTML rendering.
+- Split the SwiftUI artifact views into focused chip, document, image, and text
+  files after grading caught the combined view file slipping to A-. The document
+  preview now shares one header/surface helper across generic, PDF, Office, and
+  appshot cards.
+- Kept full document/sheet/slide page rendering deferred to a future
+  asynchronous renderer service rather than expanding synchronous artifact IO.
+
+Validation:
+
+- `swift test --filter 'QuillCodeToolCardSurfaceTests|WorkspaceHTMLToolCardRendererTests|ParityWorkspaceToolCardModelGateTests'` (17 tests, 0 failures)
+- `npm test -- tests/artifacts.spec.ts` (5 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `rg -n "\| (A-|A |B\+|B-|B |C\+|C-|C |D\+|D-|D |F) \|" docs/CODE_QUALITY_FILE_GRADES.md` (no non-A+ rows)
+- `git diff --check`

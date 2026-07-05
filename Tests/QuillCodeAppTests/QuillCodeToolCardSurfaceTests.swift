@@ -115,6 +115,53 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePDF.pdfPreview)
     }
 
+    func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let spreadsheet = directory.appendingPathComponent("budget.xlsx")
+        let spreadsheetEntries = [
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "xl/workbook.xml",
+            "xl/_rels/workbook.xml.rels",
+            "xl/worksheets/sheet1.xml",
+            "xl/worksheets/sheet2.xml",
+            "xl/styles.xml"
+        ]
+        let spreadsheetBytes = OfficePackageFixture.zipPackage(fileNames: spreadsheetEntries)
+        try spreadsheetBytes.write(to: spreadsheet)
+
+        let spreadsheetArtifact = ToolArtifactState(value: spreadsheet.path)
+        let spreadsheetPreview = try XCTUnwrap(spreadsheetArtifact.officePreview)
+
+        XCTAssertEqual(spreadsheetPreview.formatLabel, "Office Open XML")
+        XCTAssertEqual(spreadsheetPreview.entryCount, 7)
+        XCTAssertEqual(spreadsheetPreview.worksheetCount, 2)
+        XCTAssertNil(spreadsheetPreview.slideCount)
+        XCTAssertEqual(spreadsheetPreview.byteSizeLabel, ToolArtifactByteSizeFormatter.label(for: spreadsheetBytes.count))
+        XCTAssertEqual(spreadsheetPreview.metadataLines, [
+            "Format: Office Open XML",
+            "7 package entries",
+            "2 sheets",
+            "Size: \(try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: spreadsheetBytes.count)))"
+        ])
+
+        let presentation = directory.appendingPathComponent("deck.pptx")
+        try OfficePackageFixture.zipPackage(fileNames: [
+            "[Content_Types].xml",
+            "ppt/presentation.xml",
+            "ppt/slides/slide1.xml",
+            "ppt/slides/slide2.xml"
+        ]).write(to: presentation)
+        let presentationPreview = try XCTUnwrap(ToolArtifactState(value: presentation.path).officePreview)
+        XCTAssertEqual(presentationPreview.entryCount, 4)
+        XCTAssertNil(presentationPreview.worksheetCount)
+        XCTAssertEqual(presentationPreview.slideCount, 2)
+        XCTAssertEqual(presentationPreview.metadataLines.dropFirst(2).first, "2 slides")
+
+        let remoteSpreadsheet = ToolArtifactState(value: "https://example.com/budget.xlsx")
+        XCTAssertNil(remoteSpreadsheet.officePreview)
+    }
+
     func testArtifactStateDerivesAppshotPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let appshotFile = directory.appendingPathComponent("checkout.appshot.json")

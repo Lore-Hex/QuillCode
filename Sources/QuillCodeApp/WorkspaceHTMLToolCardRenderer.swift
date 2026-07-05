@@ -161,6 +161,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 #"<a\#(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
             } ?? ""
             let pdfPreview = renderPDFPreview(artifact.pdfPreview)
+            let officePreview = renderOfficePreview(artifact.officePreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             return """
             <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">
@@ -172,6 +173,7 @@ enum WorkspaceHTMLToolCardRenderer {
               </figcaption>
               \(openLink)
               \(pdfPreview)
+              \(officePreview)
               \(appshotPreview)
             </figure>
             """
@@ -206,6 +208,21 @@ enum WorkspaceHTMLToolCardRenderer {
         return """
         <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
           \(previews)
+        </div>
+        """
+    }
+
+    private static func renderOfficePreview(_ preview: ToolArtifactOfficePreview?) -> String {
+        guard let preview else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-office-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-office-preview">
+          <div>
+            \(metadata)
+          </div>
         </div>
         """
     }

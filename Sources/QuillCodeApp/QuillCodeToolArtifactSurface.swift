@@ -143,6 +143,42 @@ public struct ToolArtifactPDFPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var entryCount: Int?
+    public var worksheetCount: Int?
+    public var slideCount: Int?
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            entryCount.map { "\($0) package entr\($0 == 1 ? "y" : "ies")" },
+            worksheetCount.map { "\($0) sheet\($0 == 1 ? "" : "s")" },
+            slideCount.map { "\($0) slide\($0 == 1 ? "" : "s")" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        entryCount: Int? = nil,
+        worksheetCount: Int? = nil,
+        slideCount: Int? = nil,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.entryCount = entryCount
+        self.worksheetCount = worksheetCount
+        self.slideCount = slideCount
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
@@ -184,6 +220,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pdfPreview: ToolArtifactPDFPreview? {
         ToolArtifactPDFPreviewBuilder.pdfPreview(for: value, kind: kind)
+    }
+    public var officePreview: ToolArtifactOfficePreview? {
+        ToolArtifactOfficePreviewBuilder.officePreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {

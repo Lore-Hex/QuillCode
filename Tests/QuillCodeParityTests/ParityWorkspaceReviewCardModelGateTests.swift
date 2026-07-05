@@ -7,7 +7,14 @@ final class ParityWorkspaceReviewCardModelGateTests: QuillCodeParityTestCase {
         let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")
         let toolCardViewText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
         let toolCardControlsText = try Self.appSourceText(named: "QuillCodeToolCardControls.swift")
-        let toolArtifactViewsText = try Self.appSourceText(named: "QuillCodeToolArtifactViews.swift")
+        let toolArtifactViewsText = try [
+            "QuillCodeArtifactChip.swift",
+            "QuillCodeArtifactDocumentPreview.swift",
+            "QuillCodeArtifactImagePreview.swift",
+            "QuillCodeArtifactTextPreview.swift"
+        ]
+        .map { try Self.appSourceText(named: $0) }
+        .joined(separator: "\n")
         let toolCardDetailsText = try Self.appSourceText(named: "QuillCodeToolCardDetailsView.swift")
         let transcriptViewText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
         let workspaceViewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
@@ -43,7 +50,8 @@ final class ParityWorkspaceReviewCardModelGateTests: QuillCodeParityTestCase {
             "struct QuillCodeArtifactChip",
             "struct QuillCodeArtifactTextPreview",
             "struct QuillCodeArtifactDocumentPreview",
-            "struct QuillCodeArtifactImagePreview"
+            "struct QuillCodeArtifactImagePreview",
+            "artifact.officePreview"
         ])
         Self.assertSource(toolCardDetailsText, contains: "struct QuillCodeCodeBlock")
         Self.assertSource(toolCardViewText, excludesAll: [
