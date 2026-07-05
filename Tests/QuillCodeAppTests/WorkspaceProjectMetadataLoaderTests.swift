@@ -70,4 +70,45 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
         XCTAssertTrue(metadata.extensionManifests.isEmpty)
     }
 
+    func testLoadLocalUsesProjectConfigForAdditionalActionDirectoriesAndCaps() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let quillDirectory = root.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(
+            at: quillDirectory.appendingPathComponent("actions"),
+            withIntermediateDirectories: true
+        )
+        try """
+        [local_actions]
+        directories = ["scripts/actions"]
+        max = 1
+        """.write(
+            to: quillDirectory.appendingPathComponent("config.toml"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "printf default".write(
+            to: quillDirectory.appendingPathComponent("actions/default.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let customActions = root.appendingPathComponent("scripts/actions")
+        try FileManager.default.createDirectory(at: customActions, withIntermediateDirectories: true)
+        try "printf custom".write(
+            to: customActions.appendingPathComponent("custom.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        { "title": "Custom", "order": 0 }
+        """.write(
+            to: customActions.appendingPathComponent("custom.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let metadata = WorkspaceProjectMetadataLoader.loadLocal(from: root)
+
+        XCTAssertEqual(metadata.localActions.map(\.relativePath), ["scripts/actions/custom.sh"])
+    }
 }

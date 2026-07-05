@@ -7,6 +7,7 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         let loaderText = try Self.appSourceText(named: "WorkspaceProjectMetadataLoader.swift")
 
         Self.assertSource(loaderText, contains: "enum WorkspaceProjectMetadataLoader")
+        Self.assertSource(loaderText, contains: "WorkspaceProjectConfigurationLoader.load")
         Self.assertSource(loaderText, contains: "ProjectInstructionLoader.load")
         Self.assertSource(loaderText, contains: "LocalEnvironmentActionLoader.load")
         Self.assertSource(loaderText, contains: "ProjectExtensionManifestLoader.load")

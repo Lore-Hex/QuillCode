@@ -24,7 +24,7 @@ public enum LocalEnvironmentActionLoader {
         for directory in directories {
             guard !directory.contains("..")
             else {
-                break
+                continue
             }
 
             let directoryURL = root
