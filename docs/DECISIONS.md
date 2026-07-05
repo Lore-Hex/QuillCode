@@ -2,6 +2,10 @@
 
 ## 2026-07-05
 
+- Auto safety reviewer calibration starts with deterministic fixture coverage before live transcript scoring. The
+  fixtures run through the real `AutoSafetyReviewer` model path and pin representative reviewer decisions for bounded
+  diagnostics, missing shell arguments, unrelated chained credential reads, and project-local file creation. Live
+  reviewer-model transcript calibration can build on this table instead of relying on ad hoc manual prompts.
 - The Auto safety model prompt is a compact contract over the same static safety floor, not a second broad policy
   system. It now names explicit approve/clarify/deny boundaries: approve bounded user-requested work, clarify missing
   or empty arguments and ambiguous targets, and deny credential exfiltration, unrelated extra shell actions, broad
