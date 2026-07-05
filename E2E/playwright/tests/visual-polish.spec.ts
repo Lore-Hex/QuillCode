@@ -180,8 +180,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.titleTextWrap).toContain('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeLessThanOrEqual(4);
-  expect(polish.sidebarPaddingLeft).toBe(14);
-  expect(polish.sidebarPaddingRight).toBe(14);
+  expect(polish.sidebarPaddingLeft).toBe(16);
+  expect(polish.sidebarPaddingRight).toBe(16);
   expect(polish.emptyStarterMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.emptyStarterTransitionProperty).toContain('transform');
   expect(polish.emptyStarterTransitionProperty).toContain('box-shadow');
@@ -251,14 +251,31 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     toolStatusStyle,
     toolCopyButtonStyle,
     messageCopyButtonStyle,
-    sidebarMenuRect
+    sidebarMenuRect,
+    sidebarFilterStyle,
+    sidebarFilterVisualStyle,
+    tokenBudgetLabelStyle,
+    tokenBudgetPrimaryStyle,
+    tokenBudgetSecondaryStyle
   ] = await Promise.all([
     computedStyleProperties(page, '[data-testid="tool-card"]', ['min-height']),
     elementRect(page, '[data-testid="tool-card"]'),
     computedStyleProperties(page, '[data-testid="tool-card-status"]', ['font-variant-numeric']),
     computedStyleProperties(page, '[data-testid="tool-card-copy"]', ['min-height']),
     computedStyleProperties(page, '[data-testid="message-copy"]', ['min-height']),
-    elementRect(page, '[data-testid="sidebar-item-actions"] summary')
+    elementRect(page, '[data-testid="sidebar-item-actions"] summary'),
+    computedStyleProperties(page, '[data-testid="sidebar-filter"]', ['min-height', 'padding-left', 'padding-right']),
+    page.getByTestId('sidebar-filter').first().evaluate(element => {
+      const style = getComputedStyle(element, '::before');
+      return {
+        top: style.top,
+        bottom: style.bottom,
+        borderRadius: style.borderRadius
+      };
+    }),
+    computedStyleProperties(page, '.topbar-token-budget-label', ['font-size']),
+    computedStyleProperties(page, '[data-testid="top-bar-token-budget-primary"]', ['font-size', 'font-variant-numeric']),
+    computedStyleProperties(page, '[data-testid="top-bar-token-budget-secondary"]', ['font-size'])
   ]);
 
   const transcriptPolish = {
@@ -268,7 +285,17 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     toolCopyMinHeight: parseFloat(toolCopyButtonStyle['min-height']),
     messageCopyMinHeight: parseFloat(messageCopyButtonStyle['min-height']),
     sidebarMenuWidth: sidebarMenuRect.width,
-    sidebarMenuHeight: sidebarMenuRect.height
+    sidebarMenuHeight: sidebarMenuRect.height,
+    sidebarFilterMinHeight: parseFloat(sidebarFilterStyle['min-height']),
+    sidebarFilterPaddingLeft: parseFloat(sidebarFilterStyle['padding-left']),
+    sidebarFilterPaddingRight: parseFloat(sidebarFilterStyle['padding-right']),
+    sidebarFilterVisualTop: parseFloat(sidebarFilterVisualStyle.top),
+    sidebarFilterVisualBottom: parseFloat(sidebarFilterVisualStyle.bottom),
+    sidebarFilterVisualRadius: parseFloat(sidebarFilterVisualStyle.borderRadius),
+    tokenBudgetLabelFontSize: parseFloat(tokenBudgetLabelStyle['font-size']),
+    tokenBudgetPrimaryFontSize: parseFloat(tokenBudgetPrimaryStyle['font-size']),
+    tokenBudgetPrimaryNumbers: tokenBudgetPrimaryStyle['font-variant-numeric'],
+    tokenBudgetSecondaryFontSize: parseFloat(tokenBudgetSecondaryStyle['font-size'])
   };
 
   expect(transcriptPolish.toolCardMinHeight).toBeGreaterThanOrEqual(58);
@@ -278,6 +305,16 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.messageCopyMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(transcriptPolish.sidebarFilterMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(transcriptPolish.sidebarFilterPaddingLeft).toBe(10);
+  expect(transcriptPolish.sidebarFilterPaddingRight).toBe(10);
+  expect(transcriptPolish.sidebarFilterVisualTop).toBe(5);
+  expect(transcriptPolish.sidebarFilterVisualBottom).toBe(5);
+  expect(transcriptPolish.sidebarFilterVisualRadius).toBeGreaterThanOrEqual(999);
+  expect(transcriptPolish.tokenBudgetLabelFontSize).toBeGreaterThanOrEqual(14);
+  expect(transcriptPolish.tokenBudgetPrimaryFontSize).toBeGreaterThanOrEqual(16.5);
+  expect(transcriptPolish.tokenBudgetPrimaryNumbers).toContain('tabular-nums');
+  expect(transcriptPolish.tokenBudgetSecondaryFontSize).toBeGreaterThanOrEqual(14);
   await expectHitTarget(page.locator('[data-testid="tool-card-details"] summary'), 'tool details disclosure');
 });
 

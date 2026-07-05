@@ -26,7 +26,7 @@
       --hit-target: 44px;
       --hit-target-clearance: 8px;
       --control-cluster-gap: 8px;
-      --workspace-sidebar-width: 280px;
+      --workspace-sidebar-width: 296px;
     }
     * { box-sizing: border-box; }
     .visually-hidden {
@@ -191,9 +191,9 @@
       display: grid;
       grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) auto;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       min-height: var(--hit-target);
-      padding: 0 10px;
+      padding: 0 12px;
       border-bottom: 1px solid rgba(255,255,255,.08);
       background: rgba(10, 16, 20, .96);
     }
@@ -265,13 +265,13 @@
       background: rgba(66, 214, 119, 0.10);
     }
     .topbar-token-budget {
-      flex: 0 0 min(338px, 34vw);
-      min-width: 300px;
+      flex: 0 0 min(372px, 38vw);
+      min-width: 342px;
       display: grid;
       gap: 3px;
-      padding: 4px 9px;
+      padding: 4px 10px;
       border-radius: 9px;
-      background: rgba(65, 184, 232, 0.095);
+      background: rgba(65, 184, 232, 0.085);
       color: var(--text);
       font-variant-numeric: tabular-nums;
     }
@@ -290,12 +290,12 @@
     }
     .topbar-token-budget-label {
       color: var(--muted);
-      font-size: 14px;
+      font-size: 14.5px;
       font-weight: 700;
     }
     .topbar-token-budget strong {
       min-width: 0;
-      font-size: 15.5px;
+      font-size: 17px;
       font-weight: 800;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -322,7 +322,7 @@
     .topbar-token-budget p {
       margin: 0;
       color: var(--muted);
-      font-size: 13.5px;
+      font-size: 14px;
       font-weight: 700;
       line-height: 1.18;
       overflow: hidden;
@@ -342,7 +342,7 @@
       overflow: hidden;
       color: var(--blue);
       background: rgba(65, 184, 232, 0.12);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 800;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -938,7 +938,7 @@
       box-shadow: var(--shadow-border);
     }
     .sidebar {
-      padding: 10px 14px;
+      padding: 8px 16px;
       overflow: auto;
       border-right: 1px solid rgba(255,255,255,.07);
       display: flex;
@@ -954,11 +954,11 @@
       display: grid;
     }
     .sidebar-threads-zone {
-      gap: 5px;
+      gap: var(--hit-target-clearance);
     }
     .sidebar-projects-zone {
       gap: var(--hit-target-clearance);
-      margin-top: 7px;
+      margin-top: var(--hit-target-clearance);
     }
     .sidebar h2 { margin: 0 0 8px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar h3 { margin: 6px 0 3px; color: var(--muted); font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; }
@@ -1034,20 +1034,25 @@
       align-items: center;
       gap: var(--hit-target-clearance);
       overflow: visible;
-      padding: 2px 0 8px;
+      padding: 1px 0 var(--hit-target-clearance);
+    }
+    .sidebar-title-row + .sidebar-filter-bar {
+      margin-top: 2px;
     }
     .sidebar-filter {
+      position: relative;
+      isolation: isolate;
       min-height: var(--hit-target);
-      min-width: 66px;
+      min-width: 62px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: var(--hit-target-clearance);
-      padding: 0 12px;
+      gap: 6px;
+      padding: 0 10px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.12);
+      border: 0;
       color: var(--muted);
-      background: rgba(255,255,255,.055);
+      background: transparent;
       font-size: 12px;
       font-weight: 700;
       white-space: nowrap;
@@ -1055,18 +1060,37 @@
       transition-duration: 140ms;
       transition-timing-function: var(--ease-out);
     }
+    .sidebar-filter::before {
+      content: "";
+      position: absolute;
+      inset: 5px 0;
+      z-index: -1;
+      border-radius: 999px;
+      background: rgba(255,255,255,.055);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+      transition-property: background-color, box-shadow;
+      transition-duration: 140ms;
+      transition-timing-function: var(--ease-out);
+    }
     .sidebar-filter:hover {
       transform: translateY(-1px);
       color: var(--text);
+      background: transparent;
+    }
+    .sidebar-filter:hover::before {
       background: rgba(255,255,255,.08);
-      border-color: rgba(255,255,255,.18);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
     }
     .sidebar-filter.active {
       color: #061014;
+      background: transparent;
+    }
+    .sidebar-filter.active::before {
       background: var(--blue);
-      border-color: rgba(255,255,255,.20);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.20);
     }
     .sidebar-filter-count {
+      position: relative;
       min-width: 18px;
       min-height: 18px;
       display: inline-grid;
@@ -1159,18 +1183,18 @@
     .sidebar-action {
       width: 100%;
       min-height: var(--hit-target);
-      padding: 0 16px;
+      padding: 0 12px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       justify-content: flex-start;
       text-align: left;
       color: var(--text);
       background: transparent;
       border: 1px solid transparent;
-      border-radius: 8px;
+      border-radius: 7px;
       box-shadow: none;
-      font-size: 14px;
+      font-size: 13.5px;
       line-height: 1.22;
       transition-property: transform, background-color, box-shadow, border-color;
       transition-duration: 150ms;
@@ -1192,15 +1216,15 @@
     .sidebar-tools-menu summary::before,
     .sidebar-tool-action::before {
       flex: 0 0 auto;
-      width: 22px;
-      height: 22px;
+      height: 20px;
+      width: 20px;
       display: grid;
       place-items: center;
       color: var(--muted);
       text-align: center;
-      font-size: 13px;
+      font-size: 12.5px;
       line-height: 1;
-      border-radius: 7px;
+      border-radius: 6px;
       background: rgba(255,255,255,.045);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
     }
@@ -1256,8 +1280,8 @@
     .sidebar-tools-menu summary,
     .sidebar-settings-button {
       min-height: var(--hit-target);
-      border: 1px solid rgba(255,255,255,.08);
-      background: rgba(255,255,255,.045);
+      border: 1px solid transparent;
+      background: transparent;
       color: var(--muted);
       cursor: pointer;
       transition-property: transform, background-color, border-color, color;
@@ -1270,28 +1294,28 @@
       justify-content: center;
       gap: 8px;
       width: 100%;
-      padding: 0 12px;
-      border-radius: 10px;
+      padding: 0 10px;
+      border-radius: 9px;
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 650;
       list-style: none;
     }
     .sidebar-tools-menu summary::-webkit-details-marker { display: none; }
     .sidebar-settings-button {
       flex: 1 1 0;
       min-width: 0;
-      padding: 0 12px;
-      border-radius: 10px;
+      padding: 0 10px;
+      border-radius: 9px;
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 650;
       line-height: 1;
     }
     .sidebar-tools-menu[open] summary,
     .sidebar-tools-menu summary:hover,
     .sidebar-settings-button:hover {
       color: var(--text);
-      background: rgba(255,255,255,.075);
-      border-color: rgba(255,255,255,.14);
+      background: rgba(255,255,255,.055);
+      border-color: rgba(255,255,255,.08);
     }
     .sidebar-tools-menu summary:active,
     .sidebar-settings-button:active {
@@ -1333,16 +1357,16 @@
     }
     .sidebar-tool-action {
       min-height: var(--hit-target);
-      padding: 7px 10px;
+      padding: 5px 10px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       text-align: left;
       color: var(--text);
       background: transparent;
       border: 1px solid transparent;
-      border-radius: 8px;
-      font-weight: 650;
+      border-radius: 7px;
+      font-weight: 620;
       white-space: nowrap;
       transition-property: background-color, color, border-color, transform;
       transition-duration: 130ms;
@@ -1359,14 +1383,14 @@
     .project-item {
       width: 100%;
       margin: 0 0 1px;
-      padding: 4px 16px;
+      padding: 4px 12px;
       display: grid;
       gap: 1px;
       text-align: left;
       color: var(--text);
       background: transparent;
       border: 1px solid transparent;
-      border-radius: 8px;
+      border-radius: 7px;
       line-height: 1.22;
       transition-property: transform, background-color, box-shadow, border-color;
       transition-duration: 150ms;

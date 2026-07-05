@@ -121,10 +121,16 @@ final class ParityNativeInteractionContractGateTests: QuillCodeParityTestCase {
                 && !toolCardText.contains(".accessibilityElement(children: .combine)"),
             "Tool cards contain actions and disclosure controls, so they must preserve child click targets instead of combining the whole card."
         )
+        let sidebarUsesNamedHitTargetSpacing = [
+            "HStack(spacing: QuillCodeMetrics.minimumTargetClearance)",
+            "HStack(spacing: QuillCodeMetrics.controlClusterSpacing)",
+            "HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing)"
+        ].contains { sidebarText.contains($0) }
+
         XCTAssertTrue(
             topBarText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
                 && composerText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
-                && sidebarText.contains("HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing)")
+                && sidebarUsesNamedHitTargetSpacing
                 && modelRowsText.contains("HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing)"),
             "High-risk adjacent controls should use named hit-target spacing metrics, not local magic numbers."
         )

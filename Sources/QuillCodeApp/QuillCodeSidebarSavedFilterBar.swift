@@ -8,7 +8,7 @@ struct QuillCodeSidebarSavedFilterBar: View {
         LazyVGrid(
             columns: columns,
             alignment: .leading,
-            spacing: QuillCodeMetrics.denseControlClusterSpacing
+            spacing: QuillCodeMetrics.minimumTargetClearance
         ) {
             ForEach(filters) { filter in
                 savedFilterButton(filter)
@@ -19,8 +19,8 @@ struct QuillCodeSidebarSavedFilterBar: View {
     private var columns: [GridItem] {
         [
             GridItem(
-                .adaptive(minimum: 100),
-                spacing: QuillCodeMetrics.denseControlClusterSpacing,
+                .adaptive(minimum: 86),
+                spacing: QuillCodeMetrics.minimumTargetClearance,
                 alignment: .leading
             )
         ]
@@ -32,12 +32,12 @@ struct QuillCodeSidebarSavedFilterBar: View {
         } label: {
             HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 Text(filter.title)
-                    .font(.caption.weight(.medium))
+                    .font(.system(size: 12, weight: .semibold))
                 filterCountBadge(filter)
             }
             .lineLimit(1)
-            .padding(.horizontal, 10)
-            .frame(minWidth: 66, minHeight: 28)
+            .padding(.horizontal, 9)
+            .frame(minWidth: 62, minHeight: 26)
             .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
             .background(filter.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.55))
             .clipShape(Capsule())
@@ -51,7 +51,7 @@ struct QuillCodeSidebarSavedFilterBar: View {
 
     private func filterCountBadge(_ filter: SidebarSavedFilterSurface) -> some View {
         Text("\(filter.count)")
-            .font(.caption2.weight(.semibold))
+            .font(.system(size: 10, weight: .semibold))
             .monospacedDigit()
             .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
             .padding(.horizontal, 5)

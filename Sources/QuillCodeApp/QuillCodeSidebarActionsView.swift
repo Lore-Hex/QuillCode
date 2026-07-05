@@ -30,15 +30,15 @@ struct QuillCodeSidebarActionsView: View {
     }
 
     private func sidebarCommandLabel(_ command: WorkspaceCommandSurface) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: QuillCodeSidebarCommandPresentation.systemImage(for: command.id))
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.48))
-                .frame(width: 20, alignment: .center)
+                .frame(width: 18, alignment: .center)
                 .accessibilityHidden(true)
 
             Text(QuillCodeSidebarCommandPresentation.displayTitle(for: command))
-                .font(.system(size: 13.5, weight: command.id == "new-chat" ? .semibold : .medium))
+                .font(.system(size: 13.25, weight: command.id == "new-chat" ? .semibold : .medium))
                 .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
                 .lineLimit(1)
                 .truncationMode(.tail)
