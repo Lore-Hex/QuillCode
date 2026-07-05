@@ -35,7 +35,10 @@
 - Bundled skill marketplace entries now expose the requested on-demand skill packs
   without increasing the default prompt: LLM Advisor, Browser Use, OpenClaw Video
   Toolkit, and BurstyRouter appear as installable Extensions/command-palette
-  actions. Their audited install commands clone/copy the bounded `SKILL.md`
+  actions, and command-palette search indexes their compact intent summaries so
+  terms like model selection, browser automation, video/media, and local-first
+  routing find the relevant pack without injecting those playbooks into the base
+  prompt. Their audited install commands clone/copy the bounded `SKILL.md`
   entry point and write a matching `.quillcode/skills/*.json` manifest so
   installed skill rows replace available marketplace rows after metadata refresh.
 - Structured Git sync now has first-class `host.git.fetch` and `host.git.pull`

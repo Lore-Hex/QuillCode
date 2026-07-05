@@ -174,7 +174,7 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         XCTAssertEqual(burstyRouter?.name, "BurstyRouter")
         XCTAssertEqual(
             burstyRouter?.summary,
-            "Route LLM calls local-first to a local server, then burst overflow to TrustedRouter Cloud."
+            "Local-first LLM routing to a local server with burst overflow to TrustedRouter Cloud."
         )
         XCTAssertEqual(burstyRouter?.sourceURL, "https://github.com/Lore-Hex/BurstyRouter")
         XCTAssertEqual(burstyRouter?.relativePath, ".quillcode/marketplace/burstyrouter.json")

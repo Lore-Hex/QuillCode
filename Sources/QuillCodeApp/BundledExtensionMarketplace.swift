@@ -6,7 +6,7 @@ enum BundledExtensionMarketplace {
         skill(
             id: "llm-advisor",
             name: "LLM Advisor",
-            summary: "Choose cost-aware TrustedRouter models without loading the full playbook into every prompt.",
+            summary: "On-demand model selection, budget, limit, and TrustedRouter spend advice without bloating every prompt.",
             sourceURL: "https://github.com/Lore-Hex/LLM-advisor",
             repositoryPath: "Lore-Hex/LLM-advisor",
             sourceSkillPath: ".",
@@ -16,7 +16,7 @@ enum BundledExtensionMarketplace {
         skill(
             id: "browser-use",
             name: "Browser Use",
-            summary: "On-demand browser automation playbooks for CDP-driven web tasks and QA flows.",
+            summary: "On-demand browser automation skills for web research, CDP control, QA flows, and form-heavy tasks.",
             sourceURL: "https://github.com/browser-use/browser-use/tree/main/skills",
             repositoryPath: "browser-use/browser-use",
             sourceSkillPath: "skills/browser-use",
@@ -25,7 +25,7 @@ enum BundledExtensionMarketplace {
         skill(
             id: "openclaw-video-toolkit",
             name: "OpenClaw Video Toolkit",
-            summary: "Video-production workflow guidance from the Claude Code video toolkit.",
+            summary: "Video and media production workflow guidance from the Claude Code video toolkit.",
             sourceURL: "https://github.com/digitalsamba/claude-code-video-toolkit/tree/main/skills/openclaw-video-toolkit",
             repositoryPath: "digitalsamba/claude-code-video-toolkit",
             sourceSkillPath: "skills/openclaw-video-toolkit",
@@ -34,7 +34,7 @@ enum BundledExtensionMarketplace {
         skill(
             id: "burstyrouter",
             name: "BurstyRouter",
-            summary: "Route LLM calls local-first to a local server, then burst overflow to TrustedRouter Cloud.",
+            summary: "Local-first LLM routing to a local server with burst overflow to TrustedRouter Cloud.",
             sourceURL: "https://github.com/Lore-Hex/BurstyRouter",
             repositoryPath: "Lore-Hex/BurstyRouter",
             sourceSkillPath: "skills/bursty-setup",

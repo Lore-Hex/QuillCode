@@ -27,6 +27,20 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertEqual(extensions.items.last?.name, "BurstyRouter")
         XCTAssertEqual(extensions.items.last?.statusLabel, "Available")
         XCTAssertEqual(extensions.items.last?.installCommandID, "extension-install:skill:burstyrouter")
+
+        let commands = setup.model.surface().commands
+        XCTAssertTrue(try command("extension-install:skill:llm-advisor", in: commands).keywords.contains {
+            $0.localizedCaseInsensitiveContains("model selection")
+        })
+        XCTAssertTrue(try command("extension-install:skill:browser-use", in: commands).keywords.contains {
+            $0.localizedCaseInsensitiveContains("browser automation")
+        })
+        XCTAssertTrue(try command("extension-install:skill:openclaw-video-toolkit", in: commands).keywords.contains {
+            $0.localizedCaseInsensitiveContains("video and media")
+        })
+        XCTAssertTrue(try command("extension-install:skill:burstyrouter", in: commands).keywords.contains {
+            $0.localizedCaseInsensitiveContains("local-first")
+        })
     }
 
     func testSurfaceIncludesProjectExtensionSummaryAndCommand() {
@@ -228,5 +242,14 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         let projectID = model.addProject(path: root, name: "Extension Project")
         model.selectProject(projectID)
         return (root, pluginDirectory, model)
+    }
+
+    private func command(
+        _ id: String,
+        in commands: [WorkspaceCommandSurface],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> WorkspaceCommandSurface {
+        try XCTUnwrap(commands.first { $0.id == id }, file: file, line: line)
     }
 }
