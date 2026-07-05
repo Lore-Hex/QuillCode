@@ -8,6 +8,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var instructions: [ProjectInstruction]
     public var instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution]
     public var localActions: [LocalEnvironmentAction]
+    public var runHooks: [ProjectRunHook]
     public var extensionManifests: [ProjectExtensionManifest]
     public var memories: [MemoryNote]
     public var lastOpenedAt: Date
@@ -21,6 +22,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         instructions: [ProjectInstruction] = [],
         instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution] = [],
         localActions: [LocalEnvironmentAction] = [],
+        runHooks: [ProjectRunHook],
         extensionManifests: [ProjectExtensionManifest] = [],
         memories: [MemoryNote] = []
     ) {
@@ -33,9 +35,37 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
             instructionDiagnosticResolutions
         )
         self.localActions = localActions
+        self.runHooks = runHooks
         self.extensionManifests = extensionManifests
         self.memories = memories
         self.lastOpenedAt = lastOpenedAt
+    }
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        path: String,
+        connection: ProjectConnection? = nil,
+        lastOpenedAt: Date = Date(),
+        instructions: [ProjectInstruction] = [],
+        instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution] = [],
+        localActions: [LocalEnvironmentAction] = [],
+        extensionManifests: [ProjectExtensionManifest] = [],
+        memories: [MemoryNote] = []
+    ) {
+        self.init(
+            id: id,
+            name: name,
+            path: path,
+            connection: connection,
+            lastOpenedAt: lastOpenedAt,
+            instructions: instructions,
+            instructionDiagnosticResolutions: instructionDiagnosticResolutions,
+            localActions: localActions,
+            runHooks: [],
+            extensionManifests: extensionManifests,
+            memories: memories
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -46,6 +76,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         case instructions
         case instructionDiagnosticResolutions
         case localActions
+        case runHooks
         case extensionManifests
         case memories
         case lastOpenedAt
@@ -68,6 +99,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
             ) ?? []
         )
         self.localActions = try container.decodeIfPresent([LocalEnvironmentAction].self, forKey: .localActions) ?? []
+        self.runHooks = try container.decodeIfPresent([ProjectRunHook].self, forKey: .runHooks) ?? []
         self.extensionManifests = try container.decodeIfPresent(
             [ProjectExtensionManifest].self,
             forKey: .extensionManifests
@@ -85,6 +117,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         try container.encode(instructions, forKey: .instructions)
         try container.encode(instructionDiagnosticResolutions, forKey: .instructionDiagnosticResolutions)
         try container.encode(localActions, forKey: .localActions)
+        try container.encode(runHooks, forKey: .runHooks)
         try container.encode(extensionManifests, forKey: .extensionManifests)
         try container.encode(memories, forKey: .memories)
         try container.encode(lastOpenedAt, forKey: .lastOpenedAt)

@@ -11,6 +11,14 @@ enum WorkspaceShellToolCallPlanner {
         )
     }
 
+    static func projectRunHook(_ hook: ProjectRunHook) -> ToolCall {
+        shellRunToolCall(
+            command: hook.command,
+            environment: hook.environment,
+            timeoutSeconds: hook.timeoutSeconds
+        )
+    }
+
     static func projectExtensionUpdate(_ manifest: ProjectExtensionManifest) -> ToolCall? {
         projectExtensionCommand(
             manifest.updateCommand,

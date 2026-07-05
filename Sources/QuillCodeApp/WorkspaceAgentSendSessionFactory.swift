@@ -63,7 +63,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             // so each thread runs on its own model.
             runner: configuredRunner(modelID: thread.model),
             workspaceRoot: workspaceRoot,
-            recordsUserMessage: recordsUserMessage
+            recordsUserMessage: recordsUserMessage,
+            runHooks: selectedProject?.isRemote == true ? [] : (selectedProject?.runHooks ?? [])
         )
     }
 
