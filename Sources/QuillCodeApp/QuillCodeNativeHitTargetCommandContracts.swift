@@ -26,7 +26,7 @@ extension QuillCodeNativeHitTargetAudit {
                 family: .sidebar,
                 surface: "Project header",
                 kind: .icon,
-                minWidth: 44
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget)
             )
         case "new-chat", "search", "toggle-extensions", "toggle-automations":
             return CommandHitTargetPlacement(

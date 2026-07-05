@@ -165,7 +165,7 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(readinessObject["launchServicesReport"] as? String, "launch-services/report.json")
         XCTAssertEqual(readinessObject["launchServicesMatchesDirect"] as? Bool, true)
         XCTAssertEqual(readinessObject["clickProbeCount"] as? Int, 1)
-        XCTAssertEqual(readinessObject["minimumHitTarget"] as? Int, 44)
+        XCTAssertEqual(readinessObject["minimumHitTarget"] as? Int, 40)
         XCTAssertEqual(readinessObject["minimumTargetClearance"] as? Int, 8)
         let readinessPolicies = try XCTUnwrap(readinessObject["clickProbePolicies"] as? [[String: Any]])
         let readinessPolicy = try XCTUnwrap(readinessPolicies.first)

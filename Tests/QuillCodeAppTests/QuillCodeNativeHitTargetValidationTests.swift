@@ -23,7 +23,7 @@ final class QuillCodeNativeHitTargetValidationTests: QuillCodeNativeHitTargetAud
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty source"))
         XCTAssertEqual(invalidContract.collisionScope, "top-bar")
         XCTAssertTrue(invalidContract.validationIssues.contains(" icon target should declare an explicit minimum width"))
-        XCTAssertTrue(invalidContract.validationIssues.contains(" minHeight 20.0 is below 44.0"))
+        XCTAssertTrue(invalidContract.validationIssues.contains(" minHeight 20.0 is below 40.0"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty test id"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" has an empty command id"))
         XCTAssertTrue(invalidContract.validationIssues.contains(" does not declare a stable test id, command id, or focus target"))
@@ -42,7 +42,7 @@ final class QuillCodeNativeHitTargetValidationTests: QuillCodeNativeHitTargetAud
         XCTAssertTrue(blankScopeContract.validationIssues.contains("blank.scope has an empty collision scope"))
 
         let report = QuillCodeNativeHitTargetAuditReport(
-            minimumHitTarget: 44,
+            minimumHitTarget: 40,
             minimumTargetClearance: 8,
             pressScale: 0.96,
             surfacePolicies: [
@@ -133,8 +133,8 @@ final class QuillCodeNativeHitTargetValidationTests: QuillCodeNativeHitTargetAud
         XCTAssertTrue(issues.contains("composer.send click probe interior-blocking policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe tactile-feedback policy does not match contract"))
         XCTAssertTrue(issues.contains("composer.send click probe text-selection policy does not match contract"))
-        XCTAssertTrue(issues.contains("composer.send click probe requiredMinWidth 20.0 is below 44.0"))
-        XCTAssertTrue(issues.contains("composer.send click probe requiredMinHeight 20.0 is below 44.0"))
+        XCTAssertTrue(issues.contains("composer.send click probe requiredMinWidth 20.0 is below 40.0"))
+        XCTAssertTrue(issues.contains("composer.send click probe requiredMinHeight 20.0 is below 40.0"))
         XCTAssertTrue(issues.contains("composer.send click probe requiredPeerClearance 2.0 is below 8.0"))
         XCTAssertTrue(issues.contains("composer.send click probe has an unnamed sample point"))
         XCTAssertTrue(issues.contains("composer.send click probe has unknown sample point outside"))

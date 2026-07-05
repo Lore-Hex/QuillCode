@@ -101,7 +101,7 @@ final class QuillCodeNativeHitTargetSurfaceAuditTests: QuillCodeNativeHitTargetA
 
 private extension QuillCodeNativeHitTargetSurfaceAuditTests {
     func assertGlobalReportMetrics(_ report: QuillCodeNativeHitTargetAuditReport) {
-        XCTAssertEqual(report.minimumHitTarget, 44)
+        XCTAssertEqual(report.minimumHitTarget, 40)
         XCTAssertEqual(report.minimumTargetClearance, 8)
         XCTAssertEqual(report.pressScale, 0.96)
         XCTAssertEqual(Set(report.designSystemContracts.map(\.kind)), Set(QuillCodeNativeHitTargetKind.allCases))
@@ -155,8 +155,8 @@ private extension QuillCodeNativeHitTargetSurfaceAuditTests {
         for probe in report.clickProbes {
             let contract = contractsByID[probe.contractID]
             XCTAssertFalse(probe.selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            XCTAssertGreaterThanOrEqual(probe.requiredMinWidth, 44)
-            XCTAssertGreaterThanOrEqual(probe.requiredMinHeight, 44)
+            XCTAssertGreaterThanOrEqual(probe.requiredMinWidth, 40)
+            XCTAssertGreaterThanOrEqual(probe.requiredMinHeight, 40)
             XCTAssertGreaterThanOrEqual(probe.requiredPeerClearance, 8)
             XCTAssertFalse(probe.collisionScope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             XCTAssertEqual(probe.collisionScope, contract?.collisionScope)
@@ -223,8 +223,8 @@ private extension QuillCodeNativeHitTargetSurfaceAuditTests {
         XCTAssertEqual(probesByContractID["project.clear"]?.selector, "quillcode-project-clear-button")
         XCTAssertEqual(probesByContractID["terminal.command"]?.selectorKind, .testID)
         XCTAssertEqual(probesByContractID["terminal.command"]?.selector, "quillcode-terminal-command")
-        XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinWidth ?? 0, 44)
-        XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinHeight ?? 0, 44)
+        XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinWidth ?? 0, 40)
+        XCTAssertGreaterThanOrEqual(probesByContractID["composer.send"]?.requiredMinHeight ?? 0, 40)
         XCTAssertEqual(contractsByID["memories.edit"]?.requiresUnblockedInterior, true)
         XCTAssertEqual(contractsByID["memories.edit"]?.requiresTactileFeedback, true)
         XCTAssertEqual(contractsByID["composer.input"]?.requiresTactileFeedback, false)

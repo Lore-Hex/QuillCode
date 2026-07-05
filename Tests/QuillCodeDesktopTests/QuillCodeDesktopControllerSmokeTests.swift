@@ -76,7 +76,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         )
         let accessibilityFrameSamples = QuillCodeDesktopAccessibilityFrameSampleReport(
             liveAccessibilitySampling: "frame-sampled",
-            minimumHitTarget: 44,
+            minimumHitTarget: 40,
             minimumTargetClearance: 8,
             requiredContractIDs: ["composer.send"],
             sampledContractIDs: ["composer.send"],

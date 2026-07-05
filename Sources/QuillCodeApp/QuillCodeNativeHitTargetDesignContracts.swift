@@ -3,7 +3,12 @@ import Foundation
 extension QuillCodeNativeHitTargetAudit {
     public static var designSystemContracts: [QuillCodeNativeHitTargetContract] {
         [
-            designContract("design.icon", label: "Icon button", kind: .icon, minWidth: 44),
+            designContract(
+                "design.icon",
+                label: "Icon button",
+                kind: .icon,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget)
+            ),
             designContract("design.text-button", label: "Text button", kind: .textButton, minWidth: 72),
             designContract("design.form-action", label: "Form action", kind: .formAction, minWidth: 56),
             designContract("design.link", label: "Link", kind: .link, minWidth: 72),

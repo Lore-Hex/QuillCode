@@ -21,7 +21,7 @@ struct QuillCodeProjectRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 projectTitleRow
                 Text(project.path)
-                    .font(.caption)
+                    .font(.system(size: 11.5, weight: .regular))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
@@ -33,7 +33,7 @@ struct QuillCodeProjectRowView: View {
     private var projectTitleRow: some View {
         HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Text(project.name)
-                .font(.callout.weight(.medium))
+                .font(.system(size: 13.5, weight: .medium))
                 .lineLimit(1)
             if project.isRemote {
                 Text(project.connectionKindLabel)

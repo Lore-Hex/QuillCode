@@ -13,13 +13,13 @@ struct QuillCodeSidebarUtilityActionsView: View {
     }
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             toolsMenu
             if let settingsCommand {
                 settingsButton(settingsCommand)
             }
         }
-        .padding(.top, 6)
+        .padding(.top, 4)
     }
 
     private var toolsMenu: some View {
@@ -42,10 +42,11 @@ struct QuillCodeSidebarUtilityActionsView: View {
             }
         } label: {
             Label("Tools", systemImage: "wrench.and.screwdriver")
-                .font(.callout.weight(.medium))
+                .font(.system(size: 13.5, weight: .medium))
+                .imageScale(.medium)
                 .foregroundStyle(QuillCodePalette.muted)
                 .quillCodeSidebarRowChrome(
-                    background: QuillCodePalette.panel.opacity(0.50),
+                    background: QuillCodePalette.panel.opacity(0.34),
                     alignment: .center
                 )
         }
@@ -62,10 +63,11 @@ struct QuillCodeSidebarUtilityActionsView: View {
                 QuillCodeSidebarCommandPresentation.displayTitle(for: command),
                 systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
             )
-            .font(.callout.weight(.medium))
+            .font(.system(size: 13.5, weight: .medium))
+            .imageScale(.medium)
             .foregroundStyle(settingsForeground(command))
             .quillCodeSidebarRowChrome(
-                background: QuillCodePalette.panel.opacity(0.50),
+                background: QuillCodePalette.panel.opacity(0.34),
                 alignment: .center
             )
         }

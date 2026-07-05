@@ -1,27 +1,27 @@
 import SwiftUI
 
 public enum QuillCodeMetrics {
-    public static let minimumHitTarget: CGFloat = 44
-    public static let compactTextButtonMinWidth: CGFloat = 72
-    public static let compactFormActionMinWidth: CGFloat = 56
+    public static let minimumHitTarget: CGFloat = 40
+    public static let compactTextButtonMinWidth: CGFloat = 66
+    public static let compactFormActionMinWidth: CGFloat = 52
     public static let compactControlRadius: CGFloat = 9
     public static let iconControlRadius: CGFloat = 10
     public static let minimumTargetClearance: CGFloat = 8
-    public static let controlClusterSpacing: CGFloat = 10
-    public static let denseControlClusterSpacing: CGFloat = 8
-    public static let topBarHeight: CGFloat = 44
-    public static let topBarTokenBudgetMinWidth: CGFloat = 304
-    public static let topBarTokenBudgetMaxWidth: CGFloat = 430
-    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 10
-    public static let topBarTokenBudgetVerticalPadding: CGFloat = 5
+    public static let controlClusterSpacing: CGFloat = 8
+    public static let denseControlClusterSpacing: CGFloat = 6
+    public static let topBarHeight: CGFloat = 40
+    public static let topBarTokenBudgetMinWidth: CGFloat = 328
+    public static let topBarTokenBudgetMaxWidth: CGFloat = 460
+    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 9
+    public static let topBarTokenBudgetVerticalPadding: CGFloat = 4
     public static let sidebarWidth: CGFloat = 280
-    public static let sidebarLeadingInset: CGFloat = 12
-    public static let sidebarTrailingInset: CGFloat = 12
+    public static let sidebarLeadingInset: CGFloat = 10
+    public static let sidebarTrailingInset: CGFloat = 10
     public static let sidebarVerticalInset: CGFloat = 6
-    public static let sidebarSectionSpacing: CGFloat = 6
-    public static let sidebarVisibleRowHeight: CGFloat = 32
-    public static let sidebarVisibleRowHorizontalPadding: CGFloat = 16
-    public static let sidebarVisibleRowRadius: CGFloat = 8
+    public static let sidebarSectionSpacing: CGFloat = 5
+    public static let sidebarVisibleRowHeight: CGFloat = 29
+    public static let sidebarVisibleRowHorizontalPadding: CGFloat = 12
+    public static let sidebarVisibleRowRadius: CGFloat = 7
     public static let composerSurfaceRadius: CGFloat = 12
     public static let composerControlRadius: CGFloat = 10
     public static let toolCardMinimumHeight: CGFloat = 74
