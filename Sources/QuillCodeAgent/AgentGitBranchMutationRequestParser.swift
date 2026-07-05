@@ -17,10 +17,10 @@ enum AgentGitBranchMutationRequestParser {
 
     static func arguments(from request: String) -> [String: Any]? {
         let lower = request.lowercased()
+        guard !mentionsPullRequest(lower) else { return nil }
         guard lower.contains("branch")
             || lower.contains("git switch")
-            || lower.contains("git checkout")
-            || lower.contains("checkout") else {
+            || lower.contains("git checkout") else {
             return nil
         }
         guard !lower.contains("delete branch"),
@@ -64,5 +64,10 @@ enum AgentGitBranchMutationRequestParser {
             }
         }
         return nil
+    }
+
+    private static func mentionsPullRequest(_ lower: String) -> Bool {
+        lower.contains("pull request")
+            || lower.split { !$0.isLetter && !$0.isNumber }.contains("pr")
     }
 }

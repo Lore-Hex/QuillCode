@@ -103,6 +103,35 @@ final class AgentImmediateGitActionTests: XCTestCase {
         XCTAssertNoAssistantMessageContains("I'll switch", in: result)
     }
 
+    func testExplicitGitCheckoutExecutesImmediatelyWithoutProviderRoundTrip() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try makeInitialCommit(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git branch quillcode-smoke-branch", cwd: root)).ok)
+        let runner = preflightFailingAgentRunner()
+
+        let result = try await runner.send(
+            "git checkout quillcode-smoke-branch",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        try assertSingleSuccessfulToolResult(in: result)
+        let call = try queuedToolCall(in: result)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.gitBranchSwitch.name)
+        XCTAssertEqual(arguments.string("branch"), "quillcode-smoke-branch")
+        let current = ShellToolExecutor().run(.init(command: "git branch --show-current", cwd: root))
+        XCTAssertEqual(current.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "quillcode-smoke-branch")
+    }
+
+    func testBranchParserDoesNotStealPullRequestCheckoutPrompts() throws {
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "checkout PR #42"))
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "git checkout PR #42"))
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "checkout pull request 42"))
+        XCTAssertNil(AgentGitBranchMutationRequestParser.arguments(from: "switch to PR 42"))
+    }
+
     func testCreateBranchExecutesImmediatelyWithoutProviderRoundTrip() async throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
