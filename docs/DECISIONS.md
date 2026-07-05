@@ -248,7 +248,7 @@
 
 - Product and repository name: **QuillCode**.
 - License: Apache 2.0.
-- Default model: Nike 1.0 (`trustedrouter/fast`). The named Recommended presets are Nike 1.0, Zeus 1.0, Prometheus 1.0 (`trustedrouter/fusion`), Socrates 1.0, Aristotle 1.0, and Plato 1.0. Raw model types such as synth are not named defaults or compatibility aliases; they should only appear if the live TrustedRouter catalog exposes an actual provider/model entry.
+- Default model: Nike 1.0 (`trustedrouter/fast`). The named Recommended presets are Nike 1.0, Zeus 1.0, Prometheus 1.0 (`trustedrouter/fusion`), Socrates 1.0, Aristotle 1.0, and Plato 1.0. Raw model types such as synth are retired as named defaults and typed `/model` targets; they should only appear if the live TrustedRouter catalog exposes an actual provider/model entry.
 - Auth: TrustedRouter OAuth first; hidden developer override for API key/base URL.
 - Tool modes: `Read-only`, `Review`, `Auto`; do not use the label `Full Access`.
 - Auto reviewer: primary `glm-5.2`, fallback `kimi-k2.6`.

@@ -181,9 +181,23 @@ public enum TrustedRouterDefaults {
         return modelIDAliases[normalized.lowercased()] ?? normalized
     }
 
+    public static func isRetiredRawModelID(_ id: String) -> Bool {
+        let normalized = rawModelName(id).lowercased()
+        let retiredBase = "synth"
+        return normalized == retiredBase || normalized == retiredBase + "-code"
+    }
+
+    private static func rawModelName(_ id: String) -> String {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withoutSlash = trimmed.hasPrefix("/") ? String(trimmed.dropFirst()) : trimmed
+        let parts = withoutSlash.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return withoutSlash }
+        return ["tr", trustedRouterProvider].contains(parts[0].lowercased()) ? parts[1] : withoutSlash
+    }
+
     public static func normalizedDefaultModelID(_ id: String) -> String {
         let modelID = canonicalModelID(id)
-        return modelID.isEmpty ? defaultModel : modelID
+        return modelID.isEmpty || isRetiredRawModelID(modelID) ? defaultModel : modelID
     }
 
     public static func provider(fromModelID modelID: String) -> String {
