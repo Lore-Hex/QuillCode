@@ -42,11 +42,8 @@ struct QuillCodeTopBarView: View {
     @ViewBuilder
     private var leadingNavigationSlot: some View {
         if leadingInset > 0 {
-            HStack {
-                Spacer(minLength: 0)
-                navigationControls
-            }
-            .frame(width: leadingInset, alignment: .trailing)
+            navigationControls
+                .frame(width: leadingInset, alignment: .leading)
         } else {
             navigationControls
         }

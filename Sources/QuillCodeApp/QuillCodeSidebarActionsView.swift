@@ -16,15 +16,7 @@ struct QuillCodeSidebarActionsView: View {
                 Button {
                     onCommand(command)
                 } label: {
-                    Label(
-                        QuillCodeSidebarCommandPresentation.displayTitle(for: command),
-                        systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
-                    )
-                    .font(.system(size: 13.5, weight: .medium))
-                    .imageScale(.medium)
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
-                    .quillCodeSidebarRowChrome(background: primaryCommandBackground(command))
+                    sidebarCommandLabel(command)
                 }
                 .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
                 .disabled(!command.isEnabled)
@@ -33,7 +25,26 @@ struct QuillCodeSidebarActionsView: View {
         }
     }
 
+    private func sidebarCommandLabel(_ command: WorkspaceCommandSurface) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: QuillCodeSidebarCommandPresentation.systemImage(for: command.id))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.48))
+                .frame(width: 20, alignment: .center)
+                .accessibilityHidden(true)
+
+            Text(QuillCodeSidebarCommandPresentation.displayTitle(for: command))
+                .font(.system(size: 13.5, weight: command.id == "new-chat" ? .semibold : .medium))
+                .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 0)
+        }
+        .quillCodeSidebarRowChrome(background: primaryCommandBackground(command))
+    }
+
     private func primaryCommandBackground(_ command: WorkspaceCommandSurface) -> Color {
-        command.id == "new-chat" ? QuillCodePalette.panel.opacity(0.38) : Color.clear
+        command.id == "new-chat" ? QuillCodePalette.selection.opacity(0.55) : Color.clear
     }
 }

@@ -64,16 +64,16 @@ struct QuillCodeTopBarIdentityView: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text("Tokens")
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(budget.primaryLabel)
-                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 16.5, weight: .semibold).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.94)
                 Spacer(minLength: 4)
                 Text("\(budget.usedPercent)%")
-                    .font(.system(size: 13.5, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
                     .foregroundStyle(tokenBudgetTint(for: budget))
                     .lineLimit(1)
             }
@@ -91,14 +91,14 @@ struct QuillCodeTopBarIdentityView: View {
 
             HStack(spacing: 7) {
                 Text(budget.secondaryLabel)
-                    .font(.system(size: 13.5, weight: .medium).monospacedDigit())
+                    .font(.system(size: 14, weight: .medium).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.94)
 
                 if !budget.visibleQuotaLimits.isEmpty {
                     Text(budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · "))
-                        .font(.system(size: 13.5, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 14, weight: .semibold).monospacedDigit())
                         .foregroundStyle(tokenBudgetTint(for: budget))
                         .lineLimit(1)
                         .minimumScaleFactor(0.94)
