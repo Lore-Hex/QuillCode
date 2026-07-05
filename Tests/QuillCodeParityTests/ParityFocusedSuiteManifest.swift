@@ -242,7 +242,7 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceReviewIntegrationTestsOwnModelReviewFlows"
         ]),
         Suite(fileName: "ParityWorkspaceFeedbackRuntimeIntegrationGateTests.swift", testNames: [
-            "testFocusedFeedbackAndArtifactTestsOwnSurfaceSpecificFlows",
+            "testFocusedArtifactTestsOwnSurfaceSpecificFlows",
             "testWorkspaceRuntimeIssueIntegrationTestsOwnModelRuntimeIssueFlows"
         ]),
         Suite(fileName: "ParityWorkspaceThreadCommandIntegrationGateTests.swift", testNames: [
