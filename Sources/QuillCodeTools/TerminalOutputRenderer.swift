@@ -15,13 +15,16 @@ import Foundation
 public enum TerminalOutputRenderer {
     /// Processes a raw terminal buffer into the text a user should see. Pure and idempotent on
     /// already-clean text, so it is safe to re-run over a growing `stdout` buffer.
-    public static func render(_ raw: String) -> String {
+    public static func render(
+        _ raw: String,
+        ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow
+    ) -> String {
         guard raw.contains(where: { $0 == "\u{1B}" || $0 == "\r" || $0 == "\u{08}" || $0 == "\u{07}" }) else {
             // Fast path: no control characters that change the visible result. (A lone `\n` is already
             // a plain newline.) Avoids rebuilding the buffer for the common all-text case.
             return raw
         }
-        var screen = TerminalScreenBuffer()
+        var screen = TerminalScreenBuffer(ambiguousWidthPolicy: ambiguousWidthPolicy)
         screen.feed(raw)
         return screen.text()
     }

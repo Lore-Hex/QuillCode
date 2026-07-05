@@ -2,7 +2,12 @@ import XCTest
 @testable import QuillCodeTools
 
 final class TerminalOutputRendererTests: XCTestCase {
-    private func render(_ raw: String) -> String { TerminalOutputRenderer.render(raw) }
+    private func render(
+        _ raw: String,
+        ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow
+    ) -> String {
+        TerminalOutputRenderer.render(raw, ambiguousWidthPolicy: ambiguousWidthPolicy)
+    }
 
     func testPlainTextPassesThroughUnchanged() {
         XCTAssertEqual(render("hello world\nsecond line"), "hello world\nsecond line")
@@ -209,6 +214,13 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("ΩX\u{1B}[1;2HY"), "ΩY")
         XCTAssertEqual(TerminalScreenCellWidth.width(of: "Ω"), 1)
         XCTAssertEqual(TerminalScreenCellWidth.width(of: "Ω", ambiguousPolicy: .wide), 2)
+    }
+
+    func testAmbiguousWidthPolicyCanRenderWideForLocaleSpecificTerminalFrames() {
+        let raw = "ΩX\u{1B}[1;3HY"
+
+        XCTAssertEqual(render(raw), "ΩXY")
+        XCTAssertEqual(render(raw, ambiguousWidthPolicy: .wide), "ΩY")
     }
 
     func testIsIdempotentOnCleanText() {

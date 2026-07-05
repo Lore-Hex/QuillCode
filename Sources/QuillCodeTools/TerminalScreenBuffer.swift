@@ -11,6 +11,7 @@ struct TerminalScreenBuffer {
     static let maxCols = 1_000
     static let maxCursorParameter = 1_001
 
+    let ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy
     var lines: [[TerminalScreenCell]] = [[]]
     var row = 0
     var col = 0
@@ -24,6 +25,10 @@ struct TerminalScreenBuffer {
         var col: Int
         var savedCursor: (row: Int, col: Int)?
         var scrollRegion: (top: Int, bottom: Int)?
+    }
+
+    init(ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow) {
+        self.ambiguousWidthPolicy = ambiguousWidthPolicy
     }
 
     mutating func feed(_ raw: String) {
@@ -60,7 +65,7 @@ struct TerminalScreenBuffer {
     }
 
     mutating func put(_ character: Character) {
-        let width = TerminalScreenCellWidth.width(of: character)
+        let width = TerminalScreenCellWidth.width(of: character, ambiguousPolicy: ambiguousWidthPolicy)
         guard width > 0 else {
             appendCombiningCharacter(character)
             return

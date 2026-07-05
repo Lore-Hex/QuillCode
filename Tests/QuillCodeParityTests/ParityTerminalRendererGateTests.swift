@@ -15,10 +15,12 @@ final class ParityTerminalRendererGateTests: QuillCodeParityTestCase {
         let alternateScreenText = try Self.toolsSourceText(named: "TerminalScreenBufferAlternateScreen.swift")
 
         XCTAssertTrue(bufferText.contains("struct TerminalScreenBuffer"))
+        XCTAssertTrue(bufferText.contains("let ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy"))
+        XCTAssertTrue(bufferText.contains("init(ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow)"))
         XCTAssertTrue(bufferText.contains("mutating func feed(_ raw: String)"))
         XCTAssertTrue(cellText.contains("struct TerminalScreenCell"))
         XCTAssertTrue(widthText.contains("enum TerminalScreenCellWidth"))
-        XCTAssertTrue(widthText.contains("enum TerminalScreenAmbiguousWidthPolicy"))
+        XCTAssertTrue(widthText.contains("public enum TerminalOutputAmbiguousWidthPolicy"))
         XCTAssertTrue(cellMutationText.contains("mutating func clearCellCluster"))
         XCTAssertTrue(graphemeText.contains("struct TerminalScreenGraphemeCluster"))
         XCTAssertTrue(graphemeText.contains("static func indexed"))
@@ -29,6 +31,8 @@ final class ParityTerminalRendererGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(alternateScreenText.contains("mutating func enterAlternateScreen"))
         XCTAssertFalse(rendererText.contains("struct TerminalScreenBuffer"))
         XCTAssertFalse(rendererText.contains("mutating func applyCSI"))
+        XCTAssertTrue(rendererText.contains("ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow"))
+        XCTAssertTrue(rendererText.contains("TerminalScreenBuffer(ambiguousWidthPolicy: ambiguousWidthPolicy)"))
     }
 
     func testTerminalRendererBehaviorTestsCoverScrollAndAlternateScreenParity() throws {
@@ -45,5 +49,6 @@ final class ParityTerminalRendererGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(testsText.contains("testZeroWidthJoinerEmojiClustersAdvanceAsOneWideGlyph"))
         XCTAssertTrue(testsText.contains("testEmojiPresentationSequencesAdvanceAsWideGlyphs"))
         XCTAssertTrue(testsText.contains("testAmbiguousWidthPolicyDefaultsToNarrowForTranscriptStability"))
+        XCTAssertTrue(testsText.contains("testAmbiguousWidthPolicyCanRenderWideForLocaleSpecificTerminalFrames"))
     }
 }

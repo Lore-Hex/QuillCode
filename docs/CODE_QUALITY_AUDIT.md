@@ -1838,7 +1838,7 @@ represent a wide policy for future locale-aware terminal sessions.
 | Area | Before | After |
 | --- | --- | --- |
 | Printable input feed | `TerminalScreenBuffer.feed` walked Unicode scalars and wrote `Character(scalar)`, so family/profession emoji clusters were split across multiple cells. | `TerminalScreenGraphemeClusters` indexes extended grapheme cluster starts once per render, and the feed path writes the whole cluster before advancing by its scalar count. Escape/control parsing still stays scalar-based. |
-| Width policy | Width handling knew zero-width, CJK, and broad emoji ranges, but ambiguous-width behavior was implicit fallback. | `TerminalScreenCellWidth.swift` owns zero/wide/emoji-presentation/ambiguous classification and a narrow-by-default `TerminalScreenAmbiguousWidthPolicy`. |
+| Width policy | Width handling knew zero-width, CJK, and broad emoji ranges, but ambiguous-width behavior was implicit fallback. | `TerminalScreenCellWidth.swift` owns zero/wide/emoji-presentation/ambiguous classification and the public renderer accepts a narrow-by-default `TerminalOutputAmbiguousWidthPolicy`. |
 | Behavior evidence | Renderer tests covered CJK/emoji width-two cells and combining marks only. | Tests now cover ZWJ emoji clusters, skin-tone/profession clusters, emoji-presentation sequences such as `♥️`, and narrow/wide ambiguous policy for `Ω`. |
 | Parity gate | The terminal gate required the cell model but did not protect the new grapheme/width-policy boundary. | `ParityTerminalRendererGateTests` now requires the dedicated grapheme and width-policy files plus behavior tests for both documented gaps. |
 
