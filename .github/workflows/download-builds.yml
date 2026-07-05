@@ -125,6 +125,7 @@ jobs:
             gh release edit "$RELEASE_TAG" \
               --title "$RELEASE_TITLE" \
               --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --target "$GITHUB_SHA" \
               "${PRERELEASE_FLAG[@]}"
           else
             gh release create "$RELEASE_TAG" \

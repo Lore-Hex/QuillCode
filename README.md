@@ -1,5 +1,9 @@
 # QuillCode
 
+[![CI](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml)
+[![Download Builds](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml)
+[Download tester build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
+
 QuillCode is a Swift and QuillUI coding agent inspired by Codex workflows and backed by TrustedRouter. The long-term target is a public, cross-platform macOS/Linux app with local project chat, tool execution, Computer Use, worktrees, plugins, automations, and browser-assisted development.
 
 This initial repository contains the compile-stable foundation:
@@ -20,7 +24,9 @@ This initial repository contains the compile-stable foundation:
 
 Download the latest automated tester build from
 [QuillCode Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest).
-The tester release is refreshed from `main`; see [Downloadable Builds](docs/DOWNLOADS.md).
+The tester release is refreshed after every successful `main` push and nightly;
+see [Downloadable Builds](docs/DOWNLOADS.md) for direct app/CLI links and tester
+notes.
 
 ```bash
 swift test
