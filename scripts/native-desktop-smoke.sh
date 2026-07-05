@@ -152,6 +152,11 @@ if ! grep -q '"appName" : "QuillCode"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"browserSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report browser smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 python3 - "$REPORT_PATH" <<'PY'
 import json
 import math
@@ -190,6 +195,33 @@ def require_policy_coverage(policy_by_family, family, required_values, field):
     missing_values = sorted(required_values - covered_values)
     if missing_values:
         fail(f"surface policy for {family} is missing {field}: {', '.join(missing_values)}")
+
+
+browser_smoke = report.get("browserSmoke")
+if not isinstance(browser_smoke, dict):
+    fail("did not include browser smoke evidence")
+
+expected_browser_fields = {
+    "title": "Browser Smoke",
+    "sourceLabel": "Local HTML",
+    "inspectionDepth": "Static HTML snapshot",
+    "toolName": "host.browser.inspect",
+}
+for field, expected in expected_browser_fields.items():
+    if browser_smoke.get(field) != expected:
+        fail(f"browser smoke field {field} was {browser_smoke.get(field)!r}, expected {expected!r}")
+
+browser_outline = browser_smoke.get("outline")
+if not isinstance(browser_outline, list) or "H1: Browser Smoke" not in browser_outline:
+    fail(f"browser smoke outline did not include the smoke heading: {browser_outline}")
+if browser_smoke.get("commentCount") != 1:
+    fail(f"browser smoke did not preserve the browser comment: {browser_smoke.get('commentCount')}")
+for field in ("textSnippet", "finalAnswer"):
+    value = browser_smoke.get(field)
+    if not isinstance(value, str) or "Native browser smoke preview text." not in value:
+        fail(f"browser smoke {field} did not include rendered page text: {value!r}")
+if "Check the smoke hero" not in browser_smoke.get("finalAnswer", ""):
+    fail("browser smoke final answer did not include the browser comment")
 
 
 native_targets = report.get("nativeHitTargets")
@@ -429,6 +461,8 @@ fi
 if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'Contents of `hello.txt`:' "$HTML_PATH" \
   || ! grep -q 'hello world' "$HTML_PATH" \
+  || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
+  || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \
   || ! grep -q 'host.file.read' "$HTML_PATH"; then
   echo "quill-code-desktop native smoke rendered HTML did not contain the result transcript" >&2
