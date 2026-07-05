@@ -6,7 +6,7 @@ struct QuillCodeProjectRowView: View {
     var onProjectAction: (ProjectItemActionSurface) -> Void
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+        HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
             projectButton
             projectActionMenu
         }

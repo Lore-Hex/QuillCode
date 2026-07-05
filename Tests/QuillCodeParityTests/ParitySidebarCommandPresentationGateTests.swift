@@ -88,6 +88,8 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.sidebarVisibleRowRadius")
         Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.sidebarVisibleRowHeight")
         Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.minimumHitTarget")
+        Self.assertSource(threadRowText, contains: "HStack(spacing: QuillCodeMetrics.minimumTargetClearance)")
+        Self.assertSource(projectRowText, contains: "HStack(spacing: QuillCodeMetrics.minimumTargetClearance)")
         Self.assertSource(threadRowText, contains: ".quillCodeIconButtonTarget")
         Self.assertSource(projectRowText, contains: ".quillCodeIconButtonTarget")
     }
