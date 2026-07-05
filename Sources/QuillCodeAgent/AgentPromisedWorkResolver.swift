@@ -20,6 +20,12 @@ extension AgentRunner {
             if let recovered = Self.recoveredPromisedWorkAction(from: text, tools: tools) {
                 return recovered
             }
+            if let recovered = Self.recoveredPromisedUserIntentAction(
+                from: userMessage,
+                tools: tools
+            ) {
+                return recovered
+            }
 
             let correctionPrompt = AgentPromisedWorkGuard.correctionPrompt(
                 assistantText: text,
@@ -53,5 +59,12 @@ extension AgentRunner {
             return nil
         }
         return action
+    }
+
+    private static func recoveredPromisedUserIntentAction(
+        from userMessage: String,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        AgentImmediateActionPlanner.action(for: userMessage, tools: tools)
     }
 }

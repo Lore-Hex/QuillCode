@@ -244,6 +244,66 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Done after checking the command.")
     }
 
+    func testAgentRecoversGenericPromisedDiskCheckFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say("I'll check your disk usage now."),
+            .say("Done after checking disk usage.")
+        ]))
+
+        let result = try await runner.send(
+            "How much hd is used?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains {
+            $0.content.contains("I'll check")
+        })
+        let queuedEvent = try XCTUnwrap(result.thread.events.last {
+            $0.kind == .toolQueued && $0.payloadJSON != nil
+        })
+        let call = try JSONHelpers.decode(
+            ToolCall.self,
+            from: try XCTUnwrap(queuedEvent.payloadJSON)
+        )
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "df -h / /Quill 2>/dev/null || df -h /")
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after checking disk usage.")
+    }
+
+    func testAgentRecoversGenericPromisedFileWriteFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .say("I'll create the file now."),
+                .say("Created the file.")
+            ]),
+            safety: AlwaysApprovingSafetyReviewer()
+        )
+
+        let result = try await runner.send(
+            "Create a file named notes/hello.txt that says hello world",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains {
+            $0.content.contains("I'll create")
+        })
+        let written = try String(
+            contentsOf: root.appendingPathComponent("notes/hello.txt"),
+            encoding: .utf8
+        )
+        XCTAssertEqual(written, "hello world\n")
+        XCTAssertEqual(result.thread.messages.last?.content, "Created the file.")
+    }
+
     func testAgentDoesNotFinalizeRepeatedPromisedWorkAnswers() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [
@@ -254,7 +314,7 @@ final class AgentToolLoopTests: XCTestCase {
 
         do {
             _ = try await runner.send(
-                "How much disk is used?",
+                "Please handle the setup issue.",
                 in: ChatThread(mode: .auto),
                 workspaceRoot: root
             )
