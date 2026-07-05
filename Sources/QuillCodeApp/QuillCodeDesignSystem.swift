@@ -10,17 +10,17 @@ public enum QuillCodeMetrics {
     public static let controlClusterSpacing: CGFloat = 8
     public static let denseControlClusterSpacing: CGFloat = 6
     public static let topBarHeight: CGFloat = 40
-    public static let topBarTokenBudgetMinWidth: CGFloat = 342
-    public static let topBarTokenBudgetMaxWidth: CGFloat = 456
-    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 10
-    public static let topBarTokenBudgetVerticalPadding: CGFloat = 4
+    public static let topBarTokenBudgetMinWidth: CGFloat = 360
+    public static let topBarTokenBudgetMaxWidth: CGFloat = 480
+    public static let topBarTokenBudgetHorizontalPadding: CGFloat = 12
+    public static let topBarTokenBudgetVerticalPadding: CGFloat = 5
     public static let sidebarWidth: CGFloat = 296
     public static let sidebarLeadingInset: CGFloat = 16
     public static let sidebarTrailingInset: CGFloat = 16
     public static let sidebarVerticalInset: CGFloat = 8
     public static let sidebarSectionSpacing: CGFloat = minimumTargetClearance
     public static let sidebarVisibleRowHeight: CGFloat = 30
-    public static let sidebarVisibleRowHorizontalPadding: CGFloat = 12
+    public static let sidebarVisibleRowHorizontalPadding: CGFloat = 14
     public static let sidebarVisibleRowRadius: CGFloat = 7
     public static let composerSurfaceRadius: CGFloat = 12
     public static let composerControlRadius: CGFloat = 10
@@ -29,7 +29,7 @@ public enum QuillCodeMetrics {
     public static let toolCardHeaderHeight: CGFloat = 44
     public static let toolCardRawDetailsMaxHeight: CGFloat = 240
     public static let toolCardRadius: CGFloat = 20
-    public static let settingsCardRadius: CGFloat = 14
+    public static let settingsCardRadius: CGFloat = 12
     public static let dialogRadius: CGFloat = 16
     public static let pressScale: CGFloat = 0.96
 }

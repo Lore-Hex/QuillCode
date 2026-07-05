@@ -14,12 +14,19 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         let extensions = setup.model.surface().extensions
         XCTAssertTrue(extensions.isVisible)
         XCTAssertEqual(extensions.pluginCount, 1)
-        XCTAssertEqual(extensions.skillCount, 1)
+        XCTAssertEqual(extensions.skillCount, 4)
         XCTAssertEqual(extensions.mcpServerCount, 0)
         XCTAssertEqual(extensions.items.first?.name, "GitHub")
         XCTAssertEqual(extensions.items.first?.relativePath, ".quillcode/plugins/github.json")
+        XCTAssertEqual(extensions.items.map(\.name).dropFirst(), [
+            "LLM Advisor",
+            "Browser Use",
+            "OpenClaw Video Toolkit",
+            "BurstyRouter"
+        ])
         XCTAssertEqual(extensions.items.last?.name, "BurstyRouter")
         XCTAssertEqual(extensions.items.last?.statusLabel, "Available")
+        XCTAssertEqual(extensions.items.last?.installCommandID, "extension-install:skill:burstyrouter")
     }
 
     func testSurfaceIncludesProjectExtensionSummaryAndCommand() {

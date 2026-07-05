@@ -45,6 +45,11 @@
 
 ## Latest Quality Pass
 
+- Bundled Extensions now expose curated on-demand skill installs for LLM
+  Advisor, Browser Use, OpenClaw Video Toolkit, and BurstyRouter. Each install
+  writes both `.quillcode/skills/<name>/SKILL.md` content and a matching
+  `.quillcode/skills/<name>.json` manifest, keeping the base prompt small while
+  making common Codex-style skill workflows discoverable.
 - Run-receipt cost ledger enforcement is now in place: TrustedRouter usage
   records carry the model ID, Activity renders priced per-call receipts and a
   thread-total spend row from catalog pricing, legacy usage events remain

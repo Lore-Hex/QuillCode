@@ -187,17 +187,28 @@ test('secondary pane controls respond from the full interior click target', asyn
 
   await page.getByTestId('extensions-button').click();
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
-  await clickTargetInteriorPoint(page.getByTestId('extension-start'), 'extension start trailing interior', 0.85, 0.5);
-  await expect(page.getByTestId('extension-item').nth(3)).toContainText('Ready');
+  const filesystemMCP = page.getByTestId('extension-item').filter({ hasText: 'Filesystem MCP' });
   await clickTargetInteriorPoint(
-    page.getByTestId('extension-mcp-resource-action').first(),
+    filesystemMCP.getByTestId('extension-start'),
+    'extension start trailing interior',
+    0.85,
+    0.5
+  );
+  await expect(filesystemMCP).toContainText('Ready');
+  await clickTargetInteriorPoint(
+    filesystemMCP.getByTestId('extension-mcp-resource-action').first(),
     'MCP resource capsule leading interior',
     0.2,
     0.5
   );
   await expect(page.getByTestId('tool-card').last()).toContainText('host.mcp.resource.read');
-  await clickTargetInteriorPoint(page.getByTestId('extension-stop'), 'extension stop leading interior', 0.2, 0.5);
-  await expect(page.getByTestId('extension-item').nth(3)).toContainText('Stopped');
+  await clickTargetInteriorPoint(
+    filesystemMCP.getByTestId('extension-stop'),
+    'extension stop leading interior',
+    0.2,
+    0.5
+  );
+  await expect(filesystemMCP).toContainText('Stopped');
 
   await clickSidebarTool(page, 'memories-button');
   await expect(page.getByTestId('memories-pane')).toBeVisible();

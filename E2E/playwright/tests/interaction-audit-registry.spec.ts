@@ -138,13 +138,15 @@ test('critical click-target registry covers primary workspace surfaces', async (
 
   await page.getByTestId('extensions-button').click();
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
-  await page.getByTestId('extension-start').click();
-  await expect(page.getByTestId('extension-item').nth(3)).toContainText('Ready');
+  const browserUseSkill = page.getByTestId('extension-item').filter({ hasText: 'Browser Use' });
+  const filesystemMCP = page.getByTestId('extension-item').filter({ hasText: 'Filesystem MCP' });
+  await filesystemMCP.getByTestId('extension-start').click();
+  await expect(filesystemMCP).toContainText('Ready');
   await expectCriticalTargetRegistry('extensions pane', [
-    { label: 'install extension', locator: page.getByTestId('extension-install'), expectedKind: 'form-action' },
-    { label: 'stop MCP server', locator: page.getByTestId('extension-stop'), expectedKind: 'form-action' },
-    { label: 'read MCP resource', locator: page.getByTestId('extension-mcp-resource-action').first(), expectedKind: 'capsule' },
-    { label: 'use MCP prompt', locator: page.getByTestId('extension-mcp-prompt-action'), expectedKind: 'capsule' }
+    { label: 'install extension', locator: browserUseSkill.getByTestId('extension-install'), expectedKind: 'form-action' },
+    { label: 'stop MCP server', locator: filesystemMCP.getByTestId('extension-stop'), expectedKind: 'form-action' },
+    { label: 'read MCP resource', locator: filesystemMCP.getByTestId('extension-mcp-resource-action').first(), expectedKind: 'capsule' },
+    { label: 'use MCP prompt', locator: filesystemMCP.getByTestId('extension-mcp-prompt-action'), expectedKind: 'capsule' }
   ]);
 
   await clickSidebarTool(page, 'memories-button');

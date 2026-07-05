@@ -27,6 +27,8 @@
       --hit-target-clearance: 8px;
       --control-cluster-gap: 8px;
       --workspace-sidebar-width: 296px;
+      --sidebar-visible-row-height: 34px;
+      --sidebar-visible-row-inset-y: 7px;
     }
     * { box-sizing: border-box; }
     .visually-hidden {
@@ -191,11 +193,11 @@
       display: grid;
       grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) auto;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
       min-height: var(--hit-target);
-      padding: 0 12px;
+      padding: 0 14px;
       border-bottom: 1px solid rgba(255,255,255,.08);
-      background: rgba(10, 16, 20, .96);
+      background: linear-gradient(180deg, rgba(13, 19, 23, .98), rgba(9, 15, 18, .97));
     }
     .topbar-sidebar-slot {
       display: flex;
@@ -238,7 +240,7 @@
       min-width: 0;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       text-align: left;
     }
     .topbar-title-copy {
@@ -265,13 +267,14 @@
       background: rgba(66, 214, 119, 0.10);
     }
     .topbar-token-budget {
-      flex: 0 0 min(372px, 38vw);
-      min-width: 342px;
+      flex: 0 1 min(430px, 40vw);
+      min-width: 360px;
       display: grid;
-      gap: 3px;
-      padding: 4px 10px;
-      border-radius: 9px;
-      background: rgba(65, 184, 232, 0.085);
+      gap: 4px;
+      padding: 5px 12px;
+      border-radius: 11px;
+      background: rgba(65, 184, 232, 0.075);
+      box-shadow: var(--shadow-border);
       color: var(--text);
       font-variant-numeric: tabular-nums;
     }
@@ -284,18 +287,18 @@
     .topbar-token-budget-row {
       display: flex;
       align-items: baseline;
-      gap: 7px;
+      gap: 8px;
       min-width: 0;
-      line-height: 1.18;
+      line-height: 1.2;
     }
     .topbar-token-budget-label {
       color: var(--muted);
-      font-size: 14.5px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 750;
     }
     .topbar-token-budget strong {
       min-width: 0;
-      font-size: 17px;
+      font-size: 17.5px;
       font-weight: 800;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -324,7 +327,7 @@
       color: var(--muted);
       font-size: 14px;
       font-weight: 700;
-      line-height: 1.18;
+      line-height: 1.2;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -767,7 +770,8 @@
       display: grid;
       place-items: center;
       padding: 24px;
-      background: rgba(0,0,0,.45);
+      background: rgba(0,0,0,.50);
+      backdrop-filter: blur(10px);
       z-index: 5;
     }
     .settings-card,
@@ -776,11 +780,11 @@
       max-height: calc(100vh - 48px);
       overflow: auto;
       display: grid;
-      gap: 14px;
-      padding: 20px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 28px;
-      background: var(--panel);
+      gap: 13px;
+      padding: 18px;
+      border: 0;
+      border-radius: 18px;
+      background: rgba(15, 23, 28, .98);
       box-shadow: var(--shadow-panel);
     }
     .search-card { width: min(620px, 100%); }
@@ -802,7 +806,7 @@
       gap: 10px;
       padding: 0 10px;
       border-radius: 10px;
-      background: rgba(255,255,255,.045);
+      background: rgba(255,255,255,.038);
       box-shadow: var(--shadow-border);
       transition-property: box-shadow, background-color;
       transition-duration: 150ms;
@@ -912,7 +916,7 @@
     }
     .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
-    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 24px; background: rgba(15, 23, 28, .72); border: 1px solid rgba(255, 255, 255, .10); }
+    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.035); border: 1px solid rgba(255, 255, 255, .08); }
     .permission-card h3 { margin: 0 0 6px; }
     .permission-card p { margin: 0; }
     .permission-card header, .permission-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -938,7 +942,7 @@
       box-shadow: var(--shadow-border);
     }
     .sidebar {
-      padding: 8px 16px;
+      padding: 8px 16px 10px;
       overflow: auto;
       border-right: 1px solid rgba(255,255,255,.07);
       display: flex;
@@ -1177,26 +1181,40 @@
     }
     .sidebar-actions {
       display: grid;
-      gap: 1px;
+      gap: 0;
       margin-bottom: var(--hit-target-clearance);
     }
     .sidebar-action {
+      position: relative;
+      isolation: isolate;
       width: 100%;
       min-height: var(--hit-target);
-      padding: 0 12px;
+      padding: 0 14px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 9px;
       justify-content: flex-start;
       text-align: left;
       color: var(--text);
       background: transparent;
-      border: 1px solid transparent;
-      border-radius: 7px;
+      border: 0;
+      border-radius: 10px;
       box-shadow: none;
       font-size: 13.5px;
       line-height: 1.22;
-      transition-property: transform, background-color, box-shadow, border-color;
+      transition-property: transform, color, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .sidebar-action::after {
+      content: "";
+      position: absolute;
+      inset: var(--sidebar-visible-row-inset-y) 0;
+      z-index: -1;
+      border-radius: 8px;
+      background: transparent;
+      box-shadow: none;
+      transition-property: background-color, box-shadow;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
@@ -1209,8 +1227,10 @@
     }
     .sidebar-action[data-command-id="new-chat"] {
       background: transparent;
-      border-color: transparent;
-      box-shadow: none;
+    }
+    .sidebar-action[data-command-id="new-chat"]::after {
+      background: rgba(255,255,255,.055);
+      box-shadow: var(--shadow-border);
     }
     .sidebar-action::before,
     .sidebar-tools-menu summary::before,
@@ -1220,6 +1240,7 @@
       width: 20px;
       display: grid;
       place-items: center;
+      z-index: 1;
       color: var(--muted);
       text-align: center;
       font-size: 12.5px;
@@ -1279,12 +1300,14 @@
     }
     .sidebar-tools-menu summary,
     .sidebar-settings-button {
+      position: relative;
+      isolation: isolate;
       min-height: var(--hit-target);
-      border: 1px solid transparent;
+      border: 0;
       background: transparent;
       color: var(--muted);
       cursor: pointer;
-      transition-property: transform, background-color, border-color, color;
+      transition-property: transform, color;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
@@ -1294,17 +1317,30 @@
       justify-content: center;
       gap: 8px;
       width: 100%;
-      padding: 0 10px;
+      padding: 0 12px;
       border-radius: 9px;
       font-size: 13px;
       font-weight: 650;
       list-style: none;
     }
+    .sidebar-tools-menu summary::after,
+    .sidebar-settings-button::after {
+      content: "";
+      position: absolute;
+      inset: var(--sidebar-visible-row-inset-y) 0;
+      z-index: -1;
+      border-radius: 8px;
+      background: rgba(255,255,255,.035);
+      box-shadow: var(--shadow-border);
+      transition-property: background-color, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
     .sidebar-tools-menu summary::-webkit-details-marker { display: none; }
     .sidebar-settings-button {
       flex: 1 1 0;
       min-width: 0;
-      padding: 0 10px;
+      padding: 0 12px;
       border-radius: 9px;
       font-size: 13px;
       font-weight: 650;
@@ -1314,8 +1350,13 @@
     .sidebar-tools-menu summary:hover,
     .sidebar-settings-button:hover {
       color: var(--text);
-      background: rgba(255,255,255,.055);
-      border-color: rgba(255,255,255,.08);
+      background: transparent;
+    }
+    .sidebar-tools-menu[open] summary::after,
+    .sidebar-tools-menu summary:hover::after,
+    .sidebar-settings-button:hover::after {
+      background: rgba(255,255,255,.065);
+      box-shadow: var(--shadow-border-hover);
     }
     .sidebar-tools-menu summary:active,
     .sidebar-settings-button:active {
@@ -1356,60 +1397,102 @@
       text-transform: uppercase;
     }
     .sidebar-tool-action {
+      position: relative;
+      isolation: isolate;
       min-height: var(--hit-target);
-      padding: 5px 10px;
+      padding: 0 12px;
       display: flex;
       align-items: center;
       gap: 8px;
       text-align: left;
       color: var(--text);
       background: transparent;
-      border: 1px solid transparent;
+      border: 0;
       border-radius: 7px;
       font-weight: 620;
       white-space: nowrap;
-      transition-property: background-color, color, border-color, transform;
+      transition-property: color, transform;
+      transition-duration: 130ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .sidebar-tool-action::after {
+      content: "";
+      position: absolute;
+      inset: var(--sidebar-visible-row-inset-y) 0;
+      z-index: -1;
+      border-radius: 8px;
+      background: transparent;
+      transition-property: background-color, box-shadow;
       transition-duration: 130ms;
       transition-timing-function: var(--ease-out);
     }
     .sidebar-tool-action:hover {
-      background: rgba(255,255,255,.075);
-      border-color: rgba(255,255,255,.10);
+      background: transparent;
+    }
+    .sidebar-tool-action:hover::after {
+      background: rgba(255,255,255,.065);
+      box-shadow: var(--shadow-border-hover);
     }
     .sidebar-tool-action:active {
       transform: scale(.96);
     }
     .sidebar-item,
     .project-item {
+      position: relative;
+      isolation: isolate;
       width: 100%;
       margin: 0 0 1px;
-      padding: 4px 12px;
+      padding: 4px 14px;
       display: grid;
       gap: 1px;
       text-align: left;
       color: var(--text);
       background: transparent;
-      border: 1px solid transparent;
-      border-radius: 7px;
+      border: 0;
+      border-radius: 10px;
       line-height: 1.22;
-      transition-property: transform, background-color, box-shadow, border-color;
+      transition-property: transform, color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .sidebar-item::before,
+    .project-item::before {
+      content: "";
+      position: absolute;
+      inset: 4px 0;
+      z-index: -1;
+      border-radius: 8px;
+      background: transparent;
+      box-shadow: none;
+      transition-property: background-color, box-shadow;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
     .sidebar-action:not(:disabled):hover,
     .sidebar-item:not(:disabled):hover,
     .project-item:not(:disabled):hover {
-      transform: translateY(-1px);
+      transform: none;
+      box-shadow: none;
+      background: transparent;
+    }
+    .sidebar-action:not(:disabled):hover::after,
+    .sidebar-item:not(:disabled):hover::before,
+    .project-item:not(:disabled):hover::before {
+      background: rgba(255,255,255,.055);
       box-shadow: var(--shadow-border-hover);
-      background: rgba(255,255,255,.06);
     }
     .sidebar-item {
       min-height: var(--hit-target);
-      padding-right: 16px;
+      padding-right: 18px;
       margin-bottom: 1px;
     }
     .sidebar-item.selected,
-    .project-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
+    .project-item.selected { background: transparent; }
+    .sidebar-item.selected::before,
+    .project-item.selected::before {
+      background: rgba(255,255,255,.075);
+      box-shadow: var(--shadow-border-hover);
+    }
     .sidebar-selection {
       display: grid;
       gap: 8px;
@@ -1448,8 +1531,11 @@
       padding-left: 12px;
     }
     .sidebar-thread-row.bulk-selected .sidebar-item {
-      border-color: rgba(65,184,232,.58);
-      background: rgba(65,184,232,.1);
+      background: transparent;
+    }
+    .sidebar-thread-row.bulk-selected .sidebar-item::before {
+      background: rgba(65,184,232,.10);
+      box-shadow: 0 0 0 1px rgba(65,184,232,.45);
     }
     .sidebar-item small,
     .project-item small { color: var(--muted); font-size: 12px; line-height: 1.25; }
@@ -1485,7 +1571,7 @@
       margin-bottom: 1px;
     }
     .project-row .project-item {
-      padding-right: 16px;
+      padding-right: 18px;
     }
     .sidebar-thread-menu {
       position: relative;
@@ -2732,22 +2818,27 @@
       margin-top: var(--hit-target-clearance);
     }
     .tool-details summary {
-      display: inline-flex;
+      width: 100%;
+      display: flex;
       align-items: center;
+      justify-content: flex-start;
       min-height: var(--hit-target);
-      padding: 0 10px;
-      border-radius: 999px;
+      padding: 0 12px;
+      border-radius: 10px;
       cursor: pointer;
       color: #8fe2ff;
-      font-size: 12px;
+      background: rgba(65,184,232,.045);
+      box-shadow: var(--shadow-border);
+      font-size: 13px;
       font-weight: 700;
       user-select: none;
-      transition-property: transform, background-color, color;
+      transition-property: transform, background-color, color, box-shadow;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
     .tool-details summary:hover {
-      background: rgba(65,184,232,.08);
+      background: rgba(65,184,232,.075);
+      box-shadow: var(--shadow-border-hover);
     }
     .review-pane {
       align-self: flex-start;
@@ -4007,9 +4098,9 @@
       extensions: {
         isVisible: false,
         title: 'Extensions',
-        subtitle: '1 plugin · 2 skills · 1 MCP server · 1 available extension',
+        subtitle: '1 plugin · 5 skills · 1 MCP server · 4 available extensions',
         pluginCount: 1,
-        skillCount: 2,
+        skillCount: 5,
         mcpServerCount: 1,
         emptyTitle: 'No extension manifests found',
         emptySubtitle: 'Add JSON manifests under .quillcode/plugins, .quillcode/skills, or .quillcode/mcp.',
@@ -4047,6 +4138,60 @@
             stopCommandID: null
           },
           {
+            id: 'skill:llm-advisor',
+            kind: 'skill',
+            kindLabel: 'Skill',
+            name: 'LLM Advisor',
+            summary: 'Choose cost-aware TrustedRouter models without loading the full playbook into every prompt.',
+            sourceURL: 'https://github.com/Lore-Hex/LLM-advisor',
+            relativePath: '.quillcode/marketplace/llm-advisor.json',
+            statusLabel: 'Available',
+            transportLabel: null,
+            launchCommand: null,
+            installCommand: 'install LLM Advisor skill',
+            installCommandID: 'extension-install:skill:llm-advisor',
+            updateCommand: null,
+            updateCommandID: null,
+            startCommandID: null,
+            stopCommandID: null
+          },
+          {
+            id: 'skill:browser-use',
+            kind: 'skill',
+            kindLabel: 'Skill',
+            name: 'Browser Use',
+            summary: 'On-demand browser automation playbooks for CDP-driven web tasks and QA flows.',
+            sourceURL: 'https://github.com/browser-use/browser-use/tree/main/skills',
+            relativePath: '.quillcode/marketplace/browser-use.json',
+            statusLabel: 'Available',
+            transportLabel: null,
+            launchCommand: null,
+            installCommand: 'install Browser Use skill',
+            installCommandID: 'extension-install:skill:browser-use',
+            updateCommand: null,
+            updateCommandID: null,
+            startCommandID: null,
+            stopCommandID: null
+          },
+          {
+            id: 'skill:openclaw-video-toolkit',
+            kind: 'skill',
+            kindLabel: 'Skill',
+            name: 'OpenClaw Video Toolkit',
+            summary: 'Video-production workflow guidance from the Claude Code video toolkit.',
+            sourceURL: 'https://github.com/digitalsamba/claude-code-video-toolkit/tree/main/skills/openclaw-video-toolkit',
+            relativePath: '.quillcode/marketplace/openclaw-video-toolkit.json',
+            statusLabel: 'Available',
+            transportLabel: null,
+            launchCommand: null,
+            installCommand: 'install OpenClaw Video Toolkit skill',
+            installCommandID: 'extension-install:skill:openclaw-video-toolkit',
+            updateCommand: null,
+            updateCommandID: null,
+            startCommandID: null,
+            stopCommandID: null
+          },
+          {
             id: 'skill:burstyrouter',
             kind: 'skill',
             kindLabel: 'Skill',
@@ -4057,8 +4202,8 @@
             statusLabel: 'Available',
             transportLabel: null,
             launchCommand: null,
-            installCommand: null,
-            installCommandID: null,
+            installCommand: 'install BurstyRouter skill',
+            installCommandID: 'extension-install:skill:burstyrouter',
             updateCommand: null,
             updateCommandID: null,
             startCommandID: null,
@@ -4314,6 +4459,10 @@
         { id: 'mcp-prompt:mcp_server:filesystem:0', title: 'Use summarize_project', shortcut: '', category: 'Extensions', keywords: ['mcp', 'prompt', 'get', 'filesystem', 'summarize_project'], isEnabled: false },
         { id: 'extension-install:plugin:github', title: 'Install GitHub', shortcut: '', category: 'Extensions', keywords: ['extension', 'plugin', 'install', 'GitHub', '1.2.0'], isEnabled: true },
         { id: 'extension-update:plugin:github', title: 'Update GitHub', shortcut: '', category: 'Extensions', keywords: ['extension', 'plugin', 'update', 'GitHub', '1.2.0'], isEnabled: true },
+        { id: 'extension-install:skill:llm-advisor', title: 'Install LLM Advisor', shortcut: '', category: 'Extensions', keywords: ['extension', 'skill', 'install', 'LLM Advisor', 'model advisor', 'TrustedRouter'], isEnabled: true },
+        { id: 'extension-install:skill:browser-use', title: 'Install Browser Use', shortcut: '', category: 'Extensions', keywords: ['extension', 'skill', 'install', 'Browser Use', 'browser automation', 'CDP'], isEnabled: true },
+        { id: 'extension-install:skill:openclaw-video-toolkit', title: 'Install OpenClaw Video Toolkit', shortcut: '', category: 'Extensions', keywords: ['extension', 'skill', 'install', 'OpenClaw Video Toolkit', 'video production'], isEnabled: true },
+        { id: 'extension-install:skill:burstyrouter', title: 'Install BurstyRouter', shortcut: '', category: 'Extensions', keywords: ['extension', 'skill', 'install', 'BurstyRouter', 'local router', 'TrustedRouter'], isEnabled: true },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
         { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
@@ -7096,6 +7245,24 @@
       return false;
     }
 
+    function handleModalEscape(event) {
+      if (event.key !== 'Escape') return false;
+      if (state.settings.isOpen) {
+        event.preventDefault();
+        state.settings.isOpen = false;
+        render();
+        return true;
+      }
+      if (state.search.isOpen) {
+        event.preventDefault();
+        state.search.isOpen = false;
+        state.search.highlightedThreadID = null;
+        render();
+        return true;
+      }
+      return false;
+    }
+
     function estimatedContextTokens() {
       const messageChars = state.transcript.messages
         .reduce((total, message) => total + message.text.length + 24, 0);
@@ -8719,6 +8886,14 @@
         state.settings.isOpen = false;
         render();
       });
+      document.querySelector('[data-testid="settings-panel"]')?.addEventListener('click', event => {
+        if (event.target !== event.currentTarget) return;
+        state.settings.isOpen = false;
+        render();
+      });
+      document.querySelector('[data-testid="settings-form"]')?.addEventListener('click', event => {
+        event.stopPropagation();
+      });
       document.querySelector('select[name="authMode"]')?.addEventListener('change', event => {
         state.settings.authMode = event.target.value;
         state.settings.developerOverrideEnabled = state.settings.authMode === 'developer-override';
@@ -8792,6 +8967,12 @@
         render();
       });
       document.querySelector('[data-testid="search-close"]')?.addEventListener('click', () => {
+        state.search.isOpen = false;
+        state.search.highlightedThreadID = null;
+        render();
+      });
+      document.querySelector('[data-testid="search-panel"]')?.addEventListener('click', event => {
+        if (event.target !== event.currentTarget) return;
         state.search.isOpen = false;
         state.search.highlightedThreadID = null;
         render();
@@ -16546,6 +16727,7 @@
 
     document.addEventListener('keydown', event => {
       if (handleCommandPaletteKeydown(event)) return;
+      if (handleModalEscape(event)) return;
       if (handleAttentionTriageKeydown(event)) return;
       updateDynamicCommands();
       const command = state.commands.find(candidate => (

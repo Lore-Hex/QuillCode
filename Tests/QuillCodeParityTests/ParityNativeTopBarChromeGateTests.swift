@@ -19,8 +19,8 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
         [
             "static let sidebarWidth",
             "static let topBarHeight: CGFloat = 40",
-            "static let topBarTokenBudgetMinWidth: CGFloat = 342",
-            "static let topBarTokenBudgetVerticalPadding: CGFloat = 4"
+            "static let topBarTokenBudgetMinWidth: CGFloat = 360",
+            "static let topBarTokenBudgetVerticalPadding: CGFloat = 5"
         ].forEach { Self.assertSource(designText, contains: $0) }
         [
             "Text(\"Tokens\")",

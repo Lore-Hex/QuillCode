@@ -205,7 +205,7 @@ struct QuillCodeToolCardView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 12)
         .background(QuillCodePalette.blue.opacity(isDetailsOpen ? 0.10 : 0.06))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
