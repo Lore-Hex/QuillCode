@@ -166,6 +166,40 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         XCTAssertEqual(manifests.map(\.relativePath), [".quillcode/marketplace/review.json"])
     }
 
+    func testBundledMarketplaceIncludesBurstyRouterAndFiltersClaimedID() {
+        let manifests = BundledExtensionMarketplace.availableManifests(excluding: [])
+        let burstyRouter = manifests.first { $0.id == "skill:burstyrouter" }
+
+        XCTAssertEqual(burstyRouter?.kind, .skill)
+        XCTAssertEqual(burstyRouter?.name, "BurstyRouter")
+        XCTAssertEqual(
+            burstyRouter?.summary,
+            "Route LLM calls local-first to a local server, then burst overflow to TrustedRouter Cloud."
+        )
+        XCTAssertEqual(burstyRouter?.sourceURL, "https://github.com/Lore-Hex/BurstyRouter")
+        XCTAssertEqual(burstyRouter?.relativePath, ".quillcode/marketplace/burstyrouter.json")
+
+        let installed = ProjectExtensionManifest(
+            id: "skill:burstyrouter",
+            kind: .skill,
+            name: "BurstyRouter",
+            relativePath: ".quillcode/skills/burstyrouter.json"
+        )
+        XCTAssertFalse(BundledExtensionMarketplace.availableManifests(excluding: [installed]).contains {
+            $0.id == "skill:burstyrouter"
+        })
+
+        let projectMarketplace = ProjectExtensionManifest(
+            id: "skill:burstyrouter",
+            kind: .skill,
+            name: "Custom BurstyRouter",
+            relativePath: ".quillcode/marketplace/burstyrouter.json"
+        )
+        XCTAssertFalse(BundledExtensionMarketplace.availableManifests(excluding: [projectMarketplace]).contains {
+            $0.id == "skill:burstyrouter"
+        })
+    }
+
     func testLoadsRemoteHTTPMCPServerWithURLAndHeaders() throws {
         let root = try makeQuillCodeTestDirectory()
         let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")

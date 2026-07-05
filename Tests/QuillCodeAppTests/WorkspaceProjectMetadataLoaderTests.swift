@@ -39,7 +39,7 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
 
         XCTAssertEqual(metadata.instructions.map(\.path), ["AGENTS.md"])
         XCTAssertEqual(metadata.localActions.map(\.title), ["Bootstrap"])
-        XCTAssertEqual(metadata.extensionManifests.map(\.id), ["mcp_server:filesystem"])
+        XCTAssertEqual(metadata.extensionManifests.map(\.id), ["mcp_server:filesystem", "skill:burstyrouter"])
         XCTAssertEqual(metadata.memories.map(\.relativePath), [".quillcode/memories/team-note.md"])
     }
 

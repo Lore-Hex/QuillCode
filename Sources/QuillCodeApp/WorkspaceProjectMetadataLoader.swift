@@ -10,10 +10,13 @@ enum WorkspaceProjectMetadataLoader {
             from: root,
             installedManifests: installedManifests
         )
+        let bundledMarketplaceManifests = BundledExtensionMarketplace.availableManifests(
+            excluding: installedManifests + marketplaceManifests
+        )
         return WorkspaceProjectMetadata(
             instructions: ProjectInstructionLoader.load(from: root),
             localActions: LocalEnvironmentActionLoader.load(from: root),
-            extensionManifests: installedManifests + marketplaceManifests,
+            extensionManifests: installedManifests + marketplaceManifests + bundledMarketplaceManifests,
             memories: MemoryNoteLoader.loadProject(from: root)
         )
     }

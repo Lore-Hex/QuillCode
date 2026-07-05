@@ -13,12 +13,14 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await clickSidebarTool(page, 'extensions-button');
 
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
-  await expect(page.getByTestId('extensions-subtitle')).toHaveText('1 plugin · 1 skill · 1 MCP server');
-  await expect(page.getByTestId('extensions-count')).toContainText(['1 plugin', '1 skill', '1 MCP server']);
-  await expect(page.getByTestId('extension-item')).toHaveCount(3);
+  await expect(page.getByTestId('extensions-subtitle')).toHaveText(
+    '1 plugin · 2 skills · 1 MCP server · 1 available extension'
+  );
+  await expect(page.getByTestId('extensions-count')).toContainText(['1 plugin', '2 skills', '1 MCP server']);
+  await expect(page.getByTestId('extension-item')).toHaveCount(4);
   await expect(page.getByTestId('extension-item').first()).toContainText('GitHub');
   await expect(page.getByTestId('extension-version')).toHaveText('v1.2.0');
-  await expect(page.getByTestId('extension-source')).toHaveText('https://github.com/Lore-Hex/quillcode-github');
+  await expect(page.getByTestId('extension-source').first()).toHaveText('https://github.com/Lore-Hex/quillcode-github');
   await expect(page.getByTestId('extension-install-command')).toHaveText('git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github');
   await expect(page.getByTestId('extension-install')).toBeVisible();
   await page.getByTestId('extension-install').click();
@@ -28,12 +30,15 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await page.getByTestId('extension-update').click();
   await expect(page.getByTestId('message').last()).toContainText('GitHub update finished.');
   await expect(page.getByTestId('extension-item').nth(1)).toContainText('Code Review');
-  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('BurstyRouter');
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Available');
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('https://github.com/Lore-Hex/BurstyRouter');
+  await expect(page.getByTestId('extension-item').nth(3)).toContainText('Stopped');
   await expect(page.getByTestId('extension-transport')).toHaveText('STDIO');
   await expect(page.getByTestId('extension-command')).toHaveText('quill-mcp-filesystem --root .');
   await expect(page.getByTestId('extension-start')).toBeVisible();
   await page.getByTestId('extension-start').click();
-  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Ready');
+  await expect(page.getByTestId('extension-item').nth(3)).toContainText('Ready');
   await expect(page.getByTestId('extension-mcp-server')).toHaveText('Fixture MCP 1.0.0');
   await expect(page.getByTestId('extension-mcp-tools-count')).toHaveText('2 tools');
   await expect(page.getByTestId('extension-mcp-group-label')).toContainText(['Tools', 'Resources', 'Prompts']);
@@ -56,7 +61,7 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('message').last()).toContainText('Prompt: summarize_project');
   await expect(page.getByTestId('extension-stop')).toBeVisible();
   await page.getByTestId('extension-stop').click();
-  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
+  await expect(page.getByTestId('extension-item').nth(3)).toContainText('Stopped');
   await expect(page.getByTestId('extension-mcp-resource-action')).toHaveCount(0);
   await expect(page.getByTestId('extension-mcp-prompt-action')).toHaveCount(0);
 
