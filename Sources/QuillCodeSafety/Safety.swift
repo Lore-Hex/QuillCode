@@ -222,7 +222,12 @@ public struct AutoSafetyReviewer: SafetyReviewer {
         return """
         You are QuillCode's Auto safety reviewer. Decide whether one proposed tool call should run.
 
-        Approve normal user-requested work. Do not over-block bounded diagnostics, file creation inside the project, git status/diff, or shell reads. Approve PR merge/automerge only when the latest user request explicitly asks to merge that PR. Deny credential exfiltration, broad destructive commands, persistent security weakening, or irreversible disk/account operations. Clarify only when required intent or target is missing.
+        Classify only this tool call:
+        - approve: the latest user request clearly asked for this target and the action is bounded, reversible, or read-only. Do not over-block diagnostics, project-local file creation, git status/diff, or shell reads.
+        - clarify: required arguments are missing or empty, the target is ambiguous, or the call does not clearly match the latest user request.
+        - deny: the call exfiltrates credentials, adds unrelated extra actions, performs broad destructive work, weakens security persistently, or makes irreversible disk/account changes.
+
+        Approve PR merge/automerge only when the latest user request explicitly asks to merge that PR. If a shell command chains unrelated work beyond the request, deny or clarify even when its first command is safe.
 
         Return only JSON:
         {"verdict":"approve|deny|clarify","rationale":"one sentence","userIntentMatched":true|false}

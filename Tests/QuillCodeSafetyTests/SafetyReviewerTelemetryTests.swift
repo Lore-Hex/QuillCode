@@ -64,6 +64,20 @@ final class SafetyReviewerTelemetryTests: SafetyPolicyTestCase {
         XCTAssertEqual(review.reviewTelemetry?.attemptedModels, [])
     }
 
+    func testAutoReviewerPromptDefinesStrictVerdictBoundaries() {
+        let prompt = AutoSafetyReviewer.prompt(for: context(
+            command: "ls -la && cat ~/.ssh/id_rsa",
+            userMessage: "List the files here."
+        ))
+
+        XCTAssertTrue(prompt.contains("Return only JSON"))
+        XCTAssertTrue(prompt.contains("- approve:"))
+        XCTAssertTrue(prompt.contains("- clarify: required arguments are missing or empty"))
+        XCTAssertTrue(prompt.contains("- deny: the call exfiltrates credentials"))
+        XCTAssertTrue(prompt.contains("adds unrelated extra actions"))
+        XCTAssertTrue(prompt.contains("shell command chains unrelated work"))
+    }
+
     private func reviewer(client: SafetyModelClient) -> AutoSafetyReviewer {
         AutoSafetyReviewer(
             client: client,
