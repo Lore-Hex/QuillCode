@@ -19,7 +19,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         let surface = model.surface()
 
         XCTAssertEqual(surface.topBar.modelLabel, "acme/Code Pro")
-        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding"])
+        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding", "minimax"])
         let recommended = surface.topBar.modelCategories.first { $0.category == "Recommended" }
         XCTAssertEqual(
             recommended?.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id),
@@ -166,6 +166,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertEqual(filteredModelIDs(in: topBar, matching: "default state"), [TrustedRouterDefaults.defaultModel])
         XCTAssertEqual(filteredModelIDs(in: topBar, matching: "shell file editing"), [TrustedRouterDefaults.defaultModel])
         XCTAssertEqual(filteredModelIDs(in: topBar, matching: "freedom oss coding"), [TrustedRouterDefaults.platoModel])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "minimax"), [TrustedRouterDefaults.minimaxM3Model])
     }
 
     func testModelPickerShowsFavoriteModelsBeforeRecent() throws {
