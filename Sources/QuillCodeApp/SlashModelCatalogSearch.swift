@@ -120,6 +120,23 @@ enum SlashModelCatalogSearch {
         return rank(options: dedupedOptions(from: categories), query: query, limit: limit)
     }
 
+    static func emptyStateCopy(
+        for draft: String,
+        categories: [ModelCategorySurface],
+        catalogSource: ModelCatalogSource?,
+        catalogStatusDetail: String?,
+        limit: Int = 6
+    ) -> ModelPickerEmptyStateCopy? {
+        guard let query = query(in: draft) else { return nil }
+        let matches = suggestions(for: draft, categories: categories, limit: limit)
+        guard matches.isEmpty else { return nil }
+        return ModelPickerEmptyStateCopy.copy(
+            query: query,
+            catalogSource: catalogSource,
+            catalogStatusDetail: catalogStatusDetail
+        )
+    }
+
     /// Flattens categories to a single deduped option list keyed by canonical model ID. The picker
     /// surface lists a model once per category (Favorites/Recent/base), so dedup keeps a model from
     /// appearing several times in the flat `/model` popup; the first occurrence (highest-priority
