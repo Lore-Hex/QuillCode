@@ -66,6 +66,31 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
 });
 
+test('mock harness opens search surfaces from composer slash commands', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  await message.fill('needle in the transcript');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar-item')).toContainText('needle in the transcript');
+
+  await message.fill('/search');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await expect(page.getByTestId('search-input')).toBeFocused();
+  await expect(message).toHaveValue('');
+  await page.keyboard.type('needle');
+  await expect(page.getByTestId('search-result')).toContainText('needle in the transcript');
+  await page.getByTestId('search-close').click();
+
+  await message.fill('/find');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('find-input')).toBeFocused();
+  await expect(message).toHaveValue('');
+  await page.keyboard.type('needle');
+  await expect(page.getByTestId('find-status')).toContainText('1 of 1');
+});
+
 test('mock harness suggests slash commands in the composer', async ({ page }) => {
   await page.goto(harnessURL());
 
