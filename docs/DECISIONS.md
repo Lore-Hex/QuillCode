@@ -2,6 +2,12 @@
 
 ## 2026-07-05
 
+- The Auto safety model prompt is a compact contract over the same static safety floor, not a second broad policy
+  system. It now names explicit approve/clarify/deny boundaries: approve bounded user-requested work, clarify missing
+  or empty arguments and ambiguous targets, and deny credential exfiltration, unrelated extra shell actions, broad
+  destruction, persistent security weakening, and irreversible disk/account changes. This keeps cheap reviewer models
+  from over-blocking normal coding work while preserving the product rule that the tool call must match the user's
+  latest request.
 - Auto safety should approve common read-only diagnostics by command shape, not by broad shell trust.
   `StaticSafetyReadOnlyShellPolicy` now recognizes single-command requests for identity, date/time, hostname,
   OS/kernel, uptime, process listing, memory, and disk usage when the latest user request asks for that class of
