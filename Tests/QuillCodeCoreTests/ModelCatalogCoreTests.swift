@@ -227,6 +227,54 @@ final class ModelCatalogCoreTests: XCTestCase {
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
     }
 
+    func testBundledRecommendedModelsCarryStableCapabilityTaxonomy() throws {
+        let catalog = TrustedRouterDefaults.normalizedModelCatalog([])
+
+        let nike = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.fastModel })
+        XCTAssertEqual(nike.capabilities.summary, "Fast everyday agent")
+        XCTAssertEqual(nike.capabilities.inputModalities, ["text"])
+        XCTAssertEqual(nike.capabilities.outputModalities, ["text", "tool call"])
+        XCTAssertEqual(nike.capabilities.capabilityTags, ["fast", "coding", "shell", "file editing"])
+
+        let plato = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.platoModel })
+        XCTAssertEqual(plato.capabilities.capabilityTags, ["freedom", "OSS", "coding agent"])
+    }
+
+    func testLiveRecommendedModelCapabilitiesBackfillCuratedTaxonomy() throws {
+        let catalog = TrustedRouterDefaults.normalizedModelCatalog([
+            .init(
+                id: "tr/fast",
+                provider: "tr",
+                displayName: "Fast",
+                category: "Recommended",
+                capabilities: ModelCapabilities(
+                    contextWindowTokens: 256_000,
+                    inputPricePerMillionTokens: 0.05,
+                    outputPricePerMillionTokens: 0.2,
+                    inputModalities: ["audio"],
+                    outputModalities: ["json"],
+                    capabilityTags: ["low latency"],
+                    status: "available",
+                    summary: "Live fast model"
+                )
+            )
+        ])
+
+        let nike = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.fastModel })
+        XCTAssertEqual(nike.displayName, TrustedRouterDefaults.fastModelDisplayName)
+        XCTAssertEqual(nike.capabilities.summary, "Live fast model")
+        XCTAssertEqual(nike.capabilities.contextWindowTokens, 256_000)
+        XCTAssertEqual(nike.capabilities.inputPricePerMillionTokens, 0.05)
+        XCTAssertEqual(nike.capabilities.outputPricePerMillionTokens, 0.2)
+        XCTAssertEqual(nike.capabilities.inputModalities, ["text", "audio"])
+        XCTAssertEqual(nike.capabilities.outputModalities, ["text", "tool call", "json"])
+        XCTAssertEqual(
+            nike.capabilities.capabilityTags,
+            ["fast", "coding", "shell", "file editing", "low latency"]
+        )
+        XCTAssertEqual(nike.capabilities.status, "available")
+    }
+
     func testModelCatalogStatusLabelsFreshStaleAndFallbackStates() {
         let now = Date(timeIntervalSince1970: 10_000)
         let immediate = ModelCatalogStatus.liveTrustedRouter(fetchedAt: now.addingTimeInterval(-30))

@@ -15339,3 +15339,33 @@ Validation:
 - `swift test --filter WorkspaceThreadLifecycleEngineTests` (15 tests, 0 failures)
 - `swift test --filter WorkspaceModelCommandPersistenceIntegrationTests` (7 tests, 0 failures)
 - `swift test` (3,246 tests, 2 skipped, 0 failures)
+
+## 2026-07-05 Branded Model Capability Taxonomy Slice
+
+Overall grade after this slice: **A+ catalog normalization boundary, A+ picker metadata projection**.
+This closes the fallback-catalog side of the TrustedRouter capability taxonomy
+gap without inventing concrete provider telemetry.
+
+Code quality changes:
+
+- Added curated capability metadata for Nike, Zeus, Prometheus, Socrates,
+  Aristotle, and Plato: stable summaries, text/tool modalities, and searchable
+  capability tags.
+- Updated recommended-model normalization so fallback rows always carry branded
+  taxonomy while live catalog duplicates can still backfill context windows,
+  pricing, status, release dates, modalities, and extra provider tags.
+- Kept model identity, display names, aliases, and recommended ordering in
+  `TrustedRouterDefaults` so SwiftUI, slash search, and the Playwright harness
+  keep one catalog source of truth.
+- Extended model-picker tests so offline/fallback search can find capability
+  phrases such as `shell file editing` and `freedom oss coding`.
+
+Validation:
+
+- `swift test --filter ModelCatalogCoreTests` (9 tests, 0 failures)
+- `swift test --filter WorkspaceModelPickerSurfaceIntegrationTests` (6 tests, 0 failures)
+- `swift test --filter WorkspaceModelCatalogSurfaceBuilderTests` (3 tests, 0 failures)
+- `swift test --filter 'ModelCatalogCoreTests|WorkspaceModelPickerSurfaceIntegrationTests|WorkspaceModelCatalogSurfaceBuilderTests|SlashModelCatalogSearchTests|WorkspaceTopBarSurfaceBuilderTests|WorkspaceSettingsRuntimeSurfaceTests'` (46 tests, 0 failures)
+- `swift test` (3,248 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root .` (all modules A+)
+- `git diff --check`
