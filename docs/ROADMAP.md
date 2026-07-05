@@ -57,4 +57,7 @@
   backward-compatible defaults. The displayed fuse crossing is backed by the
   same core `RunSpendLedger` that powers runtime enforcement, and runs now
   hard-pause on a Spend Review card until the user chooses Continue for the
-  current spend bucket.
+  current spend bucket. The top-bar budget meter also derives local Today/Week/
+  Month spend rows from persisted priced run receipts across threads; true
+  TrustedRouter account-history and provider quota rows remain future runtime
+  work.
