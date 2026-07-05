@@ -1,4 +1,6 @@
 import XCTest
+import QuillCodeCore
+import QuillCodePersistence
 @testable import QuillCodeApp
 
 @MainActor
@@ -94,5 +96,57 @@ final class WorkspaceComposerDraftIntegrationTests: XCTestCase {
         XCTAssertEqual(model.composer.draft, "draft for A")
         model.selectThread(threadB)
         XCTAssertEqual(model.composer.draft, "")
+    }
+
+    func testSelectedThreadDraftSurvivesWorkspaceReload() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let thread = ChatThread(title: "Persisted draft")
+        try store.save(thread)
+        let first = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: store
+        )
+
+        first.setDraft("continue the partial plan")
+
+        let reloadedThreads = try store.list()
+        let second = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: reloadedThreads, selectedThreadID: thread.id),
+            threadStore: store
+        )
+        XCTAssertEqual(second.composer.draft, "continue the partial plan")
+    }
+
+    func testSentDraftIsClearedFromPersistentThread() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let store = try JSONThreadStore(directory: makeTempDirectory())
+        let thread = ChatThread(title: "Send clears draft")
+        try store.save(thread)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: store
+        )
+
+        model.setDraft("run whoami")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertNil(try store.load(thread.id).composerDraft)
+    }
+
+    func testClearThreadClearsDraftOnlyThread() throws {
+        let store = try JSONThreadStore(directory: makeTempDirectory())
+        let thread = ChatThread(title: "Draft only")
+        try store.save(thread)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: store
+        )
+
+        model.setDraft("remove me")
+
+        XCTAssertTrue(model.clearThread(thread.id))
+        XCTAssertEqual(model.composer.draft, "")
+        XCTAssertNil(try store.load(thread.id).composerDraft)
     }
 }

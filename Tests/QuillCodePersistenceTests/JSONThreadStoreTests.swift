@@ -30,6 +30,40 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertEqual(reloaded.followUpQueue, thread.followUpQueue)
     }
 
+    func testComposerDraftPersistsWithThreadAcrossReload() throws {
+        let store = JSONThreadStore(directory: try makeTempDirectory())
+        var thread = ChatThread(title: "Draft")
+        thread.composerDraft = "half-written prompt"
+
+        try store.save(thread)
+
+        XCTAssertEqual(try store.load(thread.id).composerDraft, "half-written prompt")
+    }
+
+    func testBlankComposerDraftDecodesAsNil() throws {
+        let json = """
+        {
+          "id": "\(UUID().uuidString)",
+          "title": "Blank Draft",
+          "instructions": [],
+          "memories": [],
+          "mode": "auto",
+          "model": "trustedrouter/fast",
+          "messages": [],
+          "events": [],
+          "isPinned": false,
+          "isArchived": false,
+          "createdAt": "2020-01-01T00:00:00Z",
+          "updatedAt": "2020-01-01T00:00:00Z",
+          "composerDraft": "   \\n  "
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let thread = try decoder.decode(ChatThread.self, from: Data(json.utf8))
+        XCTAssertNil(thread.composerDraft)
+    }
+
     func testThreadWrittenBeforeQueueFieldDecodesToEmptyQueue() throws {
         // A thread JSON persisted before followUpQueue existed must still decode (queue = []).
         let json = """

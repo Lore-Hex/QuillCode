@@ -56,6 +56,9 @@ extension QuillCodeWorkspaceModel {
 
     private func restoreComposerDraft(from outgoing: UUID?, to incoming: UUID?) {
         if let incoming {
+            if let outgoing, outgoing != incoming {
+                persistComposerDraft(composer.draft, for: outgoing)
+            }
             let result = ComposerDraftStore.select(
                 outgoing: outgoing,
                 incoming: incoming,
@@ -63,18 +66,22 @@ extension QuillCodeWorkspaceModel {
                 drafts: threadDrafts
             )
             threadDrafts = result.drafts
-            composer.draft = result.restoredDraft
+            composer.draft = result.restoredDraft.isEmpty
+                ? persistedComposerDraft(for: incoming) ?? ""
+                : result.restoredDraft
         } else if let outgoing {
             stashOutgoingThreadDraft(outgoing)
         }
     }
 
     private func stashOutgoingThreadDraft(_ outgoing: UUID) {
-        if composer.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let normalizedDraft = Self.normalizedComposerDraft(composer.draft)
+        if normalizedDraft == nil {
             threadDrafts[outgoing] = nil
         } else {
             threadDrafts[outgoing] = composer.draft
         }
+        persistComposerDraft(normalizedDraft, for: outgoing)
         composer.draft = ""
     }
 

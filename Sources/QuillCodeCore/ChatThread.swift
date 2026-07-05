@@ -14,6 +14,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var isArchived: Bool
     public var createdAt: Date
     public var updatedAt: Date
+    /// Unsent text in the composer for this thread. Persisted separately from messages so a
+    /// half-written prompt survives relaunch without becoming part of the transcript.
+    public var composerDraft: String?
     /// Composer submissions entered while a run was active, parked as visible chips and
     /// drained one per turn boundary (see `FollowUpQueue`). Stored on the thread so the
     /// queue persists with the conversation and survives a reload; decodes to empty for
@@ -34,6 +37,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         updatedAt: Date = Date(),
         instructions: [ProjectInstruction] = [],
         memories: [MemoryNote] = [],
+        composerDraft: String? = nil,
         followUpQueue: [FollowUpItem] = []
     ) {
         self.id = id
@@ -49,6 +53,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.isArchived = isArchived
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.composerDraft = composerDraft
         self.followUpQueue = followUpQueue
     }
 
@@ -66,6 +71,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case isArchived
         case createdAt
         case updatedAt
+        case composerDraft
         case followUpQueue
     }
 
@@ -84,6 +90,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.isArchived = try container.decode(Bool.self, forKey: .isArchived)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        self.composerDraft = Self.normalizedComposerDraft(
+            try container.decodeIfPresent(String.self, forKey: .composerDraft)
+        )
         self.followUpQueue = try container.decodeIfPresent([FollowUpItem].self, forKey: .followUpQueue) ?? []
     }
 
@@ -92,6 +101,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(id, forKey: .id)
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(projectID, forKey: .projectID)
+        try container.encodeIfPresent(composerDraft, forKey: .composerDraft)
         try container.encode(instructions, forKey: .instructions)
         try container.encode(memories, forKey: .memories)
         try container.encode(mode, forKey: .mode)
@@ -103,5 +113,14 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(followUpQueue, forKey: .followUpQueue)
+    }
+
+    private static func normalizedComposerDraft(_ draft: String?) -> String? {
+        guard let draft,
+              !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return nil
+        }
+        return draft
     }
 }
