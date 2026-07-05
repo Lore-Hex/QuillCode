@@ -110,14 +110,8 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByTestId('message-use-as-draft').click();
   await expect(page.getByLabel('Message')).toHaveValue('run whoami');
   await expect(page.getByTestId('send-button')).toBeEnabled();
-  await expect(page.getByTestId('message-feedback-up')).toHaveCount(1);
-  await expect(page.getByTestId('message-feedback-down')).toHaveCount(1);
-  await page.getByTestId('message-feedback-up').click();
-  await expect(page.getByTestId('message-feedback-up')).toHaveAttribute('data-selected', 'true');
-  await expect(page.getByTestId('message-feedback-down')).toHaveAttribute('data-selected', 'false');
-  await page.getByTestId('message-feedback-down').click();
-  await expect(page.getByTestId('message-feedback-up')).toHaveAttribute('data-selected', 'false');
-  await expect(page.getByTestId('message-feedback-down')).toHaveAttribute('data-selected', 'true');
+  await expect(page.getByTestId('message-feedback-up')).toHaveCount(0);
+  await expect(page.getByTestId('message-feedback-down')).toHaveCount(0);
 
   const transcriptItems = page.locator('[data-testid="message"], [data-testid="tool-card"]');
   await expect(transcriptItems.nth(0)).toContainText('run whoami');

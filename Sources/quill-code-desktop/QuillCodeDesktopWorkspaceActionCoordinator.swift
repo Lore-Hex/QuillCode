@@ -146,15 +146,6 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
     }
 
     @discardableResult
-    func setMessageFeedback(
-        messageID: UUID,
-        value: MessageFeedbackValue,
-        model: QuillCodeWorkspaceModel
-    ) -> Bool {
-        model.setMessageFeedback(messageID: messageID, value: value)
-    }
-
-    @discardableResult
     func runWorkspaceCommand(
         _ commandID: String,
         model: QuillCodeWorkspaceModel,

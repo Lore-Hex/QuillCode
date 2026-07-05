@@ -127,7 +127,6 @@ struct QuillCodeDesktopRootView: View {
             onCopyTranscriptItem: controller.copyTranscriptItem,
             onExportConversationMarkdown: controller.exportConversationMarkdown,
             onRevertTurn: controller.runTurnRevert,
-            onMessageFeedback: controller.setMessageFeedback,
             onDeleteFollowUp: controller.deleteFollowUp,
             onSaveSidebarSavedSearch: controller.saveSidebarSavedSearch,
             onOpenAttentionDigest: controller.openAttentionDigest,

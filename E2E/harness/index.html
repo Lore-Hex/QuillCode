@@ -2456,7 +2456,7 @@
       color: #9af0ad;
       background: rgba(82,210,115,.16);
     }
-    .transcript-feedback-button {
+    .transcript-message-action-button {
       min-height: var(--hit-target);
       border: 0;
       border-radius: 999px;
@@ -2466,10 +2466,6 @@
       font-size: 11px;
       font-weight: 800;
       cursor: pointer;
-    }
-    .transcript-feedback-button[data-selected="true"] {
-      color: #9af0ad;
-      background: rgba(82,210,115,.16);
     }
     .find-active {
       outline: 2px solid rgba(65,184,232,.78);
@@ -5728,8 +5724,7 @@
       const message = {
         id: `message-${state.nextTimelineIndex++}`,
         role,
-        text,
-        feedback: null
+        text
       };
       state.transcript.messages.push(message);
       state.transcript.timelineItems.push({
@@ -5749,7 +5744,7 @@
       const target = state.sidebar.items.find(item => item.id === threadID);
       if (!target || threadID === state.sidebar.selectedThreadID) return;
       const snapshot = target.snapshot || { messages: [], toolCards: [], timelineItems: [], review: emptyReviewSurface() };
-      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text, feedback: null };
+      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text };
       const item = { id: `timeline-${state.nextTimelineIndex++}`, kind: 'message', message };
       const nextSnapshot = {
         ...snapshot,
@@ -7767,30 +7762,24 @@
           ${extraActions}
         </footer>`;
       };
-      const feedbackButtons = message => {
-        if (!message || message.role !== 'assistant') return '';
-        return `
-          <button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-feedback-up" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="helpful" data-selected="${message.feedback === 'helpful' ? 'true' : 'false'}" aria-label="Mark response helpful">Helpful</button>
-          <button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-feedback-down" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="notHelpful" data-selected="${message.feedback === 'notHelpful' ? 'true' : 'false'}" aria-label="Mark response not helpful">Not helpful</button>`;
-      };
       const draftButton = message => {
         if (!message || message.role !== 'user') return '';
-        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-use-as-draft" data-message-id="${escapeHTML(message.id || '')}" aria-label="Use as draft">Use as draft</button>`;
+        return `<button type="button" class="transcript-message-action-button hit-target-text" data-testid="message-use-as-draft" data-message-id="${escapeHTML(message.id || '')}" aria-label="Use as draft">Use as draft</button>`;
       };
       const revertButton = message => {
         if (!message || !message.revert) return '';
         const scope = revertScopeCopy(message.revert.hasNonApplyPatchEdits);
-        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-revert-turn" data-turn-id="${escapeHTML(message.revert.turnMessageID || message.id || '')}" title="${escapeHTML(scope)}" aria-label="Revert this turn's edits">Revert this turn's edits</button>`;
+        return `<button type="button" class="transcript-message-action-button hit-target-text" data-testid="message-revert-turn" data-turn-id="${escapeHTML(message.revert.turnMessageID || message.id || '')}" title="${escapeHTML(scope)}" aria-label="Revert this turn's edits">Revert this turn's edits</button>`;
       };
       const retryButton = message => {
         const retryCommand = state.commands.find(command => command.id === 'retry-last-turn' && command.isEnabled);
         if (!message || message.role !== 'assistant' || message.id !== latestAssistantMessageID || !retryCommand) return '';
-        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
+        return `<button type="button" class="transcript-message-action-button hit-target-text" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
       };
       const renderMessage = (message, timelineID = '') => `
         <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           <p>${escapeHTML(message.text)}</p>
-          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + revertButton(message) + retryButton(message) + feedbackButtons(message))}
+          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + revertButton(message) + retryButton(message))}
         </article>`;
       const thinkingTraceLines = () => state.transcript.toolCards
         .filter(card => ['queued', 'running', 'review'].includes(card.status))
@@ -8489,14 +8478,6 @@
             event.currentTarget.getAttribute('data-action-kind'),
             event.currentTarget.getAttribute('data-request-id'),
             cardElement?.getAttribute('data-timeline-id') || ''
-          );
-        });
-      });
-      document.querySelectorAll('[data-feedback-value]').forEach(button => {
-        button.addEventListener('click', event => {
-          setMessageFeedback(
-            event.currentTarget.getAttribute('data-message-id'),
-            event.currentTarget.getAttribute('data-feedback-value')
           );
         });
       });
@@ -10348,18 +10329,6 @@
           render();
         }
       }, 1500);
-    }
-
-    function setMessageFeedback(messageID, value) {
-      if (!messageID || !value) return;
-      const message = state.transcript.messages.find(entry => entry.id === messageID && entry.role === 'assistant');
-      if (!message) return;
-      message.feedback = value;
-      state.transcript.timelineItems = state.transcript.timelineItems.map(item => {
-        if (item.kind !== 'message' || item.message?.id !== messageID) return item;
-        return { ...item, message: { ...item.message, feedback: value } };
-      });
-      render();
     }
 
     function useMessageAsDraft(messageID) {

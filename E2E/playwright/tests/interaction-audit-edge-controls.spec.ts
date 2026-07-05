@@ -355,13 +355,8 @@ test('transcript, recovery, and suggestion controls activate from near-edge targ
 
   const whoamiAnswer = page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' });
   await expect(whoamiAnswer).toBeVisible();
-  await clickTargetInteriorPoint(
-    whoamiAnswer.getByTestId('message-feedback-up'),
-    'assistant feedback leading edge',
-    0.08,
-    0.5
-  );
-  await expect(whoamiAnswer.getByTestId('message-feedback-up')).toHaveAttribute('data-selected', 'true');
+  await expect(whoamiAnswer.getByTestId('message-feedback-up')).toHaveCount(0);
+  await expect(whoamiAnswer.getByTestId('message-feedback-down')).toHaveCount(0);
   await clickTargetInteriorPoint(
     page.getByTestId('message-use-as-draft').last(),
     'user use-as-draft trailing edge',

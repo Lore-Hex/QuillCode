@@ -35,7 +35,6 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
     var onRevertTurn: (UUID) -> Void = { _ in }
-    var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
     var onDeleteFollowUp: (UUID) -> Void = { _ in }
     var onCommand: (WorkspaceCommandSurface) -> Void
 
@@ -74,8 +73,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onCopyTranscriptItem: onCopyTranscriptItem,
                         onRevertTurn: onRevertTurn,
                         onUseMessageAsDraft: useMessageAsDraft,
-                        onSubmitStarterAction: submitStarterAction,
-                        onMessageFeedback: onMessageFeedback
+                        onSubmitStarterAction: submitStarterAction
                     )
                 } else {
                     Spacer(minLength: 0)

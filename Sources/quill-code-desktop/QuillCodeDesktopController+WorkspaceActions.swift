@@ -90,10 +90,4 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
-    func setMessageFeedback(messageID: UUID, value: MessageFeedbackValue) {
-        guard workspaceActionCoordinator.setMessageFeedback(messageID: messageID, value: value, model: model) else {
-            return
-        }
-        refresh()
-    }
 }

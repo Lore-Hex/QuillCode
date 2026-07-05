@@ -8,12 +8,11 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
     var allowsRevert: Bool = true
 
     func messageSurfaces() -> [MessageSurface] {
-        let feedbackByMessageID = Self.messageFeedbackByMessageID(for: thread)
         let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
         return thread.messages
             .filter { $0.role != .tool }
             .map { message in
-                MessageSurface(message: message, feedback: feedbackByMessageID[message.id], revert: revertByMessageID[message.id])
+                MessageSurface(message: message, revert: revertByMessageID[message.id])
             }
     }
 
@@ -44,7 +43,6 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                 + toolCards().map(TranscriptTimelineItemSurface.toolCard)
         }
 
-        let feedbackByMessageID = Self.messageFeedbackByMessageID(for: thread)
         let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
         var consumedMessageIDs = Set<UUID>()
         var reducer = WorkspaceToolCardEventReducer<[TranscriptTimelineItemSurface]>.timeline()
@@ -56,7 +54,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                 return
             }
             consumedMessageIDs.insert(message.id)
-            reducer.state.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id], revert: revertByMessageID[message.id])))
+            reducer.state.append(.message(MessageSurface(message: message, revert: revertByMessageID[message.id])))
         }
 
         for event in thread.events {
@@ -71,22 +69,8 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         }
 
         for message in thread.messages where message.role != .tool && !consumedMessageIDs.contains(message.id) {
-            reducer.state.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id], revert: revertByMessageID[message.id])))
+            reducer.state.append(.message(MessageSurface(message: message, revert: revertByMessageID[message.id])))
         }
         return reducer.state
-    }
-
-    private static func messageFeedbackByMessageID(for thread: ChatThread) -> [UUID: MessageFeedbackValue] {
-        var feedbackByMessageID: [UUID: MessageFeedbackValue] = [:]
-        for event in thread.events where event.kind == .messageFeedback {
-            guard let feedback = decode(MessageFeedback.self, event.payloadJSON) else { continue }
-            feedbackByMessageID[feedback.messageID] = feedback.value
-        }
-        return feedbackByMessageID
-    }
-
-    private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
-        guard let payloadJSON else { return nil }
-        return try? JSONHelpers.decode(type, from: payloadJSON)
     }
 }

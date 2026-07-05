@@ -77,7 +77,6 @@ public struct QuillCodeWorkspaceView: View {
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
         onExportConversationMarkdown: @escaping (String, String) -> Void = { _, _ in },
         onRevertTurn: @escaping (UUID) -> Void = { _ in },
-        onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onDeleteFollowUp: @escaping (UUID) -> Void = { _ in },
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onOpenAttentionDigest: @escaping (UUID) -> Void = { _ in },
@@ -132,7 +131,6 @@ public struct QuillCodeWorkspaceView: View {
             onCopyTranscriptItem: onCopyTranscriptItem,
             onExportConversationMarkdown: onExportConversationMarkdown,
             onRevertTurn: onRevertTurn,
-            onMessageFeedback: onMessageFeedback,
             onDeleteFollowUp: onDeleteFollowUp,
             onSaveSidebarSavedSearch: onSaveSidebarSavedSearch,
             onOpenAttentionDigest: onOpenAttentionDigest,
@@ -201,7 +199,6 @@ public struct QuillCodeWorkspaceView: View {
                     onAddReviewComment: actions.onAddReviewComment,
                     onCopyTranscriptItem: actions.onCopyTranscriptItem,
                     onRevertTurn: actions.onRevertTurn,
-                    onMessageFeedback: actions.onMessageFeedback,
                     onDeleteFollowUp: actions.onDeleteFollowUp,
                     onCommand: handleCommand
                 )

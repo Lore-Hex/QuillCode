@@ -49,20 +49,19 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
         XCTAssertEqual(transcript.emptyStarterActions, TranscriptStarterActionSurface.defaults)
     }
 
-    func testMessageSurfaceMapsRoleContentAccessibilityAndFeedback() {
+    func testMessageSurfaceMapsRoleContentAndAccessibility() {
         let message = ChatMessage(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000402")!,
             role: .assistant,
             content: "Output:\nquill"
         )
 
-        let surface = MessageSurface(message: message, feedback: .helpful)
+        let surface = MessageSurface(message: message)
 
         XCTAssertEqual(surface.id, message.id)
         XCTAssertEqual(surface.role, .assistant)
         XCTAssertEqual(surface.text, "Output:\nquill")
         XCTAssertEqual(surface.accessibilityLabel, "assistant: Output:\nquill")
-        XCTAssertEqual(surface.feedback, .helpful)
     }
 
     func testComposerSurfaceComputesSendabilityAndSlashSuggestions() {

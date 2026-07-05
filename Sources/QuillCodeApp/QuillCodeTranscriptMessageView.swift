@@ -9,7 +9,6 @@ struct QuillCodeMessageBubble: View {
     var onUseAsDraft: () -> Void
     var canRetry: Bool
     var onRetry: () -> Void
-    var onFeedback: (MessageFeedbackValue) -> Void
     var onRevertTurn: (UUID) -> Void = { _ in }
 
     var body: some View {
