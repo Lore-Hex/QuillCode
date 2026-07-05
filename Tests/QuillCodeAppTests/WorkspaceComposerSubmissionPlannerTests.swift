@@ -22,4 +22,15 @@ final class WorkspaceComposerSubmissionPlannerTests: XCTestCase {
             .slash(command: .model("Nike 1.0"), originalPrompt: "/model Nike 1.0")
         )
     }
+
+    func testPresentationSlashCommandsKeepWorkspaceCommandIDs() {
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/search"),
+            .slash(command: .workspaceCommand("search"), originalPrompt: "/search")
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/find"),
+            .slash(command: .workspaceCommand("find-in-chat"), originalPrompt: "/find")
+        )
+    }
 }

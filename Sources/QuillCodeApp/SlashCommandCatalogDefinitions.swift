@@ -172,6 +172,18 @@ extension SlashCommandCatalog {
             aliases: ["term clear", "shell clear"]
         ),
         slashDefinition(
+            "/search",
+            "Search chats",
+            "Open global search across thread titles, transcript text, tools, models, and pinned or archived state.",
+            aliases: ["global search", "chat search"]
+        ),
+        slashDefinition(
+            "/find",
+            "Find in chat",
+            "Open the active chat finder with result count and next/previous navigation.",
+            aliases: ["find in chat", "transcript find"]
+        ),
+        slashDefinition(
             "/browser",
             "Toggle browser",
             "Show or hide the browser preview panel.",
