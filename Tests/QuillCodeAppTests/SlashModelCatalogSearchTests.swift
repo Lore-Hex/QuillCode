@@ -230,7 +230,10 @@ final class SlashSkillCommandPlannerTests: XCTestCase {
     func testAgentPromptEmbedsBareSkillName() {
         XCTAssertEqual(
             SlashSkillCommandPlanner.agentPrompt(for: "code-review"),
-            "Load the `code-review` skill with host.skill.load, then follow its instructions."
+            """
+            Load the `code-review` skill now by calling host.skill.load with arguments {"name":"code-review"}, \
+            then follow its instructions.
+            """
         )
     }
 
@@ -248,7 +251,10 @@ final class SlashSkillCommandPlannerTests: XCTestCase {
     func testSlashParserRoutesSkillToRunSkill() {
         XCTAssertEqual(
             SlashCommandParser.parse("/skill code-review"),
-            .runSkill("Load the `code-review` skill with host.skill.load, then follow its instructions.")
+            .runSkill("""
+            Load the `code-review` skill now by calling host.skill.load with arguments {"name":"code-review"}, \
+            then follow its instructions.
+            """)
         )
         XCTAssertEqual(SlashCommandParser.parse("/skill"), .invalid(SlashSkillCommandPlanner.usage))
     }
@@ -257,7 +263,10 @@ final class SlashSkillCommandPlannerTests: XCTestCase {
         let plan = WorkspaceComposerSubmissionPlanner.plan(draft: "/skill code-review")
         XCTAssertEqual(
             plan,
-            .agent(prompt: "Load the `code-review` skill with host.skill.load, then follow its instructions.")
+            .agent(prompt: """
+            Load the `code-review` skill now by calling host.skill.load with arguments {"name":"code-review"}, \
+            then follow its instructions.
+            """)
         )
     }
 
