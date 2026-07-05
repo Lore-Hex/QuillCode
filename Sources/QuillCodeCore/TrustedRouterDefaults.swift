@@ -91,6 +91,7 @@ public enum TrustedRouterDefaults {
     public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
     public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
     public static let safetyReviewerModelIDs = [safetyPrimaryCatalogModel, safetyFallbackCatalogModel]
+    public static let minimaxM3Model = "minimax/minimax-m3"
 
     public static let bundledModelCatalog: [ModelInfo] = [
         .init(id: fastModel, provider: trustedRouterProvider, displayName: fastModelDisplayName, category: recommendedCategory),
@@ -99,6 +100,7 @@ public enum TrustedRouterDefaults {
         .init(id: socratesModel, provider: trustedRouterProvider, displayName: socratesModelDisplayName, category: recommendedCategory),
         .init(id: aristotleModel, provider: trustedRouterProvider, displayName: aristotleModelDisplayName, category: recommendedCategory),
         .init(id: platoModel, provider: trustedRouterProvider, displayName: platoModelDisplayName, category: recommendedCategory),
+        .init(id: minimaxM3Model, provider: "minimax", displayName: "MiniMax M3", category: "minimax"),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
     ]

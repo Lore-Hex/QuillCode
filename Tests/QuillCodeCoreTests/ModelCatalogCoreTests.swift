@@ -186,6 +186,7 @@ final class ModelCatalogCoreTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("oss coding"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
+        XCTAssertEqual(TrustedRouterDefaults.minimaxM3Model, "minimax/minimax-m3")
         XCTAssertLessThan(
             TrustedRouterDefaults.modelSortKey(
                 id: TrustedRouterDefaults.fastModel,
@@ -238,6 +239,16 @@ final class ModelCatalogCoreTests: XCTestCase {
 
         let plato = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.platoModel })
         XCTAssertEqual(plato.capabilities.capabilityTags, ["freedom", "OSS", "coding agent"])
+    }
+
+    func testBundledCatalogIncludesUnbrandedProviderDiscoveryRows() throws {
+        let catalog = TrustedRouterDefaults.normalizedModelCatalog([])
+        let minimax = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.minimaxM3Model })
+
+        XCTAssertEqual(minimax.provider, "minimax")
+        XCTAssertEqual(minimax.displayName, "MiniMax M3")
+        XCTAssertEqual(minimax.category, "minimax")
+        XCTAssertNil(TrustedRouterDefaults.recommendedRank(for: minimax.id))
     }
 
     func testLiveRecommendedModelCapabilitiesBackfillCuratedTaxonomy() throws {
