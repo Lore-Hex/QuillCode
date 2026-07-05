@@ -205,6 +205,8 @@ private final class WebKitBrowserLiveDOMCaptureSession: NSObject, WKNavigationDe
     })()
     """#
 }
+#elseif os(Linux)
+typealias DesktopBrowserLiveDOMCapturer = ChromiumBrowserLiveDOMCapturer
 #else
 final class DesktopBrowserLiveDOMCapturer: BrowserLiveDOMCapturing, @unchecked Sendable {
     func captureLiveDOM(for url: URL) async throws -> BrowserLiveDOMSnapshot {

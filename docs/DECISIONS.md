@@ -22,6 +22,12 @@
   catalog page, preserving the branded Recommended defaults while adding provider rows such as MiniMax to picker search.
   The desktop runtime also reads `~/.quill.code.keyfile` and explicit key-file environment variables for local smoke
   testing, so a developer can chat live and refresh the model catalog without re-entering credentials in Settings.
+- Linux rendered-browser capture should use a browser-process adapter before a full Linux visible browser session. The
+  desktop target now keeps WebKit as the macOS default while mapping `DesktopBrowserLiveDOMCapturer` to a testable
+  `ChromiumBrowserLiveDOMCapturer` on Linux. The Chromium adapter finds Chromium/Chrome-compatible executables on
+  `PATH`, runs a bounded headless `--dump-dom` capture with an isolated temporary profile, and converts the dumped
+  rendered HTML into the existing `BrowserLiveDOMSnapshot` contract. If no browser exists, it returns the existing
+  `noRenderedSession` failure so the browser pane falls back to static metadata instead of pretending live capture ran.
 
 ## 2026-07-02
 
