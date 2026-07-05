@@ -25,18 +25,7 @@ struct QuillCodeProjectRowView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
-            .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
-            .frame(
-                maxWidth: .infinity,
-                minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
-                alignment: .leading
-            )
-            .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
-            .clipShape(RoundedRectangle(
-                cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
-                style: .continuous
-            ))
-            .quillCodeFullRowButtonTarget()
+            .quillCodeSidebarRowChrome(background: project.isSelected ? QuillCodePalette.selection : Color.clear)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
     }

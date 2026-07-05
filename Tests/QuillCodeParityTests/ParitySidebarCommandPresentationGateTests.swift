@@ -69,10 +69,11 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let utilityActionsText = try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
         let threadRowText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
         let projectRowText = try Self.appSourceText(named: "QuillCodeProjectRowView.swift")
+        let buttonTargetText = try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift")
 
         [
-            "static let sidebarVisibleRowHeight: CGFloat = 30",
-            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 12",
+            "static let sidebarVisibleRowHeight: CGFloat = 32",
+            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 16",
             "static let sidebarVisibleRowRadius: CGFloat = 8"
         ].forEach { Self.assertSource(designText, contains: $0) }
         [
@@ -81,11 +82,14 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
             threadRowText,
             projectRowText
         ].forEach { source in
-            Self.assertSource(source, contains: "QuillCodeMetrics.sidebarVisibleRowHorizontalPadding")
-            Self.assertSource(source, contains: "QuillCodeMetrics.sidebarVisibleRowHeight")
-            Self.assertSource(source, contains: "QuillCodeMetrics.sidebarVisibleRowRadius")
-            Self.assertSource(source, contains: ".quillCodeFullRowButtonTarget")
+            Self.assertSource(source, contains: ".quillCodeSidebarRowChrome")
         }
+        Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.sidebarVisibleRowHorizontalPadding")
+        Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.sidebarVisibleRowRadius")
+        Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.sidebarVisibleRowHeight")
+        Self.assertSource(buttonTargetText, contains: "QuillCodeMetrics.minimumHitTarget")
+        Self.assertSource(threadRowText, contains: ".quillCodeIconButtonTarget")
+        Self.assertSource(projectRowText, contains: ".quillCodeIconButtonTarget")
     }
 
     private var horizontalFilterScrollNeedle: String {
