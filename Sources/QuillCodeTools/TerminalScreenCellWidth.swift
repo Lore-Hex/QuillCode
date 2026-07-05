@@ -1,17 +1,3 @@
-public enum TerminalOutputAmbiguousWidthPolicy: Sendable {
-    case narrow
-    case wide
-
-    var cellWidth: Int {
-        switch self {
-        case .narrow:
-            return 1
-        case .wide:
-            return 2
-        }
-    }
-}
-
 enum TerminalScreenCellWidth {
     static func width(
         of character: Character,

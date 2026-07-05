@@ -223,6 +223,60 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render(raw, ambiguousWidthPolicy: .wide), "ΩY")
     }
 
+    func testAmbiguousWidthPolicyAutomaticDefaultsToNarrowForNonCJKLocales() {
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "en_US", environment: [:]), .narrow)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "fr_FR.UTF-8", environment: [:]), .narrow)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "C", environment: [:]), .narrow)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: nil, environment: [:]), .narrow)
+    }
+
+    func testAmbiguousWidthPolicyAutomaticUsesWideForCJKLocales() {
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "ja_JP", environment: [:]), .wide)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "ko-KR.UTF-8", environment: [:]), .wide)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "zh-Hant-TW", environment: [:]), .wide)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "yue_HK", environment: [:]), .wide)
+    }
+
+    func testAmbiguousWidthPolicyAutomaticUsesProcessLocaleEnvironment() {
+        XCTAssertEqual(
+            TerminalOutputAmbiguousWidthPolicy.automatic(
+                localeIdentifier: "en_US",
+                environment: ["LANG": "zh_CN.UTF-8"]
+            ),
+            .wide
+        )
+        XCTAssertEqual(
+            TerminalOutputAmbiguousWidthPolicy.automatic(
+                localeIdentifier: "en_US",
+                environment: ["LC_CTYPE": "ja_JP.UTF-8", "LANG": "en_US.UTF-8"]
+            ),
+            .wide
+        )
+        XCTAssertEqual(
+            TerminalOutputAmbiguousWidthPolicy.automatic(
+                localeIdentifier: nil,
+                environment: ["LC_ALL": "ko_KR.UTF-8"]
+            ),
+            .wide
+        )
+        XCTAssertEqual(
+            TerminalOutputAmbiguousWidthPolicy.automatic(
+                localeIdentifier: "ja_JP",
+                environment: ["LC_ALL": "C"]
+            ),
+            .narrow
+        )
+    }
+
+    func testAmbiguousWidthPolicyAutomaticEnvironmentOverrideWins() {
+        let key = TerminalOutputAmbiguousWidthPolicy.environmentOverrideName
+
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "ja_JP", environment: [key: "narrow"]), .narrow)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "en_US", environment: [key: "wide"]), .wide)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "en_US", environment: [key: " cjk "]), .wide)
+        XCTAssertEqual(TerminalOutputAmbiguousWidthPolicy.automatic(localeIdentifier: "ja_JP", environment: [key: "invalid"]), .wide)
+    }
+
     func testIsIdempotentOnCleanText() {
         let once = render("\u{1B}[31mred\u{1B}[0m\r\u{1B}[Kdone")
         XCTAssertEqual(render(once), once)

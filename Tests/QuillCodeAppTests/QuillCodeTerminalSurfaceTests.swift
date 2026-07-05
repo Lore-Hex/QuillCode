@@ -1,5 +1,6 @@
 import XCTest
 @testable import QuillCodeApp
+@testable import QuillCodeTools
 
 final class QuillCodeTerminalSurfaceTests: XCTestCase {
     func testTerminalSurfaceUsesExplicitCWDAndRunClearRules() {
@@ -142,6 +143,52 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
         let surface = TerminalCommandSurface(entry: entry)
 
         XCTAssertEqual(surface.stdout, "PID CPU MEM\n101  9  2\n102  8  4")
+    }
+
+    func testTerminalCommandSurfaceUsesInjectedAmbiguousWidthPolicyForLocaleFrames() {
+        let raw = "ΩX\u{1B}[1;3HY"
+        let entry = TerminalCommandState(
+            command: "locale-sensitive-tui",
+            stdout: raw,
+            stderr: raw,
+            exitCode: 0,
+            ok: true
+        )
+
+        let narrow = TerminalCommandSurface(entry: entry, ambiguousWidthPolicy: .narrow)
+        let wide = TerminalCommandSurface(
+            entry: entry,
+            ambiguousWidthPolicy: .automatic(localeIdentifier: "ja_JP", environment: [:])
+        )
+
+        XCTAssertEqual(narrow.stdout, "ΩXY")
+        XCTAssertEqual(narrow.stderr, "ΩXY")
+        XCTAssertEqual(wide.stdout, "ΩY")
+        XCTAssertEqual(wide.stderr, "ΩY")
+    }
+
+    func testTerminalSurfacePassesAmbiguousWidthPolicyToEntries() {
+        let terminal = TerminalState(
+            isVisible: true,
+            draft: "",
+            entries: [
+                TerminalCommandState(
+                    command: "locale-sensitive-tui",
+                    stdout: "ΩX\u{1B}[1;3HY",
+                    stderr: "",
+                    exitCode: 0,
+                    ok: true
+                )
+            ]
+        )
+
+        let surface = TerminalSurface(
+            terminal: terminal,
+            cwd: URL(fileURLWithPath: "/workspace"),
+            ambiguousWidthPolicy: .wide
+        )
+
+        XCTAssertEqual(surface.entries.first?.stdout, "ΩY")
     }
 
     func testTerminalSurfaceUsesNoProjectWhenCWDIsUnavailable() {
