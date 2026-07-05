@@ -2,6 +2,10 @@
 
 ## 2026-07-05
 
+- Merge-train merges use GitHub Actions' `GITHUB_TOKEN`, so GitHub does not enqueue normal push-triggered
+  workflows afterward. The train therefore dispatches both `ci.yml` and `download-builds.yml` explicitly after a
+  successful merge. This keeps `main` validated and refreshes `tester-latest` without requiring a maintainer to
+  remember a manual tester-build run after agent PRs land.
 - Project `.quillcode/config.toml` starts as a bounded source-derived configuration layer, not another persisted app-state
   object. `WorkspaceProjectConfigurationLoader` currently lets repositories add local action directories and cap discovered
   local actions while keeping `.quillcode/actions` and `.quillcode/local-env` enabled by default. Unsafe, absolute, parent

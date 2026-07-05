@@ -20,7 +20,7 @@ The train processes only the oldest eligible PR at a time. It ignores draft PRs 
 - Only one train run can execute at a time.
 
 When the train head is ready, it merges with a squash merge and deletes the source branch.
-After a successful merge, the train dispatches the `CI` workflow on `main` explicitly. GitHub does not automatically create a normal push-triggered run for merges performed with `GITHUB_TOKEN`, so this keeps the latest `main` state visibly validated in Actions.
+After a successful merge, the train dispatches the `CI` and `Download Builds` workflows on `main` explicitly. GitHub does not automatically create normal push-triggered runs for merges performed with `GITHUB_TOKEN`, so this keeps the latest `main` state visibly validated in Actions and refreshes the `tester-latest` download release for early users.
 
 The train intentionally does not update behind PR branches by default. Branch updates made by GitHub Actions' `GITHUB_TOKEN` do not reliably create normal `pull_request` CI checks, which can leave the PR with no completed checks for the train to trust. `MERGE_TRAIN_UPDATE_BEHIND_BRANCHES=true` is available only for installations using a token that can trigger the required PR checks.
 
