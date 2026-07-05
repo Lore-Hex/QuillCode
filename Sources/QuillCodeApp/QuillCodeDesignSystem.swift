@@ -18,7 +18,7 @@ public enum QuillCodeMetrics {
     public static let sidebarLeadingInset: CGFloat = 16
     public static let sidebarTrailingInset: CGFloat = 16
     public static let sidebarVerticalInset: CGFloat = 8
-    public static let sidebarSectionSpacing: CGFloat = 5
+    public static let sidebarSectionSpacing: CGFloat = minimumTargetClearance
     public static let sidebarVisibleRowHeight: CGFloat = 30
     public static let sidebarVisibleRowHorizontalPadding: CGFloat = 12
     public static let sidebarVisibleRowRadius: CGFloat = 7

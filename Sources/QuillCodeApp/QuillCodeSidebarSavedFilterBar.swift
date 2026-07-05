@@ -8,7 +8,7 @@ struct QuillCodeSidebarSavedFilterBar: View {
         LazyVGrid(
             columns: columns,
             alignment: .leading,
-            spacing: QuillCodeMetrics.denseControlClusterSpacing
+            spacing: QuillCodeMetrics.minimumTargetClearance
         ) {
             ForEach(filters) { filter in
                 savedFilterButton(filter)
@@ -20,7 +20,7 @@ struct QuillCodeSidebarSavedFilterBar: View {
         [
             GridItem(
                 .adaptive(minimum: 86),
-                spacing: QuillCodeMetrics.denseControlClusterSpacing,
+                spacing: QuillCodeMetrics.minimumTargetClearance,
                 alignment: .leading
             )
         ]

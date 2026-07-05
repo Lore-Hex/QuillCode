@@ -13,7 +13,7 @@ struct QuillCodeSidebarUtilityActionsView: View {
     }
 
     var body: some View {
-        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+        HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
             toolsMenu
             if let settingsCommand {
                 settingsButton(settingsCommand)

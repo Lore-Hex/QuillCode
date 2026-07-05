@@ -954,11 +954,11 @@
       display: grid;
     }
     .sidebar-threads-zone {
-      gap: 5px;
+      gap: var(--hit-target-clearance);
     }
     .sidebar-projects-zone {
       gap: var(--hit-target-clearance);
-      margin-top: 7px;
+      margin-top: var(--hit-target-clearance);
     }
     .sidebar h2 { margin: 0 0 8px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar h3 { margin: 6px 0 3px; color: var(--muted); font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; }
@@ -1034,7 +1034,7 @@
       align-items: center;
       gap: var(--hit-target-clearance);
       overflow: visible;
-      padding: 1px 0 7px;
+      padding: 1px 0 var(--hit-target-clearance);
     }
     .sidebar-title-row + .sidebar-filter-bar {
       margin-top: 2px;
