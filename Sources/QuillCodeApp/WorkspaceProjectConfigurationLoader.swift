@@ -5,28 +5,65 @@ struct WorkspaceProjectConfiguration: Equatable {
     static let defaultMaxLocalActions = LocalEnvironmentActionLoader.maxActions
     static let maxConfiguredLocalActionDirectories = 8
     static let maxLocalActionsLimit = 64
+    static let defaultBeforeAgentRunHookDirectories = ProjectRunHookLoader.defaultBeforeAgentRunDirectories
+    static let defaultAfterAgentRunHookDirectories = ProjectRunHookLoader.defaultAfterAgentRunDirectories
+    static let maxConfiguredHookDirectories = 8
+    static let maxRunHooksLimit = 32
 
     var localActionDirectories: [String]
     var maxLocalActions: Int
+    var beforeAgentRunHookDirectories: [String]
+    var afterAgentRunHookDirectories: [String]
+    var maxRunHooks: Int
 
     init(
         localActionDirectories: [String] = defaultLocalActionDirectories,
-        maxLocalActions: Int = defaultMaxLocalActions
+        maxLocalActions: Int = defaultMaxLocalActions,
+        beforeAgentRunHookDirectories: [String] = defaultBeforeAgentRunHookDirectories,
+        afterAgentRunHookDirectories: [String] = defaultAfterAgentRunHookDirectories,
+        maxRunHooks: Int = ProjectRunHookLoader.maxHooks
     ) {
         self.localActionDirectories = Self.normalizedDirectories(localActionDirectories)
         self.maxLocalActions = Self.normalizedMaxLocalActions(maxLocalActions)
+        self.beforeAgentRunHookDirectories = Self.normalizedHookDirectories(
+            beforeAgentRunHookDirectories,
+            defaults: Self.defaultBeforeAgentRunHookDirectories
+        )
+        self.afterAgentRunHookDirectories = Self.normalizedHookDirectories(
+            afterAgentRunHookDirectories,
+            defaults: Self.defaultAfterAgentRunHookDirectories
+        )
+        self.maxRunHooks = Self.normalizedMaxRunHooks(maxRunHooks)
     }
 
-    init(additionalLocalActionDirectories: [String], maxLocalActions: Int?) {
+    init(
+        additionalLocalActionDirectories: [String],
+        maxLocalActions: Int?,
+        additionalBeforeAgentRunHookDirectories: [String] = [],
+        additionalAfterAgentRunHookDirectories: [String] = [],
+        maxRunHooks: Int? = nil
+    ) {
         self.init(
             localActionDirectories: Self.defaultLocalActionDirectories + additionalLocalActionDirectories,
-            maxLocalActions: maxLocalActions ?? Self.defaultMaxLocalActions
+            maxLocalActions: maxLocalActions ?? Self.defaultMaxLocalActions,
+            beforeAgentRunHookDirectories: Self.defaultBeforeAgentRunHookDirectories
+                + additionalBeforeAgentRunHookDirectories,
+            afterAgentRunHookDirectories: Self.defaultAfterAgentRunHookDirectories
+                + additionalAfterAgentRunHookDirectories,
+            maxRunHooks: maxRunHooks ?? ProjectRunHookLoader.maxHooks
         )
     }
 
     private static func normalizedMaxLocalActions(_ value: Int) -> Int {
         guard (1...maxLocalActionsLimit).contains(value) else {
             return defaultMaxLocalActions
+        }
+        return value
+    }
+
+    private static func normalizedMaxRunHooks(_ value: Int) -> Int {
+        guard (1...maxRunHooksLimit).contains(value) else {
+            return ProjectRunHookLoader.maxHooks
         }
         return value
     }
@@ -44,6 +81,21 @@ struct WorkspaceProjectConfiguration: Equatable {
             normalized.append(value)
         }
         return normalized.isEmpty ? defaultLocalActionDirectories : normalized
+    }
+
+    private static func normalizedHookDirectories(_ directories: [String], defaults: [String]) -> [String] {
+        var seen = Set<String>()
+        var normalized: [String] = []
+        for directory in directories {
+            guard normalized.count < maxConfiguredHookDirectories,
+                  let value = normalizedDirectory(directory),
+                  seen.insert(value).inserted
+            else {
+                continue
+            }
+            normalized.append(value)
+        }
+        return normalized.isEmpty ? defaults : normalized
     }
 
     private static func normalizedDirectory(_ value: String) -> String? {
@@ -97,6 +149,9 @@ enum WorkspaceProjectConfigurationLoader {
         var section: String?
         var additionalDirectories: [String] = []
         var maxLocalActions: Int?
+        var additionalBeforeHookDirectories: [String] = []
+        var additionalAfterHookDirectories: [String] = []
+        var maxRunHooks: Int?
 
         for rawLine in text.components(separatedBy: .newlines) {
             let line = stripComment(rawLine).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -121,6 +176,20 @@ enum WorkspaceProjectConfigurationLoader {
                 additionalDirectories.append(contentsOf: parseStringArray(assignment.value))
             case (nil, "max_local_actions"), ("local_actions", "max"):
                 maxLocalActions = Int(assignment.value.trimmingCharacters(in: .whitespaces))
+            case ("hooks", "before_agent_run_directory"):
+                if let directory = parseString(assignment.value) {
+                    additionalBeforeHookDirectories.append(directory)
+                }
+            case ("hooks", "before_agent_run_directories"):
+                additionalBeforeHookDirectories.append(contentsOf: parseStringArray(assignment.value))
+            case ("hooks", "after_agent_run_directory"):
+                if let directory = parseString(assignment.value) {
+                    additionalAfterHookDirectories.append(directory)
+                }
+            case ("hooks", "after_agent_run_directories"):
+                additionalAfterHookDirectories.append(contentsOf: parseStringArray(assignment.value))
+            case ("hooks", "max"):
+                maxRunHooks = Int(assignment.value.trimmingCharacters(in: .whitespaces))
             default:
                 continue
             }
@@ -128,7 +197,10 @@ enum WorkspaceProjectConfigurationLoader {
 
         return WorkspaceProjectConfiguration(
             additionalLocalActionDirectories: additionalDirectories,
-            maxLocalActions: maxLocalActions
+            maxLocalActions: maxLocalActions,
+            additionalBeforeAgentRunHookDirectories: additionalBeforeHookDirectories,
+            additionalAfterAgentRunHookDirectories: additionalAfterHookDirectories,
+            maxRunHooks: maxRunHooks
         )
     }
 

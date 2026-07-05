@@ -369,6 +369,7 @@ final class WorkspaceProjectEngineTests: XCTestCase {
                     command: "./.quillcode/actions/bootstrap.sh"
                 )
             ],
+            runHooks: [],
             extensionManifests: [
                 ProjectExtensionManifest(
                     id: "demo-mcp",

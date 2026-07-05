@@ -64,3 +64,10 @@
   the configured spend-fuse bucket, render a focused Spend Review tool card with
   Continue/Stop actions, and resume only after the user approves the next spend
   bucket.
+- Project run hooks now execute local project scripts before and after each
+  agent run through the normal `host.shell.run` tool-card path. Hooks are
+  discovered from `.quillcode/hooks/before-agent-run/*.sh` and
+  `.quillcode/hooks/after-agent-run/*.sh`, can be extended and capped from
+  `.quillcode/config.toml`, share bounded JSON sidecar metadata with local
+  environment actions, abort the run on before-hook failure, and report
+  after-hook failures without hiding the agent's completed answer.

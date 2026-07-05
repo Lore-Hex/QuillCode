@@ -116,6 +116,112 @@ final class WorkspaceAgentSendSessionTests: XCTestCase {
         )
         XCTAssertEqual(memoryFiles.count, 1)
     }
+
+    func testRunExecutesProjectHooksAroundAgentSend() async throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let beforeDirectory = try createHookDirectory(
+            named: ".quillcode/hooks/before-agent-run",
+            in: workspaceRoot
+        )
+        let afterDirectory = try createHookDirectory(
+            named: ".quillcode/hooks/after-agent-run",
+            in: workspaceRoot
+        )
+        try "printf before > before.txt".write(
+            to: beforeDirectory.appendingPathComponent("01-before.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "printf after > after.txt".write(
+            to: afterDirectory.appendingPathComponent("99-after.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let session = WorkspaceAgentSendSession(
+            prompt: "say hello",
+            thread: ChatThread(title: "New chat"),
+            runner: AgentRunner(llm: SequenceLLMClient(actions: [.say("hello")])),
+            workspaceRoot: workspaceRoot,
+            runHooks: ProjectRunHookLoader.load(from: workspaceRoot)
+        )
+
+        let result = try await session.run()
+
+        XCTAssertEqual(result.thread.messages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(result.thread.messages.map(\.content), ["say hello", "hello"])
+        XCTAssertEqual(
+            try String(contentsOf: workspaceRoot.appendingPathComponent("before.txt"), encoding: .utf8),
+            "before"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: workspaceRoot.appendingPathComponent("after.txt"), encoding: .utf8),
+            "after"
+        )
+        XCTAssertEqual(result.thread.events.filter { $0.kind == .toolCompleted }.count, 2)
+    }
+
+    func testBeforeRunHookFailureStopsAgentSend() async throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let beforeDirectory = try createHookDirectory(
+            named: ".quillcode/hooks/before-agent-run",
+            in: workspaceRoot
+        )
+        try "echo nope >&2; exit 7".write(
+            to: beforeDirectory.appendingPathComponent("01-before.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let session = WorkspaceAgentSendSession(
+            prompt: "say hello",
+            thread: ChatThread(title: "New chat"),
+            runner: AgentRunner(llm: SequenceLLMClient(actions: [.say("should not run")])),
+            workspaceRoot: workspaceRoot,
+            runHooks: ProjectRunHookLoader.load(from: workspaceRoot)
+        )
+
+        let result = try await session.run()
+
+        XCTAssertEqual(result.thread.messages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(result.thread.messages[0].content, "say hello")
+        XCTAssertTrue(result.thread.messages[1].content.contains("Before-run hook failed"))
+        XCTAssertTrue(result.thread.messages[1].content.contains("nope"))
+        XCTAssertFalse(result.thread.messages.contains { $0.content == "should not run" })
+        XCTAssertEqual(result.thread.events.filter { $0.kind == .toolFailed }.count, 1)
+    }
+
+    func testAfterRunHookFailureKeepsAgentAnswerAndReportsFailure() async throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let afterDirectory = try createHookDirectory(
+            named: ".quillcode/hooks/after-agent-run",
+            in: workspaceRoot
+        )
+        try "echo cleanup failed >&2; exit 9".write(
+            to: afterDirectory.appendingPathComponent("99-after.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let session = WorkspaceAgentSendSession(
+            prompt: "say hello",
+            thread: ChatThread(title: "New chat"),
+            runner: AgentRunner(llm: SequenceLLMClient(actions: [.say("hello")])),
+            workspaceRoot: workspaceRoot,
+            runHooks: ProjectRunHookLoader.load(from: workspaceRoot)
+        )
+
+        let result = try await session.run()
+
+        XCTAssertEqual(result.thread.messages.map(\.role), [.user, .assistant, .assistant])
+        XCTAssertEqual(result.thread.messages[1].content, "hello")
+        XCTAssertTrue(result.thread.messages[2].content.contains("After-run hook failed"))
+        XCTAssertTrue(result.thread.messages[2].content.contains("cleanup failed"))
+        XCTAssertEqual(result.thread.events.filter { $0.kind == .toolFailed }.count, 1)
+    }
+}
+
+private func createHookDirectory(named relativePath: String, in root: URL) throws -> URL {
+    let directory = root.appendingPathComponent(relativePath)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
 }
 
 private actor ProgressRecorder {

@@ -21,6 +21,12 @@ enum WorkspaceProjectMetadataLoader {
                 directories: configuration.localActionDirectories,
                 maxActions: configuration.maxLocalActions
             ),
+            runHooks: ProjectRunHookLoader.load(
+                from: root,
+                beforeAgentRunDirectories: configuration.beforeAgentRunHookDirectories,
+                afterAgentRunDirectories: configuration.afterAgentRunHookDirectories,
+                maxHooks: configuration.maxRunHooks
+            ),
             extensionManifests: installedManifests + marketplaceManifests + bundledMarketplaceManifests,
             memories: MemoryNoteLoader.loadProject(from: root)
         )
@@ -40,6 +46,7 @@ enum WorkspaceProjectMetadataLoader {
         WorkspaceProjectMetadata(
             instructions: context.instructions,
             localActions: [],
+            runHooks: [],
             extensionManifests: [],
             memories: context.memories
         )

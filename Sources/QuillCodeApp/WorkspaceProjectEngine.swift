@@ -4,12 +4,14 @@ import QuillCodeCore
 struct WorkspaceProjectMetadata: Equatable, Sendable {
     var instructions: [ProjectInstruction]
     var localActions: [LocalEnvironmentAction]
+    var runHooks: [ProjectRunHook]
     var extensionManifests: [ProjectExtensionManifest]
     var memories: [MemoryNote]
 
     static let empty = WorkspaceProjectMetadata(
         instructions: [],
         localActions: [],
+        runHooks: [],
         extensionManifests: [],
         memories: []
     )
@@ -59,6 +61,7 @@ enum WorkspaceProjectEngine {
             projects[index].name = projectName
             applyInstructionMetadata(metadata.instructions, to: &projects[index], now: now)
             projects[index].localActions = metadata.localActions
+            projects[index].runHooks = metadata.runHooks
             projects[index].extensionManifests = metadata.extensionManifests
             projects[index].memories = metadata.memories
             projects[index].lastOpenedAt = now
@@ -71,6 +74,7 @@ enum WorkspaceProjectEngine {
             lastOpenedAt: now,
             instructions: metadata.instructions,
             localActions: metadata.localActions,
+            runHooks: metadata.runHooks,
             extensionManifests: metadata.extensionManifests,
             memories: metadata.memories
         )
@@ -205,9 +209,11 @@ enum WorkspaceProjectEngine {
         projects[index].memories = metadata.memories
         if includeLocalExtensions {
             projects[index].localActions = metadata.localActions
+            projects[index].runHooks = metadata.runHooks
             projects[index].extensionManifests = metadata.extensionManifests
         } else {
             projects[index].localActions = []
+            projects[index].runHooks = []
             projects[index].extensionManifests = []
         }
         return true

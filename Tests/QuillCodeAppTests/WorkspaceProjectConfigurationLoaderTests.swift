@@ -14,6 +14,13 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
             directory = "ci/tasks"
             directories = ["support/actions"]
             max = 32
+
+            [hooks]
+            before_agent_run_directory = "scripts/before-agent"
+            before_agent_run_directories = ["ci/before"]
+            after_agent_run_directory = "scripts/after-agent"
+            after_agent_run_directories = ["ci/after"]
+            max = 12
             """
         )
 
@@ -26,6 +33,17 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
             "support/actions"
         ])
         XCTAssertEqual(configuration.maxLocalActions, 32)
+        XCTAssertEqual(configuration.beforeAgentRunHookDirectories, [
+            ".quillcode/hooks/before-agent-run",
+            "scripts/before-agent",
+            "ci/before"
+        ])
+        XCTAssertEqual(configuration.afterAgentRunHookDirectories, [
+            ".quillcode/hooks/after-agent-run",
+            "scripts/after-agent",
+            "ci/after"
+        ])
+        XCTAssertEqual(configuration.maxRunHooks, 12)
     }
 
     func testParseRejectsUnsafeDirectoriesAndInvalidMax() {
@@ -34,6 +52,11 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
             local_action_directory = scripts/bare
             local_action_directories = ["/tmp/actions", "../escape", "valid/actions", "also/valid"]
             max_local_actions = 1000
+
+            [hooks]
+            before_agent_run_directories = ["/tmp/hooks", "../escape", "valid/before"]
+            after_agent_run_directories = ["valid/after"]
+            max = 1000
             """
         )
 
@@ -44,6 +67,15 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
             "also/valid"
         ])
         XCTAssertEqual(configuration.maxLocalActions, LocalEnvironmentActionLoader.maxActions)
+        XCTAssertEqual(configuration.beforeAgentRunHookDirectories, [
+            ".quillcode/hooks/before-agent-run",
+            "valid/before"
+        ])
+        XCTAssertEqual(configuration.afterAgentRunHookDirectories, [
+            ".quillcode/hooks/after-agent-run",
+            "valid/after"
+        ])
+        XCTAssertEqual(configuration.maxRunHooks, ProjectRunHookLoader.maxHooks)
     }
 
     func testLoadBoundsConfigFileToProject() throws {
