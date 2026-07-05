@@ -130,6 +130,45 @@ public enum TrustedRouterDefaults {
         platoModel: "Plato 1.0 is the freedom-oriented OSS coding-agent model."
     ]
 
+    public static let recommendedCapabilities: [String: ModelCapabilities] = [
+        fastModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["fast", "coding", "shell", "file editing"],
+            summary: recommendedSummaries[fastModel]
+        ),
+        zeusModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["deep research", "synthesis", "analysis"],
+            summary: recommendedSummaries[zeusModel]
+        ),
+        prometheusModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["freedom", "OSS", "deep research"],
+            summary: recommendedSummaries[prometheusModel]
+        ),
+        socratesModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["coding agent", "implementation", "tools"],
+            summary: recommendedSummaries[socratesModel]
+        ),
+        aristotleModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["smart", "reasoning", "general agent"],
+            summary: recommendedSummaries[aristotleModel]
+        ),
+        platoModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["freedom", "OSS", "coding agent"],
+            summary: recommendedSummaries[platoModel]
+        )
+    ]
+
     public static func canonicalProvider(_ provider: String) -> String {
         let normalized = provider.trimmingCharacters(in: .whitespacesAndNewlines)
         return trustedRouterProviderAliases[normalized.lowercased()] ?? normalized
@@ -256,12 +295,13 @@ public enum TrustedRouterDefaults {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let category = model.category
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackCapabilities = recommendedCapabilities[modelID] ?? .init()
         return ModelInfo(
             id: modelID,
             provider: provider,
             displayName: recommendedDisplayNames[modelID] ?? (displayName.isEmpty ? Self.displayName(fromModelID: modelID) : displayName),
             category: category.isEmpty ? Self.category(forModelID: modelID, provider: provider) : category,
-            capabilities: model.capabilities
+            capabilities: mergeCapabilities(fallbackCapabilities, with: model.capabilities)
         )
     }
 
@@ -271,20 +311,48 @@ public enum TrustedRouterDefaults {
         for model in bundledModelCatalog + models {
             let normalized = normalizedModelInfo(model)
             if let index = indexByID[normalized.id] {
-                // The first occurrence (usually a curated bundled entry) keeps its identity, but a
-                // later duplicate — typically the LIVE catalog row for the same canonical model —
-                // backfills the capabilities the curated entry lacks. Without this, bundled entries
-                // would shadow live prices/metadata for exactly the recommended models, starving
-                // pricing-aware features like the auxiliary-model selector.
-                if catalog[index].capabilities.isEmpty, !normalized.capabilities.isEmpty {
-                    catalog[index].capabilities = normalized.capabilities
-                }
+                // The first occurrence (usually a curated bundled entry) keeps its identity, while a
+                // later duplicate — typically the live catalog row for the same canonical model —
+                // backfills concrete metadata such as context window, pricing, status, and release
+                // date without losing QuillCode's stable branded capability taxonomy.
+                catalog[index].capabilities = mergeCapabilities(
+                    catalog[index].capabilities,
+                    with: normalized.capabilities
+                )
                 continue
             }
             indexByID[normalized.id] = catalog.count
             catalog.append(normalized)
         }
         return catalog.sorted(by: compareModels)
+    }
+
+    private static func mergeCapabilities(
+        _ base: ModelCapabilities,
+        with override: ModelCapabilities
+    ) -> ModelCapabilities {
+        ModelCapabilities(
+            contextWindowTokens: override.contextWindowTokens ?? base.contextWindowTokens,
+            inputPricePerMillionTokens: override.inputPricePerMillionTokens ?? base.inputPricePerMillionTokens,
+            outputPricePerMillionTokens: override.outputPricePerMillionTokens ?? base.outputPricePerMillionTokens,
+            inputModalities: mergedList(base.inputModalities, override.inputModalities),
+            outputModalities: mergedList(base.outputModalities, override.outputModalities),
+            capabilityTags: mergedList(base.capabilityTags, override.capabilityTags),
+            status: override.status ?? base.status,
+            summary: override.summary ?? base.summary,
+            releaseDate: override.releaseDate ?? base.releaseDate
+        )
+    }
+
+    private static func mergedList(_ base: [String], _ override: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for value in base + override {
+            let key = value.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            result.append(value)
+        }
+        return result
     }
 
     public static func compareModelCategories(_ lhs: String, _ rhs: String) -> Bool {
