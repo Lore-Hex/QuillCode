@@ -13,7 +13,17 @@ public extension ToolDefinition {
         does not run any skill code.
         """,
         parametersJSON: """
-        {"type":"object","properties":{"name":{"type":"string","description":"The bare name of the skill to load, e.g. code-review. Not a path; no slashes or ..."}},"required":["name"]}
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The bare name of the skill to load, e.g. code-review. Not a path; no slashes or .. segments."
+            }
+          },
+          "required": ["name"]
+        }
         """,
         host: .local,
         risk: .read
