@@ -39,6 +39,10 @@ test('mock harness browses the model catalog with pricing from the /model popup'
   await expect(page.getByTestId('model-command-empty-title')).toHaveText('No bundled model matches');
   await expect(page.getByTestId('model-command-empty-detail'))
     .toContainText('Sign in or refresh TrustedRouter to search live provider models for "zzznope"');
+  await expect(page.getByTestId('send-button')).toBeDisabled();
+  await page.keyboard.press('Enter');
+  await expect(message).toHaveValue('/model zzznope');
+  await expect(page.getByTestId('message')).toHaveCount(0);
 });
 
 test('mock harness keyboard-navigates and selects a model from the /model popup', async ({ page }) => {

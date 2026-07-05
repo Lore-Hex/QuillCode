@@ -5179,6 +5179,10 @@
         });
     }
 
+    function modelCommandHasNoMatches(draft = state.composer.draft) {
+      return modelCommandQuery(draft) !== null && modelCommandSuggestions(draft).length === 0;
+    }
+
     function clampModelCommandActiveIndex(suggestions = modelCommandSuggestions(state.composer.draft)) {
       if (!suggestions.length) {
         state.composer.modelCommandActiveIndex = 0;
@@ -8336,7 +8340,7 @@
                     <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1">${escapeHTML(state.composer.draft)}</textarea>
                     ${state.composer.isSending
                       ? '<button type="button" class="stop-button hit-target-text" data-testid="stop-button">Stop</button>'
-                      : `<button class="hit-target-text" type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
+                      : `<button class="hit-target-text" type="submit" data-testid="send-button" ${(state.composer.canSend && !modelCommandHasNoMatches()) ? '' : 'disabled'}>Send</button>`}
                   </div>
                   <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
                     <div class="model-picker-wrap">
@@ -8450,12 +8454,17 @@
             event.preventDefault();
             return;
           }
+          if (modelCommandHasNoMatches()) {
+            event.preventDefault();
+            return;
+          }
           event.preventDefault();
           sendMessage(input.value);
         }
       });
       form.addEventListener('submit', event => {
         event.preventDefault();
+        if (modelCommandHasNoMatches()) return;
         sendMessage(input.value);
       });
       document.querySelector('[data-testid="stop-button"]')?.addEventListener('click', () => {
