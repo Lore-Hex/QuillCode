@@ -383,6 +383,25 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Done after checking disk usage.")
     }
 
+    func testAgentRecoversProviderEmptyOpenClawArgumentsFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: EmptyArgumentsThenSayLLMClient(
+            finalMessage: "Done after checking OpenClaw."
+        ))
+
+        let result = try await runner.send(
+            "Do you have openclaw?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), expectedOpenClawDiscoveryCommand)
+        XCTAssertNoAssistantMessageContains("No shell command was specified", in: result)
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after checking OpenClaw.")
+    }
+
     func testAgentRecoversProviderEmptyFileWriteArgumentsFromUserIntent() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(
