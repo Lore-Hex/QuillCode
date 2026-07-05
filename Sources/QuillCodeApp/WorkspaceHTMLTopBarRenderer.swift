@@ -5,8 +5,7 @@ enum WorkspaceHTMLTopBarRenderer {
         """
         <header class="topbar" data-testid="top-bar" aria-label="\(escape(topBar.topBarAccessibilityLabel))">
           \(renderStatusMetadata(topBar))
-          <div class="topbar-sidebar-slot" aria-hidden="true"></div>
-          \(renderNavigationControls(commands: commands))
+          <div class="topbar-sidebar-slot">\(renderNavigationControls(commands: commands))</div>
           <div class="topbar-title-group" data-testid="top-bar-title-group">
             <div class="topbar-title-copy">
               <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
