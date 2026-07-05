@@ -50,15 +50,6 @@ final class DesktopBrowserLiveDOMCapturer: BrowserLiveDOMCapturing, @unchecked S
 
 @MainActor
 private final class WebKitBrowserLiveDOMCaptureSession: NSObject, WKNavigationDelegate {
-    private struct RenderedDOMPayload: Decodable {
-        var url: String
-        var title: String?
-        var text: String?
-        var outline: [String]
-        var html: String?
-        var viewport: String?
-    }
-
     private let webView: WKWebView
     private let timeoutNanoseconds: UInt64
     private let settleDelayNanoseconds: UInt64
@@ -118,36 +109,15 @@ private final class WebKitBrowserLiveDOMCaptureSession: NSObject, WKNavigationDe
 
     private func captureRenderedDOM() async {
         do {
-            let payload = try await evaluatePayload()
-            let finalURL = URL(string: payload.url) ?? webView.url ?? requestedURL
-            guard let finalURL else {
-                finish(.failure(BrowserLiveDOMCaptureFailure.pageNotReady))
-                return
-            }
-
-            finish(.success(BrowserLiveDOMSnapshot(
-                finalURL: finalURL,
-                title: payload.title,
-                visibleText: payload.text,
-                outline: payload.outline,
-                html: payload.html,
-                viewportDescription: payload.viewport
+            finish(.success(try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
+                from: webView,
+                fallbackURL: requestedURL
             )))
         } catch let failure as BrowserLiveDOMCaptureFailure {
             finish(.failure(failure))
         } catch {
             finish(.failure(BrowserLiveDOMCaptureFailure.transport(error.localizedDescription)))
         }
-    }
-
-    private func evaluatePayload() async throws -> RenderedDOMPayload {
-        let result = try await webView.evaluateJavaScript(Self.liveDOMJavaScript)
-        guard let json = result as? String,
-              let data = json.data(using: .utf8)
-        else {
-            throw BrowserLiveDOMCaptureFailure.pageNotReady
-        }
-        return try JSONDecoder().decode(RenderedDOMPayload.self, from: data)
     }
 
     private func finish(_ result: Result<BrowserLiveDOMSnapshot, any Error>) {
@@ -165,45 +135,6 @@ private final class WebKitBrowserLiveDOMCaptureSession: NSObject, WKNavigationDe
             continuation.resume(throwing: error)
         }
     }
-
-    private static let liveDOMJavaScript = #"""
-    (() => {
-      const compact = (value) => (value || '').toString().replace(/\s+/g, ' ').trim();
-      const limit = (value, max) => value.length > max ? value.slice(0, max) : value;
-      const outline = [];
-      const push = (label) => {
-        const text = compact(label);
-        if (text && outline.length < 48) outline.push(text);
-      };
-
-      document.querySelectorAll('h1,h2,h3,h4,h5,h6,a,button,input,textarea,select,form,img').forEach((element) => {
-        const tag = element.tagName.toLowerCase();
-        if (/^h[1-6]$/.test(tag)) {
-          push(`${tag.toUpperCase()}: ${element.textContent}`);
-        } else if (tag === 'a') {
-          push(`Link: ${element.textContent || element.getAttribute('aria-label') || element.href}`);
-        } else if (tag === 'button') {
-          push(`Button: ${element.textContent || element.getAttribute('aria-label')}`);
-        } else if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-          push(`Input: ${element.getAttribute('name') || element.getAttribute('placeholder') || element.getAttribute('aria-label') || tag}`);
-        } else if (tag === 'form') {
-          push(`Form: ${element.getAttribute('aria-label') || element.getAttribute('name') || 'form'}`);
-        } else if (tag === 'img') {
-          push(`Image: ${element.getAttribute('alt') || element.getAttribute('src') || 'image'}`);
-        }
-      });
-
-      const html = document.documentElement ? document.documentElement.outerHTML : '';
-      return JSON.stringify({
-        url: location.href,
-        title: document.title || '',
-        text: limit(compact(document.body ? document.body.innerText : ''), 12000),
-        outline: outline,
-        html: limit(html, 512000),
-        viewport: `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio || 1}x`
-      });
-    })()
-    """#
 }
 #elseif os(Linux)
 typealias DesktopBrowserLiveDOMCapturer = ChromiumBrowserLiveDOMCapturer
