@@ -39,10 +39,9 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
         Self.assertSource(designSystemText, contains: "size: CGFloat = QuillCodeMetrics.minimumHitTarget")
         Self.assertSource(topBarText, contains: ".quillCodeTextButtonTarget(minWidth: 64")
         Self.assertSource(topBarText, contains: ".quillCodeIconButtonTarget()")
-        Self.assertSource(sidebarText, contains: ".quillCodeFullRowButtonTarget()")
-        Self.assertSource(sidebarText, contains: ".quillCodeFullRowButtonTarget(alignment: .center")
+        Self.assertSource(sidebarText, contains: ".quillCodeSidebarRowChrome")
         Self.assertSource(sidebarText, contains: ".quillCodeTextButtonTarget(minWidth: 56)")
-        Self.assertSource(sidebarRowsText, contains: ".quillCodeFullRowButtonTarget()")
+        Self.assertSource(sidebarRowsText, contains: ".quillCodeSidebarRowChrome")
         Self.assertSource(sidebarRowsText, contains: ".quillCodeIconButtonTarget()")
         for expected in [
             ".quillCodeTextButtonTarget(",

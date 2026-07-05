@@ -7,6 +7,7 @@ struct SwiftSourceInteractionTargetAudit {
         "quillCodeTextButtonTarget",
         "quillCodeIconButtonTarget",
         "quillCodeFullRowButtonTarget",
+        "quillCodeSidebarRowChrome",
         "quillCodeCapsuleButtonTarget",
         "quillCodeFormActionTarget",
         "quillCodeLinkTarget",
@@ -217,6 +218,7 @@ struct SwiftSourceInteractionTargetAudit {
             "quillCodeTextButtonTarget",
             "quillCodeIconButtonTarget",
             "quillCodeFullRowButtonTarget",
+            "quillCodeSidebarRowChrome",
             "quillCodeCapsuleButtonTarget",
             "quillCodeFormActionTarget"
         ].contains { sourceWindow.contains($0) }
@@ -227,6 +229,7 @@ struct SwiftSourceInteractionTargetAudit {
             "quillCodeTextButtonTarget",
             "quillCodeIconButtonTarget",
             "quillCodeFullRowButtonTarget",
+            "quillCodeSidebarRowChrome",
             "quillCodeCapsuleButtonTarget",
             "quillCodeFormActionTarget"
         ].contains { sourceWindow.contains($0) }

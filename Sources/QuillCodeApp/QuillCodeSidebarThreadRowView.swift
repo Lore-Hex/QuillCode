@@ -51,18 +51,7 @@ struct QuillCodeSidebarThreadRowView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
-            .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
-            .frame(
-                maxWidth: .infinity,
-                minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
-                alignment: .leading
-            )
-            .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
-            .clipShape(RoundedRectangle(
-                cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
-                style: .continuous
-            ))
-            .quillCodeFullRowButtonTarget()
+            .quillCodeSidebarRowChrome(background: item.isSelected ? QuillCodePalette.selection : Color.clear)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
     }

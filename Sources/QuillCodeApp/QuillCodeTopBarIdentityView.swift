@@ -64,13 +64,13 @@ struct QuillCodeTopBarIdentityView: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Context")
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(budget.primaryLabel)
-                    .font(.system(size: 13.5, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 14.5, weight: .semibold).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.92)
+                    .minimumScaleFactor(0.94)
             }
 
             GeometryReader { proxy in
@@ -86,17 +86,17 @@ struct QuillCodeTopBarIdentityView: View {
 
             HStack(spacing: 6) {
                 Text(budget.secondaryLabel)
-                    .font(.system(size: 12.5, weight: .medium).monospacedDigit())
+                    .font(.system(size: 13, weight: .medium).monospacedDigit())
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.92)
+                    .minimumScaleFactor(0.94)
 
                 if !budget.visibleQuotaLimits.isEmpty {
                     Text(budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · "))
-                        .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
                         .foregroundStyle(tokenBudgetTint(for: budget))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.92)
+                        .minimumScaleFactor(0.94)
                 }
             }
         }

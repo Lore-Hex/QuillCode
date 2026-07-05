@@ -43,19 +43,11 @@ struct QuillCodeSidebarUtilityActionsView: View {
         } label: {
             Label("Tools", systemImage: "wrench.and.screwdriver")
                 .font(.callout.weight(.medium))
-                .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
+                .foregroundStyle(QuillCodePalette.muted)
+                .quillCodeSidebarRowChrome(
+                    background: QuillCodePalette.panel.opacity(0.50),
                     alignment: .center
                 )
-                .foregroundStyle(QuillCodePalette.muted)
-                .background(QuillCodePalette.panel.opacity(0.50))
-                .clipShape(RoundedRectangle(
-                    cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
-                    style: .continuous
-                ))
-                .quillCodeFullRowButtonTarget(alignment: .center, radius: QuillCodeMetrics.sidebarVisibleRowRadius)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Tools")
@@ -71,19 +63,11 @@ struct QuillCodeSidebarUtilityActionsView: View {
                 systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
             )
             .font(.callout.weight(.medium))
-            .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
-            .frame(
-                maxWidth: .infinity,
-                minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
+            .foregroundStyle(settingsForeground(command))
+            .quillCodeSidebarRowChrome(
+                background: QuillCodePalette.panel.opacity(0.50),
                 alignment: .center
             )
-            .foregroundStyle(settingsForeground(command))
-            .background(QuillCodePalette.panel.opacity(0.50))
-            .clipShape(RoundedRectangle(
-                cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
-                style: .continuous
-            ))
-            .quillCodeFullRowButtonTarget(alignment: .center, radius: QuillCodeMetrics.sidebarVisibleRowRadius)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(!command.isEnabled)

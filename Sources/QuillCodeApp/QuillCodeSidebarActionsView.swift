@@ -22,19 +22,8 @@ struct QuillCodeSidebarActionsView: View {
                     )
                     .font(.callout.weight(.medium))
                     .labelStyle(.titleAndIcon)
-                    .padding(.horizontal, QuillCodeMetrics.sidebarVisibleRowHorizontalPadding)
-                    .frame(
-                        maxWidth: .infinity,
-                        minHeight: QuillCodeMetrics.sidebarVisibleRowHeight,
-                        alignment: .leading
-                    )
                     .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
-                    .background(primaryCommandBackground(command))
-                    .clipShape(RoundedRectangle(
-                        cornerRadius: QuillCodeMetrics.sidebarVisibleRowRadius,
-                        style: .continuous
-                    ))
-                    .quillCodeFullRowButtonTarget()
+                    .quillCodeSidebarRowChrome(background: primaryCommandBackground(command))
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!command.isEnabled)
