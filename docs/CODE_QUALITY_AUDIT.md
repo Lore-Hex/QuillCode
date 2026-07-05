@@ -15369,3 +15369,24 @@ Validation:
 - `swift test` (3,248 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py --root .` (all modules A+)
 - `git diff --check`
+
+## 2026-07-05 Model Taxonomy Parity Evidence Sync
+
+Overall grade after this slice: **A+ parity documentation and source-gate alignment**.
+This syncs the Codex parity matrix with the implemented branded model taxonomy
+and adds a focused parity source gate so the docs cannot drift silently.
+
+Code quality changes:
+
+- Updated the TrustedRouter model-picker parity row to list branded fallback
+  capability taxonomy as implemented.
+- Added `ParityModelGateTests` coverage that requires the bundled
+  `recommendedCapabilities` table, all six branded model profiles, searchable
+  capability tags, and live-catalog capability merging to remain in
+  `TrustedRouterDefaults`.
+- Registered the new parity test in `ParityFocusedSuiteManifest` so the
+  focused model parity lane stays complete.
+
+Validation:
+
+- `swift test --filter 'ParityModelGateTests|ParityGateTests/testParityGatesUseFocusedSuitesAndSharedSupport'`

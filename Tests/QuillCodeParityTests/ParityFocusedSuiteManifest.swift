@@ -58,7 +58,8 @@ struct ParityFocusedSuiteManifest {
             "testSlashParserDelegatesSchedulingSubcommands"
         ]),
         Suite(fileName: "ParityModelGateTests.swift", testNames: [
-            "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
+            "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels",
+            "testTrustedRouterRecommendedModelsKeepCapabilityTaxonomy"
         ]),
         Suite(fileName: "ParityWorkspaceSecondaryPaneSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"

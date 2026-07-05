@@ -22,6 +22,47 @@ final class ParityModelGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelsText.contains("Prometheus 1.0"), "General domain models should not own model branding copy.")
     }
 
+    func testTrustedRouterRecommendedModelsKeepCapabilityTaxonomy() throws {
+        let defaultsText = try Self.coreSourceText(named: "TrustedRouterDefaults.swift")
+
+        XCTAssertTrue(
+            defaultsText.contains("public static let recommendedCapabilities"),
+            "Recommended model capability taxonomy should stay beside TrustedRouter defaults."
+        )
+        [
+            "fastModel: ModelCapabilities",
+            "zeusModel: ModelCapabilities",
+            "prometheusModel: ModelCapabilities",
+            "socratesModel: ModelCapabilities",
+            "aristotleModel: ModelCapabilities",
+            "platoModel: ModelCapabilities"
+        ].forEach {
+            XCTAssertTrue(defaultsText.contains($0), "\($0) should keep a bundled capability profile.")
+        }
+        [
+            #""shell""#,
+            #""file editing""#,
+            #""deep research""#,
+            #""coding agent""#,
+            #""general agent""#,
+            #""OSS""#
+        ].forEach {
+            XCTAssertTrue(defaultsText.contains($0), "\($0) should remain searchable taxonomy copy.")
+        }
+        XCTAssertTrue(
+            defaultsText.contains("mergeCapabilities"),
+            "Live catalog duplicates should merge with, not replace, branded capability taxonomy."
+        )
+        XCTAssertTrue(
+            defaultsText.contains("contextWindowTokens: override.contextWindowTokens ?? base.contextWindowTokens"),
+            "Live catalog metadata should backfill concrete capability fields."
+        )
+        XCTAssertTrue(
+            defaultsText.contains("capabilityTags: mergedList(base.capabilityTags, override.capabilityTags)"),
+            "Live provider tags should compose with curated branded tags."
+        )
+    }
+
     func testRemovedSynthAliasesDoNotReturn() throws {
         let defaultsText = try Self.coreSourceText(named: "TrustedRouterDefaults.swift")
         for removedAlias in ["tr/synth", "/synth", "trustedrouter/synth", "synth-code", "fusion-code"] {
@@ -54,6 +95,10 @@ final class ParityModelGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(
             broadSuiteLines.contains("    func testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels() throws {"),
             "TrustedRouter model architecture gates should stay in ParityModelGateTests."
+        )
+        XCTAssertFalse(
+            broadSuiteLines.contains("    func testTrustedRouterRecommendedModelsKeepCapabilityTaxonomy() throws {"),
+            "TrustedRouter capability taxonomy gates should stay in ParityModelGateTests."
         )
         XCTAssertFalse(
             broadSuiteLines.contains("    func testAppConfigLivesOutsideGeneralDomainModels() throws {"),
