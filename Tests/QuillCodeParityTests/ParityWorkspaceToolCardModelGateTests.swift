@@ -11,6 +11,8 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactDocumentPreviewText = try Self.appSourceText(named: "ToolArtifactDocumentPreviewBuilder.swift")
         let artifactAppshotPreviewText = try Self.appSourceText(named: "ToolArtifactAppshotPreviewBuilder.swift")
         let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
+        let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
+        let artifactByteSizeText = try Self.appSourceText(named: "ToolArtifactByteSizeFormatter.swift")
         let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
         let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
         let toolCardReducerText = try Self.appSourceText(named: "WorkspaceToolCardEventReducer.swift")
@@ -24,9 +26,11 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "ToolArtifactDocumentPreviewBuilder.documentPreview",
             "ToolArtifactAppshotPreviewBuilder.appshotPreview",
             "ToolArtifactPDFPreviewBuilder.pdfPreview",
+            "ToolArtifactOfficePreviewBuilder.officePreview",
             "public struct ToolArtifactDocumentPreview",
             "public struct ToolArtifactAppshotPreview",
             "public struct ToolArtifactPDFPreview",
+            "public struct ToolArtifactOfficePreview",
             "public struct ToolArtifactImagePreview"
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
@@ -52,6 +56,14 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "parsedPageCount",
             "parsedTitle"
         ])
+        Self.assertSource(artifactOfficePreviewText, containsAll: [
+            "enum ToolArtifactOfficePreviewBuilder",
+            "zipCentralDirectory",
+            "centralDirectoryHeaderSignature",
+            "worksheetCount",
+            "slideCount"
+        ])
+        Self.assertSource(artifactByteSizeText, contains: "enum ToolArtifactByteSizeFormatter")
         Self.assertSource(artifactTextPreviewText, contains: "enum ToolArtifactTextPreviewBuilder")
         Self.assertSource(toolCardReducerText, containsAll: [
             "struct WorkspaceToolCardEventReducer",

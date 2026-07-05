@@ -227,6 +227,59 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">Size: \#(byteCount) bytes"#))
     }
 
+    func testHTMLRendererIncludesOfficeArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let spreadsheet = reports.appendingPathComponent("budget.xlsx")
+        let spreadsheetEntries = [
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "xl/workbook.xml",
+            "xl/_rels/workbook.xml.rels",
+            "xl/worksheets/sheet1.xml",
+            "xl/worksheets/sheet2.xml",
+            "xl/styles.xml"
+        ]
+        let spreadsheetBytes = OfficePackageFixture.zipPackage(fileNames: spreadsheetEntries)
+        try spreadsheetBytes.write(to: spreadsheet)
+        let byteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: spreadsheetBytes.count))
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"budget.xlsx"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote budget.xlsx\n", artifacts: [spreadsheet.path])
+        let thread = ChatThread(
+            title: "Spreadsheet artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview""#))
+        XCTAssertTrue(html.contains(#"data-kind="spreadsheet""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Spreadsheet · XLSX"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">budget.xlsx"#))
+        XCTAssertTrue(html.contains(#"href="\#(spreadsheet.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">Format: Office Open XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">7 package entries"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">2 sheets"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">Size: \#(byteSize)"#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

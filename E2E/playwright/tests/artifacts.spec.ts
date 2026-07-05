@@ -154,6 +154,30 @@ test('mock harness renders document artifact previews from tool cards', async ({
   await expect(page.getByText('Created `briefing.pdf`.')).toBeVisible();
 });
 
+test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a spreadsheet artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('budget.xlsx');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'spreadsheet');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Spreadsheet · XLSX');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('budget.xlsx');
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/reports');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/reports/budget.xlsx');
+  await expect(page.getByTestId('tool-card-office-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-office-preview-meta')).toHaveText([
+    'Format: Office Open XML',
+    '7 package entries',
+    '2 sheets',
+    'Size: 4 KB'
+  ]);
+  await expect(page.getByText('Created `budget.xlsx`.')).toBeVisible();
+});
+
 test('mock harness renders appshot artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
