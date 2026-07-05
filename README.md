@@ -18,6 +18,10 @@ This initial repository contains the compile-stable foundation:
 
 ## Try It
 
+Download the latest automated tester build from
+[QuillCode Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest).
+The tester release is refreshed from `main`; see [Downloadable Builds](docs/DOWNLOADS.md).
+
 ```bash
 swift test
 ./scripts/smoke.sh
@@ -71,3 +75,4 @@ swift run quill-code auth clear
 - [Roadmap](docs/ROADMAP.md)
 - [Test Plan](docs/TEST_PLAN.md)
 - [Merge Train](docs/MERGE_TRAIN.md)
+- [Downloadable Builds](docs/DOWNLOADS.md)
