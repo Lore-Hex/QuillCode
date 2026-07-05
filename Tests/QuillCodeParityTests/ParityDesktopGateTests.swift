@@ -37,6 +37,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         // not the generic command executor — but its keyboard shortcut must still be bound.
         Self.assertSource(commandsText, contains: ".quillCodeShortcut(\"retry-last-turn\")")
         Self.assertSource(appText, contains: "$0.retryLastTurn()")
+        Self.assertSource(commandsText, contains: "Copy Conversation")
+        Self.assertSource(commandsText, contains: ".quillCodeShortcut(\"copy-conversation\")")
+        Self.assertSource(commandsText, contains: "quillCodeCopyConversation")
+        Self.assertSource(appText, contains: "$0.copyCurrentConversation()")
         Self.assertSource(commandsText, contains: "Export Conversation as Markdown...")
         Self.assertSource(commandsText, contains: "quillCodeExportConversationMarkdown")
         Self.assertSource(appText, contains: "$0.exportCurrentConversationMarkdown()")

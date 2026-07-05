@@ -53,6 +53,7 @@ public enum WorkspaceShortcutRegistry {
         WorkspaceShortcut(commandID: "workspace-forward", key: "arrowRight", modifiers: [.command, .option]),
         WorkspaceShortcut(commandID: "search", key: "k", modifiers: [.command]),
         WorkspaceShortcut(commandID: "find-in-chat", key: "f", modifiers: [.command]),
+        WorkspaceShortcut(commandID: "copy-conversation", key: "c", modifiers: [.command, .shift]),
         WorkspaceShortcut(commandID: "add-project", key: "o", modifiers: [.command]),
         WorkspaceShortcut(commandID: "toggle-terminal", key: "`", modifiers: [.control]),
         WorkspaceShortcut(commandID: "toggle-browser", key: "b", modifiers: [.command, .shift]),

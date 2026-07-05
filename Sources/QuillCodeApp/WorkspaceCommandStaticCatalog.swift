@@ -51,7 +51,7 @@ enum WorkspaceCommandStaticCatalog {
                 keywords: ["find", "current", "transcript", "message"],
                 isEnabled: hasSelectedThread
             ),
-            command(
+            shortcut(
                 "copy-conversation",
                 "Copy conversation",
                 category: navigation,

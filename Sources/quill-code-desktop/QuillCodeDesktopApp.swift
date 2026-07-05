@@ -171,6 +171,7 @@ private struct QuillCodeDesktopCommandNotifications: ViewModifier {
             observe(.quillCodeOpenSettings) { $0.openSettings() },
             observe(.quillCodeStopAll) { $0.stopAll() },
             observe(.quillCodeRetryLastTurn) { $0.retryLastTurn() },
+            observe(.quillCodeCopyConversation) { $0.copyCurrentConversation() },
             observe(.quillCodeExportConversationMarkdown) { $0.exportCurrentConversationMarkdown() }
         ]
     }

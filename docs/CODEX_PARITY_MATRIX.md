@@ -45,6 +45,11 @@
   projection, and Playwright harness support. Branch names and optional create
   start points use the shared bounded Git name validator, and start points are
   rejected unless the request is a create-and-switch operation.
+- Transcript sharing now has a native keyboard/menu path: `copy-conversation`
+  owns `Cmd+Shift+C`, shows that shortcut in the command palette and Keyboard
+  Shortcuts panel, and routes the desktop menu action through the same Markdown
+  transcript exporter used by visible Copy conversation and Export Markdown
+  actions.
 - Run receipts now persist model-aware token usage events, price usage from the
   live model catalog when pricing metadata is available, and render a Run
   Receipts section in Activity with per-call rows, thread total, unpriced legacy
