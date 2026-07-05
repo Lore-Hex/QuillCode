@@ -2,6 +2,12 @@
 
 ## 2026-07-05
 
+- Auto safety should approve common read-only diagnostics by command shape, not by broad shell trust.
+  `StaticSafetyReadOnlyShellPolicy` now recognizes single-command requests for identity, date/time, hostname,
+  OS/kernel, uptime, process listing, memory, and disk usage when the latest user request asks for that class of
+  information. The matcher still rejects shell composition (`;`, `&&`, pipes, redirects, substitutions), environment
+  dumps, and unsafe paths so Codex-like "show me the system state" questions run immediately without making vague
+  diagnostic wording an arbitrary shell approval.
 - Merge-train merges use GitHub Actions' `GITHUB_TOKEN`, so GitHub does not enqueue normal push-triggered
   workflows afterward. The train therefore dispatches both `ci.yml` and `download-builds.yml` explicitly after a
   successful merge. This keeps `main` validated and refreshes `tester-latest` without requiring a maintainer to
