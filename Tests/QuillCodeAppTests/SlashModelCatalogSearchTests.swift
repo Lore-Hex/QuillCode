@@ -108,6 +108,32 @@ final class SlashModelCatalogSearchTests: XCTestCase {
         XCTAssertTrue(SlashModelCatalogSearch.suggestions(for: "/model zzznope", categories: categories()).isEmpty)
     }
 
+    func testEmptyStateCopyOnlyAppearsForActiveModelSearchWithNoMatches() {
+        XCTAssertNil(SlashModelCatalogSearch.emptyStateCopy(
+            for: "/model",
+            categories: categories(),
+            catalogSource: .bundled,
+            catalogStatusDetail: nil
+        ))
+        XCTAssertNil(SlashModelCatalogSearch.emptyStateCopy(
+            for: "/model fast",
+            categories: categories(),
+            catalogSource: .bundled,
+            catalogStatusDetail: nil
+        ))
+
+        let copy = SlashModelCatalogSearch.emptyStateCopy(
+            for: "/model zzznope",
+            categories: categories(),
+            catalogSource: .bundled,
+            catalogStatusDetail: "Bundled catalog only."
+        )
+
+        XCTAssertEqual(copy?.title, "No bundled model matches")
+        XCTAssertTrue(copy?.detail.contains("\"zzznope\"") == true)
+        XCTAssertEqual(copy?.footnote, "Bundled catalog only.")
+    }
+
     func testLimitIsRespectedAndBounded() {
         XCTAssertEqual(SlashModelCatalogSearch.suggestions(for: "/model ", categories: categories(), limit: 1).count, 1)
         XCTAssertTrue(SlashModelCatalogSearch.suggestions(for: "/model ", categories: categories(), limit: 0).isEmpty)

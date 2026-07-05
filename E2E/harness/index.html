@@ -3640,6 +3640,13 @@
       background: rgba(65,184,232,.16);
       outline: none;
     }
+    .slash-suggestion.model-command-empty {
+      grid-template-columns: minmax(0, 1fr);
+      cursor: default;
+    }
+    .slash-suggestion.model-command-empty:hover {
+      background: transparent;
+    }
     .slash-usage {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-weight: 800;
@@ -10665,7 +10672,24 @@
 
     function renderModelCommandSuggestions() {
       const suggestions = modelCommandSuggestions(state.composer.draft);
-      if (!suggestions.length) return '';
+      const query = modelCommandQuery(state.composer.draft);
+      if (!suggestions.length && query === null) return '';
+      if (!suggestions.length) {
+        const empty = modelEmptyCopy(query);
+        return `
+          <section class="slash-suggestions" data-testid="model-command-suggestions" aria-label="Model switch">
+            <h3>Models</h3>
+            <div class="slash-suggestion-list">
+              <div class="slash-suggestion model-command-empty" data-testid="model-command-empty">
+                <span>
+                  <span class="slash-title" data-testid="model-command-empty-title">${escapeHTML(empty.title)}</span>
+                  <span class="slash-detail" data-testid="model-command-empty-detail">${escapeHTML(empty.detail)}</span>
+                  ${empty.footnote ? `<span class="slash-detail" data-testid="model-command-empty-footnote">${escapeHTML(empty.footnote)}</span>` : ''}
+                </span>
+              </div>
+            </div>
+          </section>`;
+      }
       clampModelCommandActiveIndex(suggestions);
       const rows = suggestions.map((suggestion, index) => `
         <button
@@ -10691,7 +10715,11 @@
     }
 
     function renderFileMentionSuggestions() {
-      if (slashSuggestions(state.composer.draft).length || modelCommandSuggestions(state.composer.draft).length) return '';
+      if (
+        slashSuggestions(state.composer.draft).length
+        || modelCommandSuggestions(state.composer.draft).length
+        || modelCommandQuery(state.composer.draft) !== null
+      ) return '';
       const suggestions = fileMentionSuggestions(state.composer.draft);
       if (!suggestions.length) return '';
       clampFileMentionActiveIndex(suggestions);
