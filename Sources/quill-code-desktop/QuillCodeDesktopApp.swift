@@ -29,6 +29,7 @@ struct QuillCodeDesktopApp: App {
             QuillCodeDesktopRootView(controller: controller)
         }
         .defaultSize(width: 1280, height: 900)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             QuillCodeDesktopCommands()
         }

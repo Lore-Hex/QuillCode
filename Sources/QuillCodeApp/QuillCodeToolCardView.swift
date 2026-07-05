@@ -83,32 +83,15 @@ struct QuillCodeToolCardView: View {
             }
 
             if card.inputJSON != nil || card.outputJSON != nil {
-                DisclosureGroup(isExpanded: $isDetailsOpen) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let inputJSON = card.inputJSON {
-                            QuillCodeCodeBlock(title: "Input", text: inputJSON)
-                        }
-                        if let outputJSON = card.outputJSON {
-                            QuillCodeCodeBlock(title: "Output", text: outputJSON)
-                        }
-                        if showsDetailsCopyAction {
-                            copyActionButton
-                        }
-                    }
-                    .padding(.top, 4)
+                Button {
+                    isDetailsOpen.toggle()
                 } label: {
-                    HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                        Text(detailsToggleLabel)
-                        if !isDetailsOpen, card.status == .done {
-                            Text("Raw tool data")
-                                .foregroundStyle(QuillCodePalette.muted)
-                        }
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.blue)
-                    .quillCodeFullRowButtonTarget(minHeight: QuillCodeMetrics.compactToolCardMinimumHeight)
+                    detailsToggleRow
                 }
-                .tint(QuillCodePalette.blue)
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .quillCodeFullRowButtonTarget(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .accessibilityIdentifier("quillcode-tool-card-details")
+                .accessibilityLabel(detailsToggleLabel)
                 .onChange(of: card.status) { _, status in
                     let density = ToolCardState.defaultDensity(
                         status: status,
@@ -118,6 +101,12 @@ struct QuillCodeToolCardView: View {
                 }
                 .onChange(of: card.density) { _, density in
                     isDetailsOpen = density == .expanded
+                }
+
+                if isDetailsOpen {
+                    detailsContent
+                        .padding(.top, 2)
+                        .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
                 }
             }
         }
@@ -196,6 +185,42 @@ struct QuillCodeToolCardView: View {
                 action: onCopy
             )
             Spacer()
+        }
+    }
+
+    private var detailsToggleRow: some View {
+        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+            Image(systemName: isDetailsOpen ? "chevron.down" : "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(QuillCodePalette.blue)
+                .frame(width: 12)
+                .accessibilityHidden(true)
+            Text(detailsToggleLabel)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.blue)
+            if !isDetailsOpen, card.status == .done {
+                Text("Raw tool data")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .background(QuillCodePalette.blue.opacity(isDetailsOpen ? 0.10 : 0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var detailsContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let inputJSON = card.inputJSON {
+                QuillCodeCodeBlock(title: "Input", text: inputJSON)
+            }
+            if let outputJSON = card.outputJSON {
+                QuillCodeCodeBlock(title: "Output", text: outputJSON)
+            }
+            if showsDetailsCopyAction {
+                copyActionButton
+            }
         }
     }
 

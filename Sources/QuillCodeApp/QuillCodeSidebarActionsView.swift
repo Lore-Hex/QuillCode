@@ -11,7 +11,7 @@ struct QuillCodeSidebarActionsView: View {
     }
 
     var body: some View {
-        VStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+        VStack(spacing: 2) {
             ForEach(visibleCommands) { command in
                 Button {
                     onCommand(command)
@@ -20,10 +20,14 @@ struct QuillCodeSidebarActionsView: View {
                         QuillCodeSidebarCommandPresentation.displayTitle(for: command),
                         systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
                     )
-                    .quillCodeFullRowButtonTarget()
+                    .font(.callout.weight(.medium))
+                    .labelStyle(.titleAndIcon)
                     .padding(.horizontal, 10)
+                    .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                    .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
                     .background(primaryCommandBackground(command))
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .quillCodeFullRowButtonTarget()
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!command.isEnabled)

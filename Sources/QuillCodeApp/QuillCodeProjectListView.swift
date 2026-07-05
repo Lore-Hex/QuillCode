@@ -12,7 +12,7 @@ struct QuillCodeProjectListView: View {
     var onProjectAction: (ProjectItemActionSurface) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             projectHeader
             projectRows
         }
@@ -58,7 +58,7 @@ struct QuillCodeProjectListView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: 4) {
                     ForEach(projects.items) { project in
                         QuillCodeProjectRowView(
                             project: project,

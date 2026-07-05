@@ -22,14 +22,7 @@ struct QuillCodeBrowserDomainSettingsCard: View {
             )
             resetRow
         }
-        .padding(14)
-        .background(QuillCodePalette.panel.opacity(0.72))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(QuillCodePalette.blue.opacity(0.20), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: Color.black.opacity(0.10), radius: 14, x: 0, y: 7)
+        .quillCodeSettingsCard(tint: policyTint)
     }
 
     private var header: some View {
@@ -47,8 +40,8 @@ struct QuillCodeBrowserDomainSettingsCard: View {
             Text(settings.browserDomainPolicyStatusLabel)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(policyTint.opacity(0.16))
                 .foregroundStyle(policyTint)
                 .clipShape(Capsule())
@@ -60,7 +53,7 @@ struct QuillCodeBrowserDomainSettingsCard: View {
             .font(.caption)
             .foregroundStyle(QuillCodePalette.muted)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(10)
+            .padding(9)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(QuillCodePalette.background.opacity(0.48))
             .overlay(

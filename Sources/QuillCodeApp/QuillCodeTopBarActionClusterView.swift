@@ -75,8 +75,6 @@ struct QuillCodeTopBarActionClusterView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(QuillCodePalette.muted)
                 .quillCodeIconButtonTarget()
-                .background(QuillCodePalette.selection.opacity(0.22))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("More")

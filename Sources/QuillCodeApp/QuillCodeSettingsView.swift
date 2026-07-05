@@ -10,29 +10,38 @@ struct QuillCodeSettingsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                settingsHeader
-                QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
-                QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
-                QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
-                QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)
+        VStack(spacing: 0) {
+            settingsHeader
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+                .padding(.bottom, 12)
 
-                Divider()
+            Divider().opacity(0.5)
 
-                if let issue = settings.runtimeIssue {
-                    QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
+                    QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
+                    QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
+                    QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)
+
+                    if let issue = settings.runtimeIssue {
+                        QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
+                    }
+
+                    authenticationSection
                 }
-
-                authenticationPicker
-                apiBaseURLField
-                authenticationDetail
-                settingsFooter
+                .padding(20)
             }
-            .padding(24)
+
+            Divider().opacity(0.5)
+            settingsFooter
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
         }
         .frame(width: 560)
         .frame(maxHeight: 720)
+        .background(QuillCodePalette.background)
     }
 
     private var settingsHeader: some View {
@@ -59,12 +68,33 @@ struct QuillCodeSettingsView: View {
             Spacer()
             Text(settings.apiKeyStatusLabel)
                 .font(.caption.weight(.semibold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background((settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.16))
                 .foregroundStyle(settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow)
                 .clipShape(Capsule())
+            Button(action: onCancel) {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .quillCodeIconButtonTarget(size: 36, radius: 9)
+                    .background(QuillCodePalette.selection.opacity(0.45))
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .keyboardShortcut(.cancelAction)
+            .help("Close settings")
+            .accessibilityLabel("Close settings")
         }
+    }
+
+    private var authenticationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            authenticationPicker
+            apiBaseURLField
+            authenticationDetail
+        }
+        .quillCodeSettingsCard(tint: draft.authMode == .oauth ? QuillCodePalette.blue : QuillCodePalette.yellow)
     }
 
     private var authenticationPicker: some View {
@@ -142,6 +172,10 @@ struct QuillCodeSettingsView: View {
 
     private var settingsFooter: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+            Text("Click outside this panel to close without saving.")
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
             Spacer()
             Button("Cancel", action: onCancel)
                 .buttonStyle(QuillCodeActionButtonStyle())

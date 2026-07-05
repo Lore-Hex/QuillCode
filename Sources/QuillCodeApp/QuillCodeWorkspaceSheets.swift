@@ -34,95 +34,158 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(isPresented: $isSettingsPresented) {
-                QuillCodeSettingsView(
-                    settings: surface.settings,
-                    draft: $settingsDraft,
-                    onCancel: dismissSettings,
-                    onSave: saveSettings,
-                    onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
-                    onCommand: onCommand
-                )
-            }
+            .overlay { modalLayer }
             .onChange(of: isSettingsPresented) { _, isPresented in
                 if isPresented {
                     settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
                 }
             }
-            .sheet(isPresented: $isSearchPresented) {
-                QuillCodeSearchView(
-                    sidebar: surface.sidebar,
-                    query: $searchQuery,
-                    onSelectThread: selectSearchThread,
-                    onClose: dismissSearch
-                )
-            }
-            .sheet(isPresented: $isKeyboardShortcutsPresented) {
-                QuillCodeKeyboardShortcutsView(
-                    commands: surface.commands,
-                    onClose: dismissKeyboardShortcuts
-                )
-            }
-            .sheet(isPresented: $isCommandPalettePresented) {
-                QuillCodeCommandPaletteView(
-                    commands: surface.commands.filter { $0.id != "command-palette" },
-                    query: $commandQuery,
-                    onSelectCommand: selectCommandPaletteCommand,
-                    onClose: dismissCommandPalette
-                )
-            }
-            .sheet(item: $worktreeSheet) { sheet in
-                switch sheet {
-                case .create:
-                    QuillCodeWorktreeCreateView(
-                        draft: $createWorktreeDraft,
-                        onCancel: dismissWorktreeSheet,
-                        onCreate: createWorktree
-                    )
-                case .open:
-                    QuillCodeWorktreeOpenView(
-                        draft: $openWorktreeDraft,
-                        onCancel: dismissWorktreeSheet,
-                        onOpen: openWorktree,
-                        onRetryChoices: retryOpenWorktreeChoices
-                    )
-                case .remove:
-                    QuillCodeWorktreeRemoveView(
-                        draft: $removeWorktreeDraft,
-                        onCancel: dismissWorktreeSheet,
-                        onRemove: removeWorktree,
-                        onRetryChoices: retryRemoveWorktreeChoices
-                    )
-                case .prune:
-                    QuillCodeWorktreePruneView(
-                        draft: $pruneWorktreeDraft,
-                        onCancel: dismissWorktreeSheet,
-                        onPrune: pruneWorktrees,
-                        onRetryPreview: onRetryWorktreePrunePreview
+    }
+
+    @ViewBuilder
+    private var modalLayer: some View {
+        ZStack {
+            if isSettingsPresented {
+                dismissibleModal(accessibilityLabel: "Dismiss settings", onDismiss: dismissSettings) {
+                    QuillCodeSettingsView(
+                        settings: surface.settings,
+                        draft: $settingsDraft,
+                        onCancel: dismissSettings,
+                        onSave: saveSettings,
+                        onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+                        onCommand: onCommand
                     )
                 }
+                .zIndex(10)
             }
-            .sheet(item: $renameThreadDraft) { draft in
-                QuillCodeThreadRenameView(
-                    draft: draft,
-                    onCancel: dismissThreadRename,
-                    onSave: saveThreadRename
+            if isSearchPresented {
+                dismissibleModal(accessibilityLabel: "Dismiss search", onDismiss: dismissSearch) {
+                    QuillCodeSearchView(
+                        sidebar: surface.sidebar,
+                        query: $searchQuery,
+                        onSelectThread: selectSearchThread,
+                        onClose: dismissSearch
+                    )
+                }
+                .zIndex(20)
+            }
+            if isKeyboardShortcutsPresented {
+                dismissibleModal(accessibilityLabel: "Dismiss keyboard shortcuts", onDismiss: dismissKeyboardShortcuts) {
+                    QuillCodeKeyboardShortcutsView(
+                        commands: surface.commands,
+                        onClose: dismissKeyboardShortcuts
+                    )
+                }
+                .zIndex(30)
+            }
+            if isCommandPalettePresented {
+                dismissibleModal(accessibilityLabel: "Dismiss command palette", onDismiss: dismissCommandPalette) {
+                    QuillCodeCommandPaletteView(
+                        commands: surface.commands.filter { $0.id != "command-palette" },
+                        query: $commandQuery,
+                        onSelectCommand: selectCommandPaletteCommand,
+                        onClose: dismissCommandPalette
+                    )
+                }
+                .zIndex(40)
+            }
+            if let sheet = worktreeSheet {
+                dismissibleModal(accessibilityLabel: "Dismiss worktree dialog", onDismiss: dismissWorktreeSheet) {
+                    worktreeDialog(for: sheet)
+                }
+                .zIndex(50)
+            }
+            if let draft = renameThreadDraft {
+                dismissibleModal(accessibilityLabel: "Dismiss rename thread", onDismiss: dismissThreadRename) {
+                    QuillCodeThreadRenameView(
+                        draft: draft,
+                        onCancel: dismissThreadRename,
+                        onSave: saveThreadRename
+                    )
+                }
+                .zIndex(60)
+            }
+            if let draft = renameProjectDraft {
+                dismissibleModal(accessibilityLabel: "Dismiss rename project", onDismiss: dismissProjectRename) {
+                    QuillCodeProjectRenameView(
+                        draft: draft,
+                        onCancel: dismissProjectRename,
+                        onSave: saveProjectRename
+                    )
+                }
+                .zIndex(70)
+            }
+            if let draft = sidebarSavedSearchDraft {
+                dismissibleModal(accessibilityLabel: "Dismiss saved search", onDismiss: dismissSidebarSavedSearch) {
+                    QuillCodeSidebarSavedSearchView(
+                        draft: draft,
+                        onCancel: dismissSidebarSavedSearch,
+                        onSave: saveSidebarSavedSearch
+                    )
+                }
+                .zIndex(80)
+            }
+        }
+        .animation(.easeOut(duration: 0.16), value: isSettingsPresented)
+        .animation(.easeOut(duration: 0.16), value: isSearchPresented)
+        .animation(.easeOut(duration: 0.16), value: isCommandPalettePresented)
+    }
+
+    private func dismissibleModal<Dialog: View>(
+        accessibilityLabel: String,
+        onDismiss: @escaping () -> Void,
+        @ViewBuilder dialog: () -> Dialog
+    ) -> some View {
+        ZStack {
+            Color.black.opacity(0.52)
+                .ignoresSafeArea()
+                .quillCodeOwnedGestureTarget()
+                .accessibilityLabel(accessibilityLabel)
+                .onTapGesture(perform: onDismiss)
+
+            dialog()
+                .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.dialogRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: QuillCodeMetrics.dialogRadius, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
                 )
-            }
-            .sheet(item: $renameProjectDraft) { draft in
-                QuillCodeProjectRenameView(
-                    draft: draft,
-                    onCancel: dismissProjectRename,
-                    onSave: saveProjectRename
-                )
-            }
-            .sheet(item: $sidebarSavedSearchDraft) { draft in
-                QuillCodeSidebarSavedSearchView(
-                    draft: draft,
-                    onCancel: dismissSidebarSavedSearch,
-                    onSave: saveSidebarSavedSearch
-                )
-            }
+                .shadow(color: Color.black.opacity(0.38), radius: 34, x: 0, y: 18)
+                .accessibilityAddTraits(.isModal)
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.985)))
+    }
+
+    @ViewBuilder
+    private func worktreeDialog(for sheet: QuillCodeWorktreeSheet) -> some View {
+        switch sheet {
+        case .create:
+            QuillCodeWorktreeCreateView(
+                draft: $createWorktreeDraft,
+                onCancel: dismissWorktreeSheet,
+                onCreate: createWorktree
+            )
+        case .open:
+            QuillCodeWorktreeOpenView(
+                draft: $openWorktreeDraft,
+                onCancel: dismissWorktreeSheet,
+                onOpen: openWorktree,
+                onRetryChoices: retryOpenWorktreeChoices
+            )
+        case .remove:
+            QuillCodeWorktreeRemoveView(
+                draft: $removeWorktreeDraft,
+                onCancel: dismissWorktreeSheet,
+                onRemove: removeWorktree,
+                onRetryChoices: retryRemoveWorktreeChoices
+            )
+        case .prune:
+            QuillCodeWorktreePruneView(
+                draft: $pruneWorktreeDraft,
+                onCancel: dismissWorktreeSheet,
+                onPrune: pruneWorktrees,
+                onRetryPreview: onRetryWorktreePrunePreview
+            )
+        }
     }
 
     private func dismissSettings() {

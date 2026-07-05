@@ -32,14 +32,16 @@ struct QuillCodeSidebarSavedFilterBar: View {
         } label: {
             HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 Text(filter.title)
-                    .font(.caption.weight(.semibold))
+                    .font(.caption.weight(.medium))
                 filterCountBadge(filter)
             }
             .lineLimit(1)
-            .quillCodeCapsuleButtonTarget(minWidth: 66)
+            .padding(.horizontal, 8)
+            .frame(minWidth: 66, minHeight: 28)
             .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
             .background(filter.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.55))
             .clipShape(Capsule())
+            .quillCodeCapsuleButtonTarget(minWidth: 66)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .accessibilityLabel(filter.accessibilityLabel)
@@ -49,7 +51,7 @@ struct QuillCodeSidebarSavedFilterBar: View {
 
     private func filterCountBadge(_ filter: SidebarSavedFilterSurface) -> some View {
         Text("\(filter.count)")
-            .font(.caption2.weight(.bold))
+            .font(.caption2.weight(.semibold))
             .monospacedDigit()
             .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
             .padding(.horizontal, 5)

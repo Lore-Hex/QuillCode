@@ -86,7 +86,7 @@ struct QuillCodeSidebarView: View {
                 Button(action.title) {
                     onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: action))
                 }
-                .font(.caption.weight(.semibold))
+                .font(.caption.weight(.medium))
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget(minWidth: 56)
                 .foregroundStyle(action.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)

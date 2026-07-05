@@ -58,27 +58,6 @@ struct QuillCodeMessageRetryButton: View {
     }
 }
 
-struct QuillCodeMessageFeedbackButton: View {
-    var label: String
-    var systemImage: String
-    var isSelected: Bool
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(label, systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                .font(.caption2.weight(.semibold))
-                .quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)
-                .foregroundStyle(isSelected ? QuillCodePalette.green : Color.white.opacity(0.85))
-                .background(isSelected ? QuillCodePalette.green.opacity(0.16) : Color.black.opacity(0.30))
-                .clipShape(Capsule())
-        }
-        .buttonStyle(QuillCodePressableButtonStyle())
-        .help(label)
-    }
-}
-
 struct QuillCodeTranscriptCopyButton: View {
     var label: String
     var copiedLabel: String

@@ -8,13 +8,13 @@ struct QuillCodeSidebarThreadSectionView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(section.title.uppercased())
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .padding(.top, 4)
+                .padding(.top, 2)
             ForEach(section.items) { item in
                 QuillCodeSidebarThreadRowView(
                     item: item,

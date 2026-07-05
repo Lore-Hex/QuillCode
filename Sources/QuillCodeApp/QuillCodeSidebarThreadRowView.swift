@@ -13,7 +13,8 @@ struct QuillCodeSidebarThreadRowView: View {
             threadButton
             actionsMenu
         }
-        .padding(10)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 0)
         .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -42,9 +43,9 @@ struct QuillCodeSidebarThreadRowView: View {
                 onSelectThread(item.id)
             }
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.callout.weight(.semibold))
+                    .font(.callout.weight(.medium))
                     .lineLimit(1)
                 Text(item.subtitle)
                     .font(.caption)
