@@ -1,4 +1,4 @@
-enum TerminalScreenAmbiguousWidthPolicy {
+public enum TerminalOutputAmbiguousWidthPolicy: Sendable {
     case narrow
     case wide
 
@@ -15,7 +15,7 @@ enum TerminalScreenAmbiguousWidthPolicy {
 enum TerminalScreenCellWidth {
     static func width(
         of character: Character,
-        ambiguousPolicy: TerminalScreenAmbiguousWidthPolicy = .narrow
+        ambiguousPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow
     ) -> Int {
         let scalars = Array(character.unicodeScalars)
         guard !scalars.isEmpty else { return 0 }
