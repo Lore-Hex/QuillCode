@@ -18,13 +18,29 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(result.ghLog.contains("pr update-branch 42 --repo Lore-Hex/QuillCode"))
     }
 
+    func testMergedPullRequestDispatchesAllConfiguredPostMergeWorkflows() throws {
+        let result = try runMergeTrain(
+            pullRequestJSON: readyCleanPullRequestJSON,
+            postMergeWorkflows: "ci.yml download-builds.yml"
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        XCTAssertTrue(result.ghLog.contains("pr merge 42 --repo Lore-Hex/QuillCode --squash --delete-branch"))
+        XCTAssertTrue(result.ghLog.contains("workflow run ci.yml --repo Lore-Hex/QuillCode --ref main"))
+        XCTAssertTrue(result.ghLog.contains("workflow run download-builds.yml --repo Lore-Hex/QuillCode --ref main"))
+    }
+
     private struct MergeTrainResult {
         let exitCode: Int32
         let output: String
         let ghLog: String
     }
 
-    private func runMergeTrain(updateBehindBranches: String?) throws -> MergeTrainResult {
+    private func runMergeTrain(
+        pullRequestJSON: String? = nil,
+        updateBehindBranches: String? = nil,
+        postMergeWorkflows: String? = nil
+    ) throws -> MergeTrainResult {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-merge-train-tests")
             .appendingPathComponent(UUID().uuidString)
@@ -36,7 +52,7 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
         let prJSONURL = temporaryDirectory.appendingPathComponent("prs.json")
         let fakeGHURL = binDirectory.appendingPathComponent("gh")
 
-        try readyBehindPullRequestJSON.write(to: prJSONURL, atomically: true, encoding: .utf8)
+        try (pullRequestJSON ?? readyBehindPullRequestJSON).write(to: prJSONURL, atomically: true, encoding: .utf8)
         try fakeGHScript.write(to: fakeGHURL, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeGHURL.path)
 
@@ -56,6 +72,11 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
             environment["MERGE_TRAIN_UPDATE_BEHIND_BRANCHES"] = updateBehindBranches
         } else {
             environment.removeValue(forKey: "MERGE_TRAIN_UPDATE_BEHIND_BRANCHES")
+        }
+        if let postMergeWorkflows {
+            environment["MERGE_TRAIN_POST_MERGE_WORKFLOWS"] = postMergeWorkflows
+        } else {
+            environment.removeValue(forKey: "MERGE_TRAIN_POST_MERGE_WORKFLOWS")
         }
         process.environment = environment
 
@@ -91,6 +112,30 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
         """
     }
 
+    private var readyCleanPullRequestJSON: String {
+        """
+        [
+          {
+            "number": 42,
+            "title": "Ready clean PR",
+            "url": "https://github.com/Lore-Hex/QuillCode/pull/42",
+            "isDraft": false,
+            "createdAt": "2026-06-29T00:00:00Z",
+            "mergeStateStatus": "CLEAN",
+            "statusCheckRollup": [
+              {"name": "swift", "status": "COMPLETED", "conclusion": "SUCCESS"},
+              {"name": "linux-swift", "status": "COMPLETED", "conclusion": "SUCCESS"},
+              {"name": "playwright", "status": "COMPLETED", "conclusion": "SUCCESS"},
+              {"name": "smoke", "status": "COMPLETED", "conclusion": "SUCCESS"}
+            ],
+            "labels": [{"name": "merge-train"}],
+            "headRefName": "feature",
+            "headRepositoryOwner": {"login": "Lore-Hex"}
+          }
+        ]
+        """
+    }
+
     private var fakeGHScript: String {
         """
         #!/usr/bin/env bash
@@ -101,6 +146,12 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
           exit 0
         fi
         if [[ "$1" == "pr" && "$2" == "update-branch" ]]; then
+          exit 0
+        fi
+        if [[ "$1" == "pr" && "$2" == "merge" ]]; then
+          exit 0
+        fi
+        if [[ "$1" == "workflow" && "$2" == "run" ]]; then
           exit 0
         fi
         echo "unexpected gh invocation: $*" >&2

@@ -9,7 +9,7 @@ block_label="${MERGE_TRAIN_BLOCK_LABEL:-do-not-merge}"
 merge_method="${MERGE_TRAIN_METHOD:-squash}"
 delete_branch="${MERGE_TRAIN_DELETE_BRANCH:-true}"
 ignored_check_re="${MERGE_TRAIN_IGNORED_CHECK_RE:-^(Merge Train|train)$}"
-post_merge_workflow="${MERGE_TRAIN_POST_MERGE_WORKFLOW:-}"
+post_merge_workflows_raw="${MERGE_TRAIN_POST_MERGE_WORKFLOWS:-${MERGE_TRAIN_POST_MERGE_WORKFLOW:-}}"
 dry_run="${MERGE_TRAIN_DRY_RUN:-false}"
 update_behind_branches="${MERGE_TRAIN_UPDATE_BEHIND_BRANCHES:-false}"
 
@@ -145,11 +145,18 @@ else
   gh "${merge_args[@]}"
 fi
 
-if [[ -n "$post_merge_workflow" ]]; then
-  echo "Dispatching post-merge workflow $post_merge_workflow on $base_branch."
-  if [[ "$dry_run" == "true" ]]; then
-    echo "DRY RUN: gh workflow run $post_merge_workflow --repo $repo --ref $base_branch"
-  else
-    gh workflow run "$post_merge_workflow" --repo "$repo" --ref "$base_branch"
-  fi
+if [[ -n "$post_merge_workflows_raw" ]]; then
+  IFS=$' \t\n,' read -r -a post_merge_workflows <<<"$post_merge_workflows_raw"
+  for post_merge_workflow in "${post_merge_workflows[@]}"; do
+    if [[ -z "$post_merge_workflow" ]]; then
+      continue
+    fi
+
+    echo "Dispatching post-merge workflow $post_merge_workflow on $base_branch."
+    if [[ "$dry_run" == "true" ]]; then
+      echo "DRY RUN: gh workflow run $post_merge_workflow --repo $repo --ref $base_branch"
+    else
+      gh workflow run "$post_merge_workflow" --repo "$repo" --ref "$base_branch"
+    fi
+  done
 fi

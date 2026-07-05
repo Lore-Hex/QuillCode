@@ -95,6 +95,26 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         Self.assertSource(readme, contains: "machine-readable build manifest")
     }
 
+    func testMergeTrainRefreshesTesterDownloadsAfterMerges() throws {
+        let workflow = try Self.workflowText(named: "merge-train.yml")
+        let script = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("scripts/merge-train.sh"),
+            encoding: .utf8
+        )
+        let docs = try Self.docsText(named: "MERGE_TRAIN.md")
+
+        Self.assertSource(workflow, contains: "MERGE_TRAIN_POST_MERGE_WORKFLOWS: ci.yml download-builds.yml")
+        Self.assertSource(script, containsAll: [
+            "MERGE_TRAIN_POST_MERGE_WORKFLOWS",
+            "MERGE_TRAIN_POST_MERGE_WORKFLOW",
+            "gh workflow run \"$post_merge_workflow\" --repo \"$repo\" --ref \"$base_branch\""
+        ])
+        Self.assertSource(docs, containsAll: [
+            "`CI` and `Download Builds` workflows",
+            "refreshes the `tester-latest` download release"
+        ])
+    }
+
     private func asset(named name: String, in assets: [[String: Any]]) throws -> [String: Any] {
         try XCTUnwrap(assets.first { $0["name"] as? String == name })
     }

@@ -26,6 +26,7 @@ SHA-256 digest.
 The tester release is refreshed:
 
 - after every successful push to `main`
+- after merge-train PR merges, which explicitly dispatch **Download Builds**
 - every night from the scheduled **Download Builds** workflow
 - whenever a maintainer runs **Download Builds** manually from GitHub Actions
 
