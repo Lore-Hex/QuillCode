@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-07-04 Native Browser Smoke A+ Pass
+
+Overall grade after this slice: **A+ release-gate coverage for browser inspection**. This closes the native browser
+smoke gap without making release validation depend on a live website or a particular external browser session.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Whole architecture | A+ | The smoke drives the existing desktop controller/browser pane/composer path instead of adding a test-only browser shortcut. |
+| Desktop smoke runner | A+ | Local HTML setup, browser preview open, comment persistence, composer-driven `host.browser.inspect`, and final-answer checks are all explicit and deterministic. |
+| Smoke report contract | A+ | `browserSmoke` records URL, title, source, inspection depth, outline, text snippet, comment count, tool name, and final answer for CI artifacts. |
+| Shell release gate | A+ | `scripts/native-desktop-smoke.sh` validates the typed browser-smoke report and the rendered transcript evidence before preserving artifacts. |
+| Documentation | A+ | Parity matrix, roadmap, test plan, and decision log now agree that native browser smoke is implemented while richer live-DOM sync remains pending. |
+
+Validation:
+
+- `swift test --filter QuillCodeDesktopControllerSmokeTests`
+- `bash -n scripts/native-desktop-smoke.sh`
+- `scripts/native-desktop-smoke.sh`
+- `python3 scripts/grade-code-quality.py --root . > docs/CODE_QUALITY_FILE_GRADES.md`
+- `git diff --check`
+
 ## 2026-07-04 Structured Git Branch Lifecycle A+ Pass
 
 Overall grade after this slice: **A+ for the structured Git branch lifecycle

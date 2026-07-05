@@ -121,6 +121,7 @@ struct QuillCodeDesktopSmokeReport {
     var resultImage: QuillCodeDesktopSmokePixelReport
     var chromeImage: QuillCodeDesktopSmokePixelReport
     var chrome: QuillCodeDesktopChromeSmokeReport
+    var browserSmoke: QuillCodeDesktopBrowserSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
     func prettyJSON() throws -> Data {
@@ -147,6 +148,7 @@ struct QuillCodeDesktopSmokeReport {
                 "resultImage": resultImage.dictionary,
                 "chromeImage": chromeImage.dictionary,
                 "chrome": chrome.dictionary,
+                "browserSmoke": browserSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]
@@ -429,6 +431,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case chromeCommandMissing(String)
     case chromeSurfaceIncomplete
     case createdFileMismatch(String)
+    case browserSmokeFailed(String)
     case followUpReadMismatch(String)
     case imageMissingAccentPixels(Double)
     case imageMissingBrightPixels(Double)

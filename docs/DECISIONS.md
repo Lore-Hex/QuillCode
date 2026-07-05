@@ -2,6 +2,11 @@
 
 ## 2026-07-04
 
+- Native desktop smoke should prove the browser feature through a deterministic local HTML page before broader live-site
+  automation. The smoke now opens `browser-smoke.html` through the same browser pane controls users see, adds a browser
+  comment, sends a composer prompt that must dispatch `host.browser.inspect`, and records a `browserSmoke` JSON block
+  with title, source label, inspection depth, outline, text snippet, comment count, tool name, and final answer. This
+  avoids network flake while proving the release artifact can inspect a real page through the agent/tool/transcript path.
 - Tester distribution uses one moving GitHub prerelease, `tester-latest`, plus normal version tags. The **Download
   Builds** workflow publishes macOS app, macOS CLI, and Linux CLI archives as short-retention workflow artifacts and
   refreshes the stable tester release after successful `main` builds so early testers can use one download URL while

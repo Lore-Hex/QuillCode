@@ -23,6 +23,29 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertNil(QuillCodeDesktopWindowSmokeRequest(arguments: ["QuillCode"]))
     }
 
+    func testDesktopBrowserSmokeReportDocumentsAgentInspection() {
+        let report = QuillCodeDesktopBrowserSmokeReport(
+            previewPath: "/tmp/browser-smoke.html",
+            url: "file:///tmp/browser-smoke.html",
+            title: "Browser Smoke",
+            status: "Preview ready",
+            sourceLabel: "Local HTML",
+            inspectionDepth: "Static HTML snapshot",
+            outline: ["H1: Browser Smoke"],
+            textSnippet: "Native browser smoke preview text.",
+            commentCount: 1,
+            toolName: "host.browser.inspect",
+            finalAnswer: "Inspected `Browser Smoke`. Native browser smoke preview text."
+        )
+
+        let dictionary = report.dictionary
+        XCTAssertEqual(dictionary["title"] as? String, "Browser Smoke")
+        XCTAssertEqual(dictionary["inspectionDepth"] as? String, "Static HTML snapshot")
+        XCTAssertEqual(dictionary["commentCount"] as? Int, 1)
+        XCTAssertEqual(dictionary["toolName"] as? String, "host.browser.inspect")
+        XCTAssertEqual(dictionary["outline"] as? [String], ["H1: Browser Smoke"])
+    }
+
     func testDesktopWindowSmokeReportIncludesNativeHitTargets() throws {
         let model = QuillCodeWorkspaceModel()
         let surface = model.surface()

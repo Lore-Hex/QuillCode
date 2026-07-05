@@ -79,19 +79,21 @@ enum QuillCodeDesktopSmokeRunner {
             expectedAnswer: "hello world"
         )
 
-        let surface = controller.surface
-        let followUpFinalAnswer = surface.transcript.messages.last?.text ?? ""
-        let followUpToolName = surface.transcript.toolCards.last?.title ?? ""
+        let followUpSurface = controller.surface
+        let followUpFinalAnswer = followUpSurface.transcript.messages.last?.text ?? ""
+        let followUpToolName = followUpSurface.transcript.toolCards.last?.title ?? ""
         guard followUpFinalAnswer.contains("Contents of `hello.txt`:"),
               followUpFinalAnswer.contains("hello world")
         else {
             throw QuillCodeDesktopSmokeFailure.followUpReadMismatch(followUpFinalAnswer)
         }
 
+        let browserSmoke = try await runBrowserSmoke(controller: controller, root: root)
+        let surface = controller.surface
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
         guard surface.transcript.messages.count >= 4,
-              surface.transcript.toolCards.count >= 2,
-              surface.transcript.timelineItems.count >= 6
+              surface.transcript.toolCards.count >= 3,
+              surface.transcript.timelineItems.count >= 9
         else {
             throw QuillCodeDesktopSmokeFailure.incompleteTranscript
         }
@@ -141,6 +143,8 @@ enum QuillCodeDesktopSmokeRunner {
         guard html.contains("Wrote `hello.txt`."),
               html.contains("Contents of `hello.txt`:"),
               html.contains("hello world"),
+              html.contains("Inspected `Browser Smoke`"),
+              html.contains("host.browser.inspect"),
               html.contains("host.file.read"),
               html.contains("host.file.write")
         else {
@@ -170,7 +174,82 @@ enum QuillCodeDesktopSmokeRunner {
             resultImage: resultStats.report,
             chromeImage: chromeStats.report,
             chrome: chrome,
+            browserSmoke: browserSmoke,
             nativeHitTargets: nativeHitTargets
+        )
+    }
+
+    private static func runBrowserSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopBrowserSmokeReport {
+        let previewFile = root.workspace.appendingPathComponent("browser-smoke.html")
+        try """
+        <!doctype html>
+        <html>
+          <head><title>Browser Smoke</title></head>
+          <body>
+            <main>
+              <h1>Browser Smoke</h1>
+              <p>Native browser smoke preview text.</p>
+              <button>Smoke Action</button>
+            </main>
+          </body>
+        </html>
+        """.write(to: previewFile, atomically: true, encoding: .utf8)
+
+        controller.browserAddressDraft = "browser-smoke.html"
+        controller.openBrowserPreview()
+        controller.addBrowserComment("Check the smoke hero")
+
+        let browser = controller.surface.browser
+        guard browser.currentURL?.hasSuffix("/browser-smoke.html") == true,
+              browser.title == "Browser Smoke",
+              browser.snapshot?.inspectionDepth == .staticHTMLSnapshot,
+              browser.snapshot?.outline.contains("H1: Browser Smoke") == true,
+              browser.snapshot?.textSnippet?.contains("Native browser smoke preview text.") == true
+        else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
+                "browser preview did not expose the local HTML snapshot"
+            )
+        }
+
+        controller.draft = "inspect browser page"
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+        controller.send()
+
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: "Browser Smoke"
+        )
+
+        let surface = controller.surface
+        let finalAnswer = surface.transcript.messages.last?.text ?? ""
+        let toolCard = surface.transcript.toolCards.last
+        guard toolCard?.title == ToolDefinition.browserInspect.name,
+              toolCard?.status == .done,
+              finalAnswer.contains("Inspected `Browser Smoke`"),
+              finalAnswer.contains("H1: Browser Smoke"),
+              finalAnswer.contains("Native browser smoke preview text."),
+              finalAnswer.contains("Check the smoke hero")
+        else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(finalAnswer)
+        }
+
+        let snapshot = surface.browser.snapshot
+        return QuillCodeDesktopBrowserSmokeReport(
+            previewPath: previewFile.path,
+            url: surface.browser.currentURL ?? "",
+            title: surface.browser.title,
+            status: surface.browser.statusLabel,
+            sourceLabel: snapshot?.sourceLabel ?? "",
+            inspectionDepth: snapshot?.inspectionDepth.label ?? "",
+            outline: snapshot?.outline ?? [],
+            textSnippet: snapshot?.textSnippet ?? "",
+            commentCount: surface.browser.comments.count,
+            toolName: toolCard?.title ?? "",
+            finalAnswer: finalAnswer
         )
     }
 
