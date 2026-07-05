@@ -42,14 +42,17 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
     public init(
         terminal: TerminalState,
         cwd: URL?,
-        emptyTitle: String = "Run commands in this project without leaving QuillCode."
+        emptyTitle: String = "Run commands in this project without leaving QuillCode.",
+        ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .automatic()
     ) {
         self.isVisible = terminal.isVisible
         self.draft = terminal.draft
         self.isRunning = terminal.isRunning
         self.isSuspended = terminal.isSuspended
         self.cwdLabel = cwd?.path ?? terminal.currentDirectoryPath ?? "No project"
-        self.entries = terminal.entries.map(TerminalCommandSurface.init)
+        self.entries = terminal.entries.map {
+            TerminalCommandSurface(entry: $0, ambiguousWidthPolicy: ambiguousWidthPolicy)
+        }
         self.emptyTitle = emptyTitle
     }
 }
@@ -66,13 +69,16 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
     public var isRunning: Bool
     public var isStopped: Bool
 
-    public init(entry: TerminalCommandState) {
+    public init(
+        entry: TerminalCommandState,
+        ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .automatic()
+    ) {
         self.id = entry.id
         self.command = entry.command
         // Render raw PTY output (ANSI color codes, `\r` progress-bar overwrites, erase sequences) into
         // clean display text. The raw bytes stay in the entry for fidelity; only the surface is cleaned.
-        self.stdout = TerminalOutputRenderer.render(entry.stdout)
-        self.stderr = TerminalOutputRenderer.render(entry.stderr)
+        self.stdout = TerminalOutputRenderer.render(entry.stdout, ambiguousWidthPolicy: ambiguousWidthPolicy)
+        self.stderr = TerminalOutputRenderer.render(entry.stderr, ambiguousWidthPolicy: ambiguousWidthPolicy)
         self.exitCodeLabel = Self.exitCodeLabel(for: entry)
         self.statusLabel = Self.statusLabel(for: entry.status)
         self.executionContext = entry.executionContext
