@@ -72,17 +72,19 @@ verified package installer.
 
 ## Useful External Packs
 
-- [`Lore-Hex/BurstyRouter`](https://github.com/Lore-Hex/BurstyRouter): good fit for a local-first LLM routing skill.
-  The default catalog entry is intentionally tiny: it advertises a local server plus TrustedRouter burst-overflow path
-  without loading routing instructions into every prompt. Once the repo publishes a `SKILL.md` package, wire its install
-  command so `host.skill.load` can load the full playbook on demand.
-- [`browser-use/browser-use` skills](https://github.com/browser-use/browser-use/tree/main/skills): good fit for a
-  browser automation skill pack. Its `browser-use` skill is a compact entry point for CDP control, and it keeps optional
-  domain/interaction skills out of the default path until needed.
-- [`digitalsamba/claude-code-video-toolkit`](https://github.com/digitalsamba/claude-code-video-toolkit): good fit for a
-  video-production skill pack. The repo exposes `skills/openclaw-video-toolkit/SKILL.md`, with detailed long-running
-  workflow rules that should be loaded only when the user is actually making video.
-
+- The bundled marketplace should expose curated, installable entries for:
+  - [`Lore-Hex/LLM-advisor`](https://github.com/Lore-Hex/LLM-advisor): model-selection guidance for
+    TrustedRouter cost, quality, routing, and fallback choices. The install copies the root `SKILL.md`
+    plus referenced `agents` and `references` folders.
+  - [`browser-use/browser-use` skills](https://github.com/browser-use/browser-use/tree/main/skills):
+    browser automation skill pack; install only the compact `skills/browser-use` entry point by default.
+  - [`digitalsamba/claude-code-video-toolkit`](https://github.com/digitalsamba/claude-code-video-toolkit):
+    video-production workflow pack; install `skills/openclaw-video-toolkit` as an on-demand skill.
+  - [`Lore-Hex/BurstyRouter`](https://github.com/Lore-Hex/BurstyRouter): local-first LLM routing with
+    TrustedRouter burst-overflow; install the `skills/bursty-setup` entry point as `burstyrouter`.
+  Each bundled install should write both the skill directory under `.quillcode/skills/<name>/` and a
+  matching `.quillcode/skills/<name>.json` manifest so the available marketplace row is shadowed by
+  the installed skill row after metadata refresh.
 ## Prompt Contract
 
 The base prompt should say only:

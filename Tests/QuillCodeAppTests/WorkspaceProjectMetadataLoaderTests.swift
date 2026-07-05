@@ -39,8 +39,67 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
 
         XCTAssertEqual(metadata.instructions.map(\.path), ["AGENTS.md"])
         XCTAssertEqual(metadata.localActions.map(\.title), ["Bootstrap"])
-        XCTAssertEqual(metadata.extensionManifests.map(\.id), ["mcp_server:filesystem", "skill:burstyrouter"])
+        XCTAssertEqual(metadata.extensionManifests.map(\.id), [
+            "mcp_server:filesystem",
+            "skill:llm-advisor",
+            "skill:browser-use",
+            "skill:openclaw-video-toolkit",
+            "skill:burstyrouter"
+        ])
         XCTAssertEqual(metadata.memories.map(\.relativePath), [".quillcode/memories/team-note.md"])
+    }
+
+    func testBundledMarketplaceSkillsAreHiddenByInstalledManifests() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let skillDirectory = root.appendingPathComponent(".quillcode/skills")
+        try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+        try #"""
+        {
+          "id": "llm-advisor",
+          "kind": "skill",
+          "name": "LLM Advisor",
+          "description": "Installed project copy."
+        }
+        """#.write(
+            to: skillDirectory.appendingPathComponent("llm-advisor.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let metadata = WorkspaceProjectMetadataLoader.loadLocal(from: root)
+
+        XCTAssertEqual(
+            metadata.extensionManifests.filter { $0.id == "skill:llm-advisor" }.map(\.relativePath),
+            [".quillcode/skills/llm-advisor.json"]
+        )
+        XCTAssertFalse(
+            metadata.extensionManifests.contains {
+                $0.id == "skill:llm-advisor" && $0.relativePath == ".quillcode/marketplace/llm-advisor.json"
+            }
+        )
+    }
+
+    func testBundledMarketplaceSkillsAreInstallOnlyUntilInstalled() throws {
+        let root = try makeQuillCodeTestDirectory()
+
+        let bundledSkills = WorkspaceProjectMetadataLoader.loadLocal(from: root).extensionManifests.filter {
+            $0.relativePath.hasPrefix(".quillcode/marketplace/")
+        }
+
+        XCTAssertEqual(bundledSkills.map(\.name), [
+            "LLM Advisor",
+            "Browser Use",
+            "OpenClaw Video Toolkit",
+            "BurstyRouter"
+        ])
+        for skill in bundledSkills {
+            XCTAssertEqual(skill.kind, .skill)
+            XCTAssertNotNil(skill.installCommand, "\(skill.name) should be installable from the bundled catalog.")
+            XCTAssertNil(skill.updateCommand, "\(skill.name) should not show Update before it is installed.")
+            XCTAssertEqual(skill.installTimeoutSeconds, 300)
+            XCTAssertTrue(skill.installCommand?.contains(".quillcode/skills") == true)
+            XCTAssertTrue(skill.installCommand?.contains(".json") == true)
+        }
     }
 
     func testRemoteContextMetadataKeepsOnlyRemoteInstructionsAndMemories() {

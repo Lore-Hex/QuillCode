@@ -73,7 +73,7 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
 
         [
             "static let sidebarVisibleRowHeight: CGFloat = 30",
-            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 12",
+            "static let sidebarVisibleRowHorizontalPadding: CGFloat = 14",
             "static let sidebarVisibleRowRadius: CGFloat = 7"
         ].forEach { Self.assertSource(designText, contains: $0) }
         [

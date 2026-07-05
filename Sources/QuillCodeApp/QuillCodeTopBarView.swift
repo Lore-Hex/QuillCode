@@ -23,7 +23,7 @@ struct QuillCodeTopBarView: View {
                 )
                     .layoutPriority(2)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 14)
             .frame(minHeight: QuillCodeMetrics.topBarHeight)
 
             if showsActivityHairline {
