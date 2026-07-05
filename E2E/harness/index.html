@@ -27,8 +27,8 @@
       --hit-target-clearance: 8px;
       --control-cluster-gap: 8px;
       --workspace-sidebar-width: 296px;
-      --sidebar-visible-row-height: 34px;
-      --sidebar-visible-row-inset-y: 7px;
+      --sidebar-visible-row-height: 26px;
+      --sidebar-visible-row-inset-y: 9px;
     }
     * { box-sizing: border-box; }
     .visually-hidden {
@@ -193,9 +193,9 @@
       display: grid;
       grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) auto;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       min-height: var(--hit-target);
-      padding: 0 14px;
+      padding: 0 12px;
       border-bottom: 1px solid rgba(255,255,255,.08);
       background: linear-gradient(180deg, rgba(13, 19, 23, .98), rgba(9, 15, 18, .97));
     }
@@ -240,7 +240,7 @@
       min-width: 0;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       text-align: left;
     }
     .topbar-title-copy {
@@ -267,29 +267,27 @@
       background: rgba(66, 214, 119, 0.10);
     }
     .topbar-token-budget {
-      flex: 0 1 min(430px, 40vw);
+      flex: 0 1 min(420px, 40vw);
       min-width: 360px;
       display: grid;
-      gap: 4px;
-      padding: 5px 12px;
-      border-radius: 11px;
-      background: rgba(65, 184, 232, 0.075);
+      grid-template-columns: auto auto minmax(72px, 1fr) auto auto;
+      align-items: center;
+      column-gap: 8px;
+      padding: 3px 11px;
+      border-radius: 10px;
+      background: rgba(65, 184, 232, 0.055);
       box-shadow: var(--shadow-border);
       color: var(--text);
       font-variant-numeric: tabular-nums;
     }
     .topbar-token-budget[data-tone="warning"] {
-      background: rgba(247, 184, 79, 0.13);
+      background: rgba(247, 184, 79, 0.115);
     }
     .topbar-token-budget[data-tone="critical"] {
-      background: rgba(255, 91, 82, 0.13);
+      background: rgba(255, 91, 82, 0.115);
     }
     .topbar-token-budget-row {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      min-width: 0;
-      line-height: 1.2;
+      display: contents;
     }
     .topbar-token-budget-label {
       color: var(--muted);
@@ -298,7 +296,7 @@
     }
     .topbar-token-budget strong {
       min-width: 0;
-      font-size: 17.5px;
+      font-size: 16.5px;
       font-weight: 800;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -306,6 +304,7 @@
     }
     .topbar-token-budget-meter {
       height: 4px;
+      min-width: 72px;
       overflow: hidden;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.08);
@@ -1189,10 +1188,10 @@
       isolation: isolate;
       width: 100%;
       min-height: var(--hit-target);
-      padding: 0 14px;
+      padding: 0 15px;
       display: flex;
       align-items: center;
-      gap: 9px;
+      gap: 8px;
       justify-content: flex-start;
       text-align: left;
       color: var(--text);
@@ -1236,14 +1235,14 @@
     .sidebar-tools-menu summary::before,
     .sidebar-tool-action::before {
       flex: 0 0 auto;
-      height: 20px;
-      width: 20px;
+      height: 19px;
+      width: 19px;
       display: grid;
       place-items: center;
       z-index: 1;
       color: var(--muted);
       text-align: center;
-      font-size: 12.5px;
+      font-size: 12px;
       line-height: 1;
       border-radius: 6px;
       background: rgba(255,255,255,.045);
@@ -1317,7 +1316,7 @@
       justify-content: center;
       gap: 8px;
       width: 100%;
-      padding: 0 12px;
+      padding: 0 14px;
       border-radius: 9px;
       font-size: 13px;
       font-weight: 650;
@@ -1340,7 +1339,7 @@
     .sidebar-settings-button {
       flex: 1 1 0;
       min-width: 0;
-      padding: 0 12px;
+      padding: 0 14px;
       border-radius: 9px;
       font-size: 13px;
       font-weight: 650;
@@ -1400,7 +1399,7 @@
       position: relative;
       isolation: isolate;
       min-height: var(--hit-target);
-      padding: 0 12px;
+      padding: 0 14px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -1442,7 +1441,7 @@
       isolation: isolate;
       width: 100%;
       margin: 0 0 1px;
-      padding: 4px 14px;
+      padding: 3px 14px;
       display: grid;
       gap: 1px;
       text-align: left;
@@ -1459,7 +1458,7 @@
     .project-item::before {
       content: "";
       position: absolute;
-      inset: 4px 0;
+      inset: 9px 0;
       z-index: -1;
       border-radius: 8px;
       background: transparent;
@@ -1538,7 +1537,7 @@
       box-shadow: 0 0 0 1px rgba(65,184,232,.45);
     }
     .sidebar-item small,
-    .project-item small { color: var(--muted); font-size: 12px; line-height: 1.25; }
+    .project-item small { color: var(--muted); font-size: 11.5px; line-height: 1.22; }
     .project-connection-kind {
       display: inline-flex;
       align-items: center;
@@ -4821,9 +4820,14 @@
           <div class="topbar-token-budget-meter" aria-hidden="true">
             <span style="width: ${progressPercent}%"></span>
           </div>
-          <p data-testid="top-bar-token-budget-secondary">${escapeHTML(budget.secondaryLabel || '')}</p>
+          <p data-testid="top-bar-token-budget-secondary">${escapeHTML(compactTokenBudgetSecondaryLabel(budget.secondaryLabel || ''))}</p>
           ${quotaRow}
         </section>`;
+    }
+
+    function compactTokenBudgetSecondaryLabel(label) {
+      const compact = label.split(' · ').filter(Boolean).slice(0, 2).join(' · ');
+      return compact || label;
     }
 
     function topBarOverflowTestID(commandID) {

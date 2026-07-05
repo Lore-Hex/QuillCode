@@ -61,7 +61,7 @@ enum WorkspaceHTMLTopBarRenderer {
           <div class="topbar-token-budget-meter" aria-hidden="true">
             <span style="width: \(budget.progressPercent)%"></span>
           </div>
-          <p data-testid="top-bar-token-budget-secondary">\(escape(budget.secondaryLabel))</p>
+          <p data-testid="top-bar-token-budget-secondary">\(escape(tokenBudgetSecondaryLabel(budget)))</p>
           \(renderQuotaLimits(budget))
         </section>
         """
@@ -81,6 +81,17 @@ enum WorkspaceHTMLTopBarRenderer {
         if budget.usedPercent >= 80 { return "warning" }
         return "normal"
     }
+
+    private static func tokenBudgetSecondaryLabel(_ budget: TokenBudgetSurface) -> String {
+        let compactParts = budget.secondaryLabel
+            .components(separatedBy: tokenBudgetMetadataSeparator)
+            .prefix(2)
+            .filter { !$0.isEmpty }
+        let compactLabel = compactParts.joined(separator: tokenBudgetMetadataSeparator)
+        return compactLabel.isEmpty ? budget.secondaryLabel : compactLabel
+    }
+
+    private static let tokenBudgetMetadataSeparator = [" ", "·", " "].joined()
 
     private static func renderSpendStatus(_ topBar: TopBarSurface) -> String {
         guard let spendStatusLabel = topBar.spendStatusLabel else { return "" }

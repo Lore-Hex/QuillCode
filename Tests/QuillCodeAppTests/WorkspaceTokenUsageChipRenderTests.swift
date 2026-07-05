@@ -140,7 +140,8 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget-primary">847 / 32k tokens"#))
-        XCTAssertTrue(html.contains("31.2k left · 3% · provider reported"))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget-secondary">31.2k left · 3%"#))
+        XCTAssertTrue(html.contains("Provider reported token budget: 847 used of 32,000 · 31,153 left · 3% used"))
         XCTAssertTrue(html.contains("topbar-token-budget"))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-token-quota-limits""#))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-usage""#))
