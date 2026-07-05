@@ -37,6 +37,7 @@ prepare_git_workspace() {
   printf 'before\n' > "$SMOKE_WORKSPACE/tracked.txt"
   git -C "$SMOKE_WORKSPACE" add tracked.txt
   git -C "$SMOKE_WORKSPACE" commit -m "Add tracked smoke file" >/dev/null
+  git -C "$SMOKE_WORKSPACE" branch quillcode-smoke-branch
   printf 'after\n' > "$SMOKE_WORKSPACE/tracked.txt"
 }
 
