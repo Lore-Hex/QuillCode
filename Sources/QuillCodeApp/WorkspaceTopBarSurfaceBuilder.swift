@@ -52,6 +52,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             modelLabel: modelCatalog.modelLabel(),
             selectedModelID: topBarState.model,
             modelCategories: modelCatalog.categories(),
+            modelCatalogSource: modelCatalogStatus.source,
             modelCatalogStatusLabel: modelCatalogStatus.statusLabel(),
             modelCatalogStatusDetail: modelCatalogStatus.detailLabel(),
             modelProviderHealthLabel: providerHealth.label,
