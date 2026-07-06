@@ -15438,3 +15438,27 @@ Code quality changes:
 Validation:
 
 - `swift test --filter 'ParityModelGateTests|ParityGateTests/testParityGatesUseFocusedSuitesAndSharedSupport'`
+
+## 2026-07-06 Worktree Thread Status Slice
+
+Overall grade after this slice: **A worktree context clarity, A surface parity boundary**.
+This builds on thread-bound worktree run roots by making the active isolation
+state visible in the same top-bar surface used by SwiftUI and the static
+Playwright harness.
+
+Code quality changes:
+
+- Added `TopBarSurface` worktree status fields so renderers consume one
+  derived state instead of re-checking thread bindings independently.
+- Kept worktree status derivation in `WorkspaceTopBarSurfaceBuilder`, next to
+  the existing branch/spend/token status projection.
+- Rendered a compact native and HTML worktree chip, with warning tone and
+  fallback copy when the bound worktree path is dangling.
+- Extended top-bar accessibility text so screen-reader and harness summaries
+  include the isolated worktree context.
+
+Validation:
+
+- `swift test --filter WorkspaceTopBarSurfaceBuilderTests` (6 tests, 0 failures)
+- `swift test --filter WorkspaceHTMLChromeRendererTests` (13 tests, 0 failures)
+- `git diff --check`

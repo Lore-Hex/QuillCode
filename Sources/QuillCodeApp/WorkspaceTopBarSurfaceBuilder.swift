@@ -20,6 +20,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     func surface() -> TopBarSurface {
         let modelCatalog = modelCatalogBuilder()
         let providerHealth = modelCatalog.providerHealthSummary()
+        let worktreeStatus = thread.flatMap(Self.worktreeStatus)
         let spendStatus = thread.flatMap {
             WorkspaceTopBarSpendStatusBuilder.status(
                 thread: $0,
@@ -63,6 +64,9 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             runtimeIssueSeverity: runtimeIssue?.severity,
             computerUseLabel: topBarState.computerUseStatus.message,
             showsComputerUseSetup: !topBarState.computerUseStatus.available,
+            worktreeStatusLabel: worktreeStatus?.label,
+            worktreeStatusDetail: worktreeStatus?.detail,
+            worktreeStatusIsWarning: worktreeStatus?.isWarning ?? false,
             branchStatusLabel: topBarState.branchStatus.flatMap { status in
                 let label = status.compactLabel
                 return label.isEmpty ? nil : label
@@ -74,6 +78,32 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             canNavigateBack: canNavigateBack,
             canNavigateForward: canNavigateForward
         )
+    }
+
+    private struct WorktreeStatus: Sendable, Hashable {
+        var label: String
+        var detail: String
+        var isWarning: Bool
+    }
+
+    private static func worktreeStatus(for thread: ChatThread) -> WorktreeStatus? {
+        guard let worktree = thread.worktree else { return nil }
+        let branch = worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = branch.isEmpty ? "Worktree" : "Worktree \(branch)"
+        let path = worktree.path.trimmingCharacters(in: .whitespacesAndNewlines)
+        var detailParts = [String]()
+        if !path.isEmpty {
+            detailParts.append("Runs for this thread use \(path).")
+        }
+        if let base = worktree.base?.trimmingCharacters(in: .whitespacesAndNewlines), !base.isEmpty {
+            detailParts.append("Base: \(base).")
+        }
+        let isResolvable = worktree.isResolvable
+        if !isResolvable {
+            detailParts.append("Worktree path is missing; runs fall back to the project root until it is reopened or recreated.")
+        }
+        let detail = detailParts.isEmpty ? "Runs for this thread use an isolated git worktree." : detailParts.joined(separator: " ")
+        return WorktreeStatus(label: label, detail: detail, isWarning: !isResolvable)
     }
 
     private func modelCatalogBuilder() -> WorkspaceModelCatalogSurfaceBuilder {

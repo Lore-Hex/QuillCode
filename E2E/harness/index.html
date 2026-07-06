@@ -255,6 +255,7 @@
       gap: 2px;
     }
     .topbar-branch-chip,
+    .topbar-worktree-chip,
     .topbar-usage-chip,
     .topbar-spend-chip {
       flex: 0 0 auto;
@@ -270,6 +271,14 @@
     .topbar-spend-chip {
       color: var(--green);
       background: rgba(66, 214, 119, 0.10);
+    }
+    .topbar-worktree-chip {
+      color: var(--blue);
+      background: rgba(84, 179, 255, 0.10);
+    }
+    .topbar-worktree-chip[data-tone="warning"] {
+      color: var(--yellow);
+      background: rgba(255, 190, 92, 0.12);
     }
     .topbar-token-budget {
       flex: 0 1 min(420px, 40vw);
@@ -8334,6 +8343,7 @@
                 <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
               </div>
               ${state.topBar.branchStatusLabel ? `<span class="topbar-branch-chip" data-testid="top-bar-branch" title="${escapeHTML(state.topBar.branchStatusLabel)}">${escapeHTML(state.topBar.branchStatusLabel)}</span>` : ''}
+              ${state.topBar.worktreeStatusLabel ? `<span class="topbar-worktree-chip" data-testid="top-bar-worktree" data-tone="${state.topBar.worktreeStatusIsWarning ? 'warning' : 'normal'}" title="${escapeHTML(state.topBar.worktreeStatusDetail || state.topBar.worktreeStatusLabel)}">${escapeHTML(state.topBar.worktreeStatusLabel)}</span>` : ''}
               ${renderTopBarTokenBudget()}
               ${state.topBar.spendStatusLabel ? `<span class="topbar-spend-chip" data-testid="top-bar-spend" title="${escapeHTML(state.topBar.spendStatusDetail || state.topBar.spendStatusLabel)}">${escapeHTML(state.topBar.spendStatusLabel)}</span>` : ''}
               ${!state.topBar.tokenBudget && !state.topBar.spendStatusLabel && state.topBar.usageStatusLabel ? `<span class="topbar-usage-chip" data-testid="top-bar-usage" title="${escapeHTML(state.topBar.usageStatusLabel)}">${escapeHTML(state.topBar.usageStatusLabel)}</span>` : ''}

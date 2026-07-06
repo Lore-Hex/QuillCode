@@ -100,6 +100,9 @@ extension TopBarSurface {
         if let branchStatusLabel {
             parts.append("branch: \(branchStatusLabel)")
         }
+        if let worktreeStatusLabel {
+            parts.append("worktree: \(worktreeStatusLabel)")
+        }
         if let tokenBudget {
             parts.append("token budget: \(tokenBudget.accessibilityLabel)")
         }

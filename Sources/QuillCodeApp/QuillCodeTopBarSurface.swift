@@ -23,6 +23,13 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var runtimeIssueSeverity: RuntimeIssueSeverity?
     public var computerUseLabel: String
     public var showsComputerUseSetup: Bool
+    /// Worktree isolation chip for the selected thread, e.g. `Worktree feature/ui`.
+    /// Present when the thread is bound to a worktree, even if the directory has gone missing.
+    public var worktreeStatusLabel: String?
+    /// Tooltip/accessibility detail for the worktree chip, including path and fallback state.
+    public var worktreeStatusDetail: String?
+    /// True when the bound worktree path cannot be resolved and runs have fallen back to project root.
+    public var worktreeStatusIsWarning: Bool
     /// Pre-formatted branch + ahead/behind chip (e.g. `feature/x ↑2 ↓1`), or nil
     /// when no git branch status is known. Renderers display this string as-is.
     public var branchStatusLabel: String?
@@ -62,6 +69,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         runtimeIssueSeverity: RuntimeIssueSeverity? = nil,
         computerUseLabel: String,
         showsComputerUseSetup: Bool,
+        worktreeStatusLabel: String? = nil,
+        worktreeStatusDetail: String? = nil,
+        worktreeStatusIsWarning: Bool = false,
         branchStatusLabel: String? = nil,
         usageStatusLabel: String? = nil,
         tokenBudget: TokenBudgetSurface? = nil,
@@ -91,6 +101,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.runtimeIssueSeverity = runtimeIssueSeverity
         self.computerUseLabel = computerUseLabel
         self.showsComputerUseSetup = showsComputerUseSetup
+        self.worktreeStatusLabel = worktreeStatusLabel
+        self.worktreeStatusDetail = worktreeStatusDetail
+        self.worktreeStatusIsWarning = worktreeStatusIsWarning
         self.branchStatusLabel = branchStatusLabel
         self.usageStatusLabel = usageStatusLabel
         self.tokenBudget = tokenBudget

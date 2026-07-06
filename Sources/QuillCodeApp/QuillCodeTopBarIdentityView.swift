@@ -25,6 +25,15 @@ struct QuillCodeTopBarIdentityView: View {
                     .accessibilityHidden(true)
             }
 
+            if let worktreeStatusLabel = topBar.worktreeStatusLabel {
+                statusChip(
+                    worktreeStatusLabel,
+                    tint: topBar.worktreeStatusIsWarning ? QuillCodePalette.yellow : QuillCodePalette.blue
+                )
+                .help(topBar.worktreeStatusDetail ?? worktreeStatusLabel)
+                .accessibilityLabel(topBar.worktreeStatusDetail ?? worktreeStatusLabel)
+            }
+
             if let tokenBudget = topBar.tokenBudget {
                 tokenBudgetView(tokenBudget)
                     .help(tokenBudget.accessibilityLabel)
