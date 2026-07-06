@@ -6,6 +6,7 @@ enum SlashWorkspaceCommandParser {
         case "search", "find",
              "settings", "preferences", "prefs",
              "shortcuts", "keyboard-shortcuts", "keys",
+             "commands", "command-palette", "palette",
              "browser", "preview",
              "diff", "changes",
              "git-status", "gitstatus",
@@ -29,6 +30,8 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("settings")
         case "shortcuts", "keyboard-shortcuts", "keys":
             return .workspaceCommand("keyboard-shortcuts")
+        case "commands", "command-palette", "palette":
+            return .workspaceCommand("command-palette")
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
         case "diff", "changes":
