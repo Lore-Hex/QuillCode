@@ -40,18 +40,21 @@ public enum QuillCodeMetrics {
 }
 
 enum QuillCodePalette {
-    static let background = Color(red: 0.03, green: 0.06, blue: 0.08)
-    static let sidebar = Color(red: 0.07, green: 0.10, blue: 0.12)
-    static let panel = Color(red: 0.10, green: 0.15, blue: 0.18)
+    // Codex palette — ChatGPT-dark neutral grays (not near-black) with a cyan interactive accent, the
+    // way Codex itself uses color (CLI: cyan = selection/status/input, magenta = agent, green/red =
+    // additions/deletions). Mirrors the DOM surface :root tokens in E2E/harness/index.html.
+    static let background = Color(red: 0.090, green: 0.090, blue: 0.090)   // #171717
+    static let sidebar = Color(red: 0.110, green: 0.110, blue: 0.110)      // #1c1c1c
+    static let panel = Color(red: 0.129, green: 0.129, blue: 0.129)        // #212121
     static let selection = Color.white.opacity(0.08)
-    static let text = Color(red: 0.93, green: 0.97, blue: 0.98)
-    static let muted = Color(red: 0.62, green: 0.69, blue: 0.72)
-    static let blue = Color(red: 0.25, green: 0.72, blue: 0.91)
-    static let green = Color(red: 0.32, green: 0.82, blue: 0.45)
-    static let red = Color(red: 1.0, green: 0.36, blue: 0.32)
-    static let yellow = Color(red: 0.97, green: 0.72, blue: 0.31)
-    static let coral = Color(red: 0.82, green: 0.42, blue: 0.37)
-    static let purple = Color(red: 0.58, green: 0.50, blue: 0.96)
+    static let text = Color(red: 0.925, green: 0.925, blue: 0.925)         // #ececec
+    static let muted = Color(red: 0.608, green: 0.608, blue: 0.608)        // #9b9b9b
+    static let blue = Color(red: 0.239, green: 0.788, blue: 0.902)         // #3dc9e6 (Codex cyan)
+    static let green = Color(red: 0.247, green: 0.725, blue: 0.420)        // #3fb96b
+    static let red = Color(red: 0.941, green: 0.341, blue: 0.298)          // #f0574c
+    static let yellow = Color(red: 0.851, green: 0.643, blue: 0.255)       // #d9a441
+    static let coral = Color(red: 0.820, green: 0.420, blue: 0.370)
+    static let purple = Color(red: 0.753, green: 0.486, blue: 0.961)       // #c07cf5 (agent/Codex)
 }
 
 func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {

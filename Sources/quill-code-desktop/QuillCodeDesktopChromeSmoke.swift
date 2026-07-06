@@ -156,7 +156,7 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
 
     var body: some View {
         ZStack {
-            Color(red: 0.055, green: 0.064, blue: 0.078)
+            Color(red: 0.090, green: 0.090, blue: 0.090)
             VStack(alignment: .leading, spacing: 18) {
                 header
                 summaryRows
@@ -195,7 +195,7 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
         HStack(spacing: 10) {
             Text(label)
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Color(red: 0.40, green: 0.78, blue: 1.0))
+                .foregroundStyle(Color(red: 0.239, green: 0.788, blue: 0.902))
                 .frame(width: 92, alignment: .leading)
             Text(value)
                 .font(.system(size: 13, weight: .semibold))
@@ -206,7 +206,7 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
-        .background(Color(red: 0.11, green: 0.15, blue: 0.18))
+        .background(Color(red: 0.129, green: 0.129, blue: 0.129))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -222,7 +222,7 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
             ForEach(commands, id: \.self) { command in
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(Color(red: 0.20, green: 0.70, blue: 1.0))
+                        .fill(Color(red: 0.239, green: 0.788, blue: 0.902))
                         .frame(width: 7, height: 7)
                     Text(command)
                         .font(.system(size: 13, weight: .medium, design: .monospaced))
@@ -234,7 +234,7 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
             }
         }
         .padding(14)
-        .background(Color(red: 0.085, green: 0.105, blue: 0.13))
+        .background(Color(red: 0.110, green: 0.110, blue: 0.110))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

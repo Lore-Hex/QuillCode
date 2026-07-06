@@ -178,9 +178,17 @@ enum QuillCodeDesktopWindowSmokeRunner {
         try stats.validate(
             expectedWidth: stats.report.width,
             expectedHeight: stats.report.height,
-            minDistinctColorBuckets: 24,
+            // The flat, neutral Codex theme renders fewer distinct color buckets than the old
+            // gradient-tinted one (the live window measures ~19). This floor only guards against a
+            // blank/broken render — a blank window is ~1-5 buckets — so 14 keeps a wide margin below
+            // the real render while still catching a genuinely empty capture.
+            minDistinctColorBuckets: 14,
             minBrightPixelRatio: 0.0005,
-            minBlueAccentPixelRatio: 0.0001
+            // No accent-pixel floor for the live window: the flat theme removed the decorative cyan
+            // background glow that used to paint accent pixels everywhere, and the initial/empty
+            // window shows no accent element. Accent rendering is still asserted by the executable and
+            // packaged render smokes, which capture richer states.
+            minBlueAccentPixelRatio: 0
         )
     }
 
