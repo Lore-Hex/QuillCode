@@ -64,6 +64,59 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertNil(thread.composerDraft)
     }
 
+    func testListSkipsCorruptFilesAndKeepsHealthyThreads() throws {
+        // The catastrophic bug this guards: one truncated/hand-edited file must NOT empty the whole
+        // sidebar. A throwing map used to abort the entire load on a single bad file.
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        try store.save(ChatThread(title: "Alpha"))
+        try store.save(ChatThread(title: "Beta"))
+        // A truncated crash-mid-write file and a foreign-but-.json file.
+        try Data("{ not json".utf8).write(to: directory.appendingPathComponent("\(UUID().uuidString).json"))
+        try Data("{}".utf8).write(to: directory.appendingPathComponent("\(UUID().uuidString).json"))
+
+        let threads = try store.list()
+        XCTAssertEqual(Set(threads.map(\.title)), ["Alpha", "Beta"])
+    }
+
+    func testListingReportsUnreadableFilesWithoutLosingHealthyThreads() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        try store.save(ChatThread(title: "Healthy"))
+        let corrupt = directory.appendingPathComponent("\(UUID().uuidString).json")
+        try Data("garbage".utf8).write(to: corrupt)
+
+        let listing = store.listing()
+        XCTAssertEqual(listing.threads.map(\.title), ["Healthy"])
+        // Compare by filename: contentsOfDirectory resolves the macOS /var -> /private/var symlink,
+        // so raw URL equality is unreliable here.
+        XCTAssertEqual(listing.unreadable.map(\.lastPathComponent), [corrupt.lastPathComponent])
+    }
+
+    func testListToleratesSchemaIncompatibleFile() throws {
+        // A .json that is valid JSON but missing required ChatThread keys is skipped, not fatal.
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        try store.save(ChatThread(title: "Good"))
+        let incompatible = """
+        { "id": "\(UUID().uuidString)", "title": "No required fields" }
+        """
+        try Data(incompatible.utf8).write(to: directory.appendingPathComponent("\(UUID().uuidString).json"))
+
+        XCTAssertEqual(try store.list().map(\.title), ["Good"])
+        XCTAssertEqual(store.listing().unreadable.count, 1)
+    }
+
+    func testLoadStillThrowsOnCorruptNamedThread() throws {
+        // Only the LIST is best-effort; a direct open of a named corrupt thread must still report it.
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let id = UUID()
+        try Data("{ truncated".utf8).write(to: directory.appendingPathComponent("\(id.uuidString).json"))
+
+        XCTAssertThrowsError(try store.load(id))
+    }
+
     func testThreadWrittenBeforeQueueFieldDecodesToEmptyQueue() throws {
         // A thread JSON persisted before followUpQueue existed must still decode (queue = []).
         let json = """
