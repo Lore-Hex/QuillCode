@@ -12,6 +12,8 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var browserAllowedDomains: [String]
     public var browserBlockedDomains: [String]
     public var notificationPreferences: QuillCodeNotificationPreferences
+    public var runSpendFuseUSD: Double?
+    public var runSpendPeriodLimits: RunSpendPeriodLimits
 
     public init(
         apiBaseURL: String,
@@ -23,7 +25,9 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         computerUseApprovedAppNames: [String] = [],
         browserAllowedDomains: [String] = [],
         browserBlockedDomains: [String] = [],
-        notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences()
+        notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
+        runSpendFuseUSD: Double? = 1.0,
+        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits()
     ) {
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
@@ -44,5 +48,7 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         self.browserAllowedDomains = browserPolicy.allowedDomains
         self.browserBlockedDomains = browserPolicy.blockedDomains
         self.notificationPreferences = notificationPreferences
+        self.runSpendFuseUSD = RunSpendLedger.normalizedFuse(runSpendFuseUSD)
+        self.runSpendPeriodLimits = runSpendPeriodLimits
     }
 }

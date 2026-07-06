@@ -74,6 +74,8 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.browserAllowedDomains = update.browserAllowedDomains
         config.browserBlockedDomains = update.browserBlockedDomains
         config.notificationPreferences = update.notificationPreferences
+        config.runSpendFuseUSD = update.runSpendFuseUSD
+        config.runSpendPeriodLimits = update.runSpendPeriodLimits
 
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()

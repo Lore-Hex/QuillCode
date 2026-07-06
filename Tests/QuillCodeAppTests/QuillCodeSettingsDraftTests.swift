@@ -26,6 +26,10 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertTrue(draft.agentRunNotificationsEnabled)
         XCTAssertTrue(draft.agentRunNotificationsOnlyWhenInactive)
         XCTAssertTrue(draft.automationNotificationsEnabled)
+        XCTAssertEqual(draft.runSpendFuseUSDText, "1.00")
+        XCTAssertEqual(draft.runSpendDailyLimitUSDText, "")
+        XCTAssertEqual(draft.runSpendWeeklyLimitUSDText, "")
+        XCTAssertEqual(draft.runSpendMonthlyLimitUSDText, "")
     }
 
     func testUpdateTrimsBaseURLAndReplacementKey() {
@@ -44,6 +48,30 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(update.replacementAPIKey, "sk-tr-v1-test")
         XCTAssertFalse(update.shouldClearAPIKey)
         XCTAssertEqual(update.notificationPreferences, QuillCodeNotificationPreferences())
+        XCTAssertNil(update.runSpendFuseUSD)
+        XCTAssertFalse(update.runSpendPeriodLimits.hasAnyLimit)
+    }
+
+    func testSpendLimitsInitializeFromSurfaceAndUpdate() {
+        let surface = WorkspaceSettingsSurface(
+            config: AppConfig(
+                runSpendFuseUSD: 2.5,
+                runSpendPeriodLimits: RunSpendPeriodLimits(dailyUSD: 5, weeklyUSD: 12.5, monthlyUSD: 30)
+            ),
+            hasStoredAPIKey: false
+        )
+
+        var draft = QuillCodeSettingsDraft(settings: surface)
+        draft.runSpendDailyLimitUSDText = " $6.75 "
+        draft.runSpendWeeklyLimitUSDText = "0"
+        draft.runSpendMonthlyLimitUSDText = "not a number"
+
+        XCTAssertEqual(draft.runSpendFuseUSDText, "2.50")
+        XCTAssertEqual(draft.runSpendWeeklyLimitUSDText, "0")
+        XCTAssertEqual(draft.update.runSpendFuseUSD, 2.5)
+        XCTAssertEqual(draft.update.runSpendPeriodLimits.dailyUSD, 6.75)
+        XCTAssertNil(draft.update.runSpendPeriodLimits.weeklyUSD)
+        XCTAssertNil(draft.update.runSpendPeriodLimits.monthlyUSD)
     }
 
     func testNotificationPreferencesInitializeFromSettingsSurfaceAndUpdate() {

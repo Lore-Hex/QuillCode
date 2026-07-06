@@ -15,6 +15,10 @@ struct QuillCodeSettingsDraft: Equatable {
     var agentRunNotificationsEnabled: Bool = true
     var agentRunNotificationsOnlyWhenInactive: Bool = true
     var automationNotificationsEnabled: Bool = true
+    var runSpendFuseUSDText: String = ""
+    var runSpendDailyLimitUSDText: String = ""
+    var runSpendWeeklyLimitUSDText: String = ""
+    var runSpendMonthlyLimitUSDText: String = ""
 
     init() {}
 
@@ -33,6 +37,10 @@ struct QuillCodeSettingsDraft: Equatable {
             .notificationPreferences
             .agentRunNotificationsOnlyWhenInactive
         self.automationNotificationsEnabled = settings.notificationPreferences.automationNotificationsEnabled
+        self.runSpendFuseUSDText = Self.optionalCurrencyText(settings.runSpendFuseUSD)
+        self.runSpendDailyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.dailyUSD)
+        self.runSpendWeeklyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.weeklyUSD)
+        self.runSpendMonthlyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.monthlyUSD)
     }
 
     var canSave: Bool {
@@ -55,6 +63,12 @@ struct QuillCodeSettingsDraft: Equatable {
                 agentRunNotificationsEnabled: agentRunNotificationsEnabled,
                 agentRunNotificationsOnlyWhenInactive: agentRunNotificationsOnlyWhenInactive,
                 automationNotificationsEnabled: automationNotificationsEnabled
+            ),
+            runSpendFuseUSD: Self.optionalCurrency(from: runSpendFuseUSDText),
+            runSpendPeriodLimits: RunSpendPeriodLimits(
+                dailyUSD: Self.optionalCurrency(from: runSpendDailyLimitUSDText),
+                weeklyUSD: Self.optionalCurrency(from: runSpendWeeklyLimitUSDText),
+                monthlyUSD: Self.optionalCurrency(from: runSpendMonthlyLimitUSDText)
             )
         )
     }
@@ -113,5 +127,18 @@ struct QuillCodeSettingsDraft: Equatable {
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+
+    private static func optionalCurrencyText(_ value: Double?) -> String {
+        guard let value else { return "" }
+        return String(format: "%.2f", value)
+    }
+
+    private static func optionalCurrency(from text: String) -> Double? {
+        let trimmed = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "$", with: "")
+        guard !trimmed.isEmpty else { return nil }
+        return Double(trimmed)
     }
 }

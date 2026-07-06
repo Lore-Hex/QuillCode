@@ -42,6 +42,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Unrestricted")
         XCTAssertEqual(settings.notificationPreferences, QuillCodeNotificationPreferences())
         XCTAssertEqual(settings.notificationStatusLabel, "Smart")
+        XCTAssertEqual(settings.runSpendFuseUSD, 1.0)
+        XCTAssertFalse(settings.runSpendPeriodLimits.hasAnyLimit)
+        XCTAssertEqual(settings.runSpendLimitStatusLabel, "Fuse")
         XCTAssertEqual(
             settings.computerUseApprovalSummary,
             "Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps."
@@ -53,6 +56,10 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(
             settings.notificationSummary,
             "Agent runs notify only when QuillCode is in the background. Automation runs post completion alerts."
+        )
+        XCTAssertEqual(
+            settings.runSpendLimitSummary,
+            "Local spend controls review each thread after $1.00. These do not replace TrustedRouter account limits."
         )
     }
 
@@ -153,6 +160,27 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.notificationSummary, "Automation runs post completion alerts.")
     }
 
+    func testSettingsSurfaceShowsRunSpendLimitSummary() {
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(
+                runSpendFuseUSD: nil,
+                runSpendPeriodLimits: RunSpendPeriodLimits(dailyUSD: 5, weeklyUSD: 25, monthlyUSD: 100)
+            ),
+            hasStoredAPIKey: true
+        )
+
+        XCTAssertNil(settings.runSpendFuseUSD)
+        XCTAssertEqual(settings.runSpendPeriodLimits.dailyUSD, 5)
+        XCTAssertEqual(settings.runSpendPeriodLimits.weeklyUSD, 25)
+        XCTAssertEqual(settings.runSpendPeriodLimits.monthlyUSD, 100)
+        XCTAssertEqual(settings.runSpendLimitStatusLabel, "Caps")
+        XCTAssertEqual(
+            settings.runSpendLimitSummary,
+            "Local spend controls show local day, week, and month cap rows in the top bar. " +
+                "These do not replace TrustedRouter account limits."
+        )
+    }
+
     func testSettingsSurfaceDecodesOlderComputerUsePayload() throws {
         let data = """
         {
@@ -219,6 +247,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.browserAllowedDomains, [])
         XCTAssertEqual(settings.browserBlockedDomains, [])
         XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Unrestricted")
+        XCTAssertEqual(settings.runSpendFuseUSD, 1.0)
+        XCTAssertFalse(settings.runSpendPeriodLimits.hasAnyLimit)
+        XCTAssertEqual(settings.runSpendLimitStatusLabel, "Fuse")
     }
 
     func testSettingsSurfaceCarriesDetectedForegroundApplication() {

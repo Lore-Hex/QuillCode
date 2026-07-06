@@ -58,6 +58,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var notificationPreferences: QuillCodeNotificationPreferences
     public var notificationStatusLabel: String
     public var notificationSummary: String
+    public var runSpendFuseUSD: Double?
+    public var runSpendPeriodLimits: RunSpendPeriodLimits
+    public var runSpendLimitStatusLabel: String
+    public var runSpendLimitSummary: String
 
     public init(
         config: AppConfig,
@@ -110,6 +114,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.notificationPreferences = config.notificationPreferences
         self.notificationStatusLabel = NotificationSettingsProjection.statusLabel(config.notificationPreferences)
         self.notificationSummary = NotificationSettingsProjection.summary(config.notificationPreferences)
+        self.runSpendFuseUSD = config.runSpendFuseUSD
+        self.runSpendPeriodLimits = config.runSpendPeriodLimits
+        self.runSpendLimitStatusLabel = RunSpendLimitSettingsProjection.statusLabel(config)
+        self.runSpendLimitSummary = RunSpendLimitSettingsProjection.summary(config)
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -161,6 +169,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case notificationPreferences
         case notificationStatusLabel
         case notificationSummary
+        case runSpendFuseUSD
+        case runSpendPeriodLimits
+        case runSpendLimitStatusLabel
+        case runSpendLimitSummary
     }
 
     public init(from decoder: Decoder) throws {
@@ -268,6 +280,25 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             String.self,
             forKey: .notificationSummary
         ) ?? NotificationSettingsProjection.summary(decodedNotificationPreferences)
+        self.runSpendFuseUSD = RunSpendLedger.normalizedFuse(
+            try container.decodeIfPresent(Double.self, forKey: .runSpendFuseUSD) ?? 1.0
+        )
+        self.runSpendPeriodLimits = try container.decodeIfPresent(
+            RunSpendPeriodLimits.self,
+            forKey: .runSpendPeriodLimits
+        ) ?? RunSpendPeriodLimits()
+        let spendConfig = AppConfig(
+            runSpendFuseUSD: runSpendFuseUSD,
+            runSpendPeriodLimits: runSpendPeriodLimits
+        )
+        self.runSpendLimitStatusLabel = try container.decodeIfPresent(
+            String.self,
+            forKey: .runSpendLimitStatusLabel
+        ) ?? RunSpendLimitSettingsProjection.statusLabel(spendConfig)
+        self.runSpendLimitSummary = try container.decodeIfPresent(
+            String.self,
+            forKey: .runSpendLimitSummary
+        ) ?? RunSpendLimitSettingsProjection.summary(spendConfig)
     }
 }
 
@@ -306,5 +337,37 @@ enum NotificationSettingsProjection {
             parts.append("Automation runs post completion alerts")
         }
         return parts.joined(separator: ". ") + "."
+    }
+}
+
+enum RunSpendLimitSettingsProjection {
+    static func statusLabel(_ config: AppConfig) -> String {
+        switch (config.runSpendFuseUSD, config.runSpendPeriodLimits.hasAnyLimit) {
+        case (.some, true):
+            return "Fuse + caps"
+        case (.some, false):
+            return "Fuse"
+        case (.none, true):
+            return "Caps"
+        case (.none, false):
+            return "Uncapped"
+        }
+    }
+
+    static func summary(_ config: AppConfig) -> String {
+        var parts: [String] = []
+        if let fuse = config.runSpendFuseUSD {
+            parts.append("review each thread after \(RunSpendLedger.costLabel(fuse))")
+        }
+        if config.runSpendPeriodLimits.hasAnyLimit {
+            parts.append("show local day, week, and month cap rows in the top bar")
+        }
+        if parts.isEmpty {
+            return "Local spend tracking is visible after priced model usage; no local caps are configured."
+        }
+        return """
+        Local spend controls \(parts.joined(separator: " and ")). \
+        These do not replace TrustedRouter account limits.
+        """
     }
 }
