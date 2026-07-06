@@ -67,8 +67,20 @@ final class JSONAutomationStoreTests: PersistenceTestCase {
             ),
             updatedAt: Date(timeIntervalSince1970: 3)
         )
+        let feedAutomation = QuillAutomation(
+            title: "Watch release feed",
+            detail: "Check when the feed publishes a new entry.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "URL feed update",
+            eventSource: QuillAutomationEventSource(
+                kind: .urlFeedUpdate,
+                path: "https://example.com/feed.xml"
+            ),
+            updatedAt: Date(timeIntervalSince1970: 4)
+        )
 
-        try store.save([fileAutomation, urlAutomation])
+        try store.save([fileAutomation, urlAutomation, feedAutomation])
 
         let loaded = try store.load()
         XCTAssertTrue(loaded.contains { automation in
@@ -80,6 +92,11 @@ final class JSONAutomationStoreTests: PersistenceTestCase {
             automation.eventSource == urlAutomation.eventSource
                 && automation.eventSource?.kind == .urlLastModified
                 && automation.eventSource?.path == "https://example.com/releases"
+        })
+        XCTAssertTrue(loaded.contains { automation in
+            automation.eventSource == feedAutomation.eventSource
+                && automation.eventSource?.kind == .urlFeedUpdate
+                && automation.eventSource?.path == "https://example.com/feed.xml"
         })
     }
 

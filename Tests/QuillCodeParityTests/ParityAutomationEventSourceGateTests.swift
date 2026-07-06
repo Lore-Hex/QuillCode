@@ -11,7 +11,9 @@ final class ParityAutomationEventSourceGateTests: QuillCodeParityTestCase {
             "public protocol AutomationEventSource",
             "public struct FileChangeEventSource",
             "public struct URLLastModifiedEventSource",
+            "public struct URLFeedUpdateEventSource",
             "urlLastModifiedURL",
+            "urlFeedUpdateURL",
             "enum AutomationEventSourceResolver"
         ])
         Self.assertSource(
