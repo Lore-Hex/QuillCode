@@ -74,6 +74,35 @@ enum ComputerUseSettingsProjection {
         return "Open Accessibility, enable QuillCode, then refresh status."
     }
 
+    static func onboardingSteps(status: ComputerUseStatus, config: AppConfig) -> [String] {
+        if let unavailableReason = status.unavailableReason {
+            return [
+                unavailableReason,
+                "After installing the missing backend or helper tools, refresh status before asking QuillCode to use the screen."
+            ]
+        }
+
+        var steps = [String]()
+        if !status.screenRecordingGranted {
+            steps.append("Enable Screen Recording so QuillCode can see screenshots and verify visual state.")
+        }
+        if !status.accessibilityGranted {
+            steps.append("Enable Accessibility so QuillCode can click, type, scroll, move the cursor, and send shortcuts.")
+        }
+        if steps.isEmpty {
+            steps.append("Computer Use can inspect screenshots and dispatch input to the foreground app.")
+        } else {
+            steps.append("Return to QuillCode and refresh status after macOS accepts the permission changes.")
+        }
+
+        if config.computerUseApprovedBundleIdentifiers.isEmpty && config.computerUseApprovedAppNames.isEmpty {
+            steps.append("Add foreground app approvals when you want Computer Use limited to specific apps.")
+        } else {
+            steps.append("Foreground app approvals are active; Computer Use will stop before controlling unapproved apps.")
+        }
+        return steps
+    }
+
     static func requirements(
         status: ComputerUseStatus,
         screenRecordingCommand: WorkspaceCommandSurface,

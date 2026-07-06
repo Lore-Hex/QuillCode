@@ -45,6 +45,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var computerUseStatusLabel: String
     public var computerUseSetupSummary: String
     public var computerUseNextAction: String
+    public var computerUseOnboardingSteps: [String]
     public var computerUseRequirements: [ComputerUseRequirementSurface]
     public var computerUseForegroundApplication: ComputerUseApplication?
     public var computerUseApprovedBundleIdentifiers: [String]
@@ -96,6 +97,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.computerUseStatusLabel = ComputerUseSettingsProjection.statusLabel(computerUseRuntime.status)
         self.computerUseSetupSummary = ComputerUseSettingsProjection.setupSummary(computerUseRuntime.status)
         self.computerUseNextAction = ComputerUseSettingsProjection.nextAction(computerUseRuntime.status)
+        self.computerUseOnboardingSteps = ComputerUseSettingsProjection.onboardingSteps(
+            status: computerUseRuntime.status,
+            config: config
+        )
         self.computerUseRequirements = ComputerUseSettingsProjection.requirements(
             status: computerUseRuntime.status,
             screenRecordingCommand: computerUseScreenRecordingCommand,
@@ -156,6 +161,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case computerUseStatusLabel
         case computerUseSetupSummary
         case computerUseNextAction
+        case computerUseOnboardingSteps
         case computerUseRequirements
         case computerUseForegroundApplication
         case computerUseApprovedBundleIdentifiers
@@ -219,6 +225,23 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             ?? ComputerUseSettingsProjection.setupSummary(decodedComputerUseStatus)
         self.computerUseNextAction = try container.decodeIfPresent(String.self, forKey: .computerUseNextAction)
             ?? ComputerUseSettingsProjection.nextAction(decodedComputerUseStatus)
+        let approvalConfig = AppConfig(
+            computerUseApprovedBundleIdentifiers: try container.decodeIfPresent(
+                [String].self,
+                forKey: .computerUseApprovedBundleIdentifiers
+            ) ?? [],
+            computerUseApprovedAppNames: try container.decodeIfPresent(
+                [String].self,
+                forKey: .computerUseApprovedAppNames
+            ) ?? []
+        )
+        self.computerUseOnboardingSteps = try container.decodeIfPresent(
+            [String].self,
+            forKey: .computerUseOnboardingSteps
+        ) ?? ComputerUseSettingsProjection.onboardingSteps(
+            status: decodedComputerUseStatus,
+            config: approvalConfig
+        )
         self.computerUseRequirements = try container.decodeIfPresent(
             [ComputerUseRequirementSurface].self,
             forKey: .computerUseRequirements
@@ -230,18 +253,6 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.computerUseForegroundApplication = try container.decodeIfPresent(
             ComputerUseApplication.self,
             forKey: .computerUseForegroundApplication
-        )
-        let decodedBundleIdentifiers = try container.decodeIfPresent(
-            [String].self,
-            forKey: .computerUseApprovedBundleIdentifiers
-        ) ?? []
-        let decodedAppNames = try container.decodeIfPresent(
-            [String].self,
-            forKey: .computerUseApprovedAppNames
-        ) ?? []
-        let approvalConfig = AppConfig(
-            computerUseApprovedBundleIdentifiers: decodedBundleIdentifiers,
-            computerUseApprovedAppNames: decodedAppNames
         )
         self.computerUseApprovedBundleIdentifiers = approvalConfig.computerUseApprovedBundleIdentifiers
         self.computerUseApprovedAppNames = approvalConfig.computerUseApprovedAppNames

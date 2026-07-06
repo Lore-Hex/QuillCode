@@ -30,6 +30,12 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             settings.computerUseNextAction,
             "Open Screen Recording first, enable QuillCode, then open Accessibility."
         )
+        XCTAssertEqual(settings.computerUseOnboardingSteps, [
+            "Enable Screen Recording so QuillCode can see screenshots and verify visual state.",
+            "Enable Accessibility so QuillCode can click, type, scroll, move the cursor, and send shortcuts.",
+            "Return to QuillCode and refresh status after macOS accepts the permission changes.",
+            "Add foreground app approvals when you want Computer Use limited to specific apps."
+        ])
         XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Required", "Required"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.isGranted), [false, false])
@@ -139,6 +145,10 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             settings.computerUseApprovalSummary,
             "Computer Use is restricted to 2 bundle IDs and 1 app name."
         )
+        XCTAssertEqual(
+            settings.computerUseOnboardingSteps.last,
+            "Foreground app approvals are active; Computer Use will stop before controlling unapproved apps."
+        )
         XCTAssertEqual(settings.browserAllowedDomains, ["trustedrouter.com", "localhost"])
         XCTAssertEqual(settings.browserBlockedDomains, ["example.com"])
         XCTAssertEqual(settings.browserDomainPolicyStatusLabel, "Allowlist + blocklist")
@@ -240,6 +250,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Granted", "Required"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.command.isEnabled), [false, true])
+        XCTAssertTrue(settings.computerUseOnboardingSteps.contains(
+            "Enable Accessibility so QuillCode can click, type, scroll, move the cursor, and send shortcuts."
+        ))
         XCTAssertNil(settings.computerUseForegroundApplication)
         XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
         XCTAssertEqual(settings.computerUseApprovedAppNames, ["Terminal"])
@@ -286,6 +299,10 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             settings.computerUseNextAction,
             "Install or enable the required desktop backend, then refresh status."
         )
+        XCTAssertEqual(settings.computerUseOnboardingSteps, [
+            "Linux Computer Use detected Wayland but needs helper tools: ydotool, wtype.",
+            "After installing the missing backend or helper tools, refresh status before asking QuillCode to use the screen."
+        ])
         XCTAssertTrue(settings.computerUseRequirements.isEmpty)
         XCTAssertTrue(settings.computerUseSetupCommand.isEnabled)
     }

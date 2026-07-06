@@ -11,6 +11,7 @@ struct QuillCodeComputerUseSettingsCard: View {
                 requirementRows
             }
             nextActionRow
+            onboardingSteps
             restartHint
             refreshAction
         }
@@ -83,6 +84,28 @@ struct QuillCodeComputerUseSettingsCard: View {
 
     private var nextActionTextColor: Color {
         settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.muted
+    }
+
+    private var onboardingSteps: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ForEach(Array(settings.computerUseOnboardingSteps.enumerated()), id: \.offset) { index, step in
+                HStack(alignment: .top, spacing: 8) {
+                    Text("\(index + 1)")
+                        .font(.caption2.weight(.bold).monospacedDigit())
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .frame(width: 18, height: 18)
+                        .background(QuillCodePalette.blue.opacity(0.10))
+                        .clipShape(Circle())
+                    Text(step)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(1)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(settings.computerUseOnboardingSteps.joined(separator: " "))
     }
 
     private var restartHint: some View {
