@@ -18,6 +18,8 @@
       --red: #f0574c;
       --yellow: #d9a441;
       --purple: #c07cf5;
+      --radius-control: 7px;
+      --radius-card: 10px;
       --ease-out: cubic-bezier(0.2, 0, 0, 1);
       --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
       --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
@@ -588,7 +590,7 @@
       display: grid;
       gap: 10px;
       padding: 14px;
-      border-radius: 24px;
+      border-radius: 10px;
       background: var(--panel);
       box-shadow: var(--shadow-panel);
     }
@@ -789,7 +791,7 @@
       gap: 13px;
       padding: 18px;
       border: 0;
-      border-radius: 18px;
+      border-radius: 10px;
       background: rgba(15, 23, 28, .98);
       box-shadow: var(--shadow-panel);
     }
@@ -922,7 +924,7 @@
     }
     .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
-    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.035); border: 1px solid rgba(255, 255, 255, .08); }
+    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 10px; background: rgba(255,255,255,.035); border: 1px solid rgba(255, 255, 255, .08); }
     .permission-card h3 { margin: 0 0 6px; }
     .permission-card p { margin: 0; }
     .permission-card header, .permission-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -943,7 +945,7 @@
     }
     .transcript {
       border: 1px solid rgba(255,255,255,.1);
-      border-radius: 26px;
+      border-radius: 10px;
       background: rgba(33,33,33,.84);
       box-shadow: var(--shadow-border);
     }
@@ -1010,7 +1012,7 @@
     }
     .attention-digest-card {
       width: min(460px, 90vw); background: var(--panel);
-      border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;
+      border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px;
     }
     .attention-digest-header { display: flex; align-items: center; gap: 10px; }
     .attention-digest-header strong { flex: 1; }
@@ -1591,7 +1593,7 @@
       place-items: center;
       width: var(--hit-target);
       height: var(--hit-target);
-      border-radius: 13px;
+      border-radius: 7px;
       border: 1px solid rgba(255,255,255,.1);
       color: var(--muted);
       background: rgba(255,255,255,.06);
@@ -1751,7 +1753,7 @@
       padding: 14px;
       overflow: auto;
       border: 1px solid rgba(255,255,255,.1);
-      border-radius: 26px;
+      border-radius: 10px;
       background: rgba(33,33,33,.84);
       box-shadow: var(--shadow-border);
     }
@@ -1770,7 +1772,7 @@
       display: grid;
       gap: 7px;
       padding: 10px;
-      border-radius: 16px;
+      border-radius: 10px;
       background: rgba(0,0,0,.20);
       border: 1px solid rgba(255,255,255,.08);
     }
@@ -1999,7 +2001,7 @@
       display: grid;
       gap: 5px;
       padding: 10px;
-      border-radius: 18px;
+      border-radius: 10px;
       background: rgba(0,0,0,.26);
       border: 1px solid rgba(255,255,255,.08);
       box-shadow: var(--shadow-border);
@@ -2391,7 +2393,7 @@
     .message, .tool-card, .review-pane, .context-banner, .runtime-issue, .thinking {
       max-width: min(760px, 88%);
       padding: 13px 15px;
-      border-radius: 20px;
+      border-radius: 10px;
       line-height: 1.42;
       box-shadow: var(--shadow-border);
     }
@@ -2586,7 +2588,7 @@
       display: grid;
       gap: 8px;
       padding: 10px;
-      border-radius: 20px;
+      border-radius: 10px;
       background: rgba(255,255,255,.05);
       box-shadow: var(--shadow-border);
       transition-property: transform, box-shadow;
@@ -2628,7 +2630,7 @@
       gap: 12px;
       min-height: 74px;
       padding: 10px;
-      border-radius: 18px;
+      border-radius: 10px;
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.05);
       box-shadow: var(--shadow-border);
@@ -2773,7 +2775,7 @@
       display: grid;
       gap: 6px;
       padding: 8px;
-      border-radius: 18px;
+      border-radius: 10px;
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.05);
       box-shadow: var(--shadow-border);
@@ -3623,7 +3625,7 @@
       gap: var(--hit-target-clearance);
       padding: 8px;
       border: 1px solid rgba(255,255,255,.08);
-      border-radius: 13px;
+      border-radius: 7px;
       background: rgba(0,0,0,.14);
     }
     .slash-suggestion {
@@ -3698,7 +3700,7 @@
       min-width: 0;
       min-height: var(--hit-target);
       padding: 13px 15px;
-      border-radius: 13px;
+      border-radius: 7px;
       border: 1px solid rgba(255,255,255,.14);
       background: rgba(0,0,0,.18);
       color: white;
@@ -3717,7 +3719,7 @@
       min-height: var(--hit-target);
       padding: 0 18px;
       border: 0;
-      border-radius: 13px;
+      border-radius: 7px;
       background: var(--blue);
       color: #041018;
       font-weight: 700;

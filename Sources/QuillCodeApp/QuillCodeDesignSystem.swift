@@ -4,7 +4,7 @@ public enum QuillCodeMetrics {
     public static let minimumHitTarget: CGFloat = 40
     public static let compactTextButtonMinWidth: CGFloat = 66
     public static let compactFormActionMinWidth: CGFloat = 52
-    public static let compactControlRadius: CGFloat = 9
+    public static let compactControlRadius: CGFloat = 7
     public static let iconControlRadius: CGFloat = 10
     public static let minimumTargetClearance: CGFloat = 8
     public static let controlClusterSpacing: CGFloat = 8
@@ -33,9 +33,9 @@ public enum QuillCodeMetrics {
     public static let compactToolCardMinimumHeight: CGFloat = 58
     public static let toolCardHeaderHeight: CGFloat = 44
     public static let toolCardRawDetailsMaxHeight: CGFloat = 240
-    public static let toolCardRadius: CGFloat = 20
+    public static let toolCardRadius: CGFloat = 10
     public static let settingsCardRadius: CGFloat = 12
-    public static let dialogRadius: CGFloat = 16
+    public static let dialogRadius: CGFloat = 10
     public static let pressScale: CGFloat = 0.96
 }
 
