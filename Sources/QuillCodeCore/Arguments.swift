@@ -142,10 +142,6 @@ public struct ToolArguments: Sendable {
         return normalized.isEmpty ? nil : normalized
     }
 
-    public static func json(_ values: [String: String]) -> String {
-        jsonObject(values)
-    }
-
     public static func json(_ values: [String: Any]) -> String {
         jsonObject(values)
     }
