@@ -178,7 +178,11 @@ enum QuillCodeDesktopWindowSmokeRunner {
         try stats.validate(
             expectedWidth: stats.report.width,
             expectedHeight: stats.report.height,
-            minDistinctColorBuckets: 24,
+            // The flat, neutral Codex theme renders fewer distinct color buckets than the old
+            // gradient-tinted one (the live window measures ~19). This floor only guards against a
+            // blank/broken render — a blank window is ~1-5 buckets — so 14 keeps a wide margin below
+            // the real render while still catching a genuinely empty capture.
+            minDistinctColorBuckets: 14,
             minBrightPixelRatio: 0.0005,
             minBlueAccentPixelRatio: 0.0001
         )
