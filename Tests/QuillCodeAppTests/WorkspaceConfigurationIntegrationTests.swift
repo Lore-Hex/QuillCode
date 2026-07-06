@@ -84,7 +84,9 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
             defaultModel: "z-ai/glm-5.2",
             mode: .review,
             apiBaseURL: "https://api.trustedrouter.test/v1",
-            developerOverrideEnabled: true
+            developerOverrideEnabled: true,
+            runSpendFuseUSD: 2,
+            runSpendPeriodLimits: RunSpendPeriodLimits(dailyUSD: 5, weeklyUSD: 25, monthlyUSD: 100)
         )
 
         model.applySettings(config: config, trustedRouterAPIKeyConfigured: true)
@@ -96,6 +98,12 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         XCTAssertTrue(model.surface().settings.developerOverrideEnabled)
         XCTAssertTrue(model.surface().settings.hasStoredAPIKey)
         XCTAssertEqual(model.surface().settings.apiKeyStatusLabel, "API key configured")
+        XCTAssertEqual(model.surface().settings.runSpendFuseUSD, 2)
+        XCTAssertEqual(model.surface().settings.runSpendPeriodLimits.dailyUSD, 5)
+        XCTAssertEqual(
+            model.surface().topBar.tokenBudget?.visibleQuotaLimits.map(\.usageLabel),
+            ["$0.00 / $5.00", "$0.00 / $25.00", "$0.00 / $100.00"]
+        )
     }
 
     func testBootstrapLoadsConfigAndPersistedThreads() throws {
