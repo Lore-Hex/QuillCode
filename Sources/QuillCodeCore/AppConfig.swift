@@ -109,61 +109,10 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.runSpendFuseUSD = Self.normalizedRunSpendFuse(runSpendFuseUSD)
     }
 
-    public init(
-        defaultModel: String,
-        mode: AgentMode,
-        apiBaseURL: String,
-        authMode: TrustedRouterAuthMode,
-        developerOverrideEnabled: Bool,
-        trustedRouterAccount: TrustedRouterAccountProfile?,
-        favoriteModels: [String],
-        computerUseApprovedBundleIdentifiers: [String],
-        computerUseApprovedAppNames: [String]
-    ) {
-        self.init(
-            defaultModel: defaultModel,
-            mode: mode,
-            apiBaseURL: apiBaseURL,
-            authMode: authMode,
-            developerOverrideEnabled: developerOverrideEnabled,
-            trustedRouterAccount: trustedRouterAccount,
-            favoriteModels: favoriteModels,
-            computerUseApprovedBundleIdentifiers: computerUseApprovedBundleIdentifiers,
-            computerUseApprovedAppNames: computerUseApprovedAppNames,
-            browserAllowedDomains: [],
-            browserBlockedDomains: [],
-            notificationPreferences: QuillCodeNotificationPreferences(),
-            runSpendFuseUSD: 1.0
-        )
-    }
-
     public var browserDomainPolicy: BrowserDomainPolicy {
         BrowserDomainPolicy(
             allowedDomains: browserAllowedDomains,
             blockedDomains: browserBlockedDomains
-        )
-    }
-
-    public init(
-        defaultModel: String = TrustedRouterDefaults.defaultModel,
-        mode: AgentMode = .auto,
-        apiBaseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
-        developerOverrideEnabled: Bool
-    ) {
-        self.init(
-            defaultModel: defaultModel,
-            mode: mode,
-            apiBaseURL: apiBaseURL,
-            authMode: developerOverrideEnabled ? .developerOverride : .oauth,
-            developerOverrideEnabled: developerOverrideEnabled,
-            trustedRouterAccount: nil,
-            favoriteModels: [],
-            computerUseApprovedBundleIdentifiers: [],
-            computerUseApprovedAppNames: [],
-            browserAllowedDomains: [],
-            browserBlockedDomains: [],
-            notificationPreferences: QuillCodeNotificationPreferences(),
-            runSpendFuseUSD: 1.0
         )
     }
 

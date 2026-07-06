@@ -82,11 +82,11 @@ public struct ModelCatalogStatus: Codable, Sendable, Hashable {
         return elapsed > staleAfter ? "stale \(age) ago" : "\(age) ago"
     }
 
+    /// Formats an elapsed interval as an age. The sole caller (`freshnessLabel`) has already handled
+    /// sub-minute intervals with its own "just now", so this is only ever called with `interval >= 60`.
     private static func ageLabel(_ interval: TimeInterval) -> String {
         switch interval {
-        case 0..<60:
-            return "just now"
-        case 60..<3_600:
+        case ..<3_600:
             return "\(Int(interval / 60))m"
         case 3_600..<86_400:
             return "\(Int(interval / 3_600))h"
