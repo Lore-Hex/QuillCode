@@ -106,6 +106,13 @@ test('mock harness opens utility surfaces from composer slash commands', async (
   await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
   await expect(page.getByTestId('keyboard-shortcuts-list')).toContainText('Search');
   await expect(message).toHaveValue('');
+  await page.getByTestId('keyboard-shortcuts-close').click();
+
+  await message.fill('/commands');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await expect(page.getByTestId('command-palette-input')).toBeFocused();
+  await expect(message).toHaveValue('');
 });
 
 test('mock harness suggests slash commands in the composer', async ({ page }) => {

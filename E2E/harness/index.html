@@ -4973,6 +4973,7 @@
       { usage: '/find', title: 'Find in chat', detail: 'Open the active chat finder with result count and next/previous navigation.', insertText: '/find', aliases: ['find in chat', 'transcript find'] },
       { usage: '/settings', title: 'Settings', detail: 'Open TrustedRouter, Computer Use, browser, and notification settings.', insertText: '/settings', aliases: ['preferences', 'prefs'] },
       { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
+      { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
       { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
@@ -16189,6 +16190,13 @@
         state.composer.isSending = false;
         state.shortcuts.isOpen = true;
         render();
+        return;
+      } else if (/^\/(commands|command-palette|palette)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.commandPalette.isOpen = true;
+        state.commandPalette.query = '';
+        render();
+        setTimeout(() => document.querySelector('[data-testid="command-palette-input"]')?.focus(), 0);
         return;
       } else if (/^\/plan\b/i.test(text)) {
         setModeLabel('Plan');

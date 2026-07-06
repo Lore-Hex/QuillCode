@@ -40,5 +40,9 @@ final class WorkspaceComposerSubmissionPlannerTests: XCTestCase {
             WorkspaceComposerSubmissionPlanner.plan(draft: "/shortcuts"),
             .slash(command: .workspaceCommand("keyboard-shortcuts"), originalPrompt: "/shortcuts")
         )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/commands"),
+            .slash(command: .workspaceCommand("command-palette"), originalPrompt: "/commands")
+        )
     }
 }

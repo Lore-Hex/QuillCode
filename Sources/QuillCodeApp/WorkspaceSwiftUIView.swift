@@ -391,6 +391,9 @@ public struct QuillCodeWorkspaceView: View {
             isSettingsPresented = true
         case "keyboard-shortcuts":
             isKeyboardShortcutsPresented = true
+        case "command-palette":
+            commandQuery = ""
+            isCommandPalettePresented = true
         default:
             break
         }
@@ -398,6 +401,7 @@ public struct QuillCodeWorkspaceView: View {
 
     private static let composerPresentedCommandIDs: Set<String> = [
         "find-in-chat",
+        "command-palette",
         "keyboard-shortcuts",
         "search",
         "settings"

@@ -196,6 +196,12 @@ extension SlashCommandCatalog {
             aliases: ["keyboard shortcuts", "keys"]
         ),
         slashDefinition(
+            "/commands",
+            "Command palette",
+            "Open the searchable command palette.",
+            aliases: ["command-palette", "palette"]
+        ),
+        slashDefinition(
             "/browser",
             "Toggle browser",
             "Show or hide the browser preview panel.",

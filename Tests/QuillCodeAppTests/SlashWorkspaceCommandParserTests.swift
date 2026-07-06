@@ -11,6 +11,9 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preferences"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("shortcuts"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("keyboard-shortcuts"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("commands"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("command-palette"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("palette"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("browser"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preview"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
@@ -40,6 +43,15 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/prefs"), .workspaceCommand("settings"))
         XCTAssertEqual(SlashCommandParser.parse("/shortcuts"), .workspaceCommand("keyboard-shortcuts"))
         XCTAssertEqual(SlashCommandParser.parse("/keys"), .workspaceCommand("keyboard-shortcuts"))
+    }
+
+    func testCommandPaletteAliasesOpenExistingWorkspaceCommand() {
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "commands"), .workspaceCommand("command-palette"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "command-palette"), .workspaceCommand("command-palette"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "palette"), .workspaceCommand("command-palette"))
+        XCTAssertEqual(SlashCommandParser.parse("/commands"), .workspaceCommand("command-palette"))
+        XCTAssertEqual(SlashCommandParser.parse("/command-palette"), .workspaceCommand("command-palette"))
+        XCTAssertEqual(SlashCommandParser.parse("/palette"), .workspaceCommand("command-palette"))
     }
 
     func testBrowserAliasesToggleBrowserPane() {
