@@ -9,6 +9,7 @@ enum SlashThreadCommandParser {
              "compact", "compact-context", "context-compact",
              "rename", "rename-chat", "title",
              "duplicate", "duplicate-chat", "copy-chat",
+             "new-worktree", "worktree-chat", "worktree-thread",
              "fork", "fork-last", "fork-from-last",
              "fork-summary", "fork-with-summary",
              "fork-full", "fork-full-context",
@@ -40,6 +41,8 @@ enum SlashThreadCommandParser {
             return value.isEmpty ? .invalid("Usage: /rename New chat title") : .renameThread(value)
         case "duplicate", "duplicate-chat", "copy-chat":
             return .workspaceCommand("thread-duplicate")
+        case "new-worktree", "worktree-chat", "worktree-thread":
+            return .workspaceCommand("thread-new-worktree")
         case "fork":
             return parseFork(argument: value)
         case "fork-last", "fork-from-last":

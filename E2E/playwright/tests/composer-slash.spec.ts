@@ -225,6 +225,28 @@ test('mock harness routes history slash commands through workspace back and forw
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
 });
 
+test('mock harness suggests and runs the new-worktree thread command', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+
+  // Suggestion: /new-w surfaces the new-worktree-chat command, distinct from /new.
+  await message.fill('/new-w');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('/new-worktree');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('New worktree chat');
+
+  // Execution: /new-worktree routes through the thread-new-worktree command (mock stand-in for the
+  // worktree-bound thread native creates) — NOT swallowed by /new, NOT sent as a chat prompt.
+  const before = await page.getByTestId('sidebar-thread-row').count();
+  await message.fill('/new-worktree');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('message').last())
+    .toContainText('Started a new chat in a fresh worktree off the current branch.');
+  await expect
+    .poll(async () => page.getByTestId('sidebar-thread-row').count())
+    .toBeGreaterThan(before);
+});
+
 test('mock harness suggests slash commands in the composer', async ({ page }) => {
   await page.goto(harnessURL());
 

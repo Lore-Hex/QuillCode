@@ -47,6 +47,8 @@ enum QuillCodeCommandIconCatalog {
             return "clear"
         case "thread-clear":
             return "text.badge.xmark"
+        case "thread-new-worktree":
+            return "plus.rectangle.on.folder"
         case "toggle-browser":
             return "globe"
         case "open-browser-session":
