@@ -14,6 +14,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var recentThreads: [ChatThread]
     var runtimeIssue: RuntimeIssueSurface?
     var runSpendFuseUSD: Double? = nil
+    var runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits()
     var canNavigateBack: Bool = false
     var canNavigateForward: Bool = false
 
@@ -127,7 +128,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
         WorkspaceQuotaLimitSurfaceBuilder(runtimeIssue: runtimeIssue).quotaLimits()
             + WorkspaceSpendHistoryQuotaBuilder(
                 threads: recentThreads,
-                modelCatalog: modelCatalog
+                modelCatalog: modelCatalog,
+                periodLimits: runSpendPeriodLimits
             ).quotaLimits()
     }
 }

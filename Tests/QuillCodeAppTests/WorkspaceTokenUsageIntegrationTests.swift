@@ -217,6 +217,51 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         XCTAssertEqual(rows.last?.detailLabel, "Local priced model spend month: $0.0090")
     }
 
+    func testSpendHistoryQuotaBuilderRendersConfiguredCapsAtZeroSpend() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_735_257_600)
+
+        let rows = WorkspaceSpendHistoryQuotaBuilder(
+            threads: [],
+            modelCatalog: pricedModelCatalog(),
+            periodLimits: RunSpendPeriodLimits(dailyUSD: 1, weeklyUSD: 5, monthlyUSD: 20),
+            calendar: calendar,
+            now: now
+        ).quotaLimits()
+
+        XCTAssertEqual(rows.map(\.compactLabel), [
+            "Today $0.00 / $1.00",
+            "Week $0.00 / $5.00",
+            "Month $0.00 / $20.00"
+        ])
+        XCTAssertEqual(rows.first?.detailLabel, "Local priced model spend today: $0.00 of $1.00 · 0% used")
+    }
+
+    func testSpendHistoryQuotaBuilderRendersConfiguredCapsWithUsagePercent() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_735_257_600)
+        let current = ChatThread(title: "Today", events: [
+            try usageEvent(prompt: 1_000, completion: 500, modelID: "acme/agent", createdAt: now)
+        ])
+
+        let rows = WorkspaceSpendHistoryQuotaBuilder(
+            threads: [current],
+            modelCatalog: pricedModelCatalog(),
+            periodLimits: RunSpendPeriodLimits(dailyUSD: 0.01),
+            calendar: calendar,
+            now: now
+        ).quotaLimits()
+
+        XCTAssertEqual(rows.map(\.compactLabel), [
+            "Today $0.0050 / $0.01",
+            "Week $0.0050",
+            "Month $0.0050"
+        ])
+        XCTAssertEqual(rows.first?.detailLabel, "Local priced model spend today: $0.0050 of $0.01 · 50% used")
+    }
+
     func testTopBarShowsLocalDayWeekMonthSpendHistoryRows() throws {
         let now = Date()
         let current = ChatThread(title: "Costed run", events: [
@@ -240,6 +285,29 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         XCTAssertEqual(
             model.surface().topBar.tokenBudget?.quotaSummaryLabel,
             "Today $0.0060 · Week $0.0060 · Month $0.0060"
+        )
+    }
+
+    func testTopBarShowsConfiguredSpendLimitRowsBeforeAnySpend() throws {
+        let current = ChatThread(title: "Fresh")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                config: AppConfig(
+                    runSpendPeriodLimits: RunSpendPeriodLimits(dailyUSD: 1, weeklyUSD: 5, monthlyUSD: 20)
+                ),
+                threads: [current],
+                selectedThreadID: current.id,
+                modelCatalog: pricedModelCatalog()
+            )
+        )
+
+        let quotaRows = try XCTUnwrap(model.surface().topBar.tokenBudget?.visibleQuotaLimits)
+
+        XCTAssertEqual(quotaRows.map(\.periodLabel), ["Today", "Week", "Month"])
+        XCTAssertEqual(quotaRows.map(\.usageLabel), ["$0.00 / $1.00", "$0.00 / $5.00", "$0.00 / $20.00"])
+        XCTAssertEqual(
+            model.surface().topBar.tokenBudget?.quotaSummaryLabel,
+            "Today $0.00 / $1.00 · Week $0.00 / $5.00 · Month $0.00 / $20.00"
         )
     }
 

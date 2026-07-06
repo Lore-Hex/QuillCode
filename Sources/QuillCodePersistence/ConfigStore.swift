@@ -34,6 +34,7 @@ public struct ConfigStore: Sendable {
         var browserAllowedDomains: [String] = []
         var browserBlockedDomains: [String] = []
         var notificationPreferences = QuillCodeNotificationPreferences()
+        var runSpendPeriodLimits = RunSpendPeriodLimits()
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -81,6 +82,14 @@ public struct ConfigStore: Sendable {
             case "automation_notifications_enabled":
                 notificationPreferences.automationNotificationsEnabled = Self.boolValue(value)
                     ?? notificationPreferences.automationNotificationsEnabled
+            case "run_spend_fuse_usd":
+                config.runSpendFuseUSD = RunSpendLedger.normalizedFuse(Self.doubleValue(value))
+            case "run_spend_daily_limit_usd":
+                runSpendPeriodLimits.dailyUSD = RunSpendPeriodLimits.normalizedLimit(Self.doubleValue(value))
+            case "run_spend_weekly_limit_usd":
+                runSpendPeriodLimits.weeklyUSD = RunSpendPeriodLimits.normalizedLimit(Self.doubleValue(value))
+            case "run_spend_monthly_limit_usd":
+                runSpendPeriodLimits.monthlyUSD = RunSpendPeriodLimits.normalizedLimit(Self.doubleValue(value))
             default:
                 continue
             }
@@ -113,6 +122,7 @@ public struct ConfigStore: Sendable {
         config.browserAllowedDomains = browserPolicy.allowedDomains
         config.browserBlockedDomains = browserPolicy.blockedDomains
         config.notificationPreferences = notificationPreferences
+        config.runSpendPeriodLimits = runSpendPeriodLimits
         return config
     }
 
@@ -129,6 +139,22 @@ public struct ConfigStore: Sendable {
             "developer_override_enabled = \(Self.boolString(config.developerOverrideEnabled))"
         ]
         Self.appendNotificationPreferences(config.notificationPreferences, to: &lines)
+        Self.appendOptionalDouble(config.runSpendFuseUSD, key: "run_spend_fuse_usd", to: &lines)
+        Self.appendOptionalDouble(
+            config.runSpendPeriodLimits.dailyUSD,
+            key: "run_spend_daily_limit_usd",
+            to: &lines
+        )
+        Self.appendOptionalDouble(
+            config.runSpendPeriodLimits.weeklyUSD,
+            key: "run_spend_weekly_limit_usd",
+            to: &lines
+        )
+        Self.appendOptionalDouble(
+            config.runSpendPeriodLimits.monthlyUSD,
+            key: "run_spend_monthly_limit_usd",
+            to: &lines
+        )
         Self.appendRepeatedValues(config.favoriteModels, key: "favorite_model", to: &lines)
         Self.appendRepeatedValues(
             config.computerUseApprovedBundleIdentifiers,
@@ -191,6 +217,11 @@ public struct ConfigStore: Sendable {
         lines.append("\(key) = \(boolString(value))")
     }
 
+    private static func appendOptionalDouble(_ value: Double?, key: String, to lines: inout [String]) {
+        guard let value else { return }
+        lines.append("\(key) = \(String(format: "%.6f", value))")
+    }
+
     private static func boolString(_ value: Bool) -> String {
         value ? "true" : "false"
     }
@@ -204,6 +235,10 @@ public struct ConfigStore: Sendable {
         default:
             return nil
         }
+    }
+
+    private static func doubleValue(_ value: String) -> Double? {
+        Double(value.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     private static func quote(_ value: String) -> String {
