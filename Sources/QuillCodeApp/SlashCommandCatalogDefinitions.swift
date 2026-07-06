@@ -236,10 +236,16 @@ extension SlashCommandCatalog {
             aliases: ["preview"]
         ),
         slashDefinition(
+            "/review",
+            "Review changes",
+            "Show the working-tree git diff in the review pane.",
+            aliases: ["review diff", "review changes"]
+        ),
+        slashDefinition(
             "/diff",
             "Review diff",
             "Show the working-tree git diff in the review pane.",
-            aliases: ["changes", "git diff"]
+            aliases: ["changes", "git diff", "review"]
         ),
         slashDefinition(
             "/git-status",

@@ -4980,7 +4980,8 @@
       { usage: '/automations', title: 'Toggle automations', detail: 'Show or hide scheduled follow-ups, workspace checks, and automation history.', insertText: '/automations', aliases: [] },
       { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
-      { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff'] },
+      { usage: '/review', title: 'Review changes', detail: 'Show the working-tree git diff in the review pane.', insertText: '/review', aliases: ['review diff', 'review changes'] },
+      { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff', 'review'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
       { usage: '/git fetch', title: 'Fetch latest refs', detail: 'Fetch from the selected project remote without changing the working tree.', insertText: '/git fetch', aliases: ['git fetch origin', 'fetch'] },
       { usage: '/git pull', title: 'Pull latest changes', detail: 'Pull the selected project with --ff-only by default.', insertText: '/git pull', aliases: ['git sync', 'pull latest'] },
@@ -16668,7 +16669,7 @@
         if (lastUserMessage) {
           lastUserMessage.revert = { turnMessageID: lastUserMessage.id, hasNonApplyPatchEdits: false };
         }
-      } else if (/^\/(diff|changes)\b/i.test(text)) {
+      } else if (/^\/(review|diff|changes)\b/i.test(text)) {
         runGitDiffAction();
         return;
       } else if (/^\/git-?status\b/i.test(text)) {

@@ -10,7 +10,7 @@ enum SlashWorkspaceCommandParser {
              "extensions", "plugins", "skills",
              "automations", "activity",
              "browser", "preview",
-             "diff", "changes",
+             "review", "diff", "changes",
              "git-status", "gitstatus",
              "git",
              "init", "init-project",
@@ -42,7 +42,7 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("toggle-activity")
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
-        case "diff", "changes":
+        case "review", "diff", "changes":
             return .workspaceCommand("git-diff")
         case "git-status", "gitstatus":
             return .workspaceCommand("git-status")
