@@ -202,6 +202,18 @@ extension SlashCommandCatalog {
             aliases: ["toggle sidebar", "hide sidebar", "show sidebar"]
         ),
         slashDefinition(
+            "/copy",
+            "Copy conversation",
+            "Copy the visible conversation as Markdown.",
+            aliases: ["copy conversation", "copy transcript"]
+        ),
+        slashDefinition(
+            "/export",
+            "Export conversation",
+            "Export the visible conversation as Markdown.",
+            aliases: ["export markdown", "export conversation", "save transcript"]
+        ),
+        slashDefinition(
             "/settings",
             "Settings",
             "Open TrustedRouter, Computer Use, browser, and notification settings.",
