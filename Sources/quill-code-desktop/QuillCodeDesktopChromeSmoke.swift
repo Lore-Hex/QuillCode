@@ -156,7 +156,7 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
 
     var body: some View {
         ZStack {
-            Color(red: 0.090, green: 0.090, blue: 0.090)
+            QuillCodeDesktopSmokeBackground()
             VStack(alignment: .leading, spacing: 18) {
                 header
                 summaryRows
@@ -236,5 +236,22 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
         .padding(14)
         .background(Color(red: 0.110, green: 0.110, blue: 0.110))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct QuillCodeDesktopSmokeBackground: View {
+    var body: some View {
+        ZStack {
+            Color(red: 0.090, green: 0.090, blue: 0.090)
+            LinearGradient(
+                colors: [
+                    Color(red: 0.129, green: 0.129, blue: 0.129).opacity(0.82),
+                    Color(red: 0.090, green: 0.090, blue: 0.090).opacity(0.96),
+                    Color.black.opacity(0.18)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
     }
 }

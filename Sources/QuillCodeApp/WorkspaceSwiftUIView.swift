@@ -205,7 +205,7 @@ public struct QuillCodeWorkspaceView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 640)
-        .background(QuillCodePalette.background)
+        .background(QuillCodeAppBackground())
         .foregroundStyle(QuillCodePalette.text)
         .overlay {
             if let digest = surface.attentionDigest {

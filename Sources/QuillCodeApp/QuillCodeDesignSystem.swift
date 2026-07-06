@@ -44,6 +44,7 @@ enum QuillCodePalette {
     // way Codex itself uses color (CLI: cyan = selection/status/input, magenta = agent, green/red =
     // additions/deletions). Mirrors the DOM surface :root tokens in E2E/harness/index.html.
     static let background = Color(red: 0.090, green: 0.090, blue: 0.090)   // #171717
+    static let backgroundLift = Color(red: 0.129, green: 0.129, blue: 0.129) // #212121
     static let sidebar = Color(red: 0.110, green: 0.110, blue: 0.110)      // #1c1c1c
     static let panel = Color(red: 0.129, green: 0.129, blue: 0.129)        // #212121
     static let selection = Color.white.opacity(0.08)
@@ -55,6 +56,25 @@ enum QuillCodePalette {
     static let yellow = Color(red: 0.851, green: 0.643, blue: 0.255)       // #d9a441
     static let coral = Color(red: 0.820, green: 0.420, blue: 0.370)
     static let purple = Color(red: 0.753, green: 0.486, blue: 0.961)       // #c07cf5 (agent/Codex)
+}
+
+public struct QuillCodeAppBackground: View {
+    public init() {}
+
+    public var body: some View {
+        ZStack {
+            QuillCodePalette.background
+            LinearGradient(
+                colors: [
+                    QuillCodePalette.backgroundLift.opacity(0.82),
+                    QuillCodePalette.background.opacity(0.96),
+                    Color.black.opacity(0.18)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
 }
 
 func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {
