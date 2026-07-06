@@ -4975,7 +4975,8 @@
       { usage: '/settings', title: 'Settings', detail: 'Open TrustedRouter, Computer Use, browser, and notification settings.', insertText: '/settings', aliases: ['preferences', 'prefs'] },
       { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
       { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
-      { usage: '/extensions', title: 'Toggle extensions', detail: 'Show or hide project plugins, skills, MCP servers, and marketplace entries.', insertText: '/extensions', aliases: ['plugins'] },
+      { usage: '/extensions', title: 'Toggle extensions', detail: 'Show or hide project plugins, skills, MCP servers, and marketplace entries.', insertText: '/extensions', aliases: ['plugins', 'skills'] },
+      { usage: '/skills', title: 'Show skills', detail: 'Open the Extensions pane filtered around installed and available skills.', insertText: '/skills', aliases: ['skill list', 'installed skills', 'available skills'] },
       { usage: '/automations', title: 'Toggle automations', detail: 'Show or hide scheduled follow-ups, workspace checks, and automation history.', insertText: '/automations', aliases: [] },
       { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
@@ -4998,7 +4999,7 @@
       { usage: '/mode auto|plan|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Plan, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
       { usage: '/plan', title: 'Enter Plan mode', detail: 'Investigate read-only and propose a plan; mutating tools wait for your approval.', insertText: '/plan', aliases: [] },
       { usage: '/model name', title: 'Set model', detail: "Search the TrustedRouter catalog with live per-1M pricing and switch the thread's model.", insertText: '/model ', aliases: ['models', 'switch model', 'change model'] },
-      { usage: '/skill name', title: 'Run a skill', detail: 'Load an installed skill by name and follow it, for example /skill code-review.', insertText: '/skill ', aliases: ['skills', 'run skill', 'load skill'] }
+      { usage: '/skill name', title: 'Run a skill', detail: 'Load an installed skill by name and follow it, for example /skill code-review.', insertText: '/skill ', aliases: ['run skill', 'load skill'] }
     ];
     const slashCommandPalettePrefix = 'slash-command:';
 
@@ -5036,6 +5037,7 @@
     function slashSuggestionScore(definition, query) {
       if (!query) return 100;
       const usage = normalizeSlashText(definition.usage.slice(1));
+      if ((usage.split(/\s+/)[0] || '') === query) return 130;
       if (usage.startsWith(query)) return 120;
       if (definition.aliases.some(alias => normalizeSlashText(alias).startsWith(query))) return 110;
       if (usage.includes(query)) return 90;
@@ -16202,7 +16204,7 @@
         render();
         setTimeout(() => document.querySelector('[data-testid="command-palette-input"]')?.focus(), 0);
         return;
-      } else if (/^\/(extensions|plugins)\b/i.test(text)) {
+      } else if (/^\/(extensions|plugins|skills)\b/i.test(text)) {
         state.composer.isSending = false;
         runCommand('toggle-extensions');
         return;
@@ -16228,11 +16230,11 @@
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode plan, /mode review, or /mode read-only');
         }
-      } else if (/^\/(skill|skills)\b/i.test(text)) {
+      } else if (/^\/skill\b/i.test(text)) {
         // Mirrors native: `/skill name` runs a normal agent turn that loads + follows the skill via
         // host.skill.load. A bare `/skill` shows usage. The skill name is sanitized to a bare token.
         const skillName = text
-          .replace(/^\/(skill|skills)\b/i, '')
+          .replace(/^\/skill\b/i, '')
           .trim()
           .split(/\s+/)[0]
           ?.replace(/[/\\]/g, '')
