@@ -33,25 +33,6 @@ public struct ApprovalRequest: Codable, Sendable, Hashable, Identifiable {
         self.reviewTelemetry = reviewTelemetry
     }
 
-    public init(
-        id: String = "approval-\(UUID().uuidString)",
-        toolCall: ToolCall,
-        toolDefinition: ToolDefinition?,
-        reason: String,
-        recommendedVerdict: ApprovalVerdict? = nil,
-        reviewTelemetry: ApprovalReviewTelemetry? = nil
-    ) {
-        self.init(
-            id: id,
-            scope: .tool,
-            toolCall: toolCall,
-            toolDefinition: toolDefinition,
-            reason: reason,
-            recommendedVerdict: recommendedVerdict,
-            reviewTelemetry: reviewTelemetry
-        )
-    }
-
     private enum CodingKeys: String, CodingKey {
         case id
         case scope
