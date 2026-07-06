@@ -39,6 +39,37 @@ test('mock harness avoids horizontal clipping in key desktop and mobile flows', 
   }
 });
 
+test('mock harness styles interactive accents with the defined cyan token, not a stale --accent', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const audit = await page.evaluate(() => {
+    const rules: string[] = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      let cssRules: CSSRuleList | undefined;
+      try { cssRules = sheet.cssRules; } catch { continue; }
+      for (const rule of Array.from(cssRules || [])) rules.push(rule.cssText);
+    }
+    // The Codex theme renamed the accent token to --blue; any surviving var(--accent) is undefined
+    // and renders the referencing control unstyled (the primary tool-card action lost its fill).
+    const staleAccentRefs = rules.filter(text => text.includes('var(--accent)')).length;
+    const primaryActionRule = rules.find(text =>
+      text.includes('data-action-style') && text.includes('primary') && text.includes('background:'));
+
+    // Prove --blue actually resolves to the Codex cyan.
+    const probe = document.createElement('div');
+    probe.style.background = 'var(--blue)';
+    document.body.appendChild(probe);
+    const resolvedBlue = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+
+    return { staleAccentRefs, primaryActionRule, resolvedBlue };
+  });
+
+  expect(audit.staleAccentRefs).toBe(0);
+  expect(audit.primaryActionRule).toContain('var(--blue)');
+  expect(audit.resolvedBlue).toBe('rgb(61, 201, 230)');
+});
+
 test('mock harness keeps sidebar saved filters fully visible', async ({ page }) => {
   await page.goto(harnessURL());
   await page.getByLabel('Message').fill('run whoami');
