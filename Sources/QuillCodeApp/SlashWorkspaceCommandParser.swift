@@ -7,6 +7,7 @@ enum SlashWorkspaceCommandParser {
              "retry", "rerun", "again",
              "back", "previous", "prev",
              "forward", "next",
+             "history",
              "search", "find",
              "focus", "composer", "input",
              "sidebar", "toggle-sidebar",
@@ -40,6 +41,8 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("workspace-back")
         case "forward", "next":
             return .workspaceCommand("workspace-forward")
+        case "history":
+            return parseHistory(argument)
         case "focus", "composer", "input":
             return .workspaceCommand("focus-composer")
         case "sidebar", "toggle-sidebar":
@@ -85,5 +88,16 @@ enum SlashWorkspaceCommandParser {
 
     private static func normalizedName(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func parseHistory(_ argument: String) -> SlashCommand {
+        switch normalizedName(argument) {
+        case "back", "previous", "prev":
+            return .workspaceCommand("workspace-back")
+        case "forward", "next":
+            return .workspaceCommand("workspace-forward")
+        default:
+            return .invalid("Try /history back or /history forward.")
+        }
     }
 }

@@ -117,6 +117,13 @@ extension SlashCommandCatalog {
             aliases: ["next", "history forward"]
         ),
         slashDefinition(
+            "/history back|forward",
+            "Navigate history",
+            "Move through previous or next thread and project selections.",
+            insert: "/history ",
+            aliases: ["history previous", "history next"]
+        ),
+        slashDefinition(
             "/follow-up when",
             "Schedule follow-up",
             "Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, "
