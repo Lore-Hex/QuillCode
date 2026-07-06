@@ -43,6 +43,12 @@ extension SlashCommandCatalog {
             aliases: ["duplicate-chat", "copy-chat"]
         ),
         slashDefinition(
+            "/new-worktree",
+            "New worktree chat",
+            "Start a new thread in a fresh git worktree off the current branch, isolated from the working tree.",
+            aliases: ["worktree-chat", "worktree-thread"]
+        ),
+        slashDefinition(
             "/pin",
             "Pin chat",
             "Keep the current thread in the pinned section.",
