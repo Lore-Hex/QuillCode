@@ -72,7 +72,18 @@ struct StaticSafetyPolicy: Sendable {
         // the floor. De-duplicated when they coincide.
         let horizontal = Self.collapseWhitespace(base, foldNewlines: false).lowercased()
         let full = Self.collapseWhitespace(base, foldNewlines: true).lowercased()
-        return horizontal == full ? [horizontal] : [horizontal, full]
+        // Variant 3: normalize pipe spacing on the fully-folded form. The shell treats `|` / `||` as
+        // operators regardless of surrounding whitespace, so `curl x|sh` and `curl x||sh` must hit the
+        // same pipe-to-shell floor as `curl x | sh` — surrounding each pipe with spaces makes the
+        // `"| sh"` / `"| bash"` patterns match every spelling. Over-catches in the safe direction.
+        let pipeNormalized = Self.collapseWhitespace(
+            full.replacingOccurrences(of: "|", with: " | "),
+            foldNewlines: true
+        )
+        var haystacks = [horizontal]
+        if full != horizontal { haystacks.append(full) }
+        if !haystacks.contains(pipeNormalized) { haystacks.append(pipeNormalized) }
+        return haystacks
     }
 
     static func collapseHorizontalWhitespace(_ text: String) -> String {
@@ -160,6 +171,14 @@ struct StaticSafetyPolicy: Sendable {
         ),
         .all(
             ["curl ", "| bash"],
+            rationale: "Auto mode blocks piping remote downloads into a shell."
+        ),
+        .all(
+            ["wget ", "| sh"],
+            rationale: "Auto mode blocks piping remote downloads into a shell."
+        ),
+        .all(
+            ["wget ", "| bash"],
             rationale: "Auto mode blocks piping remote downloads into a shell."
         ),
         .contains("rm -rf /"),
