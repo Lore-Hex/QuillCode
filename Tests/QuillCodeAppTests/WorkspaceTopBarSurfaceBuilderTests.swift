@@ -4,6 +4,13 @@ import QuillComputerUseKit
 @testable import QuillCodeApp
 
 final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
+    private func makeTempDirectory(_ tag: String) throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("topbar-\(tag)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     func testBuildsThreadTopBarWithSourcesRuntimeIssueAndComputerUseState() {
         let thread = ChatThread(title: "Ship QuillCode", model: TrustedRouterDefaults.prometheusModel)
         let instructions = [
@@ -88,6 +95,53 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(topBar.runtimeIssueSeverity, .warning)
         XCTAssertEqual(topBar.computerUseLabel, "Needs Accessibility")
         XCTAssertTrue(topBar.showsComputerUseSetup)
+    }
+
+    func testShowsResolvableWorktreeBindingInTopBar() throws {
+        var thread = ChatThread(title: "Feature", model: TrustedRouterDefaults.fastModel)
+        let worktree = try makeTempDirectory("worktree")
+        thread.worktree = WorktreeBinding(path: worktree.path, branch: "feature/ui", base: "main")
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: nil
+        ).surface()
+
+        XCTAssertEqual(topBar.worktreeStatusLabel, "Worktree feature/ui")
+        XCTAssertEqual(topBar.worktreeStatusIsWarning, false)
+        XCTAssertTrue(topBar.worktreeStatusDetail?.contains(worktree.path) == true)
+        XCTAssertTrue(topBar.worktreeStatusDetail?.contains("Base: main") == true)
+        XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("worktree: Worktree feature/ui"))
+    }
+
+    func testShowsDanglingWorktreeBindingAsWarningInTopBar() {
+        var thread = ChatThread(title: "Feature", model: TrustedRouterDefaults.fastModel)
+        thread.worktree = WorktreeBinding(path: "/tmp/quillcode-missing-\(UUID().uuidString)", branch: "feature/gone")
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: nil
+        ).surface()
+
+        XCTAssertEqual(topBar.worktreeStatusLabel, "Worktree feature/gone")
+        XCTAssertEqual(topBar.worktreeStatusIsWarning, true)
+        XCTAssertTrue(topBar.worktreeStatusDetail?.contains("fall back to the project root") == true)
     }
 
     func testBuildsFallbackTitleAndNoProjectSubtitle() {
