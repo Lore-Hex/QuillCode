@@ -207,9 +207,14 @@ public struct ConfigStore: Sendable {
     }
 
     private static func quote(_ value: String) -> String {
+        // Escape backslash FIRST, then the chars that would break the flat key=value line format.
+        // Newlines especially: an unescaped '\n' splits the value across physical lines, and load()
+        // then rejects the '=' -less fragment — corrupting the ENTIRE config, not just this value.
         let escaped = value
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
         return "\"\(escaped)\""
     }
 
@@ -223,7 +228,14 @@ public struct ConfigStore: Sendable {
         var isEscaping = false
         for character in inner {
             if isEscaping {
-                output.append(character)
+                // Decode the escape sequences quote() emits: \n -> newline, \r -> CR, and
+                // \\ / \" -> the literal char (default). Without the n/r cases a round-tripped
+                // newline would silently decode back to the literal letter 'n'.
+                switch character {
+                case "n": output.append("\n")
+                case "r": output.append("\r")
+                default: output.append(character)
+                }
                 isEscaping = false
             } else if character == "\\" {
                 isEscaping = true

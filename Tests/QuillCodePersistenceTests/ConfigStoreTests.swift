@@ -140,6 +140,33 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertTrue(stored.contains("automation_notifications_enabled = true"))
     }
 
+    func testConfigRoundTripsValuesContainingNewlinesAndEscapes() throws {
+        // Regression: a value with a newline was written as a PHYSICAL line break, so load() hit an
+        // '='-less fragment and threw invalidLine — discarding the ENTIRE config (model, mode, auth,
+        // account, notification prefs). Now newline/CR/quote/backslash round-trip losslessly.
+        let store = try makeConfigStore()
+        let gnarly = "line1\nline2\r\ttab \"quoted\" back\\slash \\n literal"
+        let config = AppConfig(
+            defaultModel: TrustedRouterDefaults.prometheusModel,
+            apiBaseURL: gnarly,
+            authMode: .oauth,
+            trustedRouterAccount: TrustedRouterAccountProfile(userID: "u", subject: gnarly)
+        )
+
+        try store.save(config)
+        let loaded = try store.load()
+
+        XCTAssertEqual(loaded.apiBaseURL, gnarly)
+        XCTAssertEqual(loaded.trustedRouterAccount?.subject, gnarly)
+        XCTAssertEqual(loaded, config)
+
+        // On disk the value stays on one logical line (newline escaped as \n), so no '='-less
+        // fragment can ever brick the parser again.
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"api_base_url = "line1\nline2"#))
+        XCTAssertFalse(stored.contains("line1\nline2"))
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """
