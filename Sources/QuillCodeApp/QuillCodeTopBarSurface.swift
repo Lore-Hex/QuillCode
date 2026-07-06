@@ -19,6 +19,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var modelProviderHealthDetail: String?
     public var modeLabel: String
     public var agentStatus: String
+    /// Compact summary of currently queued/running/review-gated work for the selected thread.
+    public var liveWork: TopBarLiveWorkSurface?
     public var runtimeIssueLabel: String?
     public var runtimeIssueSeverity: RuntimeIssueSeverity?
     public var computerUseLabel: String
@@ -65,6 +67,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         modelProviderHealthDetail: String? = nil,
         modeLabel: String,
         agentStatus: String,
+        liveWork: TopBarLiveWorkSurface? = nil,
         runtimeIssueLabel: String? = nil,
         runtimeIssueSeverity: RuntimeIssueSeverity? = nil,
         computerUseLabel: String,
@@ -97,6 +100,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.modelProviderHealthDetail = modelProviderHealthDetail
         self.modeLabel = modeLabel
         self.agentStatus = agentStatus
+        self.liveWork = liveWork
         self.runtimeIssueLabel = runtimeIssueLabel
         self.runtimeIssueSeverity = runtimeIssueSeverity
         self.computerUseLabel = computerUseLabel
@@ -115,6 +119,23 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
 
     public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {
         ModelCategorySearchFilter.filter(modelCategories, matching: query)
+    }
+}
+
+public enum TopBarLiveWorkTone: String, Codable, Sendable, Hashable {
+    case running
+    case review
+}
+
+public struct TopBarLiveWorkSurface: Codable, Sendable, Hashable {
+    public var label: String
+    public var detail: String
+    public var tone: TopBarLiveWorkTone
+
+    public init(label: String, detail: String, tone: TopBarLiveWorkTone) {
+        self.label = label
+        self.detail = detail
+        self.tone = tone
     }
 }
 

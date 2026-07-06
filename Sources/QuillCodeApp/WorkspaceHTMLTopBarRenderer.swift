@@ -12,6 +12,7 @@ enum WorkspaceHTMLTopBarRenderer {
               <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
             </div>
             \(renderBranchStatus(topBar))
+            \(renderLiveWork(topBar))
             \(renderWorktreeStatus(topBar))
             \(renderTokenBudget(topBar))
             \(renderSpendStatus(topBar))
@@ -41,6 +42,11 @@ enum WorkspaceHTMLTopBarRenderer {
     private static func renderBranchStatus(_ topBar: TopBarSurface) -> String {
         guard let branchStatusLabel = topBar.branchStatusLabel else { return "" }
         return #"<span class="topbar-branch-chip" data-testid="top-bar-branch" title="\#(escape(branchStatusLabel))">\#(escape(branchStatusLabel))</span>"#
+    }
+
+    private static func renderLiveWork(_ topBar: TopBarSurface) -> String {
+        guard let liveWork = topBar.liveWork else { return "" }
+        return #"<span class="topbar-live-work-chip" data-testid="top-bar-live-work" data-tone="\#(escape(liveWork.tone.rawValue))" title="\#(escape(liveWork.detail))">\#(escape(liveWork.label))</span>"#
     }
 
     private static func renderWorktreeStatus(_ topBar: TopBarSurface) -> String {

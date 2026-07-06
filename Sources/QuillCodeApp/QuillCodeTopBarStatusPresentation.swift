@@ -85,6 +85,9 @@ extension TopBarSurface {
         if let tokenBudget {
             parts.append(tokenBudget.accessibilityLabel)
         }
+        if let liveWork {
+            parts.append(liveWork.detail)
+        }
         if let runtimeIssuePresentation {
             parts.append("Issue: \(runtimeIssuePresentation.label)")
         }
@@ -102,6 +105,9 @@ extension TopBarSurface {
         }
         if let worktreeStatusLabel {
             parts.append("worktree: \(worktreeStatusLabel)")
+        }
+        if let liveWork {
+            parts.append("current work: \(liveWork.label)")
         }
         if let tokenBudget {
             parts.append("token budget: \(tokenBudget.accessibilityLabel)")

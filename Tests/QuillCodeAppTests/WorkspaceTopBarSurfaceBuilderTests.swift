@@ -166,6 +166,97 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(topBar.showsComputerUseSetup)
     }
 
+    func testBuildsLiveWorkSummaryFromActiveToolCards() throws {
+        let shellCall = ToolCall(
+            id: "shell-1",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"swift test"}"#
+        )
+        let browserCall = ToolCall(
+            id: "browser-1",
+            name: ToolDefinition.browserInspect.name,
+            argumentsJSON: #"{"url":"http://localhost"}"#
+        )
+        let thread = ChatThread(
+            title: "Run tests",
+            model: TrustedRouterDefaults.fastModel,
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.shell.run queued",
+                    payloadJSON: try JSONHelpers.encodePretty(shellCall)
+                ),
+                ThreadEvent(kind: .toolRunning, summary: "host.shell.run running"),
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.browser.inspect queued",
+                    payloadJSON: try JSONHelpers.encodePretty(browserCall)
+                ),
+            ]
+        )
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel, agentStatus: TopBarAgentStatusLabel.running),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: nil
+        ).surface()
+
+        let liveWork = try XCTUnwrap(topBar.liveWork)
+        XCTAssertEqual(liveWork.label, "2 active tasks")
+        XCTAssertEqual(liveWork.tone, .running)
+        XCTAssertTrue(liveWork.detail.contains("1 running"))
+        XCTAssertTrue(liveWork.detail.contains("1 queued"))
+        XCTAssertTrue(liveWork.detail.contains(ToolDefinition.shellRun.name))
+        XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("current work: 2 active tasks"))
+    }
+
+    func testLiveWorkSummaryUsesReviewToneForApprovalGate() throws {
+        let call = ToolCall(
+            id: "shell-approval",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"git push"}"#
+        )
+        let request = ApprovalRequest(
+            id: "approval-1",
+            toolCall: call,
+            toolDefinition: nil,
+            reason: "Needs confirmation before pushing.",
+            recommendedVerdict: .clarify
+        )
+        let thread = ChatThread(
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.shell.run queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .approvalRequested, summary: "Review host.shell.run", payloadJSON: try JSONHelpers.encodePretty(request)),
+            ]
+        )
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel, agentStatus: TopBarAgentStatusLabel.review),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: nil
+        ).surface()
+
+        let liveWork = try XCTUnwrap(topBar.liveWork)
+        XCTAssertEqual(liveWork.label, "Review \(ToolDefinition.shellRun.name)")
+        XCTAssertEqual(liveWork.tone, .review)
+        XCTAssertTrue(liveWork.detail.contains("1 awaiting review"))
+        XCTAssertTrue(topBar.topBarHelpText.contains("Current work:"))
+    }
+
     func testProjectsRateLimitRuntimeIssueIntoTokenQuotaRows() throws {
         let thread = ChatThread(
             title: "Quota",

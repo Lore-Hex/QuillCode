@@ -25,6 +25,15 @@ struct QuillCodeTopBarIdentityView: View {
                     .accessibilityHidden(true)
             }
 
+            if let liveWork = topBar.liveWork {
+                statusChip(
+                    liveWork.label,
+                    tint: liveWork.tone == .review ? QuillCodePalette.yellow : QuillCodePalette.blue
+                )
+                .help(liveWork.detail)
+                .accessibilityLabel(liveWork.detail)
+            }
+
             if let worktreeStatusLabel = topBar.worktreeStatusLabel {
                 statusChip(
                     worktreeStatusLabel,
