@@ -96,6 +96,9 @@ enum SlashCommandCatalog {
     private static func score(_ definition: SlashCommandDefinition, query: String) -> Int? {
         guard !query.isEmpty else { return 100 }
         let usage = normalize(String(definition.usage.dropFirst()))
+        if usage.split(whereSeparator: \.isWhitespace).first.map(String.init) == query {
+            return 130
+        }
         if usage.hasPrefix(query) {
             return 120
         }

@@ -211,7 +211,13 @@ extension SlashCommandCatalog {
             "/extensions",
             "Toggle extensions",
             "Show or hide project plugins, skills, MCP servers, and marketplace entries.",
-            aliases: ["plugins"]
+            aliases: ["plugins", "skills"]
+        ),
+        slashDefinition(
+            "/skills",
+            "Show skills",
+            "Open the Extensions pane filtered around installed and available skills.",
+            aliases: ["skill list", "installed skills", "available skills"]
         ),
         slashDefinition(
             "/automations",
@@ -361,7 +367,7 @@ extension SlashCommandCatalog {
             "Run a skill",
             "Load an installed skill by name and follow it, for example /skill code-review.",
             insert: "/skill ",
-            aliases: ["skills", "run skill", "load skill"]
+            aliases: ["run skill", "load skill"]
         )
     ]
 

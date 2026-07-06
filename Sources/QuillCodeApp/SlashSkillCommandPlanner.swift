@@ -10,7 +10,7 @@ enum SlashSkillCommandPlanner {
     /// The command names that trigger skill loading.
     static func supports(_ name: String) -> Bool {
         switch name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "skill", "skills":
+        case "skill":
             return true
         default:
             return false

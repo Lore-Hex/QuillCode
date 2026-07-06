@@ -105,6 +105,18 @@ test('mock harness registers /skill as a one-line command in the / popup', async
   await expect(message).toHaveValue('/skill ');
 });
 
+test('mock harness routes /skills to the extensions and skills pane', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  await message.fill('/skills');
+  await page.keyboard.press('Enter');
+
+  await expect(message).toHaveValue('');
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expect(page.getByTestId('extensions-subtitle')).toContainText('skills');
+});
+
 test('mock harness SUBMITS /skill code-review on Enter and runs the skill', async ({ page }) => {
   await page.goto(harnessURL());
 

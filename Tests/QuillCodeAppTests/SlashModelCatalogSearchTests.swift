@@ -222,8 +222,8 @@ final class ModelCommandPriceLabelTests: XCTestCase {
 final class SlashSkillCommandPlannerTests: XCTestCase {
     func testSupportsSkillNames() {
         XCTAssertTrue(SlashSkillCommandPlanner.supports("skill"))
-        XCTAssertTrue(SlashSkillCommandPlanner.supports("skills"))
         XCTAssertTrue(SlashSkillCommandPlanner.supports("  SKILL  "))
+        XCTAssertFalse(SlashSkillCommandPlanner.supports("skills"))
         XCTAssertFalse(SlashSkillCommandPlanner.supports("model"))
     }
 
@@ -257,6 +257,7 @@ final class SlashSkillCommandPlannerTests: XCTestCase {
             """)
         )
         XCTAssertEqual(SlashCommandParser.parse("/skill"), .invalid(SlashSkillCommandPlanner.usage))
+        XCTAssertEqual(SlashCommandParser.parse("/skills"), .workspaceCommand("toggle-extensions"))
     }
 
     func testSubmissionPlannerConvertsRunSkillToAgentTurn() {
