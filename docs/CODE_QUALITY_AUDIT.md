@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-07-05 QuillCodeCore Dead-Code & Redundant-API Pass
+
+Overall grade after this slice: **QuillCodeCore remains A+; five files that a semantic (not size) audit had
+flagged A-/B+ for dead code and redundant surface are now clean.**
+
+A full-repo semantic audit (every file read in full, judging duplication/dead-code/altitude that the size
+heuristic grader cannot see) surfaced a cluster of behavior-preserving removals in `QuillCodeCore`. Each was
+verified unreferenced (or subsumed) by repo-wide grep before removal, then the whole suite was run green.
+
+| Area | Before | After |
+| --- | --- | --- |
+| `AppConfig` | Two legacy convenience inits (a 9-arg shape and a `developerOverrideEnabled`-only shape) both just forwarded to the designated init, whose every parameter already defaults. | Removed both; the designated init is the single construction path. `browserDomainPolicy` no longer sits wedged between inits. |
+| `ApprovalRequest` | A convenience init forwarded to the primary with `scope: .tool`, which the primary's `scope: ApprovalRequestScope = .tool` default already covers for all scope-less call sites. | Removed; scope-less calls resolve to the primary init unchanged. |
+| `ToolArguments.json` | A `[String: String]` overload duplicated the `[String: Any]` overload (both forward to `jsonObject`); `[String: String]` upcasts implicitly. | Removed the redundant overload; call sites resolve to the `[String: Any]` overload with identical output. |
+| `ModelCatalogStatus.ageLabel` | A `case 0..<60: "just now"` branch that its only caller (`freshnessLabel`, guarded on `elapsed >= 60`) could never reach — "just now" duplicated in two places. | Removed the unreachable case; documented the caller's `>= 60` precondition. |
+| `RunSpendFuseSummary.adding(...)` | A builder method with zero call sites anywhere in Sources or Tests. | Removed. |
+
+Verification:
+
+- `swift build` (clean) + full `swift test` green.
+- `python3 scripts/grade-code-quality.py > docs/CODE_QUALITY_FILE_GRADES.md` (also refreshed for main's drift).
+
+Residual risk:
+
+- Behavior-preserving removals only; the surviving designated/primary inits and the single `json` overload
+  are exercised by the existing suite. The broader semantic audit surfaced further A-/A candidates across
+  QuillCodeAgent/Tools/App (notice-record scaffolding duplicated three ways, two spend-fuse epsilon copies,
+  badge-label manual-sync) — those land as their own focused passes.
+
 ## 2026-07-05 Read-Only Diagnostic Safety A+ Pass
 
 Overall grade after this slice: **A+ for bounded Auto-mode diagnostic approvals**.

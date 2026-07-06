@@ -38,12 +38,4 @@ public struct RunSpendFuseSummary: Sendable, Hashable {
         self.pricedCallCount = max(0, pricedCallCount)
         self.unpricedCallCount = max(0, unpricedCallCount)
     }
-
-    func adding(totalUSD: Double = 0, pricedCalls: Int = 0, unpricedCalls: Int = 0) -> Self {
-        Self(
-            totalUSD: self.totalUSD + max(0, totalUSD),
-            pricedCallCount: pricedCallCount + max(0, pricedCalls),
-            unpricedCallCount: unpricedCallCount + max(0, unpricedCalls)
-        )
-    }
 }
