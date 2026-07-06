@@ -253,15 +253,22 @@ public struct AgentRunner: Sendable {
         case .blocked(let existingRequestID):
             thread.events.append(.init(
                 kind: .notice,
-                summary: "Spend fuse is waiting on approval \(existingRequestID)."
+                summary: "Spend limit is waiting on approval \(existingRequestID)."
             ))
             thread.updatedAt = Date()
             await onProgress?(thread)
             let summary = runSpendFusePolicy.spendSummary(for: thread)
-            return .spendFuseApprovalRequired(totalUSD: summary.totalUSD, fuseUSD: runSpendFusePolicy.fuseUSD)
+            return .spendFuseApprovalRequired(totalUSD: summary.totalUSD, fuseUSD: runSpendFusePolicy.fuseUSD ?? 0)
         case .request(let request):
-            let summary = runSpendFusePolicy.spendSummary(for: thread)
-            let text = "Thread spend reached \(RunSpendFusePolicy.costLabel(summary.totalUSD)). "
+            let payload = try? JSONHelpers.decode(
+                RunSpendFuseApprovalPayload.self,
+                from: request.toolCall.argumentsJSON
+            )
+            let limitLabel = payload?.approvalLimitKind == .threadFuse
+                ? "Thread spend"
+                : payload?.approvalLimitKind.label.capitalized ?? "Spend limit"
+            let spend = RunSpendFusePolicy.costLabel(payload?.totalUSD ?? 0)
+            let text = "\(limitLabel) reached \(spend). "
                 + "Approve to continue this run."
             thread.events.append(.init(
                 kind: .approvalRequested,
@@ -272,13 +279,9 @@ public struct AgentRunner: Sendable {
             thread.events.append(.init(kind: .message, summary: text))
             thread.updatedAt = Date()
             await onProgress?(thread)
-            let payload = try? JSONHelpers.decode(
-                RunSpendFuseApprovalPayload.self,
-                from: request.toolCall.argumentsJSON
-            )
             return .spendFuseApprovalRequired(
                 totalUSD: payload?.totalUSD ?? 0,
-                fuseUSD: payload?.fuseUSD ?? runSpendFusePolicy.fuseUSD
+                fuseUSD: payload?.fuseUSD ?? runSpendFusePolicy.fuseUSD ?? 0
             )
         }
     }

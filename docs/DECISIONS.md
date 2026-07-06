@@ -74,7 +74,10 @@
 - Day/week/month spend rows are local QuillCode caps until TrustedRouter exposes account-history or quota APIs. Optional
   `run_spend_daily_limit_usd`, `run_spend_weekly_limit_usd`, and `run_spend_monthly_limit_usd` config keys render
   `$spent / $cap` in the existing token-budget popover even at zero spend, while uncapped periods continue to appear only
-  after priced model receipts exist. Provider quota rows still come only from provider errors, not guesses.
+  after priced model receipts exist. Provider quota rows still come only from provider errors, not guesses. Period caps
+  also enforce through the same Spend Review pause as the thread fuse: the app passes a start-of-run workspace thread
+  snapshot into the runner, the runner replaces the active thread with live progress while evaluating caps, and approval
+  payloads include a limit kind so daily/weekly/monthly approvals cannot satisfy thread-fuse buckets.
 - Model discovery should remain useful even when TrustedRouter's authenticated `/v1/models` endpoint is unavailable or
   the user has not signed in yet. `TrustedRouterModelCatalogClient` now falls back to the public TrustedRouter model
   catalog page, preserving the branded Recommended defaults while adding provider rows such as MiniMax to picker search.

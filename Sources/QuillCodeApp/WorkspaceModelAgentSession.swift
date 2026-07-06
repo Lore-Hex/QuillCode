@@ -59,6 +59,7 @@ extension QuillCodeWorkspaceModel {
             selectedProject: selectedProject,
             config: root.config,
             modelCatalog: root.modelCatalog,
+            spendPeriodThreads: root.threads,
             browser: browser,
             browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
                 guard let self else { return nil }

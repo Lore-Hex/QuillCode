@@ -10,6 +10,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let selectedProject: ProjectRef?
     private let config: AppConfig
     private let modelCatalog: [ModelInfo]
+    private let spendPeriodThreads: [ChatThread]
     private let browser: BrowserState
     private let browserToolOverride: AgentToolExecutionOverride?
     private let computerUseBackend: (any ComputerUseBackend)?
@@ -25,6 +26,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         selectedProject: ProjectRef?,
         config: AppConfig,
         modelCatalog: [ModelInfo] = [],
+        spendPeriodThreads: [ChatThread] = [],
         browser: BrowserState,
         browserToolOverride: AgentToolExecutionOverride?,
         computerUseBackend: (any ComputerUseBackend)?,
@@ -39,6 +41,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.selectedProject = selectedProject
         self.config = config
         self.modelCatalog = modelCatalog
+        self.spendPeriodThreads = spendPeriodThreads
         self.browser = browser
         self.browserToolOverride = browserToolOverride
         self.computerUseBackend = computerUseBackend
@@ -76,6 +79,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             selectedProject: selectedProject,
             config: config,
             modelCatalog: modelCatalog,
+            spendPeriodThreads: spendPeriodThreads,
             browser: browser,
             browserToolOverride: browserToolOverride,
             computerUseBackend: computerUseBackend,
