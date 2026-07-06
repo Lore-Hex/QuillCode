@@ -20,7 +20,7 @@ enum AgentGitReadRequestParser {
     }
 
     private static func isDiffRequest(_ lower: String) -> Bool {
-        let tokens = tokenizeWords(lower)
+        let tokens = AgentRequestTextScanner.alphanumericWordTokens(in: lower)
         if lower.contains("git diff") || lower.contains("what changed") || lower.contains("what has changed") {
             return true
         }
@@ -34,7 +34,7 @@ enum AgentGitReadRequestParser {
     }
 
     private static func isStatusRequest(_ lower: String) -> Bool {
-        let tokens = tokenizeWords(lower)
+        let tokens = AgentRequestTextScanner.alphanumericWordTokens(in: lower)
         if lower.contains("git status") || lower.contains("repo status") || lower.contains("repository status") {
             return true
         }
@@ -45,15 +45,11 @@ enum AgentGitReadRequestParser {
     }
 
     private static func isBranchListRequest(_ lower: String) -> Bool {
-        let tokens = tokenizeWords(lower)
+        let tokens = AgentRequestTextScanner.alphanumericWordTokens(in: lower)
         if lower.contains("git branch") || lower.contains("list branches") || lower.contains("show branches") {
             return true
         }
         return tokens.contains("branches") && (tokens.contains("git") || tokens.contains("repo"))
-    }
-
-    private static func tokenizeWords(_ lower: String) -> Set<String> {
-        Set(lower.split { !$0.isLetter && !$0.isNumber }.map(String.init))
     }
 
     private static func hasTool(_ name: String, in tools: [ToolDefinition]) -> Bool {
