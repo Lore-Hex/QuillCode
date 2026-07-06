@@ -66,7 +66,7 @@ enum AgentFileListRequestParser {
     }
 
     private static func extractedPath(from request: String) -> String? {
-        if let quoted = backtickQuotedValues(in: request).compactMap(safeRelativeWorkspacePath).first {
+        if let quoted = AgentRequestTextScanner.backtickQuotedValues(in: request).compactMap(safeRelativeWorkspacePath).first {
             return quoted
         }
 
@@ -119,18 +119,4 @@ enum AgentFileListRequestParser {
         Set(lower.split { !$0.isLetter && !$0.isNumber && $0 != "'" }.map(String.init))
     }
 
-    private static func backtickQuotedValues(in request: String) -> [String] {
-        var values: [String] = []
-        var cursor = request.startIndex
-        while let first = request[cursor...].firstIndex(of: "`"),
-              let last = request[request.index(after: first)...].firstIndex(of: "`") {
-            let value = String(request[request.index(after: first)..<last])
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !value.isEmpty {
-                values.append(value)
-            }
-            cursor = request.index(after: last)
-        }
-        return values
-    }
 }

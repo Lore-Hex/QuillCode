@@ -30,10 +30,10 @@ enum AgentDownloadRequestParser {
         if let token = tokens.first(where: looksLikeDownloadSource) {
             return token
         }
-        if let quoted = backtickQuotedValues(in: request).first(where: looksLikeDownloadSource) {
+        if let quoted = AgentRequestTextScanner.backtickQuotedValues(in: request).first(where: looksLikeDownloadSource) {
             return quoted
         }
-        return backtickQuotedValues(in: request).first(where: looksLikeBrowserTarget)
+        return AgentRequestTextScanner.backtickQuotedValues(in: request).first(where: looksLikeBrowserTarget)
     }
 
     private static func downloadTokens(in request: String) -> [String] {
@@ -43,21 +43,6 @@ enum AgentDownloadRequestParser {
             .components(separatedBy: tokenSeparators)
             .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".:;!?")) }
             .filter { !$0.isEmpty }
-    }
-
-    private static func backtickQuotedValues(in request: String) -> [String] {
-        var values: [String] = []
-        var cursor = request.startIndex
-        while let first = request[cursor...].firstIndex(of: "`"),
-              let last = request[request.index(after: first)...].firstIndex(of: "`") {
-            let value = String(request[request.index(after: first)..<last])
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !value.isEmpty {
-                values.append(value)
-            }
-            cursor = request.index(after: last)
-        }
-        return values
     }
 
     private static func looksLikeBrowserTarget(_ value: String) -> Bool {
@@ -90,7 +75,7 @@ enum AgentDownloadRequestParser {
     }
 
     private static func extractRequestedDownloadPath(from request: String) -> String? {
-        if let quotedPath = backtickQuotedValues(in: request)
+        if let quotedPath = AgentRequestTextScanner.backtickQuotedValues(in: request)
             .compactMap(safeRelativeWorkspacePath)
             .first {
             return quotedPath

@@ -401,22 +401,7 @@ public struct MockLLMClient: LLMClient {
     }
 
     private static func firstBacktickQuotedValue(in request: String) -> String? {
-        backtickQuotedValues(in: request).first
-    }
-
-    private static func backtickQuotedValues(in request: String) -> [String] {
-        var values: [String] = []
-        var cursor = request.startIndex
-        while let first = request[cursor...].firstIndex(of: "`"),
-              let last = request[request.index(after: first)...].firstIndex(of: "`") {
-            let value = String(request[request.index(after: first)..<last])
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !value.isEmpty {
-                values.append(value)
-            }
-            cursor = request.index(after: last)
-        }
-        return values
+        AgentRequestTextScanner.backtickQuotedValues(in: request).first
     }
 
     private static func looksLikeBrowserTarget(_ value: String) -> Bool {

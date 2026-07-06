@@ -22,7 +22,7 @@ enum AgentWorkspaceDiagnosticRequestParser {
     }
 
     private static func isCurrentDirectoryRequest(_ lower: String) -> Bool {
-        let tokens = tokenizeWords(lower)
+        let tokens = AgentRequestTextScanner.alphanumericWordTokens(in: lower)
         if lower.contains("current directory")
             || lower.contains("working directory")
             || lower.contains("current folder")
@@ -31,10 +31,6 @@ enum AgentWorkspaceDiagnosticRequestParser {
         }
         return tokens.contains("pwd")
             || (tokens.contains("where") && tokens.contains("am") && tokens.contains("i"))
-    }
-
-    private static func tokenizeWords(_ lower: String) -> Set<String> {
-        Set(lower.split { !$0.isLetter && !$0.isNumber }.map(String.init))
     }
 
     private static func hasTool(_ name: String, in tools: [ToolDefinition]) -> Bool {
