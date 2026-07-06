@@ -184,6 +184,25 @@ test('mock harness copies the whole conversation as Markdown from the command pa
   ).__lastConversationMarkdownExport);
   expect(exported?.fileName).toMatch(/\.md$/);
   expect(exported?.markdown).toBe(markdown);
+
+  await page.getByLabel('Message').fill('/copy');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('conversation-copied-toast')).toBeVisible();
+  const slashMarkdown = await page.evaluate(() => (
+    window as Window & { __lastConversationMarkdown?: string }
+  ).__lastConversationMarkdown);
+  expect(slashMarkdown).toBe(`${markdown}\n\n## User\n\n/copy`);
+
+  await page.getByLabel('Message').fill('/export');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('conversation-exported-toast')).toBeVisible();
+  const slashExported = await page.evaluate(() => (
+    window as Window & {
+      __lastConversationMarkdownExport?: { fileName: string; markdown: string }
+    }
+  ).__lastConversationMarkdownExport);
+  expect(slashExported?.fileName).toMatch(/\.md$/);
+  expect(slashExported?.markdown).toBe(`${slashMarkdown}\n\n## User\n\n/export`);
 });
 
 test('mock harness enters Plan mode via /plan and the mode pill reflects it', async ({ page }) => {
