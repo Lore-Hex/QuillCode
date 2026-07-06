@@ -184,6 +184,27 @@ test('mock harness routes control slash commands through existing stop and retry
   await expect(page.getByTestId('message').filter({ hasText: '/retry' })).toHaveCount(1);
 });
 
+test('mock harness routes history slash commands through workspace back and forward', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  await message.fill('whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('message').last()).toContainText('mock-user');
+
+  await page.keyboard.press('Meta+N');
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+
+  await message.fill('/back');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('message').filter({ hasText: 'whoami' })).toBeVisible();
+  await expect(page.getByTestId('message').filter({ hasText: 'mock-user' })).toBeVisible();
+
+  await message.fill('/forward');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+});
+
 test('mock harness suggests slash commands in the composer', async ({ page }) => {
   await page.goto(harnessURL());
 

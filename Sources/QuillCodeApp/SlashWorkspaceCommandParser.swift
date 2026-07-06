@@ -5,6 +5,8 @@ enum SlashWorkspaceCommandParser {
         switch normalizedName(name) {
         case "stop", "cancel", "abort",
              "retry", "rerun", "again",
+             "back", "previous", "prev",
+             "forward", "next",
              "search", "find",
              "focus", "composer", "input",
              "sidebar", "toggle-sidebar",
@@ -34,6 +36,10 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("stop-all")
         case "retry", "rerun", "again":
             return .workspaceCommand("retry-last-turn")
+        case "back", "previous", "prev":
+            return .workspaceCommand("workspace-back")
+        case "forward", "next":
+            return .workspaceCommand("workspace-forward")
         case "focus", "composer", "input":
             return .workspaceCommand("focus-composer")
         case "sidebar", "toggle-sidebar":
