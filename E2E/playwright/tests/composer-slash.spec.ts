@@ -156,6 +156,34 @@ test('mock harness opens utility surfaces from composer slash commands', async (
   await expect(message).toHaveValue('');
 });
 
+test('mock harness routes control slash commands through existing stop and retry actions', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  await message.fill('run a stuck task');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('top-bar-stop-button')).toBeVisible();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
+
+  await message.fill('/stop');
+  await page.getByTestId('send-button').click();
+  await expect(page.getByTestId('agent-status')).toContainText('Stopped');
+  await expect(page.getByTestId('tool-card-status').last()).toHaveText('Failed');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('Stopped by user');
+  await expect(page.getByTestId('message').last()).toContainText('/stop');
+
+  await message.fill('whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('message').last()).toContainText('mock-user');
+  const shellCardCount = await page.getByTestId('tool-card-title').filter({ hasText: 'host.shell.run' }).count();
+
+  await message.fill('/retry');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.shell.run' })).toHaveCount(shellCardCount + 1);
+  await expect(page.getByTestId('message').last()).toContainText('mock-user');
+  await expect(page.getByTestId('message').filter({ hasText: '/retry' })).toHaveCount(1);
+});
+
 test('mock harness suggests slash commands in the composer', async ({ page }) => {
   await page.goto(harnessURL());
 
