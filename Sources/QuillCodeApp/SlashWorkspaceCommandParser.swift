@@ -6,6 +6,8 @@ enum SlashWorkspaceCommandParser {
         case "search", "find",
              "focus", "composer", "input",
              "sidebar", "toggle-sidebar",
+             "copy", "copy-conversation",
+             "export", "export-markdown", "export-conversation-markdown",
              "settings", "preferences", "prefs",
              "shortcuts", "keyboard-shortcuts", "keys",
              "commands", "command-palette", "palette",
@@ -30,6 +32,10 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("focus-composer")
         case "sidebar", "toggle-sidebar":
             return .workspaceCommand("toggle-sidebar")
+        case "copy", "copy-conversation":
+            return .workspaceCommand("copy-conversation")
+        case "export", "export-markdown", "export-conversation-markdown":
+            return .workspaceCommand("export-conversation-markdown")
         case "search":
             return .workspaceCommand("search")
         case "find":
