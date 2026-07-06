@@ -58,6 +58,11 @@ def classify_asset(name: str) -> dict[str, str]:
     if name.startswith("quill-code-linux-") and name.endswith(".tar.gz"):
         arch = name.removeprefix("quill-code-linux-").removesuffix(".tar.gz")
         return {"kind": "cli", "platform": "Linux", "arch": arch, "install": "tarball"}
+    if name == "BUILD_INFO.txt":
+        return {"kind": "metadata", "platform": "macOS", "arch": "any", "install": "text"}
+    if name.startswith("BUILD_INFO-linux-") and name.endswith(".txt"):
+        arch = name.removeprefix("BUILD_INFO-linux-").removesuffix(".txt")
+        return {"kind": "metadata", "platform": "Linux", "arch": arch, "install": "text"}
     if name.startswith("BUILD_INFO"):
         return {"kind": "metadata", "platform": "any", "arch": "any", "install": "text"}
     if name.endswith("SHASUMS256.txt") or name == "SHASUMS256.txt":

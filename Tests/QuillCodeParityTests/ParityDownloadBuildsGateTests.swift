@@ -10,6 +10,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
 
         try "product=QuillCode\nplatform=macOS\narch=arm64\nversion=0.2.0\nbuild=123\n"
             .write(to: temporaryDirectory.appendingPathComponent("BUILD_INFO.txt"), atomically: true, encoding: .utf8)
+        try "product=QuillCode\nplatform=Linux\narch=x86_64\nversion=0.2.0\nbuild=123\n"
+            .write(
+                to: temporaryDirectory.appendingPathComponent("BUILD_INFO-linux-x86_64.txt"),
+                atomically: true,
+                encoding: .utf8
+            )
         try Data("mac app".utf8).write(to: temporaryDirectory.appendingPathComponent("QuillCode-macOS-arm64.zip"))
         try Data("mac cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-macOS-arm64.tar.gz"))
         try Data("linux cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-linux-x86_64.tar.gz"))
@@ -49,7 +55,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         )
 
         let assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
-        XCTAssertEqual(assets.count, 5)
+        XCTAssertEqual(assets.count, 6)
 
         let appAsset = try asset(named: "QuillCode-macOS-arm64.zip", in: assets)
         XCTAssertEqual(appAsset["kind"] as? String, "app")
@@ -64,6 +70,16 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(linuxAsset["kind"] as? String, "cli")
         XCTAssertEqual(linuxAsset["platform"] as? String, "Linux")
         XCTAssertEqual(linuxAsset["arch"] as? String, "x86_64")
+
+        let macMetadata = try asset(named: "BUILD_INFO.txt", in: assets)
+        XCTAssertEqual(macMetadata["kind"] as? String, "metadata")
+        XCTAssertEqual(macMetadata["platform"] as? String, "macOS")
+        XCTAssertEqual(macMetadata["arch"] as? String, "any")
+
+        let linuxMetadata = try asset(named: "BUILD_INFO-linux-x86_64.txt", in: assets)
+        XCTAssertEqual(linuxMetadata["kind"] as? String, "metadata")
+        XCTAssertEqual(linuxMetadata["platform"] as? String, "Linux")
+        XCTAssertEqual(linuxMetadata["arch"] as? String, "x86_64")
 
         let checksumAsset = try asset(named: "SHASUMS256.txt", in: assets)
         XCTAssertEqual(checksumAsset["kind"] as? String, "checksum")
