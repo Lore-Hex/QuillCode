@@ -184,7 +184,11 @@ enum QuillCodeDesktopWindowSmokeRunner {
             // the real render while still catching a genuinely empty capture.
             minDistinctColorBuckets: 14,
             minBrightPixelRatio: 0.0005,
-            minBlueAccentPixelRatio: 0.0001
+            // No accent-pixel floor for the live window: the flat theme removed the decorative cyan
+            // background glow that used to paint accent pixels everywhere, and the initial/empty
+            // window shows no accent element. Accent rendering is still asserted by the executable and
+            // packaged render smokes, which capture richer states.
+            minBlueAccentPixelRatio: 0
         )
     }
 
