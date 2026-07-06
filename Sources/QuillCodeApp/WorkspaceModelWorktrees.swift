@@ -27,6 +27,42 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    /// The "Worktree" thread type (the Codex Local-vs-Worktree choice at thread creation): creates a
+    /// fresh worktree off the current branch and starts a NEW thread in the SAME project bound to it,
+    /// so it runs isolated without touching the current working tree — and without minting a sibling
+    /// project (unlike `createWorktree`, which is the standalone worktree-open flow). Returns the new
+    /// thread id, or nil if not on a local project or the worktree create failed.
+    @discardableResult
+    public func newWorktreeThread(name: String? = nil) -> UUID? {
+        guard let project = selectedProject, !project.isRemote else { return nil }
+        let projectRoot = URL(fileURLWithPath: project.path)
+        let baseBranch = selectedProjectBranch(project) ?? "HEAD"
+        let request = WorktreeThreadPlanner.plan(
+            projectRoot: projectRoot,
+            baseBranch: baseBranch,
+            name: name,
+            existingBranches: [baseBranch]
+        )
+        let result = runToolCall(
+            WorkspaceWorktreeToolCallPlanner.create(request),
+            workspaceRoot: projectRoot
+        )
+        guard result.ok, let worktreePath = result.artifacts.first else { return nil }
+        let threadID = newChat(projectID: project.id)
+        bindSelectedThreadToWorktree(path: worktreePath, branch: request.branch, base: baseBranch)
+        return threadID
+    }
+
+    private func selectedProjectBranch(_ project: ProjectRef) -> String? {
+        guard root.topBar.branchStatusProjectID == project.id,
+              let branch = root.topBar.branchStatus?.branch,
+              !branch.isEmpty
+        else {
+            return nil
+        }
+        return branch
+    }
+
     public func worktreeChoiceLoadRequest(workspaceRoot: URL) -> WorkspaceWorktreeChoiceLoadRequest {
         WorkspaceWorktreeChoiceLoadRequest(
             workspaceRoot: workspaceRoot,
