@@ -45,7 +45,7 @@ final class JSONAutomationStoreTests: PersistenceTestCase {
 
     func testAutomationStoreRoundTripsEventSource() throws {
         let store = try makeAutomationStore()
-        let automation = QuillAutomation(
+        let fileAutomation = QuillAutomation(
             title: "Watch logs",
             detail: "Summarize watched file changes.",
             kind: .monitor,
@@ -55,13 +55,32 @@ final class JSONAutomationStoreTests: PersistenceTestCase {
             updatedAt: Date(timeIntervalSince1970: 1),
             lastRunAt: Date(timeIntervalSince1970: 2)
         )
+        let urlAutomation = QuillAutomation(
+            title: "Watch status page",
+            detail: "Check when release notes change.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "URL Last-Modified",
+            eventSource: QuillAutomationEventSource(
+                kind: .urlLastModified,
+                path: "https://example.com/releases"
+            ),
+            updatedAt: Date(timeIntervalSince1970: 3)
+        )
 
-        try store.save([automation])
+        try store.save([fileAutomation, urlAutomation])
 
-        let loaded = try XCTUnwrap(store.load().first)
-        XCTAssertEqual(loaded.eventSource, automation.eventSource)
-        XCTAssertEqual(loaded.eventSource?.kind, .fileChange)
-        XCTAssertEqual(loaded.eventSource?.path, "logs/watch.txt")
+        let loaded = try store.load()
+        XCTAssertTrue(loaded.contains { automation in
+            automation.eventSource == fileAutomation.eventSource
+                && automation.eventSource?.kind == .fileChange
+                && automation.eventSource?.path == "logs/watch.txt"
+        })
+        XCTAssertTrue(loaded.contains { automation in
+            automation.eventSource == urlAutomation.eventSource
+                && automation.eventSource?.kind == .urlLastModified
+                && automation.eventSource?.path == "https://example.com/releases"
+        })
     }
 
     func testAutomationStoreReturnsEmptyListWhenMissing() throws {
