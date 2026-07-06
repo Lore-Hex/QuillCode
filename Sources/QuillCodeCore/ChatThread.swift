@@ -22,6 +22,13 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     /// queue persists with the conversation and survives a reload; decodes to empty for
     /// threads written before this field existed.
     public var followUpQueue: [FollowUpItem]
+    /// The git worktree this thread's runs operate in. nil = inherit the project root (every legacy
+    /// thread, and any thread not bound to a fork worktree). See `WorktreeBinding`.
+    public var worktree: WorktreeBinding?
+    /// The thread this was forked from, for compare/land. nil when this thread was not forked.
+    public var forkParentThreadID: UUID?
+    /// The turn (a `TurnRevertPlan.turnMessageID`) a decision-point fork branched at. nil otherwise.
+    public var forkAnchorTurnMessageID: UUID?
 
     public init(
         id: UUID = UUID(),
@@ -38,7 +45,10 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         instructions: [ProjectInstruction] = [],
         memories: [MemoryNote] = [],
         composerDraft: String? = nil,
-        followUpQueue: [FollowUpItem] = []
+        followUpQueue: [FollowUpItem] = [],
+        worktree: WorktreeBinding? = nil,
+        forkParentThreadID: UUID? = nil,
+        forkAnchorTurnMessageID: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -55,6 +65,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.updatedAt = updatedAt
         self.composerDraft = composerDraft
         self.followUpQueue = followUpQueue
+        self.worktree = worktree
+        self.forkParentThreadID = forkParentThreadID
+        self.forkAnchorTurnMessageID = forkAnchorTurnMessageID
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -73,6 +86,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case updatedAt
         case composerDraft
         case followUpQueue
+        case worktree
+        case forkParentThreadID
+        case forkAnchorTurnMessageID
     }
 
     public init(from decoder: Decoder) throws {
@@ -94,6 +110,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
             try container.decodeIfPresent(String.self, forKey: .composerDraft)
         )
         self.followUpQueue = try container.decodeIfPresent([FollowUpItem].self, forKey: .followUpQueue) ?? []
+        self.worktree = try container.decodeIfPresent(WorktreeBinding.self, forKey: .worktree)
+        self.forkParentThreadID = try container.decodeIfPresent(UUID.self, forKey: .forkParentThreadID)
+        self.forkAnchorTurnMessageID = try container.decodeIfPresent(UUID.self, forKey: .forkAnchorTurnMessageID)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -113,6 +132,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(followUpQueue, forKey: .followUpQueue)
+        try container.encodeIfPresent(worktree, forKey: .worktree)
+        try container.encodeIfPresent(forkParentThreadID, forKey: .forkParentThreadID)
+        try container.encodeIfPresent(forkAnchorTurnMessageID, forKey: .forkAnchorTurnMessageID)
     }
 
     private static func normalizedComposerDraft(_ draft: String?) -> String? {

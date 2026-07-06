@@ -15,6 +15,12 @@ extension QuillCodeWorkspaceModel {
 
     public var activeWorkspaceRoot: URL? {
         guard let selectedProject, !selectedProject.isRemote else { return nil }
+        // A thread bound to a worktree runs in that isolated directory instead of the shared project
+        // root, so two threads on the same project don't clobber each other. A dangling binding (the
+        // worktree was removed) falls back to the project root rather than pointing at a missing dir.
+        if let worktree = selectedThread?.worktree, worktree.isResolvable {
+            return URL(fileURLWithPath: worktree.path)
+        }
         return URL(fileURLWithPath: selectedProject.path)
     }
 
