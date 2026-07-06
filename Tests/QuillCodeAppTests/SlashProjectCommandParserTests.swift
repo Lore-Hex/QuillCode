@@ -3,13 +3,18 @@ import XCTest
 
 final class SlashProjectCommandParserTests: XCTestCase {
     func testEmptyProjectCommandReturnsUsageMessage() {
-        let expected = SlashCommand.invalid("Usage: /project new, /project refresh, /project rename Name, or /project remove")
+        let expected = SlashCommand.invalid(
+            "Usage: /project open, /project new, /project refresh, /project rename Name, or /project remove"
+        )
 
         XCTAssertEqual(SlashProjectCommandParser.parse(""), expected)
         XCTAssertEqual(SlashCommandParser.parse("/project"), expected)
     }
 
     func testProjectNavigationCommandsMapToWorkspaceCommands() {
+        XCTAssertEqual(SlashProjectCommandParser.parse("open"), .workspaceCommand("add-project"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("add"), .workspaceCommand("add-project"))
+        XCTAssertEqual(SlashCommandParser.parse("/project open"), .workspaceCommand("add-project"))
         XCTAssertEqual(SlashProjectCommandParser.parse("new"), .workspaceCommand("project-new-chat"))
         XCTAssertEqual(SlashProjectCommandParser.parse("new-chat"), .workspaceCommand("project-new-chat"))
         XCTAssertEqual(SlashProjectCommandParser.parse("chat"), .workspaceCommand("project-new-chat"))
@@ -34,7 +39,7 @@ final class SlashProjectCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashProjectCommandParser.parse("unknown"),
-            .invalid("Unknown project command 'unknown'. Use new, refresh, rename, or remove.")
+            .invalid("Unknown project command 'unknown'. Use open, new, refresh, rename, or remove.")
         )
     }
 }

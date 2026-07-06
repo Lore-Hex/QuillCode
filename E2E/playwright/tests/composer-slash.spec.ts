@@ -27,6 +27,11 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');
   await expect(page.getByTestId('tool-card-output').last()).toContainText('/mock/quillcode-existing');
 
+  await page.getByLabel('Message').fill('/project open');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('project-item').first()).toContainText('Example Project');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('Example Project');
+
   await page.getByLabel('Message').fill('/worktree create slash-worktree --branch slash/demo --base main');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('project-item').first()).toContainText('slash-worktree');
@@ -164,6 +169,11 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await expect(page.locator('[data-testid="slash-suggestion"][data-selected="true"]')).toContainText('/project rename name');
   await page.keyboard.press('Tab');
   await expect(message).toHaveValue('/project rename ');
+
+  await message.fill('/project o');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('/project open');
+  await page.keyboard.press('Tab');
+  await expect(message).toHaveValue('/project open');
 
   await message.fill('/fol');
   await expect(page.getByTestId('slash-suggestion').first()).toContainText('/follow-up when');
