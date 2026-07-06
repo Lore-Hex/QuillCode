@@ -39,6 +39,21 @@ enum AgentToolAnswerFormatterSupport {
     static func firstLine(_ text: String) -> String {
         text.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
     }
+
+    /// The failure detail for a tool result: the error message plus any stderr, each trimmed, with
+    /// empty entries dropped, newline-joined. "" when there is nothing to show.
+    static func failureDetail(_ result: ToolResult) -> String {
+        [result.error, result.stderr]
+            .compactMap { $0?.trimmedNonEmpty }
+            .joined(separator: "\n")
+    }
+
+    /// stdout and stderr combined: each trimmed, empty dropped, newline-joined.
+    static func combinedOutput(_ result: ToolResult) -> String {
+        [result.stdout, result.stderr]
+            .compactMap(\.trimmedNonEmpty)
+            .joined(separator: "\n")
+    }
 }
 
 extension String {

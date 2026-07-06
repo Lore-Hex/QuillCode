@@ -12,9 +12,7 @@ enum AgentSkillToolAnswerFormatters {
         }
         let name = AgentToolAnswerFormatterSupport.argument("name", in: call) ?? "the skill"
         if !result.ok {
-            let details = [result.error, result.stderr.trimmedNonEmpty]
-                .compactMap { $0?.trimmedNonEmpty }
-                .joined(separator: "\n")
+            let details = AgentToolAnswerFormatterSupport.failureDetail(result)
             return details.isEmpty
                 ? "Could not load skill `\(name)`."
                 : "Could not load skill `\(name)`: \(AgentToolAnswerFormatters.truncated(details))"

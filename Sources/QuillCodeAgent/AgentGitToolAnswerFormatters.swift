@@ -11,7 +11,7 @@ enum AgentGitToolAnswerFormatters {
         guard call.name == ToolDefinition.gitStatus.name else {
             return nil
         }
-        let output = combinedOutput(result)
+        let output = AgentToolAnswerFormatterSupport.combinedOutput(result)
         guard !output.isEmpty else {
             return "Git status is clean."
         }
@@ -27,7 +27,7 @@ enum AgentGitToolAnswerFormatters {
             return nil
         }
         let staged = AgentToolAnswerFormatterSupport.boolArgument("staged", in: call) ?? false
-        let output = combinedOutput(result)
+        let output = AgentToolAnswerFormatterSupport.combinedOutput(result)
         guard !output.isEmpty else {
             return staged ? "No staged git diff." : "No unstaged git diff."
         }
@@ -59,7 +59,7 @@ enum AgentGitToolAnswerFormatters {
 
     private static func gitWorktreePruneAnswer(call: ToolCall, result: ToolResult) -> String {
         let dryRun = AgentToolAnswerFormatterSupport.boolArgument("dryRun", in: call) ?? false
-        let output = combinedOutput(result)
+        let output = AgentToolAnswerFormatterSupport.combinedOutput(result)
         let lines = output
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -162,11 +162,6 @@ enum AgentGitToolAnswerFormatters {
         return removingLines.isEmpty ? lines.count : removingLines.count
     }
 
-    private static func combinedOutput(_ result: ToolResult) -> String {
-        [result.stdout, result.stderr]
-            .compactMap(\.trimmedNonEmpty)
-            .joined(separator: "\n")
-    }
 }
 
 private struct PullRequestReviewThreadsResponse: Decodable {
