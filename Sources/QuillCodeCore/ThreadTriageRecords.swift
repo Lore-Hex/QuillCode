@@ -13,6 +13,8 @@ public enum ThreadTriageState: String, Codable, Sendable, Hashable {
 public enum ThreadTriageRecord {
     public static let eventSummary = "thread-triage-state"
 
+    private static let store = ThreadNoticeRecordStore<Payload>(eventSummary: eventSummary)
+
     public struct Payload: Codable, Sendable, Hashable {
         public var state: ThreadTriageState
         public var verdictRecordID: UUID?
@@ -24,23 +26,15 @@ public enum ThreadTriageRecord {
     }
 
     public static func isRecord(_ event: ThreadEvent) -> Bool {
-        event.kind == .notice && event.summary == eventSummary
+        store.isRecord(event)
     }
 
     public static func event(for state: ThreadTriageState, verdictRecordID: UUID?) -> ThreadEvent? {
-        let payload = Payload(state: state, verdictRecordID: verdictRecordID)
-        guard let payloadJSON = try? JSONHelpers.encodePretty(payload) else { return nil }
-        return ThreadEvent(kind: .notice, summary: eventSummary, payloadJSON: payloadJSON)
+        store.event(for: Payload(state: state, verdictRecordID: verdictRecordID))
     }
 
     public static func latestPayload(in thread: ChatThread) -> Payload? {
-        for event in thread.events.reversed() where isRecord(event) {
-            if let payloadJSON = event.payloadJSON,
-               let payload = try? JSONHelpers.decode(Payload.self, from: payloadJSON) {
-                return payload
-            }
-        }
-        return nil
+        store.latestPayload(in: thread)
     }
 
     public static func current(in thread: ChatThread) -> ThreadTriageState {
@@ -57,24 +51,21 @@ public enum ThreadTriageRecord {
     @discardableResult
     public static func set(_ state: ThreadTriageState, on thread: inout ChatThread) -> Bool {
         let verdictRecordID = RunIntegrityRecord.latestRecordID(in: thread)
+        // Idempotent: an unchanged decision does not append a new event or bump the thread's recency.
         if let existing = latestPayload(in: thread),
            existing.state == state,
            existing.verdictRecordID == verdictRecordID {
             return false
         }
-        thread.events.removeAll(where: isRecord)
-        if let event = event(for: state, verdictRecordID: verdictRecordID) {
-            thread.events.append(event)
-            thread.updatedAt = Date()
-            return true
-        }
-        return false
+        return store.upsert(Payload(state: state, verdictRecordID: verdictRecordID), into: &thread) != nil
     }
 }
 
 /// Persisted "last viewed" state used to compute morning-triage unseen-turn counts.
 public enum ThreadReturnWatermarkRecord {
     public static let eventSummary = "thread-return-watermark"
+
+    private static let store = ThreadNoticeRecordStore<Payload>(eventSummary: eventSummary)
 
     public struct Payload: Codable, Sendable, Hashable {
         public var lastSeenItemID: String?
@@ -85,7 +76,7 @@ public enum ThreadReturnWatermarkRecord {
     }
 
     public static func isRecord(_ event: ThreadEvent) -> Bool {
-        event.kind == .notice && event.summary == eventSummary
+        store.isRecord(event)
     }
 
     public static func timelineID(for message: ChatMessage) -> String {
@@ -97,13 +88,7 @@ public enum ThreadReturnWatermarkRecord {
     }
 
     public static func lastSeenItemID(in thread: ChatThread) -> String? {
-        for event in thread.events.reversed() where isRecord(event) {
-            if let payloadJSON = event.payloadJSON,
-               let payload = try? JSONHelpers.decode(Payload.self, from: payloadJSON) {
-                return payload.lastSeenItemID
-            }
-        }
-        return nil
+        store.latestPayload(in: thread)?.lastSeenItemID
     }
 
     public static func unseenCount(in thread: ChatThread) -> Int {
@@ -119,11 +104,8 @@ public enum ThreadReturnWatermarkRecord {
     public static func markSeen(_ thread: inout ChatThread) -> Bool {
         guard let tail = messageTimelineIDs(for: thread).last else { return false }
         guard lastSeenItemID(in: thread) != tail else { return false }
-        thread.events.removeAll(where: isRecord)
-        guard let payloadJSON = try? JSONHelpers.encodePretty(Payload(lastSeenItemID: tail)) else {
-            return false
-        }
-        thread.events.append(ThreadEvent(kind: .notice, summary: eventSummary, payloadJSON: payloadJSON))
-        return true
+        // Pure view-state: marking a thread seen must NOT bump updatedAt (it would reorder the thread
+        // in a recency-sorted list just for having been looked at).
+        return store.upsert(Payload(lastSeenItemID: tail), into: &thread, bumpsUpdatedAt: false) != nil
     }
 }
