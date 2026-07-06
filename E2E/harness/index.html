@@ -4814,6 +4814,10 @@
       return state.commands.find(command => command.id === commandID);
     }
 
+    function isStopSlashDraft(text) {
+      return /^\/(stop|cancel|abort)\b/i.test(String(text || '').trim());
+    }
+
     function topBarStatusTone() {
       if (state.runtimeIssue?.severity === 'error') return 'error';
       if (state.runtimeIssue) return 'warning';
@@ -4958,6 +4962,8 @@
       { usage: '/delete', title: 'Delete chat', detail: 'Remove the current chat from QuillCode without touching project files.', insertText: '/delete', aliases: ['delete-chat', 'remove-chat'] },
       { usage: '/fork last|summary|full', title: 'Fork chat', detail: 'Create a continuation from the current chat using the latest turn, a summary, or full context.', insertText: '/fork ', aliases: ['fork-last', 'fork-from-last', 'fork-summary', 'fork-with-summary', 'fork-full', 'fork-full-context'] },
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
+      { usage: '/stop', title: 'Stop active work', detail: 'Cancel the running agent turn, terminal command, or active extension work.', insertText: '/stop', aliases: ['cancel', 'abort'] },
+      { usage: '/retry', title: 'Retry last turn', detail: 'Prepare the latest user request to run again.', insertText: '/retry', aliases: ['rerun', 'again', 'retry last'] },
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
       { usage: '/subagents objective | Name: role', title: 'Run subagents', detail: 'Fan out a local parallel subagent workflow and show replayable progress in Activity.', insertText: '/subagents ', aliases: ['subagent', 'parallel agents', 'agents'] },
@@ -8355,7 +8361,9 @@
                   <div class="composer-input-row">
                     <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1">${escapeHTML(state.composer.draft)}</textarea>
                     ${state.composer.isSending
-                      ? '<button type="button" class="stop-button hit-target-text" data-testid="stop-button">Stop</button>'
+                      ? isStopSlashDraft(state.composer.draft)
+                        ? '<button class="stop-button hit-target-text" type="submit" data-testid="send-button">Stop</button>'
+                        : '<button type="button" class="stop-button hit-target-text" data-testid="stop-button">Stop</button>'
                       : `<button class="hit-target-text" type="submit" data-testid="send-button" ${(state.composer.canSend && !modelCommandHasNoMatches()) ? '' : 'disabled'}>Send</button>`}
                   </div>
                   <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
@@ -15965,6 +15973,7 @@
     function sendMessage(value) {
       const text = String(value).trim();
       if (!text) return;
+      if (runInstantStopSlashCommand(text)) return;
       // Never lock the composer: a submit DURING a live run enqueues as a follow-up chip
       // (drained at the next turn boundary by finishMockAgentTurn) instead of starting a turn.
       if (state.composer.isSending) {
@@ -15978,17 +15987,30 @@
       startMockAgentTurn(text);
     }
 
+    function runInstantStopSlashCommand(text) {
+      if (!/^\/(stop|cancel|abort)\b/i.test(text)) return false;
+      runInstantSlashCommand(text, 'stop-all');
+      return true;
+    }
+
     function runInstantViewSlashCommand(text) {
       const commandID = /^\/(focus|composer|input)\b/i.test(text)
         ? 'focus-composer'
-        : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
-          ? 'toggle-sidebar'
-          : /^\/(copy|copy-conversation)\b/i.test(text)
-            ? 'copy-conversation'
-            : /^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)
-              ? 'export-conversation-markdown'
-              : null;
+        : /^\/(retry|rerun|again)\b/i.test(text)
+          ? 'retry-last-turn'
+          : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
+            ? 'toggle-sidebar'
+            : /^\/(copy|copy-conversation)\b/i.test(text)
+              ? 'copy-conversation'
+              : /^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)
+                ? 'export-conversation-markdown'
+                : null;
       if (!commandID) return false;
+      runInstantSlashCommand(text, commandID);
+      return true;
+    }
+
+    function runInstantSlashCommand(text, commandID) {
       ensureThread(initialThreadTitleForPrompt(text));
       if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
       state.composer.draft = '';
@@ -16003,7 +16025,6 @@
       touchSelectedThread();
       runCommand(commandID);
       syncSelectedThreadSearchText();
-      return true;
     }
 
     function startMockAgentTurn(text) {
@@ -16138,7 +16159,7 @@
         addMessage('assistant', 'Queued a background turn on another chat.');
       } else if (isOnlyNegatedActionRequest(text)) {
         addMessage('assistant', "Okay, I won't take that action.");
-      } else if (text.toLowerCase().includes('slow task')) {
+      } else if (text.toLowerCase().includes('stuck task') || text.toLowerCase().includes('slow task')) {
         const card = addToolCard({
           title: 'host.shell.run',
           subtitle: 'Running',
@@ -16147,6 +16168,7 @@
           outputJSON: null
         });
         const runID = crypto.randomUUID();
+        const delay = text.toLowerCase().includes('stuck task') ? 60000 : 2000;
         const timer = window.setTimeout(() => {
           if (!activeMockRun || activeMockRun.id !== runID) return;
           updateToolCardLifecycle(card, 'done', 'Completed');
@@ -16157,7 +16179,7 @@
           // Route through the shared finisher so a queued follow-up drains as the next turn
           // (it clears isSending, sets Idle/usage, and pops the next follow-up if any).
           finishMockAgentTurn();
-        }, 2000);
+        }, delay);
         activeMockRun = { id: runID, timer };
         shouldFinishMockAgentTurn = false;
       } else if (text.toLowerCase().includes('trigger rate limit')) {
@@ -16807,7 +16829,11 @@
     function retryLastUserTurn() {
       const lastUserMessage = [...state.transcript.messages]
         .reverse()
-        .find(message => message.role === 'user' && String(message.text || '').trim());
+        .find(message => (
+          message.role === 'user'
+            && String(message.text || '').trim()
+            && !/^\/(retry|rerun|again|stop|cancel|abort)\b/i.test(String(message.text || '').trim())
+        ));
       if (!lastUserMessage) return;
       sendMessage(lastUserMessage.text);
     }
