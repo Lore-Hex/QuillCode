@@ -151,18 +151,7 @@ enum AgentFileWriteRequestParser {
         let trimmed = value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”‘’`.:;!?"))
-        let lower = trimmed.lowercased()
-        guard !trimmed.isEmpty,
-              !trimmed.hasPrefix("/"),
-              !trimmed.hasPrefix("~"),
-              !lower.hasPrefix("http://"),
-              !lower.hasPrefix("https://"),
-              !lower.hasPrefix("file://"),
-              !trimmed.split(separator: "/").contains("..")
-        else {
-            return nil
-        }
-        return trimmed
+        return AgentRequestPathGuard.isSafeWorkspaceRelativePath(trimmed) ? trimmed : nil
     }
 
     private static func defaultPath(for content: String, lowercasedRequest lower: String) -> String {

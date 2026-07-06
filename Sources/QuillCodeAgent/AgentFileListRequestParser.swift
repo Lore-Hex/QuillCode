@@ -96,15 +96,10 @@ enum AgentFileListRequestParser {
         let trimmed = value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "`\"'“”‘’.,;:!?"))
-        let lower = trimmed.lowercased()
-        guard !trimmed.isEmpty,
-              !["here", "workspace", "project", "repo", "directory", "folder", "files"].contains(lower),
-              !trimmed.hasPrefix("/"),
-              !trimmed.hasPrefix("~"),
-              !lower.hasPrefix("http://"),
-              !lower.hasPrefix("https://"),
-              !lower.hasPrefix("file://"),
-              !trimmed.split(separator: "/").contains(".."),
+        // Beyond the shared guard, file listing rejects bare nouns ("here", "workspace", …) and
+        // requires a conservative path charset.
+        guard AgentRequestPathGuard.isSafeWorkspaceRelativePath(trimmed),
+              !["here", "workspace", "project", "repo", "directory", "folder", "files"].contains(trimmed.lowercased()),
               trimmed.range(of: #"^[A-Za-z0-9_./@+-]+$"#, options: .regularExpression) != nil
         else {
             return nil
