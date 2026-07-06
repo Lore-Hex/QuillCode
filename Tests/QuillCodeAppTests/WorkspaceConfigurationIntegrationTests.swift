@@ -157,6 +157,25 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         XCTAssertEqual(try ConfigStore(fileURL: paths.configFile).load(), nextConfig)
     }
 
+    func testBootstrapSurvivesACorruptThreadFileInsteadOfEmptyingTheSidebar() throws {
+        // End-to-end regression pin: a single truncated thread file (crash-mid-write) used to make
+        // threadStore.list() throw, aborting makeModel() and vanishing EVERY conversation. Bootstrap
+        // must now surface the surviving threads.
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let store = JSONThreadStore(directory: paths.threadsDirectory)
+        try store.save(ChatThread(title: "Survivor A", updatedAt: Date(timeIntervalSince1970: 1)))
+        try store.save(ChatThread(title: "Survivor B", updatedAt: Date(timeIntervalSince1970: 2)))
+        try Data("{ truncated mid-write".utf8)
+            .write(to: paths.threadsDirectory.appendingPathComponent("\(UUID().uuidString).json"))
+
+        let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
+
+        XCTAssertEqual(model.root.threads.map(\.title), ["Survivor B", "Survivor A"])
+        XCTAssertEqual(model.root.selectedThreadID, model.root.threads.first?.id)
+    }
+
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         let bootstrap = QuillCodeWorkspaceBootstrap(
