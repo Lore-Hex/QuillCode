@@ -12,9 +12,7 @@ enum AgentWebToolAnswerFormatters {
         }
         let url = AgentToolAnswerFormatterSupport.argument("url", in: call) ?? "the page"
         if !result.ok {
-            let details = [result.error, result.stderr.trimmedNonEmpty]
-                .compactMap { $0?.trimmedNonEmpty }
-                .joined(separator: "\n")
+            let details = AgentToolAnswerFormatterSupport.failureDetail(result)
             return details.isEmpty
                 ? "Could not fetch \(url)."
                 : "Could not fetch \(url): \(AgentToolAnswerFormatters.truncated(details))"
@@ -36,9 +34,7 @@ enum AgentWebToolAnswerFormatters {
         }
         let query = AgentToolAnswerFormatterSupport.argument("query", in: call) ?? "the query"
         if !result.ok {
-            let details = [result.error, result.stderr.trimmedNonEmpty]
-                .compactMap { $0?.trimmedNonEmpty }
-                .joined(separator: "\n")
+            let details = AgentToolAnswerFormatterSupport.failureDetail(result)
             return details.isEmpty
                 ? "Could not search for \(query)."
                 : "Could not search for \(query): \(AgentToolAnswerFormatters.truncated(details))"

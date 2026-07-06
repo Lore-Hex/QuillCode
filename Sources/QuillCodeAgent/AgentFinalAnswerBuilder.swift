@@ -8,9 +8,7 @@ enum AgentFinalAnswerBuilder {
         followUpReviewResult: ToolResult? = nil
     ) -> String {
         if !result.ok {
-            let details = [result.error, result.stderr.trimmedNonEmpty]
-                .compactMap { $0 }
-                .joined(separator: "\n")
+            let details = AgentToolAnswerFormatterSupport.failureDetail(result)
             if details.isEmpty {
                 return "Command failed."
             }
@@ -27,9 +25,7 @@ enum AgentFinalAnswerBuilder {
     }
 
     private static func defaultAnswer(_ result: ToolResult) -> String {
-        let output = [result.stdout, result.stderr]
-            .compactMap(\.trimmedNonEmpty)
-            .joined(separator: "\n")
+        let output = AgentToolAnswerFormatterSupport.combinedOutput(result)
         if output.isEmpty {
             return "Done."
         }

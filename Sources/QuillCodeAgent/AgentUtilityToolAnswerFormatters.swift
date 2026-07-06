@@ -69,9 +69,7 @@ enum AgentUtilityToolAnswerFormatters {
         }
         let path = AgentToolAnswerFormatterSupport.argument("path", in: call) ?? "the file"
         if !result.ok {
-            let details = [result.error, result.stderr.trimmedNonEmpty]
-                .compactMap { $0 }
-                .joined(separator: "\n")
+            let details = AgentToolAnswerFormatterSupport.failureDetail(result)
             return details.isEmpty
                 ? "Could not read `\(path)`."
                 : "Could not read `\(path)`:\n\(AgentToolAnswerFormatters.truncated(details))"
