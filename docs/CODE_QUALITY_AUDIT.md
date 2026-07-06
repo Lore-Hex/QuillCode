@@ -15462,3 +15462,15 @@ Validation:
 - `swift test --filter WorkspaceTopBarSurfaceBuilderTests` (6 tests, 0 failures)
 - `swift test --filter WorkspaceHTMLChromeRendererTests` (13 tests, 0 failures)
 - `git diff --check`
+
+## 2026-07-06 Worktree Top-Bar Harness Coverage
+
+Overall grade after this slice: **A+ static renderer parity coverage**.
+The worktree top-bar chip now has explicit static HTML coverage for both
+normal isolated worktrees and dangling bindings, matching the Playwright-facing
+surface instead of relying only on the Swift surface builder tests.
+
+Validation:
+
+- `swift test --filter WorkspaceHTMLChromeRendererTests` (14 tests, 0 failures)
+- `git diff --check`
