@@ -202,6 +202,22 @@ extension SlashCommandCatalog {
             aliases: ["command-palette", "palette"]
         ),
         slashDefinition(
+            "/extensions",
+            "Toggle extensions",
+            "Show or hide project plugins, skills, MCP servers, and marketplace entries.",
+            aliases: ["plugins"]
+        ),
+        slashDefinition(
+            "/automations",
+            "Toggle automations",
+            "Show or hide scheduled follow-ups, workspace checks, and automation history."
+        ),
+        slashDefinition(
+            "/activity",
+            "Toggle activity",
+            "Show or hide task plans, tool history, artifacts, sources, and handoff notes."
+        ),
+        slashDefinition(
             "/browser",
             "Toggle browser",
             "Show or hide the browser preview panel.",

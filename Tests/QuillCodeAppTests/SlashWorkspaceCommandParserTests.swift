@@ -14,6 +14,10 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("commands"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("command-palette"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("palette"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("extensions"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("plugins"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("automations"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("activity"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("browser"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preview"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
@@ -52,6 +56,17 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/commands"), .workspaceCommand("command-palette"))
         XCTAssertEqual(SlashCommandParser.parse("/command-palette"), .workspaceCommand("command-palette"))
         XCTAssertEqual(SlashCommandParser.parse("/palette"), .workspaceCommand("command-palette"))
+    }
+
+    func testUtilityPaneAliasesToggleExistingWorkspaceCommands() {
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "extensions"), .workspaceCommand("toggle-extensions"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "plugins"), .workspaceCommand("toggle-extensions"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "automations"), .workspaceCommand("toggle-automations"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "activity"), .workspaceCommand("toggle-activity"))
+        XCTAssertEqual(SlashCommandParser.parse("/extensions"), .workspaceCommand("toggle-extensions"))
+        XCTAssertEqual(SlashCommandParser.parse("/plugins"), .workspaceCommand("toggle-extensions"))
+        XCTAssertEqual(SlashCommandParser.parse("/automations"), .workspaceCommand("toggle-automations"))
+        XCTAssertEqual(SlashCommandParser.parse("/activity"), .workspaceCommand("toggle-activity"))
     }
 
     func testBrowserAliasesToggleBrowserPane() {

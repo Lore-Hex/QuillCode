@@ -44,5 +44,17 @@ final class WorkspaceComposerSubmissionPlannerTests: XCTestCase {
             WorkspaceComposerSubmissionPlanner.plan(draft: "/commands"),
             .slash(command: .workspaceCommand("command-palette"), originalPrompt: "/commands")
         )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/plugins"),
+            .slash(command: .workspaceCommand("toggle-extensions"), originalPrompt: "/plugins")
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/automations"),
+            .slash(command: .workspaceCommand("toggle-automations"), originalPrompt: "/automations")
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/activity"),
+            .slash(command: .workspaceCommand("toggle-activity"), originalPrompt: "/activity")
+        )
     }
 }
