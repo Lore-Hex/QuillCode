@@ -93,4 +93,30 @@ final class WorktreeThreadModelTests: XCTestCase {
         let model = QuillCodeWorkspaceModel()
         XCTAssertNil(model.newWorktreeThread(name: "x"), "no selected project → nil")
     }
+
+    func testSecondWorktreeThreadWithSameNameGetsACollisionFreeBranch() throws {
+        let repo = try makeGitRepo()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        let first = model.newWorktreeThread(name: "experiment")
+        XCTAssertNotNil(first)
+        XCTAssertEqual(model.selectedThread?.worktree?.branch, "quill/experiment")
+        let firstPath = model.selectedThread?.worktree?.path
+
+        // A second worktree with the SAME requested name must NOT collide on the already-created
+        // quill/experiment branch: the planner enumerates real branches and picks quill/experiment-2.
+        // Before the fix it passed only [baseBranch], so the second create failed and returned nil.
+        let second = model.newWorktreeThread(name: "experiment")
+        XCTAssertNotNil(second, "second worktree thread must be created, not fail on branch collision")
+        XCTAssertNotEqual(second, first)
+        let secondBinding = model.selectedThread?.worktree
+        XCTAssertEqual(secondBinding?.branch, "quill/experiment-2")
+        XCTAssertTrue(secondBinding.map(\.isResolvable) ?? false, "second worktree dir should exist")
+
+        // The two bound worktrees are distinct directories on disk.
+        XCTAssertNotNil(firstPath)
+        XCTAssertNotEqual(firstPath, secondBinding?.path)
+    }
 }
