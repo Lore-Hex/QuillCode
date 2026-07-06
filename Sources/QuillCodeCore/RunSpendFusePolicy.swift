@@ -14,9 +14,10 @@ public struct RunSpendFusePolicy: Sendable, Hashable {
 
     public func approvalState(for thread: ChatThread) -> RunSpendFuseApprovalState {
         let summary = spendSummary(for: thread)
-        guard summary.totalUSD + Self.epsilon >= fuseUSD else { return .allowed }
+        let epsilon = RunSpendLedger.spendComparisonEpsilon
+        guard summary.totalUSD + epsilon >= fuseUSD else { return .allowed }
 
-        let bucket = max(1, Int(floor((summary.totalUSD + Self.epsilon) / fuseUSD)))
+        let bucket = max(1, Int(floor((summary.totalUSD + epsilon) / fuseUSD)))
         guard !hasApprovedBucket(bucket, in: thread) else { return .allowed }
         if let existing = pendingRequestID(for: bucket, in: thread) {
             return .blocked(existingRequestID: existing)
@@ -120,6 +121,4 @@ public struct RunSpendFusePolicy: Sendable, Hashable {
     public static func costLabel(_ value: Double) -> String {
         RunSpendLedger.costLabel(value)
     }
-
-    private static let epsilon = 0.000_000_001
 }
