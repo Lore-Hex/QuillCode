@@ -4961,6 +4961,7 @@
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
       { usage: '/subagents objective | Name: role', title: 'Run subagents', detail: 'Fan out a local parallel subagent workflow and show replayable progress in Activity.', insertText: '/subagents ', aliases: ['subagent', 'parallel agents', 'agents'] },
+      { usage: '/project open', title: 'Open project', detail: 'Open a local project folder and add it to the sidebar.', insertText: '/project open', aliases: ['project add', 'open project'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
       { usage: '/init', title: 'Initialize AGENTS.md', detail: 'Scaffold a starter AGENTS.md for the project from its build and test commands.', insertText: '/init', aliases: ['init-project', 'scaffold', 'agents'] },
@@ -16339,6 +16340,9 @@
         } else {
           addMessage('assistant', 'Usage: /workspace-check in 1 hour, /workspace-check Friday morning, or /workspace-check daily');
         }
+      } else if (/^\/project\s+(open|add)\b/i.test(text)) {
+        addProject();
+        return;
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
         addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');

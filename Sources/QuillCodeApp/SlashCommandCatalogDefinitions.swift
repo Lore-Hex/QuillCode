@@ -122,6 +122,12 @@ extension SlashCommandCatalog {
             aliases: ["subagent", "parallel agents", "agents"]
         ),
         slashDefinition(
+            "/project open",
+            "Open project",
+            "Open a local project folder and add it to the sidebar.",
+            aliases: ["project add", "open project"]
+        ),
+        slashDefinition(
             "/project new",
             "Project new chat",
             "Start a new thread in the selected project.",
