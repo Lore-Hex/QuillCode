@@ -103,7 +103,7 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
     imageOutlineWidth: imageStyle['outline-width'],
     imageOutlineOffset: imageStyle['outline-offset']
   };
-  expect(imageSurface.cardRadius).toBe('18px');
+  expect(imageSurface.cardRadius).toBe('10px');
   expect(imageSurface.imageRadius).toBe('10px');
   expect(imageSurface.imageOutlineColor).toBe('rgba(255, 255, 255, 0.1)');
   expect(imageSurface.imageOutlineWidth).toBe('1px');
@@ -147,7 +147,7 @@ test('mock harness renders document artifact previews from tool cards', async ({
     iconRadius: documentIconStyle['border-radius'],
     transitionProperty: documentCardStyle['transition-property']
   };
-  expect(documentSurface.cardRadius).toBe('18px');
+  expect(documentSurface.cardRadius).toBe('10px');
   expect(documentSurface.cardMinHeight).toBe('74px');
   expect(documentSurface.iconRadius).toBe('10px');
   expect(documentSurface.transitionProperty).toBe('transform, box-shadow');
