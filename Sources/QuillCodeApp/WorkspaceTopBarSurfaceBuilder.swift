@@ -61,6 +61,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             modelProviderHealthDetail: providerHealth.detail,
             modeLabel: WorkspaceStatusTextBuilder.modeLabel(topBarState.mode),
             agentStatus: topBarState.agentStatus,
+            liveWork: WorkspaceTopBarLiveWorkBuilder(thread: thread).surface(),
             runtimeIssueLabel: runtimeIssue?.title,
             runtimeIssueSeverity: runtimeIssue?.severity,
             computerUseLabel: topBarState.computerUseStatus.message,

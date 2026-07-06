@@ -96,6 +96,37 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
+    func testHTMLTopBarRendersLiveWorkChip() {
+        let topBar = TopBarSurface(
+            appName: "QuillCode",
+            primaryTitle: "Project",
+            subtitle: "Ready",
+            instructionLabel: "Instructions",
+            instructionSources: [],
+            memoryLabel: "Memory",
+            memorySources: [],
+            modelLabel: TrustedRouterDefaults.fastModelDisplayName,
+            selectedModelID: TrustedRouterDefaults.defaultModel,
+            modelCategories: [],
+            modeLabel: "Auto",
+            agentStatus: "Running",
+            liveWork: TopBarLiveWorkSurface(
+                label: "Running host.shell.run",
+                detail: "Current work: 1 running. Focus: host.shell.run. Active tools: host.shell.run.",
+                tone: .running
+            ),
+            computerUseLabel: "Computer Use Ready",
+            showsComputerUseSetup: false
+        )
+
+        let html = WorkspaceHTMLTopBarRenderer.render(topBar, commands: [])
+
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-live-work""#))
+        XCTAssertTrue(html.contains(#"data-tone="running""#))
+        XCTAssertTrue(html.contains("Running host.shell.run"))
+        XCTAssertTrue(html.contains("Current work: 1 running"))
+    }
+
     func testModelCategorySearchFilterNormalizesWhitespaceAndHidesSpecialCategories() {
         let categories = [
             ModelCategorySurface(category: "Favorites", models: [
