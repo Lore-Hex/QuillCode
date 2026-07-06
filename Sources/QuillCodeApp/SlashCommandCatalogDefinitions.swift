@@ -93,6 +93,18 @@ extension SlashCommandCatalog {
             aliases: ["compact-context", "context-compact"]
         ),
         slashDefinition(
+            "/stop",
+            "Stop active work",
+            "Cancel the running agent turn, terminal command, or active extension work.",
+            aliases: ["cancel", "abort"]
+        ),
+        slashDefinition(
+            "/retry",
+            "Retry last turn",
+            "Prepare the latest user request to run again.",
+            aliases: ["rerun", "again", "retry last"]
+        ),
+        slashDefinition(
             "/follow-up when",
             "Schedule follow-up",
             "Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, "
