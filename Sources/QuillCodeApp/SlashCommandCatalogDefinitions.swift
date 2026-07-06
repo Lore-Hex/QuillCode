@@ -105,6 +105,18 @@ extension SlashCommandCatalog {
             aliases: ["rerun", "again", "retry last"]
         ),
         slashDefinition(
+            "/back",
+            "Go back",
+            "Return to the previous thread or project selection in workspace history.",
+            aliases: ["previous", "prev", "history back"]
+        ),
+        slashDefinition(
+            "/forward",
+            "Go forward",
+            "Move to the next thread or project selection in workspace history.",
+            aliases: ["next", "history forward"]
+        ),
+        slashDefinition(
             "/follow-up when",
             "Schedule follow-up",
             "Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, "
