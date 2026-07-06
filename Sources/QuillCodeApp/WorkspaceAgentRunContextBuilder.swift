@@ -9,6 +9,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     var selectedProject: ProjectRef?
     var config: AppConfig = AppConfig()
     var modelCatalog: [ModelInfo] = []
+    var spendPeriodThreads: [ChatThread] = []
     var browser: BrowserState
     var browserToolOverride: AgentToolExecutionOverride? = nil
     var computerUseBackend: (any ComputerUseBackend)?
@@ -33,6 +34,8 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         activeRunner.toolExecutionOverride = toolExecutionOverride
         activeRunner.runSpendFusePolicy = RunSpendFusePolicy(
             fuseUSD: config.runSpendFuseUSD,
+            periodLimits: config.runSpendPeriodLimits,
+            periodThreads: spendPeriodThreads,
             modelCatalog: modelCatalog
         )
         if let permissionRules {

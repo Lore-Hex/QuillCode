@@ -107,6 +107,39 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertEqual(policy?.modelCatalog.map(\.id), ["trustedrouter/fast"])
     }
 
+    func testConfiguredRunnerWiresSpendPeriodLimitsAndThreadSnapshot() {
+        let thread = ChatThread(title: "Existing spend")
+        let runner = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            config: AppConfig(
+                runSpendFuseUSD: nil,
+                runSpendPeriodLimits: RunSpendPeriodLimits(dailyUSD: 1, weeklyUSD: 5, monthlyUSD: 20)
+            ),
+            modelCatalog: [
+                ModelInfo(
+                    id: "trustedrouter/fast",
+                    provider: "trustedrouter",
+                    displayName: "Nike 1.0",
+                    category: "Fast"
+                )
+            ],
+            spendPeriodThreads: [thread],
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ).configuredRunner(from: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []))
+
+        let policy = runner.runSpendFusePolicy
+        XCTAssertNil(policy?.fuseUSD)
+        XCTAssertEqual(policy?.periodLimits.dailyUSD, 1)
+        XCTAssertEqual(policy?.periodLimits.weeklyUSD, 5)
+        XCTAssertEqual(policy?.periodLimits.monthlyUSD, 20)
+        XCTAssertEqual(policy?.periodThreads.map(\.id), [thread.id])
+    }
+
     func testOverrideHandlesPlanBrowserAndMemoryTools() async throws {
         let memoryDirectory = try makeQuillCodeTestDirectory()
         let runner = WorkspaceAgentRunContextBuilder(
