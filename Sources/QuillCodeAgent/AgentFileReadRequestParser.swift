@@ -55,14 +55,7 @@ enum AgentFileReadRequestParser {
 
     private static func safeRelativeWorkspacePath(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lower = trimmed.lowercased()
-        guard !trimmed.isEmpty,
-              !trimmed.hasPrefix("/"),
-              !trimmed.hasPrefix("~"),
-              !lower.hasPrefix("http://"),
-              !lower.hasPrefix("https://"),
-              !lower.hasPrefix("file://"),
-              !trimmed.split(separator: "/").contains(".."),
+        guard AgentRequestPathGuard.isSafeWorkspaceRelativePath(trimmed),
               looksLikeFilePath(trimmed)
         else {
             return nil

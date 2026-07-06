@@ -114,18 +114,7 @@ enum AgentDownloadRequestParser {
 
     private static func safeRelativeWorkspacePath(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lower = trimmed.lowercased()
-        guard !trimmed.isEmpty,
-              !trimmed.hasPrefix("/"),
-              !trimmed.hasPrefix("~"),
-              !lower.hasPrefix("http://"),
-              !lower.hasPrefix("https://"),
-              !lower.hasPrefix("file://"),
-              !trimmed.split(separator: "/").contains("..")
-        else {
-            return nil
-        }
-        return trimmed
+        return AgentRequestPathGuard.isSafeWorkspaceRelativePath(trimmed) ? trimmed : nil
     }
 
     private static func parentDirectory(for path: String) -> String {
