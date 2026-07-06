@@ -105,6 +105,12 @@ extension SlashCommandCatalog {
             aliases: ["rerun", "again", "retry last"]
         ),
         slashDefinition(
+            "/disconnect",
+            "Disconnect all",
+            "Stop active work and disconnect remote workspace or extension sessions.",
+            aliases: ["disconnect-all", "disconnect all"]
+        ),
+        slashDefinition(
             "/back",
             "Go back",
             "Return to the previous thread or project selection in workspace history.",
@@ -249,6 +255,12 @@ extension SlashCommandCatalog {
             "Settings",
             "Open TrustedRouter, Computer Use, browser, and notification settings.",
             aliases: ["preferences", "prefs"]
+        ),
+        slashDefinition(
+            "/computer-use",
+            "Computer Use setup",
+            "Open Settings focused on Screen Recording and Accessibility setup.",
+            aliases: ["computer use", "screen control", "desktop control"]
         ),
         slashDefinition(
             "/shortcuts",

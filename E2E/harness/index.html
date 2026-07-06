@@ -4967,6 +4967,7 @@
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
       { usage: '/stop', title: 'Stop active work', detail: 'Cancel the running agent turn, terminal command, or active extension work.', insertText: '/stop', aliases: ['cancel', 'abort'] },
       { usage: '/retry', title: 'Retry last turn', detail: 'Prepare the latest user request to run again.', insertText: '/retry', aliases: ['rerun', 'again', 'retry last'] },
+      { usage: '/disconnect', title: 'Disconnect all', detail: 'Stop active work and disconnect remote workspace or extension sessions.', insertText: '/disconnect', aliases: ['disconnect-all', 'disconnect all'] },
       { usage: '/back', title: 'Go back', detail: 'Return to the previous thread or project selection in workspace history.', insertText: '/back', aliases: ['previous', 'prev', 'history back'] },
       { usage: '/forward', title: 'Go forward', detail: 'Move to the next thread or project selection in workspace history.', insertText: '/forward', aliases: ['next', 'history forward'] },
       { usage: '/history back|forward', title: 'Navigate history', detail: 'Move through previous or next thread and project selections.', insertText: '/history ', aliases: ['history previous', 'history next'] },
@@ -4989,6 +4990,7 @@
       { usage: '/copy', title: 'Copy conversation', detail: 'Copy the visible conversation as Markdown.', insertText: '/copy', aliases: ['copy conversation', 'copy transcript'] },
       { usage: '/export', title: 'Export conversation', detail: 'Export the visible conversation as Markdown.', insertText: '/export', aliases: ['export markdown', 'export conversation', 'save transcript'] },
       { usage: '/settings', title: 'Settings', detail: 'Open TrustedRouter, Computer Use, browser, and notification settings.', insertText: '/settings', aliases: ['preferences', 'prefs'] },
+      { usage: '/computer-use', title: 'Computer Use setup', detail: 'Open Settings focused on Screen Recording and Accessibility setup.', insertText: '/computer-use', aliases: ['computer use', 'screen control', 'desktop control'] },
       { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
       { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
       { usage: '/extensions', title: 'Toggle extensions', detail: 'Show or hide project plugins, skills, MCP servers, and marketplace entries.', insertText: '/extensions', aliases: ['plugins', 'skills'] },
@@ -16004,21 +16006,25 @@
         ? 'focus-composer'
         : /^\/(retry|rerun|again)\b/i.test(text)
           ? 'retry-last-turn'
-          : /^\/(back|previous|prev)\b/i.test(text)
-            ? 'workspace-back'
-            : /^\/history\s+(back|previous|prev)\b/i.test(text)
-              ? 'workspace-back'
-              : /^\/(forward|next)\b/i.test(text)
-              ? 'workspace-forward'
-                : /^\/history\s+(forward|next)\b/i.test(text)
+          : /^\/(disconnect|disconnect-all)\b/i.test(text)
+            ? 'disconnect-all'
+            : /^\/(computer-use|computer\s+use)\b/i.test(text)
+              ? 'computer-use-setup'
+              : /^\/(back|previous|prev)\b/i.test(text)
+                ? 'workspace-back'
+                : /^\/history\s+(back|previous|prev)\b/i.test(text)
+                  ? 'workspace-back'
+                  : /^\/(forward|next)\b/i.test(text)
                   ? 'workspace-forward'
-                  : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
-                    ? 'toggle-sidebar'
-                    : /^\/(copy|copy-conversation)\b/i.test(text)
-                      ? 'copy-conversation'
-                      : /^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)
-                        ? 'export-conversation-markdown'
-                        : null;
+                    : /^\/history\s+(forward|next)\b/i.test(text)
+                      ? 'workspace-forward'
+                      : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
+                        ? 'toggle-sidebar'
+                        : /^\/(copy|copy-conversation)\b/i.test(text)
+                          ? 'copy-conversation'
+                          : /^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)
+                            ? 'export-conversation-markdown'
+                            : null;
       if (!commandID) return false;
       runInstantSlashCommand(text, commandID);
       return true;
