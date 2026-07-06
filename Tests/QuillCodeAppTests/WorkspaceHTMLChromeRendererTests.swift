@@ -4,6 +4,13 @@ import QuillCodeCore
 
 @MainActor
 final class WorkspaceHTMLChromeRendererTests: XCTestCase {
+    private func makeTempDirectory(_ tag: String) throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("html-\(tag)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     func testHTMLRendererEscapesAndLabelsPrimaryRegions() {
         let project = ProjectRef(
             name: "Unsafe <project>",
@@ -125,6 +132,44 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
             )).surface()
         )
         XCTAssertTrue(remoteHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
+    }
+
+    func testHTMLRendererShowsWorktreeTopBarStatusAndDanglingWarning() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
+        var thread = ChatThread(title: "Feature", projectID: project.id)
+        let worktree = try makeTempDirectory("worktree")
+        thread.worktree = WorktreeBinding(path: worktree.path, branch: "feature/ui", base: "main")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-worktree""#))
+        XCTAssertTrue(html.contains(#"data-tone="normal""#))
+        XCTAssertTrue(html.contains("Worktree feature/ui"))
+        XCTAssertTrue(html.contains("Base: main."))
+        XCTAssertTrue(html.contains(worktree.path))
+
+        var dangling = thread
+        dangling.worktree = WorktreeBinding(
+            path: "/tmp/quillcode-missing-\(UUID().uuidString)",
+            branch: "feature/gone"
+        )
+        let warningHTML = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [dangling],
+            selectedThreadID: dangling.id
+        )).surface())
+
+        XCTAssertTrue(warningHTML.contains(#"data-testid="top-bar-worktree""#))
+        XCTAssertTrue(warningHTML.contains(#"data-tone="warning""#))
+        XCTAssertTrue(warningHTML.contains("Worktree feature/gone"))
+        XCTAssertTrue(warningHTML.contains("runs fall back to the project root"))
     }
 
     func testHTMLRendererHidesSidebarAndExpandsWorkspaceGrid() {
