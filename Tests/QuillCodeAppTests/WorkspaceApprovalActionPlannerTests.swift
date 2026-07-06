@@ -74,6 +74,48 @@ final class WorkspaceApprovalActionPlannerTests: XCTestCase {
         XCTAssertEqual(decision.rationale, "Skipped from the tool card.")
     }
 
+    func testPeriodSpendCapDenyPlanUsesSpecificAuditCopy() throws {
+        let payload = RunSpendFuseApprovalPayload(
+            totalUSD: 5,
+            fuseUSD: 5,
+            bucket: 1,
+            pricedCallCount: 4,
+            unpricedCallCount: 0,
+            limitKind: .weekly
+        )
+        let request = ApprovalRequest(
+            id: "approval-weekly-spend",
+            scope: .runSpendFuse,
+            toolCall: ToolCall(
+                name: RunSpendFusePolicy.toolName,
+                argumentsJSON: try JSONHelpers.encodePretty(payload)
+            ),
+            toolDefinition: nil,
+            reason: "Weekly Cap reached $5.00 against the $5.00 local limit.",
+            recommendedVerdict: .clarify
+        )
+        let thread = ChatThread(events: [try approvalRequestedEvent(request)])
+
+        let plan = try XCTUnwrap(WorkspaceApprovalActionPlanner.plan(
+            action: ToolCardActionSurface(
+                title: "Stop",
+                kind: .deny,
+                requestID: "approval-weekly-spend",
+                style: .secondary
+            ),
+            thread: thread
+        ))
+        let decision = try JSONHelpers.decode(
+            ApprovalDecision.self,
+            from: try XCTUnwrap(plan.decisionEvent?.payloadJSON)
+        )
+
+        XCTAssertFalse(plan.shouldRunTool)
+        XCTAssertEqual(plan.assistantNotice, "Stopped before crossing the weekly spend cap.")
+        XCTAssertEqual(plan.decisionEvent?.summary, "deny: Stopped at the weekly spend cap from the tool card.")
+        XCTAssertEqual(decision.rationale, "Stopped at the weekly spend cap from the tool card.")
+    }
+
     func testEditPlanLoadsShellCommandDraftWithoutRecordingDecision() throws {
         let request = approvalRequest(
             id: "approval-edit",

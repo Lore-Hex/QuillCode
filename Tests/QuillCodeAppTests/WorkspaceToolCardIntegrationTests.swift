@@ -90,6 +90,41 @@ final class WorkspaceToolCardIntegrationTests: XCTestCase {
         XCTAssertTrue(cards[0].subtitle.contains("Thread spend reached $0.01"))
     }
 
+    func testToolCardsRepresentPeriodSpendCapReviewWithSpecificTitle() throws {
+        let request = ApprovalRequest(
+            id: "daily-spend-review",
+            scope: .runSpendFuse,
+            toolCall: ToolCall(
+                name: RunSpendFusePolicy.toolName,
+                argumentsJSON: try JSONHelpers.encodePretty(RunSpendFuseApprovalPayload(
+                    totalUSD: 0.50,
+                    fuseUSD: 0.50,
+                    bucket: 1,
+                    pricedCallCount: 3,
+                    unpricedCallCount: 0,
+                    limitKind: .daily
+                ))
+            ),
+            toolDefinition: nil,
+            reason: "Daily Cap reached $0.50 against the $0.50 local limit.",
+            recommendedVerdict: .clarify
+        )
+        let thread = ChatThread(events: [
+            ThreadEvent(
+                kind: .approvalRequested,
+                summary: request.reason,
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            )
+        ])
+
+        let cards = WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards()
+
+        XCTAssertEqual(cards.count, 1)
+        XCTAssertEqual(cards[0].title, "Daily Spend Review")
+        XCTAssertEqual(cards[0].actions.map(\.title), ["Continue", "Stop"])
+        XCTAssertTrue(cards[0].subtitle.contains("Daily Cap reached $0.50"))
+    }
+
     func testToolCardApprovalActionRecordsDecisionAndRunsTool() throws {
         let root = try makeTempDirectory()
         let call = ToolCall(
@@ -333,6 +368,57 @@ final class WorkspaceToolCardIntegrationTests: XCTestCase {
         XCTAssertTrue(events.contains { $0.kind == .approvalDecided })
         XCTAssertFalse(events.contains { $0.kind == .toolQueued })
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "continued")
+    }
+
+    func testStoppingPeriodSpendCapUsesSpecificAuditCopy() throws {
+        let root = try makeTempDirectory()
+        let request = ApprovalRequest(
+            id: "weekly-spend-review",
+            scope: .runSpendFuse,
+            toolCall: ToolCall(
+                name: RunSpendFusePolicy.toolName,
+                argumentsJSON: try JSONHelpers.encodePretty(RunSpendFuseApprovalPayload(
+                    totalUSD: 5,
+                    fuseUSD: 5,
+                    bucket: 1,
+                    pricedCallCount: 4,
+                    unpricedCallCount: 0,
+                    limitKind: .weekly
+                ))
+            ),
+            toolDefinition: nil,
+            reason: "Weekly Cap reached $5.00 against the $5.00 local limit.",
+            recommendedVerdict: .clarify
+        )
+        let thread = ChatThread(events: [
+            ThreadEvent(
+                kind: .approvalRequested,
+                summary: request.reason,
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            )
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let didStop = model.runToolCardAction(ToolCardActionSurface(
+            title: "Stop",
+            kind: .deny,
+            requestID: "weekly-spend-review",
+            style: .secondary
+        ), workspaceRoot: root)
+
+        XCTAssertTrue(didStop)
+        let events = try XCTUnwrap(model.selectedThread?.events)
+        XCTAssertTrue(events.contains {
+            $0.kind == .approvalDecided
+                && $0.summary.contains("Stopped at the weekly spend cap")
+        })
+        XCTAssertTrue(events.contains {
+            $0.kind == .message
+                && $0.summary == "Stopped before crossing the weekly spend cap."
+        })
     }
 
     func testResumeIsSkippedWhenTheSelectedThreadIsNotTheApprovedOne() async throws {

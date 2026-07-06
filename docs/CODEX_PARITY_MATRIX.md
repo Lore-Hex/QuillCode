@@ -75,7 +75,10 @@
   bucket. Optional local day/week/month spend caps now use the same Spend Review
   approval path: the runner combines the live active thread with the workspace
   thread snapshot, pauses when a configured period cap is reached, and tracks
-  thread-fuse/daily/weekly/monthly approvals as distinct buckets.
+  thread-fuse/daily/weekly/monthly approvals as distinct buckets. Period-cap
+  Spend Review cards and approval decisions now name the breached daily, weekly,
+  or monthly cap so the visible transcript and audit trail match the enforced
+  limit.
 - Project run hooks now execute local project scripts before and after each
   agent run through the normal `host.shell.run` tool-card path. Hooks are
   discovered from `.quillcode/hooks/before-agent-run/*.sh` and

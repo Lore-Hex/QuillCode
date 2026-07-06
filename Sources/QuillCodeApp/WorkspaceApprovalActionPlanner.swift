@@ -90,12 +90,13 @@ enum WorkspaceApprovalActionPlanner {
         action: ToolCardActionSurface,
         request: ApprovalRequest
     ) -> WorkspaceApprovalActionPlan? {
+        let label = spendLimitLabel(for: request)
         switch action.kind {
         case .approve:
             return decisionPlan(
                 request: request,
                 verdict: .approve,
-                rationale: "Approved spend-fuse continuation from the tool card.",
+                rationale: "Approved \(label) continuation from the tool card.",
                 shouldRunTool: false,
                 assistantNotice: nil
             )
@@ -103,13 +104,43 @@ enum WorkspaceApprovalActionPlanner {
             return decisionPlan(
                 request: request,
                 verdict: .deny,
-                rationale: "Stopped at the spend fuse from the tool card.",
+                rationale: "Stopped at the \(label) from the tool card.",
                 shouldRunTool: false,
-                assistantNotice: "Stopped before spending more on this thread."
+                assistantNotice: stopNotice(for: request)
             )
         case .edit, .approveAlways, .denyAlways:
             return nil
         }
+    }
+
+    private static func spendLimitLabel(for request: ApprovalRequest) -> String {
+        switch spendLimitKind(for: request) {
+        case .threadFuse:
+            return "thread spend fuse"
+        case .daily:
+            return "daily spend cap"
+        case .weekly:
+            return "weekly spend cap"
+        case .monthly:
+            return "monthly spend cap"
+        }
+    }
+
+    private static func stopNotice(for request: ApprovalRequest) -> String {
+        switch spendLimitKind(for: request) {
+        case .threadFuse:
+            return "Stopped before spending more on this thread."
+        case .daily:
+            return "Stopped before crossing the daily spend cap."
+        case .weekly:
+            return "Stopped before crossing the weekly spend cap."
+        case .monthly:
+            return "Stopped before crossing the monthly spend cap."
+        }
+    }
+
+    private static func spendLimitKind(for request: ApprovalRequest) -> RunSpendLimitKind {
+        decode(RunSpendFuseApprovalPayload.self, from: request.toolCall.argumentsJSON)?.approvalLimitKind ?? .threadFuse
     }
 
     static func pendingRequest(id: String, in thread: ChatThread?) -> ApprovalRequest? {

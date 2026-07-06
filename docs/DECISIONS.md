@@ -77,7 +77,9 @@
   after priced model receipts exist. Provider quota rows still come only from provider errors, not guesses. Period caps
   also enforce through the same Spend Review pause as the thread fuse: the app passes a start-of-run workspace thread
   snapshot into the runner, the runner replaces the active thread with live progress while evaluating caps, and approval
-  payloads include a limit kind so daily/weekly/monthly approvals cannot satisfy thread-fuse buckets.
+  payloads include a limit kind so daily/weekly/monthly approvals cannot satisfy thread-fuse buckets. The card title,
+  decision rationale, and stop notice all decode that same payload kind so the transcript says which cap is being
+  continued or stopped.
 - Model discovery should remain useful even when TrustedRouter's authenticated `/v1/models` endpoint is unavailable or
   the user has not signed in yet. `TrustedRouterModelCatalogClient` now falls back to the public TrustedRouter model
   catalog page, preserving the branded Recommended defaults while adding provider rows such as MiniMax to picker search.

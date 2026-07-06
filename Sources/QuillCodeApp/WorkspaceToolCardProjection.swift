@@ -170,9 +170,40 @@ enum WorkspaceToolCardProjection {
 
     private static func approvalTitle(request: ApprovalRequest?, fallback: ToolCardState?) -> String {
         if request?.scope == .runSpendFuse {
-            return "Spend Review"
+            return spendReviewTitle(for: request)
         }
         return request?.toolCall.name ?? fallback?.title ?? "Approval needed"
+    }
+
+    private static func spendReviewTitle(for request: ApprovalRequest?) -> String {
+        guard let kind = spendLimitKind(in: request),
+              kind != .threadFuse
+        else {
+            return "Spend Review"
+        }
+        return "\(spendLimitName(kind)) Spend Review"
+    }
+
+    private static func spendLimitName(_ kind: RunSpendLimitKind) -> String {
+        switch kind {
+        case .threadFuse:
+            return "Thread"
+        case .daily:
+            return "Daily"
+        case .weekly:
+            return "Weekly"
+        case .monthly:
+            return "Monthly"
+        }
+    }
+
+    private static func spendLimitKind(in request: ApprovalRequest?) -> RunSpendLimitKind? {
+        guard let request,
+              request.scope == .runSpendFuse
+        else {
+            return nil
+        }
+        return decode(RunSpendFuseApprovalPayload.self, request.toolCall.argumentsJSON)?.approvalLimitKind
     }
 
     private static func approvalSubtitle(
