@@ -373,20 +373,35 @@ public struct QuillCodeWorkspaceView: View {
     private func handleComposerSend() {
         guard case .slash(.workspaceCommand(let commandID), _) =
             WorkspaceComposerSubmissionPlanner.plan(draft: draft),
-            commandID == "search" || commandID == "find-in-chat"
+            Self.composerPresentedCommandIDs.contains(commandID)
         else {
             actions.onSend()
             return
         }
 
         draft = ""
-        if commandID == "search" {
+        switch commandID {
+        case "search":
             searchQuery = ""
             isSearchPresented = true
-        } else {
+        case "find-in-chat":
             isFindPresented = true
+        case "settings":
+            settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
+            isSettingsPresented = true
+        case "keyboard-shortcuts":
+            isKeyboardShortcutsPresented = true
+        default:
+            break
         }
     }
+
+    private static let composerPresentedCommandIDs: Set<String> = [
+        "find-in-chat",
+        "keyboard-shortcuts",
+        "search",
+        "settings"
+    ]
 }
 
 extension AgentMode {

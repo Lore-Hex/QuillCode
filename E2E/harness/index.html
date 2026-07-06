@@ -4971,6 +4971,8 @@
       { usage: '/terminal clear', title: 'Clear terminal history', detail: 'Clear completed integrated-terminal history without resetting cwd or environment.', insertText: '/terminal clear', aliases: ['term clear', 'shell clear'] },
       { usage: '/search', title: 'Search chats', detail: 'Open global search across thread titles, transcript text, tools, models, and pinned or archived state.', insertText: '/search', aliases: ['global search', 'chat search'] },
       { usage: '/find', title: 'Find in chat', detail: 'Open the active chat finder with result count and next/previous navigation.', insertText: '/find', aliases: ['find in chat', 'transcript find'] },
+      { usage: '/settings', title: 'Settings', detail: 'Open TrustedRouter, Computer Use, browser, and notification settings.', insertText: '/settings', aliases: ['preferences', 'prefs'] },
+      { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
       { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
@@ -16176,6 +16178,17 @@
       } else if (/^\/(find)\b/i.test(text)) {
         state.composer.isSending = false;
         openFindInChat();
+        return;
+      } else if (/^\/(settings|preferences|prefs)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.settings.isOpen = true;
+        state.settings.replacementAPIKey = '';
+        render();
+        return;
+      } else if (/^\/(shortcuts|keyboard-shortcuts|keys)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.shortcuts.isOpen = true;
+        render();
         return;
       } else if (/^\/plan\b/i.test(text)) {
         setModeLabel('Plan');

@@ -184,6 +184,18 @@ extension SlashCommandCatalog {
             aliases: ["find in chat", "transcript find"]
         ),
         slashDefinition(
+            "/settings",
+            "Settings",
+            "Open TrustedRouter, Computer Use, browser, and notification settings.",
+            aliases: ["preferences", "prefs"]
+        ),
+        slashDefinition(
+            "/shortcuts",
+            "Keyboard shortcuts",
+            "Open the keyboard shortcut reference.",
+            aliases: ["keyboard shortcuts", "keys"]
+        ),
+        slashDefinition(
             "/browser",
             "Toggle browser",
             "Show or hide the browser preview panel.",

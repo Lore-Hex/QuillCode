@@ -32,5 +32,13 @@ final class WorkspaceComposerSubmissionPlannerTests: XCTestCase {
             WorkspaceComposerSubmissionPlanner.plan(draft: "/find"),
             .slash(command: .workspaceCommand("find-in-chat"), originalPrompt: "/find")
         )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/settings"),
+            .slash(command: .workspaceCommand("settings"), originalPrompt: "/settings")
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/shortcuts"),
+            .slash(command: .workspaceCommand("keyboard-shortcuts"), originalPrompt: "/shortcuts")
+        )
     }
 }

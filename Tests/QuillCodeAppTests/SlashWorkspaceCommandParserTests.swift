@@ -7,6 +7,10 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
     func testSupportsWorkspaceAliases() {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("search"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("find"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("settings"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("preferences"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("shortcuts"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("keyboard-shortcuts"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("browser"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preview"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
@@ -25,6 +29,17 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "find"), .workspaceCommand("find-in-chat"))
         XCTAssertEqual(SlashCommandParser.parse("/search"), .workspaceCommand("search"))
         XCTAssertEqual(SlashCommandParser.parse("/find"), .workspaceCommand("find-in-chat"))
+    }
+
+    func testSettingsAndShortcutAliasesOpenExistingWorkspaceCommands() {
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "settings"), .workspaceCommand("settings"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "preferences"), .workspaceCommand("settings"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "shortcuts"), .workspaceCommand("keyboard-shortcuts"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "keyboard-shortcuts"), .workspaceCommand("keyboard-shortcuts"))
+        XCTAssertEqual(SlashCommandParser.parse("/settings"), .workspaceCommand("settings"))
+        XCTAssertEqual(SlashCommandParser.parse("/prefs"), .workspaceCommand("settings"))
+        XCTAssertEqual(SlashCommandParser.parse("/shortcuts"), .workspaceCommand("keyboard-shortcuts"))
+        XCTAssertEqual(SlashCommandParser.parse("/keys"), .workspaceCommand("keyboard-shortcuts"))
     }
 
     func testBrowserAliasesToggleBrowserPane() {
