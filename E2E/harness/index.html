@@ -4436,6 +4436,7 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
+        { id: 'thread-new-worktree', title: 'New worktree chat', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
         { id: 'focus-composer', title: 'Focus message input', shortcut: 'Cmd+L', category: 'Workspace', keywords: ['focus', 'composer', 'message', 'input', 'prompt', 'type'], isEnabled: true },
         { id: 'toggle-sidebar', title: 'Toggle sidebar', shortcut: 'Cmd+B', category: 'Navigation', keywords: ['sidebar', 'navigation', 'hide', 'show', 'chats', 'projects'], isEnabled: true },
@@ -4960,6 +4961,7 @@
       { usage: '/undo', title: 'Undo latest edit', detail: 'Reverse the latest revertable file edits from the current thread.', insertText: '/undo', aliases: ['revert', 'revert-latest', 'undo-edit'] },
       { usage: '/rename title', title: 'Rename chat', detail: 'Rename the current thread.', insertText: '/rename ', aliases: ['rename-chat', 'title'] },
       { usage: '/duplicate', title: 'Duplicate chat', detail: 'Copy the current thread into a new one.', insertText: '/duplicate', aliases: ['duplicate-chat', 'copy-chat'] },
+      { usage: '/new-worktree', title: 'New worktree chat', detail: 'Start a new thread in a fresh git worktree off the current branch, isolated from the working tree.', insertText: '/new-worktree', aliases: ['worktree-chat', 'worktree-thread'] },
       { usage: '/pin', title: 'Pin chat', detail: 'Keep the current thread in the pinned section.', insertText: '/pin', aliases: ['pin-chat'] },
       { usage: '/unpin', title: 'Unpin chat', detail: 'Remove the current thread from the pinned section.', insertText: '/unpin', aliases: ['unpin-chat'] },
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
@@ -13163,6 +13165,7 @@
       'thread-clear',
       'thread-delete',
       'thread-duplicate',
+      'thread-new-worktree',
       'thread-pin',
       'thread-revert-latest',
       'thread-rename',
@@ -13415,6 +13418,12 @@
       }
       if (commandID === 'thread-duplicate') {
         runSidebarThreadAction('duplicate', state.sidebar.selectedThreadID);
+        return;
+      }
+      if (commandID === 'thread-new-worktree') {
+        // Mock stand-in: the native model creates a fresh git worktree off the current branch and
+        // starts a thread bound to it. The harness has no git, so it just opens a new thread.
+        newChat();
         return;
       }
       if (commandID === 'thread-pin') {
@@ -16258,6 +16267,14 @@
         state.composer.isSending = false;
         state.topBar.agentStatus = 'Idle';
         addMessage('assistant', workspaceStatusText());
+      } else if (/^\/(new-worktree|worktree-chat|worktree-thread)\b/i.test(text)) {
+        // Must precede the /new branch: /new-worktree also matches /^\/(new)\b/. Mock stand-in for
+        // the native new-worktree thread type — the harness has no git, so it opens a new thread via
+        // the same command the palette runs, then notes the worktree intent.
+        state.composer.isSending = false;
+        runCommand('thread-new-worktree');
+        addMessage('assistant', 'Started a new chat in a fresh worktree off the current branch.');
+        return;
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {
         newChat();
         return;

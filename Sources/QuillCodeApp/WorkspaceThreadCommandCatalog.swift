@@ -34,6 +34,12 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "conversation"]
             ),
+            WorkspaceCommandSurface(
+                id: "thread-new-worktree",
+                title: "New worktree chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "worktree", "branch", "isolated", "fork", "parallel"]
+            ),
             savedFilterCommand(.all),
             savedFilterCommand(.pinned),
             savedFilterCommand(.recent),

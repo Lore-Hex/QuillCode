@@ -10,6 +10,9 @@ final class SlashThreadCommandParserTests: XCTestCase {
             "compact-context",
             "rename-chat",
             "copy-chat",
+            "new-worktree",
+            "worktree-chat",
+            "worktree-thread",
             "fork",
             "fork-summary",
             "fork-full-context",
@@ -89,6 +92,25 @@ final class SlashThreadCommandParserTests: XCTestCase {
             ("/unpin-chat", .workspaceCommand("thread-unpin")),
             ("/delete-chat", .workspaceCommand("thread-delete"))
         ])
+    }
+
+    func testWorktreeAliasesMapToNewWorktreeCommand() {
+        // The bare `/worktree` namespace stays owned by the git-worktree tool (list/create/open/…),
+        // so the new-worktree-chat thread command uses distinct, non-colliding aliases.
+        assertThreadParses([
+            ("new-worktree", "", .workspaceCommand("thread-new-worktree")),
+            ("worktree-chat", "", .workspaceCommand("thread-new-worktree")),
+            ("worktree-thread", "", .workspaceCommand("thread-new-worktree")),
+            // A trailing name argument is accepted (the branch name is auto-planned).
+            ("new-worktree", "login flow", .workspaceCommand("thread-new-worktree"))
+        ])
+        assertTopLevelParses([
+            ("/new-worktree", .workspaceCommand("thread-new-worktree")),
+            ("/worktree-chat", .workspaceCommand("thread-new-worktree"))
+        ])
+        // The git-worktree tool commands must NOT be hijacked by the thread parser.
+        XCTAssertFalse(SlashThreadCommandParser.supports("worktree"))
+        XCTAssertFalse(SlashThreadCommandParser.supports("worktrees"))
     }
 
     func testForkAliasesAndModesMapToWorkspaceCommands() {
