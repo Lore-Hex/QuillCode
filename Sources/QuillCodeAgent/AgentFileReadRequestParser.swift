@@ -8,7 +8,7 @@ enum AgentFileReadRequestParser {
         let lower = trimmed.lowercased()
         guard isReadRequest(lower) else { return nil }
 
-        if let quotedPath = backtickQuotedValues(in: trimmed)
+        if let quotedPath = AgentRequestTextScanner.backtickQuotedValues(in: trimmed)
             .compactMap(safeRelativeWorkspacePath)
             .first {
             return quotedPath
@@ -27,21 +27,6 @@ enum AgentFileReadRequestParser {
             || lower.contains(" content of ")
             || lower.contains("what is in ")
             || lower.contains("what's in ")
-    }
-
-    private static func backtickQuotedValues(in request: String) -> [String] {
-        var values: [String] = []
-        var cursor = request.startIndex
-        while let first = request[cursor...].firstIndex(of: "`"),
-              let last = request[request.index(after: first)...].firstIndex(of: "`") {
-            let value = String(request[request.index(after: first)..<last])
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !value.isEmpty {
-                values.append(value)
-            }
-            cursor = request.index(after: last)
-        }
-        return values
     }
 
     private static func tokens(in request: String) -> [String] {
