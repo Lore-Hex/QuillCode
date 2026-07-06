@@ -4974,6 +4974,8 @@
       { usage: '/find', title: 'Find in chat', detail: 'Open the active chat finder with result count and next/previous navigation.', insertText: '/find', aliases: ['find in chat', 'transcript find'] },
       { usage: '/focus', title: 'Focus message input', detail: 'Move keyboard focus back to the composer.', insertText: '/focus', aliases: ['composer', 'input', 'message input'] },
       { usage: '/sidebar', title: 'Toggle sidebar', detail: 'Show or hide the chat and project sidebar.', insertText: '/sidebar', aliases: ['toggle sidebar', 'hide sidebar', 'show sidebar'] },
+      { usage: '/copy', title: 'Copy conversation', detail: 'Copy the visible conversation as Markdown.', insertText: '/copy', aliases: ['copy conversation', 'copy transcript'] },
+      { usage: '/export', title: 'Export conversation', detail: 'Export the visible conversation as Markdown.', insertText: '/export', aliases: ['export markdown', 'export conversation', 'save transcript'] },
       { usage: '/settings', title: 'Settings', detail: 'Open TrustedRouter, Computer Use, browser, and notification settings.', insertText: '/settings', aliases: ['preferences', 'prefs'] },
       { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
       { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
@@ -15981,7 +15983,11 @@
         ? 'focus-composer'
         : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
           ? 'toggle-sidebar'
-          : null;
+          : /^\/(copy|copy-conversation)\b/i.test(text)
+            ? 'copy-conversation'
+            : /^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)
+              ? 'export-conversation-markdown'
+              : null;
       if (!commandID) return false;
       ensureThread(initialThreadTitleForPrompt(text));
       if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
@@ -16230,6 +16236,18 @@
         state.topBar.agentStatus = 'Idle';
         shouldFinishMockAgentTurn = false;
         runCommand('toggle-sidebar');
+        return;
+      } else if (/^\/(copy|copy-conversation)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.topBar.agentStatus = 'Idle';
+        shouldFinishMockAgentTurn = false;
+        runCommand('copy-conversation');
+        return;
+      } else if (/^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.topBar.agentStatus = 'Idle';
+        shouldFinishMockAgentTurn = false;
+        runCommand('export-conversation-markdown');
         return;
       } else if (/^\/(settings|preferences|prefs)\b/i.test(text)) {
         state.composer.isSending = false;
