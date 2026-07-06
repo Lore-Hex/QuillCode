@@ -41,7 +41,6 @@ public struct QuillCodeWorkspaceActions {
     let onCopyTranscriptItem: (String, String) -> Void
     let onExportConversationMarkdown: (String, String) -> Void
     let onRevertTurn: (UUID) -> Void
-    let onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
     let onDeleteFollowUp: (UUID) -> Void
     let onSaveSidebarSavedSearch: (String, String) -> Void
     let onOpenAttentionDigest: (UUID) -> Void
@@ -90,7 +89,6 @@ public struct QuillCodeWorkspaceActions {
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
         onExportConversationMarkdown: @escaping (String, String) -> Void = { _, _ in },
         onRevertTurn: @escaping (UUID) -> Void = { _ in },
-        onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onDeleteFollowUp: @escaping (UUID) -> Void = { _ in },
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onOpenAttentionDigest: @escaping (UUID) -> Void = { _ in },
@@ -136,7 +134,6 @@ public struct QuillCodeWorkspaceActions {
         self.onCopyTranscriptItem = onCopyTranscriptItem
         self.onExportConversationMarkdown = onExportConversationMarkdown
         self.onRevertTurn = onRevertTurn
-        self.onMessageFeedback = onMessageFeedback
         self.onDeleteFollowUp = onDeleteFollowUp
         self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
         self.onOpenAttentionDigest = onOpenAttentionDigest

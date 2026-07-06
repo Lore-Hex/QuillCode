@@ -19,6 +19,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("save into a relative workspace path"))
         XCTAssertTrue(prompt.contains("create parent directories first with mkdir -p"))
         XCTAssertTrue(prompt.contains("do not pipe remote content into a shell"))
+        XCTAssertTrue(prompt.contains("call host.skill.load immediately"))
+        XCTAssertTrue(prompt.contains("with a non-empty \"name\" string"))
     }
 
     func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {

@@ -32,9 +32,17 @@ test('mock harness browses the model catalog with pricing from the /model popup'
   // The unpriced model renders gracefully with an empty price line (no crash, no NaN).
   await expect(page.getByTestId('model-command-price').first()).toHaveText('');
 
-  // A query with no match hides the popup entirely.
+  // A query with no match keeps the popup open and explains catalog scope.
   await message.fill('/model zzznope');
-  await expect(page.getByTestId('model-command-suggestions')).toHaveCount(0);
+  await expect(page.getByTestId('model-command-suggestions')).toBeVisible();
+  await expect(page.getByTestId('model-command-suggestion')).toHaveCount(0);
+  await expect(page.getByTestId('model-command-empty-title')).toHaveText('No bundled model matches');
+  await expect(page.getByTestId('model-command-empty-detail'))
+    .toContainText('Sign in or refresh TrustedRouter to search live provider models for "zzznope"');
+  await expect(page.getByTestId('send-button')).toBeDisabled();
+  await page.keyboard.press('Enter');
+  await expect(message).toHaveValue('/model zzznope');
+  await expect(page.getByTestId('message')).toHaveCount(0);
 });
 
 test('mock harness keyboard-navigates and selects a model from the /model popup', async ({ page }) => {
@@ -95,6 +103,18 @@ test('mock harness registers /skill as a one-line command in the / popup', async
   await expect(page.getByTestId('slash-suggestion').first()).toContainText('/skill name');
   await page.keyboard.press('Tab');
   await expect(message).toHaveValue('/skill ');
+});
+
+test('mock harness routes /skills to the extensions and skills pane', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  await message.fill('/skills');
+  await page.keyboard.press('Enter');
+
+  await expect(message).toHaveValue('');
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expect(page.getByTestId('extensions-subtitle')).toContainText('skills');
 });
 
 test('mock harness SUBMITS /skill code-review on Enter and runs the skill', async ({ page }) => {

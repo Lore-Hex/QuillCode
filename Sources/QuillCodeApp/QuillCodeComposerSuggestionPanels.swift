@@ -80,6 +80,37 @@ struct QuillCodeModelCommandSuggestionPanel: View {
     }
 }
 
+struct QuillCodeModelCommandEmptyPanel: View {
+    var copy: ModelPickerEmptyStateCopy
+
+    var body: some View {
+        QuillCodeSuggestionPanel(
+            title: "Models",
+            keyboardHint: "Keep typing to search",
+            accessibilityLabel: "No matching models"
+        ) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(copy.title)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.text)
+                Text(copy.detail)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let footnote = copy.footnote {
+                    Text(footnote)
+                        .font(.caption2)
+                        .foregroundStyle(QuillCodePalette.muted.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        }
+    }
+}
+
 private struct QuillCodeModelCommandSuggestionRow: View {
     var suggestion: ModelCommandSuggestionSurface
     var isSelected: Bool

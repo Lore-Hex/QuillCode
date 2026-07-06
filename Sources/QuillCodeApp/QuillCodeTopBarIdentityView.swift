@@ -128,7 +128,7 @@ struct QuillCodeTopBarIdentityView: View {
     }
 
     private func tokenBudgetQuotaLabel(_ budget: TokenBudgetSurface) -> String? {
-        let quotaSummary = budget.visibleQuotaLimits.prefix(2).map(\.compactLabel).joined(separator: " · ")
+        let quotaSummary = budget.visibleQuotaLimits.prefix(3).map(\.compactLabel).joined(separator: " · ")
         return quotaSummary.isEmpty ? nil : quotaSummary
     }
 

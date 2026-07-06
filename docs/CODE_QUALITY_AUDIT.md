@@ -29,6 +29,25 @@ Residual risk:
   QuillCodeAgent/Tools/App (notice-record scaffolding duplicated three ways, two spend-fuse epsilon copies,
   badge-label manual-sync) — those land as their own focused passes.
 
+## 2026-07-05 Download Manifest Platform Metadata A+ Pass
+
+Overall grade after this slice: **A+ for tester-build manifest metadata precision**.
+The download manifest now classifies build-info assets by their actual platform
+and architecture, so support scripts and future updater surfaces can show the
+right metadata beside each downloadable package.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Release architecture | A+ | The change stays inside the manifest classifier used by both tester and tagged release workflows. |
+| Supportability | A+ | macOS and Linux build-info files now carry distinct platform/arch fields instead of generic `any` metadata. |
+| Tests | A+ | The parity gate exercises macOS and Linux metadata entries in the generated manifest. |
+
+Validation:
+
+- `swift test --filter ParityDownloadBuildsGateTests`
+
 ## 2026-07-05 Read-Only Diagnostic Safety A+ Pass
 
 Overall grade after this slice: **A+ for bounded Auto-mode diagnostic approvals**.
@@ -15368,3 +15387,54 @@ Validation:
 - `swift test --filter WorkspaceThreadLifecycleEngineTests` (15 tests, 0 failures)
 - `swift test --filter WorkspaceModelCommandPersistenceIntegrationTests` (7 tests, 0 failures)
 - `swift test` (3,246 tests, 2 skipped, 0 failures)
+
+## 2026-07-05 Branded Model Capability Taxonomy Slice
+
+Overall grade after this slice: **A+ catalog normalization boundary, A+ picker metadata projection**.
+This closes the fallback-catalog side of the TrustedRouter capability taxonomy
+gap without inventing concrete provider telemetry.
+
+Code quality changes:
+
+- Added curated capability metadata for Nike, Zeus, Prometheus, Socrates,
+  Aristotle, and Plato: stable summaries, text/tool modalities, and searchable
+  capability tags.
+- Updated recommended-model normalization so fallback rows always carry branded
+  taxonomy while live catalog duplicates can still backfill context windows,
+  pricing, status, release dates, modalities, and extra provider tags.
+- Kept model identity, display names, aliases, and recommended ordering in
+  `TrustedRouterDefaults` so SwiftUI, slash search, and the Playwright harness
+  keep one catalog source of truth.
+- Extended model-picker tests so offline/fallback search can find capability
+  phrases such as `shell file editing` and `freedom oss coding`.
+
+Validation:
+
+- `swift test --filter ModelCatalogCoreTests` (9 tests, 0 failures)
+- `swift test --filter WorkspaceModelPickerSurfaceIntegrationTests` (6 tests, 0 failures)
+- `swift test --filter WorkspaceModelCatalogSurfaceBuilderTests` (3 tests, 0 failures)
+- `swift test --filter 'ModelCatalogCoreTests|WorkspaceModelPickerSurfaceIntegrationTests|WorkspaceModelCatalogSurfaceBuilderTests|SlashModelCatalogSearchTests|WorkspaceTopBarSurfaceBuilderTests|WorkspaceSettingsRuntimeSurfaceTests'` (46 tests, 0 failures)
+- `swift test` (3,248 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root .` (all modules A+)
+- `git diff --check`
+
+## 2026-07-05 Model Taxonomy Parity Evidence Sync
+
+Overall grade after this slice: **A+ parity documentation and source-gate alignment**.
+This syncs the Codex parity matrix with the implemented branded model taxonomy
+and adds a focused parity source gate so the docs cannot drift silently.
+
+Code quality changes:
+
+- Updated the TrustedRouter model-picker parity row to list branded fallback
+  capability taxonomy as implemented.
+- Added `ParityModelGateTests` coverage that requires the bundled
+  `recommendedCapabilities` table, all six branded model profiles, searchable
+  capability tags, and live-catalog capability merging to remain in
+  `TrustedRouterDefaults`.
+- Registered the new parity test in `ParityFocusedSuiteManifest` so the
+  focused model parity lane stays complete.
+
+Validation:
+
+- `swift test --filter 'ParityModelGateTests|ParityGateTests/testParityGatesUseFocusedSuitesAndSharedSupport'`

@@ -762,6 +762,10 @@
     .model-empty strong {
       color: var(--text);
     }
+    .model-empty small {
+      color: var(--muted);
+      line-height: 1.35;
+    }
     .settings-panel,
     .search-panel {
       position: fixed;
@@ -2456,7 +2460,7 @@
       color: #9af0ad;
       background: rgba(82,210,115,.16);
     }
-    .transcript-feedback-button {
+    .transcript-message-action-button {
       min-height: var(--hit-target);
       border: 0;
       border-radius: 999px;
@@ -2466,10 +2470,6 @@
       font-size: 11px;
       font-weight: 800;
       cursor: pointer;
-    }
-    .transcript-feedback-button[data-selected="true"] {
-      color: #9af0ad;
-      background: rgba(82,210,115,.16);
     }
     .find-active {
       outline: 2px solid rgba(65,184,232,.78);
@@ -2825,6 +2825,7 @@
       display: flex;
       align-items: center;
       justify-content: flex-start;
+      gap: 8px;
       min-height: var(--hit-target);
       padding: 0 12px;
       border-radius: 10px;
@@ -2839,9 +2840,40 @@
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
+    .tool-details summary::-webkit-details-marker {
+      display: none;
+    }
+    .tool-details summary::marker {
+      content: "";
+    }
     .tool-details summary:hover {
       background: rgba(65,184,232,.075);
       box-shadow: var(--shadow-border-hover);
+    }
+    .tool-details-summary-chevron {
+      display: inline-grid;
+      width: 16px;
+      min-width: 16px;
+      place-items: center;
+      font-size: 16px;
+      line-height: 1;
+      transform-origin: center;
+      transition-property: transform, opacity;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+      opacity: .92;
+    }
+    .tool-details[open] .tool-details-summary-chevron {
+      transform: rotate(90deg);
+    }
+    .tool-details-summary-label {
+      min-width: 0;
+    }
+    .tool-details-summary-hint {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
     .review-pane {
       align-self: flex-start;
@@ -3608,6 +3640,13 @@
       background: rgba(65,184,232,.16);
       outline: none;
     }
+    .slash-suggestion.model-command-empty {
+      grid-template-columns: minmax(0, 1fr);
+      cursor: default;
+    }
+    .slash-suggestion.model-command-empty:hover {
+      background: transparent;
+    }
     .slash-usage {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-weight: 800;
@@ -3959,6 +3998,7 @@
         instructionSources: ['AGENTS.md'],
         modelLabel: 'Nike 1.0',
         selectedModelID: 'trustedrouter/fast',
+        modelCatalogSource: 'bundled',
         modelCatalogStatusLabel: 'Bundled catalog',
         modelCatalogStatusDetail: "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog.",
         modelProviderHealthLabel: 'Provider health unavailable',
@@ -4921,6 +4961,7 @@
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
       { usage: '/subagents objective | Name: role', title: 'Run subagents', detail: 'Fan out a local parallel subagent workflow and show replayable progress in Activity.', insertText: '/subagents ', aliases: ['subagent', 'parallel agents', 'agents'] },
+      { usage: '/project open', title: 'Open project', detail: 'Open a local project folder and add it to the sidebar.', insertText: '/project open', aliases: ['project add', 'open project'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
       { usage: '/init', title: 'Initialize AGENTS.md', detail: 'Scaffold a starter AGENTS.md for the project from its build and test commands.', insertText: '/init', aliases: ['init-project', 'scaffold', 'agents'] },
@@ -4929,8 +4970,20 @@
       { usage: '/ssh user@host:/path', title: 'Add SSH Remote', detail: 'Register an SSH Remote workspace in the project sidebar.', insertText: '/ssh ', aliases: ['remote', 'ssh project'] },
       { usage: '/terminal', title: 'Toggle terminal', detail: 'Show or hide the integrated workspace terminal.', insertText: '/terminal', aliases: ['term', 'shell'] },
       { usage: '/terminal clear', title: 'Clear terminal history', detail: 'Clear completed integrated-terminal history without resetting cwd or environment.', insertText: '/terminal clear', aliases: ['term clear', 'shell clear'] },
+      { usage: '/search', title: 'Search chats', detail: 'Open global search across thread titles, transcript text, tools, models, and pinned or archived state.', insertText: '/search', aliases: ['global search', 'chat search'] },
+      { usage: '/find', title: 'Find in chat', detail: 'Open the active chat finder with result count and next/previous navigation.', insertText: '/find', aliases: ['find in chat', 'transcript find'] },
+      { usage: '/focus', title: 'Focus message input', detail: 'Move keyboard focus back to the composer.', insertText: '/focus', aliases: ['composer', 'input', 'message input'] },
+      { usage: '/sidebar', title: 'Toggle sidebar', detail: 'Show or hide the chat and project sidebar.', insertText: '/sidebar', aliases: ['toggle sidebar', 'hide sidebar', 'show sidebar'] },
+      { usage: '/settings', title: 'Settings', detail: 'Open TrustedRouter, Computer Use, browser, and notification settings.', insertText: '/settings', aliases: ['preferences', 'prefs'] },
+      { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
+      { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
+      { usage: '/extensions', title: 'Toggle extensions', detail: 'Show or hide project plugins, skills, MCP servers, and marketplace entries.', insertText: '/extensions', aliases: ['plugins', 'skills'] },
+      { usage: '/skills', title: 'Show skills', detail: 'Open the Extensions pane filtered around installed and available skills.', insertText: '/skills', aliases: ['skill list', 'installed skills', 'available skills'] },
+      { usage: '/automations', title: 'Toggle automations', detail: 'Show or hide scheduled follow-ups, workspace checks, and automation history.', insertText: '/automations', aliases: [] },
+      { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
-      { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff'] },
+      { usage: '/review', title: 'Review changes', detail: 'Show the working-tree git diff in the review pane.', insertText: '/review', aliases: ['review diff', 'review changes'] },
+      { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff', 'review'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
       { usage: '/git fetch', title: 'Fetch latest refs', detail: 'Fetch from the selected project remote without changing the working tree.', insertText: '/git fetch', aliases: ['git fetch origin', 'fetch'] },
       { usage: '/git pull', title: 'Pull latest changes', detail: 'Pull the selected project with --ff-only by default.', insertText: '/git pull', aliases: ['git sync', 'pull latest'] },
@@ -4949,7 +5002,7 @@
       { usage: '/mode auto|plan|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Plan, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
       { usage: '/plan', title: 'Enter Plan mode', detail: 'Investigate read-only and propose a plan; mutating tools wait for your approval.', insertText: '/plan', aliases: [] },
       { usage: '/model name', title: 'Set model', detail: "Search the TrustedRouter catalog with live per-1M pricing and switch the thread's model.", insertText: '/model ', aliases: ['models', 'switch model', 'change model'] },
-      { usage: '/skill name', title: 'Run a skill', detail: 'Load an installed skill by name and follow it, for example /skill code-review.', insertText: '/skill ', aliases: ['skills', 'run skill', 'load skill'] }
+      { usage: '/skill name', title: 'Run a skill', detail: 'Load an installed skill by name and follow it, for example /skill code-review.', insertText: '/skill ', aliases: ['run skill', 'load skill'] }
     ];
     const slashCommandPalettePrefix = 'slash-command:';
 
@@ -4987,6 +5040,7 @@
     function slashSuggestionScore(definition, query) {
       if (!query) return 100;
       const usage = normalizeSlashText(definition.usage.slice(1));
+      if ((usage.split(/\s+/)[0] || '') === query) return 130;
       if (usage.startsWith(query)) return 120;
       if (definition.aliases.some(alias => normalizeSlashText(alias).startsWith(query))) return 110;
       if (usage.includes(query)) return 90;
@@ -5137,6 +5191,10 @@
             insertText: `/model ${modelID}`
           };
         });
+    }
+
+    function modelCommandHasNoMatches(draft = state.composer.draft) {
+      return modelCommandQuery(draft) !== null && modelCommandSuggestions(draft).length === 0;
     }
 
     function clampModelCommandActiveIndex(suggestions = modelCommandSuggestions(state.composer.draft)) {
@@ -5696,8 +5754,7 @@
       const message = {
         id: `message-${state.nextTimelineIndex++}`,
         role,
-        text,
-        feedback: null
+        text
       };
       state.transcript.messages.push(message);
       state.transcript.timelineItems.push({
@@ -5717,7 +5774,7 @@
       const target = state.sidebar.items.find(item => item.id === threadID);
       if (!target || threadID === state.sidebar.selectedThreadID) return;
       const snapshot = target.snapshot || { messages: [], toolCards: [], timelineItems: [], review: emptyReviewSurface() };
-      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text, feedback: null };
+      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text };
       const item = { id: `timeline-${state.nextTimelineIndex++}`, kind: 'message', message };
       const nextSnapshot = {
         ...snapshot,
@@ -7735,30 +7792,24 @@
           ${extraActions}
         </footer>`;
       };
-      const feedbackButtons = message => {
-        if (!message || message.role !== 'assistant') return '';
-        return `
-          <button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-feedback-up" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="helpful" data-selected="${message.feedback === 'helpful' ? 'true' : 'false'}" aria-label="Mark response helpful">Helpful</button>
-          <button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-feedback-down" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="notHelpful" data-selected="${message.feedback === 'notHelpful' ? 'true' : 'false'}" aria-label="Mark response not helpful">Not helpful</button>`;
-      };
       const draftButton = message => {
         if (!message || message.role !== 'user') return '';
-        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-use-as-draft" data-message-id="${escapeHTML(message.id || '')}" aria-label="Use as draft">Use as draft</button>`;
+        return `<button type="button" class="transcript-message-action-button hit-target-text" data-testid="message-use-as-draft" data-message-id="${escapeHTML(message.id || '')}" aria-label="Use as draft">Use as draft</button>`;
       };
       const revertButton = message => {
         if (!message || !message.revert) return '';
         const scope = revertScopeCopy(message.revert.hasNonApplyPatchEdits);
-        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-revert-turn" data-turn-id="${escapeHTML(message.revert.turnMessageID || message.id || '')}" title="${escapeHTML(scope)}" aria-label="Revert this turn's edits">Revert this turn's edits</button>`;
+        return `<button type="button" class="transcript-message-action-button hit-target-text" data-testid="message-revert-turn" data-turn-id="${escapeHTML(message.revert.turnMessageID || message.id || '')}" title="${escapeHTML(scope)}" aria-label="Revert this turn's edits">Revert this turn's edits</button>`;
       };
       const retryButton = message => {
         const retryCommand = state.commands.find(command => command.id === 'retry-last-turn' && command.isEnabled);
         if (!message || message.role !== 'assistant' || message.id !== latestAssistantMessageID || !retryCommand) return '';
-        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
+        return `<button type="button" class="transcript-message-action-button hit-target-text" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
       };
       const renderMessage = (message, timelineID = '') => `
         <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           <p>${escapeHTML(message.text)}</p>
-          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + revertButton(message) + retryButton(message) + feedbackButtons(message))}
+          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + revertButton(message) + retryButton(message))}
         </article>`;
       const thinkingTraceLines = () => state.transcript.toolCards
         .filter(card => ['queued', 'running', 'review'].includes(card.status))
@@ -8161,6 +8212,7 @@
       const modelResultSummary = modelSearchQuery
         ? `${filteredModelCount} ${filteredModelCount === 1 ? 'model' : 'models'} for "${modelSearchQuery}"`
         : `${filteredModelCount} ${filteredModelCount === 1 ? 'model' : 'models'} available`;
+      const modelEmpty = modelEmptyCopy(modelSearchQuery);
       const modelResults = filteredModelCategories.length ? `
         <div class="model-results" data-testid="model-results">
           ${filteredModelCategories.map(category => `
@@ -8191,8 +8243,9 @@
             </section>`).join('')}
         </div>` : `
         <div class="model-empty" data-testid="model-empty">
-          <strong>No models match</strong>
-          <span>Try a provider, category, model name, or state.</span>
+          <strong data-testid="model-empty-title">${escapeHTML(modelEmpty.title)}</strong>
+          <span data-testid="model-empty-detail">${escapeHTML(modelEmpty.detail)}</span>
+          ${modelEmpty.footnote ? `<small data-testid="model-empty-footnote">${escapeHTML(modelEmpty.footnote)}</small>` : ''}
           ${modelSearchQuery ? '<button class="model-clear-search hit-target-text" type="button" data-testid="model-clear-search">Clear search</button>' : ''}
         </div>`;
       const modelBrowser = state.topBar.modelPickerOpen ? `
@@ -8301,7 +8354,7 @@
                     <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1">${escapeHTML(state.composer.draft)}</textarea>
                     ${state.composer.isSending
                       ? '<button type="button" class="stop-button hit-target-text" data-testid="stop-button">Stop</button>'
-                      : `<button class="hit-target-text" type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
+                      : `<button class="hit-target-text" type="submit" data-testid="send-button" ${(state.composer.canSend && !modelCommandHasNoMatches()) ? '' : 'disabled'}>Send</button>`}
                   </div>
                   <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
                     <div class="model-picker-wrap">
@@ -8415,12 +8468,17 @@
             event.preventDefault();
             return;
           }
+          if (modelCommandHasNoMatches()) {
+            event.preventDefault();
+            return;
+          }
           event.preventDefault();
           sendMessage(input.value);
         }
       });
       form.addEventListener('submit', event => {
         event.preventDefault();
+        if (modelCommandHasNoMatches()) return;
         sendMessage(input.value);
       });
       document.querySelector('[data-testid="stop-button"]')?.addEventListener('click', () => {
@@ -8457,14 +8515,6 @@
             event.currentTarget.getAttribute('data-action-kind'),
             event.currentTarget.getAttribute('data-request-id'),
             cardElement?.getAttribute('data-timeline-id') || ''
-          );
-        });
-      });
-      document.querySelectorAll('[data-feedback-value]').forEach(button => {
-        button.addEventListener('click', event => {
-          setMessageFeedback(
-            event.currentTarget.getAttribute('data-message-id'),
-            event.currentTarget.getAttribute('data-feedback-value')
           );
         });
       });
@@ -9303,6 +9353,32 @@
           })
         }))
         .filter(category => category.models.length > 0);
+    }
+
+    function modelEmptyCopy(query) {
+      const normalizedQuery = String(query || '').trim();
+      const queryLabel = normalizedQuery ? `"${normalizedQuery}"` : 'that query';
+      const source = state.topBar.modelCatalogSource || 'bundled';
+      const footnote = state.topBar.modelCatalogStatusDetail || '';
+      if (source === 'bundled') {
+        return {
+          title: 'No bundled model matches',
+          detail: `The built-in catalog is intentionally small. Sign in or refresh TrustedRouter to search live provider models for ${queryLabel}.`,
+          footnote
+        };
+      }
+      if (source === 'fallbackAfterFailure') {
+        return {
+          title: 'No fallback model matches',
+          detail: `The last TrustedRouter refresh failed, so QuillCode is searching the bundled fallback catalog for ${queryLabel}.`,
+          footnote
+        };
+      }
+      return {
+        title: 'No TrustedRouter model matches',
+        detail: 'Try a provider, category, model name, capability, or state.',
+        footnote
+      };
     }
 
     function filteredModels() {
@@ -10318,18 +10394,6 @@
       }, 1500);
     }
 
-    function setMessageFeedback(messageID, value) {
-      if (!messageID || !value) return;
-      const message = state.transcript.messages.find(entry => entry.id === messageID && entry.role === 'assistant');
-      if (!message) return;
-      message.feedback = value;
-      state.transcript.timelineItems = state.transcript.timelineItems.map(item => {
-        if (item.kind !== 'message' || item.message?.id !== messageID) return item;
-        return { ...item, message: { ...item.message, feedback: value } };
-      });
-      render();
-    }
-
     function useMessageAsDraft(messageID) {
       if (!messageID) return;
       const message = state.transcript.messages.find(entry => entry.id === messageID && entry.role === 'user');
@@ -10508,10 +10572,14 @@
     }
 
     function focusComposerAtDraftEnd() {
-      const input = document.querySelector('[data-testid="composer"] textarea');
-      input?.focus();
-      input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
-      resizeComposerInput(input);
+      const focus = () => {
+        const input = document.querySelector('[data-testid="composer"] textarea');
+        input?.focus();
+        input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+        resizeComposerInput(input);
+      };
+      focus();
+      requestAnimationFrame(focus);
     }
 
     function transcriptTimelineSearchText(item) {
@@ -10631,7 +10699,24 @@
 
     function renderModelCommandSuggestions() {
       const suggestions = modelCommandSuggestions(state.composer.draft);
-      if (!suggestions.length) return '';
+      const query = modelCommandQuery(state.composer.draft);
+      if (!suggestions.length && query === null) return '';
+      if (!suggestions.length) {
+        const empty = modelEmptyCopy(query);
+        return `
+          <section class="slash-suggestions" data-testid="model-command-suggestions" aria-label="Model switch">
+            <h3>Models</h3>
+            <div class="slash-suggestion-list">
+              <div class="slash-suggestion model-command-empty" data-testid="model-command-empty">
+                <span>
+                  <span class="slash-title" data-testid="model-command-empty-title">${escapeHTML(empty.title)}</span>
+                  <span class="slash-detail" data-testid="model-command-empty-detail">${escapeHTML(empty.detail)}</span>
+                  ${empty.footnote ? `<span class="slash-detail" data-testid="model-command-empty-footnote">${escapeHTML(empty.footnote)}</span>` : ''}
+                </span>
+              </div>
+            </div>
+          </section>`;
+      }
       clampModelCommandActiveIndex(suggestions);
       const rows = suggestions.map((suggestion, index) => `
         <button
@@ -10657,7 +10742,11 @@
     }
 
     function renderFileMentionSuggestions() {
-      if (slashSuggestions(state.composer.draft).length || modelCommandSuggestions(state.composer.draft).length) return '';
+      if (
+        slashSuggestions(state.composer.draft).length
+        || modelCommandSuggestions(state.composer.draft).length
+        || modelCommandQuery(state.composer.draft) !== null
+      ) return '';
       const suggestions = fileMentionSuggestions(state.composer.draft);
       if (!suggestions.length) return '';
       clampFileMentionActiveIndex(suggestions);
@@ -13296,7 +13385,8 @@
         return;
       }
       if (commandID === 'focus-composer') {
-        document.getElementById('message')?.focus();
+        render();
+        focusComposerAtDraftEnd();
         return;
       }
       if (commandID === 'thread-rename') {
@@ -15882,7 +15972,32 @@
         render();
         return;
       }
+      if (runInstantViewSlashCommand(text)) return;
       startMockAgentTurn(text);
+    }
+
+    function runInstantViewSlashCommand(text) {
+      const commandID = /^\/(focus|composer|input)\b/i.test(text)
+        ? 'focus-composer'
+        : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
+          ? 'toggle-sidebar'
+          : null;
+      if (!commandID) return false;
+      ensureThread(initialThreadTitleForPrompt(text));
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+      state.runtimeIssue = null;
+      state.composer.isSending = false;
+      state.topBar.agentStatus = 'Idle';
+      addMessage('user', text);
+      touchSelectedThread();
+      runCommand(commandID);
+      syncSelectedThreadSearchText();
+      return true;
     }
 
     function startMockAgentTurn(text) {
@@ -16096,6 +16211,56 @@
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {
         newChat();
         return;
+      } else if (/^\/(search)\b/i.test(text)) {
+        state.composer.isSending = false;
+        openSearchPanel();
+        return;
+      } else if (/^\/(find)\b/i.test(text)) {
+        state.composer.isSending = false;
+        openFindInChat();
+        return;
+      } else if (/^\/(focus|composer|input)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.topBar.agentStatus = 'Idle';
+        shouldFinishMockAgentTurn = false;
+        runCommand('focus-composer');
+        return;
+      } else if (/^\/(sidebar|toggle-sidebar)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.topBar.agentStatus = 'Idle';
+        shouldFinishMockAgentTurn = false;
+        runCommand('toggle-sidebar');
+        return;
+      } else if (/^\/(settings|preferences|prefs)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.settings.isOpen = true;
+        state.settings.replacementAPIKey = '';
+        render();
+        return;
+      } else if (/^\/(shortcuts|keyboard-shortcuts|keys)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.shortcuts.isOpen = true;
+        render();
+        return;
+      } else if (/^\/(commands|command-palette|palette)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.commandPalette.isOpen = true;
+        state.commandPalette.query = '';
+        render();
+        setTimeout(() => document.querySelector('[data-testid="command-palette-input"]')?.focus(), 0);
+        return;
+      } else if (/^\/(extensions|plugins|skills)\b/i.test(text)) {
+        state.composer.isSending = false;
+        runCommand('toggle-extensions');
+        return;
+      } else if (/^\/automations\b/i.test(text)) {
+        state.composer.isSending = false;
+        runCommand('toggle-automations');
+        return;
+      } else if (/^\/activity\b/i.test(text)) {
+        state.composer.isSending = false;
+        runCommand('toggle-activity');
+        return;
       } else if (/^\/plan\b/i.test(text)) {
         setModeLabel('Plan');
         render();
@@ -16110,11 +16275,11 @@
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode plan, /mode review, or /mode read-only');
         }
-      } else if (/^\/(skill|skills)\b/i.test(text)) {
+      } else if (/^\/skill\b/i.test(text)) {
         // Mirrors native: `/skill name` runs a normal agent turn that loads + follows the skill via
         // host.skill.load. A bare `/skill` shows usage. The skill name is sanitized to a bare token.
         const skillName = text
-          .replace(/^\/(skill|skills)\b/i, '')
+          .replace(/^\/skill\b/i, '')
           .trim()
           .split(/\s+/)[0]
           ?.replace(/[/\\]/g, '')
@@ -16222,6 +16387,9 @@
         } else {
           addMessage('assistant', 'Usage: /workspace-check in 1 hour, /workspace-check Friday morning, or /workspace-check daily');
         }
+      } else if (/^\/project\s+(open|add)\b/i.test(text)) {
+        addProject();
+        return;
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
         addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
@@ -16545,7 +16713,7 @@
         if (lastUserMessage) {
           lastUserMessage.revert = { turnMessageID: lastUserMessage.id, hasNonApplyPatchEdits: false };
         }
-      } else if (/^\/(diff|changes)\b/i.test(text)) {
+      } else if (/^\/(review|diff|changes)\b/i.test(text)) {
         runGitDiffAction();
         return;
       } else if (/^\/git-?status\b/i.test(text)) {

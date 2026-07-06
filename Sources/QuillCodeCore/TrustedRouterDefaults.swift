@@ -91,6 +91,7 @@ public enum TrustedRouterDefaults {
     public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
     public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
     public static let safetyReviewerModelIDs = [safetyPrimaryCatalogModel, safetyFallbackCatalogModel]
+    public static let minimaxM3Model = "minimax/minimax-m3"
 
     public static let bundledModelCatalog: [ModelInfo] = [
         .init(id: fastModel, provider: trustedRouterProvider, displayName: fastModelDisplayName, category: recommendedCategory),
@@ -99,6 +100,7 @@ public enum TrustedRouterDefaults {
         .init(id: socratesModel, provider: trustedRouterProvider, displayName: socratesModelDisplayName, category: recommendedCategory),
         .init(id: aristotleModel, provider: trustedRouterProvider, displayName: aristotleModelDisplayName, category: recommendedCategory),
         .init(id: platoModel, provider: trustedRouterProvider, displayName: platoModelDisplayName, category: recommendedCategory),
+        .init(id: minimaxM3Model, provider: "minimax", displayName: "MiniMax M3", category: "minimax"),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
     ]
@@ -130,6 +132,45 @@ public enum TrustedRouterDefaults {
         platoModel: "Plato 1.0 is the freedom-oriented OSS coding-agent model."
     ]
 
+    public static let recommendedCapabilities: [String: ModelCapabilities] = [
+        fastModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["fast", "coding", "shell", "file editing"],
+            summary: recommendedSummaries[fastModel]
+        ),
+        zeusModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["deep research", "synthesis", "analysis"],
+            summary: recommendedSummaries[zeusModel]
+        ),
+        prometheusModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["freedom", "OSS", "deep research"],
+            summary: recommendedSummaries[prometheusModel]
+        ),
+        socratesModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["coding agent", "implementation", "tools"],
+            summary: recommendedSummaries[socratesModel]
+        ),
+        aristotleModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["smart", "reasoning", "general agent"],
+            summary: recommendedSummaries[aristotleModel]
+        ),
+        platoModel: ModelCapabilities(
+            inputModalities: ["text"],
+            outputModalities: ["text", "tool call"],
+            capabilityTags: ["freedom", "OSS", "coding agent"],
+            summary: recommendedSummaries[platoModel]
+        )
+    ]
+
     public static func canonicalProvider(_ provider: String) -> String {
         let normalized = provider.trimmingCharacters(in: .whitespacesAndNewlines)
         return trustedRouterProviderAliases[normalized.lowercased()] ?? normalized
@@ -140,9 +181,23 @@ public enum TrustedRouterDefaults {
         return modelIDAliases[normalized.lowercased()] ?? normalized
     }
 
+    public static func isRetiredRawModelID(_ id: String) -> Bool {
+        let normalized = rawModelName(id).lowercased()
+        let retiredBase = "synth"
+        return normalized == retiredBase || normalized == retiredBase + "-code"
+    }
+
+    private static func rawModelName(_ id: String) -> String {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withoutSlash = trimmed.hasPrefix("/") ? String(trimmed.dropFirst()) : trimmed
+        let parts = withoutSlash.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return withoutSlash }
+        return ["tr", trustedRouterProvider].contains(parts[0].lowercased()) ? parts[1] : withoutSlash
+    }
+
     public static func normalizedDefaultModelID(_ id: String) -> String {
         let modelID = canonicalModelID(id)
-        return modelID.isEmpty ? defaultModel : modelID
+        return modelID.isEmpty || isRetiredRawModelID(modelID) ? defaultModel : modelID
     }
 
     public static func provider(fromModelID modelID: String) -> String {
@@ -256,12 +311,13 @@ public enum TrustedRouterDefaults {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let category = model.category
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackCapabilities = recommendedCapabilities[modelID] ?? .init()
         return ModelInfo(
             id: modelID,
             provider: provider,
             displayName: recommendedDisplayNames[modelID] ?? (displayName.isEmpty ? Self.displayName(fromModelID: modelID) : displayName),
             category: category.isEmpty ? Self.category(forModelID: modelID, provider: provider) : category,
-            capabilities: model.capabilities
+            capabilities: mergeCapabilities(fallbackCapabilities, with: model.capabilities)
         )
     }
 
@@ -271,20 +327,48 @@ public enum TrustedRouterDefaults {
         for model in bundledModelCatalog + models {
             let normalized = normalizedModelInfo(model)
             if let index = indexByID[normalized.id] {
-                // The first occurrence (usually a curated bundled entry) keeps its identity, but a
-                // later duplicate — typically the LIVE catalog row for the same canonical model —
-                // backfills the capabilities the curated entry lacks. Without this, bundled entries
-                // would shadow live prices/metadata for exactly the recommended models, starving
-                // pricing-aware features like the auxiliary-model selector.
-                if catalog[index].capabilities.isEmpty, !normalized.capabilities.isEmpty {
-                    catalog[index].capabilities = normalized.capabilities
-                }
+                // The first occurrence (usually a curated bundled entry) keeps its identity, while a
+                // later duplicate — typically the live catalog row for the same canonical model —
+                // backfills concrete metadata such as context window, pricing, status, and release
+                // date without losing QuillCode's stable branded capability taxonomy.
+                catalog[index].capabilities = mergeCapabilities(
+                    catalog[index].capabilities,
+                    with: normalized.capabilities
+                )
                 continue
             }
             indexByID[normalized.id] = catalog.count
             catalog.append(normalized)
         }
         return catalog.sorted(by: compareModels)
+    }
+
+    private static func mergeCapabilities(
+        _ base: ModelCapabilities,
+        with override: ModelCapabilities
+    ) -> ModelCapabilities {
+        ModelCapabilities(
+            contextWindowTokens: override.contextWindowTokens ?? base.contextWindowTokens,
+            inputPricePerMillionTokens: override.inputPricePerMillionTokens ?? base.inputPricePerMillionTokens,
+            outputPricePerMillionTokens: override.outputPricePerMillionTokens ?? base.outputPricePerMillionTokens,
+            inputModalities: mergedList(base.inputModalities, override.inputModalities),
+            outputModalities: mergedList(base.outputModalities, override.outputModalities),
+            capabilityTags: mergedList(base.capabilityTags, override.capabilityTags),
+            status: override.status ?? base.status,
+            summary: override.summary ?? base.summary,
+            releaseDate: override.releaseDate ?? base.releaseDate
+        )
+    }
+
+    private static func mergedList(_ base: [String], _ override: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for value in base + override {
+            let key = value.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            result.append(value)
+        }
+        return result
     }
 
     public static func compareModelCategories(_ lhs: String, _ rhs: String) -> Bool {

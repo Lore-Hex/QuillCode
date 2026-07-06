@@ -122,6 +122,12 @@ extension SlashCommandCatalog {
             aliases: ["subagent", "parallel agents", "agents"]
         ),
         slashDefinition(
+            "/project open",
+            "Open project",
+            "Open a local project folder and add it to the sidebar.",
+            aliases: ["project add", "open project"]
+        ),
+        slashDefinition(
             "/project new",
             "Project new chat",
             "Start a new thread in the selected project.",
@@ -172,16 +178,86 @@ extension SlashCommandCatalog {
             aliases: ["term clear", "shell clear"]
         ),
         slashDefinition(
+            "/search",
+            "Search chats",
+            "Open global search across thread titles, transcript text, tools, models, and pinned or archived state.",
+            aliases: ["global search", "chat search"]
+        ),
+        slashDefinition(
+            "/find",
+            "Find in chat",
+            "Open the active chat finder with result count and next/previous navigation.",
+            aliases: ["find in chat", "transcript find"]
+        ),
+        slashDefinition(
+            "/focus",
+            "Focus message input",
+            "Move keyboard focus back to the composer.",
+            aliases: ["composer", "input", "message input"]
+        ),
+        slashDefinition(
+            "/sidebar",
+            "Toggle sidebar",
+            "Show or hide the chat and project sidebar.",
+            aliases: ["toggle sidebar", "hide sidebar", "show sidebar"]
+        ),
+        slashDefinition(
+            "/settings",
+            "Settings",
+            "Open TrustedRouter, Computer Use, browser, and notification settings.",
+            aliases: ["preferences", "prefs"]
+        ),
+        slashDefinition(
+            "/shortcuts",
+            "Keyboard shortcuts",
+            "Open the keyboard shortcut reference.",
+            aliases: ["keyboard shortcuts", "keys"]
+        ),
+        slashDefinition(
+            "/commands",
+            "Command palette",
+            "Open the searchable command palette.",
+            aliases: ["command-palette", "palette"]
+        ),
+        slashDefinition(
+            "/extensions",
+            "Toggle extensions",
+            "Show or hide project plugins, skills, MCP servers, and marketplace entries.",
+            aliases: ["plugins", "skills"]
+        ),
+        slashDefinition(
+            "/skills",
+            "Show skills",
+            "Open the Extensions pane filtered around installed and available skills.",
+            aliases: ["skill list", "installed skills", "available skills"]
+        ),
+        slashDefinition(
+            "/automations",
+            "Toggle automations",
+            "Show or hide scheduled follow-ups, workspace checks, and automation history."
+        ),
+        slashDefinition(
+            "/activity",
+            "Toggle activity",
+            "Show or hide task plans, tool history, artifacts, sources, and handoff notes."
+        ),
+        slashDefinition(
             "/browser",
             "Toggle browser",
             "Show or hide the browser preview panel.",
             aliases: ["preview"]
         ),
         slashDefinition(
+            "/review",
+            "Review changes",
+            "Show the working-tree git diff in the review pane.",
+            aliases: ["review diff", "review changes"]
+        ),
+        slashDefinition(
             "/diff",
             "Review diff",
             "Show the working-tree git diff in the review pane.",
-            aliases: ["changes", "git diff"]
+            aliases: ["changes", "git diff", "review"]
         ),
         slashDefinition(
             "/git-status",
@@ -309,7 +385,7 @@ extension SlashCommandCatalog {
             "Run a skill",
             "Load an installed skill by name and follow it, for example /skill code-review.",
             insert: "/skill ",
-            aliases: ["skills", "run skill", "load skill"]
+            aliases: ["run skill", "load skill"]
         )
     ]
 

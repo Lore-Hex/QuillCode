@@ -37,6 +37,9 @@ struct QuillCodeComposerView: View {
                     onSelect: acceptModelCommand
                 )
                 .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .bottom)))
+            } else if let modelCommandEmptyCopy {
+                QuillCodeModelCommandEmptyPanel(copy: modelCommandEmptyCopy)
+                    .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .bottom)))
             } else if !slashSuggestions.isEmpty {
                 QuillCodeSlashSuggestionPanel(
                     suggestions: slashSuggestions,
@@ -137,7 +140,10 @@ struct QuillCodeComposerView: View {
     }
 
     private var composerSurfaceStroke: Color {
-        if !modelCommandSuggestions.isEmpty || !slashSuggestions.isEmpty || !fileMentionSuggestions.isEmpty {
+        if !modelCommandSuggestions.isEmpty
+            || modelCommandEmptyCopy != nil
+            || !slashSuggestions.isEmpty
+            || !fileMentionSuggestions.isEmpty {
             return QuillCodePalette.blue.opacity(0.34)
         }
         return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
@@ -150,6 +156,15 @@ struct QuillCodeComposerView: View {
         SlashModelCatalogSearch.suggestions(for: draft, categories: topBar.modelCategories)
     }
 
+    private var modelCommandEmptyCopy: ModelPickerEmptyStateCopy? {
+        SlashModelCatalogSearch.emptyStateCopy(
+            for: draft,
+            categories: topBar.modelCategories,
+            catalogSource: topBar.modelCatalogSource,
+            catalogStatusDetail: topBar.modelCatalogStatusDetail
+        )
+    }
+
     private var slashSuggestions: [SlashCommandSuggestionSurface] {
         // Once the user has committed to `/model ` and is querying a model, the model sub-search
         // owns the popup; suppress the top-level slash list so the two never both render.
@@ -158,12 +173,16 @@ struct QuillCodeComposerView: View {
     }
 
     private var fileMentionSuggestions: [FileMentionSuggestionSurface] {
-        guard slashSuggestions.isEmpty, modelCommandSuggestions.isEmpty else { return [] }
+        guard slashSuggestions.isEmpty,
+              modelCommandSuggestions.isEmpty,
+              modelCommandEmptyCopy == nil else { return [] }
         return FileMentionCatalog.suggestions(for: draft, in: fileMentionIndex, changedPaths: changedFilePaths)
     }
 
     private var canSendDraft: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !composer.isSending
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !composer.isSending
+            && modelCommandEmptyCopy == nil
     }
 
     private var composerAccessoryBar: some View {
@@ -229,6 +248,7 @@ struct QuillCodeComposerView: View {
 
     private func handleReturn() -> KeyPress.Result {
         if acceptActiveModelCommand() { return .handled }
+        if modelCommandEmptyCopy != nil { return .handled }
         if acceptActiveSlashSuggestion(force: false) { return .handled }
         if acceptActiveFileMention(force: false) { return .handled }
         return .ignored

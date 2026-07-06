@@ -41,7 +41,8 @@ final class ParitySlashRepositoryParserGateTests: QuillCodeParityTestCase {
         Self.assertSource(slashText, contains: "SlashProjectCommandParser.parse(argument)")
         [
             "enum SlashProjectCommandParser",
-            "Usage: /project new",
+            "Usage: /project open",
+            "add-project",
             "project-new-chat",
             "project-refresh-context"
         ].forEach { Self.assertSource(parserText, contains: $0) }
@@ -52,7 +53,7 @@ final class ParitySlashRepositoryParserGateTests: QuillCodeParityTestCase {
         [
             "private static func parseProject",
             "Unknown project command",
-            "Usage: /project new"
+            "Usage: /project open"
         ].forEach { Self.assertSource(slashText, excludes: $0) }
     }
 

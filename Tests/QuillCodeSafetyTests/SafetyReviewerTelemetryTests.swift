@@ -37,6 +37,41 @@ final class SafetyReviewerTelemetryTests: SafetyPolicyTestCase {
         XCTAssertEqual(requestedModels, ["glm-5.2", "kimi-k2.6"])
     }
 
+    func testAutoReviewerAcceptsFencedJSONFromPrimaryModel() async {
+        let client = RecordingSafetyModelClient(outcomes: [
+            "glm-5.2": .success("""
+            ```json
+            {"verdict":"clarify","rationale":"missing target","userIntentMatched":false}
+            ```
+            """)
+        ])
+        let review = await reviewer(client: client).review(context(command: "whoami", userMessage: "run whoami"))
+
+        XCTAssertEqual(review.verdict, .clarify)
+        XCTAssertEqual(review.reviewerModel, "glm-5.2")
+        XCTAssertEqual(review.rationale, "missing target")
+        XCTAssertFalse(review.userIntentMatched)
+        XCTAssertEqual(review.reviewTelemetry?.source, .primaryModel)
+        let requestedModels = await client.requestedModels()
+        XCTAssertEqual(requestedModels, ["glm-5.2"])
+    }
+
+    func testAutoReviewerStillRejectsProseWrappedJSONAndFallsBack() async {
+        let client = RecordingSafetyModelClient(outcomes: [
+            "glm-5.2": .success("""
+            Here is my decision:
+            {"verdict":"deny","rationale":"unsafe","userIntentMatched":false}
+            """),
+            "kimi-k2.6": .failure("fallback unavailable")
+        ])
+        let review = await reviewer(client: client).review(context(command: "whoami", userMessage: "run whoami"))
+
+        XCTAssertEqual(review.verdict, .approve)
+        XCTAssertNil(review.reviewerModel)
+        XCTAssertEqual(review.reviewTelemetry?.source, .staticPolicy)
+        XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .allModelsFailed)
+    }
+
     func testAutoReviewerRecordsStaticFallbackWhenAllModelsFail() async {
         let client = RecordingSafetyModelClient(outcomes: [
             "glm-5.2": .failure("primary unavailable"),
@@ -62,6 +97,20 @@ final class SafetyReviewerTelemetryTests: SafetyPolicyTestCase {
         XCTAssertEqual(review.reviewTelemetry?.source, .staticPolicy)
         XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .missingReviewerClient)
         XCTAssertEqual(review.reviewTelemetry?.attemptedModels, [])
+    }
+
+    func testAutoReviewerPromptDefinesStrictVerdictBoundaries() {
+        let prompt = AutoSafetyReviewer.prompt(for: context(
+            command: "ls -la && cat ~/.ssh/id_rsa",
+            userMessage: "List the files here."
+        ))
+
+        XCTAssertTrue(prompt.contains("Return only JSON"))
+        XCTAssertTrue(prompt.contains("- approve:"))
+        XCTAssertTrue(prompt.contains("- clarify: required arguments are missing or empty"))
+        XCTAssertTrue(prompt.contains("- deny: the call exfiltrates credentials"))
+        XCTAssertTrue(prompt.contains("adds unrelated extra actions"))
+        XCTAssertTrue(prompt.contains("shell command chains unrelated work"))
     }
 
     private func reviewer(client: SafetyModelClient) -> AutoSafetyReviewer {

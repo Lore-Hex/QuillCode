@@ -290,7 +290,6 @@ enum WorkspaceHTMLTranscriptRenderer {
                     latestAssistantMessageID: latestAssistantMessageID,
                     command: retryLastTurnCommand
                 ))
-                \(renderMessageFeedbackActions(message))
               </footer>
             </article>
             """
@@ -298,32 +297,6 @@ enum WorkspaceHTMLTranscriptRenderer {
             guard let card = item.toolCard else { return "" }
             return WorkspaceHTMLToolCardRenderer.render(card, timelineItemID: item.id)
         }
-    }
-
-    private static func renderMessageFeedbackActions(_ message: MessageSurface) -> String {
-        guard message.role == .assistant else { return "" }
-        let helpfulSelected = message.feedback == .helpful ? "true" : "false"
-        let notHelpfulSelected = message.feedback == .notHelpful ? "true" : "false"
-        return """
-        \(WorkspaceHTMLPrimitives.button(
-            "Helpful",
-            testID: "message-feedback-up",
-            hitTargetKind: .text,
-            attributes: [
-                ("data-message-id", message.id.uuidString),
-                ("data-selected", helpfulSelected)
-            ]
-        ))
-        \(WorkspaceHTMLPrimitives.button(
-            "Not helpful",
-            testID: "message-feedback-down",
-            hitTargetKind: .text,
-            attributes: [
-                ("data-message-id", message.id.uuidString),
-                ("data-selected", notHelpfulSelected)
-            ]
-        ))
-        """
     }
 
     private static func renderMessageDraftAction(_ message: MessageSurface) -> String {

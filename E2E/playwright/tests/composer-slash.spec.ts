@@ -18,6 +18,11 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
 
+  await page.getByLabel('Message').fill('/review');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
+
   await page.getByLabel('Message').fill('/git-status');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
@@ -26,6 +31,11 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');
   await expect(page.getByTestId('tool-card-output').last()).toContainText('/mock/quillcode-existing');
+
+  await page.getByLabel('Message').fill('/project open');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('project-item').first()).toContainText('Example Project');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('Example Project');
 
   await page.getByLabel('Message').fill('/worktree create slash-worktree --branch slash/demo --base main');
   await page.getByRole('button', { name: 'Send' }).click();
@@ -66,6 +76,86 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
 });
 
+test('mock harness opens search surfaces from composer slash commands', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  await message.fill('needle in the transcript');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar-item')).toContainText('needle in the transcript');
+
+  await message.fill('/search');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await expect(page.getByTestId('search-input')).toBeFocused();
+  await expect(message).toHaveValue('');
+  await page.keyboard.type('needle');
+  await expect(page.getByTestId('search-result')).toContainText('needle in the transcript');
+  await page.getByTestId('search-close').click();
+
+  await message.fill('/find');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('find-input')).toBeFocused();
+  await expect(message).toHaveValue('');
+  await page.keyboard.type('needle');
+  await expect(page.getByTestId('find-status')).toContainText('1 of 1');
+});
+
+test('mock harness opens utility surfaces from composer slash commands', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const message = page.getByLabel('Message');
+  await message.fill('/focus');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(message).toBeFocused();
+  await expect(message).toHaveValue('');
+
+  await message.fill('/sidebar');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar')).toHaveCount(0);
+  await expect(message).toHaveValue('');
+
+  await message.fill('/sidebar');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar')).toBeVisible();
+  await expect(message).toHaveValue('');
+
+  await message.fill('/settings');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await expect(message).toHaveValue('');
+  await page.getByTestId('settings-cancel').click();
+
+  await message.fill('/shortcuts');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
+  await expect(page.getByTestId('keyboard-shortcuts-list')).toContainText('Search');
+  await expect(message).toHaveValue('');
+  await page.getByTestId('keyboard-shortcuts-close').click();
+
+  await message.fill('/commands');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await expect(page.getByTestId('command-palette-input')).toBeFocused();
+  await expect(message).toHaveValue('');
+  await page.keyboard.press('Escape');
+
+  await message.fill('/plugins');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expect(message).toHaveValue('');
+
+  await message.fill('/automations');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(message).toHaveValue('');
+
+  await message.fill('/activity');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expect(message).toHaveValue('');
+});
+
 test('mock harness suggests slash commands in the composer', async ({ page }) => {
   await page.goto(harnessURL());
 
@@ -99,6 +189,11 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await expect(page.locator('[data-testid="slash-suggestion"][data-selected="true"]')).toContainText('/project rename name');
   await page.keyboard.press('Tab');
   await expect(message).toHaveValue('/project rename ');
+
+  await message.fill('/project o');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('/project open');
+  await page.keyboard.press('Tab');
+  await expect(message).toHaveValue('/project open');
 
   await message.fill('/fol');
   await expect(page.getByTestId('slash-suggestion').first()).toContainText('/follow-up when');

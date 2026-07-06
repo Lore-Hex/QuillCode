@@ -190,13 +190,25 @@ struct QuillCodeModelPickerView: View {
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("No models match")
+        let copy = ModelPickerEmptyStateCopy.copy(
+            query: searchText,
+            catalogSource: topBar.modelCatalogSource,
+            catalogStatusDetail: topBar.modelCatalogStatusDetail
+        )
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(copy.title)
                 .font(.headline)
-            Text("Try a provider, model name, category, or state.")
+            Text(copy.detail)
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
+            if let footnote = copy.footnote {
+                Text(footnote)
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted.opacity(0.86))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if !searchText.isEmpty {
                 Button("Clear search") {
                     clearSearch()

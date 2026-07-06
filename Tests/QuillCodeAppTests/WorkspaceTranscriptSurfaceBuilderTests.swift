@@ -90,7 +90,7 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(thinking?.subtitle, "Streaming model response")
     }
 
-    func testMessageSurfacesHideToolMessagesAndAttachFeedback() throws {
+    func testMessageSurfacesHideToolMessagesAndIgnoreObsoleteFeedbackEvents() throws {
         let user = ChatMessage(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             role: .user,
@@ -106,14 +106,13 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
             role: .assistant,
             content: "You are `quill`."
         )
-        let feedback = MessageFeedback(messageID: assistant.id, value: .helpful)
         let thread = ChatThread(
             messages: [user, tool, assistant],
             events: [
                 ThreadEvent(
                     kind: .messageFeedback,
                     summary: "helpful",
-                    payloadJSON: try JSONHelpers.encodePretty(feedback)
+                    payloadJSON: #"{"messageID":"00000000-0000-0000-0000-000000000003","value":"helpful"}"#
                 )
             ]
         )
@@ -121,8 +120,7 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         let messages = WorkspaceTranscriptSurfaceBuilder(thread: thread).messageSurfaces()
 
         XCTAssertEqual(messages.map(\.role), [.user, .assistant])
-        XCTAssertNil(messages.first?.feedback)
-        XCTAssertEqual(messages.last?.feedback, .helpful)
+        XCTAssertEqual(messages.map(\.text), ["run whoami", "You are `quill`."])
     }
 
     func testToolCardsCollapseToolLifecycleAndAttachArtifacts() throws {

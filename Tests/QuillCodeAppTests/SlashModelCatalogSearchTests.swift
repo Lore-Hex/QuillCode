@@ -108,6 +108,32 @@ final class SlashModelCatalogSearchTests: XCTestCase {
         XCTAssertTrue(SlashModelCatalogSearch.suggestions(for: "/model zzznope", categories: categories()).isEmpty)
     }
 
+    func testEmptyStateCopyOnlyAppearsForActiveModelSearchWithNoMatches() {
+        XCTAssertNil(SlashModelCatalogSearch.emptyStateCopy(
+            for: "/model",
+            categories: categories(),
+            catalogSource: .bundled,
+            catalogStatusDetail: nil
+        ))
+        XCTAssertNil(SlashModelCatalogSearch.emptyStateCopy(
+            for: "/model fast",
+            categories: categories(),
+            catalogSource: .bundled,
+            catalogStatusDetail: nil
+        ))
+
+        let copy = SlashModelCatalogSearch.emptyStateCopy(
+            for: "/model zzznope",
+            categories: categories(),
+            catalogSource: .bundled,
+            catalogStatusDetail: "Bundled catalog only."
+        )
+
+        XCTAssertEqual(copy?.title, "No bundled model matches")
+        XCTAssertTrue(copy?.detail.contains("\"zzznope\"") == true)
+        XCTAssertEqual(copy?.footnote, "Bundled catalog only.")
+    }
+
     func testLimitIsRespectedAndBounded() {
         XCTAssertEqual(SlashModelCatalogSearch.suggestions(for: "/model ", categories: categories(), limit: 1).count, 1)
         XCTAssertTrue(SlashModelCatalogSearch.suggestions(for: "/model ", categories: categories(), limit: 0).isEmpty)
@@ -196,15 +222,18 @@ final class ModelCommandPriceLabelTests: XCTestCase {
 final class SlashSkillCommandPlannerTests: XCTestCase {
     func testSupportsSkillNames() {
         XCTAssertTrue(SlashSkillCommandPlanner.supports("skill"))
-        XCTAssertTrue(SlashSkillCommandPlanner.supports("skills"))
         XCTAssertTrue(SlashSkillCommandPlanner.supports("  SKILL  "))
+        XCTAssertFalse(SlashSkillCommandPlanner.supports("skills"))
         XCTAssertFalse(SlashSkillCommandPlanner.supports("model"))
     }
 
     func testAgentPromptEmbedsBareSkillName() {
         XCTAssertEqual(
             SlashSkillCommandPlanner.agentPrompt(for: "code-review"),
-            "Load the `code-review` skill with host.skill.load, then follow its instructions."
+            """
+            Load the `code-review` skill now by calling host.skill.load with arguments {"name":"code-review"}, \
+            then follow its instructions.
+            """
         )
     }
 
@@ -222,16 +251,23 @@ final class SlashSkillCommandPlannerTests: XCTestCase {
     func testSlashParserRoutesSkillToRunSkill() {
         XCTAssertEqual(
             SlashCommandParser.parse("/skill code-review"),
-            .runSkill("Load the `code-review` skill with host.skill.load, then follow its instructions.")
+            .runSkill("""
+            Load the `code-review` skill now by calling host.skill.load with arguments {"name":"code-review"}, \
+            then follow its instructions.
+            """)
         )
         XCTAssertEqual(SlashCommandParser.parse("/skill"), .invalid(SlashSkillCommandPlanner.usage))
+        XCTAssertEqual(SlashCommandParser.parse("/skills"), .workspaceCommand("toggle-extensions"))
     }
 
     func testSubmissionPlannerConvertsRunSkillToAgentTurn() {
         let plan = WorkspaceComposerSubmissionPlanner.plan(draft: "/skill code-review")
         XCTAssertEqual(
             plan,
-            .agent(prompt: "Load the `code-review` skill with host.skill.load, then follow its instructions.")
+            .agent(prompt: """
+            Load the `code-review` skill now by calling host.skill.load with arguments {"name":"code-review"}, \
+            then follow its instructions.
+            """)
         )
     }
 

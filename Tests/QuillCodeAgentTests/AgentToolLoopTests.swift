@@ -244,6 +244,66 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Done after checking the command.")
     }
 
+    func testAgentRecoversGenericPromisedDiskCheckFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say("I'll check your disk usage now."),
+            .say("Done after checking disk usage.")
+        ]))
+
+        let result = try await runner.send(
+            "How much hd is used?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains {
+            $0.content.contains("I'll check")
+        })
+        let queuedEvent = try XCTUnwrap(result.thread.events.last {
+            $0.kind == .toolQueued && $0.payloadJSON != nil
+        })
+        let call = try JSONHelpers.decode(
+            ToolCall.self,
+            from: try XCTUnwrap(queuedEvent.payloadJSON)
+        )
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "df -h / /Quill 2>/dev/null || df -h /")
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after checking disk usage.")
+    }
+
+    func testAgentRecoversGenericPromisedFileWriteFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .say("I'll create the file now."),
+                .say("Created the file.")
+            ]),
+            safety: AlwaysApprovingSafetyReviewer()
+        )
+
+        let result = try await runner.send(
+            "Create a file named notes/hello.txt that says hello world",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains {
+            $0.content.contains("I'll create")
+        })
+        let written = try String(
+            contentsOf: root.appendingPathComponent("notes/hello.txt"),
+            encoding: .utf8
+        )
+        XCTAssertEqual(written, "hello world\n")
+        XCTAssertEqual(result.thread.messages.last?.content, "Created the file.")
+    }
+
     func testAgentDoesNotFinalizeRepeatedPromisedWorkAnswers() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [
@@ -254,7 +314,7 @@ final class AgentToolLoopTests: XCTestCase {
 
         do {
             _ = try await runner.send(
-                "How much disk is used?",
+                "Please handle the setup issue.",
                 in: ChatThread(mode: .auto),
                 workspaceRoot: root
             )
@@ -302,6 +362,68 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.shell.run") }.count, 3)
         XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
+    }
+
+    func testAgentRecoversProviderEmptyShellArgumentsFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: EmptyArgumentsThenSayLLMClient(
+            finalMessage: "Done after checking disk usage."
+        ))
+
+        let result = try await runner.send(
+            "How much hd is used?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), expectedDiskUsageCommand)
+        XCTAssertNoAssistantMessageContains("No shell command was specified", in: result)
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after checking disk usage.")
+    }
+
+    func testAgentRecoversProviderEmptyOpenClawArgumentsFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: EmptyArgumentsThenSayLLMClient(
+            finalMessage: "Done after checking OpenClaw."
+        ))
+
+        let result = try await runner.send(
+            "Do you have openclaw?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), expectedOpenClawDiscoveryCommand)
+        XCTAssertNoAssistantMessageContains("No shell command was specified", in: result)
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after checking OpenClaw.")
+    }
+
+    func testAgentRecoversProviderEmptyFileWriteArgumentsFromUserIntent() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(
+            llm: EmptyArgumentsThenSayLLMClient(finalMessage: "Created it."),
+            safety: AlwaysApprovingSafetyReviewer()
+        )
+
+        let result = try await runner.send(
+            "Create a file named notes/hello.txt that says hello world",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let written = try String(
+            contentsOf: root.appendingPathComponent("notes/hello.txt"),
+            encoding: .utf8
+        )
+        XCTAssertEqual(written, "hello world\n")
+        XCTAssertNoAssistantMessageContains("No shell command was specified", in: result)
+        XCTAssertEqual(result.thread.messages.last?.content, "Created it.")
     }
 
     func testAgentRedactsEnvironmentValuesInQueuedToolEventButExecutesRawValues() async throws {
@@ -373,5 +495,34 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.diff") }.count, 3)
         XCTAssertTrue(result.toolResults[1].stdout.contains("+new"), result.toolResults[1].stdout)
         XCTAssertEqual(result.thread.messages.last?.content, "Patch applied. Review the resulting diff below.")
+    }
+}
+
+private struct EmptyArgumentsThenSayLLMClient: LLMClient {
+    private let state: EmptyArgumentsThenSayState
+
+    init(finalMessage: String) {
+        self.state = EmptyArgumentsThenSayState(finalMessage: finalMessage)
+    }
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        try await state.next()
+    }
+}
+
+private actor EmptyArgumentsThenSayState {
+    private var shouldThrow = true
+    private let finalMessage: String
+
+    init(finalMessage: String) {
+        self.finalMessage = finalMessage
+    }
+
+    func next() throws -> AgentAction {
+        if shouldThrow {
+            shouldThrow = false
+            throw TrustedRouterAgentError.emptyToolArguments(ToolDefinition.shellRun.name)
+        }
+        return .say(finalMessage)
     }
 }

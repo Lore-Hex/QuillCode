@@ -10,7 +10,7 @@ enum SlashSkillCommandPlanner {
     /// The command names that trigger skill loading.
     static func supports(_ name: String) -> Bool {
         switch name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "skill", "skills":
+        case "skill":
             return true
         default:
             return false
@@ -24,7 +24,10 @@ enum SlashSkillCommandPlanner {
     static func agentPrompt(for argument: String) -> String? {
         let name = bareSkillName(from: argument)
         guard !name.isEmpty else { return nil }
-        return "Load the `\(name)` skill with host.skill.load, then follow its instructions."
+        return """
+        Load the `\(name)` skill now by calling host.skill.load with arguments {"name":"\(name)"}, \
+        then follow its instructions.
+        """
     }
 
     static let usage = "Usage: /skill name (for example /skill code-review)"

@@ -19,7 +19,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         let surface = model.surface()
 
         XCTAssertEqual(surface.topBar.modelLabel, "acme/Code Pro")
-        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding"])
+        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding", "minimax"])
         let recommended = surface.topBar.modelCategories.first { $0.category == "Recommended" }
         XCTAssertEqual(
             recommended?.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id),
@@ -147,18 +147,26 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         XCTAssertEqual(defaultOption.detailTitle, "Nike 1.0")
         XCTAssertEqual(
             defaultOption.capabilitySummary,
-            "Nike 1.0 is the fast default for everyday coding, shell, and file-editing turns."
+            "text -> text, tool call · fast, coding, shell, file editing"
         )
         XCTAssertTrue(defaultOption.metadataDetails.contains("Provider: trustedrouter"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Model ID: trustedrouter/fast"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Category: Recommended"))
-        XCTAssertEqual(defaultOption.metadataRows.map(\.label), ["Provider", "Model ID", "Category", "State"])
+        XCTAssertTrue(defaultOption.metadataDetails.contains("Modalities: text -> text, tool call"))
+        XCTAssertTrue(defaultOption.metadataDetails.contains("Capabilities: fast, coding, shell, file editing"))
+        XCTAssertEqual(
+            defaultOption.metadataRows.map(\.label),
+            ["Provider", "Model ID", "Category", "Modalities", "Capabilities", "State"]
+        )
         XCTAssertEqual(defaultOption.metadataRows.first { $0.label == "State" }?.value, "Default, Recommended")
 
         XCTAssertEqual(filteredModelIDs(in: topBar, matching: "moon k2"), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").first?.category, "Recent")
         XCTAssertEqual(filteredModelIDs(in: topBar, matching: "nike default"), [TrustedRouterDefaults.defaultModel])
         XCTAssertEqual(filteredModelIDs(in: topBar, matching: "default state"), [TrustedRouterDefaults.defaultModel])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "shell file editing"), [TrustedRouterDefaults.defaultModel])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "freedom oss coding"), [TrustedRouterDefaults.platoModel])
+        XCTAssertEqual(filteredModelIDs(in: topBar, matching: "minimax"), [TrustedRouterDefaults.minimaxM3Model])
     }
 
     func testModelPickerShowsFavoriteModelsBeforeRecent() throws {

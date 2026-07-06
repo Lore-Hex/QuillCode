@@ -3,8 +3,16 @@ import Foundation
 enum SlashWorkspaceCommandParser {
     static func supports(_ name: String) -> Bool {
         switch normalizedName(name) {
-        case "browser", "preview",
-             "diff", "changes",
+        case "search", "find",
+             "focus", "composer", "input",
+             "sidebar", "toggle-sidebar",
+             "settings", "preferences", "prefs",
+             "shortcuts", "keyboard-shortcuts", "keys",
+             "commands", "command-palette", "palette",
+             "extensions", "plugins", "skills",
+             "automations", "activity",
+             "browser", "preview",
+             "review", "diff", "changes",
              "git-status", "gitstatus",
              "git",
              "init", "init-project",
@@ -18,9 +26,29 @@ enum SlashWorkspaceCommandParser {
 
     static func parse(name: String, argument: String = "") -> SlashCommand {
         switch normalizedName(name) {
+        case "focus", "composer", "input":
+            return .workspaceCommand("focus-composer")
+        case "sidebar", "toggle-sidebar":
+            return .workspaceCommand("toggle-sidebar")
+        case "search":
+            return .workspaceCommand("search")
+        case "find":
+            return .workspaceCommand("find-in-chat")
+        case "settings", "preferences", "prefs":
+            return .workspaceCommand("settings")
+        case "shortcuts", "keyboard-shortcuts", "keys":
+            return .workspaceCommand("keyboard-shortcuts")
+        case "commands", "command-palette", "palette":
+            return .workspaceCommand("command-palette")
+        case "extensions", "plugins", "skills":
+            return .workspaceCommand("toggle-extensions")
+        case "automations":
+            return .workspaceCommand("toggle-automations")
+        case "activity":
+            return .workspaceCommand("toggle-activity")
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
-        case "diff", "changes":
+        case "review", "diff", "changes":
             return .workspaceCommand("git-diff")
         case "git-status", "gitstatus":
             return .workspaceCommand("git-status")

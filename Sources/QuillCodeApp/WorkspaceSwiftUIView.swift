@@ -77,7 +77,6 @@ public struct QuillCodeWorkspaceView: View {
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
         onExportConversationMarkdown: @escaping (String, String) -> Void = { _, _ in },
         onRevertTurn: @escaping (UUID) -> Void = { _ in },
-        onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onDeleteFollowUp: @escaping (UUID) -> Void = { _ in },
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onOpenAttentionDigest: @escaping (UUID) -> Void = { _ in },
@@ -132,7 +131,6 @@ public struct QuillCodeWorkspaceView: View {
             onCopyTranscriptItem: onCopyTranscriptItem,
             onExportConversationMarkdown: onExportConversationMarkdown,
             onRevertTurn: onRevertTurn,
-            onMessageFeedback: onMessageFeedback,
             onDeleteFollowUp: onDeleteFollowUp,
             onSaveSidebarSavedSearch: onSaveSidebarSavedSearch,
             onOpenAttentionDigest: onOpenAttentionDigest,
@@ -181,7 +179,7 @@ public struct QuillCodeWorkspaceView: View {
                     onSetMode: actions.onSetMode,
                     onSetModel: actions.onSetModel,
                     onToggleModelFavorite: actions.onToggleModelFavorite,
-                    onSend: actions.onSend,
+                    onSend: handleComposerSend,
                     onRunTerminalCommand: actions.onRunTerminalCommand,
                     onTerminalHistoryPrevious: actions.onTerminalHistoryPrevious,
                     onTerminalHistoryNext: actions.onTerminalHistoryNext,
@@ -201,7 +199,6 @@ public struct QuillCodeWorkspaceView: View {
                     onAddReviewComment: actions.onAddReviewComment,
                     onCopyTranscriptItem: actions.onCopyTranscriptItem,
                     onRevertTurn: actions.onRevertTurn,
-                    onMessageFeedback: actions.onMessageFeedback,
                     onDeleteFollowUp: actions.onDeleteFollowUp,
                     onCommand: handleCommand
                 )
@@ -372,6 +369,43 @@ public struct QuillCodeWorkspaceView: View {
     private func retryWorktreePrunePreview() {
         worktreeDialogs.retryPrunePreview(loadPreview: actions.onPreviewWorktreePrune)
     }
+
+    private func handleComposerSend() {
+        guard case .slash(.workspaceCommand(let commandID), _) =
+            WorkspaceComposerSubmissionPlanner.plan(draft: draft),
+            Self.composerPresentedCommandIDs.contains(commandID)
+        else {
+            actions.onSend()
+            return
+        }
+
+        draft = ""
+        switch commandID {
+        case "search":
+            searchQuery = ""
+            isSearchPresented = true
+        case "find-in-chat":
+            isFindPresented = true
+        case "settings":
+            settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
+            isSettingsPresented = true
+        case "keyboard-shortcuts":
+            isKeyboardShortcutsPresented = true
+        case "command-palette":
+            commandQuery = ""
+            isCommandPalettePresented = true
+        default:
+            break
+        }
+    }
+
+    private static let composerPresentedCommandIDs: Set<String> = [
+        "find-in-chat",
+        "command-palette",
+        "keyboard-shortcuts",
+        "search",
+        "settings"
+    ]
 }
 
 extension AgentMode {

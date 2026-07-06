@@ -58,7 +58,8 @@ struct ParityFocusedSuiteManifest {
             "testSlashParserDelegatesSchedulingSubcommands"
         ]),
         Suite(fileName: "ParityModelGateTests.swift", testNames: [
-            "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
+            "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels",
+            "testTrustedRouterRecommendedModelsKeepCapabilityTaxonomy"
         ]),
         Suite(fileName: "ParityWorkspaceSecondaryPaneSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"
@@ -241,7 +242,7 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceReviewIntegrationTestsOwnModelReviewFlows"
         ]),
         Suite(fileName: "ParityWorkspaceFeedbackRuntimeIntegrationGateTests.swift", testNames: [
-            "testFocusedFeedbackAndArtifactTestsOwnSurfaceSpecificFlows",
+            "testFocusedArtifactTestsOwnSurfaceSpecificFlows",
             "testWorkspaceRuntimeIssueIntegrationTestsOwnModelRuntimeIssueFlows"
         ]),
         Suite(fileName: "ParityWorkspaceThreadCommandIntegrationGateTests.swift", testNames: [

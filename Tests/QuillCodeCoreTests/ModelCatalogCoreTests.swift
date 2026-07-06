@@ -164,6 +164,10 @@ final class ModelCatalogCoreTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("synth"), "synth")
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/synth"), "/synth")
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth"), "tr/synth")
+        XCTAssertTrue(TrustedRouterDefaults.isRetiredRawModelID("synth"))
+        XCTAssertTrue(TrustedRouterDefaults.isRetiredRawModelID("tr/synth"))
+        XCTAssertEqual(TrustedRouterDefaults.normalizedDefaultModelID("synth"), TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(TrustedRouterDefaults.normalizedDefaultModelID("tr/synth"), TrustedRouterDefaults.defaultModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/plato"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Plato 1.0"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(
@@ -186,6 +190,7 @@ final class ModelCatalogCoreTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("oss coding"), TrustedRouterDefaults.platoModel)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
+        XCTAssertEqual(TrustedRouterDefaults.minimaxM3Model, "minimax/minimax-m3")
         XCTAssertLessThan(
             TrustedRouterDefaults.modelSortKey(
                 id: TrustedRouterDefaults.fastModel,
@@ -225,6 +230,64 @@ final class ModelCatalogCoreTests: XCTestCase {
         XCTAssertFalse(catalog.contains { ["/prometheus", "tr/prometheus", "tr/fusion", "/plato", "tr/plato"].contains($0.id) })
         XCTAssertFalse(catalog.contains { $0.displayName.contains("Fusion") })
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
+    }
+
+    func testBundledRecommendedModelsCarryStableCapabilityTaxonomy() throws {
+        let catalog = TrustedRouterDefaults.normalizedModelCatalog([])
+
+        let nike = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.fastModel })
+        XCTAssertEqual(nike.capabilities.summary, "Fast everyday agent")
+        XCTAssertEqual(nike.capabilities.inputModalities, ["text"])
+        XCTAssertEqual(nike.capabilities.outputModalities, ["text", "tool call"])
+        XCTAssertEqual(nike.capabilities.capabilityTags, ["fast", "coding", "shell", "file editing"])
+
+        let plato = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.platoModel })
+        XCTAssertEqual(plato.capabilities.capabilityTags, ["freedom", "OSS", "coding agent"])
+    }
+
+    func testBundledCatalogIncludesUnbrandedProviderDiscoveryRows() throws {
+        let catalog = TrustedRouterDefaults.normalizedModelCatalog([])
+        let minimax = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.minimaxM3Model })
+
+        XCTAssertEqual(minimax.provider, "minimax")
+        XCTAssertEqual(minimax.displayName, "MiniMax M3")
+        XCTAssertEqual(minimax.category, "minimax")
+        XCTAssertNil(TrustedRouterDefaults.recommendedRank(for: minimax.id))
+    }
+
+    func testLiveRecommendedModelCapabilitiesBackfillCuratedTaxonomy() throws {
+        let catalog = TrustedRouterDefaults.normalizedModelCatalog([
+            .init(
+                id: "tr/fast",
+                provider: "tr",
+                displayName: "Fast",
+                category: "Recommended",
+                capabilities: ModelCapabilities(
+                    contextWindowTokens: 256_000,
+                    inputPricePerMillionTokens: 0.05,
+                    outputPricePerMillionTokens: 0.2,
+                    inputModalities: ["audio"],
+                    outputModalities: ["json"],
+                    capabilityTags: ["low latency"],
+                    status: "available",
+                    summary: "Live fast model"
+                )
+            )
+        ])
+
+        let nike = try XCTUnwrap(catalog.first { $0.id == TrustedRouterDefaults.fastModel })
+        XCTAssertEqual(nike.displayName, TrustedRouterDefaults.fastModelDisplayName)
+        XCTAssertEqual(nike.capabilities.summary, "Live fast model")
+        XCTAssertEqual(nike.capabilities.contextWindowTokens, 256_000)
+        XCTAssertEqual(nike.capabilities.inputPricePerMillionTokens, 0.05)
+        XCTAssertEqual(nike.capabilities.outputPricePerMillionTokens, 0.2)
+        XCTAssertEqual(nike.capabilities.inputModalities, ["text", "audio"])
+        XCTAssertEqual(nike.capabilities.outputModalities, ["text", "tool call", "json"])
+        XCTAssertEqual(
+            nike.capabilities.capabilityTags,
+            ["fast", "coding", "shell", "file editing", "low latency"]
+        )
+        XCTAssertEqual(nike.capabilities.status, "available")
     }
 
     func testModelCatalogStatusLabelsFreshStaleAndFallbackStates() {

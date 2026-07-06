@@ -65,6 +65,10 @@ test('mock harness searches and selects models from the composer', async ({ page
   await page.getByTestId('model-search').fill('not-a-model');
   await expect(page.getByTestId('model-result-count')).toHaveText('0 models for "not-a-model"');
   await expect(page.getByTestId('model-empty')).toBeVisible();
+  await expect(page.getByTestId('model-empty-title')).toHaveText('No bundled model matches');
+  await expect(page.getByTestId('model-empty-detail'))
+    .toContainText('Sign in or refresh TrustedRouter to search live provider models for "not-a-model"');
+  await expect(page.getByTestId('model-empty-footnote')).toContainText('built-in recommended models');
   await page.getByTestId('model-clear-search').first().click();
   await expect(page.getByTestId('model-search')).toBeFocused();
   await expect(page.getByTestId('model-result-count')).toHaveText('10 models available');
