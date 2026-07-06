@@ -41,7 +41,7 @@ extension QuillCodeWorkspaceModel {
             projectRoot: projectRoot,
             baseBranch: baseBranch,
             name: name,
-            existingBranches: [baseBranch]
+            existingBranches: existingLocalBranches(projectRoot: projectRoot, fallback: baseBranch)
         )
         let result = runToolCall(
             WorkspaceWorktreeToolCallPlanner.create(request),
@@ -51,6 +51,30 @@ extension QuillCodeWorkspaceModel {
         let threadID = newChat(projectID: project.id)
         bindSelectedThreadToWorktree(path: worktreePath, branch: request.branch, base: baseBranch)
         return threadID
+    }
+
+    /// The local branch names, so the planner picks a collision-free branch even when earlier
+    /// worktree threads already claimed `quill/<slug>`. Passing only the base branch (as before) let
+    /// two `/new-worktree experiment` calls both plan `quill/experiment`, and the second git worktree
+    /// create failed on the already-existing branch. Best-effort: any git failure falls back to the
+    /// base branch alone (the prior behavior).
+    private func existingLocalBranches(projectRoot: URL, fallback baseBranch: String) -> [String] {
+        let call = ToolCall(
+            name: ToolDefinition.gitBranchList.name,
+            argumentsJSON: ToolArguments.json(["includeRemote": false])
+        )
+        let result = runToolCall(call, workspaceRoot: projectRoot)
+        guard result.ok else { return [baseBranch] }
+        // Each line is "%(HEAD)\t%(refname:short)\t%(upstream:short)"; field 1 is the branch name.
+        let names = result.stdout
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .compactMap { line -> String? in
+                let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
+                guard fields.count >= 2 else { return nil }
+                let name = fields[1].trimmingCharacters(in: .whitespaces)
+                return name.isEmpty ? nil : name
+            }
+        return names.isEmpty ? [baseBranch] : names
     }
 
     private func selectedProjectBranch(_ project: ProjectRef) -> String? {
