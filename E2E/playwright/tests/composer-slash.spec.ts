@@ -126,6 +126,13 @@ test('mock harness opens utility surfaces from composer slash commands', async (
   await expect(message).toHaveValue('');
   await page.getByTestId('settings-cancel').click();
 
+  await message.fill('/computer-use');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await expect(page.getByTestId('computer-use-settings')).toBeVisible();
+  await expect(message).toHaveValue('');
+  await page.getByTestId('settings-cancel').click();
+
   await message.fill('/shortcuts');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
@@ -182,6 +189,11 @@ test('mock harness routes control slash commands through existing stop and retry
   await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.shell.run' })).toHaveCount(shellCardCount + 1);
   await expect(page.getByTestId('message').last()).toContainText('mock-user');
   await expect(page.getByTestId('message').filter({ hasText: '/retry' })).toHaveCount(1);
+
+  await message.fill('/disconnect');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('agent-status')).toContainText('Stopped');
+  await expect(page.getByTestId('message').last()).toContainText('/disconnect');
 });
 
 test('mock harness routes history slash commands through workspace back and forward', async ({ page }) => {

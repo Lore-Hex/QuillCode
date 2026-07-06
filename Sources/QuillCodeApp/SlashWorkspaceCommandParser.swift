@@ -5,6 +5,7 @@ enum SlashWorkspaceCommandParser {
         switch normalizedName(name) {
         case "stop", "cancel", "abort",
              "retry", "rerun", "again",
+             "disconnect", "disconnect-all",
              "back", "previous", "prev",
              "forward", "next",
              "history",
@@ -14,6 +15,7 @@ enum SlashWorkspaceCommandParser {
              "copy", "copy-conversation",
              "export", "export-markdown", "export-conversation-markdown",
              "settings", "preferences", "prefs",
+             "computer-use",
              "shortcuts", "keyboard-shortcuts", "keys",
              "commands", "command-palette", "palette",
              "extensions", "plugins", "skills",
@@ -37,6 +39,8 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("stop-all")
         case "retry", "rerun", "again":
             return .workspaceCommand("retry-last-turn")
+        case "disconnect", "disconnect-all":
+            return .workspaceCommand("disconnect-all")
         case "back", "previous", "prev":
             return .workspaceCommand("workspace-back")
         case "forward", "next":
@@ -57,6 +61,8 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("find-in-chat")
         case "settings", "preferences", "prefs":
             return .workspaceCommand("settings")
+        case "computer-use":
+            return .workspaceCommand("computer-use-setup")
         case "shortcuts", "keyboard-shortcuts", "keys":
             return .workspaceCommand("keyboard-shortcuts")
         case "commands", "command-palette", "palette":

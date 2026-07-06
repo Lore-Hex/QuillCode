@@ -9,6 +9,9 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("find"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("settings"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preferences"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("computer-use"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("disconnect"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("disconnect-all"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("shortcuts"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("keyboard-shortcuts"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("commands"))
@@ -46,8 +49,17 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "keyboard-shortcuts"), .workspaceCommand("keyboard-shortcuts"))
         XCTAssertEqual(SlashCommandParser.parse("/settings"), .workspaceCommand("settings"))
         XCTAssertEqual(SlashCommandParser.parse("/prefs"), .workspaceCommand("settings"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "computer-use"), .workspaceCommand("computer-use-setup"))
+        XCTAssertEqual(SlashCommandParser.parse("/computer-use"), .workspaceCommand("computer-use-setup"))
         XCTAssertEqual(SlashCommandParser.parse("/shortcuts"), .workspaceCommand("keyboard-shortcuts"))
         XCTAssertEqual(SlashCommandParser.parse("/keys"), .workspaceCommand("keyboard-shortcuts"))
+    }
+
+    func testDisconnectAliasesRunExistingDisconnectAllCommand() {
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "disconnect"), .workspaceCommand("disconnect-all"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "disconnect-all"), .workspaceCommand("disconnect-all"))
+        XCTAssertEqual(SlashCommandParser.parse("/disconnect"), .workspaceCommand("disconnect-all"))
+        XCTAssertEqual(SlashCommandParser.parse("/disconnect-all"), .workspaceCommand("disconnect-all"))
     }
 
     func testCommandPaletteAliasesOpenExistingWorkspaceCommand() {
