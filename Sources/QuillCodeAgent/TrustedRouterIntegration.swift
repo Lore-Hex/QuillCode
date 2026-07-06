@@ -35,14 +35,6 @@ public struct TrustedRouterModelCatalog: Sendable {
     public static func normalized(_ models: [QuillCodeCore.ModelInfo]) -> [QuillCodeCore.ModelInfo] {
         TrustedRouterDefaults.normalizedModelCatalog(models)
     }
-
-    public static func sortModels(_ lhs: QuillCodeCore.ModelInfo, _ rhs: QuillCodeCore.ModelInfo) -> Bool {
-        TrustedRouterDefaults.compareModels(lhs, rhs)
-    }
-
-    public static func categoryRank(_ category: String) -> Int {
-        TrustedRouterDefaults.modelCategoryRank(category)
-    }
 }
 
 public struct TrustedRouterModelCatalogClient: Sendable {
