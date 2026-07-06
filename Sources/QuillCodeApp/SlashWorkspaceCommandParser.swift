@@ -4,6 +4,8 @@ enum SlashWorkspaceCommandParser {
     static func supports(_ name: String) -> Bool {
         switch normalizedName(name) {
         case "search", "find",
+             "focus", "composer", "input",
+             "sidebar", "toggle-sidebar",
              "settings", "preferences", "prefs",
              "shortcuts", "keyboard-shortcuts", "keys",
              "commands", "command-palette", "palette",
@@ -24,6 +26,10 @@ enum SlashWorkspaceCommandParser {
 
     static func parse(name: String, argument: String = "") -> SlashCommand {
         switch normalizedName(name) {
+        case "focus", "composer", "input":
+            return .workspaceCommand("focus-composer")
+        case "sidebar", "toggle-sidebar":
+            return .workspaceCommand("toggle-sidebar")
         case "search":
             return .workspaceCommand("search")
         case "find":

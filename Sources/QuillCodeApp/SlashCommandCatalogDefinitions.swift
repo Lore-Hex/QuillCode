@@ -190,6 +190,18 @@ extension SlashCommandCatalog {
             aliases: ["find in chat", "transcript find"]
         ),
         slashDefinition(
+            "/focus",
+            "Focus message input",
+            "Move keyboard focus back to the composer.",
+            aliases: ["composer", "input", "message input"]
+        ),
+        slashDefinition(
+            "/sidebar",
+            "Toggle sidebar",
+            "Show or hide the chat and project sidebar.",
+            aliases: ["toggle sidebar", "hide sidebar", "show sidebar"]
+        ),
+        slashDefinition(
             "/settings",
             "Settings",
             "Open TrustedRouter, Computer Use, browser, and notification settings.",

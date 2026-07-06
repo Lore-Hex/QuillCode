@@ -4972,6 +4972,8 @@
       { usage: '/terminal clear', title: 'Clear terminal history', detail: 'Clear completed integrated-terminal history without resetting cwd or environment.', insertText: '/terminal clear', aliases: ['term clear', 'shell clear'] },
       { usage: '/search', title: 'Search chats', detail: 'Open global search across thread titles, transcript text, tools, models, and pinned or archived state.', insertText: '/search', aliases: ['global search', 'chat search'] },
       { usage: '/find', title: 'Find in chat', detail: 'Open the active chat finder with result count and next/previous navigation.', insertText: '/find', aliases: ['find in chat', 'transcript find'] },
+      { usage: '/focus', title: 'Focus message input', detail: 'Move keyboard focus back to the composer.', insertText: '/focus', aliases: ['composer', 'input', 'message input'] },
+      { usage: '/sidebar', title: 'Toggle sidebar', detail: 'Show or hide the chat and project sidebar.', insertText: '/sidebar', aliases: ['toggle sidebar', 'hide sidebar', 'show sidebar'] },
       { usage: '/settings', title: 'Settings', detail: 'Open TrustedRouter, Computer Use, browser, and notification settings.', insertText: '/settings', aliases: ['preferences', 'prefs'] },
       { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
       { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
@@ -10570,10 +10572,14 @@
     }
 
     function focusComposerAtDraftEnd() {
-      const input = document.querySelector('[data-testid="composer"] textarea');
-      input?.focus();
-      input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
-      resizeComposerInput(input);
+      const focus = () => {
+        const input = document.querySelector('[data-testid="composer"] textarea');
+        input?.focus();
+        input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+        resizeComposerInput(input);
+      };
+      focus();
+      requestAnimationFrame(focus);
     }
 
     function transcriptTimelineSearchText(item) {
@@ -13379,7 +13385,8 @@
         return;
       }
       if (commandID === 'focus-composer') {
-        document.getElementById('message')?.focus();
+        render();
+        focusComposerAtDraftEnd();
         return;
       }
       if (commandID === 'thread-rename') {
@@ -15965,7 +15972,32 @@
         render();
         return;
       }
+      if (runInstantViewSlashCommand(text)) return;
       startMockAgentTurn(text);
+    }
+
+    function runInstantViewSlashCommand(text) {
+      const commandID = /^\/(focus|composer|input)\b/i.test(text)
+        ? 'focus-composer'
+        : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
+          ? 'toggle-sidebar'
+          : null;
+      if (!commandID) return false;
+      ensureThread(initialThreadTitleForPrompt(text));
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+      state.runtimeIssue = null;
+      state.composer.isSending = false;
+      state.topBar.agentStatus = 'Idle';
+      addMessage('user', text);
+      touchSelectedThread();
+      runCommand(commandID);
+      syncSelectedThreadSearchText();
+      return true;
     }
 
     function startMockAgentTurn(text) {
@@ -16186,6 +16218,18 @@
       } else if (/^\/(find)\b/i.test(text)) {
         state.composer.isSending = false;
         openFindInChat();
+        return;
+      } else if (/^\/(focus|composer|input)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.topBar.agentStatus = 'Idle';
+        shouldFinishMockAgentTurn = false;
+        runCommand('focus-composer');
+        return;
+      } else if (/^\/(sidebar|toggle-sidebar)\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.topBar.agentStatus = 'Idle';
+        shouldFinishMockAgentTurn = false;
+        runCommand('toggle-sidebar');
         return;
       } else if (/^\/(settings|preferences|prefs)\b/i.test(text)) {
         state.composer.isSending = false;

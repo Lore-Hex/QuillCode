@@ -105,6 +105,21 @@ test('mock harness opens utility surfaces from composer slash commands', async (
   await page.goto(harnessURL());
 
   const message = page.getByLabel('Message');
+  await message.fill('/focus');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(message).toBeFocused();
+  await expect(message).toHaveValue('');
+
+  await message.fill('/sidebar');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar')).toHaveCount(0);
+  await expect(message).toHaveValue('');
+
+  await message.fill('/sidebar');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar')).toBeVisible();
+  await expect(message).toHaveValue('');
+
   await message.fill('/settings');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('settings-panel')).toBeVisible();
