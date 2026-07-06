@@ -23,6 +23,7 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("git-status"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("git"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("history"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("branch"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("branches"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("worktree"))
@@ -84,6 +85,18 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/git"), .workspaceCommand("git-status"))
         XCTAssertEqual(SlashCommandParser.parse("/git status"), .workspaceCommand("git-status"))
         XCTAssertEqual(SlashCommandParser.parse("/git diff"), .workspaceCommand("git-diff"))
+    }
+
+    func testHistoryCommandRoutesBackAndForward() {
+        XCTAssertEqual(SlashCommandParser.parse("/back"), .workspaceCommand("workspace-back"))
+        XCTAssertEqual(SlashCommandParser.parse("/previous"), .workspaceCommand("workspace-back"))
+        XCTAssertEqual(SlashCommandParser.parse("/forward"), .workspaceCommand("workspace-forward"))
+        XCTAssertEqual(SlashCommandParser.parse("/next"), .workspaceCommand("workspace-forward"))
+        XCTAssertEqual(SlashCommandParser.parse("/history back"), .workspaceCommand("workspace-back"))
+        XCTAssertEqual(SlashCommandParser.parse("/history previous"), .workspaceCommand("workspace-back"))
+        XCTAssertEqual(SlashCommandParser.parse("/history forward"), .workspaceCommand("workspace-forward"))
+        XCTAssertEqual(SlashCommandParser.parse("/history next"), .workspaceCommand("workspace-forward"))
+        XCTAssertEqual(SlashCommandParser.parse("/history"), .invalid("Try /history back or /history forward."))
     }
 
     func testGitFetchAndPullParseStructuredToolCalls() throws {

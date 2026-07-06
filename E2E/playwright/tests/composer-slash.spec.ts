@@ -203,6 +203,14 @@ test('mock harness routes history slash commands through workspace back and forw
   await message.fill('/forward');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
+
+  await message.fill('/history back');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('message').filter({ hasText: 'whoami' })).toBeVisible();
+
+  await message.fill('/history forward');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
 });
 
 test('mock harness suggests slash commands in the composer', async ({ page }) => {

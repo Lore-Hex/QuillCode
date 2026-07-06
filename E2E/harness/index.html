@@ -4966,6 +4966,7 @@
       { usage: '/retry', title: 'Retry last turn', detail: 'Prepare the latest user request to run again.', insertText: '/retry', aliases: ['rerun', 'again', 'retry last'] },
       { usage: '/back', title: 'Go back', detail: 'Return to the previous thread or project selection in workspace history.', insertText: '/back', aliases: ['previous', 'prev', 'history back'] },
       { usage: '/forward', title: 'Go forward', detail: 'Move to the next thread or project selection in workspace history.', insertText: '/forward', aliases: ['next', 'history forward'] },
+      { usage: '/history back|forward', title: 'Navigate history', detail: 'Move through previous or next thread and project selections.', insertText: '/history ', aliases: ['history previous', 'history next'] },
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
       { usage: '/subagents objective | Name: role', title: 'Run subagents', detail: 'Fan out a local parallel subagent workflow and show replayable progress in Activity.', insertText: '/subagents ', aliases: ['subagent', 'parallel agents', 'agents'] },
@@ -16002,15 +16003,19 @@
           ? 'retry-last-turn'
           : /^\/(back|previous|prev)\b/i.test(text)
             ? 'workspace-back'
-            : /^\/(forward|next)\b/i.test(text)
+            : /^\/history\s+(back|previous|prev)\b/i.test(text)
+              ? 'workspace-back'
+              : /^\/(forward|next)\b/i.test(text)
               ? 'workspace-forward'
-              : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
-                ? 'toggle-sidebar'
-                : /^\/(copy|copy-conversation)\b/i.test(text)
-                  ? 'copy-conversation'
-                  : /^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)
-                    ? 'export-conversation-markdown'
-                    : null;
+                : /^\/history\s+(forward|next)\b/i.test(text)
+                  ? 'workspace-forward'
+                  : /^\/(sidebar|toggle-sidebar)\b/i.test(text)
+                    ? 'toggle-sidebar'
+                    : /^\/(copy|copy-conversation)\b/i.test(text)
+                      ? 'copy-conversation'
+                      : /^\/(export|export-markdown|export-conversation-markdown)\b/i.test(text)
+                        ? 'export-conversation-markdown'
+                        : null;
       if (!commandID) return false;
       runInstantSlashCommand(text, commandID);
       return true;
