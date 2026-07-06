@@ -43,14 +43,18 @@ public enum TriageVerdict: String, Codable, Sendable, Hashable, CaseIterable {
     /// run does not need the morning triage.
     public var needsAttention: Bool { self != .verified }
 
-    /// The badge text, matching the Run Integrity badge exactly.
-    public var badgeLabel: String {
+    /// The equivalent run-integrity verdict — the single source for badge text, so "matches the Run
+    /// Integrity badge exactly" is structural, not a hand-synced string table.
+    public var runIntegrityVerdict: RunIntegrityVerdict {
         switch self {
-        case .red: return "RED"
-        case .unverified: return "UNVERIFIED"
-        case .verified: return "VERIFIED"
+        case .red: return .red
+        case .unverified: return .unverified
+        case .verified: return .verified
         }
     }
+
+    /// The badge text, delegated to the Run Integrity badge so the two can never drift.
+    public var badgeLabel: String { runIntegrityVerdict.badgeLabel }
 
     public init(_ verdict: RunIntegrityVerdict) {
         switch verdict {

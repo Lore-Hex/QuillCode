@@ -43,7 +43,7 @@ public struct RunSpendLedger: Sendable, Hashable {
 
     public var blocksNextRun: Bool {
         guard let fuseUSD else { return false }
-        return totalUSD + Self.epsilon >= fuseUSD
+        return totalUSD + Self.spendComparisonEpsilon >= fuseUSD
     }
 
     public var summary: RunSpendFuseSummary {
@@ -97,7 +97,9 @@ public struct RunSpendLedger: Sendable, Hashable {
         "\(value) \(singular)\(value == 1 ? "" : "s")"
     }
 
-    private static let epsilon = 0.000_000_001
+    /// Tolerance for the "spend has reached the fuse" float comparison. Shared with
+    /// `RunSpendFusePolicy` so the ledger's `blocksNextRun` and the policy's bucket math never drift.
+    static let spendComparisonEpsilon = 0.000_000_001
 }
 
 public struct RunSpendReceipt: Sendable, Hashable {
