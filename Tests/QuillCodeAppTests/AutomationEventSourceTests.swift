@@ -78,6 +78,53 @@ final class AutomationEventSourceTests: XCTestCase {
         XCTAssertNil(source.pendingEvent(since: nil))
     }
 
+    func testURLFeedUpdateEventSourceFiresForNewerFeedTimestamp() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/feed.xml"))
+        let updatedAt = Date(timeIntervalSince1970: 300)
+        let source = URLFeedUpdateEventSource(url: url, latestDate: { _ in updatedAt })
+
+        XCTAssertEqual(
+            source.pendingEvent(since: Date(timeIntervalSince1970: 299)),
+            "https://example.com/feed.xml feed updated"
+        )
+        XCTAssertNil(source.pendingEvent(since: updatedAt))
+    }
+
+    func testURLFeedUpdateEventSourceStaysQuietWithoutFeedTimestamp() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/feed.xml"))
+        let source = URLFeedUpdateEventSource(url: url, latestDate: { _ in nil })
+
+        XCTAssertNil(source.pendingEvent(since: nil))
+    }
+
+    func testURLFeedUpdateEventSourceParsesRSSAndAtomDates() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/feed.xml"))
+        let rssSource = URLFeedUpdateEventSource(url: url, latestDate: { _ in
+            URLFeedUpdateEventSource.defaultLatestDate(
+                in: """
+                <rss><channel>
+                  <item><pubDate>Mon, 06 Jul 2026 16:00:00 GMT</pubDate></item>
+                  <item><pubDate>Mon, 06 Jul 2026 17:00:00 GMT</pubDate></item>
+                </channel></rss>
+                """
+            )
+        })
+        let atomSource = URLFeedUpdateEventSource(url: url, latestDate: { _ in
+            URLFeedUpdateEventSource.defaultLatestDate(
+                in: """
+                <feed xmlns="http://www.w3.org/2005/Atom">
+                  <entry><updated>2026-07-06T18:30:00Z</updated></entry>
+                </feed>
+                """
+            )
+        })
+
+        XCTAssertNotNil(rssSource.pendingEvent(since: Date(timeIntervalSince1970: 0)))
+        XCTAssertNotNil(atomSource.pendingEvent(since: Date(timeIntervalSince1970: 0)))
+        let atomDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-07-06T18:30:00Z"))
+        XCTAssertNil(atomSource.pendingEvent(since: atomDate))
+    }
+
     func testFileChangeResolverAllowsAbsolutePathsWithoutProject() {
         let url = AutomationEventSourceResolver.fileChangeURL(
             for: "/tmp/quillcode/watch.log",
@@ -141,6 +188,20 @@ final class AutomationEventSourceTests: XCTestCase {
         XCTAssertNil(AutomationEventSourceResolver.urlLastModifiedURL(for: "https://"))
     }
 
+    func testURLFeedUpdateResolverAllowsHTTPAndHTTPSOnly() {
+        XCTAssertEqual(
+            AutomationEventSourceResolver.urlFeedUpdateURL(for: " https://example.com/feed.xml ")?.absoluteString,
+            "https://example.com/feed.xml"
+        )
+        XCTAssertEqual(
+            AutomationEventSourceResolver.urlFeedUpdateURL(for: "http://localhost/feed.xml")?.absoluteString,
+            "http://localhost/feed.xml"
+        )
+        XCTAssertNil(AutomationEventSourceResolver.urlFeedUpdateURL(for: "file:///tmp/feed.xml"))
+        XCTAssertNil(AutomationEventSourceResolver.urlFeedUpdateURL(for: "example.com/feed.xml"))
+        XCTAssertNil(AutomationEventSourceResolver.urlFeedUpdateURL(for: "https://"))
+    }
+
     func testResolverBuildsURLLastModifiedSource() {
         let source = AutomationEventSourceResolver.eventSource(
             for: QuillAutomationEventSource(
@@ -151,5 +212,17 @@ final class AutomationEventSourceTests: XCTestCase {
         )
 
         XCTAssertTrue(source is URLLastModifiedEventSource)
+    }
+
+    func testResolverBuildsURLFeedUpdateSource() {
+        let source = AutomationEventSourceResolver.eventSource(
+            for: QuillAutomationEventSource(
+                kind: .urlFeedUpdate,
+                path: "https://example.com/feed.xml"
+            ),
+            project: nil
+        )
+
+        XCTAssertTrue(source is URLFeedUpdateEventSource)
     }
 }

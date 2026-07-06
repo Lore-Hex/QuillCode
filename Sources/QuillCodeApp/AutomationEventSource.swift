@@ -20,6 +20,7 @@ public protocol AutomationEventSource: Sendable {
 
 public typealias FileModificationDateProvider = @Sendable (URL) -> Date?
 public typealias URLLastModifiedDateProvider = @Sendable (URL) -> Date?
+public typealias URLFeedLatestDateProvider = @Sendable (URL) -> Date?
 
 /// Fires when a watched file appears or is modified after the last check.
 public struct FileChangeEventSource: AutomationEventSource {
@@ -154,6 +155,47 @@ public struct URLLastModifiedEventSource: AutomationEventSource {
     }
 }
 
+/// Fires when a bounded RSS or Atom feed contains a published/updated timestamp
+/// newer than the monitor's last run. Feeds without parseable item timestamps
+/// stay quiet rather than repeatedly firing on reachability alone.
+public struct URLFeedUpdateEventSource: AutomationEventSource {
+    public var url: URL
+    private let latestDate: URLFeedLatestDateProvider
+
+    public init(
+        url: URL,
+        latestDate: @escaping URLFeedLatestDateProvider = Self.defaultLatestDate
+    ) {
+        self.url = url
+        self.latestDate = latestDate
+    }
+
+    public func pendingEvent(since: Date?) -> String? {
+        guard let latest = latestDate(url) else {
+            return nil
+        }
+        if let since, latest <= since {
+            return nil
+        }
+        return "\(url.absoluteString) feed updated"
+    }
+
+    @usableFromInline
+    static func defaultLatestDate(for url: URL) -> Date? {
+        guard let data = BoundedHTTPFetcher.fetch(url: url, method: "GET", byteLimit: 512 * 1024),
+              let xml = String(data: data, encoding: .utf8)
+                ?? String(data: data, encoding: .ascii)
+        else {
+            return nil
+        }
+        return defaultLatestDate(in: xml)
+    }
+
+    static func defaultLatestDate(in xml: String) -> Date? {
+        FeedTimestampParser.latestDate(in: xml)
+    }
+}
+
 enum AutomationEventSourceResolver {
     static func eventSource(
         for definition: QuillAutomationEventSource,
@@ -166,10 +208,15 @@ enum AutomationEventSourceResolver {
             }
             return FileChangeEventSource(path: url)
         case .urlLastModified:
-            guard let url = urlLastModifiedURL(for: definition.path) else {
+            guard let url = httpURL(for: definition.path) else {
                 return nil
             }
             return URLLastModifiedEventSource(url: url)
+        case .urlFeedUpdate:
+            guard let url = httpURL(for: definition.path) else {
+                return nil
+            }
+            return URLFeedUpdateEventSource(url: url)
         }
     }
 
@@ -189,6 +236,14 @@ enum AutomationEventSourceResolver {
     }
 
     static func urlLastModifiedURL(for rawURL: String) -> URL? {
+        httpURL(for: rawURL)
+    }
+
+    static func urlFeedUpdateURL(for rawURL: String) -> URL? {
+        httpURL(for: rawURL)
+    }
+
+    private static func httpURL(for rawURL: String) -> URL? {
         let trimmed = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.contains("\0"),
               let url = URL(string: trimmed),
@@ -209,5 +264,151 @@ enum AutomationEventSourceResolver {
         }
         let prefix = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
         return candidatePath.hasPrefix(prefix)
+    }
+}
+
+private enum BoundedHTTPFetcher {
+    static func fetch(url: URL, method: String, byteLimit: Int) -> Data? {
+        let delegate = Delegate(byteLimit: byteLimit)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 8
+        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        configuration.urlCache = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+        defer { session.invalidateAndCancel() }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 8
+
+        let task = session.dataTask(with: request)
+        task.resume()
+        let deadline = DispatchTime.now() + 10
+        guard delegate.completionSemaphore.wait(timeout: deadline) == .success else {
+            task.cancel()
+            return nil
+        }
+        return delegate.result()
+    }
+
+    private final class Delegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+        let completionSemaphore = DispatchSemaphore(value: 0)
+
+        private let byteLimit: Int
+        private let lock = NSLock()
+        private var response: HTTPURLResponse?
+        private var body = Data()
+        private var exceededLimit = false
+
+        init(byteLimit: Int) {
+            self.byteLimit = byteLimit
+        }
+
+        func result() -> Data? {
+            lock.lock()
+            defer { lock.unlock() }
+            guard let response,
+                  (200..<400).contains(response.statusCode),
+                  !exceededLimit
+            else {
+                return nil
+            }
+            return body
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            completionHandler(nil)
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            dataTask: URLSessionDataTask,
+            didReceive response: URLResponse,
+            completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+        ) {
+            lock.lock()
+            self.response = response as? HTTPURLResponse
+            lock.unlock()
+            completionHandler(.allow)
+        }
+
+        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !exceededLimit else { return }
+            if body.count + data.count > byteLimit {
+                exceededLimit = true
+                dataTask.cancel()
+                return
+            }
+            body.append(data)
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            completionSemaphore.signal()
+        }
+    }
+}
+
+private enum FeedTimestampParser {
+    static func latestDate(in xml: String) -> Date? {
+        timestampValues(in: xml)
+            .compactMap(parseDate)
+            .max()
+    }
+
+    private static func timestampValues(in xml: String) -> [String] {
+        let pattern = #"<(?:[A-Za-z0-9_]+:)?(updated|published|pubDate|lastBuildDate)\b[^>]*>(.*?)</(?:[A-Za-z0-9_]+:)?\1>"#
+        guard let expression = try? NSRegularExpression(
+            pattern: pattern,
+            options: [.caseInsensitive, .dotMatchesLineSeparators]
+        ) else {
+            return []
+        }
+        let range = NSRange(xml.startIndex..<xml.endIndex, in: xml)
+        return expression.matches(in: xml, range: range).compactMap { match in
+            guard match.numberOfRanges > 2,
+                  let valueRange = Range(match.range(at: 2), in: xml)
+            else {
+                return nil
+            }
+            return xml[valueRange]
+                .replacingOccurrences(of: #"<!\[CDATA\[(.*?)\]\]>"#, with: "$1", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
+    private static func parseDate(_ value: String) -> Date? {
+        if let date = ISO8601DateFormatter().date(from: value) {
+            return date
+        }
+        return rfc822Formats.lazy.compactMap { format in
+            rfc822Formatter(format: format).date(from: value)
+        }.first
+    }
+
+    private static let rfc822Formats: [String] = [
+        "EEE, dd MMM yyyy HH:mm:ss zzz",
+        "EEE, d MMM yyyy HH:mm:ss zzz",
+        "dd MMM yyyy HH:mm:ss zzz",
+        "EEE, dd MMM yyyy HH:mm zzz",
+        "EEE, dd MMM yyyy HH:mm:ss Z"
+    ]
+
+    private static func rfc822Formatter(format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = format
+        return formatter
     }
 }
