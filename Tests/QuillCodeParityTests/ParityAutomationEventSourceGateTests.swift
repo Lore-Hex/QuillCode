@@ -10,6 +10,8 @@ final class ParityAutomationEventSourceGateTests: QuillCodeParityTestCase {
         Self.assertSource(eventSourceText, containsAll: [
             "public protocol AutomationEventSource",
             "public struct FileChangeEventSource",
+            "public struct URLLastModifiedEventSource",
+            "urlLastModifiedURL",
             "enum AutomationEventSourceResolver"
         ])
         Self.assertSource(

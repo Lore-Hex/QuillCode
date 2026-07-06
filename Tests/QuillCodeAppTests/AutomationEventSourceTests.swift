@@ -56,6 +56,28 @@ final class AutomationEventSourceTests: XCTestCase {
         XCTAssertNil(source.pendingEvent(since: nil))
     }
 
+    func testURLLastModifiedEventSourceFiresForNewerHeader() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/feed.xml"))
+        let modifiedAt = Date(timeIntervalSince1970: 200)
+        let source = URLLastModifiedEventSource(
+            url: url,
+            lastModifiedDate: { _ in modifiedAt }
+        )
+
+        XCTAssertEqual(
+            source.pendingEvent(since: Date(timeIntervalSince1970: 199)),
+            "https://example.com/feed.xml Last-Modified changed"
+        )
+        XCTAssertNil(source.pendingEvent(since: modifiedAt))
+    }
+
+    func testURLLastModifiedEventSourceStaysQuietWithoutHeader() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/feed.xml"))
+        let source = URLLastModifiedEventSource(url: url, lastModifiedDate: { _ in nil })
+
+        XCTAssertNil(source.pendingEvent(since: nil))
+    }
+
     func testFileChangeResolverAllowsAbsolutePathsWithoutProject() {
         let url = AutomationEventSourceResolver.fileChangeURL(
             for: "/tmp/quillcode/watch.log",
@@ -103,5 +125,31 @@ final class AutomationEventSourceTests: XCTestCase {
             for: "logs/watch.log",
             project: project
         ))
+    }
+
+    func testURLLastModifiedResolverAllowsHTTPAndHTTPSOnly() {
+        XCTAssertEqual(
+            AutomationEventSourceResolver.urlLastModifiedURL(for: " https://example.com/feed.xml ")?.absoluteString,
+            "https://example.com/feed.xml"
+        )
+        XCTAssertEqual(
+            AutomationEventSourceResolver.urlLastModifiedURL(for: "http://localhost/status")?.absoluteString,
+            "http://localhost/status"
+        )
+        XCTAssertNil(AutomationEventSourceResolver.urlLastModifiedURL(for: "file:///tmp/watch.txt"))
+        XCTAssertNil(AutomationEventSourceResolver.urlLastModifiedURL(for: "example.com/feed.xml"))
+        XCTAssertNil(AutomationEventSourceResolver.urlLastModifiedURL(for: "https://"))
+    }
+
+    func testResolverBuildsURLLastModifiedSource() {
+        let source = AutomationEventSourceResolver.eventSource(
+            for: QuillAutomationEventSource(
+                kind: .urlLastModified,
+                path: "https://example.com/feed.xml"
+            ),
+            project: nil
+        )
+
+        XCTAssertTrue(source is URLLastModifiedEventSource)
     }
 }
