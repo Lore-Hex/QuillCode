@@ -134,6 +134,7 @@ public extension QuillCodeWorkspaceModel {
             recentThreads: root.threads,
             runtimeIssue: runtimeIssue,
             runSpendFuseUSD: root.config.runSpendFuseUSD,
+            runSpendPeriodLimits: root.config.runSpendPeriodLimits,
             canNavigateBack: navigationHistory.canGoBack,
             canNavigateForward: navigationHistory.canGoForward
         ).surface()

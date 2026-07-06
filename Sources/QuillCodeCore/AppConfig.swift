@@ -42,6 +42,31 @@ public struct TrustedRouterAccountProfile: Codable, Sendable, Hashable {
     }
 }
 
+public struct RunSpendPeriodLimits: Codable, Sendable, Hashable {
+    public var dailyUSD: Double?
+    public var weeklyUSD: Double?
+    public var monthlyUSD: Double?
+
+    public init(
+        dailyUSD: Double? = nil,
+        weeklyUSD: Double? = nil,
+        monthlyUSD: Double? = nil
+    ) {
+        self.dailyUSD = Self.normalizedLimit(dailyUSD)
+        self.weeklyUSD = Self.normalizedLimit(weeklyUSD)
+        self.monthlyUSD = Self.normalizedLimit(monthlyUSD)
+    }
+
+    public var hasAnyLimit: Bool {
+        dailyUSD != nil || weeklyUSD != nil || monthlyUSD != nil
+    }
+
+    public static func normalizedLimit(_ value: Double?) -> Double? {
+        guard let value, value.isFinite, value > 0 else { return nil }
+        return value
+    }
+}
+
 public struct AppConfig: Codable, Sendable, Hashable {
     public var defaultModel: String
     public var mode: AgentMode
@@ -56,6 +81,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var browserBlockedDomains: [String]
     public var notificationPreferences: QuillCodeNotificationPreferences
     public var runSpendFuseUSD: Double?
+    public var runSpendPeriodLimits: RunSpendPeriodLimits
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -71,6 +97,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case browserBlockedDomains
         case notificationPreferences
         case runSpendFuseUSD
+        case runSpendPeriodLimits
     }
 
     public init(
@@ -86,7 +113,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         browserAllowedDomains: [String] = [],
         browserBlockedDomains: [String] = [],
         notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
-        runSpendFuseUSD: Double? = 1.0
+        runSpendFuseUSD: Double? = 1.0,
+        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits()
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -107,6 +135,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.browserBlockedDomains = browserPolicy.blockedDomains
         self.notificationPreferences = notificationPreferences
         self.runSpendFuseUSD = Self.normalizedRunSpendFuse(runSpendFuseUSD)
+        self.runSpendPeriodLimits = runSpendPeriodLimits
     }
 
     public var browserDomainPolicy: BrowserDomainPolicy {
@@ -158,7 +187,11 @@ public struct AppConfig: Codable, Sendable, Hashable {
                 QuillCodeNotificationPreferences.self,
                 forKey: .notificationPreferences
             ) ?? QuillCodeNotificationPreferences(),
-            runSpendFuseUSD: try container.decodeIfPresent(Double.self, forKey: .runSpendFuseUSD) ?? 1.0
+            runSpendFuseUSD: try container.decodeIfPresent(Double.self, forKey: .runSpendFuseUSD) ?? 1.0,
+            runSpendPeriodLimits: try container.decodeIfPresent(
+                RunSpendPeriodLimits.self,
+                forKey: .runSpendPeriodLimits
+            ) ?? RunSpendPeriodLimits()
         )
     }
 

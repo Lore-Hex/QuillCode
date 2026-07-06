@@ -167,6 +167,49 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertFalse(stored.contains("line1\nline2"))
     }
 
+    func testConfigRoundTripsRunSpendLimits() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(
+            runSpendFuseUSD: 2.50,
+            runSpendPeriodLimits: RunSpendPeriodLimits(
+                dailyUSD: 5,
+                weeklyUSD: 12.5,
+                monthlyUSD: 30
+            )
+        )
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.runSpendFuseUSD, 2.50)
+        XCTAssertEqual(loaded.runSpendPeriodLimits.dailyUSD, 5)
+        XCTAssertEqual(loaded.runSpendPeriodLimits.weeklyUSD, 12.5)
+        XCTAssertEqual(loaded.runSpendPeriodLimits.monthlyUSD, 30)
+
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains("run_spend_fuse_usd = 2.500000"))
+        XCTAssertTrue(stored.contains("run_spend_daily_limit_usd = 5.000000"))
+        XCTAssertTrue(stored.contains("run_spend_weekly_limit_usd = 12.500000"))
+        XCTAssertTrue(stored.contains("run_spend_monthly_limit_usd = 30.000000"))
+    }
+
+    func testConfigIgnoresInvalidRunSpendLimits() throws {
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        try """
+        run_spend_fuse_usd = -1
+        run_spend_daily_limit_usd = 0
+        run_spend_weekly_limit_usd = nope
+        run_spend_monthly_limit_usd = 15
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let loaded = try ConfigStore(fileURL: fileURL).load()
+
+        XCTAssertNil(loaded.runSpendFuseUSD)
+        XCTAssertNil(loaded.runSpendPeriodLimits.dailyUSD)
+        XCTAssertNil(loaded.runSpendPeriodLimits.weeklyUSD)
+        XCTAssertEqual(loaded.runSpendPeriodLimits.monthlyUSD, 15)
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """

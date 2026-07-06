@@ -71,6 +71,10 @@
   compact spend/fuse chip such as `Spend $0.0050 / $1.00`, with token usage and unpriced-call detail in the tooltip; if
   model pricing is unavailable, the top bar keeps showing the raw token-usage chip. This keeps Codex-like chrome clear
   while avoiding fake precision when the model catalog lacks prices.
+- Day/week/month spend rows are local QuillCode caps until TrustedRouter exposes account-history or quota APIs. Optional
+  `run_spend_daily_limit_usd`, `run_spend_weekly_limit_usd`, and `run_spend_monthly_limit_usd` config keys render
+  `$spent / $cap` in the existing token-budget popover even at zero spend, while uncapped periods continue to appear only
+  after priced model receipts exist. Provider quota rows still come only from provider errors, not guesses.
 - Model discovery should remain useful even when TrustedRouter's authenticated `/v1/models` endpoint is unavailable or
   the user has not signed in yet. `TrustedRouterModelCatalogClient` now falls back to the public TrustedRouter model
   catalog page, preserving the branded Recommended defaults while adding provider rows such as MiniMax to picker search.
