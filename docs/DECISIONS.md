@@ -16,6 +16,10 @@
   models wrap otherwise valid strict JSON in Markdown fences despite the prompt, and treating that as malformed makes
   Auto fall back to the static floor unnecessarily. The parser still rejects prose-wrapped JSON instead of scraping
   arbitrary text because safety decisions should be deterministic and easy to audit.
+- Download manifests should identify platform-specific metadata assets with the same platform/architecture semantics as
+  executable assets. `BUILD_INFO.txt` is emitted by the macOS packager and is therefore classified as macOS metadata,
+  while `BUILD_INFO-linux-<arch>.txt` is Linux metadata for that architecture. This keeps support scripts, website
+  download cards, and future updater experiments from treating build-info files as generic blobs.
 - Auto safety should approve common read-only diagnostics by command shape, not by broad shell trust.
   `StaticSafetyReadOnlyShellPolicy` now recognizes single-command requests for identity, date/time, hostname,
   OS/kernel, uptime, process listing, memory, and disk usage when the latest user request asks for that class of

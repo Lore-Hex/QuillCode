@@ -1,5 +1,24 @@
 # Code Quality Audit
 
+## 2026-07-05 Download Manifest Platform Metadata A+ Pass
+
+Overall grade after this slice: **A+ for tester-build manifest metadata precision**.
+The download manifest now classifies build-info assets by their actual platform
+and architecture, so support scripts and future updater surfaces can show the
+right metadata beside each downloadable package.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Release architecture | A+ | The change stays inside the manifest classifier used by both tester and tagged release workflows. |
+| Supportability | A+ | macOS and Linux build-info files now carry distinct platform/arch fields instead of generic `any` metadata. |
+| Tests | A+ | The parity gate exercises macOS and Linux metadata entries in the generated manifest. |
+
+Validation:
+
+- `swift test --filter ParityDownloadBuildsGateTests`
+
 ## 2026-07-05 Read-Only Diagnostic Safety A+ Pass
 
 Overall grade after this slice: **A+ for bounded Auto-mode diagnostic approvals**.
