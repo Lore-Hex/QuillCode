@@ -7,8 +7,27 @@ const projectMemoryRow = (page: Page) => page.getByTestId('memory-item').filter(
   hasText: projectMemoryPath
 });
 
+// Scope by the memory's (edit-stable) path instead of `.first()`: the unscoped
+// `getByTestId('memory-preview').first()` could transiently resolve against a re-rendering
+// memory list during the async mock edit turn, flaking under parallel load.
+const globalMemoryRow = (page: Page) => page.getByTestId('memory-item').filter({
+  hasText: 'memories/preferences.md'
+});
+
 async function submitComposer(page: Page, value: string) {
-  await page.getByLabel('Message').fill(value);
+  const message = page.getByLabel('Message');
+  // Root cause of the flake: the mock harness rebuilds the composer <textarea> on every render(),
+  // and this test fills OVER a draft that clicking "Edit" pre-populated. A plain fill() does
+  // select-then-insert, and under parallel load a render() rebuilds the textarea between those two
+  // steps — dropping the selection so the new text is APPENDED to the old draft (the two
+  // /remember-edit commands get concatenated, so the wrong memory content is submitted). Setting the
+  // value atomically and dispatching the input event the harness listens for avoids that race; the
+  // toHaveValue guard confirms the draft is exactly `value` before we send.
+  await message.evaluate((el, v) => {
+    (el as HTMLTextAreaElement).value = v as string;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+  await expect(message).toHaveValue(value);
   await page.getByRole('button', { name: 'Send' }).click();
 }
 
@@ -27,11 +46,11 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await clickSidebarTool(page, 'memories-button');
 
   await expectMemoryPane(page, '1 global memory · 1 project memory', 2);
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
-  await expect(page.getByTestId('memory-path').first()).toHaveText('memories/preferences.md');
+  await expect(globalMemoryRow(page).getByTestId('memory-title')).toHaveText('Preferences');
+  await expect(globalMemoryRow(page).getByTestId('memory-path')).toHaveText('memories/preferences.md');
   await expect(page.getByTestId('memories-add')).toBeVisible();
 
-  await page.getByTestId('memory-edit').first().click();
+  await globalMemoryRow(page).getByTestId('memory-edit').click();
   await expect(page.getByLabel('Message')).toHaveValue(
     [
       '/remember-edit global:memories/preferences.md',
@@ -44,8 +63,8 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
     'Updated memory: Prefer Durable Memory Edit Tests. Future turns will use the revised memory.'
   )).toBeVisible();
   await expect(page.getByTestId('top-bar-title')).toHaveText('Updated memory: Prefer Durable Memory Edit Tests');
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Durable Memory Edit Tests');
-  await expect(page.getByTestId('memory-preview').first()).toHaveText('Prefer durable memory edit tests');
+  await expect(globalMemoryRow(page).getByTestId('memory-title')).toHaveText('Prefer Durable Memory Edit Tests');
+  await expect(globalMemoryRow(page).getByTestId('memory-preview')).toHaveText('Prefer durable memory edit tests');
 
   await projectMemoryRow(page).getByTestId('memory-edit').click();
   await expect(page.getByLabel('Message')).toHaveValue(
@@ -87,10 +106,11 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
 
   await clickSidebarTool(page, 'memories-button');
   await expectMemoryPane(page, '2 global memories · 1 project memory', 3);
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Small Reviewable Commits');
-  await expect(page.getByTestId('memory-path').first()).toContainText('memories/manual-');
+  const savedMemoryRow = page.getByTestId('memory-item').filter({ hasText: 'Prefer Small Reviewable Commits' });
+  await expect(savedMemoryRow.getByTestId('memory-title')).toHaveText('Prefer Small Reviewable Commits');
+  await expect(savedMemoryRow.getByTestId('memory-path')).toContainText('memories/manual-');
 
-  await page.getByTestId('memory-delete').first().click();
+  await savedMemoryRow.getByTestId('memory-delete').click();
 
   await expect(page.getByText(
     'Forgot memory: Prefer Small Reviewable Commits. It will no longer be included as background context.'
@@ -98,7 +118,7 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('project-memories-status')).toHaveText('2 memories');
   await expect(page.getByTestId('top-bar-title')).toHaveText('Forgot memory: Prefer Small Reviewable Commits');
   await expectMemoryPane(page, '1 global memory · 1 project memory', 2);
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Durable Memory Edit Tests');
+  await expect(globalMemoryRow(page).getByTestId('memory-title')).toHaveText('Prefer Durable Memory Edit Tests');
 
   await projectMemoryRow(page).getByTestId('memory-delete').click();
 
@@ -109,7 +129,7 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memories-subtitle'))
     .toHaveText('1 global memory · 0 project memories');
   await expect(page.getByTestId('memory-item')).toHaveCount(1);
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Durable Memory Edit Tests');
+  await expect(globalMemoryRow(page).getByTestId('memory-title')).toHaveText('Prefer Durable Memory Edit Tests');
   await expect(page.getByTestId('memory-delete')).toHaveCount(1);
 });
 
