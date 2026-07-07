@@ -130,6 +130,14 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
+                for: .browserOpen("localhost:5173"),
+                userText: "/browser localhost:5173",
+                statusText: "unused"
+            ),
+            .browserOpen("localhost:5173", userText: "/browser localhost:5173")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
                 for: .worktreeCreate(createWorktree),
                 userText: "/worktree create ../feature --branch feature/test --base main",
                 statusText: "unused"

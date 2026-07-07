@@ -15,6 +15,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case workspaceSchedule(String, userText: String)
     case monitor(WorkspaceMonitorRequest, userText: String)
     case subagents(WorkspaceSubagentRunRequest, userText: String)
+    case browserOpen(String, userText: String)
     case workspaceCommand(String, userText: String)
     case worktreeCreate(WorkspaceWorktreeCreateRequest, userText: String)
     case worktreeOpen(WorkspaceWorktreeOpenRequest, userText: String)
@@ -63,6 +64,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .monitor(request, userText: userText)
         case .subagents(let request):
             return .subagents(request, userText: userText)
+        case .browserOpen(let target):
+            return .browserOpen(target, userText: userText)
         case .workspaceCommand(let commandID):
             return .workspaceCommand(commandID, userText: userText)
         case .worktreeCreate(let request):

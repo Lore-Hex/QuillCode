@@ -38,6 +38,20 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         await model.submitComposer(workspaceRoot: root)
         XCTAssertTrue(model.browser.isVisible)
 
+        let previewFile = root.appendingPathComponent("slash-preview.html")
+        try "<!doctype html><title>Slash Preview</title><h1>Slash Browser</h1>"
+            .write(to: previewFile, atomically: true, encoding: .utf8)
+        model.setDraft("/browser slash-preview.html")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.browser.currentURL, previewFile.standardizedFileURL.resolvingSymlinksInPath().absoluteString)
+        XCTAssertEqual(model.browser.title, "Slash Preview")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Opened browser preview for Slash Preview at \(try XCTUnwrap(model.browser.currentURL)).")
+
+        model.setDraft("/preview not-a-valid-target")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.browser.status, "Invalid address")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Enter an http, https, file, localhost, or project file URL.")
+
         model.setDraft("/worktrees")
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.list")

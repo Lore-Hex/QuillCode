@@ -60,6 +60,21 @@ extension QuillCodeWorkspaceModel {
         )
     }
 
+    func runBrowserOpenSlashCommand(_ target: String, originalPrompt: String, workspaceRoot: URL) {
+        let opened = openBrowserPreview(target, workspaceRoot: workspaceRoot)
+        let transcript = opened
+            ? WorkspaceSlashCommandTranscriptPlanner.browserOpened(
+                userText: originalPrompt,
+                title: browser.title,
+                url: browser.currentURL ?? target
+            )
+            : WorkspaceSlashCommandTranscriptPlanner.browserOpenFailed(
+                userText: originalPrompt,
+                message: lastError
+            )
+        appendLocalCommandTranscript(transcript)
+    }
+
     func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
         if selectedThread == nil {
             _ = newChat()

@@ -310,9 +310,10 @@ extension SlashCommandCatalog {
             "Show or hide task plans, tool history, artifacts, sources, and handoff notes."
         ),
         slashDefinition(
-            "/browser",
-            "Toggle browser",
-            "Show or hide the browser preview panel.",
+            "/browser [target]",
+            "Open browser",
+            "Open a URL, localhost app, or project file in the browser preview; omit target to show or hide the panel.",
+            insert: "/browser ",
             aliases: ["preview"]
         ),
         slashDefinition(

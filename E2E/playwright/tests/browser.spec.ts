@@ -126,3 +126,21 @@ test('mock harness opens browser preview from chat', async ({ page }) => {
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
   await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Network HTML snapshot');
 });
+
+test('mock harness opens browser preview from slash target', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/browser docs/index.html');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByText('Opened browser preview for index.html at file:///workspace/docs/index.html.')).toBeVisible();
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('file:///workspace/docs/index.html');
+  await expect(page.getByTestId('browser-source')).toHaveText('Local HTML');
+
+  await page.getByLabel('Message').fill('/preview not-a-browser-target');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByText('Enter an http, https, file, localhost, or project file URL.')).toBeVisible();
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Invalid address');
+});

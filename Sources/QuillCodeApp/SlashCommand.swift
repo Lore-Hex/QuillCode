@@ -16,6 +16,7 @@ enum SlashCommand: Equatable {
     case workspaceSchedule(String)
     case monitor(WorkspaceMonitorRequest)
     case subagents(WorkspaceSubagentRunRequest)
+    case browserOpen(String)
     case workspaceCommand(String)
     case worktreeCreate(WorkspaceWorktreeCreateRequest)
     case worktreeOpen(WorkspaceWorktreeOpenRequest)
