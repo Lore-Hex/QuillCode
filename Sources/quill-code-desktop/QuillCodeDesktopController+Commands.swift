@@ -56,6 +56,9 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
         }
         modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
         browserCoordinator.syncOpenSession(model: model)
+        if commandID == "browser-reload" {
+            browserCoordinator.reloadOpenSession()
+        }
         refresh()
     }
 }

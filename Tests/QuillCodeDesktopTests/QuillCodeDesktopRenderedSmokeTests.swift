@@ -321,6 +321,7 @@ private final class RenderSmokeNoopBrowserSessionPresenter: DesktopBrowserSessio
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func reloadSession() {}
 }
 
 private struct RenderSmokeNoopAutomationNotifier: QuillCodeAutomationNotifying {

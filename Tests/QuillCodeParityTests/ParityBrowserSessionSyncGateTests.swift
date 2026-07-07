@@ -41,6 +41,7 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
             "emitSessionUpdate()",
             "func presentSession(_ snapshot: BrowserSessionSyncSnapshot)",
             "func syncSession(_ snapshot: BrowserSessionSyncSnapshot)",
+            "func reloadSession()",
             "NSTabView"
         ] {
             Self.assertSource(presenterText, contains: expected)

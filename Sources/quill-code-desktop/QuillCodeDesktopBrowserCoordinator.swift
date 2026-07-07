@@ -89,6 +89,10 @@ struct QuillCodeDesktopBrowserCoordinator {
         sessionPresenter.syncSession(snapshot)
     }
 
+    func reloadOpenSession() {
+        sessionPresenter.reloadSession()
+    }
+
     private func activeWorkspaceRoot(
         for model: QuillCodeWorkspaceModel,
         fallback workspaceRoot: URL

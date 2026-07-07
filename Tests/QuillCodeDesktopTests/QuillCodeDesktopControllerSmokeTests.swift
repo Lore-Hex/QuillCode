@@ -327,6 +327,22 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(presenter.presentedSnapshots.last?.tabs.first?.url.absoluteString, "http://localhost:5173")
     }
 
+    func testDesktopControllerReloadCommandReloadsVisibleBrowserSession() throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173"
+        controller.openBrowserSession()
+
+        controller.runWorkspaceCommand("browser-reload")
+
+        XCTAssertEqual(controller.surface.browser.statusLabel, "Reloaded")
+        XCTAssertEqual(presenter.syncedSnapshots.last?.tabs.first?.url.absoluteString, "http://localhost:5173")
+        XCTAssertEqual(presenter.reloadedSessionCount, 1)
+    }
+
     func testDesktopControllerSendPathCoversRealWorldActionPromptFamily() async throws {
         let workspaceRoot = try makeTempDirectory()
         let downloadSource = workspaceRoot.appendingPathComponent("source.html")
@@ -791,6 +807,7 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
     private(set) var presentedSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var syncedSnapshots: [BrowserSessionSyncSnapshot] = []
+    private(set) var reloadedSessionCount = 0
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
         presentedSnapshots.append(snapshot)
@@ -798,6 +815,10 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
 
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
         syncedSnapshots.append(snapshot)
+    }
+
+    func reloadSession() {
+        reloadedSessionCount += 1
     }
 }
 
