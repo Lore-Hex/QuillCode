@@ -74,7 +74,7 @@ enum SlashWorkspaceCommandParser {
         case "activity":
             return .workspaceCommand("toggle-activity")
         case "browser", "preview":
-            return .workspaceCommand("toggle-browser")
+            return parseBrowser(argument)
         case "review", "diff", "changes":
             return .workspaceCommand("git-diff")
         case "git-status", "gitstatus":
@@ -105,5 +105,13 @@ enum SlashWorkspaceCommandParser {
         default:
             return .invalid("Try /history back or /history forward.")
         }
+    }
+
+    private static func parseBrowser(_ argument: String) -> SlashCommand {
+        let target = argument.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !target.isEmpty else {
+            return .workspaceCommand("toggle-browser")
+        }
+        return .browserOpen(target)
     }
 }

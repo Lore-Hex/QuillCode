@@ -87,6 +87,8 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "preview"), .workspaceCommand("toggle-browser"))
         XCTAssertEqual(SlashCommandParser.parse("/browser"), .workspaceCommand("toggle-browser"))
         XCTAssertEqual(SlashCommandParser.parse("/preview"), .workspaceCommand("toggle-browser"))
+        XCTAssertEqual(SlashCommandParser.parse("/browser localhost:5173"), .browserOpen("localhost:5173"))
+        XCTAssertEqual(SlashCommandParser.parse("/preview docs/index.html"), .browserOpen("docs/index.html"))
     }
 
     func testGitDiffAndStatusAliasesRunGitCommands() {

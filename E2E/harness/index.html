@@ -5021,7 +5021,7 @@
       { usage: '/skills', title: 'Show skills', detail: 'Open the Extensions pane filtered around installed and available skills.', insertText: '/skills', aliases: ['skill list', 'installed skills', 'available skills'] },
       { usage: '/automations', title: 'Toggle automations', detail: 'Show or hide scheduled follow-ups, workspace checks, and automation history.', insertText: '/automations', aliases: [] },
       { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
-      { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
+      { usage: '/browser [target]', title: 'Open browser', detail: 'Open a URL, localhost app, or project file in the browser preview; omit target to show or hide the panel.', insertText: '/browser ', aliases: ['preview'] },
       { usage: '/review', title: 'Review changes', detail: 'Show the working-tree git diff in the review pane.', insertText: '/review', aliases: ['review diff', 'review changes'] },
       { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff', 'review'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
@@ -14762,7 +14762,8 @@
       const value = raw.trim();
       if (!value) return null;
       if (/^(https?|file):\/\//i.test(value)) return value;
-      if (/^(localhost|127\\.0\\.0\\.1|\\[::1\\])/i.test(value)) return `http://${value}`;
+      if (/^(localhost|127\.0\.0\.1|\[::1\])/i.test(value)) return `http://${value}`;
+      if (/\.html?$/i.test(value)) return `file:///workspace/${encodeURI(value.replace(/^\/+/, ''))}`;
       if (value.includes('.')) return `https://${value}`;
       return null;
     }
@@ -14969,6 +14970,7 @@
       state.browser.addressDraft = url;
       state.browser.snapshot = snapshot;
       state.browser.title = snapshot.details.find((detail) => detail.startsWith('Title: '))?.replace('Title: ', '')
+        || snapshot.details.find((detail) => detail.startsWith('File: '))?.replace('File: ', '')
         || new URL(url).hostname
         || url;
       state.browser.statusLabel = statusLabel;
@@ -15024,15 +15026,15 @@
         if (parsed.protocol === 'file:') {
           const fileName = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || parsed.pathname);
           return {
-            sourceLabel: /\\.html?$/i.test(fileName) ? 'Local HTML' : 'Local file',
-            inspectionDepth: /\\.html?$/i.test(fileName) ? 'static_html_snapshot' : 'file_metadata',
-            inspectionDepthLabel: /\\.html?$/i.test(fileName) ? 'Static HTML snapshot' : 'File metadata',
-            summary: /\\.html?$/i.test(fileName)
+            sourceLabel: /\.html?$/i.test(fileName) ? 'Local HTML' : 'Local file',
+            inspectionDepth: /\.html?$/i.test(fileName) ? 'static_html_snapshot' : 'file_metadata',
+            inspectionDepthLabel: /\.html?$/i.test(fileName) ? 'Static HTML snapshot' : 'File metadata',
+            summary: /\.html?$/i.test(fileName)
               ? 'HTML file is ready for browser review.'
               : 'File is ready to open in the browser preview.',
             details: [`File: ${fileName}`, `Path: ${decodeURIComponent(parsed.pathname)}`],
             outline: [`File: ${fileName}`],
-            textSnippet: /\\.html?$/i.test(fileName)
+            textSnippet: /\.html?$/i.test(fileName)
               ? 'HTML preview text is available when QuillCode opens local project files.'
               : null
           };
@@ -16529,8 +16531,25 @@
         addProject();
         return;
       } else if (/^\/(browser|preview)\b/i.test(text)) {
-        state.browser.isVisible = !state.browser.isVisible;
-        addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
+        const target = text.replace(/^\/(browser|preview)\b/i, '').trim();
+        if (target) {
+          state.browser.addressDraft = target;
+          const url = normalizeBrowserURL(target);
+          state.browser.isVisible = true;
+          if (url) {
+            setBrowserPage(url);
+            addMessage('assistant', `Opened browser preview for ${state.browser.title} at ${state.browser.currentURL}.`);
+          } else {
+            state.browser.statusLabel = 'Invalid address';
+            state.browser.snapshot = null;
+            storeBrowserTab();
+            syncBrowserCommandStates();
+            addMessage('assistant', 'Enter an http, https, file, localhost, or project file URL.');
+          }
+        } else {
+          state.browser.isVisible = !state.browser.isVisible;
+          addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
+        }
       } else if (/^\/(ssh|remote)\b/i.test(text)) {
         const address = text.replace(/^\/(ssh|remote)\b/i, '').trim();
         if (address) {

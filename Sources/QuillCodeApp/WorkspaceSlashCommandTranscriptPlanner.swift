@@ -129,6 +129,25 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func browserOpened(userText: String, title: String, url: String) -> WorkspaceLocalCommandTranscript {
+        let label = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let location = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let page = label.isEmpty || label == location ? location : "\(label) at \(location)"
+        return transcript(
+            userText: userText,
+            assistantText: "Opened browser preview for \(page).",
+            title: "Open browser"
+        )
+    }
+
+    static func browserOpenFailed(userText: String, message: String?) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: message ?? "Enter an http, https, file, localhost, or project file URL.",
+            title: "Open browser"
+        )
+    }
+
     static func environmentScheduleScheduled(
         userText: String,
         actionTitle: String,

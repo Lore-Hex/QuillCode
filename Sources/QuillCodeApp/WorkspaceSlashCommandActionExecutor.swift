@@ -47,6 +47,8 @@ extension QuillCodeWorkspaceModel {
             runMonitorSlashCommand(request, originalPrompt: userText)
         case .subagents(let request, let userText):
             await runSubagentSlashCommand(request, originalPrompt: userText)
+        case .browserOpen(let target, let userText):
+            runBrowserOpenSlashCommand(target, originalPrompt: userText, workspaceRoot: workspaceRoot)
         case .workspaceCommand(let commandID, let userText):
             if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
                 appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed(
