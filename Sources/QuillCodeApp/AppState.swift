@@ -12,6 +12,7 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
     public var updatedAt: Date
     public var isPinned: Bool
     public var isArchived: Bool
+    public var worktree: SidebarItemWorktreeSummary?
 
     public init(thread: ChatThread) {
         self.id = thread.id
@@ -25,6 +26,13 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
         self.searchText = String(combinedSearchText.prefix(8_000))
         self.isPinned = thread.isPinned
         self.isArchived = thread.isArchived
+        self.worktree = thread.worktree.map { binding in
+            SidebarItemWorktreeSummary(
+                branch: binding.branch,
+                branchLeaf: binding.branch.split(separator: "/").last.map(String.init) ?? binding.branch,
+                isResolvable: binding.isResolvable
+            )
+        }
     }
 }
 

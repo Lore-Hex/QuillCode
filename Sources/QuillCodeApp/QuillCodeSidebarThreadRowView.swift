@@ -49,6 +49,19 @@ struct QuillCodeSidebarThreadRowView: View {
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
+                if let worktree = item.worktree {
+                    if worktree.isResolvable {
+                        Text("⑂ \(worktree.branchLeaf)")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(QuillCodePalette.blue)
+                            .lineLimit(1)
+                    } else {
+                        Text("⚠ Worktree missing")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(QuillCodePalette.red)
+                            .lineLimit(1)
+                    }
+                }
             }
             .quillCodeSidebarRowChrome(background: item.isSelected ? QuillCodePalette.selection : Color.clear)
         }

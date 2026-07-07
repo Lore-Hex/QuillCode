@@ -163,11 +163,24 @@ enum WorkspaceHTMLSidebarThreadRenderer {
           ))>
             <span>\(escape(item.title))</span>
             <small>\(escape(item.subtitle))</small>
+            \(renderWorktreeChip(item.worktree))
           </button>
           <span data-testid="sidebar-item-actions">
             \(item.actions.map(renderAction).joined(separator: "\n"))
           </span>
         </div>
+        """
+    }
+
+    private static func renderWorktreeChip(_ worktree: SidebarItemWorktreeSummary?) -> String {
+        guard let worktree else { return "" }
+        if worktree.isResolvable {
+            return """
+            <span class="sidebar-worktree-chip" data-testid="sidebar-worktree-branch" title="\(escape(worktree.branch))">⑂ \(escape(worktree.branchLeaf))</span>
+            """
+        }
+        return """
+        <span class="sidebar-worktree-warning" data-testid="sidebar-worktree-warning" title="Worktree missing — running in the project root">⚠ Worktree missing</span>
         """
     }
 
