@@ -17,6 +17,7 @@ struct WorkspaceAutomationsSurfaceBuilder: Sendable, Hashable {
             createWorkspaceScheduleCommand: .automationCreateWorkspaceSchedule(
                 isEnabled: hasSelectedProject
             ),
+            createMonitorCommand: .automationCreateMonitor(isEnabled: true),
             scheduleThreadFollowUpCommands: WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
                 isEnabled: hasSelectedThread
             ),

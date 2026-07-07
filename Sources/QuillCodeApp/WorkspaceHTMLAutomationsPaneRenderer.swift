@@ -52,6 +52,7 @@ enum WorkspaceHTMLAutomationsPaneRenderer {
         [
             renderCommand(automations.createThreadFollowUpCommand, testID: "automation-create-follow-up"),
             renderCommand(automations.createWorkspaceScheduleCommand, testID: "automation-create-workspace-schedule"),
+            renderCommand(automations.createMonitorCommand, testID: "automation-create-monitor"),
             renderCommands(automations.scheduleThreadFollowUpCommands, testID: "automation-schedule-follow-up"),
             renderCommands(automations.scheduleWorkspaceScheduleCommands, testID: "automation-schedule-workspace")
         ]

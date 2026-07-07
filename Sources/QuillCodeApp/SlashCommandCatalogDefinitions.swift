@@ -158,6 +158,13 @@ extension SlashCommandCatalog {
             ]
         ),
         slashDefinition(
+            "/monitor file|last-modified|feed target",
+            "Create monitor",
+            "Create an event monitor for a project file, URL Last-Modified header, or RSS/Atom feed.",
+            insert: "/monitor ",
+            aliases: ["watch", "event monitor", "file monitor", "feed monitor", "url monitor"]
+        ),
+        slashDefinition(
             "/subagents objective | Name: role",
             "Run subagents",
             "Fan out a local parallel subagent workflow and show replayable progress in Activity.",

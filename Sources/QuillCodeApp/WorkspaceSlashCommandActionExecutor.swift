@@ -43,6 +43,8 @@ extension QuillCodeWorkspaceModel {
             runThreadFollowUpSlashCommand(scheduleText, originalPrompt: userText)
         case .workspaceSchedule(let scheduleText, let userText):
             runWorkspaceScheduleSlashCommand(scheduleText, originalPrompt: userText)
+        case .monitor(let request, let userText):
+            runMonitorSlashCommand(request, originalPrompt: userText)
         case .subagents(let request, let userText):
             await runSubagentSlashCommand(request, originalPrompt: userText)
         case .workspaceCommand(let commandID, let userText):

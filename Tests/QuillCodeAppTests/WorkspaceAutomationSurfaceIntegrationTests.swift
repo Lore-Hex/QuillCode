@@ -125,6 +125,12 @@ final class WorkspaceAutomationSurfaceIntegrationTests: XCTestCase {
         ])
         XCTAssertEqual(automations.scheduleWorkspaceScheduleCommands.map(\.isEnabled), [true, true, true, true])
         XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-workspace-schedule" }?.isEnabled, true)
+        XCTAssertEqual(automations.createMonitorCommand?.id, "automation-create-monitor")
+        XCTAssertEqual(automations.createMonitorCommand?.category, WorkspaceCommandPalette.automationsCategory)
+        XCTAssertEqual(automations.createMonitorCommand?.isEnabled, true)
+        XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-monitor" }?.isEnabled, true)
+        XCTAssertTrue(model.runWorkspaceCommand("automation-create-monitor", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.composer.draft, "/monitor ")
         XCTAssertEqual(
             model.surface().commands
                 .filter { $0.id.hasPrefix("automation-create-workspace-schedule-after:") }

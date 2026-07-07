@@ -75,6 +75,20 @@ enum WorkspaceAutomationStateReducer {
         return mutation(state: appending(automation, to: state), value: automation)
     }
 
+    static func createMonitor(
+        in state: AutomationsState,
+        request: WorkspaceMonitorRequest,
+        project: ProjectRef?,
+        now: Date
+    ) -> WorkspaceAutomationStateMutation<QuillAutomation> {
+        let automation = WorkspaceAutomationFactory.monitor(
+            request: request,
+            project: project,
+            now: now
+        )
+        return mutation(state: appending(automation, to: state), value: automation)
+    }
+
     static func updateStatus(
         in state: AutomationsState,
         id: UUID,

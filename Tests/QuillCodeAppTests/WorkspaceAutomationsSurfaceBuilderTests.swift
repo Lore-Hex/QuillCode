@@ -24,6 +24,8 @@ final class WorkspaceAutomationsSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(surface.scheduleThreadFollowUpCommands.map(\.isEnabled), [false, false, false, false])
         XCTAssertEqual(surface.createWorkspaceScheduleCommand?.id, "automation-create-workspace-schedule")
         XCTAssertEqual(surface.createWorkspaceScheduleCommand?.isEnabled, false)
+        XCTAssertEqual(surface.createMonitorCommand?.id, "automation-create-monitor")
+        XCTAssertEqual(surface.createMonitorCommand?.isEnabled, true)
         XCTAssertEqual(surface.scheduleWorkspaceScheduleCommands.map(\.isEnabled), [false, false, false, false])
     }
 
@@ -44,6 +46,7 @@ final class WorkspaceAutomationsSurfaceBuilderTests: XCTestCase {
         ])
         XCTAssertEqual(threadOnly.scheduleThreadFollowUpCommands.map(\.isEnabled), [true, true, true, true])
         XCTAssertEqual(threadOnly.createWorkspaceScheduleCommand?.isEnabled, false)
+        XCTAssertEqual(threadOnly.createMonitorCommand?.isEnabled, true)
         XCTAssertEqual(threadOnly.scheduleWorkspaceScheduleCommands.map(\.isEnabled), [false, false, false, false])
 
         let workspaceOnly = WorkspaceAutomationsSurfaceBuilder(
@@ -54,6 +57,7 @@ final class WorkspaceAutomationsSurfaceBuilderTests: XCTestCase {
         ).surface()
 
         XCTAssertEqual(workspaceOnly.createThreadFollowUpCommand?.isEnabled, false)
+        XCTAssertEqual(workspaceOnly.createMonitorCommand?.isEnabled, true)
         XCTAssertEqual(workspaceOnly.scheduleThreadFollowUpCommands.map(\.isEnabled), [false, false, false, false])
         XCTAssertEqual(workspaceOnly.createWorkspaceScheduleCommand?.isEnabled, true)
         XCTAssertEqual(workspaceOnly.scheduleWorkspaceScheduleCommands.map(\.id), [

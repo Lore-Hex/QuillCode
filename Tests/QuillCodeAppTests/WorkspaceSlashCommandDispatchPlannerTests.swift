@@ -103,6 +103,15 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
             ),
             .workspaceSchedule("hourly", userText: "/workspace-check hourly")
         )
+        let monitor = WorkspaceMonitorRequest(kind: .urlFeedUpdate, path: "https://example.com/feed.xml")
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .monitor(monitor),
+                userText: "/monitor feed https://example.com/feed.xml",
+                statusText: "unused"
+            ),
+            .monitor(monitor, userText: "/monitor feed https://example.com/feed.xml")
+        )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
                 for: .subagents(subagents),

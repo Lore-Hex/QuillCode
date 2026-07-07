@@ -108,6 +108,27 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func monitorScheduled(
+        userText: String,
+        title: String,
+        sourceLabel: String,
+        sourcePath: String
+    ) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: "Created \(title) using \(sourceLabel): \(sourcePath).",
+            title: "Create monitor"
+        )
+    }
+
+    static func monitorFailed(userText: String, message: String?) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: message ?? "Could not create this monitor. Try `/monitor file path`, `/monitor last-modified https://example.com`, or `/monitor feed https://example.com/feed.xml`.",
+            title: "Create monitor"
+        )
+    }
+
     static func environmentScheduleScheduled(
         userText: String,
         actionTitle: String,
