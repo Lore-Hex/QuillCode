@@ -4499,7 +4499,7 @@
         { id: 'browser-back', title: 'Browser: Back', shortcut: 'Cmd+[', category: 'Workspace', keywords: ['preview', 'web', 'history', 'back'], isEnabled: false },
         { id: 'browser-forward', title: 'Browser: Forward', shortcut: 'Cmd+]', category: 'Workspace', keywords: ['preview', 'web', 'history', 'forward'], isEnabled: false },
         { id: 'browser-reload', title: 'Browser: Reload', shortcut: 'Cmd+R', category: 'Workspace', keywords: ['preview', 'web', 'refresh', 'reload'], isEnabled: false },
-        { id: 'open-browser-session', title: 'Browser: Open session', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'session', 'login', 'cookies', 'sign in'], isEnabled: false },
+        { id: 'open-browser-session', title: 'Browser: Open session', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'session', 'login', 'cookies', 'sign in', '/session'], isEnabled: false },
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
         { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
         { id: 'automation-create-thread-follow-up', title: 'Create thread follow-up', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule'], isEnabled: false },
@@ -5022,6 +5022,7 @@
       { usage: '/automations', title: 'Toggle automations', detail: 'Show or hide scheduled follow-ups, workspace checks, and automation history.', insertText: '/automations', aliases: [] },
       { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
       { usage: '/browser [target]', title: 'Open browser', detail: 'Open a URL, localhost app, or project file in the browser preview; omit target to show or hide the panel.', insertText: '/browser ', aliases: ['preview'] },
+      { usage: '/session [target]', title: 'Open browser session', detail: 'Open a visible browser session for a URL, localhost app, or project file; omit target to use the current browser tab.', insertText: '/session ', aliases: ['browser session', 'browser-session', 'sign in browser'] },
       { usage: '/review', title: 'Review changes', detail: 'Show the working-tree git diff in the review pane.', insertText: '/review', aliases: ['review diff', 'review changes'] },
       { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff', 'review'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
@@ -15001,7 +15002,10 @@
       render();
     }
 
-    function openBrowserSession() {
+    function openBrowserSession(target = null) {
+      if (target !== null) {
+        state.browser.addressDraft = target;
+      }
       const url = browserSessionTargetURL();
       state.browser.isVisible = true;
       if (!url) {
@@ -15019,6 +15023,34 @@
       state.browser.statusLabel = 'Session open';
       syncBrowserCommandStates();
       render();
+    }
+
+    function openBrowserSessionFromSlash(text) {
+      const match = text.match(/^\/(?:browser-session|session)\b(.*)$/i);
+      if (!match) return false;
+      const target = (match[1] || '').trim() || null;
+      ensureThread(initialThreadTitleForPrompt(text));
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+      state.runtimeIssue = null;
+      state.composer.isSending = false;
+      state.topBar.agentStatus = 'Idle';
+      addMessage('user', text);
+      const before = state.browser.sessionOpenCount;
+      openBrowserSession(target);
+      if (state.browser.sessionOpenCount > before && state.browser.sessionURL) {
+        addMessage('assistant', `Opened browser session for ${state.browser.sessionURL}.`);
+      } else {
+        addMessage('assistant', 'Open a browser target first, or try `/session localhost:5173`.');
+      }
+      touchSelectedThread();
+      syncSelectedThreadSearchText();
+      render();
+      return true;
     }
 
       function browserSnapshot(url) {
@@ -16043,6 +16075,7 @@
         render();
         return;
       }
+      if (openBrowserSessionFromSlash(text)) return;
       if (runInstantViewSlashCommand(text)) return;
       startMockAgentTurn(text);
     }

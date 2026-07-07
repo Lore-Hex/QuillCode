@@ -144,3 +144,23 @@ test('mock harness opens browser preview from slash target', async ({ page }) =>
   await expect(page.getByText('Enter an http, https, file, localhost, or project file URL.')).toBeVisible();
   await expect(page.getByTestId('browser-status-label')).toHaveText('Invalid address');
 });
+
+test('mock harness opens visible browser session from slash target', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/session localhost:5173/dashboard');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByText('Opened browser session for http://localhost:5173/dashboard.')).toBeVisible();
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173/dashboard');
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Session open');
+  await expect(page.getByTestId('browser-session-status')).toContainText('Visible session 1:');
+  await expect(page.getByTestId('browser-session-url')).toHaveText('http://localhost:5173/dashboard');
+
+  await page.getByLabel('Message').fill('/browser-session');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByText('Opened browser session for http://localhost:5173/dashboard.')).toHaveCount(2);
+  await expect(page.getByTestId('browser-session-status')).toContainText('Visible session 2:');
+});

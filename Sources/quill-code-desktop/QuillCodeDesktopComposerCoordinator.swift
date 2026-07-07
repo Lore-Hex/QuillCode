@@ -3,6 +3,33 @@ import QuillCodeApp
 
 @MainActor
 struct QuillCodeDesktopComposerCoordinator {
+    func openBrowserSessionFromSlashIfNeeded(
+        draft: inout String,
+        model: QuillCodeWorkspaceModel,
+        fallbackWorkspaceRoot: URL,
+        tasks: QuillCodeDesktopTaskCoordinator,
+        refresh: @escaping @MainActor () -> Void,
+        openVisibleBrowserSession: @escaping @MainActor () -> Void
+    ) -> Bool {
+        let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty,
+              !tasks.isRunning(.send),
+              let slashTarget = browserSessionSlashTarget(prompt)
+        else {
+            return false
+        }
+
+        draft = ""
+        let root = model.activeWorkspaceRoot ?? fallbackWorkspaceRoot
+        guard model.runBrowserSessionSlashCommand(slashTarget.target, originalPrompt: prompt, workspaceRoot: root) else {
+            refresh()
+            return true
+        }
+        refresh()
+        openVisibleBrowserSession()
+        return true
+    }
+
     func send(
         draft: inout String,
         model: QuillCodeWorkspaceModel,
@@ -76,5 +103,28 @@ struct QuillCodeDesktopComposerCoordinator {
             // cross-thread deny). Self-gated, so a no-op when there is nothing to recover.
             onSlotFree()
         }
+    }
+
+    private enum BrowserSessionSlashTarget {
+        case currentTab
+        case target(String)
+
+        var target: String? {
+            switch self {
+            case .currentTab:
+                return nil
+            case .target(let target):
+                return target
+            }
+        }
+    }
+
+    private func browserSessionSlashTarget(_ prompt: String) -> BrowserSessionSlashTarget? {
+        let lowercased = prompt.lowercased()
+        for prefix in ["/session", "/browser-session"] where lowercased == prefix || lowercased.hasPrefix(prefix + " ") {
+            let argument = String(prompt.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            return argument.isEmpty ? .currentTab : .target(argument)
+        }
+        return nil
     }
 }

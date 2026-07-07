@@ -75,6 +75,37 @@ extension QuillCodeWorkspaceModel {
         appendLocalCommandTranscript(transcript)
     }
 
+    @discardableResult
+    public func runBrowserSessionSlashCommand(
+        _ target: String?,
+        originalPrompt: String,
+        workspaceRoot: URL
+    ) -> Bool {
+        if let target, !openBrowserPreview(target, workspaceRoot: workspaceRoot) {
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.browserSessionFailed(
+                userText: originalPrompt,
+                message: lastError
+            ))
+            return false
+        }
+
+        let currentURL = browser.currentURL ?? browser.addressDraft
+        guard !currentURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.browserSessionFailed(
+                userText: originalPrompt,
+                message: "Open a browser target first, or try `/session localhost:5173`."
+            ))
+            return false
+        }
+
+        appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.browserSessionRequested(
+            userText: originalPrompt,
+            title: browser.title,
+            url: currentURL
+        ))
+        return true
+    }
+
     func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
         if selectedThread == nil {
             _ = newChat()
