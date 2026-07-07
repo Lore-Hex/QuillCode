@@ -47,6 +47,15 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertEqual(model.browser.title, "Slash Preview")
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "Opened browser preview for Slash Preview at \(try XCTUnwrap(model.browser.currentURL)).")
 
+        model.setDraft("/session localhost:5173")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:5173")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Opened browser session for localhost at http://localhost:5173.")
+
+        model.setDraft("/session")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Opened browser session for localhost at http://localhost:5173.")
+
         model.setDraft("/preview not-a-valid-target")
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.browser.status, "Invalid address")

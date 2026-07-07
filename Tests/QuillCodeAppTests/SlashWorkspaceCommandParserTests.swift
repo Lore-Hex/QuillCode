@@ -23,6 +23,8 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("activity"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("browser"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("preview"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("browser-session"))
+        XCTAssertTrue(SlashWorkspaceCommandParser.supports("session"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("diff"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("git-status"))
         XCTAssertTrue(SlashWorkspaceCommandParser.supports("git"))
@@ -89,6 +91,9 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/preview"), .workspaceCommand("toggle-browser"))
         XCTAssertEqual(SlashCommandParser.parse("/browser localhost:5173"), .browserOpen("localhost:5173"))
         XCTAssertEqual(SlashCommandParser.parse("/preview docs/index.html"), .browserOpen("docs/index.html"))
+        XCTAssertEqual(SlashCommandParser.parse("/session"), .browserSession(nil))
+        XCTAssertEqual(SlashCommandParser.parse("/browser-session localhost:5173"), .browserSession("localhost:5173"))
+        XCTAssertEqual(SlashCommandParser.parse("/session docs/index.html"), .browserSession("docs/index.html"))
     }
 
     func testGitDiffAndStatusAliasesRunGitCommands() {

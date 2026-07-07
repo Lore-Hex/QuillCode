@@ -20,7 +20,7 @@ enum SlashWorkspaceCommandParser {
              "commands", "command-palette", "palette",
              "extensions", "plugins", "skills",
              "automations", "activity",
-             "browser", "preview",
+             "browser", "preview", "browser-session", "session",
              "review", "diff", "changes",
              "git-status", "gitstatus",
              "git",
@@ -75,6 +75,8 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("toggle-activity")
         case "browser", "preview":
             return parseBrowser(argument)
+        case "browser-session", "session":
+            return parseBrowserSession(argument)
         case "review", "diff", "changes":
             return .workspaceCommand("git-diff")
         case "git-status", "gitstatus":
@@ -113,5 +115,10 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("toggle-browser")
         }
         return .browserOpen(target)
+    }
+
+    private static func parseBrowserSession(_ argument: String) -> SlashCommand {
+        let target = argument.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .browserSession(target.isEmpty ? nil : target)
     }
 }

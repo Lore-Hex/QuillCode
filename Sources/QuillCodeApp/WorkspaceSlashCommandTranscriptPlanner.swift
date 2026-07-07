@@ -148,6 +148,25 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func browserSessionRequested(userText: String, title: String, url: String) -> WorkspaceLocalCommandTranscript {
+        let label = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let location = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let page = label.isEmpty || label == location ? location : "\(label) at \(location)"
+        return transcript(
+            userText: userText,
+            assistantText: "Opened browser session for \(page).",
+            title: "Open browser session"
+        )
+    }
+
+    static func browserSessionFailed(userText: String, message: String?) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: message ?? "Enter an http, https, file, localhost, or project file URL.",
+            title: "Open browser session"
+        )
+    }
+
     static func environmentScheduleScheduled(
         userText: String,
         actionTitle: String,

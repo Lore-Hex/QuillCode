@@ -293,6 +293,40 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(controller.browserAddressDraft, "https://example.com/dashboard")
     }
 
+    func testDesktopControllerSlashSessionOpensVisibleBrowserSession() throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+
+        controller.draft = "/session localhost:5173/dashboard"
+        controller.send()
+
+        XCTAssertEqual(controller.draft, "")
+        XCTAssertEqual(controller.surface.browser.currentURL, "http://localhost:5173/dashboard")
+        XCTAssertEqual(controller.surface.transcript.messages.last?.text, "Opened browser session for localhost at http://localhost:5173/dashboard.")
+        XCTAssertEqual(presenter.presentedSnapshots.count, 1)
+        XCTAssertEqual(presenter.presentedSnapshots.last?.tabs.first?.url.absoluteString, "http://localhost:5173/dashboard")
+    }
+
+    func testDesktopControllerSlashSessionWithoutTargetUsesCurrentBrowserTab() throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173"
+        controller.openBrowserPreview()
+
+        controller.draft = "/browser-session"
+        controller.send()
+
+        XCTAssertEqual(controller.surface.transcript.messages.last?.text, "Opened browser session for localhost at http://localhost:5173.")
+        XCTAssertEqual(presenter.presentedSnapshots.count, 1)
+        XCTAssertEqual(presenter.presentedSnapshots.last?.tabs.first?.url.absoluteString, "http://localhost:5173")
+    }
+
     func testDesktopControllerSendPathCoversRealWorldActionPromptFamily() async throws {
         let workspaceRoot = try makeTempDirectory()
         let downloadSource = workspaceRoot.appendingPathComponent("source.html")
@@ -755,9 +789,16 @@ private struct DesktopSlowLLMClient: LLMClient {
 @MainActor
 private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
+    private(set) var presentedSnapshots: [BrowserSessionSyncSnapshot] = []
+    private(set) var syncedSnapshots: [BrowserSessionSyncSnapshot] = []
 
-    func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
-    func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        presentedSnapshots.append(snapshot)
+    }
+
+    func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        syncedSnapshots.append(snapshot)
+    }
 }
 
 private struct NoopAutomationNotifier: QuillCodeAutomationNotifying {

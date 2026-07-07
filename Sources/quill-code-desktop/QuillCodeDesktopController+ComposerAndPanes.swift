@@ -3,6 +3,16 @@ import QuillCodeApp
 @MainActor
 extension QuillCodeDesktopController {
     func send() {
+        if composerCoordinator.openBrowserSessionFromSlashIfNeeded(
+            draft: &draft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() },
+            openVisibleBrowserSession: { [weak self] in self?.openBrowserSession() }
+        ) {
+            return
+        }
         composerCoordinator.send(
             draft: &draft,
             model: model,

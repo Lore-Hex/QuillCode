@@ -138,6 +138,22 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
+                for: .browserSession("localhost:5173"),
+                userText: "/session localhost:5173",
+                statusText: "unused"
+            ),
+            .browserSession("localhost:5173", userText: "/session localhost:5173")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .browserSession(nil),
+                userText: "/session",
+                statusText: "unused"
+            ),
+            .browserSession(nil, userText: "/session")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
                 for: .worktreeCreate(createWorktree),
                 userText: "/worktree create ../feature --branch feature/test --base main",
                 statusText: "unused"

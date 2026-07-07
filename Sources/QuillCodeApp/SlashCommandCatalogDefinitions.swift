@@ -317,6 +317,13 @@ extension SlashCommandCatalog {
             aliases: ["preview"]
         ),
         slashDefinition(
+            "/session [target]",
+            "Open browser session",
+            "Open a visible browser session for a URL, localhost app, or project file; omit target to use the current browser tab.",
+            insert: "/session ",
+            aliases: ["browser session", "browser-session", "sign in browser"]
+        ),
+        slashDefinition(
             "/review",
             "Review changes",
             "Show the working-tree git diff in the review pane.",
