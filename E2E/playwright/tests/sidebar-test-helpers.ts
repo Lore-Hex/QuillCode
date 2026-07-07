@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { sendComposerPrompt } from './harness-helpers';
 
 export async function clickProjectAction(row: Locator, name: string) {
   await row.getByLabel(/^Actions for project /).click();
@@ -17,8 +18,7 @@ export function sidebarSection(page: Page, title: string) {
 }
 
 export async function sendSidebarPrompt(page: Page, prompt: string) {
-  await page.getByLabel('Message').fill(prompt);
-  await page.getByRole('button', { name: 'Send' }).click();
+  await sendComposerPrompt(page, prompt);
 }
 
 export async function sendSidebarPromptThenNewChat(page: Page, prompt: string) {

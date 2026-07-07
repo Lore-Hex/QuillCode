@@ -79,6 +79,32 @@ export async function fillCommandPalette(page: Page, query: string) {
   await expect(input).toHaveValue(query);
 }
 
+export async function fillComposer(page: Page, text: string) {
+  const message = page.getByLabel('Message');
+  await expect(message).toBeVisible();
+  await expect(message).toBeEnabled();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await message.click();
+    await expect(message).toBeFocused();
+    await message.fill('');
+    await message.fill(text);
+    if ((await message.inputValue()) === text) {
+      await expect(message).toHaveValue(text);
+      return;
+    }
+  }
+
+  await expect(message).toHaveValue(text);
+}
+
+export async function sendComposerPrompt(page: Page, text: string) {
+  await fillComposer(page, text);
+  const sendButton = page.getByRole('button', { name: 'Send' });
+  await expect(sendButton).toBeEnabled();
+  await sendButton.click();
+}
+
 export async function clickCommandPaletteCommand(page: Page, query: string, commandID: string) {
   await fillCommandPalette(page, query);
   const result = commandPaletteResult(page, commandID);
