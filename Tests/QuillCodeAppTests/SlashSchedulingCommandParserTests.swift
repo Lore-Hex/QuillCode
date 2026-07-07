@@ -43,4 +43,24 @@ final class SlashSchedulingCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/project-check every 2 hours"), .workspaceSchedule("every 2 hours"))
         XCTAssertEqual(SlashCommandParser.parse("/repo-check tomorrow at 9 AM"), .workspaceSchedule("tomorrow at 9 AM"))
     }
+
+    func testMonitorCommandParsesEventSourceKinds() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/monitor file logs/watch.log"),
+            .monitor(WorkspaceMonitorRequest(kind: .fileChange, path: "logs/watch.log"))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/monitor last-modified https://example.com/releases"),
+            .monitor(WorkspaceMonitorRequest(kind: .urlLastModified, path: "https://example.com/releases"))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/watch feed https://example.com/feed.xml"),
+            .monitor(WorkspaceMonitorRequest(kind: .urlFeedUpdate, path: "https://example.com/feed.xml"))
+        )
+    }
+
+    func testInvalidMonitorCommandReturnsUsage() {
+        XCTAssertEqual(SlashCommandParser.parse("/monitor"), .invalid(SlashMonitorCommandParser.usage))
+        XCTAssertEqual(SlashCommandParser.parse("/monitor webhook https://example.com"), .invalid(SlashMonitorCommandParser.usage))
+    }
 }

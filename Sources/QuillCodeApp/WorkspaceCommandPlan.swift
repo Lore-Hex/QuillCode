@@ -89,7 +89,8 @@ enum WorkspaceCommandPlan: Equatable {
         "git-worktree-create": "Create a git worktree named ",
         "git-branch-switch": "/branch switch ",
         "git-worktree-open": "Open git worktree at ",
-        "git-worktree-remove": "Remove git worktree at "
+        "git-worktree-remove": "Remove git worktree at ",
+        "automation-create-monitor": "/monitor "
     ].merging(WorkspacePullRequestCommandCatalog.draftByCommandID) { local, _ in local }
 
     private static func prefixPlan(_ commandID: String) -> WorkspaceCommandPlan? {

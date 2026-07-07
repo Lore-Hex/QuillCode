@@ -215,7 +215,9 @@ extension QuillCodeNativeHitTargetAudit {
         guard surface.isVisible else { return [] }
 
         var contracts: [QuillCodeNativeHitTargetContract] = []
-        if surface.createThreadFollowUpCommand != nil || surface.createWorkspaceScheduleCommand != nil {
+        if surface.createThreadFollowUpCommand != nil
+            || surface.createWorkspaceScheduleCommand != nil
+            || surface.createMonitorCommand != nil {
             contracts.append(
                 contract(
                     "automations.create",

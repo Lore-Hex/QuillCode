@@ -11,6 +11,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
     public var workflows: [AutomationWorkflowSurface]
     public var createThreadFollowUpCommand: WorkspaceCommandSurface?
     public var createWorkspaceScheduleCommand: WorkspaceCommandSurface?
+    public var createMonitorCommand: WorkspaceCommandSurface?
     public var scheduleThreadFollowUpCommands: [WorkspaceCommandSurface]
     public var scheduleWorkspaceScheduleCommands: [WorkspaceCommandSurface]
 
@@ -19,6 +20,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         automations: [QuillAutomation] = [],
         createThreadFollowUpCommand: WorkspaceCommandSurface? = nil,
         createWorkspaceScheduleCommand: WorkspaceCommandSurface? = nil,
+        createMonitorCommand: WorkspaceCommandSurface? = nil,
         scheduleThreadFollowUpCommands: [WorkspaceCommandSurface] = [],
         scheduleWorkspaceScheduleCommands: [WorkspaceCommandSurface] = [],
         workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
@@ -36,6 +38,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         self.workflows = configuredWorkflows.isEmpty ? workflows : configuredWorkflows
         self.createThreadFollowUpCommand = createThreadFollowUpCommand
         self.createWorkspaceScheduleCommand = createWorkspaceScheduleCommand
+        self.createMonitorCommand = createMonitorCommand
         self.scheduleThreadFollowUpCommands = scheduleThreadFollowUpCommands
         self.scheduleWorkspaceScheduleCommands = scheduleWorkspaceScheduleCommands
     }

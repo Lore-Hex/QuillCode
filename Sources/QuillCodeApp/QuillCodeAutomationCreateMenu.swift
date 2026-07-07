@@ -32,6 +32,7 @@ struct QuillCodeAutomationCreateMenu: View {
     private var hasCreateCommands: Bool {
         automations.createThreadFollowUpCommand != nil
             || automations.createWorkspaceScheduleCommand != nil
+            || automations.createMonitorCommand != nil
             || !automations.scheduleThreadFollowUpCommands.isEmpty
             || !automations.scheduleWorkspaceScheduleCommands.isEmpty
     }
@@ -54,7 +55,8 @@ struct QuillCodeAutomationCreateMenu: View {
     private var primaryCreateCommands: [WorkspaceCommandSurface] {
         [
             automations.createThreadFollowUpCommand,
-            automations.createWorkspaceScheduleCommand
+            automations.createWorkspaceScheduleCommand,
+            automations.createMonitorCommand
         ].compactMap { $0 }
     }
 

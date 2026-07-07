@@ -53,6 +53,13 @@ extension QuillCodeWorkspaceModel {
         )
     }
 
+    func runMonitorSlashCommand(_ request: WorkspaceMonitorRequest, originalPrompt: String) {
+        appendMonitorAutomationTranscript(
+            createMonitorAutomation(request: request),
+            userText: originalPrompt
+        )
+    }
+
     func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
         if selectedThread == nil {
             _ = newChat()
@@ -70,6 +77,26 @@ extension QuillCodeWorkspaceModel {
         let transcript = automation
             .map { success($0.scheduleDescription) }
             ?? failure(lastError)
+        appendLocalCommandTranscript(transcript)
+    }
+
+    private func appendMonitorAutomationTranscript(
+        _ automation: QuillAutomation?,
+        userText: String
+    ) {
+        let transcript = automation
+            .map {
+                WorkspaceSlashCommandTranscriptPlanner.monitorScheduled(
+                    userText: userText,
+                    title: $0.title,
+                    sourceLabel: $0.scheduleDescription,
+                    sourcePath: $0.eventSource?.path ?? ""
+                )
+            }
+            ?? WorkspaceSlashCommandTranscriptPlanner.monitorFailed(
+                userText: userText,
+                message: lastError
+            )
         appendLocalCommandTranscript(transcript)
     }
 

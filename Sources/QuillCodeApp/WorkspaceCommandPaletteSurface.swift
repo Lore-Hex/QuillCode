@@ -115,6 +115,27 @@ public extension WorkspaceCommandSurface {
         )
     }
 
+    static func automationCreateMonitor(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "automation-create-monitor",
+            title: "Create monitor",
+            category: WorkspaceCommandPalette.automationsCategory,
+            keywords: [
+                "automation",
+                "monitor",
+                "watch",
+                "event",
+                "file",
+                "url",
+                "last-modified",
+                "feed",
+                "rss",
+                "atom"
+            ],
+            isEnabled: isEnabled
+        )
+    }
+
     static func automationScheduleThreadFollowUpCommands(isEnabled: Bool) -> [WorkspaceCommandSurface] {
         [
             WorkspaceCommandSurface(

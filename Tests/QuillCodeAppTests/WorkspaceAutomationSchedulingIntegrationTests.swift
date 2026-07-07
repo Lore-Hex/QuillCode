@@ -354,6 +354,66 @@ final class WorkspaceAutomationSchedulingIntegrationTests: XCTestCase {
         XCTAssertEqual(workspace.model.surface().automations.statusLabel, "1 active")
     }
 
+    func testMonitorCreationPersistsFeedEventSource() throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        let project = try XCTUnwrap(workspace.model.selectedProject)
+
+        let automation = try XCTUnwrap(workspace.model.createMonitorAutomation(
+            request: WorkspaceMonitorRequest(
+                kind: .urlFeedUpdate,
+                path: "https://example.com/feed.xml"
+            ),
+            now: Date(timeIntervalSince1970: 1_000)
+        ))
+
+        XCTAssertEqual(automation.title, "Watch feed: example.com/feed.xml")
+        XCTAssertEqual(automation.kind, .monitor)
+        XCTAssertEqual(automation.scheduleKind, .event)
+        XCTAssertEqual(automation.scheduleDescription, "URL feed update")
+        XCTAssertEqual(automation.projectID, project.id)
+        XCTAssertEqual(automation.eventSource, QuillAutomationEventSource(
+            kind: .urlFeedUpdate,
+            path: "https://example.com/feed.xml"
+        ))
+
+        let saved = try XCTUnwrap(try workspace.automationStore.load().first)
+        XCTAssertEqual(saved, automation)
+        XCTAssertEqual(workspace.model.surface().automations.statusLabel, "1 active")
+    }
+
+    func testSlashMonitorCreatesLastModifiedMonitor() async throws {
+        let workspace = try makeProjectAutomationWorkspace()
+
+        workspace.model.setDraft("/monitor last-modified https://example.com/releases")
+        await workspace.model.submitComposer(workspaceRoot: workspace.root)
+
+        let saved = try XCTUnwrap(try workspace.automationStore.load().first)
+        XCTAssertEqual(saved.title, "Watch URL header: example.com/releases")
+        XCTAssertEqual(saved.kind, .monitor)
+        XCTAssertEqual(saved.scheduleDescription, "URL Last-Modified")
+        XCTAssertEqual(saved.eventSource, QuillAutomationEventSource(
+            kind: .urlLastModified,
+            path: "https://example.com/releases"
+        ))
+        XCTAssertEqual(
+            workspace.model.selectedThread?.messages.last?.content,
+            "Created Watch URL header: example.com/releases using URL Last-Modified: https://example.com/releases."
+        )
+    }
+
+    func testSlashMonitorRejectsInvalidURL() async throws {
+        let workspace = try makeProjectAutomationWorkspace()
+
+        workspace.model.setDraft("/monitor feed example.com/feed.xml")
+        await workspace.model.submitComposer(workspaceRoot: workspace.root)
+
+        XCTAssertEqual(try workspace.automationStore.load(), [])
+        XCTAssertEqual(
+            workspace.model.selectedThread?.messages.last?.content,
+            "Could not watch that feed. Use an explicit http:// or https:// RSS or Atom URL."
+        )
+    }
+
     func testSlashFollowUpAcceptsWeekdayCalendarPhrase() async throws {
         let thread = ChatThread(title: "Launch plan")
         let workspace = try makeAutomationWorkspace(rootState: QuillCodeRootState(

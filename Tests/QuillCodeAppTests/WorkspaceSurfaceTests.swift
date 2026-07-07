@@ -119,6 +119,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-automations",
             "automation-create-thread-follow-up",
             "automation-create-workspace-schedule",
+            "automation-create-monitor",
             "automation-create-thread-follow-up-after:600",
             "automation-create-thread-follow-up-after:3600",
             "automation-create-thread-follow-up-tomorrow",

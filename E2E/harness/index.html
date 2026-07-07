@@ -2363,6 +2363,7 @@
     .automation-actions button,
     [data-testid="automation-create-follow-up"],
     [data-testid="automation-create-workspace-schedule"],
+    [data-testid="automation-create-monitor"],
     [data-testid="automation-schedule-follow-up"],
     [data-testid="automation-schedule-workspace"] {
       min-height: var(--hit-target);
@@ -2381,10 +2382,12 @@
     .automation-actions button:active,
     [data-testid="automation-create-follow-up"]:active,
     [data-testid="automation-create-workspace-schedule"]:active,
+    [data-testid="automation-create-monitor"]:active,
     [data-testid="automation-schedule-follow-up"]:active,
     [data-testid="automation-schedule-workspace"]:active { transform: scale(0.96); }
     [data-testid="automation-create-follow-up"]:disabled,
     [data-testid="automation-create-workspace-schedule"]:disabled,
+    [data-testid="automation-create-monitor"]:disabled,
     [data-testid="automation-schedule-follow-up"]:disabled,
     [data-testid="automation-schedule-workspace"]:disabled {
       opacity: 0.44;
@@ -3929,6 +3932,7 @@
       .automation-actions button:active,
       [data-testid="automation-create-follow-up"]:active,
       [data-testid="automation-create-workspace-schedule"]:active,
+      [data-testid="automation-create-monitor"]:active,
       [data-testid="automation-schedule-follow-up"]:active,
       [data-testid="automation-schedule-workspace"]:active,
       .sidebar-action:not(:disabled):hover,
@@ -4500,6 +4504,7 @@
         { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
         { id: 'automation-create-thread-follow-up', title: 'Create thread follow-up', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule'], isEnabled: false },
         { id: 'automation-create-workspace-schedule', title: 'Create workspace schedule', shortcut: '', category: 'Automations', keywords: ['automation', 'workspace', 'schedule', 'repo', 'check', 'cron'], isEnabled: true },
+        { id: 'automation-create-monitor', title: 'Create monitor', shortcut: '', category: 'Automations', keywords: ['automation', 'monitor', 'watch', 'event', 'file', 'url', 'last-modified', 'feed', 'rss', 'atom'], isEnabled: true },
         { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'ten minutes'], isEnabled: false },
         { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'hour'], isEnabled: false },
         { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'tomorrow', 'morning'], isEnabled: false },
@@ -4620,6 +4625,11 @@
         createWorkspaceScheduleCommand: {
           id: 'automation-create-workspace-schedule',
           title: 'Create workspace schedule',
+          isEnabled: true
+        },
+        createMonitorCommand: {
+          id: 'automation-create-monitor',
+          title: 'Create monitor',
           isEnabled: true
         },
         scheduleThreadFollowUpCommands: [
@@ -4986,6 +4996,7 @@
       { usage: '/history back|forward', title: 'Navigate history', detail: 'Move through previous or next thread and project selections.', insertText: '/history ', aliases: ['history previous', 'history next'] },
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes, Friday at 4 PM, tonight, or daily.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour, Friday morning, next Monday at noon, or every 2 hours.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
+      { usage: '/monitor file|last-modified|feed target', title: 'Create monitor', detail: 'Create an event monitor for a file change, URL Last-Modified header, or RSS/Atom feed update.', insertText: '/monitor ', aliases: ['watch', 'event monitor', 'file monitor', 'feed monitor', 'url monitor'] },
       { usage: '/subagents objective | Name: role', title: 'Run subagents', detail: 'Fan out a local parallel subagent workflow and show replayable progress in Activity.', insertText: '/subagents ', aliases: ['subagent', 'parallel agents', 'agents'] },
       { usage: '/project open', title: 'Open project', detail: 'Open a local project folder and add it to the sidebar.', insertText: '/project open', aliases: ['project add', 'open project'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
@@ -7091,6 +7102,7 @@
         command.id === 'export-conversation-markdown' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-workspace-schedule' ? { ...command, isEnabled: hasProject } :
+        command.id === 'automation-create-monitor' ? { ...command, isEnabled: true } :
         command.id?.startsWith('automation-create-thread-follow-up-after:') ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up-tomorrow' ? { ...command, isEnabled: hasThread } :
         command.id?.startsWith('automation-create-thread-follow-up-every:') ? { ...command, isEnabled: hasThread } :
@@ -7118,6 +7130,11 @@
         id: 'automation-create-workspace-schedule',
         title: 'Create workspace schedule',
         isEnabled: Boolean(state.projects.selectedProjectID)
+      };
+      state.automations.createMonitorCommand = {
+        id: 'automation-create-monitor',
+        title: 'Create monitor',
+        isEnabled: true
       };
       state.automations.scheduleThreadFollowUpCommands = [
         { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', isEnabled: Boolean(selectedThread) },
@@ -8732,7 +8749,7 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
-      document.querySelectorAll('[data-testid="automation-create-follow-up"], [data-testid="automation-create-workspace-schedule"]').forEach(button => {
+      document.querySelectorAll('[data-testid="automation-create-follow-up"], [data-testid="automation-create-workspace-schedule"], [data-testid="automation-create-monitor"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -11592,6 +11609,9 @@
       const workspaceButton = state.automations.createWorkspaceScheduleCommand ? `
         <button type="button" class="hit-target-text" data-testid="automation-create-workspace-schedule" data-command-id="${escapeHTML(state.automations.createWorkspaceScheduleCommand.id)}" ${state.automations.createWorkspaceScheduleCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createWorkspaceScheduleCommand.title)}</button>
       ` : '';
+      const monitorButton = state.automations.createMonitorCommand ? `
+        <button type="button" class="hit-target-text" data-testid="automation-create-monitor" data-command-id="${escapeHTML(state.automations.createMonitorCommand.id)}" ${state.automations.createMonitorCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createMonitorCommand.title)}</button>
+      ` : '';
       const workspaceScheduleButtons = (state.automations.scheduleWorkspaceScheduleCommands || []).map(command => `
         <button type="button" class="hit-target-text" data-testid="automation-schedule-workspace" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
       `).join('');
@@ -11622,6 +11642,7 @@
             <div class="automation-create-actions">
               <button type="button" class="hit-target-text" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
               ${workspaceButton}
+              ${monitorButton}
               ${scheduleButtons}
               ${workspaceScheduleButtons}
             </div>
@@ -13103,6 +13124,7 @@
       'automation-create-thread-follow-up',
       'automation-create-thread-follow-up-every:daily',
       'automation-create-thread-follow-up-tomorrow',
+      'automation-create-monitor',
       'automation-create-workspace-schedule',
       'automation-create-workspace-schedule-every:daily',
       'automation-create-workspace-schedule-tomorrow',
@@ -13315,6 +13337,13 @@
       }
       if (commandID === 'automation-create-workspace-schedule') {
         createWorkspaceScheduleAutomation();
+        return;
+      }
+      if (commandID === 'automation-create-monitor') {
+        state.composer.draft = '/monitor ';
+        state.composer.canSend = false;
+        render();
+        focusComposerAtDraftEnd();
         return;
       }
       if (commandID?.startsWith('automation-create-workspace-schedule-after:')) {
@@ -16475,6 +16504,26 @@
           addMessage('assistant', `Scheduled a workspace check for ${schedule.label}.`);
         } else {
           addMessage('assistant', 'Usage: /workspace-check in 1 hour, /workspace-check Friday morning, or /workspace-check daily');
+        }
+      } else if (/^\/(monitor|watch)\b/i.test(text)) {
+        const monitorText = text.replace(/^\/(monitor|watch)\b/i, '').trim();
+        const match = monitorText.match(/^(file|last-modified|lastmodified|header|url|feed|rss|atom)\s+(.+)$/i);
+        if (match) {
+          const sourceKind = match[1].toLowerCase();
+          const sourcePath = match[2].trim();
+          const kindLabel = sourceKind === 'file'
+            ? 'File change'
+            : ['feed', 'rss', 'atom'].includes(sourceKind) ? 'Feed update' : 'URL Last-Modified';
+          const titlePrefix = sourceKind === 'file'
+            ? 'Watch file'
+            : ['feed', 'rss', 'atom'].includes(sourceKind) ? 'Watch feed' : 'Watch URL header';
+          createMonitorAutomation(kindLabel, {
+            title: `${titlePrefix}: ${sourcePath}`,
+            detail: `${kindLabel} monitor for ${sourcePath}.`
+          });
+          addMessage('assistant', `Created ${titlePrefix}: ${sourcePath}.`);
+        } else {
+          addMessage('assistant', 'Usage: /monitor file path, /monitor last-modified https://example.com, or /monitor feed https://example.com/feed.xml');
         }
       } else if (/^\/project\s+(open|add)\b/i.test(text)) {
         addProject();

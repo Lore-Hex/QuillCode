@@ -194,7 +194,8 @@ enum WorkspaceCommandStaticCatalog {
     ) -> [Command] {
         [
             .automationCreateThreadFollowUp(isEnabled: hasSelectedThread),
-            .automationCreateWorkspaceSchedule(isEnabled: hasSelectedProject)
+            .automationCreateWorkspaceSchedule(isEnabled: hasSelectedProject),
+            .automationCreateMonitor(isEnabled: true)
         ] + Command.automationScheduleThreadFollowUpCommands(
             isEnabled: hasSelectedThread
         ) + Command.automationScheduleWorkspaceScheduleCommands(
