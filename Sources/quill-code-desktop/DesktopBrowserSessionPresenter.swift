@@ -11,6 +11,7 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
+    func reloadSession()
 }
 
 @MainActor
@@ -42,6 +43,10 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
         guard let session, !snapshot.isEmpty else { return }
         session.sync(snapshot)
+    }
+
+    func reloadSession() {
+        session?.reloadSelectedTab()
     }
 }
 
@@ -131,6 +136,15 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func reloadSelectedTab() {
+        guard let selectedID = selectedTabID(),
+              let tab = tabs[selectedID]
+        else {
+            return
+        }
+        tab.webView.reload()
     }
 
     private func sync(_ snapshot: BrowserSessionTabSnapshot) {
@@ -275,6 +289,7 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
+    func reloadSession()
 }
 
 @MainActor
@@ -283,5 +298,6 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func reloadSession() {}
 }
 #endif
