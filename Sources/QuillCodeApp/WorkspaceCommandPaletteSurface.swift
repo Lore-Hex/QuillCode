@@ -126,6 +126,8 @@ public extension WorkspaceCommandSurface {
                 "watch",
                 "event",
                 "file",
+                "directory",
+                "folder",
                 "url",
                 "last-modified",
                 "feed",

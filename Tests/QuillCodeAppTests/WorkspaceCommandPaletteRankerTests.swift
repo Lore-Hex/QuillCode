@@ -18,6 +18,10 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
             WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "cmd option right").first?.id,
             "workspace-forward"
         )
+        XCTAssertEqual(
+            WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: ">directory monitor").first?.id,
+            "automation-create-monitor"
+        )
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "shortcuts").first?.id, "keyboard-shortcuts")
     }
 
