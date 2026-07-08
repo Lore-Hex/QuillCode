@@ -52,6 +52,30 @@ public struct FileChangeEventSource: AutomationEventSource {
     }
 }
 
+/// Fires when a watched directory's metadata changes after the last check.
+public struct DirectoryChangeEventSource: AutomationEventSource {
+    public var path: URL
+    private let modificationDate: FileModificationDateProvider
+
+    public init(
+        path: URL,
+        modificationDate: @escaping FileModificationDateProvider = FileChangeEventSource.defaultModificationDate
+    ) {
+        self.path = path
+        self.modificationDate = modificationDate
+    }
+
+    public func pendingEvent(since: Date?) -> String? {
+        guard let modified = modificationDate(path) else {
+            return nil
+        }
+        if let since, modified <= since {
+            return nil
+        }
+        return "\(path.lastPathComponent) directory changed"
+    }
+}
+
 /// Fires when an HTTP(S) resource reports a Last-Modified timestamp newer than
 /// the monitor's last run. Sources without that header stay quiet so a monitor
 /// does not repeatedly fire just because the URL is reachable.
@@ -207,6 +231,11 @@ enum AutomationEventSourceResolver {
                 return nil
             }
             return FileChangeEventSource(path: url)
+        case .directoryChange:
+            guard let url = directoryChangeURL(for: definition.path, project: project) else {
+                return nil
+            }
+            return DirectoryChangeEventSource(path: url)
         case .urlLastModified:
             guard let url = httpURL(for: definition.path) else {
                 return nil
@@ -233,6 +262,10 @@ enum AutomationEventSourceResolver {
         let candidate = root.appendingPathComponent(trimmed).standardizedFileURL
         guard isContained(candidate, inside: root) else { return nil }
         return candidate
+    }
+
+    static func directoryChangeURL(for path: String, project: ProjectRef?) -> URL? {
+        fileChangeURL(for: path, project: project)
     }
 
     static func urlLastModifiedURL(for rawURL: String) -> URL? {

@@ -100,6 +100,27 @@ final class JSONAutomationStoreTests: PersistenceTestCase {
         })
     }
 
+    func testAutomationStoreRoundTripsDirectoryEventSource() throws {
+        let store = try makeAutomationStore()
+        let automation = QuillAutomation(
+            title: "Watch build outputs",
+            detail: "Summarize new build artifacts.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "Directory changes",
+            eventSource: QuillAutomationEventSource(kind: .directoryChange, path: "Build/Products"),
+            updatedAt: Date(timeIntervalSince1970: 1),
+            lastRunAt: Date(timeIntervalSince1970: 2)
+        )
+
+        try store.save([automation])
+
+        let loaded = try XCTUnwrap(store.load().first)
+        XCTAssertEqual(loaded.eventSource, automation.eventSource)
+        XCTAssertEqual(loaded.eventSource?.kind, .directoryChange)
+        XCTAssertEqual(loaded.eventSource?.path, "Build/Products")
+    }
+
     func testAutomationStoreReturnsEmptyListWhenMissing() throws {
         let store = try makeAutomationStore()
 

@@ -53,6 +53,7 @@ public enum QuillAutomationScheduleKind: String, Codable, Sendable, Hashable, Ca
 
 public enum QuillAutomationEventSourceKind: String, Codable, Sendable, Hashable, CaseIterable {
     case fileChange = "file_change"
+    case directoryChange = "directory_change"
     case urlLastModified = "url_last_modified"
     case urlFeedUpdate = "url_feed_update"
 
@@ -60,6 +61,8 @@ public enum QuillAutomationEventSourceKind: String, Codable, Sendable, Hashable,
         switch self {
         case .fileChange:
             return "File change"
+        case .directoryChange:
+            return "Directory change"
         case .urlLastModified:
             return "URL Last-Modified"
         case .urlFeedUpdate:

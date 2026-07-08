@@ -56,6 +56,17 @@ final class AutomationEventSourceTests: XCTestCase {
         XCTAssertNil(source.pendingEvent(since: nil))
     }
 
+    func testDirectoryChangeEventSourceFiresForModificationAfterSince() {
+        let modifiedAt = Date(timeIntervalSince1970: 200)
+        let source = DirectoryChangeEventSource(
+            path: URL(fileURLWithPath: "/watched/logs"),
+            modificationDate: { _ in modifiedAt }
+        )
+
+        XCTAssertEqual(source.pendingEvent(since: Date(timeIntervalSince1970: 199)), "logs directory changed")
+        XCTAssertNil(source.pendingEvent(since: modifiedAt))
+    }
+
     func testURLLastModifiedEventSourceFiresForNewerHeader() throws {
         let url = try XCTUnwrap(URL(string: "https://example.com/feed.xml"))
         let modifiedAt = Date(timeIntervalSince1970: 200)
@@ -174,6 +185,26 @@ final class AutomationEventSourceTests: XCTestCase {
         ))
     }
 
+    func testDirectoryChangeResolverUsesSameProjectBoundsAsFileChanges() {
+        let projectRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quillcode-project")
+        let project = ProjectRef(name: "QuillCode", path: projectRoot.path)
+
+        let url = AutomationEventSourceResolver.directoryChangeURL(
+            for: "logs",
+            project: project
+        )
+
+        XCTAssertEqual(
+            url?.path,
+            projectRoot.appendingPathComponent("logs").standardizedFileURL.path
+        )
+        XCTAssertNil(AutomationEventSourceResolver.directoryChangeURL(
+            for: "../logs",
+            project: project
+        ))
+    }
+
     func testURLLastModifiedResolverAllowsHTTPAndHTTPSOnly() {
         XCTAssertEqual(
             AutomationEventSourceResolver.urlLastModifiedURL(for: " https://example.com/feed.xml ")?.absoluteString,
@@ -212,6 +243,21 @@ final class AutomationEventSourceTests: XCTestCase {
         )
 
         XCTAssertTrue(source is URLLastModifiedEventSource)
+    }
+
+    func testResolverBuildsDirectoryChangeSource() {
+        let projectRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quillcode-project")
+        let project = ProjectRef(name: "QuillCode", path: projectRoot.path)
+        let source = AutomationEventSourceResolver.eventSource(
+            for: QuillAutomationEventSource(
+                kind: .directoryChange,
+                path: "logs"
+            ),
+            project: project
+        )
+
+        XCTAssertTrue(source is DirectoryChangeEventSource)
     }
 
     func testResolverBuildsURLFeedUpdateSource() {
