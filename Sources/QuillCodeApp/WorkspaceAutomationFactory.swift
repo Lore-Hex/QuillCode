@@ -112,6 +112,8 @@ enum WorkspaceAutomationFactory {
         switch request.kind {
         case .fileChange:
             return "Watch file: \(displayName(forPath: request.path))"
+        case .directoryChange:
+            return "Watch directory: \(displayName(forPath: request.path))"
         case .urlLastModified:
             return "Watch URL header: \(displayName(forPath: request.path))"
         case .urlFeedUpdate:
@@ -123,6 +125,8 @@ enum WorkspaceAutomationFactory {
         switch request.kind {
         case .fileChange:
             return "Watch \(request.path) for file changes."
+        case .directoryChange:
+            return "Watch \(request.path) for directory changes."
         case .urlLastModified:
             return "Watch \(request.path) for Last-Modified header changes."
         case .urlFeedUpdate:

@@ -31,6 +31,16 @@ extension QuillCodeWorkspaceModel {
                 )
                 return false
             }
+        case .directoryChange:
+            guard AutomationEventSourceResolver.directoryChangeURL(
+                for: request.path,
+                project: selectedProject
+            ) != nil else {
+                reportUnrecognizedAutomationSchedule(
+                    "Could not watch that directory. Use an absolute path or a path inside the selected local project."
+                )
+                return false
+            }
         case .urlLastModified:
             guard AutomationEventSourceResolver.urlLastModifiedURL(for: request.path) != nil else {
                 reportUnrecognizedAutomationSchedule(
