@@ -5033,6 +5033,7 @@
       { usage: '/branch create name', title: 'Create branch', detail: 'Create and switch to a new branch.', insertText: '/branch create ', aliases: ['branch new', 'git switch -c'] },
       { usage: '/memories', title: 'Show memories', detail: 'Show loaded global and project memories.', insertText: '/memories', aliases: ['memory'] },
       { usage: '/remember text', title: 'Add memory', detail: 'Save an explicit global memory after redaction checks.', insertText: '/remember ', aliases: [] },
+      { usage: '/forget memory-id', title: 'Forget memory', detail: 'Remove a global or project memory by ID.', insertText: '/forget ', aliases: ['memory delete', 'remember delete'] },
       { usage: '/worktrees', title: 'List worktrees', detail: 'List git worktrees for the selected project.', insertText: '/worktrees', aliases: ['worktree', 'wt'] },
       { usage: '/worktree create path', title: 'Create worktree', detail: 'Create and switch to a sibling git worktree.', insertText: '/worktree create ', aliases: ['wt create', 'worktree add', 'worktree new'] },
       { usage: '/worktree open path', title: 'Open worktree', detail: 'Open an existing registered git worktree as a focused project.', insertText: '/worktree open ', aliases: ['wt open', 'worktree switch'] },
@@ -16602,6 +16603,13 @@
           updateMemory(id, content);
         } else {
           addMessage('assistant', 'Use `/remember-edit memory-id` followed by the revised memory on the next line.');
+        }
+      } else if (/^\/(forget|forget-memory|remember-delete|memory-delete)\b/i.test(text)) {
+        const memoryID = text.replace(/^\/(forget|forget-memory|remember-delete|memory-delete)\b/i, '').trim();
+        if (memoryID) {
+          deleteMemory(memoryID);
+        } else {
+          addMessage('assistant', 'Use `/forget memory-id` to remove a memory.');
         }
       } else if (/^\/remember\b/i.test(text)) {
         const memoryContent = text.replace(/^\/remember\b/i, '').trim();

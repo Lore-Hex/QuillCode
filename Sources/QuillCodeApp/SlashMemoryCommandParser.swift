@@ -3,7 +3,8 @@ import Foundation
 enum SlashMemoryCommandParser {
     static func supports(_ name: String) -> Bool {
         switch normalizedName(name) {
-        case "memory", "memories", "remember", "remember-edit", "memory-edit":
+        case "memory", "memories", "remember", "remember-edit", "memory-edit",
+             "forget", "forget-memory", "remember-delete", "memory-delete":
             return true
         default:
             return false
@@ -21,6 +22,8 @@ enum SlashMemoryCommandParser {
             return value.isEmpty ? .workspaceCommand("toggle-memories") : .remember(value)
         case "remember-edit", "memory-edit":
             return parseEdit(value)
+        case "forget", "forget-memory", "remember-delete", "memory-delete":
+            return parseDelete(value)
         default:
             return .unknown(command)
         }
@@ -40,6 +43,14 @@ enum SlashMemoryCommandParser {
             return .invalid("Use `/remember-edit memory-id` followed by the revised memory on the next line.")
         }
         return .editMemory(id: id, content: content)
+    }
+
+    private static func parseDelete(_ value: String) -> SlashCommand {
+        let id = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else {
+            return .invalid("Use `/forget memory-id` to remove a memory.")
+        }
+        return .deleteMemory(id: id)
     }
 
     private static func normalizedName(_ name: String) -> String {

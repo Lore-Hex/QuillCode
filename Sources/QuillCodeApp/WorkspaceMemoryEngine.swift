@@ -52,22 +52,24 @@ enum WorkspaceMemoryEngine {
         }
     }
 
-    static func deleteGlobal(id: String, directory: URL?) -> WorkspaceMemoryMutation? {
+    static func deleteGlobal(id: String, directory: URL?, userText: String? = nil) -> WorkspaceMemoryMutation? {
         deleteLocalMemory(
             root: directory,
             missingRoot: nil,
+            userText: userText,
             refresh: WorkspaceMemoryRefresh.global(from:),
             delete: { try MemoryNoteLoader.deleteGlobal(id: id, from: $0) }
         )
     }
 
-    static func deleteProject(id: String, projectRoot: URL?) -> WorkspaceMemoryMutation {
+    static func deleteProject(id: String, projectRoot: URL?, userText: String? = nil) -> WorkspaceMemoryMutation {
         deleteLocalMemory(
             root: projectRoot,
             missingRoot: WorkspaceMemoryMutationFactory.deleteFailed(
                 error: MemoryNoteDeleteError.deleteFailed,
                 refresh: .none
             ),
+            userText: userText,
             refresh: WorkspaceMemoryRefresh.project(from:),
             delete: { try MemoryNoteLoader.deleteProject(id: id, from: $0) }
         ) ?? WorkspaceMemoryMutationFactory.deleteFailed(error: MemoryNoteDeleteError.deleteFailed, refresh: .none)
@@ -136,7 +138,8 @@ enum WorkspaceMemoryEngine {
     static func deleteRemoteProject(
         id: String,
         project: ProjectRef?,
-        executor: SSHRemoteShellExecutor
+        executor: SSHRemoteShellExecutor,
+        userText: String? = nil
     ) -> WorkspaceMemoryMutation {
         guard let project, project.isRemote else {
             return WorkspaceMemoryMutationFactory.deleteFailed(
@@ -153,7 +156,8 @@ enum WorkspaceMemoryEngine {
             )
             return WorkspaceMemoryMutationFactory.deleted(
                 note: result.deleted,
-                refresh: .project(result.updatedMemories)
+                refresh: .project(result.updatedMemories),
+                userText: userText
             )
         } catch {
             return WorkspaceMemoryMutationFactory.deleteFailed(
@@ -217,12 +221,13 @@ enum WorkspaceMemoryEngine {
     private static func deleteLocalMemory(
         root: URL?,
         missingRoot: WorkspaceMemoryMutation?,
+        userText: String?,
         refresh: (URL) -> WorkspaceMemoryRefresh,
         delete: (URL) throws -> MemoryNote
     ) -> WorkspaceMemoryMutation? {
         guard let root else { return missingRoot }
         do {
-            return WorkspaceMemoryMutationFactory.deleted(note: try delete(root), refresh: refresh(root))
+            return WorkspaceMemoryMutationFactory.deleted(note: try delete(root), refresh: refresh(root), userText: userText)
         } catch let error as MemoryNoteDeleteError {
             return WorkspaceMemoryMutationFactory.deleteFailed(error: error, refresh: refresh(root))
         } catch {

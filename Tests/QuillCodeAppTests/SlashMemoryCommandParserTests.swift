@@ -8,6 +8,8 @@ final class SlashMemoryCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashMemoryCommandParser.supports("remember"))
         XCTAssertTrue(SlashMemoryCommandParser.supports("remember-edit"))
         XCTAssertTrue(SlashMemoryCommandParser.supports("memory-edit"))
+        XCTAssertTrue(SlashMemoryCommandParser.supports("forget"))
+        XCTAssertTrue(SlashMemoryCommandParser.supports("memory-delete"))
         XCTAssertFalse(SlashMemoryCommandParser.supports("project"))
     }
 
@@ -57,6 +59,28 @@ final class SlashMemoryCommandParserTests: XCTestCase {
         XCTAssertEqual(
             SlashCommandParser.parse("/remember-edit \nPrefer focused diffs"),
             .invalid("Use `/remember-edit memory-id` followed by the revised memory on the next line.")
+        )
+    }
+
+    func testForgetTrimsAndBuildsDeleteMemoryCommand() {
+        XCTAssertEqual(
+            SlashMemoryCommandParser.parse(name: "forget", argument: "  global:memories/preferences.md  "),
+            .deleteMemory(id: "global:memories/preferences.md")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/memory-delete project:.quillcode/memories/project.md"),
+            .deleteMemory(id: "project:.quillcode/memories/project.md")
+        )
+    }
+
+    func testForgetRequiresMemoryID() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/forget"),
+            .invalid("Use `/forget memory-id` to remove a memory.")
+        )
+        XCTAssertEqual(
+            SlashMemoryCommandParser.parse(name: "memory-delete", argument: " \n\t "),
+            .invalid("Use `/forget memory-id` to remove a memory.")
         )
     }
 }

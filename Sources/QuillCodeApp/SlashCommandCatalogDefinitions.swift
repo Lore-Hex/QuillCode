@@ -388,6 +388,13 @@ extension SlashCommandCatalog {
             insert: "/remember "
         ),
         slashDefinition(
+            "/forget memory-id",
+            "Forget memory",
+            "Remove a global or project memory by ID.",
+            insert: "/forget ",
+            aliases: ["memory delete", "remember delete"]
+        ),
+        slashDefinition(
             "/worktrees",
             "List worktrees",
             "List git worktrees for the selected project.",

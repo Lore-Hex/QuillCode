@@ -61,6 +61,17 @@ extension QuillCodeWorkspaceModel {
         applyMemoryMutation(mutation, for: id)
     }
 
+    func runDeleteMemorySlashCommand(id: String, originalPrompt: String) {
+        guard let mutation = WorkspaceMemoryWorkflow.delete(
+            id: id,
+            context: memoryWorkflowContext(),
+            userText: originalPrompt
+        ) else {
+            return
+        }
+        applyMemoryMutation(mutation, for: id)
+    }
+
     func refreshGlobalMemories() {
         root.globalMemories = WorkspaceProjectContextRefresher.globalMemories(directory: globalMemoryDirectory)
     }

@@ -29,25 +29,29 @@ enum WorkspaceMemoryWorkflow {
 
     static func delete(
         id: String,
-        context: WorkspaceMemoryWorkflowContext
+        context: WorkspaceMemoryWorkflowContext,
+        userText: String? = nil
     ) -> WorkspaceMemoryMutation? {
         switch scope(for: id) {
         case .global:
             return WorkspaceMemoryEngine.deleteGlobal(
                 id: id,
-                directory: context.globalMemoryDirectory
+                directory: context.globalMemoryDirectory,
+                userText: userText
             )
         case .project:
             return projectMutation(context: context) { project in
                 WorkspaceMemoryEngine.deleteRemoteProject(
                     id: id,
                     project: project,
-                    executor: context.sshRemoteShellExecutor
+                    executor: context.sshRemoteShellExecutor,
+                    userText: userText
                 )
             } local: {
                 WorkspaceMemoryEngine.deleteProject(
                     id: id,
-                    projectRoot: context.editableProjectRoot
+                    projectRoot: context.editableProjectRoot,
+                    userText: userText
                 )
             }
         }
