@@ -50,6 +50,14 @@ final class SlashSchedulingCommandParserTests: XCTestCase {
             .monitor(WorkspaceMonitorRequest(kind: .fileChange, path: "logs/watch.log"))
         )
         XCTAssertEqual(
+            SlashCommandParser.parse("/monitor directory Build/Products"),
+            .monitor(WorkspaceMonitorRequest(kind: .directoryChange, path: "Build/Products"))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/watch folder Reports"),
+            .monitor(WorkspaceMonitorRequest(kind: .directoryChange, path: "Reports"))
+        )
+        XCTAssertEqual(
             SlashCommandParser.parse("/monitor last-modified https://example.com/releases"),
             .monitor(WorkspaceMonitorRequest(kind: .urlLastModified, path: "https://example.com/releases"))
         )
