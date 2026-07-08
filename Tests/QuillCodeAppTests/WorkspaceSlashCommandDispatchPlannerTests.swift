@@ -89,6 +89,14 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
+                for: .deleteMemory(id: "global:memories/preferences.md"),
+                userText: "/forget global:memories/preferences.md",
+                statusText: "unused"
+            ),
+            .deleteMemory(id: "global:memories/preferences.md", userText: "/forget global:memories/preferences.md")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
                 for: .threadFollowUp("tomorrow"),
                 userText: "/follow-up tomorrow",
                 statusText: "unused"

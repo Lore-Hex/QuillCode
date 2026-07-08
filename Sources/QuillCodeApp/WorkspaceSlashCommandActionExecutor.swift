@@ -39,6 +39,8 @@ extension QuillCodeWorkspaceModel {
             runRememberSlashCommand(content, originalPrompt: userText)
         case .editMemory(let id, let content, let userText):
             runEditMemorySlashCommand(id: id, content: content, originalPrompt: userText)
+        case .deleteMemory(let id, let userText):
+            runDeleteMemorySlashCommand(id: id, originalPrompt: userText)
         case .threadFollowUp(let scheduleText, let userText):
             runThreadFollowUpSlashCommand(scheduleText, originalPrompt: userText)
         case .workspaceSchedule(let scheduleText, let userText):

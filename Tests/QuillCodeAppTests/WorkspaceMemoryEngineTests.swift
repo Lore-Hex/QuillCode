@@ -75,6 +75,20 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
         XCTAssertEqual(MemoryNoteLoader.loadGlobal(from: directory), [])
     }
 
+    func testDeleteGlobalCanPreserveSlashPromptInTranscript() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let note = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)
+
+        let mutation = try XCTUnwrap(WorkspaceMemoryEngine.deleteGlobal(
+            id: note.id,
+            directory: directory,
+            userText: "/forget \(note.id)"
+        ))
+
+        XCTAssertEqual(mutation.transcript.userText, "/forget \(note.id)")
+        XCTAssertEqual(mutation.transcript.title, "Forgot memory: \(note.title)")
+    }
+
     func testDeleteProjectReturnsTranscriptRefreshAndNotice() throws {
         let projectRoot = try makeQuillCodeTestDirectory()
         let memoryDirectory = projectRoot.appendingPathComponent(".quillcode/memories")

@@ -29,11 +29,11 @@ enum WorkspaceMemoryMutationFactory {
         )
     }
 
-    static func deleted(note: MemoryNote, refresh: Refresh) -> MemoryMutation {
+    static func deleted(note: MemoryNote, refresh: Refresh, userText: String? = nil) -> MemoryMutation {
         mutation(
             for: Outcome.changed(
                 .deleted,
-                userText: "Forget memory: \(note.title)",
+                userText: userText ?? "Forget memory: \(note.title)",
                 note: note
             ),
             refresh: refresh
