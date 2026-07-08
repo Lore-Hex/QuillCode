@@ -401,6 +401,30 @@ final class WorkspaceAutomationSchedulingIntegrationTests: XCTestCase {
         )
     }
 
+    func testSlashMonitorCreatesDirectoryMonitor() async throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        try FileManager.default.createDirectory(
+            at: workspace.root.appendingPathComponent("logs", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        workspace.model.setDraft("/monitor directory logs")
+        await workspace.model.submitComposer(workspaceRoot: workspace.root)
+
+        let saved = try XCTUnwrap(try workspace.automationStore.load().first)
+        XCTAssertEqual(saved.title, "Watch directory: logs")
+        XCTAssertEqual(saved.kind, .monitor)
+        XCTAssertEqual(saved.scheduleDescription, "Directory change")
+        XCTAssertEqual(saved.eventSource, QuillAutomationEventSource(
+            kind: .directoryChange,
+            path: "logs"
+        ))
+        XCTAssertEqual(
+            workspace.model.selectedThread?.messages.last?.content,
+            "Created Watch directory: logs using Directory change: logs."
+        )
+    }
+
     func testSlashMonitorRejectsInvalidURL() async throws {
         let workspace = try makeProjectAutomationWorkspace()
 

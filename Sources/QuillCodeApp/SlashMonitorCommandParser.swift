@@ -12,7 +12,7 @@ public struct WorkspaceMonitorRequest: Codable, Sendable, Hashable {
 }
 
 enum SlashMonitorCommandParser {
-    static let usage = "Usage: /monitor file path, /monitor last-modified https://example.com, or /monitor feed https://example.com/feed.xml"
+    static let usage = "Usage: /monitor file path, /monitor directory path, /monitor last-modified https://example.com, or /monitor feed https://example.com/feed.xml"
 
     static func parse(_ argument: String) -> SlashCommand {
         let parts = argument
@@ -28,6 +28,8 @@ enum SlashMonitorCommandParser {
         switch rawKind {
         case "file", "path":
             return .monitor(WorkspaceMonitorRequest(kind: .fileChange, path: path))
+        case "directory", "dir", "folder":
+            return .monitor(WorkspaceMonitorRequest(kind: .directoryChange, path: path))
         case "last-modified", "lastmodified", "header", "url":
             return .monitor(WorkspaceMonitorRequest(kind: .urlLastModified, path: path))
         case "feed", "rss", "atom":

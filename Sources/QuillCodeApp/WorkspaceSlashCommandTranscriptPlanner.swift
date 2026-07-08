@@ -124,7 +124,7 @@ struct WorkspaceSlashCommandTranscriptPlanner {
     static func monitorFailed(userText: String, message: String?) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,
-            assistantText: message ?? "Could not create this monitor. Try `/monitor file path`, `/monitor last-modified https://example.com`, or `/monitor feed https://example.com/feed.xml`.",
+            assistantText: message ?? "Could not create this monitor. Try `/monitor file path`, `/monitor directory path`, `/monitor last-modified https://example.com`, or `/monitor feed https://example.com/feed.xml`.",
             title: "Create monitor"
         )
     }
