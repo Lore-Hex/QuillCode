@@ -369,6 +369,40 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(presenter.syncedSnapshots.count, syncCountBeforeForward)
     }
 
+    func testDesktopBrowserCoordinatorEvaluatesJavaScriptInVisibleSession() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173"
+        controller.openBrowserSession()
+
+        let result = try await controller.browserCoordinator.evaluateJavaScriptInOpenSession("document.title")
+
+        XCTAssertEqual(presenter.evaluatedJavaScriptSources, ["document.title"])
+        XCTAssertEqual(result.title, "Visible Browser")
+        XCTAssertEqual(result.url.absoluteString, "http://localhost:5173")
+        XCTAssertEqual(result.valueDescription, "Visible Browser")
+    }
+
+    func testDesktopBrowserCoordinatorRejectsEmptyVisibleSessionJavaScript() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173"
+        controller.openBrowserSession()
+
+        do {
+            _ = try await controller.browserCoordinator.evaluateJavaScriptInOpenSession("   ")
+            XCTFail("Expected empty JavaScript source to fail.")
+        } catch let error as DesktopBrowserSessionScriptError {
+            XCTAssertEqual(error, .emptySource)
+        }
+    }
+
     func testDesktopControllerSendPathCoversRealWorldActionPromptFamily() async throws {
         let workspaceRoot = try makeTempDirectory()
         let downloadSource = workspaceRoot.appendingPathComponent("source.html")
@@ -835,6 +869,7 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     private(set) var syncedSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var backFallbackSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var forwardFallbackSnapshots: [BrowserSessionSyncSnapshot] = []
+    private(set) var evaluatedJavaScriptSources: [String] = []
     private(set) var reloadedSessionCount = 0
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -851,6 +886,17 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
 
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {
         forwardFallbackSnapshots.append(snapshot)
+    }
+
+    func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSource.isEmpty else { throw DesktopBrowserSessionScriptError.emptySource }
+        evaluatedJavaScriptSources.append(trimmedSource)
+        return DesktopBrowserSessionScriptResult(
+            title: "Visible Browser",
+            url: try XCTUnwrap(URL(string: "http://localhost:5173")),
+            valueDescription: "Visible Browser"
+        )
     }
 
     func reloadSession() {

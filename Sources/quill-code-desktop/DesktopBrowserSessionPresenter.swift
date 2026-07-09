@@ -13,7 +13,20 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
+    func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult
     func reloadSession()
+}
+
+struct DesktopBrowserSessionScriptResult: Sendable, Equatable {
+    var title: String
+    var url: URL
+    var valueDescription: String
+}
+
+enum DesktopBrowserSessionScriptError: Error, Sendable, Equatable {
+    case noOpenSession
+    case noSelectedTab
+    case emptySource
 }
 
 @MainActor
@@ -53,6 +66,11 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
 
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {
         session?.goForwardSelectedTab(fallback: snapshot)
+    }
+
+    func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        guard let session else { throw DesktopBrowserSessionScriptError.noOpenSession }
+        return try await session.evaluateJavaScriptInSelectedTab(source)
     }
 
     func reloadSession() {
@@ -181,6 +199,24 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
             return
         }
         tab.webView.goForward()
+    }
+
+    func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSource.isEmpty else { throw DesktopBrowserSessionScriptError.emptySource }
+        guard let selectedID = selectedTabID(),
+              let tab = tabs[selectedID]
+        else {
+            throw DesktopBrowserSessionScriptError.noSelectedTab
+        }
+        let value = try await tab.webView.evaluateJavaScript(trimmedSource)
+        emitSessionUpdate()
+        emitRenderedSessionUpdate(for: selectedID, webView: tab.webView)
+        return DesktopBrowserSessionScriptResult(
+            title: nonEmpty(tab.webView.title) ?? tab.snapshot.title,
+            url: tab.webView.url ?? tab.snapshot.url,
+            valueDescription: Self.boundedJavaScriptResultDescription(value)
+        )
     }
 
     private func sync(_ snapshot: BrowserSessionTabSnapshot) {
@@ -317,6 +353,34 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         configuration.websiteDataStore = .default()
         return configuration
     }
+
+    private static let maxJavaScriptResultDescriptionLength = 4_000
+
+    private static func boundedJavaScriptResultDescription(_ value: Any?) -> String {
+        let description = describeJavaScriptResult(value)
+        guard description.count > maxJavaScriptResultDescriptionLength else { return description }
+        return String(description.prefix(maxJavaScriptResultDescriptionLength)) + "... [truncated]"
+    }
+
+    private static func describeJavaScriptResult(_ value: Any?) -> String {
+        switch value {
+        case nil, is NSNull:
+            return "null"
+        case let string as String:
+            return string
+        case let number as NSNumber:
+            return number.stringValue
+        case let array as [Any]:
+            return array.map(describeJavaScriptResult).joined(separator: ", ")
+        case let dictionary as [String: Any]:
+            return dictionary
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key): \(describeJavaScriptResult($0.value))" }
+                .joined(separator: ", ")
+        case let value?:
+            return String(describing: value)
+        }
+    }
 }
 #else
 @MainActor
@@ -327,7 +391,20 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
+    func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult
     func reloadSession()
+}
+
+struct DesktopBrowserSessionScriptResult: Sendable, Equatable {
+    var title: String
+    var url: URL
+    var valueDescription: String
+}
+
+enum DesktopBrowserSessionScriptError: Error, Sendable, Equatable {
+    case noOpenSession
+    case noSelectedTab
+    case emptySource
 }
 
 @MainActor
@@ -338,6 +415,9 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
+    func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        throw DesktopBrowserSessionScriptError.noOpenSession
+    }
     func reloadSession() {}
 }
 #endif
