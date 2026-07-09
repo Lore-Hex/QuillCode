@@ -114,6 +114,14 @@ struct QuillCodeDesktopBrowserCoordinator {
         try await sessionPresenter.captureLiveDOMSnapshotInSelectedTab()
     }
 
+    func clickInOpenSession(selector: String) async throws -> DesktopBrowserSessionActionResult {
+        try await sessionPresenter.clickInSelectedTab(selector: selector)
+    }
+
+    func typeInOpenSession(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+        try await sessionPresenter.typeInSelectedTab(selector: selector, text: text, submit: submit)
+    }
+
     func inspectLiveDOMSnapshotInOpenSession() async -> ToolResult? {
         do {
             let snapshot = try await captureLiveDOMSnapshotInOpenSession()

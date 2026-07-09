@@ -344,6 +344,12 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
         throw DesktopBrowserSessionScriptError.noOpenSession
     }
+    func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
+        throw DesktopBrowserSessionActionError.noOpenSession
+    }
+    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+        throw DesktopBrowserSessionActionError.noOpenSession
+    }
     func reloadSession() {}
 }
 
