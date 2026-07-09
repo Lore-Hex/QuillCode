@@ -41,6 +41,8 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
             "emitSessionUpdate()",
             "func presentSession(_ snapshot: BrowserSessionSyncSnapshot)",
             "func syncSession(_ snapshot: BrowserSessionSyncSnapshot)",
+            "func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)",
+            "func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)",
             "func reloadSession()",
             "NSTabView"
         ] {

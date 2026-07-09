@@ -89,6 +89,18 @@ struct QuillCodeDesktopBrowserCoordinator {
         sessionPresenter.syncSession(snapshot)
     }
 
+    func goBackOpenSession(model: QuillCodeWorkspaceModel) {
+        let snapshot = BrowserSessionSyncSnapshot(browser: model.browser)
+        guard !snapshot.isEmpty else { return }
+        sessionPresenter.goBackSession(fallback: snapshot)
+    }
+
+    func goForwardOpenSession(model: QuillCodeWorkspaceModel) {
+        let snapshot = BrowserSessionSyncSnapshot(browser: model.browser)
+        guard !snapshot.isEmpty else { return }
+        sessionPresenter.goForwardSession(fallback: snapshot)
+    }
+
     func reloadOpenSession() {
         sessionPresenter.reloadSession()
     }

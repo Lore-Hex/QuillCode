@@ -343,6 +343,32 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(presenter.reloadedSessionCount, 1)
     }
 
+    func testDesktopControllerBackForwardCommandsDriveVisibleBrowserSessionHistory() throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173"
+        controller.openBrowserPreview()
+        controller.browserAddressDraft = "localhost:5174"
+        controller.openBrowserSession()
+        let syncCountBeforeBack = presenter.syncedSnapshots.count
+
+        controller.runWorkspaceCommand("browser-back")
+
+        XCTAssertEqual(controller.surface.browser.currentURL, "http://localhost:5173")
+        XCTAssertEqual(presenter.backFallbackSnapshots.last?.tabs.first?.url.absoluteString, "http://localhost:5173")
+        XCTAssertEqual(presenter.syncedSnapshots.count, syncCountBeforeBack)
+        let syncCountBeforeForward = presenter.syncedSnapshots.count
+
+        controller.runWorkspaceCommand("browser-forward")
+
+        XCTAssertEqual(controller.surface.browser.currentURL, "http://localhost:5174")
+        XCTAssertEqual(presenter.forwardFallbackSnapshots.last?.tabs.first?.url.absoluteString, "http://localhost:5174")
+        XCTAssertEqual(presenter.syncedSnapshots.count, syncCountBeforeForward)
+    }
+
     func testDesktopControllerSendPathCoversRealWorldActionPromptFamily() async throws {
         let workspaceRoot = try makeTempDirectory()
         let downloadSource = workspaceRoot.appendingPathComponent("source.html")
@@ -807,6 +833,8 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
     private(set) var presentedSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var syncedSnapshots: [BrowserSessionSyncSnapshot] = []
+    private(set) var backFallbackSnapshots: [BrowserSessionSyncSnapshot] = []
+    private(set) var forwardFallbackSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var reloadedSessionCount = 0
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -815,6 +843,14 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
 
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
         syncedSnapshots.append(snapshot)
+    }
+
+    func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {
+        backFallbackSnapshots.append(snapshot)
+    }
+
+    func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {
+        forwardFallbackSnapshots.append(snapshot)
     }
 
     func reloadSession() {
