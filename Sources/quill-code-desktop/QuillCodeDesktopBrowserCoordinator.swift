@@ -105,6 +105,10 @@ struct QuillCodeDesktopBrowserCoordinator {
         sessionPresenter.reloadSession()
     }
 
+    func evaluateJavaScriptInOpenSession(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        try await sessionPresenter.evaluateJavaScriptInSelectedTab(source)
+    }
+
     private func activeWorkspaceRoot(
         for model: QuillCodeWorkspaceModel,
         fallback workspaceRoot: URL

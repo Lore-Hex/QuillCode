@@ -338,6 +338,9 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
+    func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        throw DesktopBrowserSessionScriptError.noOpenSession
+    }
     func reloadSession() {}
 }
 
