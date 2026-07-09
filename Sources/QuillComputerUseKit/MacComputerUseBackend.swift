@@ -4,7 +4,10 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-public struct MacComputerUseBackend: ComputerUseBackend, ComputerUseForegroundApplicationProviding {
+public struct MacComputerUseBackend: ComputerUseBackend,
+    ComputerUseForegroundApplicationProviding,
+    ComputerUseAccessibilitySnapshotProviding
+{
     public init() {}
 
     public var status: ComputerUseStatus {
@@ -102,6 +105,27 @@ public struct MacComputerUseBackend: ComputerUseBackend, ComputerUseForegroundAp
             name: app.localizedName,
             bundleIdentifier: app.bundleIdentifier
         )
+    }
+
+    public func accessibilitySnapshot(limit: Int) async -> ComputerUseAccessibilitySnapshot? {
+        guard AXIsProcessTrusted(), limit > 0 else { return nil }
+        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        let root = AXUIElementCreateApplication(app.processIdentifier)
+        let start = Self.focusedWindow(in: root) ?? root
+        var elements: [ComputerUseAccessibilityElement] = []
+        var queue: [AXUIElement] = [start]
+        var visited = 0
+        while !queue.isEmpty, elements.count < limit, visited < 80 {
+            visited += 1
+            let element = queue.removeFirst()
+            let summary = Self.accessibilityElementSummary(element)
+            if !summary.isEmpty {
+                elements.append(summary)
+            }
+            queue.append(contentsOf: Self.children(of: element, limit: max(0, 80 - visited)))
+        }
+        let snapshot = ComputerUseAccessibilitySnapshot(elements: elements)
+        return snapshot.isEmpty ? nil : snapshot
     }
 
     private func requireScreenRecording() throws {
@@ -204,6 +228,65 @@ public struct MacComputerUseBackend: ComputerUseBackend, ComputerUseForegroundAp
         default:
             return nil
         }
+    }
+
+    private static func focusedWindow(in application: AXUIElement) -> AXUIElement? {
+        attribute(kAXFocusedWindowAttribute, from: application) as AXUIElement?
+    }
+
+    private static func children(of element: AXUIElement, limit: Int) -> [AXUIElement] {
+        guard limit > 0 else { return [] }
+        guard let children = attribute(kAXChildrenAttribute, from: element) as [AXUIElement]? else {
+            return []
+        }
+        return Array(children.prefix(limit))
+    }
+
+    private static func accessibilityElementSummary(_ element: AXUIElement) -> ComputerUseAccessibilityElement {
+        ComputerUseAccessibilityElement(
+            role: displayRole(attribute(kAXRoleAttribute, from: element) as String?),
+            label: firstNonEmptyString([
+                attribute(kAXTitleAttribute, from: element) as String?,
+                attribute(kAXDescriptionAttribute, from: element) as String?,
+                attribute(kAXHelpAttribute, from: element) as String?
+            ]),
+            value: accessibilityValue(element)
+        )
+    }
+
+    private static func attribute<T>(_ name: String, from element: AXUIElement) -> T? {
+        var value: CFTypeRef?
+        let error = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+        guard error == .success else { return nil }
+        return value as? T
+    }
+
+    private static func accessibilityValue(_ element: AXUIElement) -> String? {
+        let value: Any? = attribute(kAXValueAttribute, from: element)
+        switch value {
+        case let string as String:
+            return string
+        case let number as NSNumber:
+            return number.stringValue
+        default:
+            return nil
+        }
+    }
+
+    private static func firstNonEmptyString(_ values: [String?]) -> String? {
+        values.lazy.compactMap { value -> String? in
+            guard let value else { return nil }
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }.first
+    }
+
+    private static func displayRole(_ role: String?) -> String? {
+        guard let role else { return nil }
+        let cleaned = role
+            .replacingOccurrences(of: "AX", with: "")
+            .replacingOccurrences(of: "UIElement", with: "Element")
+        return cleaned.isEmpty ? role : cleaned
     }
 }
 #endif

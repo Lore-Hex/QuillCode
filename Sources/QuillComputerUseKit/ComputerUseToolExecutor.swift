@@ -54,16 +54,19 @@ public struct ComputerUseToolExecutor: Sendable {
         let screenshot = try await backend.screenshot()
         let path = try writeScreenshotArtifact(screenshot)
         let foregroundApplication = await currentForegroundApplication()
+        let accessibilitySnapshot = await currentAccessibilitySnapshot(limit: 8)
         let output = ComputerScreenshotToolOutput(
             width: screenshot.width,
             height: screenshot.height,
             path: path,
             foregroundApplication: foregroundApplication,
+            accessibilitySnapshot: accessibilitySnapshot,
             visualSummary: Self.screenshotVisualSummary(
                 width: screenshot.width,
                 height: screenshot.height,
                 path: path,
-                foregroundApplication: foregroundApplication
+                foregroundApplication: foregroundApplication,
+                accessibilitySnapshot: accessibilitySnapshot
             )
         )
         return ToolResult(
@@ -79,6 +82,14 @@ public struct ComputerUseToolExecutor: Sendable {
 
     private func foregroundApplicationProvider() -> (any ComputerUseForegroundApplicationProviding)? {
         backend as? any ComputerUseForegroundApplicationProviding
+    }
+
+    private func currentAccessibilitySnapshot(limit: Int) async -> ComputerUseAccessibilitySnapshot? {
+        await accessibilitySnapshotProvider()?.accessibilitySnapshot(limit: limit)
+    }
+
+    private func accessibilitySnapshotProvider() -> (any ComputerUseAccessibilitySnapshotProviding)? {
+        backend as? any ComputerUseAccessibilitySnapshotProviding
     }
 
     private func executeClick(_ args: ToolArguments) async throws -> ToolResult {
@@ -223,13 +234,17 @@ public struct ComputerUseToolExecutor: Sendable {
         width: Int,
         height: Int,
         path: String?,
-        foregroundApplication: ComputerUseApplication?
+        foregroundApplication: ComputerUseApplication?,
+        accessibilitySnapshot: ComputerUseAccessibilitySnapshot?
     ) -> String {
         var parts = [
             "Captured \(width) x \(height) desktop screenshot"
         ]
         if let foregroundApplication {
             parts.append("foreground app: \(foregroundApplication.displayLabel)")
+        }
+        if let summary = accessibilitySnapshot?.summary {
+            parts.append("visible controls: \(summary)")
         }
         if let path {
             parts.append("preview artifact: \(URL(fileURLWithPath: path).lastPathComponent)")
