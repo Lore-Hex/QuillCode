@@ -14,6 +14,8 @@ enum QuillCodeDesktopVisibleBrowserToolExecutor {
             return await click(call, browserCoordinator: browserCoordinator)
         case ToolDefinition.browserType.name:
             return await type(call, browserCoordinator: browserCoordinator)
+        case ToolDefinition.browserScript.name:
+            return await script(call, browserCoordinator: browserCoordinator)
         default:
             return nil
         }
@@ -76,6 +78,28 @@ enum QuillCodeDesktopVisibleBrowserToolExecutor {
         )
     }
 
+    private static func script(
+        _ call: ToolCall,
+        browserCoordinator: QuillCodeDesktopBrowserCoordinator
+    ) async -> ToolResult {
+        do {
+            let arguments = try ToolArguments(call.argumentsJSON)
+            let source = try arguments.requiredString("source", allowingEmpty: true)
+            let result = try await browserCoordinator.evaluateJavaScriptInOpenSession(source)
+            let output = BrowserScriptToolOutput(
+                title: result.title,
+                url: result.url.absoluteString,
+                value: result.valueDescription
+            )
+            return ToolResult(
+                ok: true,
+                stdout: (try? JSONHelpers.encodePretty(output)) ?? result.valueDescription
+            )
+        } catch {
+            return ToolResult(ok: false, error: scriptErrorMessage(error))
+        }
+    }
+
     private static func actionErrorMessage(_ error: Error) -> String {
         switch error {
         case DesktopBrowserSessionActionError.noOpenSession,
@@ -88,6 +112,18 @@ enum QuillCodeDesktopVisibleBrowserToolExecutor {
         case DesktopBrowserSessionActionError.actionFailed(let message),
             DesktopBrowserSessionActionError.decodingFailed(let message):
             return message
+        default:
+            return String(describing: error)
+        }
+    }
+
+    private static func scriptErrorMessage(_ error: Error) -> String {
+        switch error {
+        case DesktopBrowserSessionScriptError.noOpenSession,
+            DesktopBrowserSessionScriptError.noSelectedTab:
+            return "No visible browser session is open. Open a browser session first, then retry the browser script."
+        case DesktopBrowserSessionScriptError.emptySource:
+            return "No browser script source was specified."
         default:
             return String(describing: error)
         }

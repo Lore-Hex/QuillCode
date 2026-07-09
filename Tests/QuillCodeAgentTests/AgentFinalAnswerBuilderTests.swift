@@ -423,6 +423,25 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertTrue(answer.contains("visible browser session"))
     }
 
+    func testBrowserScriptFinalAnswerSummarizesVisibleSessionResult() throws {
+        let output = BrowserScriptToolOutput(
+            title: "Dashboard",
+            url: "http://localhost:5173/dashboard",
+            value: "Ready"
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.browserScript.name,
+                argumentsJSON: ToolArguments.json(["source": "document.body.dataset.status"])
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertTrue(answer.contains("Ran JavaScript in `Dashboard`"))
+        XCTAssertTrue(answer.contains("Result: Ready"))
+    }
+
     func testApplyPatchFinalAnswerMentionsDiffRefreshFailure() throws {
         let call = ToolCall(
             name: ToolDefinition.applyPatch.name,

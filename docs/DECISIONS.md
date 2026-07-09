@@ -3,10 +3,11 @@
 ## 2026-07-05
 
 - Visible browser agent actions are routed through a desktop executor, not the desktop controller or the app model.
-  `QuillCodeDesktopVisibleBrowserToolExecutor` owns the `host.browser.inspect`, `host.browser.click`, and
-  `host.browser.type` override path for the open WebKit session, while the controller only installs the override and the
-  browser coordinator owns session lifecycle. This keeps selector parsing, structured browser action output, and
-  no-open-session errors close to the platform adapter without leaking WebKit or JavaScript into app-level code.
+  `QuillCodeDesktopVisibleBrowserToolExecutor` owns the `host.browser.inspect`, `host.browser.click`,
+  `host.browser.type`, and `host.browser.script` override path for the open WebKit session, while the controller only
+  installs the override and the browser coordinator owns session lifecycle. This keeps selector/source parsing,
+  structured browser action/script output, and no-open-session errors close to the platform adapter without leaking
+  WebKit or JavaScript into app-level code.
 - Auto safety reviewer calibration starts with deterministic fixture coverage before live transcript scoring. The
   fixtures run through the real `AutoSafetyReviewer` model path and pin representative reviewer decisions for bounded
   diagnostics, missing shell arguments, unrelated chained credential reads, and project-local file creation. Live

@@ -25,6 +25,7 @@ enum AgentToolAnswerFormatters {
             AgentBrowserToolAnswerFormatters.browserInspectAnswer,
             AgentBrowserToolAnswerFormatters.browserOpenAnswer,
             AgentBrowserToolAnswerFormatters.browserActionAnswer,
+            AgentBrowserToolAnswerFormatters.browserScriptAnswer,
             AgentUtilityToolAnswerFormatters.mcpReadResourceAnswer,
             AgentUtilityToolAnswerFormatters.mcpGetPromptAnswer,
             AgentUtilityToolAnswerFormatters.computerScreenshotAnswer,

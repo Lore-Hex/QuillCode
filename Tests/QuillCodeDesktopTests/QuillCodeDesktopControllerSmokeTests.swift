@@ -520,6 +520,30 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertTrue(result?.stdout.contains(#""submitted" : true"#) == true)
     }
 
+    func testDesktopAgentBrowserScriptUsesVisibleSessionActionTool() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+        let override = try XCTUnwrap(controller.model.visibleBrowserToolOverride)
+
+        let result = await override(
+            ToolCall(
+                name: ToolDefinition.browserScript.name,
+                argumentsJSON: ToolArguments.json(["source": "document.title"])
+            ),
+            try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result?.ok, true)
+        XCTAssertEqual(presenter.evaluatedJavaScriptSources, ["document.title"])
+        XCTAssertTrue(result?.stdout.contains(#""title" : "Visible Browser""#) == true)
+        XCTAssertTrue(result?.stdout.contains(#""value" : "Visible Browser""#) == true)
+    }
+
     func testDesktopAgentBrowserClickReportsMissingVisibleSession() async throws {
         let presenter = NoopDesktopBrowserSessionPresenter()
         let controller = try makeController(
@@ -538,6 +562,48 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
 
         XCTAssertEqual(result?.ok, false)
         XCTAssertTrue(result?.error?.contains("No visible browser session is open") == true)
+    }
+
+    func testDesktopAgentBrowserScriptReportsMissingVisibleSession() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        let override = try XCTUnwrap(controller.model.visibleBrowserToolOverride)
+
+        let result = await override(
+            ToolCall(
+                name: ToolDefinition.browserScript.name,
+                argumentsJSON: ToolArguments.json(["source": "document.title"])
+            ),
+            try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result?.ok, false)
+        XCTAssertTrue(result?.error?.contains("No visible browser session is open") == true)
+    }
+
+    func testDesktopAgentBrowserScriptRejectsEmptySource() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+        let override = try XCTUnwrap(controller.model.visibleBrowserToolOverride)
+
+        let result = await override(
+            ToolCall(
+                name: ToolDefinition.browserScript.name,
+                argumentsJSON: ToolArguments.json(["source": "   "])
+            ),
+            try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result?.ok, false)
+        XCTAssertTrue(result?.error?.contains("No browser script source was specified") == true)
     }
 
     func testDesktopAgentBrowserInspectPrefersVisibleSessionLiveDOM() async throws {

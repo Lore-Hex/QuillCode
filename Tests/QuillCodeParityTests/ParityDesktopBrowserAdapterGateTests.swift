@@ -123,10 +123,13 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         Self.assertSource(visibleToolExecutorText, contains: "ToolDefinition.browserInspect.name")
         Self.assertSource(visibleToolExecutorText, contains: "ToolDefinition.browserClick.name")
         Self.assertSource(visibleToolExecutorText, contains: "ToolDefinition.browserType.name")
+        Self.assertSource(visibleToolExecutorText, contains: "ToolDefinition.browserScript.name")
         Self.assertSource(visibleToolExecutorText, contains: "browserCoordinator.inspectLiveDOMSnapshotInOpenSession()")
         Self.assertSource(visibleToolExecutorText, contains: "browserCoordinator.clickInOpenSession(selector: selector)")
         Self.assertSource(visibleToolExecutorText, contains: "browserCoordinator.typeInOpenSession(")
+        Self.assertSource(visibleToolExecutorText, contains: "browserCoordinator.evaluateJavaScriptInOpenSession(source)")
         Self.assertSource(visibleToolExecutorText, contains: "BrowserActionToolOutput")
+        Self.assertSource(visibleToolExecutorText, contains: "BrowserScriptToolOutput")
         Self.assertSource(browserCoordinatorText, contains: "sessionPresenter.reloadSession()")
         Self.assertSource(controllerText, contains: "func openBrowserSession()")
         Self.assertSource(appText, contains: "onOpenBrowserSession: controller.openBrowserSession")
@@ -139,6 +142,7 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, excludes: "import WebKit")
         Self.assertSource(controllerText, excludes: "document.querySelector")
         Self.assertSource(controllerText, excludes: "BrowserActionToolOutput")
+        Self.assertSource(controllerText, excludes: "BrowserScriptToolOutput")
     }
 
 }

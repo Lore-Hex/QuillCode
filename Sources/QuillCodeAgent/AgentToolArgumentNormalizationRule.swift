@@ -115,6 +115,12 @@ enum AgentToolArgumentNormalizationRules {
             valueArguments: [.init(canonicalKey: "submit", aliases: ["pressEnter", "press_enter", "enter"])]
         ),
         .init(
+            toolNames: [ToolDefinition.browserScript.name],
+            stringArguments: [
+                .init(canonicalKey: "source", aliases: ["javascript", "js", "script", "code", "expression"])
+            ]
+        ),
+        .init(
             toolNames: [ToolDefinition.webFetch.name],
             stringArguments: [.init(canonicalKey: "url", aliases: ["address", "href", "link", "target", "page", "uri"])]
         ),
