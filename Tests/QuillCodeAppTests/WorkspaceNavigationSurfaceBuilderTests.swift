@@ -44,6 +44,10 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
             [true, false]
         )
         XCTAssertEqual(
+            surface.projects.items.map { $0.actions.first(where: { $0.kind == .moveToBottom })?.isEnabled },
+            [true, false]
+        )
+        XCTAssertEqual(
             surface.projects.items.first?.actions.first(where: { $0.kind == .moveToTop })?.disabledReason,
             "Already at the top"
         )
@@ -53,6 +57,10 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
         )
         XCTAssertEqual(
             surface.projects.items.last?.actions.first(where: { $0.kind == .moveDown })?.disabledReason,
+            "Already at the bottom"
+        )
+        XCTAssertEqual(
+            surface.projects.items.last?.actions.first(where: { $0.kind == .moveToBottom })?.disabledReason,
             "Already at the bottom"
         )
         XCTAssertEqual(surface.sidebar.items.map(\.title), ["Selected", "Other"])

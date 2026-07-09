@@ -231,6 +231,25 @@ enum WorkspaceProjectEngine {
     }
 
     @discardableResult
+    static func moveProjectToBottom(
+        _ id: UUID,
+        projects: inout [ProjectRef],
+        now: Date = Date()
+    ) -> Bool {
+        var ordered = displayOrderedProjects(projects)
+        guard let sourceIndex = ordered.firstIndex(where: { $0.id == id }),
+              sourceIndex < ordered.index(before: ordered.endIndex)
+        else {
+            return false
+        }
+
+        let project = ordered.remove(at: sourceIndex)
+        ordered.append(project)
+        applyProjectOrder(ordered.map(\.id), projects: &projects, now: now)
+        return true
+    }
+
+    @discardableResult
     static func applyMetadata(
         _ metadata: WorkspaceProjectMetadata,
         to id: UUID?,

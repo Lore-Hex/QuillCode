@@ -20,6 +20,10 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
   await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
   await clickProjectAction(page.getByTestId('project-row').nth(1), 'Move up');
   await expect(page.getByTestId('project-item').first()).toContainText('Example Project 2');
+  await clickProjectAction(page.getByTestId('project-row').first(), 'Move to bottom');
+  await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
+  await clickProjectAction(page.getByTestId('project-row').nth(1), 'Move to top');
+  await expect(page.getByTestId('project-item').first()).toContainText('Example Project 2');
 
   const activeProjectRow = page.getByTestId('project-row').first();
   page.once('dialog', async dialog => {
