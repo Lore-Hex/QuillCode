@@ -101,10 +101,10 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
         surface.transcript.thinking = TranscriptThinkingSurface(
             id: "thinking-native-target-audit",
             title: "Thinking",
-            subtitle: "Running: host.shell.run running",
+            subtitle: "Running: Shell command running",
             traceLines: [
-                "Queued: host.shell.run queued",
-                "Running: host.shell.run running"
+                "Queued: Shell command queued",
+                "Running: Shell command running"
             ]
         )
 
