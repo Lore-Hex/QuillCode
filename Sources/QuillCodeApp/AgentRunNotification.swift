@@ -76,10 +76,11 @@ public enum AgentRunNotificationPlanner {
     ) -> AgentRunNotification? {
         let title = displayTitle(rawTitle)
         if let approval = trimmedNonEmpty(pendingApprovalSummary) {
+            let approvalLabel = WorkspaceToolDisplayNameBuilder.displayName(for: approval)
             return AgentRunNotification(
                 kind: .needsApproval,
                 title: "QuillCode needs your approval",
-                body: "\(title): approve \(approval) to continue.",
+                body: "\(title): approve \(approvalLabel) to continue.",
                 threadID: threadID,
                 approvalRequestID: trimmedNonEmpty(pendingApprovalRequestID)
             )

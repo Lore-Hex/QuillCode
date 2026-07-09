@@ -55,7 +55,8 @@ final class WorkspaceRunNotificationBuilderTests: XCTestCase {
         )
         let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
         XCTAssertEqual(note?.kind, .needsApproval)
-        XCTAssertTrue(note?.body.contains("host.shell.run") == true, note?.body ?? "")
+        XCTAssertTrue(note?.body.contains("Shell command") == true, note?.body ?? "")
+        XCTAssertFalse(note?.body.contains("host.shell.run") == true, note?.body ?? "")
         // Carries the request id so the notification's Approve/Skip actions can decide this exact gate.
         XCTAssertEqual(note?.approvalRequestID, "a1")
     }

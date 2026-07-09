@@ -15,7 +15,8 @@ final class AgentRunNotificationPlannerTests: XCTestCase {
         )
         XCTAssertEqual(note?.kind, .needsApproval)
         XCTAssertEqual(note?.title, "QuillCode needs your approval")
-        XCTAssertTrue(note?.body.contains("host.shell.run") == true, note?.body ?? "")
+        XCTAssertTrue(note?.body.contains("Shell command") == true, note?.body ?? "")
+        XCTAssertFalse(note?.body.contains("host.shell.run") == true, note?.body ?? "")
         XCTAssertTrue(note?.body.contains("Refactor auth") == true, note?.body ?? "")
         XCTAssertEqual(note?.threadID, threadID)
     }
