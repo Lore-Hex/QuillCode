@@ -18,6 +18,7 @@ public struct QuillCodeWorkspaceActions {
     let onRenameThread: (UUID, String) -> Void
     let onSelectProject: (UUID?) -> Void
     let onProjectAction: (WorkspaceProjectRowMutation) -> Void
+    let onMoveProjectBefore: (UUID, UUID) -> Bool
     let onRenameProject: (UUID, String) -> Void
     let onSetMode: (AgentMode) -> Void
     let onSetModel: (String) -> Void
@@ -64,6 +65,7 @@ public struct QuillCodeWorkspaceActions {
         onRenameThread: @escaping (UUID, String) -> Void,
         onSelectProject: @escaping (UUID?) -> Void,
         onProjectAction: @escaping (WorkspaceProjectRowMutation) -> Void,
+        onMoveProjectBefore: @escaping (UUID, UUID) -> Bool = { _, _ in false },
         onRenameProject: @escaping (UUID, String) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
@@ -111,6 +113,7 @@ public struct QuillCodeWorkspaceActions {
         self.onRenameThread = onRenameThread
         self.onSelectProject = onSelectProject
         self.onProjectAction = onProjectAction
+        self.onMoveProjectBefore = onMoveProjectBefore
         self.onRenameProject = onRenameProject
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel

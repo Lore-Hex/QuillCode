@@ -7,6 +7,7 @@ struct QuillCodeSidebarView: View {
     var onSelectProject: (UUID?) -> Void
     var onAddProjectRequested: () -> Void
     var onProjectAction: (ProjectItemActionSurface) -> Void
+    var onMoveProjectBefore: (UUID, UUID) -> Bool
     var onSelectThread: (UUID) -> Void
     var onThreadAction: (SidebarItemActionSurface) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
@@ -58,7 +59,8 @@ struct QuillCodeSidebarView: View {
                 projects: projects,
                 onSelectProject: onSelectProject,
                 onAddProjectRequested: onAddProjectRequested,
-                onProjectAction: onProjectAction
+                onProjectAction: onProjectAction,
+                onMoveProjectBefore: onMoveProjectBefore
             )
             Spacer(minLength: 0)
             QuillCodeSidebarUtilityActionsView(commands: commands, onCommand: onCommand)
