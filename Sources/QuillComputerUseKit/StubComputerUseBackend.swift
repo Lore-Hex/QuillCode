@@ -1,6 +1,10 @@
-public actor StubComputerUseBackend: ComputerUseBackend, ComputerUseForegroundApplicationProviding {
+public actor StubComputerUseBackend: ComputerUseBackend,
+    ComputerUseForegroundApplicationProviding,
+    ComputerUseAccessibilitySnapshotProviding
+{
     public private(set) var actions: [String] = []
     private let application: ComputerUseApplication?
+    private let snapshot: ComputerUseAccessibilitySnapshot?
 
     public nonisolated var status: ComputerUseStatus {
         .permissionStatus(
@@ -9,8 +13,12 @@ public actor StubComputerUseBackend: ComputerUseBackend, ComputerUseForegroundAp
         )
     }
 
-    public init(foregroundApplication: ComputerUseApplication? = nil) {
+    public init(
+        foregroundApplication: ComputerUseApplication? = nil,
+        accessibilitySnapshot: ComputerUseAccessibilitySnapshot? = nil
+    ) {
         self.application = foregroundApplication
+        self.snapshot = accessibilitySnapshot
     }
 
     public func recordedActions() -> [String] {
@@ -44,5 +52,10 @@ public actor StubComputerUseBackend: ComputerUseBackend, ComputerUseForegroundAp
 
     public func foregroundApplication() async -> ComputerUseApplication? {
         application
+    }
+
+    public func accessibilitySnapshot(limit: Int) async -> ComputerUseAccessibilitySnapshot? {
+        guard let snapshot else { return nil }
+        return ComputerUseAccessibilitySnapshot(elements: Array(snapshot.elements.prefix(max(0, limit))))
     }
 }

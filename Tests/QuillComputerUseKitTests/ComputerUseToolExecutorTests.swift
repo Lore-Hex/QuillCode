@@ -34,10 +34,16 @@ final class ComputerUseToolExecutorTests: XCTestCase {
     }
 
     func testScreenshotOutputIncludesForegroundApplicationWhenAvailable() async throws {
-        let backend = StubComputerUseBackend(foregroundApplication: ComputerUseApplication(
-            name: "Terminal",
-            bundleIdentifier: "com.apple.Terminal"
-        ))
+        let backend = StubComputerUseBackend(
+            foregroundApplication: ComputerUseApplication(
+                name: "Terminal",
+                bundleIdentifier: "com.apple.Terminal"
+            ),
+            accessibilitySnapshot: ComputerUseAccessibilitySnapshot(elements: [
+                ComputerUseAccessibilityElement(role: "Window", label: "Terminal"),
+                ComputerUseAccessibilityElement(role: "TextField", label: "Prompt", value: "$")
+            ])
+        )
         let executor = ComputerUseToolExecutor(
             backend: backend,
             artifactDirectory: temporaryArtifactDirectory()
@@ -50,11 +56,32 @@ final class ComputerUseToolExecutorTests: XCTestCase {
         XCTAssertEqual(output.height, 1)
         XCTAssertEqual(output.foregroundApplication?.name, "Terminal")
         XCTAssertEqual(output.foregroundApplication?.bundleIdentifier, "com.apple.Terminal")
+        XCTAssertEqual(output.accessibilitySnapshot?.elements.count, 2)
+        XCTAssertEqual(output.accessibilitySnapshot?.summary, "Window: Terminal; TextField: Prompt ($)")
         XCTAssertEqual(
             output.visualSummary,
-            "Captured 1 x 1 desktop screenshot; foreground app: Terminal; preview artifact: \(URL(fileURLWithPath: try XCTUnwrap(output.path)).lastPathComponent)"
+            "Captured 1 x 1 desktop screenshot; foreground app: Terminal; visible controls: Window: Terminal; TextField: Prompt ($); preview artifact: \(URL(fileURLWithPath: try XCTUnwrap(output.path)).lastPathComponent)"
         )
         XCTAssertFalse(result.stdout.contains("pngBase64"))
+    }
+
+    func testStubAccessibilitySnapshotIsBoundedByExecutorLimit() async throws {
+        let backend = StubComputerUseBackend(accessibilitySnapshot: ComputerUseAccessibilitySnapshot(
+            elements: (1...12).map {
+                ComputerUseAccessibilityElement(role: "Button", label: "Action \($0)")
+            }
+        ))
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            artifactDirectory: temporaryArtifactDirectory()
+        )
+
+        let result = try await assertScreenshotSucceeds(executor)
+        let output = try JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout)
+
+        XCTAssertEqual(output.accessibilitySnapshot?.elements.count, 8)
+        XCTAssertTrue(output.visualSummary?.contains("Action 8") == true)
+        XCTAssertFalse(output.visualSummary?.contains("Action 9") == true)
     }
 
     func testAppApprovalAllowsApprovedForegroundBundle() async throws {
