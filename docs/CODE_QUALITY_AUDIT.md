@@ -1,5 +1,25 @@
 # Code Quality Audit
 
+## 2026-07-09 Project Sidebar Reorder A+ Pass
+
+Overall grade after this slice: **A+ for precise project-list reordering without breaking the existing
+recency-sorted storage contract**. The sidebar now offers adjacent Move up/down controls in addition to Move to top,
+and the engine rewrites deterministic recency ranks after each visible-order swap.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | Reordering logic lives in `WorkspaceProjectEngine`; views receive enabled/disabled action state from the surface builder and do not infer ordering locally. |
+| DRY/action routing | A+ | Move up/down reuse the existing `ProjectItemActionSurface` -> row planner -> mutation executor -> workspace model path used by New chat, Refresh, Move to top, Rename, and Remove. |
+| Persistence behavior | A+ | The project list remains sorted by `lastOpenedAt`; adjacent moves rewrite bounded rank timestamps so persisted order and visible order stay deterministic. |
+| UX | A | Top and bottom rows disable impossible moves with explicit reasons. This is still button/menu-based polish rather than full drag/drop. |
+| Tests | A+ | Focused tests cover action lists, planner mapping, workspace execution, surface disabled states, and pure engine boundary cases. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeProjectListSurfaceTests|WorkspaceSidebarRowActionPlannerTests|WorkspaceNavigationSurfaceBuilderTests|WorkspaceSurfaceTests|WorkspaceProjectEngineTests'`
+
 ## 2026-07-05 QuillCodeCore Dead-Code & Redundant-API Pass
 
 Overall grade after this slice: **QuillCodeCore remains A+; five files that a semantic (not size) audit had

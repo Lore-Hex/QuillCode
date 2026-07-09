@@ -324,6 +324,41 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertEqual(projects[0].memories.map(\.title), ["Remembered"])
     }
 
+    func testMoveProjectRewritesRecencyRanksForAdjacentOrdering() {
+        let top = ProjectRef(name: "Top", path: "/tmp/top", lastOpenedAt: Date(timeIntervalSince1970: 30))
+        let middle = ProjectRef(name: "Middle", path: "/tmp/middle", lastOpenedAt: Date(timeIntervalSince1970: 20))
+        let bottom = ProjectRef(name: "Bottom", path: "/tmp/bottom", lastOpenedAt: Date(timeIntervalSince1970: 10))
+        let movedAt = Date(timeIntervalSince1970: 100)
+        var projects = [bottom, top, middle]
+
+        XCTAssertTrue(WorkspaceProjectEngine.moveProject(
+            middle.id,
+            direction: .up,
+            projects: &projects,
+            now: movedAt
+        ))
+        XCTAssertEqual(sortedProjectNames(projects), ["Middle", "Top", "Bottom"])
+
+        XCTAssertTrue(WorkspaceProjectEngine.moveProject(
+            middle.id,
+            direction: .down,
+            projects: &projects,
+            now: movedAt.addingTimeInterval(10)
+        ))
+        XCTAssertEqual(sortedProjectNames(projects), ["Top", "Middle", "Bottom"])
+    }
+
+    func testMoveProjectRejectsUnknownAndBoundaryMoves() {
+        let top = ProjectRef(name: "Top", path: "/tmp/top", lastOpenedAt: Date(timeIntervalSince1970: 30))
+        let bottom = ProjectRef(name: "Bottom", path: "/tmp/bottom", lastOpenedAt: Date(timeIntervalSince1970: 10))
+        var projects = [top, bottom]
+
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(UUID(), direction: .up, projects: &projects))
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(top.id, direction: .up, projects: &projects))
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(bottom.id, direction: .down, projects: &projects))
+        XCTAssertEqual(sortedProjectNames(projects), ["Top", "Bottom"])
+    }
+
     private func resultValue(
         _ result: Result<WorkspaceProjectUpsertResult, WorkspaceProjectError>,
         file: StaticString = #filePath,
@@ -389,6 +424,10 @@ final class WorkspaceProjectEngineTests: XCTestCase {
                 )
             ]
         )
+    }
+
+    private func sortedProjectNames(_ projects: [ProjectRef]) -> [String] {
+        projects.sorted { $0.lastOpenedAt > $1.lastOpenedAt }.map(\.name)
     }
 
     private func conflictingInstructionPair() -> [ProjectInstruction] {

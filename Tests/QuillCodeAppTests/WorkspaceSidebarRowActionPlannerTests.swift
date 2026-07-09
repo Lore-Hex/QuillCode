@@ -59,6 +59,8 @@ final class WorkspaceSidebarRowActionPlannerTests: XCTestCase {
             (.newChat, .newChat(projectID)),
             (.refreshContext, .refreshContext(projectID)),
             (.moveToTop, .moveToTop(projectID)),
+            (.moveUp, .moveUp(projectID)),
+            (.moveDown, .moveDown(projectID)),
             (.remove, .remove(projectID))
         ]
 
@@ -102,6 +104,12 @@ final class WorkspaceSidebarRowActionPlannerTests: XCTestCase {
         XCTAssertEqual(model.root.threads.first?.projectID, olderProject.id)
 
         XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.moveToTop(olderProject.id), model: model))
+        XCTAssertEqual(model.surface().projects.items.map(\.id), [olderProject.id, newerProject.id])
+
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.moveDown(olderProject.id), model: model))
+        XCTAssertEqual(model.surface().projects.items.map(\.id), [newerProject.id, olderProject.id])
+
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.moveUp(olderProject.id), model: model))
         XCTAssertEqual(model.surface().projects.items.map(\.id), [olderProject.id, newerProject.id])
 
         XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.remove(olderProject.id), model: model))
