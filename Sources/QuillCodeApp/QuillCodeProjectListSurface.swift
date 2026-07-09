@@ -29,7 +29,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var actions: [ProjectItemActionSurface]
     public var isSelected: Bool
 
-    public init(project: ProjectRef, selectedProjectID: UUID?) {
+    public init(project: ProjectRef, selectedProjectID: UUID?, canMoveToTop: Bool = true) {
         self.id = project.id
         self.name = project.name
         self.path = project.displayPath
@@ -38,6 +38,12 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.actions = [
             ProjectItemActionSurface(kind: .newChat, projectID: project.id),
             ProjectItemActionSurface(kind: .refreshContext, projectID: project.id),
+            ProjectItemActionSurface(
+                kind: .moveToTop,
+                projectID: project.id,
+                isEnabled: canMoveToTop,
+                disabledReason: canMoveToTop ? nil : "Already at the top"
+            ),
             ProjectItemActionSurface(kind: .rename, projectID: project.id),
             ProjectItemActionSurface(kind: .remove, projectID: project.id)
         ]
@@ -64,6 +70,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.actions = try container.decodeIfPresent([ProjectItemActionSurface].self, forKey: .actions) ?? [
             ProjectItemActionSurface(kind: .newChat, projectID: id),
             ProjectItemActionSurface(kind: .refreshContext, projectID: id),
+            ProjectItemActionSurface(kind: .moveToTop, projectID: id),
             ProjectItemActionSurface(kind: .rename, projectID: id),
             ProjectItemActionSurface(kind: .remove, projectID: id)
         ]
@@ -74,6 +81,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
 public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
     case newChat
     case refreshContext
+    case moveToTop
     case rename
     case remove
 
@@ -83,6 +91,8 @@ public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
             return "New chat"
         case .refreshContext:
             return "Refresh context"
+        case .moveToTop:
+            return "Move to top"
         case .rename:
             return "Rename"
         case .remove:

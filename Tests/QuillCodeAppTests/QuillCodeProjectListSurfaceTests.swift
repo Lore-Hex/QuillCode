@@ -20,8 +20,11 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertEqual(item.connectionKindLabel, "SSH Remote")
         XCTAssertTrue(item.isRemote)
         XCTAssertTrue(item.isSelected)
-        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
-        XCTAssertEqual(item.actions.map(\.kind.title), ["New chat", "Refresh context", "Rename", "Remove from list"])
+        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .rename, .remove])
+        XCTAssertEqual(
+            item.actions.map(\.kind.title),
+            ["New chat", "Refresh context", "Move to top", "Rename", "Remove from list"]
+        )
         XCTAssertEqual(item.actions.first?.id, "\(projectID.uuidString)-newChat")
     }
 
@@ -40,7 +43,7 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
 
         XCTAssertEqual(item.connectionKindLabel, "Local")
         XCTAssertFalse(item.isRemote)
-        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
+        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .rename, .remove])
         XCTAssertTrue(item.actions.allSatisfy(\.isEnabled))
     }
 }

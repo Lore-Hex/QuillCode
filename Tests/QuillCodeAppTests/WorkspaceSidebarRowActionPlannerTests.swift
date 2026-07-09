@@ -58,6 +58,7 @@ final class WorkspaceSidebarRowActionPlannerTests: XCTestCase {
         let expectations: [(ProjectItemActionKind, WorkspaceProjectRowMutation)] = [
             (.newChat, .newChat(projectID)),
             (.refreshContext, .refreshContext(projectID)),
+            (.moveToTop, .moveToTop(projectID)),
             (.remove, .remove(projectID))
         ]
 
@@ -81,15 +82,30 @@ final class WorkspaceSidebarRowActionPlannerTests: XCTestCase {
 
     @MainActor
     func testExecutorAppliesProjectMutationsThroughWorkspaceModel() {
-        let project = ProjectRef(name: "QuillCode", path: "/repo")
-        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(projects: [project], selectedProjectID: project.id))
+        let olderProject = ProjectRef(
+            name: "QuillCode",
+            path: "/repo",
+            lastOpenedAt: Date(timeIntervalSince1970: 10)
+        )
+        let newerProject = ProjectRef(
+            name: "Other",
+            path: "/other",
+            lastOpenedAt: Date(timeIntervalSince1970: 20)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [olderProject, newerProject],
+            selectedProjectID: olderProject.id
+        ))
 
-        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.newChat(project.id), model: model))
-        XCTAssertEqual(model.root.selectedProjectID, project.id)
-        XCTAssertEqual(model.root.threads.first?.projectID, project.id)
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.newChat(olderProject.id), model: model))
+        XCTAssertEqual(model.root.selectedProjectID, olderProject.id)
+        XCTAssertEqual(model.root.threads.first?.projectID, olderProject.id)
 
-        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.remove(project.id), model: model))
-        XCTAssertTrue(model.root.projects.isEmpty)
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.moveToTop(olderProject.id), model: model))
+        XCTAssertEqual(model.surface().projects.items.map(\.id), [olderProject.id, newerProject.id])
+
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.remove(olderProject.id), model: model))
+        XCTAssertEqual(model.root.projects.map(\.id), [newerProject.id])
         XCTAssertNil(model.root.threads.first?.projectID)
     }
 

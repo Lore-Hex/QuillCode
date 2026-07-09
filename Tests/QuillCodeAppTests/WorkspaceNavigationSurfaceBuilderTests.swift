@@ -31,6 +31,14 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(surface.projects.items.map(\.name), ["Newer", "Older"])
         XCTAssertEqual(surface.projects.selectedProjectID, olderProject.id)
         XCTAssertEqual(surface.projects.items.map(\.isSelected), [false, true])
+        XCTAssertEqual(
+            surface.projects.items.map { $0.actions.first(where: { $0.kind == .moveToTop })?.isEnabled },
+            [false, true]
+        )
+        XCTAssertEqual(
+            surface.projects.items.first?.actions.first(where: { $0.kind == .moveToTop })?.disabledReason,
+            "Already at the top"
+        )
         XCTAssertEqual(surface.sidebar.items.map(\.title), ["Selected", "Other"])
         XCTAssertEqual(surface.sidebar.items.map(\.isSelected), [true, false])
         XCTAssertEqual(surface.sidebar.bulkActions.map(\.kind), [.select])

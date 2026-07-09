@@ -15597,4 +15597,30 @@ Validation:
 - `swift test --filter ParityBrowserSessionSyncGateTests --filter ParityDesktopBrowserAdapterGateTests` (3 tests, 0 failures)
 - `swift test` (3400 tests, 2 skipped, 0 failures)
 - `python3 scripts/grade-code-quality.py`
+
+## 2026-07-09 Project List Move-To-Top Slice
+
+Overall grade after this slice: **A project-list action architecture, A sidebar UX polish**.
+The project list now has a deterministic `Move to top` row action that uses the
+existing `lastOpenedAt` ordering model instead of introducing a second manual
+ordering field. The top project shows the action disabled with explicit
+`Already at the top` copy, while older projects can be promoted and persisted
+through the same project-store path as selection/rename/refresh.
+
+Code quality changes:
+
+- Added `ProjectItemActionKind.moveToTop` to the shared project-row surface
+  rather than baking a one-off SwiftUI button into the row.
+- Kept project ordering derivation in `WorkspaceNavigationSurfaceBuilder`, where
+  project-list surfaces are already sorted and selected.
+- Routed the mutation through `WorkspaceSidebarRowActionPlanner` and
+  `WorkspaceSidebarRowMutationExecutor`, preserving the existing menu-action
+  boundary for native rows, command routing, and tests.
+- Implemented `QuillCodeWorkspaceModel.moveProjectToTop` as a small recency
+  update so persistence and top-bar refresh behavior stay consistent with the
+  existing project model.
+
+Validation:
+
+- `swift test --filter 'QuillCodeProjectListSurfaceTests|WorkspaceNavigationSurfaceBuilderTests|WorkspaceSidebarRowActionPlannerTests|WorkspaceSurfaceTests'`
 - `git diff --check`
