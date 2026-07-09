@@ -124,6 +124,24 @@ enum WorkspaceCommandStaticCatalog {
                 isEnabled: hasSelectedProject
             ),
             command(
+                "project-move-to-top",
+                "Project: Move to top",
+                keywords: ["project", "workspace", "sidebar", "reorder", "top", "pin"],
+                isEnabled: hasSelectedProject
+            ),
+            command(
+                "project-move-up",
+                "Project: Move up",
+                keywords: ["project", "workspace", "sidebar", "reorder", "up"],
+                isEnabled: hasSelectedProject
+            ),
+            command(
+                "project-move-down",
+                "Project: Move down",
+                keywords: ["project", "workspace", "sidebar", "reorder", "down"],
+                isEnabled: hasSelectedProject
+            ),
+            command(
                 "project-rename",
                 "Rename project",
                 keywords: ["project", "workspace", "title", "name"],

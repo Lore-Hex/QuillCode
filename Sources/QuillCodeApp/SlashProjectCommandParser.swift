@@ -1,7 +1,10 @@
 import Foundation
 
 enum SlashProjectCommandParser {
-    private static let usage = "Usage: /project open, /project new, /project refresh, /project rename Name, or /project remove"
+    private static let usage = """
+    Usage: /project open, /project new, /project refresh, /project top, /project up, \
+    /project down, /project rename Name, or /project remove
+    """
 
     static func parse(_ argument: String) -> SlashCommand {
         let parts = argument.split(maxSplits: 1, whereSeparator: \.isWhitespace)
@@ -20,12 +23,20 @@ enum SlashProjectCommandParser {
             return .workspaceCommand("project-new-chat")
         case "refresh", "reload", "context":
             return .workspaceCommand("project-refresh-context")
+        case "top", "move-top", "move-to-top":
+            return .workspaceCommand("project-move-to-top")
+        case "up", "move-up":
+            return .workspaceCommand("project-move-up")
+        case "down", "move-down":
+            return .workspaceCommand("project-move-down")
         case "rename", "title":
             return value.isEmpty ? .invalid("Usage: /project rename Project name") : .renameProject(value)
         case "remove", "forget", "delete":
             return .workspaceCommand("project-remove")
         default:
-            return .invalid("Unknown project command '\(subcommand)'. Use open, new, refresh, rename, or remove.")
+            return .invalid(
+                "Unknown project command '\(subcommand)'. Use open, new, refresh, top, up, down, rename, or remove."
+            )
         }
     }
 }

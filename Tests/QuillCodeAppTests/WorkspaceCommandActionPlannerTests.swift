@@ -51,6 +51,18 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
             .refreshProjectContext(projectID: project.id)
         )
         XCTAssertEqual(
+            planner.effect(for: .projectMoveToTop),
+            .moveProjectToTop(projectID: project.id)
+        )
+        XCTAssertEqual(
+            planner.effect(for: .projectMoveUp),
+            .moveProject(projectID: project.id, direction: .up)
+        )
+        XCTAssertEqual(
+            planner.effect(for: .projectMoveDown),
+            .moveProject(projectID: project.id, direction: .down)
+        )
+        XCTAssertEqual(
             planner.effect(for: .projectRename),
             .setDraft("/project rename QuillCode")
         )
@@ -61,8 +73,10 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
 
         let staleSelection = WorkspaceCommandActionPlanner(selectedProjectID: project.id)
         XCTAssertEqual(staleSelection.effect(for: .projectRemove), .removeProject(projectID: project.id))
+        XCTAssertEqual(staleSelection.effect(for: .projectMoveUp), .moveProject(projectID: project.id, direction: .up))
         XCTAssertNil(staleSelection.effect(for: .projectRename))
         XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .projectNewChat))
+        XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .projectMoveToTop))
     }
 
     func testThreadActionsUseSelectedThreadIDAndTitleAppropriately() {
