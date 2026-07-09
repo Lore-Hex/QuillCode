@@ -48,7 +48,7 @@ struct QuillCodeSearchView: View {
     var onClose: () -> Void
 
     @State private var localQuery: String
-    @State private var highlightedThreadID: UUID?
+    @State private var selection = WorkspaceSearchSelection()
     @FocusState private var isSearchFocused: Bool
 
     init(
@@ -98,8 +98,8 @@ struct QuillCodeSearchView: View {
                         ForEach(results) { item in
                             QuillCodeSearchResultRow(
                                 item: item,
-                                isHighlighted: highlightedThreadID == item.id,
-                                onSelect: onSelectThread
+                                isHighlighted: selection.highlightedThreadID == item.id,
+                                onSelect: selectResult
                             )
                         }
                     }
@@ -110,14 +110,14 @@ struct QuillCodeSearchView: View {
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
         .onAppear {
-            ensureHighlightedResult(preferredID: sidebar.selectedThreadID)
+            selection.reconcile(with: results, preferredID: sidebar.selectedThreadID)
             focusSearchField()
         }
         .onChange(of: localQuery) { _, newValue in
             if query != newValue {
                 query = newValue
             }
-            ensureHighlightedResult(preferredID: highlightedThreadID)
+            selection.reconcile(with: results)
         }
         .onChange(of: query) { _, newValue in
             if localQuery != newValue {
@@ -127,47 +127,32 @@ struct QuillCodeSearchView: View {
         .onMoveCommand { direction in
             switch direction {
             case .up:
-                moveHighlightedResult(by: -1)
+                selection.move(by: -1, in: results)
             case .down:
-                moveHighlightedResult(by: 1)
+                selection.move(by: 1, in: results)
             default:
                 break
             }
         }
+        .onKeyPress(.escape) {
+            onClose()
+            return .handled
+        }
         .onDisappear {
             isSearchFocused = false
-            highlightedThreadID = nil
+            selection = WorkspaceSearchSelection()
         }
-    }
-
-    private func ensureHighlightedResult(preferredID: UUID?) {
-        if let preferredID, results.contains(where: { $0.id == preferredID }) {
-            highlightedThreadID = preferredID
-            return
-        }
-        if let highlightedThreadID, results.contains(where: { $0.id == highlightedThreadID }) {
-            return
-        }
-        highlightedThreadID = results.first?.id
-    }
-
-    private func moveHighlightedResult(by delta: Int) {
-        guard !results.isEmpty else {
-            highlightedThreadID = nil
-            return
-        }
-        let currentIndex = highlightedThreadID.flatMap { id in
-            results.firstIndex { $0.id == id }
-        } ?? 0
-        let nextIndex = (currentIndex + delta + results.count) % results.count
-        highlightedThreadID = results[nextIndex].id
     }
 
     private func selectHighlightedResult() {
-        guard let highlighted = highlightedThreadID.flatMap({ id in
-            results.first { $0.id == id }
-        }) ?? results.first else { return }
+        guard let highlighted = selection.selectedItem(in: results) else { return }
         onSelectThread(highlighted.id)
+    }
+
+    private func selectResult(_ id: UUID) {
+        guard let item = results.first(where: { $0.id == id }) else { return }
+        selection.select(item)
+        onSelectThread(id)
     }
 
     private func focusSearchField() {
