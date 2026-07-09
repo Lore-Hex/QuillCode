@@ -125,8 +125,20 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
     public var deletions: Int
     public var hunks: Int
     public var isBinary: Bool
+    public var isDeleted: Bool
     public var hunkItems: [WorkspaceReviewHunkSurface]
     public var comments: [WorkspaceReviewCommentSurface]
+
+    private enum CodingKeys: String, CodingKey {
+        case path
+        case insertions
+        case deletions
+        case hunks
+        case isBinary
+        case isDeleted
+        case hunkItems
+        case comments
+    }
 
     public var changeLabel: String {
         var parts = ["+\(insertions)", "-\(deletions)"]
@@ -136,15 +148,31 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         if isBinary {
             parts.append("binary")
         }
+        if isDeleted {
+            parts.append("deleted")
+        }
         return parts.joined(separator: " · ")
     }
 
+    public var unreadableReason: String? {
+        if isDeleted {
+            return "Deleted file"
+        }
+        if isBinary {
+            return "Binary file"
+        }
+        return nil
+    }
+
     public var actions: [WorkspaceReviewActionSurface] {
-        [
-            WorkspaceReviewActionSurface(kind: .open, path: path),
+        let mutatingActions = [
             WorkspaceReviewActionSurface(kind: .stage, path: path),
             WorkspaceReviewActionSurface(kind: .restore, path: path)
         ]
+        guard unreadableReason == nil else {
+            return mutatingActions
+        }
+        return [WorkspaceReviewActionSurface(kind: .open, path: path)] + mutatingActions
     }
 
     public init(
@@ -153,6 +181,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         deletions: Int,
         hunks: Int,
         isBinary: Bool = false,
+        isDeleted: Bool = false,
         hunkItems: [WorkspaceReviewHunkSurface] = [],
         comments: [WorkspaceReviewCommentSurface] = []
     ) {
@@ -161,8 +190,21 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         self.deletions = deletions
         self.hunks = hunks
         self.isBinary = isBinary
+        self.isDeleted = isDeleted
         self.hunkItems = hunkItems
         self.comments = comments
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.insertions = try container.decode(Int.self, forKey: .insertions)
+        self.deletions = try container.decode(Int.self, forKey: .deletions)
+        self.hunks = try container.decode(Int.self, forKey: .hunks)
+        self.isBinary = try container.decodeIfPresent(Bool.self, forKey: .isBinary) ?? false
+        self.isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+        self.hunkItems = try container.decodeIfPresent([WorkspaceReviewHunkSurface].self, forKey: .hunkItems) ?? []
+        self.comments = try container.decodeIfPresent([WorkspaceReviewCommentSurface].self, forKey: .comments) ?? []
     }
 }
 

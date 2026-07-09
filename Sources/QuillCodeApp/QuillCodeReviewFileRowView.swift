@@ -34,6 +34,11 @@ struct QuillCodeReviewFileRowView: View {
                     QuillCodeReviewActionButton(action: action, path: file.path, onReviewAction: onReviewAction)
                 }
             }
+            if let unreadableReason = file.unreadableReason {
+                Text(unreadableReason)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
         }
     }
 

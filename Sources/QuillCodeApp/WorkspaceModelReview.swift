@@ -13,6 +13,11 @@ public extension QuillCodeWorkspaceModel {
         // (unlike the stage/restore mutating actions below). The planner also refuses
         // to pair a diff refresh for these, so the invariant holds even if this path moves.
         if !action.kind.isMutating {
+            if let reason = unreadableReviewFileReason(for: action.path) {
+                setLastError("\(reason) cannot be opened from Review.")
+                refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
+                return
+            }
             _ = runToolCall(
                 ToolCall(
                     name: ToolDefinition.fileRead.name,
@@ -41,6 +46,10 @@ public extension QuillCodeWorkspaceModel {
             threadPersistence.save(thread)
         }
         refreshTopBar(agentStatus: result.finalStatus)
+    }
+
+    private func unreadableReviewFileReason(for path: String) -> String? {
+        surface().review.files.first { $0.path == path }?.unreadableReason
     }
 
     func runPullRequestReviewThreadAction(

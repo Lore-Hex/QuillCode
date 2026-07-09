@@ -98,6 +98,31 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(firstLineComments.last?.lineRangeLabel, "Lines 1-2")
     }
 
+    func testSurfaceMarksDeletedFilesUnreadable() throws {
+        let diff = """
+        diff --git a/Sources/Removed.swift b/Sources/Removed.swift
+        deleted file mode 100644
+        index 1111111..0000000
+        --- a/Sources/Removed.swift
+        +++ /dev/null
+        @@ -1,2 +0,0 @@
+        -let removed = true
+        -print(removed)
+        """
+
+        let review = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [diffCard(stdout: diff)],
+            events: []
+        ).surface()
+        let file = try XCTUnwrap(review.files.first)
+
+        XCTAssertEqual(file.path, "Sources/Removed.swift")
+        XCTAssertTrue(file.isDeleted)
+        XCTAssertEqual(file.changeLabel, "+0 · -2 · 1 hunk · deleted")
+        XCTAssertEqual(file.unreadableReason, "Deleted file")
+        XCTAssertEqual(file.actions.map(\.kind), [.stage, .restore])
+    }
+
     func testLatestFailedDiffHidesEarlierSuccessfulDiff() throws {
         let earlierSuccessfulCard = try diffCard(id: "diff-1", stdout: """
         diff --git a/A.swift b/A.swift
