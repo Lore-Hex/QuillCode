@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { harnessURL } from './harness-helpers';
 
-test('mock harness scaffolds AGENTS.md via /init and refuses to overwrite it', async ({ page }) => {
+test('mock harness scaffolds AGENTS.md via project init aliases and refuses to overwrite it', async ({ page }) => {
   await page.goto(harnessURL());
 
-  await page.getByLabel('Message').fill('/init');
+  await page.getByLabel('Message').fill('/project init');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.file.write');
   await expect(page.getByText(/Created AGENTS\.md/)).toBeVisible();
