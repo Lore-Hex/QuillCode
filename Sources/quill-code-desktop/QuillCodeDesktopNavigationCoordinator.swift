@@ -48,6 +48,14 @@ struct QuillCodeDesktopNavigationCoordinator {
     }
 
     @discardableResult
+    func moveProjectToBottom(
+        _ id: UUID,
+        model: QuillCodeWorkspaceModel
+    ) -> Bool {
+        model.moveProjectToBottom(id)
+    }
+
+    @discardableResult
     func renameProject(
         _ id: UUID,
         name: String,
