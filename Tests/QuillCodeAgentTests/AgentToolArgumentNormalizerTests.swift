@@ -58,6 +58,14 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(typeArguments["css_selector"])
         XCTAssertNil(typeArguments["value"])
         XCTAssertNil(typeArguments["press_enter"])
+
+        let scriptArguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.browserScript.name,
+            in: ["js": "document.title"],
+            sourceText: ""
+        )
+        XCTAssertEqual(scriptArguments["source"] as? String, "document.title")
+        XCTAssertNil(scriptArguments["js"])
     }
 
     func testCanonicalArgumentsDecodeStringifiedArgumentObjects() {

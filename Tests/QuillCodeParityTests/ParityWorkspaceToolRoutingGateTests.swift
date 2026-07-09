@@ -28,6 +28,7 @@ final class ParityWorkspaceToolRoutingGateTests: QuillCodeParityTestCase {
             "call.name == ToolDefinition.browserOpen.name",
             "call.name == ToolDefinition.browserClick.name",
             "call.name == ToolDefinition.browserType.name",
+            "call.name == ToolDefinition.browserScript.name",
             "call.name == ToolDefinition.planUpdate.name",
             "call.name == ToolDefinition.handoffUpdate.name",
             "private func appendReviewDiffAfterPatchIfNeeded",

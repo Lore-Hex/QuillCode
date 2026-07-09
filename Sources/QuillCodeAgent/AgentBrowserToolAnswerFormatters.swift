@@ -48,6 +48,20 @@ enum AgentBrowserToolAnswerFormatters {
         }
     }
 
+    static func browserScriptAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.browserScript.name,
+              let script = try? JSONHelpers.decode(BrowserScriptToolOutput.self, from: result.stdout)
+        else {
+            return nil
+        }
+        let value = AgentToolAnswerFormatters.truncated(script.value, maxCharacters: 320)
+        return "Ran JavaScript in `\(script.title)` at \(script.url).\nResult: \(value)"
+    }
+
     private static func browserInspectionAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
         var lines = browserAnswerLines(
             leadingLine: "Inspected `\(inspection.title)` at \(inspection.url).",

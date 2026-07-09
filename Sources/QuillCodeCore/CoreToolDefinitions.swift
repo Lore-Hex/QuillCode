@@ -92,6 +92,19 @@ public extension ToolDefinition {
         risk: .append
     )
 
+    static let browserScript = ToolDefinition(
+        name: "host.browser.script",
+        description: """
+        Run bounded JavaScript in the selected visible QuillCode browser session tab and return the result. Use only \
+        when the user asks to inspect or automate the currently visible page and click/type are insufficient.
+        """,
+        parametersJSON: """
+        {"type":"object","properties":{"source":{"type":"string","description":"JavaScript source to evaluate in the selected visible browser tab."}},"required":["source"]}
+        """,
+        host: .browser,
+        risk: .append
+    )
+
     static let memoryRemember = ToolDefinition(
         name: "host.memory.remember",
         description: """

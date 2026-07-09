@@ -23,6 +23,7 @@ final class ParityAgentFinalAnswerGateTests: QuillCodeParityTestCase {
             "AgentShellToolAnswerFormatters.shellRunAnswer",
             "AgentBrowserToolAnswerFormatters.browserInspectAnswer",
             "AgentBrowserToolAnswerFormatters.browserActionAnswer",
+            "AgentBrowserToolAnswerFormatters.browserScriptAnswer",
             "AgentGitToolAnswerFormatters.pullRequestReviewThreadsAnswer",
             "AgentUtilityToolAnswerFormatters.memoryRememberAnswer"
         ])
@@ -35,6 +36,7 @@ final class ParityAgentFinalAnswerGateTests: QuillCodeParityTestCase {
         Self.assertSource(browserFormatterText, contains: "ToolDefinition.browserInspect.name")
         Self.assertSource(browserFormatterText, contains: "ToolDefinition.browserClick.name")
         Self.assertSource(browserFormatterText, contains: "ToolDefinition.browserType.name")
+        Self.assertSource(browserFormatterText, contains: "ToolDefinition.browserScript.name")
         Self.assertSource(gitFormatterText, contains: "ToolDefinition.gitPullRequestReviewThreads.name")
         Self.assertSource(utilityFormatterText, contains: "ToolDefinition.memoryRemember.name")
         Self.assertSource(agentText, contains: "AgentFinalAnswerBuilder.finalAnswer")
