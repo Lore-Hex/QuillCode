@@ -50,6 +50,7 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
     func testDesktopBrowserVisibleSessionUsesFocusedAdapter() throws {
         let desktopText = try Self.desktopSourceText()
         let controllerText = try Self.desktopControllerSourceText()
+        let visibleToolExecutorText = try Self.desktopSourceText(named: "QuillCodeDesktopVisibleBrowserToolExecutor.swift")
         let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
@@ -118,8 +119,14 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         Self.assertSource(browserCoordinatorText, contains: "sessionPresenter.typeInSelectedTab(selector: selector, text: text, submit: submit)")
         Self.assertSource(browserCoordinatorText, contains: "func inspectLiveDOMSnapshotInOpenSession")
         Self.assertSource(controllerText, contains: "model.visibleBrowserToolOverride")
-        Self.assertSource(controllerText, contains: "ToolDefinition.browserInspect.name")
-        Self.assertSource(controllerText, contains: "browserCoordinator.inspectLiveDOMSnapshotInOpenSession()")
+        Self.assertSource(controllerText, contains: "QuillCodeDesktopVisibleBrowserToolExecutor.execute")
+        Self.assertSource(visibleToolExecutorText, contains: "ToolDefinition.browserInspect.name")
+        Self.assertSource(visibleToolExecutorText, contains: "ToolDefinition.browserClick.name")
+        Self.assertSource(visibleToolExecutorText, contains: "ToolDefinition.browserType.name")
+        Self.assertSource(visibleToolExecutorText, contains: "browserCoordinator.inspectLiveDOMSnapshotInOpenSession()")
+        Self.assertSource(visibleToolExecutorText, contains: "browserCoordinator.clickInOpenSession(selector: selector)")
+        Self.assertSource(visibleToolExecutorText, contains: "browserCoordinator.typeInOpenSession(")
+        Self.assertSource(visibleToolExecutorText, contains: "BrowserActionToolOutput")
         Self.assertSource(browserCoordinatorText, contains: "sessionPresenter.reloadSession()")
         Self.assertSource(controllerText, contains: "func openBrowserSession()")
         Self.assertSource(appText, contains: "onOpenBrowserSession: controller.openBrowserSession")
@@ -130,6 +137,8 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(viewCommandPlannerText.contains(#"case "open-browser-session":"#), "Shared command routing should present visible sessions without falling through to text insertion.")
         Self.assertSource(controllerText, excludes: "WKWebView")
         Self.assertSource(controllerText, excludes: "import WebKit")
+        Self.assertSource(controllerText, excludes: "document.querySelector")
+        Self.assertSource(controllerText, excludes: "BrowserActionToolOutput")
     }
 
 }

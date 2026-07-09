@@ -462,6 +462,84 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(result, DesktopBrowserSessionActionResult(ok: true, summary: "Typed into input[name='query']", error: nil))
     }
 
+    func testDesktopAgentBrowserClickUsesVisibleSessionActionTool() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+        let override = try XCTUnwrap(controller.model.visibleBrowserToolOverride)
+
+        let result = await override(
+            ToolCall(
+                name: ToolDefinition.browserClick.name,
+                argumentsJSON: ToolArguments.json(["selector": "button.save"])
+            ),
+            try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result?.ok, true)
+        XCTAssertEqual(presenter.clickedSelectors, ["button.save"])
+        XCTAssertTrue(result?.stdout.contains(#""action" : "click""#) == true)
+        XCTAssertTrue(result?.stdout.contains(#""selector" : "button.save""#) == true)
+    }
+
+    func testDesktopAgentBrowserTypeUsesVisibleSessionActionTool() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+        let override = try XCTUnwrap(controller.model.visibleBrowserToolOverride)
+
+        let result = await override(
+            ToolCall(
+                name: ToolDefinition.browserType.name,
+                argumentsJSON: ToolArguments.json([
+                    "selector": "input[name='query']",
+                    "text": "minimax",
+                    "submit": true
+                ])
+            ),
+            try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result?.ok, true)
+        XCTAssertEqual(presenter.typedRequests, [
+            NoopDesktopBrowserSessionPresenter.TypedRequest(
+                selector: "input[name='query']",
+                text: "minimax",
+                submit: true
+            )
+        ])
+        XCTAssertTrue(result?.stdout.contains(#""action" : "type""#) == true)
+        XCTAssertTrue(result?.stdout.contains(#""submitted" : true"#) == true)
+    }
+
+    func testDesktopAgentBrowserClickReportsMissingVisibleSession() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        let override = try XCTUnwrap(controller.model.visibleBrowserToolOverride)
+
+        let result = await override(
+            ToolCall(
+                name: ToolDefinition.browserClick.name,
+                argumentsJSON: ToolArguments.json(["selector": "button.save"])
+            ),
+            try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result?.ok, false)
+        XCTAssertTrue(result?.error?.contains("No visible browser session is open") == true)
+    }
+
     func testDesktopAgentBrowserInspectPrefersVisibleSessionLiveDOM() async throws {
         let presenter = NoopDesktopBrowserSessionPresenter()
         let controller = try makeController(
@@ -962,12 +1040,15 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     private(set) var clickedSelectors: [String] = []
     private(set) var typedRequests: [TypedRequest] = []
     private(set) var reloadedSessionCount = 0
+    private var hasOpenSession = false
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        hasOpenSession = true
         presentedSnapshots.append(snapshot)
     }
 
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        hasOpenSession = true
         syncedSnapshots.append(snapshot)
     }
 
@@ -980,6 +1061,7 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     }
 
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        guard hasOpenSession else { throw DesktopBrowserSessionScriptError.noOpenSession }
         let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedSource.isEmpty else { throw DesktopBrowserSessionScriptError.emptySource }
         evaluatedJavaScriptSources.append(trimmedSource)
@@ -991,6 +1073,7 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     }
 
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
+        guard hasOpenSession else { throw DesktopBrowserSessionScriptError.noOpenSession }
         capturedLiveDOMSnapshotCount += 1
         return BrowserLiveDOMSnapshot(
             finalURL: try XCTUnwrap(URL(string: "http://localhost:5173/dashboard")),
@@ -1003,6 +1086,7 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     }
 
     func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
+        guard hasOpenSession else { throw DesktopBrowserSessionActionError.noOpenSession }
         let trimmedSelector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedSelector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
         clickedSelectors.append(trimmedSelector)
@@ -1010,6 +1094,7 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     }
 
     func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+        guard hasOpenSession else { throw DesktopBrowserSessionActionError.noOpenSession }
         let trimmedSelector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedSelector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
         guard !text.isEmpty else { throw DesktopBrowserSessionActionError.emptyText }

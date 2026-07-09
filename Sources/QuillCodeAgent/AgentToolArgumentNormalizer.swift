@@ -195,6 +195,10 @@ enum AgentToolArgumentNormalizer {
             return ["cmd"]
         case ToolDefinition.browserOpen.name:
             return ["url"]
+        case ToolDefinition.browserClick.name:
+            return ["selector"]
+        case ToolDefinition.browserType.name:
+            return ["selector", "text"]
         case ToolDefinition.fileSearch.name:
             return ["query"]
         case ToolDefinition.gitPullRequestLifecycle.name:

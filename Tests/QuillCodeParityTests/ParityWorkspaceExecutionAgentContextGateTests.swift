@@ -15,6 +15,8 @@ final class ParityWorkspaceExecutionAgentContextGateTests: QuillCodeParityTestCa
         XCTAssertTrue(builderText.contains("ToolDefinition.handoffUpdate"), "Agent run context builder should attach the handoff summary tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserInspect"), "Agent run context builder should attach the browser tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserOpen"), "Agent run context builder should attach browser navigation.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.browserClick"), "Agent run context builder should attach visible-browser click.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.browserType"), "Agent run context builder should attach visible-browser typing.")
         XCTAssertTrue(builderText.contains("WorkspaceBrowserToolExecutor.execute"), "Browser tool execution should stay in the focused browser executor.")
         XCTAssertTrue(builderText.contains("ToolDefinition.computerUseDefinitions"), "Agent run context builder should attach Computer Use tools only when available.")
         XCTAssertTrue(builderText.contains("WorkspaceMemoryRememberToolExecutor.executionOverride"), "Agent run context builder should delegate memory tool execution.")

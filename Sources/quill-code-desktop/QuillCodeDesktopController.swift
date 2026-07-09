@@ -106,8 +106,10 @@ final class QuillCodeDesktopController: ObservableObject {
         )
         let browserCoordinator = self.browserCoordinator
         model.visibleBrowserToolOverride = { call, _ in
-            guard call.name == ToolDefinition.browserInspect.name else { return nil }
-            return await browserCoordinator.inspectLiveDOMSnapshotInOpenSession()
+            await QuillCodeDesktopVisibleBrowserToolExecutor.execute(
+                call,
+                browserCoordinator: browserCoordinator
+            )
         }
         automationCoordinator.runDueAutomations(
             model: model,

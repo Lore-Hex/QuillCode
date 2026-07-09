@@ -103,6 +103,18 @@ enum AgentToolArgumentNormalizationRules {
             stringArguments: [.init(canonicalKey: "url", aliases: ["address", "href", "target", "page"])]
         ),
         .init(
+            toolNames: [ToolDefinition.browserClick.name],
+            stringArguments: [.init(canonicalKey: "selector", aliases: ["target", "element", "css", "cssSelector", "css_selector"])]
+        ),
+        .init(
+            toolNames: [ToolDefinition.browserType.name],
+            stringArguments: [
+                .init(canonicalKey: "selector", aliases: ["target", "element", "css", "cssSelector", "css_selector"]),
+                .init(canonicalKey: "text", aliases: ["value", "input", "content", "query"])
+            ],
+            valueArguments: [.init(canonicalKey: "submit", aliases: ["pressEnter", "press_enter", "enter"])]
+        ),
+        .init(
             toolNames: [ToolDefinition.webFetch.name],
             stringArguments: [.init(canonicalKey: "url", aliases: ["address", "href", "link", "target", "page", "uri"])]
         ),

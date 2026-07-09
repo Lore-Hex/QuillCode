@@ -399,6 +399,30 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertTrue(answer.contains("Browser comments: Check the hero spacing."))
     }
 
+    func testBrowserActionFinalAnswerSummarizesVisibleSessionAction() throws {
+        let output = BrowserActionToolOutput(
+            action: "type",
+            selector: "input[name='query']",
+            summary: "Typed into input[name='query']",
+            submitted: true
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.browserType.name,
+                argumentsJSON: ToolArguments.json([
+                    "selector": "input[name='query']",
+                    "text": "minimax",
+                    "submit": true
+                ])
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertTrue(answer.contains("Typed into `input[name='query']` and submitted"))
+        XCTAssertTrue(answer.contains("visible browser session"))
+    }
+
     func testApplyPatchFinalAnswerMentionsDiffRefreshFailure() throws {
         let call = ToolCall(
             name: ToolDefinition.applyPatch.name,

@@ -27,6 +27,27 @@ enum AgentBrowserToolAnswerFormatters {
         return browserOpenAnswer(inspection)
     }
 
+    static func browserActionAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard [ToolDefinition.browserClick.name, ToolDefinition.browserType.name].contains(call.name),
+              let action = try? JSONHelpers.decode(BrowserActionToolOutput.self, from: result.stdout)
+        else {
+            return nil
+        }
+        switch call.name {
+        case ToolDefinition.browserClick.name:
+            return "Clicked `\(action.selector)` in the visible browser session. \(action.summary)"
+        case ToolDefinition.browserType.name:
+            let submitText = action.submitted == true ? " and submitted" : ""
+            return "Typed into `\(action.selector)`\(submitText) in the visible browser session. \(action.summary)"
+        default:
+            return nil
+        }
+    }
+
     private static func browserInspectionAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
         var lines = browserAnswerLines(
             leadingLine: "Inspected `\(inspection.title)` at \(inspection.url).",

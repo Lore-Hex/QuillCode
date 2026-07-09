@@ -62,7 +62,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
             ToolDefinition.handoffUpdate,
             ToolDefinition.subagentsUpdate,
             ToolDefinition.browserInspect,
-            ToolDefinition.browserOpen
+            ToolDefinition.browserOpen,
+            ToolDefinition.browserClick,
+            ToolDefinition.browserType
         ]
             + computerUseToolDefinitions
             + memoryToolDefinitions
