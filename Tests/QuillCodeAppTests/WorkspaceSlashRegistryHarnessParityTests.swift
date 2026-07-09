@@ -143,6 +143,15 @@ final class WorkspaceSlashRegistryHarnessParityTests: XCTestCase {
                       "Harness must suppress the keyword fallback once the query has whitespace (matches native).")
     }
 
+    func testMemoryEditIsDiscoverableFromSlashSuggestions() {
+        let usages = SlashCommandCatalog.suggestions(for: "/remember-e").map(\.usage)
+
+        XCTAssertTrue(
+            usages.contains("/remember-edit memory-id"),
+            "`/remember-edit` is executable and should stay discoverable from slash suggestions."
+        )
+    }
+
     // MARK: - /model price-formatting parity
 
     /// The price label the two surfaces render must agree for present / one-sided / missing / zero /

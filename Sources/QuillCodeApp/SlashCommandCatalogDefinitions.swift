@@ -388,6 +388,13 @@ extension SlashCommandCatalog {
             insert: "/remember "
         ),
         slashDefinition(
+            "/remember-edit memory-id",
+            "Edit memory",
+            "Revise an existing memory by ID; put the updated memory text on the next line.",
+            insert: "/remember-edit ",
+            aliases: ["memory edit", "memory-edit"]
+        ),
+        slashDefinition(
             "/forget memory-id",
             "Forget memory",
             "Remove a global or project memory by ID.",
