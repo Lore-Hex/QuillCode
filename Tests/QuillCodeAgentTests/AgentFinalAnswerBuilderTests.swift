@@ -157,7 +157,8 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
             foregroundApplication: ComputerUseApplication(
                 name: "Safari",
                 bundleIdentifier: "com.apple.Safari"
-            )
+            ),
+            visualSummary: "Captured 1440 x 900 desktop screenshot; foreground app: Safari; preview artifact: screenshot.png"
         )
 
         let answer = AgentFinalAnswerBuilder.finalAnswer(
@@ -168,7 +169,32 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
             result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
         )
 
-        XCTAssertEqual(answer, "Captured a screenshot of Safari (1440 x 900).")
+        XCTAssertEqual(
+            answer,
+            "Captured a screenshot of Safari (1440 x 900). Preview artifact: `screenshot.png`."
+        )
+    }
+
+    func testComputerScreenshotFinalAnswerKeepsLegacyOutputReadable() throws {
+        let output = ComputerScreenshotToolOutput(
+            width: 1280,
+            height: 720,
+            path: "/tmp/legacy.png",
+            foregroundApplication: nil
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.computerScreenshot.name,
+                argumentsJSON: "{}"
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertEqual(
+            answer,
+            "Captured a screenshot (1280 x 720). Preview artifact: `legacy.png`."
+        )
     }
 
     func testGitStatusFinalAnswerIncludesOutput() {

@@ -15,17 +15,26 @@ public struct ComputerScreenshotToolOutput: Codable, Sendable, Hashable {
     public var height: Int
     public var path: String?
     public var foregroundApplication: ComputerUseApplication?
+    public var visualSummary: String?
 
     public init(
         width: Int,
         height: Int,
         path: String?,
-        foregroundApplication: ComputerUseApplication? = nil
+        foregroundApplication: ComputerUseApplication? = nil,
+        visualSummary: String? = nil
     ) {
         self.width = width
         self.height = height
         self.path = path
         self.foregroundApplication = foregroundApplication
+        self.visualSummary = Self.trimmed(visualSummary)
+    }
+
+    private static func trimmed(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

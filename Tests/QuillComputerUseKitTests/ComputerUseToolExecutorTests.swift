@@ -50,6 +50,10 @@ final class ComputerUseToolExecutorTests: XCTestCase {
         XCTAssertEqual(output.height, 1)
         XCTAssertEqual(output.foregroundApplication?.name, "Terminal")
         XCTAssertEqual(output.foregroundApplication?.bundleIdentifier, "com.apple.Terminal")
+        XCTAssertEqual(
+            output.visualSummary,
+            "Captured 1 x 1 desktop screenshot; foreground app: Terminal; preview artifact: \(URL(fileURLWithPath: try XCTUnwrap(output.path)).lastPathComponent)"
+        )
         XCTAssertFalse(result.stdout.contains("pngBase64"))
     }
 

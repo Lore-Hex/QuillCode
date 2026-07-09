@@ -1,3 +1,4 @@
+import Foundation
 import QuillCodeCore
 import QuillCodeTools
 import QuillComputerUseKit
@@ -195,10 +196,11 @@ enum AgentUtilityToolAnswerFormatters {
             return nil
         }
         let size = "\(screenshot.width) x \(screenshot.height)"
-        guard let foregroundApplication = screenshot.foregroundApplication else {
-            return "Captured a screenshot (\(size))."
-        }
-        return "Captured a screenshot of \(foregroundApplication.displayLabel) (\(size))."
+        let subject = screenshot.foregroundApplication
+            .map { " of \($0.displayLabel)" } ?? ""
+        let artifact = screenshot.path
+            .map { " Preview artifact: `\(URL(fileURLWithPath: $0).lastPathComponent)`." } ?? ""
+        return "Captured a screenshot\(subject) (\(size)).\(artifact)"
     }
 
     static func computerUseActionAnswer(
