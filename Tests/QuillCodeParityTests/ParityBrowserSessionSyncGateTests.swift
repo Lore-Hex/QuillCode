@@ -8,6 +8,8 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         let workflowText = try Self.appSourceText(named: "WorkspaceBrowserWorkflow.swift")
         let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowserSession.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
+        let presenterContractsText = try Self.desktopSourceText(named: "DesktopBrowserSessionContracts.swift")
+        let sessionWindowText = try Self.desktopSourceText(named: "DesktopBrowserSessionWindowController.swift")
         let coordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let controllerText = try Self.desktopControllerSourceText()
         let snapshotTests = try Self.appTestSourceText(named: "BrowserSessionSyncSnapshotTests.swift")
@@ -38,7 +40,24 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         Self.assertSource(browserModelText, contains: "public func applyBrowserSessionUpdate")
         for expected in [
             "var onSessionUpdate",
-            "emitSessionUpdate()",
+            "emitSessionUpdate()"
+        ] {
+            Self.assertSource(sessionWindowText, contains: expected)
+        }
+        for expected in [
+            "func presentSession(_ snapshot: BrowserSessionSyncSnapshot)",
+            "func syncSession(_ snapshot: BrowserSessionSyncSnapshot)",
+            "func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)",
+            "func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)",
+            "func evaluateJavaScriptInSelectedTab(_ source: String)",
+            "func captureLiveDOMSnapshotInSelectedTab()",
+            "func clickInSelectedTab(selector: String)",
+            "func typeInSelectedTab(selector: String, text: String, submit: Bool)",
+            "func reloadSession()"
+        ] {
+            Self.assertSource(presenterContractsText + presenterText, contains: expected)
+        }
+        for expected in [
             "func presentSession(_ snapshot: BrowserSessionSyncSnapshot)",
             "func syncSession(_ snapshot: BrowserSessionSyncSnapshot)",
             "func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)",
@@ -50,7 +69,7 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
             "func reloadSession()",
             "NSTabView"
         ] {
-            Self.assertSource(presenterText, contains: expected)
+            Self.assertSource(presenterContractsText + sessionWindowText, contains: expected)
         }
         Self.assertSource(presenterText, excludes: "func openSession(url: URL)")
         Self.assertSource(coordinatorText, contains: "installSessionUpdateHandler")
