@@ -27,6 +27,9 @@ public enum QuillCodeMetrics {
     public static let sidebarVisibleRowHeight: CGFloat = 25
     public static let sidebarVisibleRowHorizontalPadding: CGFloat = 11
     public static let sidebarVisibleRowRadius: CGFloat = 6
+    public static let commandPaletteRowHorizontalPadding: CGFloat = 10
+    public static let commandPaletteRowVerticalPadding: CGFloat = 7
+    public static let commandPaletteRowRadius: CGFloat = 9
     public static let composerSurfaceRadius: CGFloat = 12
     public static let composerControlRadius: CGFloat = 10
     public static let toolCardMinimumHeight: CGFloat = 74

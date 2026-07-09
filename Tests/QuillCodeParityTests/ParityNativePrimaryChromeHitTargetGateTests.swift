@@ -55,7 +55,7 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
         }
         Self.assertSource(searchDialogText, contains: ".quillCodeFullRowButtonTarget(radius: 12)")
         Self.assertSource(searchDialogText, contains: ".quillCodeTextEntryTarget()")
-        Self.assertSource(commandPaletteText, contains: ".quillCodeFullRowButtonTarget(radius: 12)")
+        Self.assertSource(commandPaletteText, contains: ".quillCodeFullRowButtonTarget(radius: QuillCodeMetrics.commandPaletteRowRadius)")
         Self.assertSource(commandPaletteText, contains: ".quillCodeTextEntryTarget()")
         Self.assertSource(dialogChromeText, contains: ".quillCodeTextButtonTarget()")
         for expected in [
