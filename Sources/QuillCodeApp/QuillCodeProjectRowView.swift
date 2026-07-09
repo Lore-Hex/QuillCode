@@ -7,10 +7,23 @@ struct QuillCodeProjectRowView: View {
 
     var body: some View {
         HStack(spacing: QuillCodeMetrics.sidebarControlSpacing) {
+            projectDragHandle
             projectButton
             projectActionMenu
         }
         .padding(.vertical, 0)
+        .help("Drag to reorder project")
+    }
+
+    private var projectDragHandle: some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(QuillCodePalette.muted.opacity(0.72))
+            .frame(
+                width: QuillCodeMetrics.sidebarIconTargetSize,
+                height: QuillCodeMetrics.sidebarInteractionRowHeight
+            )
+            .accessibilityHidden(true)
     }
 
     private var projectButton: some View {
@@ -27,6 +40,7 @@ struct QuillCodeProjectRowView: View {
             .quillCodeSidebarRowChrome(background: project.isSelected ? QuillCodePalette.selection : Color.clear)
         }
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+        .accessibilityHint("Selects this project. Drag the row to reorder it.")
     }
 
     private var projectTitleRow: some View {

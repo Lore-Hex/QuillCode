@@ -97,6 +97,12 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         Self.assertSource(projectRowText, contains: "HStack(spacing: QuillCodeMetrics.sidebarControlSpacing)")
         Self.assertSource(threadRowText, contains: ".quillCodeSidebarIconButtonTarget")
         Self.assertSource(projectRowText, contains: ".quillCodeSidebarIconButtonTarget")
+        Self.assertSource(projectRowText, contains: "projectDragHandle")
+        Self.assertSource(projectRowText, contains: "line.3.horizontal")
+        Self.assertSource(projectRowText, contains: "sidebarIconTargetSize")
+        Self.assertSource(projectRowText, contains: "sidebarInteractionRowHeight")
+        Self.assertSource(projectRowText, contains: "Drag to reorder project")
+        Self.assertSource(projectRowText, contains: "Drag the row to reorder it.")
     }
 
     private var horizontalFilterScrollNeedle: String {
