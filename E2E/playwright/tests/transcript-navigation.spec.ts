@@ -1,13 +1,8 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { harnessURL } from './harness-helpers';
+import { harnessURL, sendComposerPrompt } from './harness-helpers';
 
 async function send(page: Page, text: string) {
-  const message = page.getByLabel('Message');
-  const sendButton = page.getByRole('button', { name: 'Send' });
-  await message.fill(text);
-  await expect(message).toHaveValue(text);
-  await expect(sendButton).toBeEnabled();
-  await sendButton.click();
+  await sendComposerPrompt(page, text);
 }
 
 function lastDiffJump(page: Page) {
