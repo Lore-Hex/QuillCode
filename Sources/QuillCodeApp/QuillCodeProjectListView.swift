@@ -12,9 +12,11 @@ struct QuillCodeProjectListView: View {
     var onAddProjectRequested: () -> Void
     var onProjectAction: (ProjectItemActionSurface) -> Void
     var onMoveProjectBefore: (UUID, UUID) -> Bool
+    var onMoveProjectToBottom: (UUID) -> Bool
 
     @State private var draggedProjectID: UUID?
     @State private var dropTargetProjectID: UUID?
+    @State private var isBottomDropTargeted = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -77,10 +79,26 @@ struct QuillCodeProjectListView: View {
                             onMoveProjectBefore: onMoveProjectBefore
                         )
                     }
+                    projectBottomDropTarget
                 }
             }
             .frame(maxHeight: QuillCodeProjectListMetrics.maxProjectListHeight)
         }
+    }
+
+    private var projectBottomDropTarget: some View {
+        Capsule()
+            .fill(isBottomDropTargeted ? QuillCodePalette.blue : Color.clear)
+            .frame(height: isBottomDropTargeted ? 2 : 8)
+            .padding(.horizontal, 8)
+            .onDrop(
+                of: [UTType.text],
+                delegate: QuillCodeProjectBottomDropDelegate(
+                    draggedProjectID: $draggedProjectID,
+                    isBottomDropTargeted: $isBottomDropTargeted,
+                    onMoveProjectToBottom: onMoveProjectToBottom
+                )
+            )
     }
 }
 
@@ -172,5 +190,35 @@ private struct QuillCodeProjectDropDelegate: DropDelegate {
             return false
         }
         return onMoveProjectBefore(sourceID, targetProjectID)
+    }
+}
+
+private struct QuillCodeProjectBottomDropDelegate: DropDelegate {
+    @Binding var draggedProjectID: UUID?
+    @Binding var isBottomDropTargeted: Bool
+    let onMoveProjectToBottom: (UUID) -> Bool
+
+    func validateDrop(info: DropInfo) -> Bool {
+        draggedProjectID != nil || info.hasItemsConforming(to: [UTType.text])
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard draggedProjectID != nil else { return }
+        isBottomDropTargeted = true
+    }
+
+    func dropExited(info: DropInfo) {
+        isBottomDropTargeted = false
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer {
+            draggedProjectID = nil
+            isBottomDropTargeted = false
+        }
+        guard let sourceID = draggedProjectID else {
+            return false
+        }
+        return onMoveProjectToBottom(sourceID)
     }
 }

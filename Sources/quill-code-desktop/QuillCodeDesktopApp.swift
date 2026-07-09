@@ -105,6 +105,7 @@ struct QuillCodeDesktopRootView: View {
             onSelectProject: controller.selectProject,
             onProjectAction: controller.runProjectAction,
             onMoveProjectBefore: controller.moveProject,
+            onMoveProjectToBottom: controller.moveProjectToBottom,
             onRenameProject: controller.renameProject,
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,

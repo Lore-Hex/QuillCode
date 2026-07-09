@@ -93,6 +93,14 @@ extension QuillCodeDesktopController {
         return didMove
     }
 
+    func moveProjectToBottom(_ id: UUID) -> Bool {
+        let didMove = navigationCoordinator.moveProjectToBottom(id, model: model)
+        if didMove {
+            refresh()
+        }
+        return didMove
+    }
+
     func renameProject(_ id: UUID, name: String) {
         _ = navigationCoordinator.renameProject(id, name: name, model: model)
         refresh()
