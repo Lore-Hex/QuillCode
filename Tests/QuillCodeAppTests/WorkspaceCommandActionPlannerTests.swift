@@ -82,6 +82,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         XCTAssertNil(staleSelection.effect(for: .projectRename))
         XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .projectNewChat))
         XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .projectMoveToTop))
+        XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .projectMoveToBottom))
     }
 
     func testThreadActionsUseSelectedThreadIDAndTitleAppropriately() {

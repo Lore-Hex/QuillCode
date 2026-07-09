@@ -4516,6 +4516,10 @@
         { id: 'project-new-chat', title: 'New chat in project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'thread', 'chat'], isEnabled: true },
         { id: 'project-refresh-context', title: 'Refresh project context', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'instructions', 'memory', 'reload'], isEnabled: true },
         { id: 'project-init', title: 'Initialize AGENTS.md', shortcut: '', category: 'Workspace', keywords: ['init', 'agents', 'scaffold', 'instructions', 'rules', 'generate'], isEnabled: true },
+        { id: 'project-move-to-top', title: 'Project: Move to top', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'sidebar', 'reorder', 'top', 'pin'], isEnabled: true },
+        { id: 'project-move-up', title: 'Project: Move up', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'sidebar', 'reorder', 'up'], isEnabled: true },
+        { id: 'project-move-down', title: 'Project: Move down', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'sidebar', 'reorder', 'down'], isEnabled: true },
+        { id: 'project-move-to-bottom', title: 'Project: Move to bottom', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'sidebar', 'reorder', 'bottom', 'end'], isEnabled: true },
         { id: 'project-rename', title: 'Rename project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'title', 'name'], isEnabled: true },
         { id: 'project-remove', title: 'Remove project from list', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'forget', 'remove'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
@@ -5026,6 +5030,7 @@
       { usage: '/project open', title: 'Open project', detail: 'Open a local project folder and add it to the sidebar.', insertText: '/project open', aliases: ['project add', 'open project'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
+      { usage: '/project top|up|down|bottom', title: 'Reorder project', detail: 'Move the selected project in the sidebar.', insertText: '/project ', aliases: ['project top', 'project up', 'project down', 'project bottom'] },
       { usage: '/init', title: 'Initialize AGENTS.md', detail: 'Scaffold a starter AGENTS.md for the project from its build and test commands.', insertText: '/init', aliases: ['init-project', 'scaffold', 'agents'] },
       { usage: '/project rename name', title: 'Rename project', detail: 'Rename the selected project in QuillCode.', insertText: '/project rename ', aliases: ['project title'] },
       { usage: '/project remove', title: 'Remove project', detail: 'Forget the selected project from the sidebar without deleting files.', insertText: '/project remove', aliases: ['project forget'] },
@@ -13757,6 +13762,22 @@
         if (state.projects.selectedProjectID) runMockInitProject();
         return;
       }
+      if (commandID === 'project-move-to-top') {
+        if (state.projects.selectedProjectID) runProjectAction('move-to-top', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'project-move-up') {
+        if (state.projects.selectedProjectID) runProjectAction('move-up', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'project-move-down') {
+        if (state.projects.selectedProjectID) runProjectAction('move-down', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'project-move-to-bottom') {
+        if (state.projects.selectedProjectID) runProjectAction('move-to-bottom', state.projects.selectedProjectID);
+        return;
+      }
       if (commandID === 'project-rename') {
         if (state.projects.selectedProjectID) runProjectAction('rename', state.projects.selectedProjectID);
         return;
@@ -16717,6 +16738,18 @@
         }
       } else if (/^\/project\s+(open|add)\b/i.test(text)) {
         addProject();
+        return;
+      } else if (/^\/project\s+(top|move-top|move-to-top)\b/i.test(text)) {
+        runInstantSlashCommand(text, 'project-move-to-top');
+        return;
+      } else if (/^\/project\s+(up|move-up)\b/i.test(text)) {
+        runInstantSlashCommand(text, 'project-move-up');
+        return;
+      } else if (/^\/project\s+(down|move-down)\b/i.test(text)) {
+        runInstantSlashCommand(text, 'project-move-down');
+        return;
+      } else if (/^\/project\s+(bottom|move-bottom|move-to-bottom)\b/i.test(text)) {
+        runInstantSlashCommand(text, 'project-move-to-bottom');
         return;
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         const target = text.replace(/^\/(browser|preview)\b/i, '').trim();
