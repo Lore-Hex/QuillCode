@@ -47,4 +47,23 @@ final class ParityWorkspaceCommandPaletteContractGateTests: QuillCodeParityTestC
             "testWorkspaceCommandSurfaceDecodesOlderPayloadWithoutCategoryMetadata"
         ])
     }
+
+    func testCommandPaletteRowsUseNamedDenseChromeMetrics() throws {
+        let dialogText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
+        let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+        let densityTests = try Self.appTestSourceText(named: "QuillCodeCommandPaletteDensityTests.swift")
+
+        Self.assertSource(designText, containsAll: [
+            "static let commandPaletteRowHorizontalPadding: CGFloat = 10",
+            "static let commandPaletteRowVerticalPadding: CGFloat = 7",
+            "static let commandPaletteRowRadius: CGFloat = 9"
+        ])
+        Self.assertSource(dialogText, containsAll: [
+            ".padding(.horizontal, QuillCodeMetrics.commandPaletteRowHorizontalPadding)",
+            ".padding(.vertical, QuillCodeMetrics.commandPaletteRowVerticalPadding)",
+            ".quillCodeFullRowButtonTarget(radius: QuillCodeMetrics.commandPaletteRowRadius)"
+        ])
+        Self.assertSource(dialogText, excludes: ".padding(12)")
+        Self.assertSource(densityTests, contains: "testCommandPaletteRowChromeIsCompactButKeepsHitTargetProtection")
+    }
 }

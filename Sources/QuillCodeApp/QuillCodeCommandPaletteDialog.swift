@@ -205,14 +205,15 @@ private struct QuillCodeCommandRow: View {
                         .foregroundStyle(QuillCodePalette.muted)
                 }
             }
-            .padding(12)
-            .quillCodeFullRowButtonTarget(radius: 12)
+            .padding(.horizontal, QuillCodeMetrics.commandPaletteRowHorizontalPadding)
+            .padding(.vertical, QuillCodeMetrics.commandPaletteRowVerticalPadding)
+            .quillCodeFullRowButtonTarget(radius: QuillCodeMetrics.commandPaletteRowRadius)
             .background(isSelected ? QuillCodePalette.selection : QuillCodePalette.panel)
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.commandPaletteRowRadius, style: .continuous)
                     .stroke(isSelected ? QuillCodePalette.blue.opacity(0.6) : Color.clear)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.commandPaletteRowRadius, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(!command.isEnabled)
