@@ -267,15 +267,14 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
 
         XCTAssertEqual(file.id, "Sources/App.swift")
         XCTAssertEqual(file.changeLabel, "+2 · -1 · 1 hunk · binary")
-        XCTAssertEqual(file.actions.map(\.kind), [.open, .stage, .restore])
+        XCTAssertEqual(file.unreadableReason, "Binary file")
+        XCTAssertEqual(file.actions.map(\.kind), [.stage, .restore])
         XCTAssertEqual(file.actions.map(\.id), [
-            "open:Sources/App.swift:file",
             "stage:Sources/App.swift:file",
             "restore:Sources/App.swift:file"
         ])
-        XCTAssertEqual(file.actions.map(\.kind.title), ["Open", "Stage", "Restore"])
+        XCTAssertEqual(file.actions.map(\.kind.title), ["Stage", "Restore"])
         XCTAssertEqual(file.actions.map(\.kind.systemImage), [
-            "doc.text",
             "plus.rectangle.on.folder",
             "arrow.uturn.backward"
         ])
@@ -285,6 +284,20 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
             "restore_hunk:Sources/App.swift:hunk-1"
         ])
         XCTAssertEqual(hunk.actions[0].patch, hunk.patch)
+    }
+
+    func testReviewFileOmitsOpenForDeletedFiles() {
+        let file = WorkspaceReviewFileSurface(
+            path: "Sources/Removed.swift",
+            insertions: 0,
+            deletions: 4,
+            hunks: 1,
+            isDeleted: true
+        )
+
+        XCTAssertEqual(file.changeLabel, "+0 · -4 · 1 hunk · deleted")
+        XCTAssertEqual(file.unreadableReason, "Deleted file")
+        XCTAssertEqual(file.actions.map(\.kind), [.stage, .restore])
     }
 
     func testReviewLinesExposeMarkersAndDisplayLabels() {

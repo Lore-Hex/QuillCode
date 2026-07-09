@@ -127,6 +127,9 @@ enum WorkspaceHTMLReviewRenderer {
             <blockquote data-testid="review-comment">\(escape(comment.text))</blockquote>
             """
         }.joined(separator: "\n")
+        let unreadable = file.unreadableReason.map {
+            #"<small data-testid="review-file-unreadable">\#(escape($0))</small>"#
+        } ?? ""
         return """
         <li data-testid="review-file">
           <span data-testid="review-file-path">\(escape(file.path))</span>
@@ -134,6 +137,7 @@ enum WorkspaceHTMLReviewRenderer {
           <span>
             \(file.actions.map(renderAction).joined(separator: "\n"))
           </span>
+          \(unreadable)
           \(file.hunkItems.map(renderHunk).joined(separator: "\n"))
           \(comments)
         </li>

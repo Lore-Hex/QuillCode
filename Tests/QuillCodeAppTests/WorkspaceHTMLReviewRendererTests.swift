@@ -50,6 +50,25 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("1 file changed, +1 -0"))
     }
 
+    func testHTMLRendererExplainsUnreadableReviewFiles() {
+        let review = WorkspaceReviewSurface(files: [
+            WorkspaceReviewFileSurface(
+                path: "Assets/logo.png",
+                insertions: 0,
+                deletions: 0,
+                hunks: 0,
+                isBinary: true
+            )
+        ])
+
+        let html = WorkspaceHTMLReviewRenderer.render(review)
+
+        XCTAssertTrue(html.contains(#"data-testid="review-file-unreadable">Binary file"#))
+        XCTAssertFalse(html.contains(#"data-action="open""#))
+        XCTAssertTrue(html.contains(#"data-action="stage""#))
+        XCTAssertTrue(html.contains(#"data-action="restore""#))
+    }
+
     func testHTMLRendererIncludesPullRequestReviewThreads() throws {
         let review = WorkspaceReviewSurface(
             title: "Review threads",

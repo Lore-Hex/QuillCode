@@ -3312,7 +3312,7 @@ Adds an **Open** action to each changed-file row in the review pane that reads t
 
 Residual risk:
 
-- Open is offered unconditionally, including for **binary** and **deleted** changed files; `host.file.read` then returns a failure card (locally a UTF-8/no-such-file error, remotely a raw `cat`), which flips the top bar to `failed` for a file the user can see in the diff. Deliberately deferred (read-only, no data loss) — gating `.open` on `!isBinary`/non-deletion and a friendlier not-readable state are follow-ups. Native Open currently only emits a tool card rather than focusing an in-app file viewer (the eventual UX). Adding `Sources/App.swift` to the mock workspace shifted the bare-`@` mention order (path-length tiebreak ranks it ahead of `Sources/Agent.swift`); the composer parity test was updated to match.
+- Native Open currently emits a tool card rather than focusing an in-app file viewer (the eventual UX). Adding `Sources/App.swift` to the mock workspace shifted the bare-`@` mention order (path-length tiebreak ranks it ahead of `Sources/Agent.swift`); the composer parity test was updated to match.
 
 ## 2026-06-29 Worktree Branch Status Pass
 
@@ -15513,3 +15513,26 @@ Validation:
 
 - `swift test --filter 'WorkspaceCommandPaletteSelectionTests|WorkspaceCommandPaletteRankerTests|ParitySearchDialogGateTests'` (16 tests, 0 failures)
 - `git diff --check`
+
+## 2026-07-09 Review-Pane Unreadable File Guard
+
+Overall grade after this slice: **A review action honesty, A cross-surface guard**.
+The Review pane no longer offers a doomed Open action for binary or deleted
+changed files. Those rows keep Stage/Restore, show a concise unreadable reason,
+and the model-level review action path refuses a stale/manual Open before it can
+dispatch `host.file.read`.
+
+Code quality changes:
+
+- Added deleted-file state to `GitDiffReviewParser` and `WorkspaceReviewFileSurface`
+  with backward-compatible decoding for older review payloads.
+- Centralized file readability in `WorkspaceReviewFileSurface.unreadableReason`
+  so SwiftUI, static HTML, action lists, and model guards share one rule.
+- Rendered `Binary file` / `Deleted file` explanations in native and HTML review
+  surfaces while preserving hunk review and Stage/Restore actions.
+- Hardened `QuillCodeWorkspaceModel.runReviewAction` against manually
+  constructed stale Open actions for unreadable files.
+
+Validation:
+
+- `swift test --filter 'QuillCodeReviewSurfaceTests|WorkspaceReviewSurfaceBuilderTests|WorkspaceHTMLReviewRendererTests|WorkspaceReviewIntegrationTests|WorkspaceReviewActionToolCallPlannerTests'` (54 tests, 0 failures)

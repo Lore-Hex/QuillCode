@@ -87,6 +87,37 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         XCTAssertTrue(fixture.model.surface().review.isVisible)
     }
 
+    func testRunReviewOpenActionRefusesUnreadableReviewFile() throws {
+        let diff = """
+        diff --git a/Assets/logo.png b/Assets/logo.png
+        Binary files a/Assets/logo.png and b/Assets/logo.png differ
+        """
+        let call = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
+        let result = ToolResult(ok: true, stdout: diff)
+        let thread = ChatThread(
+            title: "Review binary",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+
+        XCTAssertEqual(model.surface().review.files.first?.unreadableReason, "Binary file")
+        model.runReviewAction(
+            WorkspaceReviewActionSurface(kind: .open, path: "Assets/logo.png"),
+            workspaceRoot: root
+        )
+
+        XCTAssertFalse(model.currentToolCards.contains { $0.title == ToolDefinition.fileRead.name })
+        XCTAssertEqual(model.root.topBar.agentStatus, "Failed")
+        XCTAssertEqual(model.lastError, "Binary file cannot be opened from Review.")
+    }
+
     func testRemoteProjectReviewStageActionRunsThroughSSHAndRefreshesDiff() throws {
         let fixture = try makeRemoteReviewFixture(argumentsFileName: "ssh-review-stage-args.txt")
 

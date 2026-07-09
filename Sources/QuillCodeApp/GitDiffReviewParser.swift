@@ -32,6 +32,8 @@ enum GitDiffReviewParser {
             if line.hasPrefix("+++ ") {
                 if let path = pathFromNewFileHeader(line), path != "/dev/null" {
                     current?.path = path
+                } else if line == "+++ /dev/null" {
+                    current?.isDeleted = true
                 }
                 current?.newHeader = line
                 continue
@@ -96,6 +98,7 @@ enum GitDiffReviewParser {
         var deletions = 0
         var hunks = 0
         var isBinary = false
+        var isDeleted = false
         var hunkItems: [WorkspaceReviewHunkSurface] = []
         var currentHunk: DiffHunkAccumulator?
 
@@ -140,6 +143,7 @@ enum GitDiffReviewParser {
                 deletions: deletions,
                 hunks: hunks,
                 isBinary: isBinary,
+                isDeleted: isDeleted,
                 hunkItems: hunkItems
             )
         }
