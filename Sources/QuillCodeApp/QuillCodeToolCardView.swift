@@ -149,7 +149,7 @@ struct QuillCodeToolCardView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-                    Text(card.title)
+                    Text(displayTitle)
                         .font(.headline)
                         .lineLimit(1)
                     if let executionContext = card.executionContext {
@@ -324,6 +324,10 @@ struct QuillCodeToolCardView: View {
         let context = card.executionContext.map {
             ", \($0.label) \($0.detail)"
         } ?? ""
-        return "\(card.title), \(card.statusAccessibilityLabel), \(card.densityAccessibilityLabel)\(context)"
+        return "\(displayTitle), \(card.statusAccessibilityLabel), \(card.densityAccessibilityLabel)\(context)"
+    }
+
+    private var displayTitle: String {
+        WorkspaceToolDisplayNameBuilder.displayName(for: card.title)
     }
 }

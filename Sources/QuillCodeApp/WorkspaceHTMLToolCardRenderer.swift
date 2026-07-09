@@ -3,16 +3,18 @@ import Foundation
 enum WorkspaceHTMLToolCardRenderer {
     static func render(_ card: ToolCardState, timelineItemID: String? = nil) -> String {
         let timelineAttribute = timelineItemID.map { #" data-timeline-id="\#(escape($0))""# } ?? ""
+        let toolNameAttribute = #" data-tool-name="\#(escape(card.title))""#
+        let displayTitle = WorkspaceToolDisplayNameBuilder.displayName(for: card.title)
         let executionContextAttribute = card.executionContext
             .map { #" data-execution-context="\#(escape($0.kind.rawValue))""# } ?? ""
         let accessibilityContext = card.executionContext
             .map { ", \($0.label) \($0.detail)" } ?? ""
         let copyID = timelineItemID ?? card.id
         return """
-        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)" data-review-state="\(card.reviewState.rawValue)" data-density="\(card.density.rawValue)" aria-label="\(escape(card.title)), \(escape(card.statusAccessibilityLabel)), \(escape(card.densityAccessibilityLabel))\(escape(accessibilityContext))"\(timelineAttribute)\(executionContextAttribute)>
+        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)" data-review-state="\(card.reviewState.rawValue)" data-density="\(card.density.rawValue)" aria-label="\(escape(displayTitle)), \(escape(card.statusAccessibilityLabel)), \(escape(card.densityAccessibilityLabel))\(escape(accessibilityContext))"\(timelineAttribute)\(toolNameAttribute)\(executionContextAttribute)>
           <header>
             <span class="tool-card-title-row">
-              <strong data-testid="tool-card-title">\(escape(card.title))</strong>
+              <strong data-testid="tool-card-title">\(escape(displayTitle))</strong>
               \(WorkspaceHTMLPrimitives.executionContextChip(card.executionContext, testID: "tool-card-execution-context"))
             </span>
             <span data-testid="tool-card-status">\(escape(card.statusDisplayLabel))</span>
