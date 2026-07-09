@@ -16,6 +16,11 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
   await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/example-2');
 
+  await clickProjectAction(page.getByTestId('project-row').first(), 'Move down');
+  await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
+  await clickProjectAction(page.getByTestId('project-row').nth(1), 'Move up');
+  await expect(page.getByTestId('project-item').first()).toContainText('Example Project 2');
+
   const activeProjectRow = page.getByTestId('project-row').first();
   page.once('dialog', async dialog => {
     expect(dialog.message()).toContain('Rename project');

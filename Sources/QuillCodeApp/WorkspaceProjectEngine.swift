@@ -51,6 +51,10 @@ enum WorkspaceProjectError: Error, Equatable, Sendable {
 enum WorkspaceProjectEngine {
     static let invalidSSHAddressMessage = "Use SSH format user@host:/path or ssh://user@host/path."
 
+    static func displayOrderedProjects(_ projects: [ProjectRef]) -> [ProjectRef] {
+        projects.sorted(by: isEarlierInDisplayOrder)
+    }
+
     @discardableResult
     static func upsertLocalProject(
         path: URL,
@@ -206,7 +210,7 @@ enum WorkspaceProjectEngine {
         projects: inout [ProjectRef],
         now: Date = Date()
     ) -> Bool {
-        var ordered = projects.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
+        var ordered = displayOrderedProjects(projects)
         guard let sourceIndex = ordered.firstIndex(where: { $0.id == id }) else {
             return false
         }
@@ -266,6 +270,13 @@ enum WorkspaceProjectEngine {
 
     private static func instructionDiagnosticIDs(for instructions: [ProjectInstruction]) -> Set<String> {
         Set(ProjectInstructionDiagnosticsBuilder.diagnostics(for: instructions).map(\.id))
+    }
+
+    private static func isEarlierInDisplayOrder(_ lhs: ProjectRef, _ rhs: ProjectRef) -> Bool {
+        if lhs.lastOpenedAt != rhs.lastOpenedAt {
+            return lhs.lastOpenedAt > rhs.lastOpenedAt
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
     }
 
     static func knownProjectID(_ id: UUID?, projects: [ProjectRef]) -> UUID? {
