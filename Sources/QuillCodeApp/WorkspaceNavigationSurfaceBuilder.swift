@@ -65,9 +65,15 @@ struct WorkspaceNavigationSurfaceBuilder {
     }
 
     private func projectItems() -> [ProjectItemSurface] {
-        projects
+        let sortedProjects = projects
             .sorted { $0.lastOpenedAt > $1.lastOpenedAt }
-            .map { ProjectItemSurface(project: $0, selectedProjectID: selectedProjectID) }
+        return sortedProjects.enumerated().map { index, project in
+            ProjectItemSurface(
+                project: project,
+                selectedProjectID: selectedProjectID,
+                canMoveToTop: index > 0
+            )
+        }
     }
 
     private func filteredSidebarItems() -> [SidebarItem] {

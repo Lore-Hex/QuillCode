@@ -48,8 +48,15 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.projects.items[0].connectionKindLabel, "Local")
         XCTAssertFalse(surface.projects.items[0].isRemote)
         XCTAssertTrue(surface.projects.items[0].isSelected)
-        XCTAssertEqual(surface.projects.items[0].actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
-        XCTAssertTrue(surface.projects.items[0].actions.allSatisfy(\.isEnabled))
+        XCTAssertEqual(
+            surface.projects.items[0].actions.map(\.kind),
+            [.newChat, .refreshContext, .moveToTop, .rename, .remove]
+        )
+        XCTAssertEqual(surface.projects.items[0].actions.first { $0.kind == .moveToTop }?.isEnabled, false)
+        XCTAssertEqual(
+            surface.projects.items[0].actions.first { $0.kind == .moveToTop }?.disabledReason,
+            "Already at the top"
+        )
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)
@@ -213,9 +220,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(item.path, "ssh://quill@feather.local:2222/srv/quill")
         XCTAssertEqual(item.connectionKindLabel, "SSH Remote")
         XCTAssertTrue(item.isRemote)
-        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
+        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .rename, .remove])
         XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, true)
         XCTAssertNil(item.actions.first { $0.kind == .refreshContext }?.disabledReason)
+        XCTAssertEqual(item.actions.first { $0.kind == .moveToTop }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-status" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-diff" }?.isEnabled, true)
