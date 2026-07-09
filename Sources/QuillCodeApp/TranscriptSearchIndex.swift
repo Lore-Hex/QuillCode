@@ -132,7 +132,9 @@ struct TranscriptSearchIndex: Sendable, Equatable {
             ].compactMap { $0 }.joined(separator: "\n")
         case .toolCard:
             guard let card = item.toolCard else { return "" }
+            let displayTitle = WorkspaceToolDisplayNameBuilder.displayName(for: card.title)
             return [
+                displayTitle,
                 card.title,
                 card.subtitle,
                 card.inputJSON,
@@ -147,7 +149,8 @@ struct TranscriptSearchIndex: Sendable, Equatable {
         case .message:
             return item.message?.role.rawValue.capitalized ?? "Message"
         case .toolCard:
-            return item.toolCard?.title ?? "Tool"
+            guard let title = item.toolCard?.title else { return "Tool" }
+            return WorkspaceToolDisplayNameBuilder.displayName(for: title)
         }
     }
 }

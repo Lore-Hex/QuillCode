@@ -2,7 +2,7 @@
 
 ## 2026-07-05
 
-- Live work, Activity, and tool-card chrome should speak in user-facing action names instead of internal tool identifiers. Persisted
+- Live work, Activity, transcript export/search labels, and tool-card chrome should speak in user-facing action names instead of internal tool identifiers. Persisted
   cards and HTML metadata still preserve exact `host.*` names, but visible status copy is scan-first text such as
   `Running Shell command`, `Review Shell command`, and focused details like `Shell command: swift test`. The display
   names live in one shared app presentation helper so future Codex-style surfaces do not each reinvent their own raw-tool

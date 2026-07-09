@@ -28,7 +28,7 @@ final class TranscriptMarkdownExporterTests: XCTestCase {
 
         Run the tests
 
-        ### host.shell.run
+        ### Shell command
 
         ```
         All tests passed
@@ -53,7 +53,7 @@ final class TranscriptMarkdownExporterTests: XCTestCase {
             TranscriptMarkdownExporter.markdown(
                 for: transcript([.toolCard(card(id: "c", title: "host.git.diff", subtitle: "no changes"))])
             ),
-            "### host.git.diff\n\n```\nhost.git.diff\nno changes\n```"
+            "### Git diff\n\n```\nGit diff\nno changes\n```"
         )
     }
 
@@ -76,7 +76,7 @@ final class TranscriptMarkdownExporterTests: XCTestCase {
         let tool = card(id: "t1", title: "host.shell.run", subtitle: "  done  ", input: nil, output: "   ")
         XCTAssertEqual(
             TranscriptMarkdownExporter.markdown(for: transcript([.toolCard(tool)])),
-            "### host.shell.run\n\n```\nhost.shell.run\ndone\n```"
+            "### Shell command\n\n```\nShell command\ndone\n```"
         )
     }
 
@@ -84,7 +84,7 @@ final class TranscriptMarkdownExporterTests: XCTestCase {
         let tool = card(id: "t1", title: "host.shell.run", output: "```\ncode\n```")
         XCTAssertEqual(
             TranscriptMarkdownExporter.markdown(for: transcript([.toolCard(tool)])),
-            "### host.shell.run\n\n````\n```\ncode\n```\n````"
+            "### Shell command\n\n````\n```\ncode\n```\n````"
         )
     }
 
@@ -130,7 +130,7 @@ final class TranscriptMarkdownExporterTests: XCTestCase {
 
         XCTAssertEqual(markdown,
             "## User\n\nRun the tests\n\n"
-            + "### host.shell.run\n\n```\n"
+            + "### Shell command\n\n```\n"
             + "{\n  \"ok\": true,\n  \"stdout\": \"ran: the tests\\n\",\n  \"stderr\": \"\",\n  \"exitCode\": 0\n}\n"
             + "```\n\n## Assistant\n\nOutput:\nran: the tests"
         )

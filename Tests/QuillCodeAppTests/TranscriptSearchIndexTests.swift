@@ -40,6 +40,25 @@ final class TranscriptSearchIndexTests: XCTestCase {
         XCTAssertEqual(TranscriptSearchIndex.build(transcript: surface, query: "report").matches.map(\.label), ["Run Shell"])
     }
 
+    func testToolSearchLabelsUseFriendlyNamesWhileRawIdentifiersRemainSearchable() {
+        let card = ToolCardState(
+            id: "tool-1",
+            title: "host.shell.run",
+            subtitle: "swift test",
+            status: .done
+        )
+        let surface = transcript(toolCards: [card])
+
+        XCTAssertEqual(
+            TranscriptSearchIndex.build(transcript: surface, query: "Shell command").matches.map(\.label),
+            ["Shell command"]
+        )
+        XCTAssertEqual(
+            TranscriptSearchIndex.build(transcript: surface, query: "host.shell.run").matches.map(\.label),
+            ["Shell command"]
+        )
+    }
+
     func testMatchRangesAreCharacterOffsetsAndNonOverlapping() {
         // "aaaa" contains "aa" twice (non-overlapping), at offsets 0 and 2.
         let ranges = TranscriptSearchIndex.literalRanges(of: Array("aa"), in: "aaaa")
