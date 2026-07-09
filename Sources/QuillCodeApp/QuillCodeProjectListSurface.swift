@@ -34,7 +34,8 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         selectedProjectID: UUID?,
         canMoveToTop: Bool = true,
         canMoveUp: Bool = true,
-        canMoveDown: Bool = true
+        canMoveDown: Bool = true,
+        canMoveToBottom: Bool = true
     ) {
         self.id = project.id
         self.name = project.name
@@ -61,6 +62,12 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
                 projectID: project.id,
                 isEnabled: canMoveDown,
                 disabledReason: canMoveDown ? nil : "Already at the bottom"
+            ),
+            ProjectItemActionSurface(
+                kind: .moveToBottom,
+                projectID: project.id,
+                isEnabled: canMoveToBottom,
+                disabledReason: canMoveToBottom ? nil : "Already at the bottom"
             ),
             ProjectItemActionSurface(kind: .rename, projectID: project.id),
             ProjectItemActionSurface(kind: .remove, projectID: project.id)
@@ -91,6 +98,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
             ProjectItemActionSurface(kind: .moveToTop, projectID: id),
             ProjectItemActionSurface(kind: .moveUp, projectID: id),
             ProjectItemActionSurface(kind: .moveDown, projectID: id),
+            ProjectItemActionSurface(kind: .moveToBottom, projectID: id),
             ProjectItemActionSurface(kind: .rename, projectID: id),
             ProjectItemActionSurface(kind: .remove, projectID: id)
         ]
@@ -104,6 +112,7 @@ public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
     case moveToTop
     case moveUp
     case moveDown
+    case moveToBottom
     case rename
     case remove
 
@@ -119,6 +128,8 @@ public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
             return "Move up"
         case .moveDown:
             return "Move down"
+        case .moveToBottom:
+            return "Move to bottom"
         case .rename:
             return "Rename"
         case .remove:

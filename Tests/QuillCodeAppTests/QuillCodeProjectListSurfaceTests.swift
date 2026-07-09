@@ -20,10 +20,10 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertEqual(item.connectionKindLabel, "SSH Remote")
         XCTAssertTrue(item.isRemote)
         XCTAssertTrue(item.isSelected)
-        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .rename, .remove])
+        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .moveToBottom, .rename, .remove])
         XCTAssertEqual(
             item.actions.map(\.kind.title),
-            ["New chat", "Refresh context", "Move to top", "Move up", "Move down", "Rename", "Remove from list"]
+            ["New chat", "Refresh context", "Move to top", "Move up", "Move down", "Move to bottom", "Rename", "Remove from list"]
         )
         XCTAssertEqual(item.actions.first?.id, "\(projectID.uuidString)-newChat")
     }
@@ -36,7 +36,8 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
             selectedProjectID: nil,
             canMoveToTop: false,
             canMoveUp: false,
-            canMoveDown: false
+            canMoveDown: false,
+            canMoveToBottom: false
         )
 
         XCTAssertEqual(item.actions.first { $0.kind == .moveToTop }?.isEnabled, false)
@@ -45,6 +46,8 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertEqual(item.actions.first { $0.kind == .moveUp }?.disabledReason, "Already at the top")
         XCTAssertEqual(item.actions.first { $0.kind == .moveDown }?.isEnabled, false)
         XCTAssertEqual(item.actions.first { $0.kind == .moveDown }?.disabledReason, "Already at the bottom")
+        XCTAssertEqual(item.actions.first { $0.kind == .moveToBottom }?.isEnabled, false)
+        XCTAssertEqual(item.actions.first { $0.kind == .moveToBottom }?.disabledReason, "Already at the bottom")
     }
 
     func testProjectItemSurfaceDecodesOlderPayloadWithoutRemoteMetadataOrActions() throws {
@@ -62,7 +65,7 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
 
         XCTAssertEqual(item.connectionKindLabel, "Local")
         XCTAssertFalse(item.isRemote)
-        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .rename, .remove])
+        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .moveToBottom, .rename, .remove])
         XCTAssertTrue(item.actions.allSatisfy(\.isEnabled))
     }
 }

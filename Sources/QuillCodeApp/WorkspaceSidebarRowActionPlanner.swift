@@ -14,6 +14,7 @@ public enum WorkspaceProjectRowMutation: Sendable, Hashable {
     case moveToTop(UUID)
     case moveUp(UUID)
     case moveDown(UUID)
+    case moveToBottom(UUID)
     case remove(UUID)
 }
 
@@ -41,7 +42,7 @@ struct WorkspaceSidebarRowActionPlanner: Sendable, Hashable {
         switch action.kind {
         case .rename:
             return projectRenameAction(projectID: action.projectID)
-        case .newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .remove:
+        case .newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .moveToBottom, .remove:
             return Self.projectMutation(for: action).map(WorkspaceSidebarRowAction.mutateProject)
         }
     }
@@ -75,6 +76,8 @@ struct WorkspaceSidebarRowActionPlanner: Sendable, Hashable {
             return .moveUp(action.projectID)
         case .moveDown:
             return .moveDown(action.projectID)
+        case .moveToBottom:
+            return .moveToBottom(action.projectID)
         case .rename:
             return nil
         case .remove:
@@ -140,6 +143,8 @@ public struct WorkspaceSidebarRowMutationExecutor {
             return model.moveProject(projectID, direction: .up)
         case .moveDown(let projectID):
             return model.moveProject(projectID, direction: .down)
+        case .moveToBottom(let projectID):
+            return model.moveProjectToBottom(projectID)
         case .remove(let projectID):
             return model.removeProject(projectID)
         }
