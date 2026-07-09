@@ -5,8 +5,8 @@ final class SlashProjectCommandParserTests: XCTestCase {
     func testEmptyProjectCommandReturnsUsageMessage() {
         let expected = SlashCommand.invalid(
             """
-            Usage: /project open, /project new, /project refresh, /project top, /project up, \
-            /project down, /project bottom, /project rename Name, or /project remove
+            Usage: /project open, /project new, /project refresh, /project init, /project top, \
+            /project up, /project down, /project bottom, /project rename Name, or /project remove
             """
         )
 
@@ -24,6 +24,10 @@ final class SlashProjectCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashProjectCommandParser.parse("refresh"), .workspaceCommand("project-refresh-context"))
         XCTAssertEqual(SlashProjectCommandParser.parse("reload"), .workspaceCommand("project-refresh-context"))
         XCTAssertEqual(SlashProjectCommandParser.parse("context"), .workspaceCommand("project-refresh-context"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("init"), .workspaceCommand("project-init"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("initialize"), .workspaceCommand("project-init"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("agents"), .workspaceCommand("project-init"))
+        XCTAssertEqual(SlashCommandParser.parse("/project init"), .workspaceCommand("project-init"))
         XCTAssertEqual(SlashProjectCommandParser.parse("top"), .workspaceCommand("project-move-to-top"))
         XCTAssertEqual(SlashProjectCommandParser.parse("move-top"), .workspaceCommand("project-move-to-top"))
         XCTAssertEqual(SlashProjectCommandParser.parse("up"), .workspaceCommand("project-move-up"))
@@ -51,7 +55,7 @@ final class SlashProjectCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashProjectCommandParser.parse("unknown"),
-            .invalid("Unknown project command 'unknown'. Use open, new, refresh, top, up, down, bottom, rename, or remove.")
+            .invalid("Unknown project command 'unknown'. Use open, new, refresh, init, top, up, down, bottom, rename, or remove.")
         )
     }
 }
