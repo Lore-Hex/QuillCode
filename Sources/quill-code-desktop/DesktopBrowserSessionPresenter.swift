@@ -14,6 +14,7 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult
+    func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot
     func reloadSession()
 }
 
@@ -71,6 +72,11 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
         guard let session else { throw DesktopBrowserSessionScriptError.noOpenSession }
         return try await session.evaluateJavaScriptInSelectedTab(source)
+    }
+
+    func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
+        guard let session else { throw DesktopBrowserSessionScriptError.noOpenSession }
+        return try await session.captureLiveDOMSnapshotInSelectedTab()
     }
 
     func reloadSession() {
@@ -217,6 +223,20 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
             url: tab.webView.url ?? tab.snapshot.url,
             valueDescription: Self.boundedJavaScriptResultDescription(value)
         )
+    }
+
+    func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
+        guard let selectedID = selectedTabID(),
+              let tab = tabs[selectedID]
+        else {
+            throw DesktopBrowserSessionScriptError.noSelectedTab
+        }
+        let snapshot = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
+            from: tab.webView,
+            fallbackURL: tab.snapshot.url
+        )
+        emitSessionUpdate(liveDOMSnapshots: [selectedID: snapshot])
+        return snapshot
     }
 
     private func sync(_ snapshot: BrowserSessionTabSnapshot) {
@@ -392,6 +412,7 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult
+    func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot
     func reloadSession()
 }
 
@@ -416,6 +437,9 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
+        throw DesktopBrowserSessionScriptError.noOpenSession
+    }
+    func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
         throw DesktopBrowserSessionScriptError.noOpenSession
     }
     func reloadSession() {}

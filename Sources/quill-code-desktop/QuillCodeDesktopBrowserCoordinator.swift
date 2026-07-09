@@ -109,6 +109,10 @@ struct QuillCodeDesktopBrowserCoordinator {
         try await sessionPresenter.evaluateJavaScriptInSelectedTab(source)
     }
 
+    func captureLiveDOMSnapshotInOpenSession() async throws -> BrowserLiveDOMSnapshot {
+        try await sessionPresenter.captureLiveDOMSnapshotInSelectedTab()
+    }
+
     private func activeWorkspaceRoot(
         for model: QuillCodeWorkspaceModel,
         fallback workspaceRoot: URL

@@ -403,6 +403,25 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         }
     }
 
+    func testDesktopBrowserCoordinatorCapturesLiveDOMSnapshotInVisibleSession() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+
+        let snapshot = try await controller.browserCoordinator.captureLiveDOMSnapshotInOpenSession()
+
+        XCTAssertEqual(presenter.capturedLiveDOMSnapshotCount, 1)
+        XCTAssertEqual(snapshot.finalURL.absoluteString, "http://localhost:5173/dashboard")
+        XCTAssertEqual(snapshot.title, "Visible Dashboard")
+        XCTAssertEqual(snapshot.visibleText, "Live dashboard text")
+        XCTAssertEqual(snapshot.outline, ["H1: Visible Dashboard", "Button: Save"])
+        XCTAssertEqual(snapshot.viewportDescription, "1120x760 @2x")
+    }
+
     func testDesktopControllerSendPathCoversRealWorldActionPromptFamily() async throws {
         let workspaceRoot = try makeTempDirectory()
         let downloadSource = workspaceRoot.appendingPathComponent("source.html")
@@ -870,6 +889,7 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     private(set) var backFallbackSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var forwardFallbackSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var evaluatedJavaScriptSources: [String] = []
+    private(set) var capturedLiveDOMSnapshotCount = 0
     private(set) var reloadedSessionCount = 0
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -896,6 +916,18 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
             title: "Visible Browser",
             url: try XCTUnwrap(URL(string: "http://localhost:5173")),
             valueDescription: "Visible Browser"
+        )
+    }
+
+    func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
+        capturedLiveDOMSnapshotCount += 1
+        return BrowserLiveDOMSnapshot(
+            finalURL: try XCTUnwrap(URL(string: "http://localhost:5173/dashboard")),
+            title: "Visible Dashboard",
+            visibleText: "Live dashboard text",
+            outline: ["H1: Visible Dashboard", "Button: Save"],
+            html: "<h1>Visible Dashboard</h1><button>Save</button>",
+            viewportDescription: "1120x760 @2x"
         )
     }
 
