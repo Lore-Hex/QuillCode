@@ -17,9 +17,10 @@ public enum TranscriptMarkdownExporter {
                 blocks.append("## \(heading)\n\n\(body)")
             case .toolCard:
                 guard let card = item.toolCard else { continue }
+                let title = WorkspaceToolDisplayNameBuilder.displayName(for: card.title)
                 let text = TranscriptItemTextFormatter.text(for: card)
                 let fence = codeFence(for: text)
-                blocks.append("### \(card.title)\n\n\(fence)\n\(text)\n\(fence)")
+                blocks.append("### \(title)\n\n\(fence)\n\(text)\n\(fence)")
             }
         }
         return blocks.joined(separator: "\n\n")

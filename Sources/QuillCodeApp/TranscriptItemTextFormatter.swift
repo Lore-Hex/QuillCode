@@ -13,7 +13,7 @@ public enum TranscriptItemTextFormatter {
            !inputJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return inputJSON
         }
-        return [card.title, card.subtitle]
+        return [WorkspaceToolDisplayNameBuilder.displayName(for: card.title), card.subtitle]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
