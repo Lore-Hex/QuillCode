@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillComputerUseKit
 import QuillCodeSafety
 
 enum WorkspaceToolCardProjection {
@@ -87,7 +88,11 @@ enum WorkspaceToolCardProjection {
         outputJSON: String? = nil
     ) {
         card.status = status
-        card.subtitle = toolSubtitle(stateLabel: stateLabel, title: card.title, inputJSON: card.inputJSON)
+        card.subtitle = outputSubtitle(
+            stateLabel: stateLabel,
+            title: card.title,
+            outputJSON: outputJSON
+        ) ?? toolSubtitle(stateLabel: stateLabel, title: card.title, inputJSON: card.inputJSON)
         card.density = ToolCardState.defaultDensity(status: status, isExpanded: card.isExpanded)
         card.reviewState = ToolCardState.defaultReviewState(status: status)
         card.isExpanded = card.density == .expanded
@@ -254,6 +259,38 @@ enum WorkspaceToolCardProjection {
 
     private static func toolSubtitle(stateLabel: String, title: String, inputJSON: String?) -> String {
         WorkspaceToolCardSubtitleBuilder.subtitle(stateLabel: stateLabel, toolName: title, inputJSON: inputJSON)
+    }
+
+    private static func outputSubtitle(stateLabel: String, title: String, outputJSON: String?) -> String? {
+        guard title == ToolDefinition.computerScreenshot.name,
+              let outputJSON,
+              let result = decode(ToolResult.self, outputJSON),
+              result.ok,
+              let screenshot = try? JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout)
+        else {
+            return nil
+        }
+        var details = ["\(screenshot.width) x \(screenshot.height)"]
+        if let foregroundApplication = boundedDetail(screenshot.foregroundApplication?.displayLabel) {
+            details.append(foregroundApplication)
+        }
+        if let count = screenshot.accessibilitySnapshot?.elements.count, count > 0 {
+            details.append("\(count) controls")
+        }
+        return "\(stateLabel) · \(details.joined(separator: " · "))"
+    }
+
+    private static func boundedDetail(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let collapsed = value
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !collapsed.isEmpty else { return nil }
+        guard collapsed.count > 72 else { return collapsed }
+        let end = collapsed.index(collapsed.startIndex, offsetBy: 72)
+        return String(collapsed[..<end]) + "..."
     }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
