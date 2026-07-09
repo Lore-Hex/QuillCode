@@ -27,6 +27,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case refreshProjectContext(projectID: UUID)
     case initProject(projectID: UUID)
     case moveProjectToTop(projectID: UUID)
+    case moveProjectToBottom(projectID: UUID)
     case moveProject(projectID: UUID, direction: WorkspaceProjectMoveDirection)
     case setDraft(String)
     case removeProject(projectID: UUID)
@@ -112,6 +113,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return selectedProjectID.map { .moveProject(projectID: $0, direction: .up) }
         case .projectMoveDown:
             return selectedProjectID.map { .moveProject(projectID: $0, direction: .down) }
+        case .projectMoveToBottom:
+            return selectedProjectID.map { .moveProjectToBottom(projectID: $0) }
         case .projectRename:
             return selectedProject.map { .setDraft("/project rename \($0.name)") }
         case .projectRemove:

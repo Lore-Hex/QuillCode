@@ -121,6 +121,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "project-move-to-top",
             "project-move-up",
             "project-move-down",
+            "project-move-to-bottom",
             "project-rename",
             "project-remove",
             "toggle-terminal",

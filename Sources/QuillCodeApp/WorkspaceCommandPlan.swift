@@ -247,6 +247,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case projectMoveToTop = "project-move-to-top"
     case projectMoveUp = "project-move-up"
     case projectMoveDown = "project-move-down"
+    case projectMoveToBottom = "project-move-to-bottom"
     case projectRename = "project-rename"
     case projectRemove = "project-remove"
     case threadRename = "thread-rename"
