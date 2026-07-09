@@ -208,6 +208,49 @@ final class WorkspaceToolCardIntegrationTests: XCTestCase {
         XCTAssertTrue(events.contains { $0.kind == .toolCompleted })
     }
 
+    func testApprovingWhilePlanningRecordsToolFeedbackForTheResume() throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            id: "plan-feedback-tool-run",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf plan-feedback"])
+        )
+        let request = ApprovalRequest(
+            id: "plan-feedback-run",
+            toolCall: call,
+            toolDefinition: ToolDefinition.shellRun,
+            reason: "Planning — approve the proposed change to apply it and start executing.",
+            recommendedVerdict: .clarify
+        )
+        let thread = ChatThread(mode: .plan, messages: [
+            ChatMessage(role: .user, content: "run the first step")
+        ], events: [
+            ThreadEvent(
+                kind: .approvalRequested,
+                summary: "planning",
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            )
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let didRun = model.runToolCardAction(ToolCardActionSurface(
+            title: "Approve",
+            kind: .approve,
+            requestID: "plan-feedback-run",
+            style: .primary
+        ), workspaceRoot: root)
+
+        XCTAssertTrue(didRun)
+        let toolMessage = try XCTUnwrap(model.selectedThread?.messages.last { $0.role == .tool })
+        let feedback = try JSONHelpers.decode(AgentToolFeedback.self, from: toolMessage.content)
+        XCTAssertEqual(feedback.toolCall.name, ToolDefinition.shellRun.name)
+        XCTAssertEqual(feedback.result.stdout, "plan-feedback")
+        XCTAssertTrue(feedback.result.ok)
+    }
+
     private func approvalRequestCount(_ model: QuillCodeWorkspaceModel) -> Int {
         model.selectedThread?.events.filter { $0.kind == .approvalRequested }.count ?? 0
     }

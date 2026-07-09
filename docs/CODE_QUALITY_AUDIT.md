@@ -3149,7 +3149,18 @@ The adversarial review reshaped the design. The first cut flipped `.plan`→`.au
 
 Residual risk:
 
-- The held tool's result is recorded as a thread *event* but not yet as a `.tool` *message*, so a resumed model could re-propose the just-run step — benign here because that re-proposal is itself gated (Plan mode), but appending tool feedback to `messages` is a clean follow-up. A user who wants "approve once, run the rest" uses `/mode auto` explicitly. Marking individual `AgentPlanItem` statuses from approvals remains a separate slice.
+- Marking individual `AgentPlanItem` statuses from approvals remains a separate slice. A user who wants "approve once, run the rest" uses `/mode auto` explicitly.
+
+## 2026-07-09 Plan Approval Tool Feedback Pass
+
+Overall grade after this slice: **A model-context parity, A minimal surface area**.
+
+Plan-mode approval already ran the held tool and resumed the agent in Plan mode, but the approved tool's result only existed as transcript events. The normal multi-step agent loop also appends hidden `.tool` feedback into `thread.messages`, which lets the next model call know the exact tool result and avoid proposing the same step again.
+
+| Before | After |
+| --- | --- |
+| Approving a held Plan-mode tool recorded queued/running/completed events, then resumed from the latest user intent. The resumed model could infer from visible events only indirectly and might re-propose the just-approved command. | Plan-mode approval now appends one hidden `AgentToolFeedback` message after the held tool runs, using the same schema as the normal agent loop. The resumed turn receives the exact tool call/result context without exposing model-facing feedback in visible transcript surfaces. |
+| The follow-up was documented but not enforced. | `testApprovingWhilePlanningRecordsToolFeedbackForTheResume` decodes the hidden feedback and asserts the approved shell result is present before resume logic can build on it. |
 
 ## 2026-06-30 Interactive Plan Mode Pass (PR1)
 
