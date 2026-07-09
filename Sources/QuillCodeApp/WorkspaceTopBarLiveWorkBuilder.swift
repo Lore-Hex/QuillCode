@@ -36,7 +36,7 @@ struct WorkspaceTopBarLiveWorkBuilder: Sendable, Hashable {
 
     private static func label(for primary: ToolCardState, activeCount: Int) -> String {
         if activeCount == 1 {
-            return "\(primary.status.topBarVerb) \(primary.title)"
+            return "\(primary.status.topBarVerb) \(WorkspaceToolDisplayNameBuilder.displayName(for: primary.title))"
         }
         return "\(activeCount) active tasks"
     }
@@ -53,13 +53,33 @@ struct WorkspaceTopBarLiveWorkBuilder: Sendable, Hashable {
             countPhrase(queuedCount, noun: "queued"),
             countPhrase(reviewCount, noun: "awaiting review"),
         ].compactMap { $0 }
-        let titleList = activeCards.prefix(4).map(\.title).joined(separator: ", ")
+        let titleList = activeCards.prefix(4)
+            .map { WorkspaceToolDisplayNameBuilder.displayName(for: $0.title) }
+            .joined(separator: ", ")
         let overflow = activeCards.count > 4 ? " and \(activeCards.count - 4) more" : ""
-        return "Current work: \(counts.joined(separator: ", ")). Focus: \(primary.title). Active tools: \(titleList)\(overflow)."
+        return "Current work: \(counts.joined(separator: ", ")). Focus: \(focusName(for: primary)). Active tools: \(titleList)\(overflow)."
     }
 
     private static func countPhrase(_ count: Int, noun: String) -> String? {
         count > 0 ? "\(count) \(noun)" : nil
+    }
+
+    private static func focusName(for card: ToolCardState) -> String {
+        let displayName = WorkspaceToolDisplayNameBuilder.displayName(for: card.title)
+        guard let detail = subtitleDetail(card.subtitle) else {
+            return displayName
+        }
+        return "\(displayName): \(detail)"
+    }
+
+    private static func subtitleDetail(_ subtitle: String) -> String? {
+        let parts = subtitle
+            .split(separator: "·", maxSplits: 1)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard parts.count == 2, !parts[1].isEmpty else {
+            return nil
+        }
+        return parts[1]
     }
 }
 

@@ -2,6 +2,10 @@
 
 ## 2026-07-05
 
+- Top-bar live work should speak in user-facing action names instead of internal tool identifiers. Transcript tool cards
+  can still preserve exact `host.*` names in details, but persistent chrome is scan-first status copy such as `Running
+  Shell command`, `Review Shell command`, and focused details like `Shell command: swift test`. The display names live in
+  one shared app presentation helper so future Codex-style surfaces do not each reinvent their own raw-tool-name mapping.
 - Visible browser agent actions are routed through a desktop executor, not the desktop controller or the app model.
   `QuillCodeDesktopVisibleBrowserToolExecutor` owns the `host.browser.inspect`, `host.browser.click`,
   `host.browser.type`, and `host.browser.script` override path for the open WebKit session, while the controller only

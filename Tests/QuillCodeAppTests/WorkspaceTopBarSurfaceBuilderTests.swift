@@ -213,7 +213,9 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(liveWork.tone, .running)
         XCTAssertTrue(liveWork.detail.contains("1 running"))
         XCTAssertTrue(liveWork.detail.contains("1 queued"))
-        XCTAssertTrue(liveWork.detail.contains(ToolDefinition.shellRun.name))
+        XCTAssertTrue(liveWork.detail.contains("Focus: Shell command: swift test"))
+        XCTAssertTrue(liveWork.detail.contains("Active tools: Shell command, Inspect browser"))
+        XCTAssertFalse(liveWork.detail.contains(ToolDefinition.shellRun.name))
         XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("current work: 2 active tasks"))
     }
 
@@ -251,9 +253,10 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         ).surface()
 
         let liveWork = try XCTUnwrap(topBar.liveWork)
-        XCTAssertEqual(liveWork.label, "Review \(ToolDefinition.shellRun.name)")
+        XCTAssertEqual(liveWork.label, "Review Shell command")
         XCTAssertEqual(liveWork.tone, .review)
         XCTAssertTrue(liveWork.detail.contains("1 awaiting review"))
+        XCTAssertTrue(liveWork.detail.contains("Focus: Shell command: git push"))
         XCTAssertTrue(topBar.topBarHelpText.contains("Current work:"))
     }
 
