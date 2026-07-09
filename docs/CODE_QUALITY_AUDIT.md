@@ -15536,3 +15536,32 @@ Code quality changes:
 Validation:
 
 - `swift test --filter 'QuillCodeReviewSurfaceTests|WorkspaceReviewSurfaceBuilderTests|WorkspaceHTMLReviewRendererTests|WorkspaceReviewIntegrationTests|WorkspaceReviewActionToolCallPlannerTests'` (54 tests, 0 failures)
+
+## 2026-07-09 Automation Event Source Split
+
+Overall grade after this slice: **A+ automation monitor architecture, A+ source ownership**.
+The automation monitor event-source code was the remaining B+ implementation
+hotspot in `source:QuillCodeApp`: one file mixed the event-source protocol,
+filesystem monitors, URL Last-Modified fetching, feed fetching/parsing, and
+path/URL resolver policy. This pass splits those responsibilities so future
+Codex-style monitor adapters can land behind small, reviewable boundaries.
+
+Code quality changes:
+
+- Kept `AutomationEventSource.swift` to the protocol and provider typealiases.
+- Moved file and directory monitors into `FileAutomationEventSources.swift`.
+- Moved HTTP Last-Modified monitoring and date parsing into
+  `URLLastModifiedEventSource.swift`.
+- Moved feed monitoring and timestamp parsing into `URLFeedUpdateEventSource.swift`.
+- Extracted shared bounded URLSession setup and bounded HTTP body fetching into
+  focused helpers.
+- Moved monitor definition resolution and path/URL validation into
+  `AutomationEventSourceResolver.swift`.
+- Updated the parity gate to protect the split ownership model instead of
+  requiring all monitor code to stay in one large source file.
+
+Validation:
+
+- `swift test --filter AutomationEventSourceTests` (21 tests, 0 failures)
+- `swift test --filter ParityAutomationEventSourceGateTests` (1 test, 0 failures)
+- `python3 scripts/grade-code-quality.py`
