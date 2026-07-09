@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeAgent
 import QuillCodeCore
 import QuillCodeTools
 
@@ -214,7 +215,10 @@ public extension QuillCodeWorkspaceModel {
             // approved tool does. The thread mode is intentionally LEFT as-is: a Plan-mode
             // approval stays in Plan, so the resumed agent's next mutation is gated again
             // (the user approves each change) rather than flipping to autonomous execution.
-            _ = runToolCall(plan.request.toolCall, workspaceRoot: workspaceRoot)
+            let result = runToolCall(plan.request.toolCall, workspaceRoot: workspaceRoot)
+            if selectedThread?.mode == .plan {
+                appendApprovedPlanToolFeedback(call: plan.request.toolCall, result: result)
+            }
         } else {
             if let assistantNotice = plan.assistantNotice {
                 appendAssistantNotice(assistantNotice)
@@ -236,6 +240,15 @@ public extension QuillCodeWorkspaceModel {
             )
         }
         return true
+    }
+
+    private func appendApprovedPlanToolFeedback(call: ToolCall, result: ToolResult) {
+        let feedback = AgentToolFeedback(toolCall: call, result: result, followUpResult: nil)
+        let content = (try? JSONHelpers.encodePretty(feedback)) ?? "{}"
+        mutateSelectedThread { thread in
+            thread.messages.append(.init(role: .tool, content: content))
+            thread.updatedAt = Date()
+        }
     }
 
     @discardableResult
