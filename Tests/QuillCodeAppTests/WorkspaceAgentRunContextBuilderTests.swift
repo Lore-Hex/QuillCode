@@ -23,7 +23,9 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
             ToolDefinition.handoffUpdate.name,
             ToolDefinition.subagentsUpdate.name,
             ToolDefinition.browserInspect.name,
-            ToolDefinition.browserOpen.name
+            ToolDefinition.browserOpen.name,
+            ToolDefinition.browserClick.name,
+            ToolDefinition.browserType.name
         ])
     }
 
@@ -72,7 +74,9 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
             ToolDefinition.handoffUpdate.name,
             ToolDefinition.subagentsUpdate.name,
             ToolDefinition.browserInspect.name,
-            ToolDefinition.browserOpen.name
+            ToolDefinition.browserOpen.name,
+            ToolDefinition.browserClick.name,
+            ToolDefinition.browserType.name
         ] + ToolDefinition.computerUseDefinitions.map(\.name)
             + [ToolDefinition.memoryRemember.name, mcpTool.name]
         XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), expectedNames)

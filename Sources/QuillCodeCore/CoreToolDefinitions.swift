@@ -66,6 +66,32 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let browserClick = ToolDefinition(
+        name: "host.browser.click",
+        description: """
+        Click an element in the visible QuillCode browser session by CSS selector. Use after opening a browser session \
+        when the user asks to interact with the page. Do not use this for hidden data extraction or broad scripting.
+        """,
+        parametersJSON: """
+        {"type":"object","properties":{"selector":{"type":"string","description":"CSS selector for the element to click in the visible browser session."}},"required":["selector"]}
+        """,
+        host: .browser,
+        risk: .append
+    )
+
+    static let browserType = ToolDefinition(
+        name: "host.browser.type",
+        description: """
+        Type text into an editable element in the visible QuillCode browser session by CSS selector. Set submit to true \
+        only when the user asked to submit the form or press Enter.
+        """,
+        parametersJSON: """
+        {"type":"object","properties":{"selector":{"type":"string","description":"CSS selector for an input, textarea, select, or contenteditable element."},"text":{"type":"string","description":"Text to enter."},"submit":{"type":"boolean","description":"Whether to submit the containing form or press Enter after typing."}},"required":["selector","text"]}
+        """,
+        host: .browser,
+        risk: .append
+    )
+
     static let memoryRemember = ToolDefinition(
         name: "host.memory.remember",
         description: """

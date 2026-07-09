@@ -68,6 +68,14 @@ final class ToolSchemaCoreTests: XCTestCase {
         XCTAssertEqual(ToolDefinition.browserOpen.host, .browser)
         XCTAssertEqual(ToolDefinition.browserOpen.risk, .read)
         XCTAssertTrue(ToolDefinition.browserOpen.parametersJSON.contains(#""url""#))
+        XCTAssertEqual(ToolDefinition.browserClick.name, "host.browser.click")
+        XCTAssertEqual(ToolDefinition.browserClick.host, .browser)
+        XCTAssertEqual(ToolDefinition.browserClick.risk, .append)
+        XCTAssertTrue(ToolDefinition.browserClick.parametersJSON.contains(#""selector""#))
+        XCTAssertEqual(ToolDefinition.browserType.name, "host.browser.type")
+        XCTAssertEqual(ToolDefinition.browserType.host, .browser)
+        XCTAssertEqual(ToolDefinition.browserType.risk, .append)
+        XCTAssertTrue(ToolDefinition.browserType.parametersJSON.contains(#""text""#))
         XCTAssertEqual(ToolDefinition.memoryRemember.name, "host.memory.remember")
         XCTAssertEqual(ToolDefinition.memoryRemember.risk, .append)
         XCTAssertTrue(ToolDefinition.memoryRemember.parametersJSON.contains(#""content""#))
@@ -138,6 +146,8 @@ final class ToolSchemaCoreTests: XCTestCase {
             .subagentsUpdate,
             .browserInspect,
             .browserOpen,
+            .browserClick,
+            .browserType,
             .memoryRemember
         ]
 

@@ -10,7 +10,11 @@ final class ParityBrowserToolRendererGateTests: QuillCodeParityTestCase {
         let finalAnswerText = try Self.agentSourceText(named: "AgentBrowserToolAnswerFormatters.swift")
 
         Self.assertSource(definitionsText, contains: "static let browserOpen")
+        Self.assertSource(definitionsText, contains: "static let browserClick")
+        Self.assertSource(definitionsText, contains: "static let browserType")
         Self.assertSource(builderText, contains: "ToolDefinition.browserOpen")
+        Self.assertSource(builderText, contains: "ToolDefinition.browserClick")
+        Self.assertSource(builderText, contains: "ToolDefinition.browserType")
         Self.assertSource(executorText, contains: "WorkspaceBrowserToolExecutor.execute")
         Self.assertSource(browserToolText, contains: "ToolDefinition.browserInspect.name")
         Self.assertSource(browserToolText, contains: "ToolDefinition.browserOpen.name")
@@ -18,7 +22,10 @@ final class ParityBrowserToolRendererGateTests: QuillCodeParityTestCase {
         Self.assertSource(browserToolText, contains: "ToolArguments(")
         Self.assertSource(browserToolText, excludes: "JSONSerialization")
         Self.assertSource(normalizerText, contains: "ToolDefinition.browserOpen.name")
+        Self.assertSource(normalizerText, contains: "ToolDefinition.browserClick.name")
+        Self.assertSource(normalizerText, contains: "ToolDefinition.browserType.name")
         Self.assertSource(finalAnswerText, contains: "browserOpenAnswer")
+        Self.assertSource(finalAnswerText, contains: "browserActionAnswer")
     }
 
     func testWorkspaceHTMLRendererDelegatesBrowserRendering() throws {

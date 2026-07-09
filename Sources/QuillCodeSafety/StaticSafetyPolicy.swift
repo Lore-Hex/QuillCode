@@ -201,6 +201,10 @@ struct StaticSafetyPolicy: Sendable {
             allowedToolNames: ["mcp.call"]
         ),
         .init(
+            requestTriggers: ["browser", "click", "type", "fill", "submit"],
+            allowedToolNames: ["browser"]
+        ),
+        .init(
             requestTriggers: commonDiagnosticTriggers,
             allowedToolNames: ["shell.run"]
         ),

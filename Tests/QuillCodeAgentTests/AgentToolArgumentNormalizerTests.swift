@@ -32,6 +32,34 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(arguments["address"])
     }
 
+    func testCanonicalArgumentsNormalizeBrowserActionAliases() {
+        let clickArguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.browserClick.name,
+            in: ["target": "button.save"],
+            sourceText: ""
+        )
+        XCTAssertEqual(clickArguments["selector"] as? String, "button.save")
+        XCTAssertNil(clickArguments["target"])
+
+        let typeArguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.browserType.name,
+            in: [
+                "arguments": [
+                    "css_selector": "input[name='q']",
+                    "value": "minimax",
+                    "press_enter": true
+                ]
+            ],
+            sourceText: ""
+        )
+        XCTAssertEqual(typeArguments["selector"] as? String, "input[name='q']")
+        XCTAssertEqual(typeArguments["text"] as? String, "minimax")
+        XCTAssertEqual(typeArguments["submit"] as? Bool, true)
+        XCTAssertNil(typeArguments["css_selector"])
+        XCTAssertNil(typeArguments["value"])
+        XCTAssertNil(typeArguments["press_enter"])
+    }
+
     func testCanonicalArgumentsDecodeStringifiedArgumentObjects() {
         let arguments = AgentToolArgumentNormalizer.canonicalArguments(
             for: ToolDefinition.fileWrite.name,

@@ -38,6 +38,8 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
             ToolDefinition.subagentsUpdate.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.browserOpen.name,
+            ToolDefinition.browserClick.name,
+            ToolDefinition.browserType.name,
             ToolDefinition.memoryRemember.name,
             mcpTool.name
         ])

@@ -8,6 +8,7 @@ final class ParityCoreModelGateTests: QuillCodeParityTestCase {
         let callText = try Self.coreSourceText(named: "ToolCall.swift")
         let resultText = try Self.coreSourceText(named: "ToolResult.swift")
         let browserOutputText = try Self.coreSourceText(named: "BrowserInspectionToolOutput.swift")
+        let browserActionOutputText = try Self.coreSourceText(named: "BrowserActionToolOutput.swift")
         let memoryOutputText = try Self.coreSourceText(named: "MemoryRememberToolOutput.swift")
         let definitionsText = try Self.coreSourceText(named: "CoreToolDefinitions.swift")
 
@@ -16,15 +17,19 @@ final class ParityCoreModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(resultText.contains("public struct ToolResult"), "Tool-result payload records should live in a focused core file.")
         XCTAssertTrue(callText.contains("redactedForTranscript"), "Tool-call redaction belongs with tool-call payload records.")
         XCTAssertTrue(browserOutputText.contains("public struct BrowserInspectionToolOutput"), "Browser output compatibility belongs in its own focused core file.")
+        XCTAssertTrue(browserActionOutputText.contains("public struct BrowserActionToolOutput"), "Browser action output compatibility belongs in its own focused core file.")
         XCTAssertTrue(memoryOutputText.contains("public struct MemoryRememberToolOutput"), "Memory output compatibility belongs in its own focused core file.")
         XCTAssertTrue(definitionsText.contains("static let planUpdate"), "Built-in core tool definitions should live in a focused catalog.")
         XCTAssertTrue(definitionsText.contains("static let handoffUpdate"), "Built-in handoff tool schema should live in the focused catalog.")
         XCTAssertTrue(definitionsText.contains("static let browserOpen"), "Browser tool schema should live in the focused catalog.")
+        XCTAssertTrue(definitionsText.contains("static let browserClick"), "Browser click tool schema should live in the focused catalog.")
+        XCTAssertTrue(definitionsText.contains("static let browserType"), "Browser type tool schema should live in the focused catalog.")
         XCTAssertFalse(modelsText.contains("public struct ToolDefinition"), "General domain models should not own tool schema records.")
         XCTAssertFalse(modelsText.contains("public struct ToolCall"), "General domain models should not own tool-call payload records.")
         XCTAssertFalse(modelsText.contains("public struct ToolResult"), "General domain models should not own tool-result payload records.")
         XCTAssertFalse(modelsText.contains("redactedForTranscript"), "General domain models should not own tool-call redaction.")
         XCTAssertFalse(modelsText.contains("public struct BrowserInspectionToolOutput"), "General domain models should not own tool-specific output compatibility.")
+        XCTAssertFalse(modelsText.contains("public struct BrowserActionToolOutput"), "General domain models should not own tool-specific output compatibility.")
         XCTAssertFalse(modelsText.contains("public struct MemoryRememberToolOutput"), "General domain models should not own tool-specific output compatibility.")
         XCTAssertFalse(
             FileManager.default.fileExists(
