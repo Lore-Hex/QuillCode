@@ -262,6 +262,42 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertFalse(WorkspaceProjectEngine.moveProjectToBottom(UUID(), projects: &projects))
     }
 
+    func testMoveProjectBeforeTargetRewritesDisplayOrder() {
+        let oldest = ProjectRef(
+            name: "Oldest",
+            path: "/oldest",
+            lastOpenedAt: Date(timeIntervalSince1970: 10)
+        )
+        let middle = ProjectRef(
+            name: "Middle",
+            path: "/middle",
+            lastOpenedAt: Date(timeIntervalSince1970: 20)
+        )
+        let newest = ProjectRef(
+            name: "Newest",
+            path: "/newest",
+            lastOpenedAt: Date(timeIntervalSince1970: 30)
+        )
+        var projects = [oldest, middle, newest]
+
+        XCTAssertTrue(WorkspaceProjectEngine.moveProject(oldest.id, before: newest.id, projects: &projects))
+        XCTAssertEqual(
+            WorkspaceProjectEngine.displayOrderedProjects(projects).map(\.id),
+            [oldest.id, newest.id, middle.id]
+        )
+
+        XCTAssertTrue(WorkspaceProjectEngine.moveProject(middle.id, before: oldest.id, projects: &projects))
+        XCTAssertEqual(
+            WorkspaceProjectEngine.displayOrderedProjects(projects).map(\.id),
+            [middle.id, oldest.id, newest.id]
+        )
+
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(middle.id, before: middle.id, projects: &projects))
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(middle.id, before: oldest.id, projects: &projects))
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(UUID(), before: oldest.id, projects: &projects))
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(middle.id, before: UUID(), projects: &projects))
+    }
+
     func testSelectionAfterSelectingProjectUsesNewestUnarchivedThread() {
         let project = ProjectRef(name: "One", path: "/tmp/one")
         let otherProject = ProjectRef(name: "Two", path: "/tmp/two")

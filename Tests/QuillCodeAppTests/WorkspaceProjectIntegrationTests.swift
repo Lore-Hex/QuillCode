@@ -84,6 +84,10 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         XCTAssertTrue(model.runWorkspaceCommand("project-move-to-bottom", workspaceRoot: root))
         XCTAssertEqual(projectNames(in: model), ["Gamma", "Beta", "Alpha"])
         XCTAssertFalse(model.runWorkspaceCommand("project-move-to-bottom", workspaceRoot: root))
+
+        XCTAssertTrue(model.moveProject(alpha, before: gamma))
+        XCTAssertEqual(projectNames(in: model), ["Alpha", "Gamma", "Beta"])
+        XCTAssertFalse(model.moveProject(alpha, before: gamma))
         XCTAssertEqual(model.root.selectedProjectID, alpha)
     }
 
