@@ -111,8 +111,8 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             modeLabel: "Auto",
             agentStatus: "Running",
             liveWork: TopBarLiveWorkSurface(
-                label: "Running host.shell.run",
-                detail: "Current work: 1 running. Focus: host.shell.run. Active tools: host.shell.run.",
+                label: "Running Shell command",
+                detail: "Current work: 1 running. Focus: Shell command: swift test. Active tools: Shell command.",
                 tone: .running
             ),
             computerUseLabel: "Computer Use Ready",
@@ -123,7 +123,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar-live-work""#))
         XCTAssertTrue(html.contains(#"data-tone="running""#))
-        XCTAssertTrue(html.contains("Running host.shell.run"))
+        XCTAssertTrue(html.contains("Running Shell command"))
         XCTAssertTrue(html.contains("Current work: 1 running"))
     }
 
