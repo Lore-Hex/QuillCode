@@ -109,7 +109,9 @@ enum WorkspaceActivityPlanSurfaceBuilder {
         guard !toolCards.isEmpty else {
             return "No tool use needed yet."
         }
-        let names = toolCards.suffix(3).map(\.title).joined(separator: ", ")
+        let names = toolCards.suffix(3)
+            .map { WorkspaceToolDisplayNameBuilder.displayName(for: $0.title) }
+            .joined(separator: ", ")
         return "\(WorkspaceActivityText.countLabel(toolCards.count, singular: "tool")): \(names)"
     }
 
