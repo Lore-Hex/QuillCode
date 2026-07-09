@@ -4,10 +4,12 @@ import { clickProjectAction } from './sidebar-test-helpers';
 
 test('mock harness manages projects from the sidebar', async ({ page }) => {
   await page.goto(harnessURL());
+  await expect(page.getByTestId('project-count')).toHaveText('1 project');
 
   await page.getByTestId('add-project-button').click();
 
   await expect(page.getByTestId('project-item')).toHaveCount(2);
+  await expect(page.getByTestId('project-count')).toHaveText('2 projects');
   await expect(page.getByTestId('project-item').first()).toContainText('Example Project 2');
   await expect(page.getByTestId('project-item').first()).toContainText('/mock/example-2');
   await expect(page.getByTestId('project-item').first()).toHaveAttribute('aria-current', 'true');
@@ -54,6 +56,7 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
 
   await clickProjectAction(page.getByTestId('project-row').first(), 'Remove from list');
   await expect(page.getByTestId('project-item')).toHaveCount(1);
+  await expect(page.getByTestId('project-count')).toHaveText('1 project');
   await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
 });
 
