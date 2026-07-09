@@ -15485,3 +15485,31 @@ Validation:
 
 - `swift test --filter WorkspaceHTMLChromeRendererTests` (14 tests, 0 failures)
 - `git diff --check`
+
+## 2026-07-09 Command Palette Keyboard Selection Slice
+
+Overall grade after this slice: **A+ command-palette selection boundary, A native keyboard parity**.
+This closes the native command-palette keyboard-regression gap called out in the
+search/input stability audit: ranking remains separate from focus and selection,
+and arrow/submit behavior is now deterministic outside SwiftUI rendering.
+
+Code quality changes:
+
+- Extracted command-palette highlighted-row state into
+  `WorkspaceCommandPaletteSelection`, a tiny pure selection model that preserves
+  still-visible selections, skips disabled commands, wraps up/down movement, and
+  falls back safely when the highlighted command disappears after query changes.
+- Wired the SwiftUI command palette through that shared selection model instead
+  of keeping private row-navigation rules in the view.
+- Added explicit Escape handling on the native command palette so the keyboard
+  close path is as direct as the visible close button.
+- Added focused unit coverage for first-enabled selection, query-change
+  preservation, disabled rows, wraparound movement, click selection, stale
+  fallback, and empty enabled result sets.
+- Extended the native search/dialog parity gate so future changes must preserve
+  the command-palette selection seam and Escape/key movement hooks.
+
+Validation:
+
+- `swift test --filter 'WorkspaceCommandPaletteSelectionTests|WorkspaceCommandPaletteRankerTests|ParitySearchDialogGateTests'` (16 tests, 0 failures)
+- `git diff --check`

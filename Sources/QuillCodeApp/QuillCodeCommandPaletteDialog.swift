@@ -8,7 +8,7 @@ struct QuillCodeCommandPaletteView: View {
     var onClose: () -> Void
 
     @State private var localQuery: String
-    @State private var selectedCommandID: String?
+    @State private var selection = WorkspaceCommandPaletteSelection()
     @FocusState private var isSearchFocused: Bool
 
     init(
@@ -30,10 +30,6 @@ struct QuillCodeCommandPaletteView: View {
 
     private var groups: [WorkspaceCommandGroupSurface] {
         WorkspaceCommandPalette.groupedCommands(commands, matching: localQuery)
-    }
-
-    private var enabledResults: [WorkspaceCommandSurface] {
-        results.filter(\.isEnabled)
     }
 
     var body: some View {
@@ -75,7 +71,7 @@ struct QuillCodeCommandPaletteView: View {
                         ForEach(groups) { group in
                             QuillCodeCommandGroupView(
                                 group: group,
-                                selectedCommandID: selectedCommandID,
+                                selectedCommandID: selection.selectedCommandID,
                                 onSelectCommand: selectCommand
                             )
                         }
@@ -107,12 +103,16 @@ struct QuillCodeCommandPaletteView: View {
         .onMoveCommand { direction in
             switch direction {
             case .up:
-                moveSelection(by: -1)
+                selection.move(by: -1, in: results)
             case .down:
-                moveSelection(by: 1)
+                selection.move(by: 1, in: results)
             default:
                 break
             }
+        }
+        .onKeyPress(.escape) {
+            onClose()
+            return .handled
         }
     }
 
@@ -137,33 +137,18 @@ struct QuillCodeCommandPaletteView: View {
     }
 
     private func ensureSelection() {
-        if let selectedCommandID, enabledResults.contains(where: { $0.id == selectedCommandID }) {
-            return
-        }
-        selectedCommandID = enabledResults.first?.id
-    }
-
-    private func moveSelection(by delta: Int) {
-        guard !enabledResults.isEmpty else {
-            selectedCommandID = nil
-            return
-        }
-        let currentIndex = selectedCommandID.flatMap { id in
-            enabledResults.firstIndex(where: { $0.id == id })
-        } ?? 0
-        let nextIndex = (currentIndex + delta + enabledResults.count) % enabledResults.count
-        selectedCommandID = enabledResults[nextIndex].id
+        selection.reconcile(with: results)
     }
 
     private func selectHighlightedCommand() {
-        guard let command = enabledResults.first(where: { $0.id == selectedCommandID }) ?? enabledResults.first else {
+        guard let command = selection.selectedCommand(in: results) else {
             return
         }
         onSelectCommand(command)
     }
 
     private func selectCommand(_ command: WorkspaceCommandSurface) {
-        selectedCommandID = command.id
+        selection.select(command)
         onSelectCommand(command)
     }
 }
