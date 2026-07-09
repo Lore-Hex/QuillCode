@@ -422,6 +422,29 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(snapshot.viewportDescription, "1120x760 @2x")
     }
 
+    func testDesktopAgentBrowserInspectPrefersVisibleSessionLiveDOM() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+
+        controller.draft = "inspect browser page"
+        controller.send()
+
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: "Live dashboard text",
+            expectedTimelineDelta: 3
+        )
+        XCTAssertEqual(presenter.capturedLiveDOMSnapshotCount, 1)
+        XCTAssertTrue(controller.surface.transcript.messages.last?.text.contains("Visible Dashboard") == true)
+    }
+
     func testDesktopControllerSendPathCoversRealWorldActionPromptFamily() async throws {
         let workspaceRoot = try makeTempDirectory()
         let downloadSource = workspaceRoot.appendingPathComponent("source.html")

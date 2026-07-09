@@ -29,6 +29,9 @@ public final class QuillCodeWorkspaceModel {
     /// point of daily-driving on a loop is not watching, so the app pings you when it needs you. nil in
     /// tests / the CLI, where there is no desktop notification surface.
     public var onRunNotification: (@MainActor @Sendable (AgentRunNotification) -> Void)?
+    /// Optional platform hook for browser tools that need a live native browser surface. Desktop installs
+    /// this for visible WebKit sessions; nil keeps the pure app-core snapshot executor behavior.
+    public var visibleBrowserToolOverride: AgentToolExecutionOverride?
 
     var runner: AgentRunner
     var contextSummaryGenerator: any WorkspaceContextSummaryGenerating
