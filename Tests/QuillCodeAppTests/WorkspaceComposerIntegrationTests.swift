@@ -192,6 +192,7 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         let screenshotOutput = try JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout)
         XCTAssertEqual(screenshotOutput.foregroundApplication?.name, "Terminal")
         XCTAssertEqual(screenshotOutput.foregroundApplication?.bundleIdentifier, "com.apple.Terminal")
+        XCTAssertTrue(screenshotOutput.visualSummary?.contains("foreground app: Terminal") == true)
         let screenshotArtifact = try XCTUnwrap(result.artifacts.first)
         defer {
             try? FileManager.default.removeItem(atPath: screenshotArtifact)
@@ -203,7 +204,7 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertEqual(artifact.previewURL, URL(fileURLWithPath: screenshotArtifact).absoluteString)
         XCTAssertEqual(
             model.selectedThread?.messages.last?.content,
-            "Captured a screenshot of Terminal (1 x 1)."
+            "Captured a screenshot of Terminal (1 x 1). Preview artifact: `\(URL(fileURLWithPath: screenshotArtifact).lastPathComponent)`."
         )
     }
 

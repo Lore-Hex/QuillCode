@@ -53,11 +53,18 @@ public struct ComputerUseToolExecutor: Sendable {
     private func executeScreenshot() async throws -> ToolResult {
         let screenshot = try await backend.screenshot()
         let path = try writeScreenshotArtifact(screenshot)
+        let foregroundApplication = await currentForegroundApplication()
         let output = ComputerScreenshotToolOutput(
             width: screenshot.width,
             height: screenshot.height,
             path: path,
-            foregroundApplication: await currentForegroundApplication()
+            foregroundApplication: foregroundApplication,
+            visualSummary: Self.screenshotVisualSummary(
+                width: screenshot.width,
+                height: screenshot.height,
+                path: path,
+                foregroundApplication: foregroundApplication
+            )
         )
         return ToolResult(
             ok: true,
@@ -210,6 +217,24 @@ public struct ComputerUseToolExecutor: Sendable {
         default:
             return "action"
         }
+    }
+
+    private static func screenshotVisualSummary(
+        width: Int,
+        height: Int,
+        path: String?,
+        foregroundApplication: ComputerUseApplication?
+    ) -> String {
+        var parts = [
+            "Captured \(width) x \(height) desktop screenshot"
+        ]
+        if let foregroundApplication {
+            parts.append("foreground app: \(foregroundApplication.displayLabel)")
+        }
+        if let path {
+            parts.append("preview artifact: \(URL(fileURLWithPath: path).lastPathComponent)")
+        }
+        return parts.joined(separator: "; ")
     }
 
     private func writeScreenshotArtifact(_ screenshot: ComputerScreenshot) throws -> String? {
