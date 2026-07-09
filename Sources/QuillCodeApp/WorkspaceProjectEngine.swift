@@ -250,6 +250,36 @@ enum WorkspaceProjectEngine {
     }
 
     @discardableResult
+    static func moveProject(
+        _ sourceID: UUID,
+        before targetID: UUID,
+        projects: inout [ProjectRef],
+        now: Date = Date()
+    ) -> Bool {
+        guard sourceID != targetID else {
+            return false
+        }
+
+        var ordered = displayOrderedProjects(projects)
+        guard let sourceIndex = ordered.firstIndex(where: { $0.id == sourceID }),
+              let targetIndex = ordered.firstIndex(where: { $0.id == targetID })
+        else {
+            return false
+        }
+        guard sourceIndex != targetIndex - 1 else {
+            return false
+        }
+
+        let source = ordered.remove(at: sourceIndex)
+        guard let insertionIndex = ordered.firstIndex(where: { $0.id == targetID }) else {
+            return false
+        }
+        ordered.insert(source, at: insertionIndex)
+        applyProjectOrder(ordered.map(\.id), projects: &projects, now: now)
+        return true
+    }
+
+    @discardableResult
     static func applyMetadata(
         _ metadata: WorkspaceProjectMetadata,
         to id: UUID?,

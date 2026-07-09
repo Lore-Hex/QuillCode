@@ -116,6 +116,16 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func moveProject(_ sourceID: UUID, before targetID: UUID) -> Bool {
+        guard WorkspaceProjectEngine.moveProject(sourceID, before: targetID, projects: &root.projects) else {
+            return false
+        }
+        saveProjects()
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return true
+    }
+
+    @discardableResult
     public func refreshProjectContext(_ id: UUID) -> Bool {
         guard let project = root.projects.first(where: { $0.id == id }) else {
             return false

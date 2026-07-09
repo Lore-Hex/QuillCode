@@ -1607,6 +1607,11 @@
       align-items: start;
       margin-bottom: 1px;
     }
+    .project-row.drag-over .project-item::before {
+      border-color: rgba(74, 181, 255, 0.72);
+      box-shadow: inset 3px 0 0 rgba(74, 181, 255, 0.9), var(--shadow-hover);
+      opacity: 1;
+    }
     .project-row .project-item {
       padding-right: 18px;
     }
@@ -8094,7 +8099,7 @@
         </section>`;
       const projectsContent = state.projects.items.length
         ? state.projects.items.map(item => `
-          <div class="project-row" data-testid="project-row">
+          <div class="project-row" data-testid="project-row" data-project-id="${escapeHTML(item.id)}" draggable="true">
             <button class="project-item hit-target-row ${item.isSelected ? 'selected' : ''}" data-testid="project-item" data-project-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
               <span>${escapeHTML(item.name)}${item.isRemote ? ` <small class="project-connection-kind" data-testid="project-connection-kind">${escapeHTML(item.connectionKindLabel || 'SSH')}</small>` : ''}</span>
               <small>${escapeHTML(item.path)}</small>
@@ -8712,6 +8717,35 @@
         button.addEventListener('click', event => {
           const id = event.currentTarget.getAttribute('data-project-id');
           selectProject(id);
+        });
+      });
+      document.querySelectorAll('[data-testid="project-row"]').forEach(row => {
+        row.addEventListener('dragstart', event => {
+          const id = event.currentTarget.getAttribute('data-project-id');
+          event.dataTransfer?.setData('text/plain', id);
+          event.dataTransfer?.setData('application/x-quillcode-project-id', id);
+          if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragover', event => {
+          event.preventDefault();
+          event.currentTarget.classList.add('drag-over');
+          if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        });
+        row.addEventListener('dragleave', event => {
+          event.currentTarget.classList.remove('drag-over');
+        });
+        row.addEventListener('drop', event => {
+          event.preventDefault();
+          event.currentTarget.classList.remove('drag-over');
+          const sourceID = event.dataTransfer?.getData('application/x-quillcode-project-id')
+            || event.dataTransfer?.getData('text/plain');
+          const targetID = event.currentTarget.getAttribute('data-project-id');
+          moveProjectBefore(sourceID, targetID);
+        });
+        row.addEventListener('dragend', () => {
+          document.querySelectorAll('[data-testid="project-row"].drag-over').forEach(node => {
+            node.classList.remove('drag-over');
+          });
         });
       });
       document.querySelectorAll('[data-testid="project-action"]').forEach(button => {
@@ -12355,6 +12389,25 @@
         pruneWorkspaceNavigation();
         render();
       }
+    }
+
+    function moveProjectBefore(sourceProjectID, targetProjectID) {
+      if (!sourceProjectID || !targetProjectID || sourceProjectID === targetProjectID) return false;
+      const previousLocation = currentWorkspaceLocation();
+      const sourceIndex = state.projects.items.findIndex(item => item.id === sourceProjectID);
+      const targetIndex = state.projects.items.findIndex(item => item.id === targetProjectID);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex - 1) return false;
+
+      const nextItems = state.projects.items.slice();
+      const [source] = nextItems.splice(sourceIndex, 1);
+      const insertionIndex = nextItems.findIndex(item => item.id === targetProjectID);
+      if (insertionIndex < 0) return false;
+
+      nextItems.splice(insertionIndex, 0, source);
+      state.projects.items = nextItems;
+      recordWorkspaceNavigation(previousLocation);
+      render();
+      return true;
     }
 
     function branchStatusLabelFromHeader(headerLine) {
