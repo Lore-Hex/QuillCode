@@ -85,6 +85,14 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    func moveProject(_ sourceID: UUID, before targetID: UUID) -> Bool {
+        let didMove = navigationCoordinator.moveProject(sourceID, before: targetID, model: model)
+        if didMove {
+            refresh()
+        }
+        return didMove
+    }
+
     func renameProject(_ id: UUID, name: String) {
         _ = navigationCoordinator.renameProject(id, name: name, model: model)
         refresh()
