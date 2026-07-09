@@ -15565,3 +15565,36 @@ Validation:
 - `swift test --filter AutomationEventSourceTests` (21 tests, 0 failures)
 - `swift test --filter ParityAutomationEventSourceGateTests` (1 test, 0 failures)
 - `python3 scripts/grade-code-quality.py`
+
+## 2026-07-09 Desktop Browser Session Ownership Split
+
+Overall grade after this slice: **A+ desktop browser source ownership, A+ visible browser tool boundary**.
+This pass addressed the remaining source A- hotspot in the deterministic grade
+report: `DesktopBrowserSessionPresenter.swift` mixed the presenter facade,
+cross-platform contracts, WebKit window/tab orchestration, browser action
+JavaScript generation, and JavaScript result formatting. The split keeps visible
+browser-session behavior intact while making future Codex-style browser and
+Computer Use parity work easier to review.
+
+Code quality changes:
+
+- Kept `DesktopBrowserSessionPresenter.swift` as the presenter facade plus the
+  non-AppKit fallback implementation.
+- Moved shared presenter contracts and result/error types into
+  `DesktopBrowserSessionContracts.swift`.
+- Moved click/type JavaScript generation into `DesktopBrowserSessionJavaScript.swift`.
+- Moved bounded JavaScript-result formatting into
+  `DesktopBrowserSessionValueDescriber.swift`.
+- Moved the AppKit/WebKit tab window controller into
+  `DesktopBrowserSessionWindowController.swift`.
+- Reduced the presenter file from 597 lines to 95 lines and removed the source
+  module's A- hotspot from the grade report.
+
+Validation:
+
+- `swift test --filter QuillCodeDesktopControllerSmokeTests` (31 tests, 0 failures)
+- `swift test --filter QuillCodeDesktopTests` (62 tests, 0 failures)
+- `swift test --filter ParityBrowserSessionSyncGateTests --filter ParityDesktopBrowserAdapterGateTests` (3 tests, 0 failures)
+- `swift test` (3400 tests, 2 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
