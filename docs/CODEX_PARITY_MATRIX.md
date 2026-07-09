@@ -79,10 +79,12 @@
   Spend Review cards and approval decisions now name the breached daily, weekly,
   or monthly cap so the visible transcript and audit trail match the enforced
   limit.
-- Project run hooks now execute local project scripts before and after each
-  agent run through the normal `host.shell.run` tool-card path. Hooks are
+- Project run hooks now execute project scripts before and after each agent run
+  through the normal `host.shell.run` tool-card path. Local hooks are
   discovered from `.quillcode/hooks/before-agent-run/*.sh` and
   `.quillcode/hooks/after-agent-run/*.sh`, can be extended and capped from
   `.quillcode/config.toml`, share bounded JSON sidecar metadata with local
   environment actions, abort the run on before-hook failure, and report
-  after-hook failures without hiding the agent's completed answer.
+  after-hook failures without hiding the agent's completed answer. SSH Remote
+  projects discover bounded default hook scripts during context refresh and
+  route hook execution over SSH through the same tool-card boundary.

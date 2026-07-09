@@ -67,7 +67,9 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             runner: configuredRunner(modelID: thread.model),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
-            runHooks: selectedProject?.isRemote == true ? [] : (selectedProject?.runHooks ?? [])
+            runHooks: selectedProject?.runHooks ?? [],
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
         )
     }
 

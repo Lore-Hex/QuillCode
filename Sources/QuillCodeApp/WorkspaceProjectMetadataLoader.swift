@@ -46,7 +46,7 @@ enum WorkspaceProjectMetadataLoader {
         WorkspaceProjectMetadata(
             instructions: context.instructions,
             localActions: [],
-            runHooks: [],
+            runHooks: context.runHooks,
             extensionManifests: [],
             memories: context.memories
         )

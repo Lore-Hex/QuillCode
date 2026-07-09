@@ -46,11 +46,19 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         ])
     }
 
-    func testFactoryUsesRemoteProjectToolDefinitions() {
+    func testFactoryUsesRemoteProjectToolDefinitionsAndRunHooks() {
+        let hook = ProjectRunHook(
+            id: "before:.quillcode/hooks/before-agent-run/01-prepare.sh",
+            timing: .beforeAgentRun,
+            title: "Prepare",
+            relativePath: ".quillcode/hooks/before-agent-run/01-prepare.sh",
+            command: "sh '.quillcode/hooks/before-agent-run/01-prepare.sh'"
+        )
         let project = ProjectRef(
             name: "Feather",
             path: "/Quill",
-            connection: .ssh(path: "/Quill", host: "quill-feather.local", user: "quill")
+            connection: .ssh(path: "/Quill", host: "quill-feather.local", user: "quill"),
+            runHooks: [hook]
         )
         let session = WorkspaceAgentSendSessionFactory(
             baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
@@ -70,6 +78,8 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
             session.runner.baseToolDefinitions.map(\.name),
             WorkspaceRemoteProjectToolExecutor.toolDefinitions.map(\.name)
         )
+        XCTAssertEqual(session.runHooks, [hook])
+        XCTAssertEqual(session.selectedProject, project)
     }
 
     func testFactoryHonorsInjectedBrowserOverride() async throws {
