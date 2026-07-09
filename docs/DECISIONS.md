@@ -2,6 +2,11 @@
 
 ## 2026-07-05
 
+- Project sidebar reordering stays recency-rank based until the sidebar owns a first-class manual ordering field.
+  The project surface is sorted by `lastOpenedAt`, so adjacent Move up/down actions must not merely shuffle the
+  backing array. `WorkspaceProjectEngine.moveProject` swaps the visible sorted rows and rewrites bounded recency
+  timestamps for the affected visible order, keeping persisted project ordering deterministic while preserving the
+  existing recency-sorted storage contract.
 - Live work, Activity, notification approval copy, transcript export/search labels, and tool-card chrome should speak in user-facing action names instead of internal tool identifiers. Persisted
   cards and HTML metadata still preserve exact `host.*` names, but visible status copy is scan-first text such as
   `Running Shell command`, `Review Shell command`, and focused details like `Shell command: swift test`. The display

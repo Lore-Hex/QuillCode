@@ -29,7 +29,13 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var actions: [ProjectItemActionSurface]
     public var isSelected: Bool
 
-    public init(project: ProjectRef, selectedProjectID: UUID?, canMoveToTop: Bool = true) {
+    public init(
+        project: ProjectRef,
+        selectedProjectID: UUID?,
+        canMoveToTop: Bool = true,
+        canMoveUp: Bool = true,
+        canMoveDown: Bool = true
+    ) {
         self.id = project.id
         self.name = project.name
         self.path = project.displayPath
@@ -43,6 +49,18 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
                 projectID: project.id,
                 isEnabled: canMoveToTop,
                 disabledReason: canMoveToTop ? nil : "Already at the top"
+            ),
+            ProjectItemActionSurface(
+                kind: .moveUp,
+                projectID: project.id,
+                isEnabled: canMoveUp,
+                disabledReason: canMoveUp ? nil : "Already at the top"
+            ),
+            ProjectItemActionSurface(
+                kind: .moveDown,
+                projectID: project.id,
+                isEnabled: canMoveDown,
+                disabledReason: canMoveDown ? nil : "Already at the bottom"
             ),
             ProjectItemActionSurface(kind: .rename, projectID: project.id),
             ProjectItemActionSurface(kind: .remove, projectID: project.id)
@@ -71,6 +89,8 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
             ProjectItemActionSurface(kind: .newChat, projectID: id),
             ProjectItemActionSurface(kind: .refreshContext, projectID: id),
             ProjectItemActionSurface(kind: .moveToTop, projectID: id),
+            ProjectItemActionSurface(kind: .moveUp, projectID: id),
+            ProjectItemActionSurface(kind: .moveDown, projectID: id),
             ProjectItemActionSurface(kind: .rename, projectID: id),
             ProjectItemActionSurface(kind: .remove, projectID: id)
         ]
@@ -82,6 +102,8 @@ public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
     case newChat
     case refreshContext
     case moveToTop
+    case moveUp
+    case moveDown
     case rename
     case remove
 
@@ -93,6 +115,10 @@ public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
             return "Refresh context"
         case .moveToTop:
             return "Move to top"
+        case .moveUp:
+            return "Move up"
+        case .moveDown:
+            return "Move down"
         case .rename:
             return "Rename"
         case .remove:

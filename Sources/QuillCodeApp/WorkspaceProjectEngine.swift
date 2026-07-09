@@ -32,6 +32,11 @@ struct WorkspaceProjectRemovalResult: Equatable, Sendable {
     var changedThreadIDs: [UUID]
 }
 
+public enum WorkspaceProjectMoveDirection: Sendable, Hashable {
+    case up
+    case down
+}
+
 enum WorkspaceProjectError: Error, Equatable, Sendable {
     case invalidSSHAddress
 
@@ -195,6 +200,33 @@ enum WorkspaceProjectEngine {
     }
 
     @discardableResult
+    static func moveProject(
+        _ id: UUID,
+        direction: WorkspaceProjectMoveDirection,
+        projects: inout [ProjectRef],
+        now: Date = Date()
+    ) -> Bool {
+        var ordered = projects.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
+        guard let sourceIndex = ordered.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+
+        let targetIndex: Int
+        switch direction {
+        case .up:
+            guard sourceIndex > 0 else { return false }
+            targetIndex = sourceIndex - 1
+        case .down:
+            guard sourceIndex < ordered.index(before: ordered.endIndex) else { return false }
+            targetIndex = sourceIndex + 1
+        }
+
+        ordered.swapAt(sourceIndex, targetIndex)
+        applyProjectOrder(ordered.map(\.id), projects: &projects, now: now)
+        return true
+    }
+
+    @discardableResult
     static func applyMetadata(
         _ metadata: WorkspaceProjectMetadata,
         to id: UUID?,
@@ -259,6 +291,19 @@ enum WorkspaceProjectEngine {
             return host
         }
         return connection.displayLabel
+    }
+
+    private static func applyProjectOrder(_ orderedIDs: [UUID], projects: inout [ProjectRef], now: Date) {
+        let timestamps = Dictionary(
+            uniqueKeysWithValues: orderedIDs.enumerated().map { offset, id in
+                (id, now.addingTimeInterval(TimeInterval(-offset)))
+            }
+        )
+        for index in projects.indices {
+            if let timestamp = timestamps[projects[index].id] {
+                projects[index].lastOpenedAt = timestamp
+            }
+        }
     }
 
     private static func newestThreadID(

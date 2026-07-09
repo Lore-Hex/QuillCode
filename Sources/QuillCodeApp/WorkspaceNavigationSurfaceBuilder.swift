@@ -71,7 +71,9 @@ struct WorkspaceNavigationSurfaceBuilder {
             ProjectItemSurface(
                 project: project,
                 selectedProjectID: selectedProjectID,
-                canMoveToTop: index > 0
+                canMoveToTop: index > 0,
+                canMoveUp: index > 0,
+                canMoveDown: index < sortedProjects.index(before: sortedProjects.endIndex)
             )
         }
     }

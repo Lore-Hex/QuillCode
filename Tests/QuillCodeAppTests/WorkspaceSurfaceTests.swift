@@ -50,9 +50,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.projects.items[0].isSelected)
         XCTAssertEqual(
             surface.projects.items[0].actions.map(\.kind),
-            [.newChat, .refreshContext, .moveToTop, .rename, .remove]
+            [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .rename, .remove]
         )
         XCTAssertEqual(surface.projects.items[0].actions.first { $0.kind == .moveToTop }?.isEnabled, false)
+        XCTAssertEqual(surface.projects.items[0].actions.first { $0.kind == .moveUp }?.isEnabled, false)
+        XCTAssertEqual(surface.projects.items[0].actions.first { $0.kind == .moveDown }?.isEnabled, false)
         XCTAssertEqual(
             surface.projects.items[0].actions.first { $0.kind == .moveToTop }?.disabledReason,
             "Already at the top"
@@ -220,10 +222,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(item.path, "ssh://quill@feather.local:2222/srv/quill")
         XCTAssertEqual(item.connectionKindLabel, "SSH Remote")
         XCTAssertTrue(item.isRemote)
-        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .rename, .remove])
+        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .rename, .remove])
         XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, true)
         XCTAssertNil(item.actions.first { $0.kind == .refreshContext }?.disabledReason)
         XCTAssertEqual(item.actions.first { $0.kind == .moveToTop }?.isEnabled, false)
+        XCTAssertEqual(item.actions.first { $0.kind == .moveUp }?.isEnabled, false)
+        XCTAssertEqual(item.actions.first { $0.kind == .moveDown }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-status" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-diff" }?.isEnabled, true)
