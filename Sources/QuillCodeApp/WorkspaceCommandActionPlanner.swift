@@ -26,6 +26,8 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case newProjectThread(projectID: UUID)
     case refreshProjectContext(projectID: UUID)
     case initProject(projectID: UUID)
+    case moveProjectToTop(projectID: UUID)
+    case moveProject(projectID: UUID, direction: WorkspaceProjectMoveDirection)
     case setDraft(String)
     case removeProject(projectID: UUID)
     case duplicateThread(threadID: UUID)
@@ -104,6 +106,12 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return selectedProjectID.map { .refreshProjectContext(projectID: $0) }
         case .projectInit:
             return selectedProjectID.map { .initProject(projectID: $0) }
+        case .projectMoveToTop:
+            return selectedProjectID.map { .moveProjectToTop(projectID: $0) }
+        case .projectMoveUp:
+            return selectedProjectID.map { .moveProject(projectID: $0, direction: .up) }
+        case .projectMoveDown:
+            return selectedProjectID.map { .moveProject(projectID: $0, direction: .down) }
         case .projectRename:
             return selectedProject.map { .setDraft("/project rename \($0.name)") }
         case .projectRemove:

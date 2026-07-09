@@ -75,6 +75,10 @@ extension QuillCodeWorkspaceModel {
             return refreshProjectContext(projectID)
         case .initProject(let projectID):
             return runInitProject(projectID)
+        case .moveProjectToTop(let projectID):
+            return moveProjectToTop(projectID)
+        case .moveProject(let projectID, let direction):
+            return moveProject(projectID, direction: direction)
         case .setDraft(let draft):
             setDraft(draft)
             return true

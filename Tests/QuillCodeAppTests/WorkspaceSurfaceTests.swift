@@ -117,6 +117,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "project-new-chat",
             "project-refresh-context",
             "project-init",
+            "project-move-to-top",
+            "project-move-up",
+            "project-move-down",
             "project-rename",
             "project-remove",
             "toggle-terminal",
@@ -186,6 +189,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "find-in-chat" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "project-move-up" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "open-browser-session" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-activity" }?.shortcut, "Cmd+Shift+A")
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-automations" }?.shortcut, "Cmd+Option+A")

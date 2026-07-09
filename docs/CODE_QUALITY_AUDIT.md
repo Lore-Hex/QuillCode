@@ -15644,3 +15644,30 @@ Validation:
 
 - `swift test --filter 'QuillCodeProjectListSurfaceTests|WorkspaceNavigationSurfaceBuilderTests|WorkspaceSidebarRowActionPlannerTests|WorkspaceSurfaceTests'`
 - `git diff --check`
+
+## 2026-07-09 Project Reorder Command Surface Slice
+
+Overall grade after this slice: **A+ command routing consistency, A project-sidebar parity**.
+Project reordering is now reachable through the command palette and `/project`
+slash aliases in addition to row menus, matching the existing selected-project
+command architecture instead of adding a special-case sidebar mutation.
+
+Code quality changes:
+
+- Added `project-move-to-top`, `project-move-up`, and `project-move-down` to
+  the static workspace command catalog with shared icon catalog coverage.
+- Routed those IDs through `WorkspaceCommandAction`,
+  `WorkspaceCommandActionPlanner`, and `WorkspaceCommandActionExecutor` to reuse
+  the existing `moveProjectToTop` and `moveProject(_:direction:)` model APIs.
+- Extended `SlashProjectCommandParser` with `/project top`, `/project up`, and
+  `/project down` aliases so slash, palette, and row actions share behavior.
+- Added a model integration test that executes the reorder commands through
+  `runWorkspaceCommand` and verifies visible sidebar ordering plus top-boundary
+  behavior.
+
+Validation:
+
+- `swift test --filter 'SlashProjectCommandParserTests|WorkspaceCommandPlanTests|WorkspaceCommandActionPlannerTests|WorkspaceCommandPlanExecutorTests|WorkspaceCommandSurfaceBuilderTests|WorkspaceProjectIntegrationTests|QuillCodeCommandIconCatalogTests|WorkspaceSurfaceTests'` (57 tests, 0 failures)
+- `swift test --filter WorkspaceRenderedCommandRoutingParityTests` (2 tests, 0 failures)
+- `git diff --check`
+- `swift test` (3405 tests, 2 skipped, 0 failures)

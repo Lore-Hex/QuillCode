@@ -4,7 +4,10 @@ import XCTest
 final class SlashProjectCommandParserTests: XCTestCase {
     func testEmptyProjectCommandReturnsUsageMessage() {
         let expected = SlashCommand.invalid(
-            "Usage: /project open, /project new, /project refresh, /project rename Name, or /project remove"
+            """
+            Usage: /project open, /project new, /project refresh, /project top, /project up, \
+            /project down, /project rename Name, or /project remove
+            """
         )
 
         XCTAssertEqual(SlashProjectCommandParser.parse(""), expected)
@@ -21,6 +24,12 @@ final class SlashProjectCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashProjectCommandParser.parse("refresh"), .workspaceCommand("project-refresh-context"))
         XCTAssertEqual(SlashProjectCommandParser.parse("reload"), .workspaceCommand("project-refresh-context"))
         XCTAssertEqual(SlashProjectCommandParser.parse("context"), .workspaceCommand("project-refresh-context"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("top"), .workspaceCommand("project-move-to-top"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("move-top"), .workspaceCommand("project-move-to-top"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("up"), .workspaceCommand("project-move-up"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("move-up"), .workspaceCommand("project-move-up"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("down"), .workspaceCommand("project-move-down"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("move-down"), .workspaceCommand("project-move-down"))
         XCTAssertEqual(SlashProjectCommandParser.parse("remove"), .workspaceCommand("project-remove"))
         XCTAssertEqual(SlashProjectCommandParser.parse("forget"), .workspaceCommand("project-remove"))
         XCTAssertEqual(SlashProjectCommandParser.parse("delete"), .workspaceCommand("project-remove"))
@@ -39,7 +48,7 @@ final class SlashProjectCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashProjectCommandParser.parse("unknown"),
-            .invalid("Unknown project command 'unknown'. Use open, new, refresh, rename, or remove.")
+            .invalid("Unknown project command 'unknown'. Use open, new, refresh, top, up, down, rename, or remove.")
         )
     }
 }

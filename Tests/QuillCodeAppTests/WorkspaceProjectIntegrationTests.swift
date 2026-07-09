@@ -62,6 +62,29 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         XCTAssertNil(model.activeWorkspaceRoot)
     }
 
+    func testProjectReorderCommandsMoveSelectedProject() throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let alpha = model.addProject(path: root.appendingPathComponent("Alpha"), name: "Alpha")
+        model.addProject(path: root.appendingPathComponent("Beta"), name: "Beta")
+        let gamma = model.addProject(path: root.appendingPathComponent("Gamma"), name: "Gamma")
+
+        XCTAssertEqual(projectNames(in: model), ["Gamma", "Beta", "Alpha"])
+
+        model.selectProject(gamma)
+        XCTAssertTrue(model.runWorkspaceCommand("project-move-down", workspaceRoot: root))
+        XCTAssertEqual(projectNames(in: model), ["Beta", "Gamma", "Alpha"])
+
+        XCTAssertTrue(model.runWorkspaceCommand("project-move-up", workspaceRoot: root))
+        XCTAssertEqual(projectNames(in: model), ["Gamma", "Beta", "Alpha"])
+
+        model.selectProject(alpha)
+        XCTAssertTrue(model.runWorkspaceCommand("project-move-to-top", workspaceRoot: root))
+        XCTAssertEqual(projectNames(in: model), ["Alpha", "Gamma", "Beta"])
+        XCTAssertFalse(model.runWorkspaceCommand("project-move-up", workspaceRoot: root))
+        XCTAssertEqual(model.root.selectedProjectID, alpha)
+    }
+
     func testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun() async throws {
         let root = try makeQuillCodeTestDirectory()
         try "Prefer Swift tests before final answers.\n".write(
@@ -97,6 +120,10 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         await model.submitComposer(workspaceRoot: root)
 
         XCTAssertTrue(model.selectedThread?.instructions.first?.content.contains("targeted unit tests") == true)
+    }
+
+    private func projectNames(in model: QuillCodeWorkspaceModel) -> [String] {
+        model.surface().projects.items.map(\.name)
     }
 
     func testProjectMetadataRefreshPersistsResolvedInstructionDiagnostics() throws {
