@@ -27,4 +27,27 @@ final class ParityModelPickerIntegrationGateTests: QuillCodeParityTestCase {
             excludes: "func testModelOptionDecodesOlderPayloadWithoutBadges"
         )
     }
+
+    func testModelPickerKeyboardSelectionStaysFactoredAndCovered() throws {
+        let pickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
+        let selectionText = try Self.appSourceText(named: "ModelPickerSelection.swift")
+        let testsText = try Self.appTestSourceText(named: "ModelPickerSelectionTests.swift")
+
+        [
+            "struct ModelPickerSelection",
+            "mutating func reconcile",
+            "mutating func move",
+            "func selectedModel"
+        ].forEach {
+            Self.assertSource(selectionText, contains: $0)
+        }
+
+        Self.assertSource(pickerText, contains: "selection.move(by:")
+        Self.assertSource(pickerText, contains: ".onExitCommand")
+        Self.assertSource(testsText, contains: "func testMoveWrapsThroughVisibleModels")
+        Self.assertSource(
+            testsText,
+            contains: "func testReconcileFallsBackToFirstModelWhenHighlightDisappears"
+        )
+    }
 }

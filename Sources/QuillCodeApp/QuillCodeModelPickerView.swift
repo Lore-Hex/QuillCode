@@ -9,7 +9,7 @@ struct QuillCodeModelPickerView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var searchText = ""
     @State private var expandedModelID: String?
-    @State private var highlightedModelID: String?
+    @State private var selection = ModelPickerSelection()
     @FocusState private var isSearchFocused: Bool
 
     private var filteredCategories: [ModelCategorySurface] {
@@ -68,7 +68,7 @@ struct QuillCodeModelPickerView: View {
             } else {
                 searchText = ""
                 expandedModelID = nil
-                highlightedModelID = nil
+                selection.reconcile(with: [])
                 isSearchFocused = false
             }
         }
@@ -87,12 +87,15 @@ struct QuillCodeModelPickerView: View {
         .onMoveCommand { direction in
             switch direction {
             case .up:
-                moveHighlightedModel(by: -1)
+                selection.move(by: -1, in: filteredModels)
             case .down:
-                moveHighlightedModel(by: 1)
+                selection.move(by: 1, in: filteredModels)
             default:
                 break
             }
+        }
+        .onExitCommand {
+            isPresented = false
         }
         .onChange(of: searchText) { _, _ in
             ensureHighlightedModel(preferredID: highlightedModelID)
@@ -235,33 +238,16 @@ struct QuillCodeModelPickerView: View {
     }
 
     private func ensureHighlightedModel(preferredID: String?) {
-        if let preferredID, filteredModels.contains(where: { $0.id == preferredID }) {
-            highlightedModelID = preferredID
-            return
-        }
-        if let highlightedModelID, filteredModels.contains(where: { $0.id == highlightedModelID }) {
-            return
-        }
-        highlightedModelID = filteredModels.first?.id
-    }
-
-    private func moveHighlightedModel(by delta: Int) {
-        guard !filteredModels.isEmpty else {
-            highlightedModelID = nil
-            return
-        }
-        let currentIndex = highlightedModelID.flatMap { id in
-            filteredModels.firstIndex { $0.id == id }
-        } ?? 0
-        let nextIndex = (currentIndex + delta + filteredModels.count) % filteredModels.count
-        highlightedModelID = filteredModels[nextIndex].id
+        selection.reconcile(with: filteredModels, preferredID: preferredID)
     }
 
     private func selectHighlightedModel() {
-        guard let highlighted = highlightedModelID.flatMap({ id in
-            filteredModels.first { $0.id == id }
-        }) ?? filteredModels.first else { return }
+        guard let highlighted = selection.selectedModel(in: filteredModels) else { return }
         selectModel(highlighted)
+    }
+
+    private var highlightedModelID: String? {
+        selection.highlightedModelID
     }
 
     private func selectModel(_ option: ModelOptionSurface) {
