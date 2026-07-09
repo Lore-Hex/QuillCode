@@ -281,6 +281,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .action(.projectMoveDown)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "project-move-to-bottom"),
+            .action(.projectMoveToBottom)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "thread-bulk-archive"),
             .action(.threadBulkArchive)
         )

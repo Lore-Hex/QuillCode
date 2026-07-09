@@ -63,6 +63,10 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
             .moveProject(projectID: project.id, direction: .down)
         )
         XCTAssertEqual(
+            planner.effect(for: .projectMoveToBottom),
+            .moveProjectToBottom(projectID: project.id)
+        )
+        XCTAssertEqual(
             planner.effect(for: .projectRename),
             .setDraft("/project rename QuillCode")
         )
@@ -74,6 +78,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         let staleSelection = WorkspaceCommandActionPlanner(selectedProjectID: project.id)
         XCTAssertEqual(staleSelection.effect(for: .projectRemove), .removeProject(projectID: project.id))
         XCTAssertEqual(staleSelection.effect(for: .projectMoveUp), .moveProject(projectID: project.id, direction: .up))
+        XCTAssertEqual(staleSelection.effect(for: .projectMoveToBottom), .moveProjectToBottom(projectID: project.id))
         XCTAssertNil(staleSelection.effect(for: .projectRename))
         XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .projectNewChat))
         XCTAssertNil(WorkspaceCommandActionPlanner().effect(for: .projectMoveToTop))

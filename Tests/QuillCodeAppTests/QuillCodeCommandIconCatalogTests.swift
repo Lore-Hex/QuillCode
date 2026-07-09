@@ -16,6 +16,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "project-move-to-top": "arrow.up.to.line",
             "project-move-up": "arrow.up",
             "project-move-down": "arrow.down",
+            "project-move-to-bottom": "arrow.down.to.line",
             "project-rename": "text.cursor",
             "project-remove": "minus.circle",
             "thread-clear": "text.badge.xmark",

@@ -43,6 +43,8 @@ enum QuillCodeCommandIconCatalog {
             return "arrow.up"
         case "project-move-down":
             return "arrow.down"
+        case "project-move-to-bottom":
+            return "arrow.down.to.line"
         case "project-rename":
             return "text.cursor"
         case "project-remove":

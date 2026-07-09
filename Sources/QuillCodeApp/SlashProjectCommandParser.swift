@@ -3,7 +3,7 @@ import Foundation
 enum SlashProjectCommandParser {
     private static let usage = """
     Usage: /project open, /project new, /project refresh, /project top, /project up, \
-    /project down, /project rename Name, or /project remove
+    /project down, /project bottom, /project rename Name, or /project remove
     """
 
     static func parse(_ argument: String) -> SlashCommand {
@@ -29,13 +29,15 @@ enum SlashProjectCommandParser {
             return .workspaceCommand("project-move-up")
         case "down", "move-down":
             return .workspaceCommand("project-move-down")
+        case "bottom", "move-bottom", "move-to-bottom":
+            return .workspaceCommand("project-move-to-bottom")
         case "rename", "title":
             return value.isEmpty ? .invalid("Usage: /project rename Project name") : .renameProject(value)
         case "remove", "forget", "delete":
             return .workspaceCommand("project-remove")
         default:
             return .invalid(
-                "Unknown project command '\(subcommand)'. Use open, new, refresh, top, up, down, rename, or remove."
+                "Unknown project command '\(subcommand)'. Use open, new, refresh, top, up, down, bottom, rename, or remove."
             )
         }
     }
