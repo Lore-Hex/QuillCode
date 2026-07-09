@@ -117,6 +117,38 @@ final class WorkspaceSidebarRowActionPlannerTests: XCTestCase {
         XCTAssertNil(model.root.threads.first?.projectID)
     }
 
+    @MainActor
+    func testExecutorMovesProjectsUpAndDownThroughWorkspaceModel() {
+        let oldestProject = ProjectRef(
+            name: "Oldest",
+            path: "/oldest",
+            lastOpenedAt: Date(timeIntervalSince1970: 10)
+        )
+        let middleProject = ProjectRef(
+            name: "Middle",
+            path: "/middle",
+            lastOpenedAt: Date(timeIntervalSince1970: 20)
+        )
+        let newestProject = ProjectRef(
+            name: "Newest",
+            path: "/newest",
+            lastOpenedAt: Date(timeIntervalSince1970: 30)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [oldestProject, middleProject, newestProject],
+            selectedProjectID: middleProject.id
+        ))
+
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.moveUp(middleProject.id), model: model))
+        XCTAssertEqual(model.surface().projects.items.map(\.id), [middleProject.id, newestProject.id, oldestProject.id])
+
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.moveDown(middleProject.id), model: model))
+        XCTAssertEqual(model.surface().projects.items.map(\.id), [newestProject.id, middleProject.id, oldestProject.id])
+
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(.moveDown(middleProject.id), model: model))
+        XCTAssertEqual(model.surface().projects.items.map(\.id), [newestProject.id, oldestProject.id, middleProject.id])
+    }
+
     private func makePlanner(
         thread: ChatThread? = nil,
         project: ProjectRef? = nil

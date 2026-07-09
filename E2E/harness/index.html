@@ -11913,6 +11913,10 @@
     }
 
     function projectActionsFor(project = {}) {
+      const projects = state.projects.items || [];
+      const index = projects.findIndex(item => item.id === project.id);
+      const canMoveUp = index > 0;
+      const canMoveDown = index >= 0 && index < projects.length - 1;
       return [
         { id: 'new-chat', title: 'New chat' },
         {
@@ -11920,6 +11924,24 @@
           title: 'Refresh context',
           isEnabled: true,
           disabledReason: ''
+        },
+        {
+          id: 'move-to-top',
+          title: 'Move to top',
+          isEnabled: canMoveUp,
+          disabledReason: canMoveUp ? '' : 'Already at the top'
+        },
+        {
+          id: 'move-up',
+          title: 'Move up',
+          isEnabled: canMoveUp,
+          disabledReason: canMoveUp ? '' : 'Already at the top'
+        },
+        {
+          id: 'move-down',
+          title: 'Move down',
+          isEnabled: canMoveDown,
+          disabledReason: canMoveDown ? '' : 'Already at the bottom'
         },
         { id: 'rename', title: 'Rename' },
         { id: 'remove', title: 'Remove from list' }
@@ -12269,6 +12291,26 @@
       if (action === 'refresh-context') {
         selectProject(projectID);
         addMessage('assistant', `Refreshed project context for ${project.name}.`);
+        render();
+        return;
+      }
+      if (['move-to-top', 'move-up', 'move-down'].includes(action)) {
+        const previousLocation = currentWorkspaceLocation();
+        const currentIndex = state.projects.items.findIndex(item => item.id === projectID);
+        if (currentIndex < 0) return;
+        const nextItems = state.projects.items.slice();
+        if (action === 'move-to-top' && currentIndex > 0) {
+          nextItems.splice(currentIndex, 1);
+          nextItems.unshift(project);
+        } else if (action === 'move-up' && currentIndex > 0) {
+          [nextItems[currentIndex - 1], nextItems[currentIndex]] = [nextItems[currentIndex], nextItems[currentIndex - 1]];
+        } else if (action === 'move-down' && currentIndex < nextItems.length - 1) {
+          [nextItems[currentIndex + 1], nextItems[currentIndex]] = [nextItems[currentIndex], nextItems[currentIndex + 1]];
+        } else {
+          return;
+        }
+        state.projects.items = nextItems;
+        recordWorkspaceNavigation(previousLocation);
         render();
         return;
       }

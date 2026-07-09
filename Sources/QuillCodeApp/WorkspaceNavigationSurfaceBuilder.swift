@@ -65,8 +65,7 @@ struct WorkspaceNavigationSurfaceBuilder {
     }
 
     private func projectItems() -> [ProjectItemSurface] {
-        let sortedProjects = projects
-            .sorted { $0.lastOpenedAt > $1.lastOpenedAt }
+        let sortedProjects = WorkspaceProjectEngine.displayOrderedProjects(projects)
         return sortedProjects.enumerated().map { index, project in
             ProjectItemSurface(
                 project: project,

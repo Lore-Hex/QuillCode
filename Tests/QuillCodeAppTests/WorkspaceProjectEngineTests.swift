@@ -168,6 +168,72 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertEqual(projects[0].lastOpenedAt, secondDate)
     }
 
+    func testDisplayOrderedProjectsUsesLastOpenedThenStableIDTieBreak() throws {
+        let lowerID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+        let higherID = try XCTUnwrap(UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"))
+        let older = ProjectRef(
+            name: "Older",
+            path: "/older",
+            lastOpenedAt: Date(timeIntervalSince1970: 10)
+        )
+        let lower = ProjectRef(
+            id: lowerID,
+            name: "Lower",
+            path: "/lower",
+            lastOpenedAt: Date(timeIntervalSince1970: 20)
+        )
+        let higher = ProjectRef(
+            id: higherID,
+            name: "Higher",
+            path: "/higher",
+            lastOpenedAt: Date(timeIntervalSince1970: 20)
+        )
+
+        XCTAssertEqual(
+            WorkspaceProjectEngine.displayOrderedProjects([older, higher, lower]).map(\.id),
+            [lowerID, higherID, older.id]
+        )
+    }
+
+    func testMoveProjectUpAndDownSwapsDisplayNeighbors() {
+        let oldest = ProjectRef(
+            name: "Oldest",
+            path: "/oldest",
+            lastOpenedAt: Date(timeIntervalSince1970: 10)
+        )
+        let middle = ProjectRef(
+            name: "Middle",
+            path: "/middle",
+            lastOpenedAt: Date(timeIntervalSince1970: 20)
+        )
+        let newest = ProjectRef(
+            name: "Newest",
+            path: "/newest",
+            lastOpenedAt: Date(timeIntervalSince1970: 30)
+        )
+        var projects = [oldest, middle, newest]
+
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(newest.id, direction: .up, projects: &projects))
+        XCTAssertTrue(WorkspaceProjectEngine.moveProject(middle.id, direction: .up, projects: &projects))
+        XCTAssertEqual(
+            WorkspaceProjectEngine.displayOrderedProjects(projects).map(\.id),
+            [middle.id, newest.id, oldest.id]
+        )
+
+        XCTAssertTrue(WorkspaceProjectEngine.moveProject(middle.id, direction: .down, projects: &projects))
+        XCTAssertEqual(
+            WorkspaceProjectEngine.displayOrderedProjects(projects).map(\.id),
+            [newest.id, middle.id, oldest.id]
+        )
+
+        XCTAssertTrue(WorkspaceProjectEngine.moveProject(middle.id, direction: .down, projects: &projects))
+        XCTAssertEqual(
+            WorkspaceProjectEngine.displayOrderedProjects(projects).map(\.id),
+            [newest.id, oldest.id, middle.id]
+        )
+        XCTAssertFalse(WorkspaceProjectEngine.moveProject(middle.id, direction: .down, projects: &projects))
+    }
+
     func testSelectionAfterSelectingProjectUsesNewestUnarchivedThread() {
         let project = ProjectRef(name: "One", path: "/tmp/one")
         let otherProject = ProjectRef(name: "Two", path: "/tmp/two")

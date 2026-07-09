@@ -59,6 +59,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             surface.projects.items[0].actions.first { $0.kind == .moveToTop }?.disabledReason,
             "Already at the top"
         )
+        XCTAssertEqual(surface.projects.items[0].actions.first { $0.kind == .moveUp }?.isEnabled, false)
+        XCTAssertEqual(surface.projects.items[0].actions.first { $0.kind == .moveDown }?.isEnabled, false)
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)

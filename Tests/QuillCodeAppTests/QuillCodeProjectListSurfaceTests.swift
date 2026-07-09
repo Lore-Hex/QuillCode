@@ -28,6 +28,25 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertEqual(item.actions.first?.id, "\(projectID.uuidString)-newChat")
     }
 
+    func testProjectItemSurfaceDisablesUnavailableMoveActions() {
+        let project = ProjectRef(name: "QuillCode", path: "/repo")
+
+        let item = ProjectItemSurface(
+            project: project,
+            selectedProjectID: nil,
+            canMoveToTop: false,
+            canMoveUp: false,
+            canMoveDown: false
+        )
+
+        XCTAssertEqual(item.actions.first { $0.kind == .moveToTop }?.isEnabled, false)
+        XCTAssertEqual(item.actions.first { $0.kind == .moveToTop }?.disabledReason, "Already at the top")
+        XCTAssertEqual(item.actions.first { $0.kind == .moveUp }?.isEnabled, false)
+        XCTAssertEqual(item.actions.first { $0.kind == .moveUp }?.disabledReason, "Already at the top")
+        XCTAssertEqual(item.actions.first { $0.kind == .moveDown }?.isEnabled, false)
+        XCTAssertEqual(item.actions.first { $0.kind == .moveDown }?.disabledReason, "Already at the bottom")
+    }
+
     func testProjectItemSurfaceDecodesOlderPayloadWithoutRemoteMetadataOrActions() throws {
         let projectID = UUID()
         let json = """
