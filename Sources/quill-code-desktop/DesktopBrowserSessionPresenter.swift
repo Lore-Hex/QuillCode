@@ -15,6 +15,8 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot
+    func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult
+    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult
     func reloadSession()
 }
 
@@ -28,6 +30,22 @@ enum DesktopBrowserSessionScriptError: Error, Sendable, Equatable {
     case noOpenSession
     case noSelectedTab
     case emptySource
+}
+
+struct DesktopBrowserSessionActionResult: Sendable, Equatable, Decodable {
+    var ok: Bool
+    var summary: String
+    var error: String?
+}
+
+enum DesktopBrowserSessionActionError: Error, Sendable, Equatable {
+    case noOpenSession
+    case noSelectedTab
+    case emptySelector
+    case emptyText
+    case encodingFailed
+    case decodingFailed(String)
+    case actionFailed(String)
 }
 
 @MainActor
@@ -77,6 +95,16 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
         guard let session else { throw DesktopBrowserSessionScriptError.noOpenSession }
         return try await session.captureLiveDOMSnapshotInSelectedTab()
+    }
+
+    func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
+        guard let session else { throw DesktopBrowserSessionActionError.noOpenSession }
+        return try await session.clickInSelectedTab(selector: selector)
+    }
+
+    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+        guard let session else { throw DesktopBrowserSessionActionError.noOpenSession }
+        return try await session.typeInSelectedTab(selector: selector, text: text, submit: submit)
     }
 
     func reloadSession() {
@@ -239,6 +267,40 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         return snapshot
     }
 
+    func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
+        let selector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !selector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
+        return try await runActionInSelectedTab(source: try Self.clickScript(selector: selector))
+    }
+
+    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+        let selector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !selector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
+        guard !text.isEmpty else { throw DesktopBrowserSessionActionError.emptyText }
+        return try await runActionInSelectedTab(source: try Self.typeScript(selector: selector, text: text, submit: submit))
+    }
+
+    private func runActionInSelectedTab(source: String) async throws -> DesktopBrowserSessionActionResult {
+        guard let selectedID = selectedTabID(),
+              let tab = tabs[selectedID]
+        else {
+            throw DesktopBrowserSessionActionError.noSelectedTab
+        }
+        let value = try await tab.webView.evaluateJavaScript(source)
+        guard let payload = value as? String,
+              let data = payload.data(using: .utf8)
+        else {
+            throw DesktopBrowserSessionActionError.decodingFailed(String(describing: value))
+        }
+        let result = try JSONDecoder().decode(DesktopBrowserSessionActionResult.self, from: data)
+        guard result.ok else {
+            throw DesktopBrowserSessionActionError.actionFailed(result.error ?? result.summary)
+        }
+        emitSessionUpdate()
+        emitRenderedSessionUpdate(for: selectedID, webView: tab.webView)
+        return result
+    }
+
     private func sync(_ snapshot: BrowserSessionTabSnapshot) {
         if var tab = tabs[snapshot.id] {
             tab.snapshot = snapshot
@@ -374,6 +436,70 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         return configuration
     }
 
+    private static func clickScript(selector: String) throws -> String {
+        let selectorLiteral = try javaScriptLiteral(selector)
+        return """
+        (() => {
+          const selector = \(selectorLiteral);
+          const element = document.querySelector(selector);
+          if (!element) {
+            return JSON.stringify({ ok: false, summary: "No element matched selector.", error: `No element matched ${selector}` });
+          }
+          element.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+          element.click();
+          const label = element.getAttribute("aria-label") || element.textContent || element.value || element.tagName.toLowerCase();
+          return JSON.stringify({ ok: true, summary: `Clicked ${String(label).trim().slice(0, 120) || selector}` });
+        })()
+        """
+    }
+
+    private static func typeScript(selector: String, text: String, submit: Bool) throws -> String {
+        let selectorLiteral = try javaScriptLiteral(selector)
+        let textLiteral = try javaScriptLiteral(text)
+        let submitLiteral = submit ? "true" : "false"
+        return """
+        (() => {
+          const selector = \(selectorLiteral);
+          const text = \(textLiteral);
+          const submit = \(submitLiteral);
+          const element = document.querySelector(selector);
+          if (!element) {
+            return JSON.stringify({ ok: false, summary: "No element matched selector.", error: `No element matched ${selector}` });
+          }
+          element.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+          element.focus();
+          if ("value" in element) {
+            element.value = text;
+          } else if (element.isContentEditable) {
+            element.textContent = text;
+          } else {
+            return JSON.stringify({ ok: false, summary: "Element is not editable.", error: `${selector} is not editable` });
+          }
+          element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+          element.dispatchEvent(new Event("change", { bubbles: true }));
+          if (submit) {
+            const form = element.form || element.closest("form");
+            if (form) {
+              form.requestSubmit ? form.requestSubmit() : form.submit();
+            } else {
+              element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+              element.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
+            }
+          }
+          return JSON.stringify({ ok: true, summary: `Typed into ${selector}` });
+        })()
+        """
+    }
+
+    private static func javaScriptLiteral(_ value: String) throws -> String {
+        guard let data = try? JSONEncoder().encode(value),
+              let literal = String(data: data, encoding: .utf8)
+        else {
+            throw DesktopBrowserSessionActionError.encodingFailed
+        }
+        return literal
+    }
+
     private static let maxJavaScriptResultDescriptionLength = 4_000
 
     private static func boundedJavaScriptResultDescription(_ value: Any?) -> String {
@@ -413,6 +539,8 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot
+    func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult
+    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult
     func reloadSession()
 }
 
@@ -428,6 +556,22 @@ enum DesktopBrowserSessionScriptError: Error, Sendable, Equatable {
     case emptySource
 }
 
+struct DesktopBrowserSessionActionResult: Sendable, Equatable, Decodable {
+    var ok: Bool
+    var summary: String
+    var error: String?
+}
+
+enum DesktopBrowserSessionActionError: Error, Sendable, Equatable {
+    case noOpenSession
+    case noSelectedTab
+    case emptySelector
+    case emptyText
+    case encodingFailed
+    case decodingFailed(String)
+    case actionFailed(String)
+}
+
 @MainActor
 final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
@@ -441,6 +585,12 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     }
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
         throw DesktopBrowserSessionScriptError.noOpenSession
+    }
+    func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
+        throw DesktopBrowserSessionActionError.noOpenSession
+    }
+    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+        throw DesktopBrowserSessionActionError.noOpenSession
     }
     func reloadSession() {}
 }

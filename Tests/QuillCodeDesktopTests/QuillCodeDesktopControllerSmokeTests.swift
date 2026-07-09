@@ -422,6 +422,46 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(snapshot.viewportDescription, "1120x760 @2x")
     }
 
+    func testDesktopBrowserCoordinatorClicksInVisibleSession() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+
+        let result = try await controller.browserCoordinator.clickInOpenSession(selector: "button.save")
+
+        XCTAssertEqual(presenter.clickedSelectors, ["button.save"])
+        XCTAssertEqual(result, DesktopBrowserSessionActionResult(ok: true, summary: "Clicked button.save", error: nil))
+    }
+
+    func testDesktopBrowserCoordinatorTypesInVisibleSession() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        controller.browserAddressDraft = "localhost:5173/dashboard"
+        controller.openBrowserSession()
+
+        let result = try await controller.browserCoordinator.typeInOpenSession(
+            selector: "input[name='query']",
+            text: "minimax",
+            submit: true
+        )
+
+        XCTAssertEqual(presenter.typedRequests, [
+            NoopDesktopBrowserSessionPresenter.TypedRequest(
+                selector: "input[name='query']",
+                text: "minimax",
+                submit: true
+            )
+        ])
+        XCTAssertEqual(result, DesktopBrowserSessionActionResult(ok: true, summary: "Typed into input[name='query']", error: nil))
+    }
+
     func testDesktopAgentBrowserInspectPrefersVisibleSessionLiveDOM() async throws {
         let presenter = NoopDesktopBrowserSessionPresenter()
         let controller = try makeController(
@@ -906,6 +946,12 @@ private struct DesktopSlowLLMClient: LLMClient {
 
 @MainActor
 private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
+    struct TypedRequest: Equatable {
+        var selector: String
+        var text: String
+        var submit: Bool
+    }
+
     var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
     private(set) var presentedSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var syncedSnapshots: [BrowserSessionSyncSnapshot] = []
@@ -913,6 +959,8 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     private(set) var forwardFallbackSnapshots: [BrowserSessionSyncSnapshot] = []
     private(set) var evaluatedJavaScriptSources: [String] = []
     private(set) var capturedLiveDOMSnapshotCount = 0
+    private(set) var clickedSelectors: [String] = []
+    private(set) var typedRequests: [TypedRequest] = []
     private(set) var reloadedSessionCount = 0
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -952,6 +1000,21 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
             html: "<h1>Visible Dashboard</h1><button>Save</button>",
             viewportDescription: "1120x760 @2x"
         )
+    }
+
+    func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
+        let trimmedSelector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSelector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
+        clickedSelectors.append(trimmedSelector)
+        return DesktopBrowserSessionActionResult(ok: true, summary: "Clicked \(trimmedSelector)", error: nil)
+    }
+
+    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+        let trimmedSelector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSelector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
+        guard !text.isEmpty else { throw DesktopBrowserSessionActionError.emptyText }
+        typedRequests.append(TypedRequest(selector: trimmedSelector, text: text, submit: submit))
+        return DesktopBrowserSessionActionResult(ok: true, summary: "Typed into \(trimmedSelector)", error: nil)
     }
 
     func reloadSession() {
