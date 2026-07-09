@@ -63,7 +63,7 @@ extension QuillCodeWorkspaceModel {
             browser: browser,
             browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
                 guard let self else { return nil }
-                return self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
+                return await self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
             },
             computerUseBackend: computerUseBackend,
             globalMemoryDirectory: globalMemoryDirectory,
@@ -78,7 +78,12 @@ extension QuillCodeWorkspaceModel {
         )
     }
 
-    private func executeBrowserToolForAgent(_ call: ToolCall, workspaceRoot: URL) -> ToolResult? {
+    private func executeBrowserToolForAgent(_ call: ToolCall, workspaceRoot: URL) async -> ToolResult? {
+        if let result = await visibleBrowserToolOverride?(call, workspaceRoot) {
+            refreshTopBar(agentStatus: root.topBar.agentStatus)
+            return result
+        }
+
         let result = mutateBrowserState { browser, lastError in
             WorkspaceBrowserToolExecutor.execute(
                 call,
