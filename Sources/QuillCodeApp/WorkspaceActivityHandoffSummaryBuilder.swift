@@ -10,7 +10,9 @@ enum WorkspaceActivityHandoffSummaryBuilder {
         finalAnswer: String?,
         agentStatus: String
     ) -> String {
-        let toolNames = toolCards.suffix(4).map(\.title)
+        let toolNames = toolCards.suffix(4).map {
+            WorkspaceToolDisplayNameBuilder.displayName(for: $0.title)
+        }
         let artifactLabels = artifacts.suffix(4).map(\.label)
         var lines = [
             "Thread: \(WorkspaceActivityText.boundedLine(thread.title, limit: 80))",

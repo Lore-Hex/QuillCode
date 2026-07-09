@@ -30,7 +30,7 @@ enum WorkspaceActivitySurfaceBuilder {
             .map { card in
                 ActivityItemSurface(
                     id: card.id,
-                    title: card.title,
+                    title: WorkspaceToolDisplayNameBuilder.displayName(for: card.title),
                     detail: WorkspaceActivityText.boundedLine(card.subtitle, limit: 120),
                     kind: "tool",
                     statusLabel: card.status.rawValue
