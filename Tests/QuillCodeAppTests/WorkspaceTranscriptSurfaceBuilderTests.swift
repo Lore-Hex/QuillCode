@@ -63,12 +63,12 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
 
         XCTAssertEqual(thinking?.id, "thinking-\(thread.id.uuidString)")
         XCTAssertEqual(thinking?.title, "Thinking")
-        XCTAssertEqual(thinking?.subtitle, "Running: host.shell.run running")
+        XCTAssertEqual(thinking?.subtitle, "Running: Shell command running")
         XCTAssertEqual(thinking?.traceTitle, "Trace")
         XCTAssertEqual(thinking?.traceLines, [
             "Streaming model response",
-            "Queued: host.shell.run queued",
-            "Running: host.shell.run running"
+            "Queued: Shell command queued",
+            "Running: Shell command running"
         ])
     }
 

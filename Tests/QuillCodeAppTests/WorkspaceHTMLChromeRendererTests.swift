@@ -256,7 +256,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("run tests"))
         XCTAssertTrue(html.contains(#"data-testid="thinking-indicator""#))
         XCTAssertTrue(html.contains(#"data-testid="thinking-title">Thinking"#))
-        XCTAssertTrue(html.contains(#"data-testid="thinking-subtitle">Queued: host.shell.run queued"#))
+        XCTAssertTrue(html.contains(#"data-testid="thinking-subtitle">Queued: Shell command queued"#))
         XCTAssertTrue(html.contains(#"data-testid="thinking-trace""#))
         XCTAssertFalse(html.contains(#"data-testid="transcript-empty""#))
     }

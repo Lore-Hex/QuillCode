@@ -41,23 +41,49 @@ struct WorkspaceTranscriptThinkingSurfaceBuilder: Sendable, Hashable {
     }
 
     private static func traceLine(for event: ThreadEvent) -> String? {
+        let summary = displaySummary(for: event)
         switch event.kind {
         case .message, .messageFeedback, .reviewComment:
             return nil
         case .notice:
-            return event.summary
+            return summary
         case .toolQueued:
-            return "Queued: \(event.summary)"
+            return "Queued: \(summary)"
         case .toolRunning:
-            return "Running: \(event.summary)"
+            return "Running: \(summary)"
         case .toolCompleted:
-            return "Completed: \(event.summary)"
+            return "Completed: \(summary)"
         case .toolFailed:
-            return "Failed: \(event.summary)"
+            return "Failed: \(summary)"
         case .approvalRequested:
-            return "Safety check: \(event.summary)"
+            return "Safety check: \(summary)"
         case .approvalDecided:
-            return "Safety decision: \(event.summary)"
+            return "Safety decision: \(summary)"
         }
+    }
+
+    private static func displaySummary(for event: ThreadEvent) -> String {
+        if let payloadName = toolName(from: event.payloadJSON) {
+            return WorkspaceToolDisplayNameBuilder.displayName(for: payloadName)
+        }
+
+        guard let match = knownToolName(in: event.summary) else {
+            return event.summary
+        }
+
+        let displayName = WorkspaceToolDisplayNameBuilder.displayName(for: match)
+        let remainder = event.summary.dropFirst(match.count).trimmingCharacters(in: .whitespacesAndNewlines)
+        return remainder.isEmpty ? displayName : "\(displayName) \(remainder)"
+    }
+
+    private static func toolName(from payloadJSON: String?) -> String? {
+        guard let payloadJSON, let data = payloadJSON.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(ToolCall.self, from: data).name
+    }
+
+    private static func knownToolName(in summary: String) -> String? {
+        WorkspaceToolDisplayNameBuilder.knownToolNames
+            .filter { summary == $0 || summary.hasPrefix("\($0) ") }
+            .max(by: { $0.count < $1.count })
     }
 }
