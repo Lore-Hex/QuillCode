@@ -280,6 +280,26 @@
       color: var(--yellow);
       background: rgba(255, 190, 92, 0.12);
     }
+    .sidebar-worktree-chip {
+      display: inline-block;
+      margin-top: 3px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--blue);
+      background: rgba(84, 179, 255, 0.10);
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+    .sidebar-worktree-chip[data-tone="warning"] {
+      color: var(--yellow);
+      background: rgba(255, 190, 92, 0.12);
+      font-family: inherit;
+    }
     .topbar-token-budget {
       flex: 0 1 min(420px, 40vw);
       min-width: 360px;
@@ -8108,6 +8128,13 @@
           }).join('')}
         </section>`;
       };
+      const renderSidebarWorktreeChip = (worktree) => {
+        if (!worktree) return '';
+        if (worktree.isResolvable) {
+          return `<span class="sidebar-worktree-chip" data-testid="sidebar-worktree-branch" title="${escapeHTML(worktree.branch)}">⑂ ${escapeHTML(worktree.branchLeaf)}</span>`;
+        }
+        return `<span class="sidebar-worktree-chip" data-tone="warning" data-testid="sidebar-worktree-warning" title="Worktree missing — running in the project root">⚠ Worktree missing</span>`;
+      };
       const renderSidebarSection = (title, items) => items.length ? `
         <section data-testid="sidebar-section">
           <h3 data-testid="sidebar-section-title">${escapeHTML(title)}</h3>
@@ -8117,6 +8144,7 @@
             <button class="sidebar-item hit-target-row ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
               <span>${escapeHTML(item.title)}</span>
               <small>${escapeHTML(item.subtitle)}</small>
+              ${renderSidebarWorktreeChip(item.worktree)}
             </button>
             <details class="sidebar-thread-menu" data-testid="sidebar-item-actions">
               <summary class="hit-target-icon" aria-label="Actions for ${escapeHTML(item.title)}">•••</summary>
@@ -13463,9 +13491,27 @@
         return;
       }
       if (commandID === 'thread-new-worktree') {
-        // Mock stand-in: the native model creates a fresh git worktree off the current branch and
-        // starts a thread bound to it. The harness has no git, so it just opens a new thread.
+        // Mock stand-in: the native newWorktreeThread creates a fresh git worktree off the current
+        // branch and materializes a thread bound to it. The harness has no git, so it opens a fresh
+        // chat and materializes a worktree-bound sidebar row directly (newChat alone only enters
+        // fresh-chat mode without a row), so the row shows the branch chip.
         newChat();
+        const threadID = `thread-${state.nextThreadIndex++}`;
+        state.sidebar.selectedThreadID = threadID;
+        state.sidebar.items = [{
+          id: threadID,
+          title: 'Worktree: experiment',
+          subtitle: state.topBar.modelLabel,
+          searchText: '',
+          updatedAt: new Date().toISOString(),
+          isSelected: true,
+          isPinned: false,
+          isArchived: false,
+          worktree: { branch: 'quill/experiment', branchLeaf: 'experiment', isResolvable: true }
+        }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+        state.topBar.primaryTitle = 'Worktree: experiment';
+        addMessage('assistant', 'Started a new chat in a fresh worktree off the current branch.');
+        render();
         return;
       }
       if (commandID === 'thread-pin') {
@@ -16345,11 +16391,10 @@
         addMessage('assistant', workspaceStatusText());
       } else if (/^\/(new-worktree|worktree-chat|worktree-thread)\b/i.test(text)) {
         // Must precede the /new branch: /new-worktree also matches /^\/(new)\b/. Mock stand-in for
-        // the native new-worktree thread type — the harness has no git, so it opens a new thread via
-        // the same command the palette runs, then notes the worktree intent.
+        // the native new-worktree thread type — routes through the same command the palette runs,
+        // which materializes a worktree-bound thread row and posts the confirmation message.
         state.composer.isSending = false;
         runCommand('thread-new-worktree');
-        addMessage('assistant', 'Started a new chat in a fresh worktree off the current branch.');
         return;
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {
         newChat();

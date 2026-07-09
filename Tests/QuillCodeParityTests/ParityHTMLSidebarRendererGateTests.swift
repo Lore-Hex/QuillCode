@@ -46,8 +46,29 @@ final class ParityHTMLSidebarRendererGateTests: QuillCodeParityTestCase {
             "private static func renderBulkToolbar",
             "private static func renderSelectionHeaderAction",
             "sidebar-empty",
-            "WorkspaceHTMLPrimitives.escape"
+            "WorkspaceHTMLPrimitives.escape",
+            "renderWorktreeChip",
+            "sidebar-worktree-branch",
+            "sidebar-worktree-warning"
         ].forEach { Self.assertSource(source, contains: $0) }
+    }
+
+    func testWorktreeChipTestidsMatchBetweenHTMLRendererAndHarness() throws {
+        // The native thread renderer and the mock harness must render the same worktree-chip testids,
+        // so a change to one surface that isn't mirrored in the other fails here.
+        let threadText = try Self.appSourceText(named: "WorkspaceHTMLSidebarThreadRenderer.swift")
+        let harness = try harnessText()
+        for token in ["sidebar-worktree-branch", "sidebar-worktree-warning"] {
+            Self.assertSource(threadText, contains: token)
+            Self.assertSource(harness, contains: token)
+        }
+    }
+
+    private func harnessText() throws -> String {
+        try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
     }
 
     private func assertSavedSearchSidebarContracts(_ source: String) {

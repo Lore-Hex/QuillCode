@@ -13,6 +13,20 @@ public struct SidebarThreadSectionSurface: Codable, Sendable, Hashable, Identifi
     }
 }
 
+/// A thread's worktree binding, summarized for the sidebar row: the branch it runs on and whether the
+/// worktree directory still exists (a dangling binding falls back to the project root, so the row warns).
+public struct SidebarItemWorktreeSummary: Codable, Sendable, Hashable {
+    public var branch: String
+    public var branchLeaf: String
+    public var isResolvable: Bool
+
+    public init(branch: String, branchLeaf: String, isResolvable: Bool) {
+        self.branch = branch
+        self.branchLeaf = branchLeaf
+        self.isResolvable = isResolvable
+    }
+}
+
 public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var title: String
@@ -24,6 +38,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var isBulkSelected: Bool
     public var isPinned: Bool
     public var isArchived: Bool
+    public var worktree: SidebarItemWorktreeSummary?
 
     public init(item: SidebarItem, selectedThreadID: UUID?, selectedThreadIDs: Set<UUID> = []) {
         self.id = item.id
@@ -36,6 +51,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.isBulkSelected = selectedThreadIDs.contains(item.id)
         self.isPinned = item.isPinned
         self.isArchived = item.isArchived
+        self.worktree = item.worktree
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -49,6 +65,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         case isBulkSelected
         case isPinned
         case isArchived
+        case worktree
     }
 
     public init(from decoder: Decoder) throws {
@@ -63,6 +80,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.isBulkSelected = try container.decodeIfPresent(Bool.self, forKey: .isBulkSelected) ?? false
         self.isPinned = try container.decode(Bool.self, forKey: .isPinned)
         self.isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
+        self.worktree = try container.decodeIfPresent(SidebarItemWorktreeSummary.self, forKey: .worktree)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -77,6 +95,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         try container.encode(isBulkSelected, forKey: .isBulkSelected)
         try container.encode(isPinned, forKey: .isPinned)
         try container.encode(isArchived, forKey: .isArchived)
+        try container.encodeIfPresent(worktree, forKey: .worktree)
     }
 
     private static func actions(for item: SidebarItem) -> [SidebarItemActionSurface] {
