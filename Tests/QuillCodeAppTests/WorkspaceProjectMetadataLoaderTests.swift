@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
@@ -102,12 +103,19 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
         }
     }
 
-    func testRemoteContextMetadataKeepsOnlyRemoteInstructionsAndMemories() {
+    func testRemoteContextMetadataKeepsRemoteInstructionsHooksAndMemories() {
         let instruction = ProjectInstruction(
             path: "AGENTS.md",
             title: "Project AGENTS.md",
             content: "Remote rules",
             byteCount: 12
+        )
+        let hook = ProjectRunHook(
+            id: "before:.quillcode/hooks/before-agent-run/01-prepare.sh",
+            timing: .beforeAgentRun,
+            title: "Prepare",
+            relativePath: ".quillcode/hooks/before-agent-run/01-prepare.sh",
+            command: "sh .quillcode/hooks/before-agent-run/01-prepare.sh"
         )
         let memory = MemoryNote(
             id: "project:.quillcode/memories/team.md",
@@ -120,11 +128,57 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
 
         let metadata = WorkspaceProjectMetadataLoader.metadata(from: SSHRemoteProjectContext(
             instructions: [instruction],
+            runHooks: [hook],
             memories: [memory]
         ))
 
         XCTAssertEqual(metadata.instructions, [instruction])
+        XCTAssertEqual(metadata.runHooks, [hook])
         XCTAssertEqual(metadata.memories, [memory])
+        XCTAssertTrue(metadata.localActions.isEmpty)
+        XCTAssertTrue(metadata.extensionManifests.isEmpty)
+    }
+
+    func testLoadRemoteDiscoversBoundedDefaultRunHooks() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let remoteRoot = root.appendingPathComponent("remote")
+        let beforeDirectory = remoteRoot.appendingPathComponent(".quillcode/hooks/before-agent-run")
+        let afterDirectory = remoteRoot.appendingPathComponent(".quillcode/hooks/after-agent-run")
+        try FileManager.default.createDirectory(at: beforeDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: afterDirectory, withIntermediateDirectories: true)
+        try "printf before".write(
+            to: beforeDirectory.appendingPathComponent("01-prepare.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "printf ignored".write(
+            to: beforeDirectory.appendingPathComponent("not-a-hook.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "printf after".write(
+            to: afterDirectory.appendingPathComponent("99-cleanup.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let argumentsFile = root.appendingPathComponent("ssh-arguments.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+
+        let metadata = try WorkspaceProjectMetadataLoader.loadRemote(
+            connection: .ssh(path: remoteRoot.path, host: "quill-feather.local", user: "quill"),
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        XCTAssertEqual(metadata.runHooks.map(\.relativePath), [
+            ".quillcode/hooks/before-agent-run/01-prepare.sh",
+            ".quillcode/hooks/after-agent-run/99-cleanup.sh"
+        ])
+        XCTAssertEqual(metadata.runHooks.map(\.timing), [.beforeAgentRun, .afterAgentRun])
+        XCTAssertEqual(metadata.runHooks.map(\.title), ["01 Prepare", "99 Cleanup"])
+        XCTAssertEqual(metadata.runHooks.map(\.command), [
+            "sh '.quillcode/hooks/before-agent-run/01-prepare.sh'",
+            "sh '.quillcode/hooks/after-agent-run/99-cleanup.sh'"
+        ])
         XCTAssertTrue(metadata.localActions.isEmpty)
         XCTAssertTrue(metadata.extensionManifests.isEmpty)
     }

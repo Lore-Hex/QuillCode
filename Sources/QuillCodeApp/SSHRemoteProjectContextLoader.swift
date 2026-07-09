@@ -4,6 +4,7 @@ import QuillCodeTools
 
 struct SSHRemoteProjectContext: Sendable, Hashable {
     var instructions: [ProjectInstruction]
+    var runHooks: [ProjectRunHook]
     var memories: [MemoryNote]
 }
 
@@ -50,6 +51,7 @@ enum SSHRemoteProjectContextLoader {
 
     private static func parse(stdout: String, marker: String) -> SSHRemoteProjectContext {
         var instructions: [ProjectInstruction] = []
+        var runHooks: [ProjectRunHook] = []
         var memories: [MemoryNote] = []
 
         for line in stdout.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
@@ -59,8 +61,7 @@ enum SSHRemoteProjectContextLoader {
                   let path = string(fromHex: parts[2]),
                   let byteCount = Int(parts[3]),
                   let content = string(fromHex: parts[5])?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !path.isEmpty,
-                  !content.isEmpty
+                  !path.isEmpty
             else {
                 continue
             }
@@ -68,6 +69,7 @@ enum SSHRemoteProjectContextLoader {
             let wasTruncated = parts[4] == "1"
             switch parts[1] {
             case "instruction":
+                guard !content.isEmpty else { continue }
                 instructions.append(ProjectInstruction(
                     path: path,
                     title: instructionTitle(for: path),
@@ -78,6 +80,7 @@ enum SSHRemoteProjectContextLoader {
                     wasTruncated: wasTruncated
                 ))
             case "memory":
+                guard !content.isEmpty else { continue }
                 memories.append(MemoryNote(
                     id: "\(MemoryScope.project.rawValue):\(path)",
                     scope: .project,
@@ -89,6 +92,13 @@ enum SSHRemoteProjectContextLoader {
                     byteCount: byteCount,
                     wasTruncated: wasTruncated
                 ))
+            case "hook_before", "hook_after":
+                let timing: ProjectRunHookTiming = parts[1] == "hook_before"
+                    ? .beforeAgentRun
+                    : .afterAgentRun
+                if let hook = runHook(timing: timing, relativePath: path) {
+                    runHooks.append(hook)
+                }
             default:
                 continue
             }
@@ -96,6 +106,7 @@ enum SSHRemoteProjectContextLoader {
 
         return SSHRemoteProjectContext(
             instructions: instructions,
+            runHooks: runHooks.sorted(by: sortHooks).prefix(ProjectRunHookLoader.maxHooks).map { $0 },
             memories: memories
         )
     }
@@ -105,6 +116,7 @@ enum SSHRemoteProjectContextLoader {
         qc_marker=\(shellSingleQuoted(marker))
         qc_ins_count=0
         qc_ins_total=0
+        qc_hook_count=0
         qc_mem_count=0
         qc_mem_total=0
 
@@ -176,6 +188,21 @@ enum SSHRemoteProjectContextLoader {
           qc_mem_total=$((qc_mem_total + qc_read))
         }
 
+        qc_emit_hook() {
+          qc_kind="$1"
+          qc_rel="$2"
+          qc_file="./$qc_rel"
+          [ "$qc_hook_count" -lt \(ProjectRunHookLoader.maxHooks) ] || return 0
+          [ -f "$qc_file" ] || return 0
+          [ ! -L "$qc_file" ] || return 0
+          case "$qc_rel" in
+            .quillcode/hooks/before-agent-run/*.sh|.quillcode/hooks/after-agent-run/*.sh) ;;
+            *) return 0 ;;
+          esac
+          printf '%s\\t%s\\t%s\\t0\\t0\\t\\n' "$qc_marker" "$qc_kind" "$(qc_hex_text "$qc_rel")"
+          qc_hook_count=$((qc_hook_count + 1))
+        }
+
         qc_should_skip_dir() {
           qc_old_ifs="$IFS"
           IFS='/'
@@ -211,6 +238,16 @@ enum SSHRemoteProjectContextLoader {
           [ -e "$qc_memory" ] || continue
           qc_emit_memory "${qc_memory#./}"
         done
+
+        for qc_hook in .quillcode/hooks/before-agent-run/*.sh; do
+          [ -e "$qc_hook" ] || continue
+          qc_emit_hook 'hook_before' "${qc_hook#./}"
+        done
+
+        for qc_hook in .quillcode/hooks/after-agent-run/*.sh; do
+          [ -e "$qc_hook" ] || continue
+          qc_emit_hook 'hook_after' "${qc_hook#./}"
+        done
         """
     }
 
@@ -242,6 +279,51 @@ enum SSHRemoteProjectContextLoader {
                 return first.uppercased() + word.dropFirst()
             }
             .joined(separator: " ")
+    }
+
+    private static func runHook(
+        timing: ProjectRunHookTiming,
+        relativePath: String
+    ) -> ProjectRunHook? {
+        guard relativePath.hasSuffix(".sh"),
+              !relativePath.contains(".."),
+              hookPath(relativePath, matches: timing)
+        else {
+            return nil
+        }
+
+        let baseName = URL(fileURLWithPath: relativePath)
+            .deletingPathExtension()
+            .lastPathComponent
+        return ProjectRunHook(
+            id: "\(timing.rawValue):\(relativePath)",
+            timing: timing,
+            title: ProjectScriptMetadataLoader.title(from: baseName),
+            relativePath: relativePath,
+            command: ProjectScriptMetadataLoader.shellScriptCommand(
+                relativePath: relativePath,
+                workingDirectory: nil
+            )
+        )
+    }
+
+    private static func hookPath(
+        _ relativePath: String,
+        matches timing: ProjectRunHookTiming
+    ) -> Bool {
+        switch timing {
+        case .beforeAgentRun:
+            return relativePath.hasPrefix(".quillcode/hooks/before-agent-run/")
+        case .afterAgentRun:
+            return relativePath.hasPrefix(".quillcode/hooks/after-agent-run/")
+        }
+    }
+
+    private static func sortHooks(_ lhs: ProjectRunHook, _ rhs: ProjectRunHook) -> Bool {
+        if lhs.timing != rhs.timing {
+            return lhs.timing == .beforeAgentRun
+        }
+        return lhs.relativePath.localizedStandardCompare(rhs.relativePath) == .orderedAscending
     }
 
     private static func string(fromHex hex: String) -> String? {

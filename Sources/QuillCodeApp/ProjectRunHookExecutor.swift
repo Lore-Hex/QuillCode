@@ -14,14 +14,22 @@ enum ProjectRunHookExecutor {
         hooks: [ProjectRunHook],
         thread: inout ChatThread,
         workspaceRoot: URL,
+        selectedProject: ProjectRef?,
+        sshRemoteShellExecutor: SSHRemoteShellExecutor,
         onProgress: AgentRunProgressHandler?
     ) async throws -> ProjectRunHookExecutionFailure? {
         let matchingHooks = hooks.filter { $0.timing == timing }
         guard !matchingHooks.isEmpty else { return nil }
 
-        let router = ToolRouter(
-            workspaceRoot: workspaceRoot,
-            editGuard: .session(for: thread.id)
+        let executor = WorkspaceToolCallExecutor(
+            selectedProject: selectedProject,
+            browser: BrowserState(),
+            browserDomainPolicy: .unrestricted,
+            router: ToolRouter(
+                workspaceRoot: workspaceRoot,
+                editGuard: .session(for: thread.id)
+            ),
+            sshRemoteShellExecutor: sshRemoteShellExecutor
         )
 
         for hook in matchingHooks {
@@ -34,7 +42,7 @@ enum ProjectRunHookExecutor {
             await onProgress?(thread)
 
             let call = WorkspaceShellToolCallPlanner.projectRunHook(hook)
-            let result = router.execute(call)
+            let result = executor.executePrimary(call)
             WorkspaceToolEventRecorder.append(call: call, result: result, to: &thread)
             thread.updatedAt = Date()
             await onProgress?(thread)

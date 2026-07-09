@@ -160,6 +160,61 @@ final class WorkspaceAgentSendSessionTests: XCTestCase {
         XCTAssertEqual(result.thread.events.filter { $0.kind == .toolCompleted }.count, 2)
     }
 
+    func testRunExecutesRemoteProjectHooksOverSSH() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let localRoot = root.appendingPathComponent("local")
+        let remoteRoot = root.appendingPathComponent("remote")
+        try FileManager.default.createDirectory(at: localRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: remoteRoot, withIntermediateDirectories: true)
+        let argumentsFile = root.appendingPathComponent("ssh-arguments.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let project = ProjectRef(
+            name: "Feather",
+            path: remoteRoot.path,
+            connection: .ssh(path: remoteRoot.path, host: "quill-feather.local", user: "quill")
+        )
+        let hooks = [
+            ProjectRunHook(
+                id: "before:.quillcode/hooks/before-agent-run/01-prepare.sh",
+                timing: .beforeAgentRun,
+                title: "Remote Before",
+                relativePath: ".quillcode/hooks/before-agent-run/01-prepare.sh",
+                command: "printf before > before.txt"
+            ),
+            ProjectRunHook(
+                id: "after:.quillcode/hooks/after-agent-run/99-cleanup.sh",
+                timing: .afterAgentRun,
+                title: "Remote After",
+                relativePath: ".quillcode/hooks/after-agent-run/99-cleanup.sh",
+                command: "printf after > after.txt"
+            )
+        ]
+        let session = WorkspaceAgentSendSession(
+            prompt: "say hello",
+            thread: ChatThread(title: "New chat"),
+            runner: AgentRunner(llm: SequenceLLMClient(actions: [.say("hello")])),
+            workspaceRoot: localRoot,
+            runHooks: hooks,
+            selectedProject: project,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        let result = try await session.run()
+
+        XCTAssertEqual(result.thread.messages.map(\.content), ["say hello", "hello"])
+        XCTAssertEqual(
+            try String(contentsOf: remoteRoot.appendingPathComponent("before.txt"), encoding: .utf8),
+            "before"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: remoteRoot.appendingPathComponent("after.txt"), encoding: .utf8),
+            "after"
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: localRoot.appendingPathComponent("before.txt").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: localRoot.appendingPathComponent("after.txt").path))
+        XCTAssertEqual(result.thread.events.filter { $0.kind == .toolCompleted }.count, 2)
+    }
+
     func testBeforeRunHookFailureStopsAgentSend() async throws {
         let workspaceRoot = try makeQuillCodeTestDirectory()
         let beforeDirectory = try createHookDirectory(

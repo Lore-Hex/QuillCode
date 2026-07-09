@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeTools
 
 struct WorkspaceAgentSendSessionResult: Sendable {
     var thread: ChatThread
@@ -15,6 +16,8 @@ struct WorkspaceAgentSendSession: Sendable {
     var workspaceRoot: URL
     var recordsUserMessage: Bool
     var runHooks: [ProjectRunHook]
+    var selectedProject: ProjectRef?
+    var sshRemoteShellExecutor: SSHRemoteShellExecutor
 
     init(
         prompt: String,
@@ -22,7 +25,9 @@ struct WorkspaceAgentSendSession: Sendable {
         runner: AgentRunner,
         workspaceRoot: URL,
         recordsUserMessage: Bool = true,
-        runHooks: [ProjectRunHook] = []
+        runHooks: [ProjectRunHook] = [],
+        selectedProject: ProjectRef? = nil,
+        sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
     ) {
         self.prompt = prompt
         self.thread = thread
@@ -31,6 +36,8 @@ struct WorkspaceAgentSendSession: Sendable {
         self.workspaceRoot = workspaceRoot
         self.recordsUserMessage = recordsUserMessage
         self.runHooks = runHooks
+        self.selectedProject = selectedProject
+        self.sshRemoteShellExecutor = sshRemoteShellExecutor
     }
 
     func run(onProgress: AgentRunProgressHandler? = nil) async throws -> WorkspaceAgentSendSessionResult {
@@ -46,6 +53,8 @@ struct WorkspaceAgentSendSession: Sendable {
             hooks: runHooks,
             thread: &activeThread,
             workspaceRoot: workspaceRoot,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor,
             onProgress: onProgress
         ) {
             appendAssistantMessage(
@@ -71,6 +80,8 @@ struct WorkspaceAgentSendSession: Sendable {
             hooks: runHooks,
             thread: &activeThread,
             workspaceRoot: workspaceRoot,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor,
             onProgress: onProgress
         ) {
             appendAssistantMessage(
