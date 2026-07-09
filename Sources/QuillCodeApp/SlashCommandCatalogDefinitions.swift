@@ -190,6 +190,13 @@ extension SlashCommandCatalog {
             aliases: ["project reload", "project context"]
         ),
         slashDefinition(
+            "/project top|up|down|bottom",
+            "Reorder project",
+            "Move the selected project in the sidebar.",
+            insert: "/project ",
+            aliases: ["project top", "project up", "project down", "project bottom"]
+        ),
+        slashDefinition(
             "/init",
             "Initialize AGENTS.md",
             "Scaffold a starter AGENTS.md for the project from its build and test commands.",
