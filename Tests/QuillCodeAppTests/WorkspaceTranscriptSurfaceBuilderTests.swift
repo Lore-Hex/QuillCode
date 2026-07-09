@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillComputerUseKit
 import QuillCodeSafety
 @testable import QuillCodeApp
 
@@ -145,6 +146,50 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(cards[0].status, .done)
         XCTAssertEqual(cards[0].inputJSON, call.argumentsJSON)
         XCTAssertEqual(cards[0].artifacts.map(\.label), ["hello.txt"])
+    }
+
+    func testScreenshotToolCardSubtitleUsesCompletedOutputMetadata() throws {
+        let call = ToolCall(
+            id: "screenshot-call-1",
+            name: ToolDefinition.computerScreenshot.name,
+            argumentsJSON: "{}"
+        )
+        let screenshot = ComputerScreenshotToolOutput(
+            width: 1440,
+            height: 900,
+            path: "/tmp/screenshot.png",
+            foregroundApplication: ComputerUseApplication(
+                name: "Safari",
+                bundleIdentifier: "com.apple.Safari"
+            ),
+            accessibilitySnapshot: ComputerUseAccessibilitySnapshot(elements: [
+                ComputerUseAccessibilityElement(role: "Button", label: "Reload"),
+                ComputerUseAccessibilityElement(role: "TextField", label: "Address", value: "https://example.com")
+            ]),
+            visualSummary: [
+                "Captured 1440 x 900 desktop screenshot",
+                "foreground app: Safari",
+                "visible controls: Button: Reload; TextField: Address (https://example.com)",
+                "preview artifact: screenshot.png"
+            ].joined(separator: "; ")
+        )
+        let result = ToolResult(
+            ok: true,
+            stdout: try JSONHelpers.encodePretty(screenshot),
+            artifacts: ["/tmp/screenshot.png"]
+        )
+        let thread = ChatThread(events: [
+            ThreadEvent(kind: .toolQueued, summary: "queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+            ThreadEvent(kind: .toolCompleted, summary: "completed", payloadJSON: try JSONHelpers.encodePretty(result))
+        ])
+
+        let card = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards().first)
+
+        XCTAssertEqual(card.id, "screenshot-call-1")
+        XCTAssertEqual(card.title, ToolDefinition.computerScreenshot.name)
+        XCTAssertEqual(card.subtitle, "Completed · 1440 x 900 · Safari · 2 controls")
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(card.artifacts.map(\.label), ["screenshot.png"])
     }
 
     func testTimelineFollowsThreadEventsAndAppendsUnmatchedMessages() throws {
@@ -444,7 +489,7 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
             ),
             "Completed · cmd+s"
         )
-        // host.computer.screenshot takes no arguments, so it has no detail.
+        // host.computer.screenshot takes no arguments; completed cards can add output metadata.
         XCTAssertEqual(
             WorkspaceToolCardSubtitleBuilder.subtitle(
                 stateLabel: "Completed",
