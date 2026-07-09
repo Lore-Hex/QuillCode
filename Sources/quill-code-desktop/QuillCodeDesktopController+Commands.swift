@@ -55,9 +55,15 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
             return
         }
         modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
-        browserCoordinator.syncOpenSession(model: model)
-        if commandID == "browser-reload" {
+        if commandID == "browser-back" {
+            browserCoordinator.goBackOpenSession(model: model)
+        } else if commandID == "browser-forward" {
+            browserCoordinator.goForwardOpenSession(model: model)
+        } else if commandID == "browser-reload" {
+            browserCoordinator.syncOpenSession(model: model)
             browserCoordinator.reloadOpenSession()
+        } else {
+            browserCoordinator.syncOpenSession(model: model)
         }
         refresh()
     }

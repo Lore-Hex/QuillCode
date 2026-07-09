@@ -11,6 +11,8 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
+    func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)
+    func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func reloadSession()
 }
 
@@ -43,6 +45,14 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
         guard let session, !snapshot.isEmpty else { return }
         session.sync(snapshot)
+    }
+
+    func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {
+        session?.goBackSelectedTab(fallback: snapshot)
+    }
+
+    func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {
+        session?.goForwardSelectedTab(fallback: snapshot)
     }
 
     func reloadSession() {
@@ -145,6 +155,32 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
             return
         }
         tab.webView.reload()
+    }
+
+    func goBackSelectedTab(fallback snapshot: BrowserSessionSyncSnapshot) {
+        guard let selectedID = selectedTabID(),
+              let tab = tabs[selectedID]
+        else {
+            return
+        }
+        guard tab.webView.canGoBack else {
+            sync(snapshot)
+            return
+        }
+        tab.webView.goBack()
+    }
+
+    func goForwardSelectedTab(fallback snapshot: BrowserSessionSyncSnapshot) {
+        guard let selectedID = selectedTabID(),
+              let tab = tabs[selectedID]
+        else {
+            return
+        }
+        guard tab.webView.canGoForward else {
+            sync(snapshot)
+            return
+        }
+        tab.webView.goForward()
     }
 
     private func sync(_ snapshot: BrowserSessionTabSnapshot) {
@@ -289,6 +325,8 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
+    func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot)
+    func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot)
     func reloadSession()
 }
 
@@ -298,6 +336,8 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
+    func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func reloadSession() {}
 }
 #endif
