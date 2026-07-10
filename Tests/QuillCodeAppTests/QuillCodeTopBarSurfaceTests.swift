@@ -421,6 +421,30 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(row.id, "Provider")
     }
 
+    func testModelCategoryBuildsCountLabelsForPickerSections() {
+        let empty = ModelCategorySurface(category: "Recommended", models: [])
+        let one = ModelCategorySurface(category: "Favorites", models: [
+            modelOption(
+                id: TrustedRouterDefaults.defaultModel,
+                provider: TrustedRouterDefaults.trustedRouterProvider,
+                displayName: TrustedRouterDefaults.fastModelDisplayName,
+                category: "Recommended"
+            )
+        ])
+        let many = ModelCategorySurface(category: "Coding", models: [
+            modelOption(id: "deepseek/deepseek-v4-flash", provider: "deepseek", displayName: "DeepSeek V4 Flash", category: "Coding"),
+            modelOption(id: "minimax/minimax-m3", provider: "minimax", displayName: "MiniMax M3", category: "Coding")
+        ])
+
+        XCTAssertEqual(empty.modelCountLabel, "0 models")
+        XCTAssertEqual(empty.sectionTitle, "Recommended · 0 models")
+        XCTAssertEqual(empty.accessibilityLabel, "Recommended, 0 models")
+        XCTAssertEqual(one.sectionTitle, "Favorites · 1 model")
+        XCTAssertEqual(one.accessibilityLabel, "Favorites, 1 model")
+        XCTAssertEqual(many.sectionTitle, "Coding · 2 models")
+        XCTAssertEqual(many.accessibilityLabel, "Coding, 2 models")
+    }
+
     func testAgentStatusPresentationClassifiesActionableStatusTones() {
         XCTAssertEqual(TopBarStatusPresentation.agentStatus(TopBarAgentStatusLabel.idle), TopBarStatusPresentation(
             label: TopBarAgentStatusLabel.idle,

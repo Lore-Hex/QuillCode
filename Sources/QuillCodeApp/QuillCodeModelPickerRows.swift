@@ -10,10 +10,11 @@ struct QuillCodeModelCategorySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-            Text(category.category.uppercased())
+            Text(category.sectionTitle.uppercased())
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
                 .padding(.horizontal, 10)
+                .accessibilityLabel(category.accessibilityLabel)
             ForEach(category.models) { option in
                 QuillCodeModelRow(
                     option: option,
