@@ -68,6 +68,7 @@ final class ParityTopBarSurfaceGateTests: QuillCodeParityTestCase {
             "public struct ModelMetadataRowSurface",
             "public struct ModelOptionSurface",
             "filteredModelCategories",
+            "filteredModelScopeSummary",
             "ModelCategorySearchFilter.filter"
         ].forEach { Self.assertSource(source, contains: $0) }
     }
@@ -76,6 +77,7 @@ final class ParityTopBarSurfaceGateTests: QuillCodeParityTestCase {
         [
             "enum ModelCategorySearchFilter",
             "static func filter(",
+            "static func scopeSummary(",
             "normalizedTerms"
         ].forEach { Self.assertSource(source, contains: $0) }
     }

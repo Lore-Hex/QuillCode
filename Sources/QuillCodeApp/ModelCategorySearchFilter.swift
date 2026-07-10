@@ -26,6 +26,27 @@ enum ModelCategorySearchFilter {
         }
     }
 
+    static func scopeSummary(for categories: [ModelCategorySurface]) -> String? {
+        let categoryNames = orderedUnique(categories.map(\.category), limit: 3)
+        let providerNames = orderedUnique(categories.flatMap { $0.models.map(\.provider) }, limit: 3)
+        let categoryText = listSummary(categoryNames, overflow: overflowCount(in: categories.map(\.category), limit: 3))
+        let providerText = listSummary(
+            providerNames,
+            overflow: overflowCount(in: categories.flatMap { $0.models.map(\.provider) }, limit: 3)
+        )
+
+        switch (categoryText, providerText) {
+        case let (category?, provider?):
+            return "Categories: \(category) · Providers: \(provider)"
+        case let (category?, nil):
+            return "Categories: \(category)"
+        case let (nil, provider?):
+            return "Providers: \(provider)"
+        case (nil, nil):
+            return nil
+        }
+    }
+
     private static func normalizedTerms(from query: String) -> [String] {
         query
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -83,5 +104,38 @@ enum ModelCategorySearchFilter {
             .unicodeScalars
             .filter { CharacterSet.alphanumerics.contains($0) }
         return String(String.UnicodeScalarView(scalars))
+    }
+
+    private static func orderedUnique(_ values: [String], limit: Int) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for value in values {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            result.append(trimmed)
+            if result.count == limit { break }
+        }
+        return result
+    }
+
+    private static func overflowCount(in values: [String], limit: Int) -> Int {
+        var seen = Set<String>()
+        var count = 0
+        for value in values {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            if seen.insert(trimmed.lowercased()).inserted {
+                count += 1
+            }
+        }
+        return max(0, count - limit)
+    }
+
+    private static func listSummary(_ values: [String], overflow: Int) -> String? {
+        guard !values.isEmpty else { return nil }
+        let suffix = overflow > 0 ? " +\(overflow) more" : ""
+        return values.joined(separator: ", ") + suffix
     }
 }
