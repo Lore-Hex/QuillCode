@@ -61,6 +61,8 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         Self.assertSource(worktreeTasksText, contains: "final class QuillCodeWorktreeDialogTasks")
         Self.assertSource(worktreeTasksText, contains: "private enum Slot")
         Self.assertSource(worktreeTasksText, contains: "private var runningTasks: [Slot: Task<Void, Never>]")
+        Self.assertSource(sheetsText, contains: ".onTapGesture(perform: onDismiss)")
+        Self.assertSource(sheetsText, contains: ".onExitCommand(perform: onDismiss)")
         Self.assertSource(worktreeDialogsText, excludes: "struct QuillCodeWorktreeCreateDraft")
         Self.assertSource(worktreeDialogsText, excludes: "struct QuillCodeWorktreeChoiceSection")
         Self.assertSource(worktreeDialogsText, excludes: "struct QuillCodeWorktreeDialogFrame")
