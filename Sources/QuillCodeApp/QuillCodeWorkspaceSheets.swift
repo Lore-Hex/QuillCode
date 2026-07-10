@@ -153,6 +153,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                 .accessibilityAddTraits(.isModal)
         }
         .transition(.opacity.combined(with: .scale(scale: 0.985)))
+        .onExitCommand(perform: onDismiss)
     }
 
     @ViewBuilder
