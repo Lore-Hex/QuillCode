@@ -16483,6 +16483,12 @@
     }
 
     function runInstantViewSlashCommand(text) {
+      const projectCommandID = instantProjectSlashCommandID(text);
+      if (projectCommandID) {
+        runInstantSlashCommand(text, projectCommandID);
+        return true;
+      }
+
       const commandID = /^\/(focus|composer|input)\b/i.test(text)
         ? 'focus-composer'
         : /^\/(retry|rerun|again)\b/i.test(text)
@@ -16509,6 +16515,22 @@
       if (!commandID) return false;
       runInstantSlashCommand(text, commandID);
       return true;
+    }
+
+    function instantProjectSlashCommandID(text) {
+      const match = String(text || '').trim().match(/^\/project\s+(\S+)/i);
+      if (!match) return null;
+      const subcommand = match[1].toLowerCase();
+      if (['open', 'add'].includes(subcommand)) return 'add-project';
+      if (['new', 'new-chat', 'chat'].includes(subcommand)) return 'project-new-chat';
+      if (['refresh', 'reload', 'context'].includes(subcommand)) return 'project-refresh-context';
+      if (['init', 'initialize', 'agents', 'agents.md'].includes(subcommand)) return 'project-init';
+      if (['top', 'move-top', 'move-to-top'].includes(subcommand)) return 'project-move-to-top';
+      if (['up', 'move-up'].includes(subcommand)) return 'project-move-up';
+      if (['down', 'move-down'].includes(subcommand)) return 'project-move-down';
+      if (['bottom', 'move-bottom', 'move-to-bottom'].includes(subcommand)) return 'project-move-to-bottom';
+      if (['remove', 'forget', 'delete'].includes(subcommand)) return 'project-remove';
+      return null;
     }
 
     function runInstantSlashCommand(text, commandID) {

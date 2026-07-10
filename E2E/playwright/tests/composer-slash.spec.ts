@@ -37,6 +37,17 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await expect(page.getByTestId('project-item').first()).toContainText('Example Project');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('Example Project');
 
+  await page.getByLabel('Message').fill('/project remove');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('project-item')).toHaveCount(1);
+  await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
+  await expect(page.getByTestId('project-count')).toHaveText('1 project');
+
+  await page.getByLabel('Message').fill('/project open');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('project-item').first()).toContainText('Example Project');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('Example Project');
+
   await page.getByLabel('Message').fill('/worktree create slash-worktree --branch slash/demo --base main');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('project-item').first()).toContainText('slash-worktree');

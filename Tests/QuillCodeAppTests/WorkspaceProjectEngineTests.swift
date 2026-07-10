@@ -391,7 +391,7 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertEqual(projects[0].lastOpenedAt, renamedAt)
     }
 
-    func testRemoveProjectClearsThreadOwnershipAndSanitizesSelection() {
+    func testRemoveProjectClearsThreadOwnershipAndFallsBackToNextProjectSelection() {
         let removedProject = ProjectRef(name: "Remove", path: "/tmp/remove")
         let keptProject = ProjectRef(name: "Keep", path: "/tmp/keep")
         let affectedThread = ChatThread(title: "Affected", projectID: removedProject.id)
@@ -406,7 +406,7 @@ final class WorkspaceProjectEngineTests: XCTestCase {
             selectedProjectID: removedProject.id
         )
 
-        XCTAssertEqual(result?.selectedProjectID, nil)
+        XCTAssertEqual(result?.selectedProjectID, keptProject.id)
         XCTAssertEqual(result?.changedThreadIDs, [affectedThread.id])
         XCTAssertEqual(projects.map(\.id), [keptProject.id])
         XCTAssertNil(threads.first { $0.id == affectedThread.id }?.projectID)

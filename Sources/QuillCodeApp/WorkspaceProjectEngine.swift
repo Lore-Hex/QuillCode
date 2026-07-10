@@ -155,7 +155,11 @@ enum WorkspaceProjectEngine {
             changedThreadIDs.append(threads[threadIndex].id)
         }
 
-        let nextSelection = selectedProjectID == id ? nil : knownProjectID(selectedProjectID, projects: projects)
+        let nextSelection = if selectedProjectID == id {
+            projects.isEmpty ? nil : projects[min(index, projects.count - 1)].id
+        } else {
+            knownProjectID(selectedProjectID, projects: projects)
+        }
         return WorkspaceProjectRemovalResult(
             selectedProjectID: nextSelection,
             changedThreadIDs: changedThreadIDs
