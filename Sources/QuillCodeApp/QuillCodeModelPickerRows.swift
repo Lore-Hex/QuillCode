@@ -63,6 +63,7 @@ struct QuillCodeModelRow: View {
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .help(option.metadataDetails.joined(separator: "\n"))
+                .accessibilityLabel(option.accessibilityLabel)
                 .accessibilityHint(option.metadataDetails.joined(separator: ", "))
 
                 HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {

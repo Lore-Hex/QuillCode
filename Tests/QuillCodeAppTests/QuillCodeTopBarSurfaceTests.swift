@@ -334,6 +334,10 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(option.modelInfo.displayName, TrustedRouterDefaults.fastModelDisplayName)
         XCTAssertTrue(option.metadataDetails.contains("Default model"))
         XCTAssertTrue(option.metadataDetails.contains("Recommended by QuillCode"))
+        XCTAssertEqual(
+            option.accessibilityLabel,
+            "Nike 1.0, Provider trustedrouter, Category Recommended, State Current, Default, Recommended, Nike 1.0 is the fast default for everyday coding, shell, and file-editing turns."
+        )
 
         let state = try XCTUnwrap(option.metadataRows.first { $0.label == "State" })
         XCTAssertEqual(state.value, "Current, Default, Recommended")
@@ -360,6 +364,10 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(option.metadataRows.first { $0.label == "Model ID" }?.value, "/prometheus")
         XCTAssertEqual(option.metadataRows.first { $0.label == "State" }?.value, "Current")
         XCTAssertTrue(option.metadataDetails.contains("Current selection"))
+        XCTAssertEqual(
+            option.accessibilityLabel,
+            "Prometheus 1.0, Provider trustedrouter, Category Recommended, State Current, Prometheus 1.0 is the freedom-oriented OSS deep research model."
+        )
     }
 
     func testModelOptionBuildsCapabilityRowsFromCatalogMetadata() throws {
@@ -382,6 +390,10 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(option.metadataRows.first { $0.label == "Capabilities" }?.value, "tools, json mode")
         XCTAssertEqual(option.metadataRows.first { $0.label == "Status" }?.value, "available")
         XCTAssertTrue(option.metadataDetails.contains("Context: 128K"))
+        XCTAssertEqual(
+            option.accessibilityLabel,
+            "Vision Code, Provider acme, Category Coding, State Available, 128K context · text, image -> text · $0.25 in / $1.25 out per 1M · tools, json mode · available"
+        )
     }
 
     func testModelOptionPreservesCapabilitiesAcrossJSONRoundTrip() throws {

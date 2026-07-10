@@ -123,6 +123,19 @@ extension ModelOptionSurface {
         return unique(details)
     }
 
+    var accessibilityLabel: String {
+        let stateRow = metadataRows.first { $0.label == "State" }?.value ?? "Available"
+        return [
+            detailTitle,
+            "Provider \(provider)",
+            "Category \(category)",
+            "State \(stateRow)",
+            capabilitySummary
+        ]
+        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        .joined(separator: ", ")
+    }
+
     private static func capabilityRows(_ capabilities: ModelCapabilities) -> [ModelMetadataRowSurface] {
         var rows: [ModelMetadataRowSurface] = []
         if let status = capabilities.status {
