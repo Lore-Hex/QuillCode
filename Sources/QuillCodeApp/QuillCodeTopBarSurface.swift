@@ -235,8 +235,42 @@ public struct ModelCategorySurface: Codable, Sendable, Hashable, Identifiable {
         "\(category) · \(modelCountLabel)"
     }
 
+    public var providerCountLabel: String {
+        let count = uniqueProviders.count
+        let noun = count == 1 ? "provider" : "providers"
+        return "\(count) \(noun)"
+    }
+
+    public var providerSummaryLabel: String {
+        let providers = uniqueProviders
+        guard !providers.isEmpty else {
+            return "No providers"
+        }
+
+        let visibleProviders = providers.prefix(3)
+        let overflowCount = providers.count - visibleProviders.count
+        let visibleSummary = visibleProviders.joined(separator: ", ")
+        return overflowCount > 0 ? "\(visibleSummary) +\(overflowCount) more" : visibleSummary
+    }
+
     public var accessibilityLabel: String {
-        "\(category), \(modelCountLabel)"
+        "\(category), \(modelCountLabel), \(providerCountLabel): \(providerSummaryLabel)"
+    }
+
+    private var uniqueProviders: [String] {
+        var seen = Set<String>()
+        return models.compactMap { option in
+            let provider = option.provider.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !provider.isEmpty else {
+                return nil
+            }
+
+            let key = provider.lowercased()
+            guard seen.insert(key).inserted else {
+                return nil
+            }
+            return provider
+        }
     }
 }
 

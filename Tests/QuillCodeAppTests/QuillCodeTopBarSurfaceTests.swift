@@ -433,16 +433,25 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         ])
         let many = ModelCategorySurface(category: "Coding", models: [
             modelOption(id: "deepseek/deepseek-v4-flash", provider: "deepseek", displayName: "DeepSeek V4 Flash", category: "Coding"),
-            modelOption(id: "minimax/minimax-m3", provider: "minimax", displayName: "MiniMax M3", category: "Coding")
+            modelOption(id: "minimax/minimax-m3", provider: "minimax", displayName: "MiniMax M3", category: "Coding"),
+            modelOption(id: "MiniMax/minimax-text", provider: "MiniMax", displayName: "MiniMax Text", category: "Coding"),
+            modelOption(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Coding"),
+            modelOption(id: "z-ai/glm-5.2", provider: "z-ai", displayName: "GLM 5.2", category: "Coding")
         ])
 
         XCTAssertEqual(empty.modelCountLabel, "0 models")
         XCTAssertEqual(empty.sectionTitle, "Recommended · 0 models")
-        XCTAssertEqual(empty.accessibilityLabel, "Recommended, 0 models")
+        XCTAssertEqual(empty.providerCountLabel, "0 providers")
+        XCTAssertEqual(empty.providerSummaryLabel, "No providers")
+        XCTAssertEqual(empty.accessibilityLabel, "Recommended, 0 models, 0 providers: No providers")
         XCTAssertEqual(one.sectionTitle, "Favorites · 1 model")
-        XCTAssertEqual(one.accessibilityLabel, "Favorites, 1 model")
-        XCTAssertEqual(many.sectionTitle, "Coding · 2 models")
-        XCTAssertEqual(many.accessibilityLabel, "Coding, 2 models")
+        XCTAssertEqual(one.providerCountLabel, "1 provider")
+        XCTAssertEqual(one.providerSummaryLabel, TrustedRouterDefaults.trustedRouterProvider)
+        XCTAssertEqual(one.accessibilityLabel, "Favorites, 1 model, 1 provider: \(TrustedRouterDefaults.trustedRouterProvider)")
+        XCTAssertEqual(many.sectionTitle, "Coding · 5 models")
+        XCTAssertEqual(many.providerCountLabel, "4 providers")
+        XCTAssertEqual(many.providerSummaryLabel, "deepseek, minimax, moonshotai +1 more")
+        XCTAssertEqual(many.accessibilityLabel, "Coding, 5 models, 4 providers: deepseek, minimax, moonshotai +1 more")
     }
 
     func testAgentStatusPresentationClassifiesActionableStatusTones() {
