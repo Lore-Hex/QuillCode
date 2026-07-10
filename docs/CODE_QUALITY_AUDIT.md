@@ -15697,3 +15697,26 @@ Validation:
 - `swift test --filter WorkspaceTerminalIntegrationTests`
 - `npm test -- terminal.spec.ts` (2 tests, 0 failures)
 - `git diff --check`
+
+## 2026-07-10 Interactive Terminal Mouse Reporting Slice
+
+Overall grade after this slice: **A+ protocol architecture, A terminal interaction parity**.
+Mouse reporting is negotiated by the terminal program, encoded in `QuillCodeTools`, and delivered through
+the existing PTY session. SwiftUI owns only pointer-to-cell mapping and never reimplements escape encoding.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | DEC private-mode parsing, reporting state, event models, and protocol encoding are UI-independent value types in `QuillCodeTools`. |
+| Performance | A+ | A bounded incremental CSI parser carries partial sequences across PTY chunks, avoiding whole-transcript reparsing on each stream update. |
+| Lifecycle safety | A+ | Input requires a live PTY and an exact reporting-state match; completion, cancellation, forced stop, new runs, and project switches clear stale modes. |
+| UI behavior | A | Click, drag, and any-motion hover are native and cell-accurate. Wheel deltas remain a documented follow-up. |
+| Cross-surface parity | A+ | Native SwiftUI, static HTML, and the Playwright harness expose the same active `Mouse · <encoding>` state. |
+| Tests | A+ | Encoder/mode unit tests, reducer lifecycle tests, coordinate tests, real PTY delivery, HTML contracts, and browser pointer E2E cover the full path. |
+
+Validation:
+
+- `swift test --filter 'TerminalMouseInputTests|QuillCodeTerminalSurfaceTests|WorkspaceTerminalEngineTests|WorkspaceTerminalIntegrationTests|WorkspaceHTMLTerminalRendererTests'` (58 tests, 0 failures)
+- `npm test -- terminal.spec.ts` (3 tests, 0 failures)
+- `git diff --check`

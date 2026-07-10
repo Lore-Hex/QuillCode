@@ -1,4 +1,5 @@
 import QuillCodeApp
+import QuillCodeTools
 
 @MainActor
 extension QuillCodeDesktopController {
@@ -32,6 +33,10 @@ extension QuillCodeDesktopController {
 
     func resizeTerminal(_ windowSize: TerminalWindowSize) {
         terminalCoordinator.resizeTerminal(windowSize, model: model)
+    }
+
+    func sendTerminalMouseInput(_ request: TerminalMouseInputRequest) {
+        terminalCoordinator.sendMouseInput(request, model: model)
     }
 
     func suspendTerminal() {

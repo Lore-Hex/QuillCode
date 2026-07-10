@@ -1979,6 +1979,13 @@
     .terminal-status.running { color: var(--blue); }
     .terminal-status.stopped { color: var(--muted); }
     .terminal-status.failed { color: var(--red); }
+    .terminal-mouse-mode {
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: .02em;
+    }
+    [data-terminal-mouse-input="true"] { cursor: default; user-select: none; }
     .terminal-form { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
     .browser-tabs {
       display: flex;
@@ -9478,6 +9485,7 @@
       document.querySelector('[data-testid="terminal-clear"]')?.addEventListener('click', () => {
         runCommand('terminal-clear');
       });
+      bindTerminalMouseHandlers();
 	      document.querySelector('[data-testid="browser-back"]')?.addEventListener('click', () => {
 	        browserBack();
 	      });
@@ -11611,19 +11619,29 @@
       return state.terminal.isRunning ? 'Send' : 'Run';
     }
 
+    function terminalAcceptsMouseInput(entry) {
+      return Boolean(entry) && terminalStatus(entry) === 'running' && Boolean(entry.mouseReporting?.isEnabled);
+    }
+
+    function terminalMouseModeLabel(entry) {
+      if (!terminalAcceptsMouseInput(entry)) return '';
+      return `Mouse · ${String(entry.mouseReporting.encoding || 'x10').toUpperCase()}`;
+    }
+
     function renderTerminalPane() {
-      const entries = state.terminal.entries.length ? state.terminal.entries.map(entry => `
+      const entries = state.terminal.entries.length ? state.terminal.entries.map((entry, index) => `
         <article class="terminal-entry" data-testid="terminal-entry"${entry.executionContext ? ` data-execution-context="${escapeHTML(entry.executionContext.kind)}"` : ''}>
           <header>
             <span class="terminal-command-row">
               <code>$ ${escapeHTML(entry.command)}</code>
               ${renderExecutionContextChip(entry.executionContext, 'terminal-execution-context')}
             </span>
+            ${terminalMouseModeLabel(entry) ? `<span class="terminal-mouse-mode" data-testid="terminal-mouse-mode">${escapeHTML(terminalMouseModeLabel(entry))}</span>` : ''}
             <span class="terminal-status ${terminalStatusClass(entry)}" data-testid="terminal-status">
               ${terminalStatusLabel(entry)} · ${terminalExitLabel(entry)}
             </span>
           </header>
-          ${renderTerminalOutput(entry.stdoutRuns, entry.stdout, 'terminal-stdout')}
+          ${renderTerminalOutput(entry.stdoutRuns, entry.stdout, 'terminal-stdout', '', entry, index)}
           ${renderTerminalOutput(entry.stderrRuns, entry.stderr, 'terminal-stderr', '#F0574C')}
         </article>`).join('') : '<p data-testid="terminal-empty">Run commands in this project without leaving QuillCode.</p>';
       return `
@@ -11645,11 +11663,14 @@
         </section>`;
 	    }
 
-      function renderTerminalOutput(runs, fallback, testID, defaultColor = '') {
+      function renderTerminalOutput(runs, fallback, testID, defaultColor = '', entry = null, entryIndex = -1) {
         if (!fallback) return '';
         const source = Array.isArray(runs) && runs.length ? runs : [{ text: fallback, style: {} }];
         const contents = source.map(run => renderTerminalRun(run, defaultColor)).join('');
-        return `<pre data-testid="${testID}">${contents}</pre>`;
+        const mouseAttributes = terminalAcceptsMouseInput(entry)
+          ? ` data-terminal-mouse-input="true" data-terminal-mouse-encoding="${escapeHTML(entry.mouseReporting.encoding)}" data-terminal-entry-index="${entryIndex}" data-terminal-mouse-event-count="${entry.mouseEvents?.length || 0}" data-last-terminal-mouse-sequence="${escapeHTML(entry.lastMouseSequenceLabel || '')}"`
+          : '';
+        return `<pre data-testid="${testID}"${mouseAttributes}>${contents}</pre>`;
       }
 
       function renderTerminalRun(run, defaultColor) {
@@ -14563,11 +14584,26 @@
         exitCode: null,
         ok: false,
         status: 'running',
+        mouseReporting: null,
+        mouseEvents: [],
+        lastMouseSequenceLabel: '',
         executionContext: executionContextForCWD(cwd)
       };
       state.terminal.entries.push(entry);
       updateDynamicCommands();
       render();
+
+      if (command === 'mouse-demo') {
+        entry.stdout = 'mouse-ready\n';
+        entry.mouseReporting = {
+          trackingMode: 'buttonMotion',
+          encoding: 'sgr',
+          isEnabled: true
+        };
+        activeTerminalRun = { entry, timer: null, kind: 'mouse' };
+        render();
+        return;
+      }
 
       if (terminalWaitsForInput(command)) {
         entry.stdout += 'input? ';
@@ -14634,6 +14670,65 @@
 
       activeTerminalRun.entry.stdin = `${activeTerminalRun.entry.stdin || ''}${input}\n`;
       render();
+    }
+
+    function bindTerminalMouseHandlers() {
+      document.querySelectorAll('[data-terminal-mouse-input="true"]').forEach(output => {
+        output.addEventListener('pointerdown', event => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          output.setPointerCapture?.(event.pointerId);
+          sendTerminalMouseEvent(output, event, 'press', 'left');
+        });
+        output.addEventListener('pointermove', event => {
+          const entry = terminalEntryForMouseOutput(output);
+          if (!entry) return;
+          if ((event.buttons & 1) === 1) {
+            sendTerminalMouseEvent(output, event, 'motion', 'left');
+          } else if (entry.mouseReporting?.trackingMode === 'anyMotion') {
+            sendTerminalMouseEvent(output, event, 'motion', 'none');
+          }
+        });
+        output.addEventListener('pointerup', event => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          sendTerminalMouseEvent(output, event, 'release', 'left');
+          output.releasePointerCapture?.(event.pointerId);
+        });
+      });
+    }
+
+    function terminalEntryForMouseOutput(output) {
+      const index = Number(output.dataset.terminalEntryIndex);
+      const entry = Number.isInteger(index) ? state.terminal.entries[index] : null;
+      if (!entry || activeTerminalRun?.entry !== entry || !terminalAcceptsMouseInput(entry)) return null;
+      return entry;
+    }
+
+    function sendTerminalMouseEvent(output, event, kind, button) {
+      const entry = terminalEntryForMouseOutput(output);
+      if (!entry) return;
+      const mode = entry.mouseReporting.trackingMode;
+      if (kind === 'motion' && mode === 'button') return;
+      if (kind === 'motion' && button === 'none' && mode !== 'anyMotion') return;
+
+      const rect = output.getBoundingClientRect();
+      const column = Math.max(1, Math.min(Math.ceil(rect.width / 8.4), Math.floor((event.clientX - rect.left) / 8.4) + 1));
+      const row = Math.max(1, Math.min(Math.ceil(rect.height / 18), Math.floor((event.clientY - rect.top) / 18) + 1));
+      const positionKey = `${column}:${row}:${button}`;
+      if (kind === 'motion' && entry.lastMousePositionKey === positionKey) return;
+      entry.lastMousePositionKey = kind === 'motion' ? positionKey : null;
+
+      const baseCode = button === 'left' ? 0 : button === 'middle' ? 1 : button === 'right' ? 2 : 3;
+      const code = baseCode + (kind === 'motion' ? 32 : 0);
+      const terminator = kind === 'release' ? 'm' : 'M';
+      const sequence = `\u001b[<${code};${column};${row}${terminator}`;
+      const label = sequence.replace('\u001b', 'ESC');
+      entry.mouseEvents.push({ kind, button, column, row, sequence });
+      entry.stdin = `${entry.stdin || ''}${sequence}`;
+      entry.lastMouseSequenceLabel = label;
+      output.dataset.terminalMouseEventCount = String(entry.mouseEvents.length);
+      output.dataset.lastTerminalMouseSequence = label;
     }
 
     function setTerminalDraft(value) {

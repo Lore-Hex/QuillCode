@@ -194,6 +194,7 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
     func testStopRunningEntriesMarksRunningEntriesStopped() {
         var terminal = TerminalState(
             isRunning: true,
+            mouseReporting: TerminalMouseReporting(trackingMode: .buttonMotion, encoding: .sgr),
             entries: [
                 TerminalCommandState(command: "sleep 1", stdout: "", stderr: "", exitCode: nil, ok: false, status: .running),
                 TerminalCommandState(command: "true", stdout: "", stderr: "", exitCode: 0, ok: true, status: .done)
@@ -207,6 +208,7 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertFalse(terminal.entries[0].ok)
         XCTAssertEqual(terminal.entries[0].status, .stopped)
         XCTAssertEqual(terminal.entries[1].status, .done)
+        XCTAssertEqual(terminal.mouseReporting, .disabled)
     }
 
     func testTerminalRunLifecycleBeginsRunAndRejectsInvalidStarts() {
@@ -276,6 +278,29 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertEqual(terminal.entries[0].stderr, WorkspaceTerminalEngine.missingRemoteHostMessage)
     }
 
+    func testStreamingOutputTracksAndDisablesTerminalMouseProtocol() {
+        let entryID = UUID()
+        var terminal = TerminalState()
+        WorkspaceTerminalEngine.beginRun(command: "mouse-app", entryID: entryID, terminal: &terminal)
+
+        WorkspaceTerminalEngine.appendOutput(
+            id: entryID,
+            stdout: "\u{1B}[?1002;1006hmenu",
+            terminal: &terminal
+        )
+        XCTAssertEqual(
+            terminal.mouseReporting,
+            TerminalMouseReporting(trackingMode: .buttonMotion, encoding: .sgr)
+        )
+
+        WorkspaceTerminalEngine.appendOutput(
+            id: entryID,
+            stdout: "\u{1B}[?1002;1006l",
+            terminal: &terminal
+        )
+        XCTAssertEqual(terminal.mouseReporting, .disabled)
+    }
+
     func testTerminalRunLifecycleCompletesAndCancelsWithMarkerCleanup() throws {
         let root = try makeQuillCodeTestDirectory()
         let context = WorkspaceTerminalSessionAdapter.localExecutionContext(
@@ -289,6 +314,11 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         let completedID = UUID()
         var completed = TerminalState()
         WorkspaceTerminalEngine.beginRun(command: "pwd", entryID: completedID, terminal: &completed)
+        WorkspaceTerminalEngine.appendOutput(
+            id: completedID,
+            stdout: "\u{1B}[?1000;1006h",
+            terminal: &completed
+        )
         WorkspaceTerminalEngine.finishCompletedRun(
             id: completedID,
             executionContext: context,
@@ -301,6 +331,7 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertEqual(completed.entries[0].stdout, "out")
         XCTAssertEqual(completed.entries[0].exitCode, 0)
         XCTAssertEqual(completed.currentDirectoryPath, root.standardizedFileURL.path)
+        XCTAssertEqual(completed.mouseReporting, .disabled)
         XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(context.cwdMarkerURL).path))
 
         let cancelledID = UUID()

@@ -120,3 +120,31 @@ test('mock harness suspends and resumes a running terminal command', async ({ pa
   await expect(page.getByTestId('terminal-suspend')).toBeVisible();
   await expect(page.getByTestId('terminal-resume')).toHaveCount(0);
 });
+
+test('mock harness reports click and drag events to mouse-aware terminal apps', async ({ page }) => {
+  await page.goto(harnessURL());
+  await clickSidebarTool(page, 'terminal-button');
+
+  await page.getByLabel('Terminal command').fill('mouse-demo');
+  await page.getByTestId('terminal-run').click();
+
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
+  await expect(page.getByTestId('terminal-mouse-mode')).toHaveText('Mouse · SGR');
+  const output = page.getByTestId('terminal-stdout').last();
+  await expect(output).toHaveAttribute('data-terminal-mouse-input', 'true');
+  await expect(output).toHaveAttribute('data-terminal-mouse-encoding', 'sgr');
+
+  const box = await output.boundingBox();
+  if (!box) throw new Error('Mouse-aware terminal output has no visible bounds.');
+  await page.mouse.move(box.x + 2, box.y + 9);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 18, box.y + 9);
+  await page.mouse.up();
+
+  await expect(output).toHaveAttribute('data-terminal-mouse-event-count', '3');
+  await expect(output).toHaveAttribute('data-last-terminal-mouse-sequence', 'ESC[<0;3;1m');
+
+  await page.getByTestId('terminal-stop').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Stopped · stopped');
+  await expect(page.getByTestId('terminal-mouse-mode')).toHaveCount(0);
+});

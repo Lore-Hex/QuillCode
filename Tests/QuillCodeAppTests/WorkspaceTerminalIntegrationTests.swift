@@ -112,6 +112,51 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         )
     }
 
+    func testLocalTerminalDeliversMouseInputToPTYApplication() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let command = "printf '\\033[?1000h\\033[?1006h'; IFS= read -r event; "
+            + "printf '\\033[?1000l\\033[?1006l'; printf 'event:%s' \"$event\""
+
+        XCTAssertFalse(model.sendTerminalMouseInput(TerminalMouseInputRequest(
+            event: TerminalMouseInputEvent(
+                kind: .press,
+                button: .left,
+                position: TerminalMousePosition(column: 3, row: 2)
+            ),
+            reporting: TerminalMouseReporting(trackingMode: .button, encoding: .sgr)
+        )))
+
+        let task = Task {
+            await model.runTerminalCommand(command, workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 2) {
+            model.terminal.mouseReporting == TerminalMouseReporting(
+                trackingMode: .button,
+                encoding: .sgr
+            )
+        }
+
+        let reporting = model.terminal.mouseReporting
+        XCTAssertTrue(model.sendTerminalMouseInput(TerminalMouseInputRequest(
+            event: TerminalMouseInputEvent(
+                kind: .press,
+                button: .left,
+                position: TerminalMousePosition(column: 3, row: 2)
+            ),
+            reporting: reporting
+        )))
+        XCTAssertTrue(model.sendTerminalInput("\n"))
+        await task.value
+
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertTrue(
+            model.terminal.entries.first?.stdout.contains("event:\u{1B}[<0;3;2M") == true,
+            "Expected the PTY command to receive the encoded SGR click, got: \(model.terminal.entries.first?.stdout ?? "<nil>")"
+        )
+        XCTAssertEqual(model.terminal.mouseReporting, .disabled)
+    }
+
     func testSuspendAndResumeAreRejectedWhenNoCommandIsRunning() async throws {
         let model = QuillCodeWorkspaceModel()
         XCTAssertFalse(model.suspendTerminalCommand(), "Nothing is running to suspend.")

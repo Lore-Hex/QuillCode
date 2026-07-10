@@ -57,9 +57,16 @@ enum WorkspaceHTMLTerminalRenderer {
               <code>$ \(escape(entry.command))</code>
               \(WorkspaceHTMLPrimitives.executionContextChip(entry.executionContext, testID: "terminal-execution-context"))
             </span>
+            \(entry.mouseInputLabel.map { #"<span data-testid="terminal-mouse-mode">\#(escape($0))</span>"# } ?? "")
             <span class="terminal-status \(statusClass(entry))" data-testid="terminal-status">\(escape(entry.statusLabel)) · \(escape(entry.exitCodeLabel))</span>
           </header>
-          \(renderOutput(entry.stdoutRuns, fallback: entry.stdout, testID: "terminal-stdout", defaultColor: nil))
+          \(renderOutput(
+              entry.stdoutRuns,
+              fallback: entry.stdout,
+              testID: "terminal-stdout",
+              defaultColor: nil,
+              mouseReporting: entry.acceptsMouseInput ? entry.mouseReporting : nil
+          ))
           \(renderOutput(entry.stderrRuns, fallback: entry.stderr, testID: "terminal-stderr", defaultColor: "#F0574C"))
         </article>
         """
@@ -69,14 +76,18 @@ enum WorkspaceHTMLTerminalRenderer {
         _ runs: [TerminalTextRun]?,
         fallback: String,
         testID: String,
-        defaultColor: String?
+        defaultColor: String?,
+        mouseReporting: TerminalMouseReporting? = nil
     ) -> String {
         guard !fallback.isEmpty else { return "" }
         let source = runs ?? [TerminalTextRun(text: fallback)]
         let contents = source.map {
             renderRun($0, defaultColor: defaultColor)
         }.joined()
-        return #"<pre data-testid="\#(testID)">\#(contents)</pre>"#
+        let mouseAttributes = mouseReporting.map {
+            #" data-terminal-mouse-input="true" data-terminal-mouse-encoding="\#(escape($0.encoding.rawValue))""#
+        } ?? ""
+        return #"<pre data-testid="\#(testID)"\#(mouseAttributes)>\#(contents)</pre>"#
     }
 
     private static func renderRun(_ run: TerminalTextRun, defaultColor: String?) -> String {

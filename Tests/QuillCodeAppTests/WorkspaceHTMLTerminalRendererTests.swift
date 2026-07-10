@@ -75,4 +75,27 @@ final class WorkspaceHTMLTerminalRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(">styled</span>"))
         XCTAssertTrue(html.contains(">warning</span>"))
     }
+
+    func testHTMLRendererExposesActiveTerminalMouseMode() {
+        let model = QuillCodeWorkspaceModel(terminal: TerminalState(
+            isVisible: true,
+            isRunning: true,
+            entries: [
+                TerminalCommandState(
+                    command: "mouse-app",
+                    stdout: "\u{1B}[?1002;1006hmenu",
+                    stderr: "",
+                    exitCode: nil,
+                    ok: false,
+                    status: .running
+                )
+            ]
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="terminal-mouse-mode">Mouse · SGR"#))
+        XCTAssertTrue(html.contains(#"data-terminal-mouse-input="true""#))
+        XCTAssertTrue(html.contains(#"data-terminal-mouse-encoding="sgr""#))
+    }
 }

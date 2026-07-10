@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeTools
 
 struct QuillCodeWorkspaceMainPaneView: View {
     var surface: WorkspaceSurface
@@ -20,6 +21,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onTerminalHistoryPrevious: () -> Void
     var onTerminalHistoryNext: () -> Void
     var onTerminalResize: (TerminalWindowSize) -> Void = { _ in }
+    var onTerminalMouseInput: (TerminalMouseInputRequest) -> Void = { _ in }
     var onTerminalSuspend: () -> Void = {}
     var onTerminalResume: () -> Void = {}
     var onOpenBrowserPreview: () -> Void
@@ -124,7 +126,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onClear: { runCommand(id: "terminal-clear") },
                         onHistoryPrevious: onTerminalHistoryPrevious,
                         onHistoryNext: onTerminalHistoryNext,
-                        onResize: onTerminalResize
+                        onResize: onTerminalResize,
+                        onMouseInput: onTerminalMouseInput
                     )
                 }
                 Divider()

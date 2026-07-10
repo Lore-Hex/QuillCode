@@ -44,6 +44,7 @@ enum WorkspaceTerminalEngine {
         terminal.historyDraft = nil
         terminal.isVisible = true
         terminal.isRunning = true
+        terminal.resetMouseReporting()
         terminal.entries.append(TerminalCommandState(
             id: entryID,
             command: command,
@@ -71,6 +72,7 @@ enum WorkspaceTerminalEngine {
             terminal: &terminal
         )
         terminal.isRunning = false
+        terminal.resetMouseReporting()
     }
 
     @discardableResult
@@ -101,6 +103,7 @@ enum WorkspaceTerminalEngine {
     ) {
         WorkspaceTerminalSessionAdapter.removeMarkers(executionContext.markerURLs)
         terminal.isRunning = false
+        terminal.resetMouseReporting()
     }
 
     static func finishCancelledRun(
@@ -119,6 +122,7 @@ enum WorkspaceTerminalEngine {
             terminal: &terminal
         )
         terminal.isRunning = false
+        terminal.resetMouseReporting()
     }
 
     static func finishCompletedRun(
@@ -146,6 +150,7 @@ enum WorkspaceTerminalEngine {
             terminal: &terminal
         )
         terminal.isRunning = false
+        terminal.resetMouseReporting()
     }
 
     static func currentDirectoryURL(
@@ -174,6 +179,7 @@ enum WorkspaceTerminalEngine {
         terminal.currentDirectoryPath = selectedProjectDisplayPath
         terminal.environmentOverrides = [:]
         terminal.removedEnvironmentKeys = []
+        terminal.resetMouseReporting()
         terminal.historyCursor = nil
         terminal.historyDraft = nil
     }
@@ -190,6 +196,9 @@ enum WorkspaceTerminalEngine {
         }
         terminal.entries[index].stdout += stdout
         terminal.entries[index].stderr += stderr
+        if !stdout.isEmpty {
+            terminal.consumeMouseReporting(from: stdout)
+        }
     }
 
     static func updateExecutionContext(
@@ -230,6 +239,7 @@ enum WorkspaceTerminalEngine {
             terminal.entries[index].ok = false
             terminal.entries[index].status = .stopped
         }
+        terminal.resetMouseReporting()
     }
 
     static func executionContext(
