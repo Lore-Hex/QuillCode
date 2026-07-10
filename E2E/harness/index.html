@@ -4461,7 +4461,8 @@
         selectedCommandID: null
       },
       shortcuts: {
-        isOpen: false
+        isOpen: false,
+        query: ''
       },
       worktreeDialog: {
         mode: null,
@@ -9252,6 +9253,19 @@
         state.shortcuts.isOpen = false;
         render();
       });
+      document.querySelector('[data-testid="keyboard-shortcuts-input"]')?.addEventListener('input', event => {
+        state.shortcuts.query = event.target.value;
+        render();
+        const input = document.querySelector('[data-testid="keyboard-shortcuts-input"]');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+      document.querySelector('[data-testid="keyboard-shortcuts-input"]')?.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        state.shortcuts.isOpen = false;
+        render();
+      });
       document.querySelector('[data-testid="search-input"]')?.addEventListener('input', event => {
         state.search.query = event.target.value;
         ensureSearchHighlight(state.search.highlightedThreadID);
@@ -10956,7 +10970,25 @@
     }
 
     function renderKeyboardShortcutsPanel() {
-      const shortcutCommands = state.commands.filter(command => command.shortcut);
+      const query = normalizeCommandText(state.shortcuts.query || '');
+      const compactQuery = query.replace(/\s+|\+/g, '');
+      const shortcutCommands = state.commands.filter(command => {
+        if (!command.shortcut) return false;
+        if (!query) return true;
+        const fields = [
+          command.title,
+          command.id.replace(/-/g, ' '),
+          command.category,
+          command.shortcut,
+          ...(command.keywords || [])
+        ].map(value => normalizeCommandText(value || ''));
+        const shortcutText = normalizeCommandText(command.shortcut)
+          .replace('←', ' left arrowleft')
+          .replace('→', ' right arrowright')
+          .replace(/\s+|\+/g, '');
+        return fields.some(field => field.includes(query))
+          || (compactQuery && shortcutText.includes(compactQuery));
+      });
       const groups = new Map();
       for (const command of shortcutCommands) {
         if (!groups.has(command.category)) groups.set(command.category, []);
@@ -10979,8 +11011,11 @@
               </div>
               <button class="hit-target-text" type="button" data-testid="keyboard-shortcuts-close">Close</button>
             </header>
+            <div class="command-palette-input-row">
+              <input class="hit-target-text-entry" data-testid="keyboard-shortcuts-input" aria-label="Search shortcuts" placeholder="Search shortcuts" value="${escapeHTML(state.shortcuts.query)}" autofocus>
+            </div>
             <div class="search-results" data-testid="keyboard-shortcuts-list">
-              ${sortedCategories.map(category => `
+              ${sortedCategories.length ? sortedCategories.map(category => `
                 <div class="command-group" data-testid="keyboard-shortcuts-group">
                   <div class="command-group-title">${escapeHTML(category)}</div>
                   ${groups.get(category).map(command => `
@@ -10988,10 +11023,21 @@
                       <span>${escapeHTML(command.title)}</span>
                       <kbd>${escapeHTML(command.shortcut)}</kbd>
                     </article>`).join('')}
-                </div>`).join('')}
+                </div>`).join('') : '<p data-testid="keyboard-shortcuts-empty">No matching shortcuts</p>'}
             </div>
           </section>
         </div>`;
+    }
+
+    function focusKeyboardShortcutsInput() {
+      setTimeout(() => document.querySelector('[data-testid="keyboard-shortcuts-input"]')?.focus(), 0);
+    }
+
+    function openKeyboardShortcutsPanel() {
+      state.shortcuts.isOpen = true;
+      state.shortcuts.query = '';
+      render();
+      focusKeyboardShortcutsInput();
     }
 
     function terminalStatus(entry) {
@@ -14201,7 +14247,8 @@
         state.topBar.computerUseLabel = state.settings.computerUseStatus.message;
       }
       if (commandID === 'keyboard-shortcuts') {
-        state.shortcuts.isOpen = true;
+        openKeyboardShortcutsPanel();
+        return;
       }
       render();
     }
@@ -16616,8 +16663,7 @@
         return;
       } else if (/^\/(shortcuts|keyboard-shortcuts|keys)\b/i.test(text)) {
         state.composer.isSending = false;
-        state.shortcuts.isOpen = true;
-        render();
+        openKeyboardShortcutsPanel();
         return;
       } else if (/^\/(commands|command-palette|palette)\b/i.test(text)) {
         state.composer.isSending = false;

@@ -5,12 +5,15 @@ struct QuillCodeKeyboardShortcutsView: View {
     var commands: [WorkspaceCommandSurface]
     var onClose: () -> Void
 
+    @State private var query = ""
+    @FocusState private var isSearchFocused: Bool
+
     private var shortcutCommands: [WorkspaceCommandSurface] {
         commands.filter { $0.shortcut?.isEmpty == false }
     }
 
     private var groups: [WorkspaceCommandGroupSurface] {
-        WorkspaceCommandPalette.groupedCommands(shortcutCommands, matching: "")
+        WorkspaceCommandPalette.groupedCommands(shortcutCommands, matching: query)
     }
 
     var body: some View {
@@ -22,13 +25,27 @@ struct QuillCodeKeyboardShortcutsView: View {
                 onClose: onClose
             )
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    ForEach(groups) { group in
-                        VStack(alignment: .leading, spacing: 6) {
-                            QuillCodeDialogSectionTitle(group.title)
-                            ForEach(group.commands) { command in
-                                QuillCodeShortcutRow(command: command)
+            TextField("Search shortcuts", text: $query)
+                .textFieldStyle(.roundedBorder)
+                .focused($isSearchFocused)
+                .accessibilityIdentifier("quillcode-shortcuts-search-input")
+                .quillCodeTextEntryTarget()
+
+            if groups.isEmpty {
+                QuillCodeDialogEmptyState(
+                    systemImage: "keyboard",
+                    title: "No matching shortcuts",
+                    subtitle: "Try an action name, shortcut, or category."
+                )
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(groups) { group in
+                            VStack(alignment: .leading, spacing: 6) {
+                                QuillCodeDialogSectionTitle(group.title)
+                                ForEach(group.commands) { command in
+                                    QuillCodeShortcutRow(command: command)
+                                }
                             }
                         }
                     }
@@ -38,6 +55,25 @@ struct QuillCodeKeyboardShortcutsView: View {
         .padding(20)
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
+        .onAppear {
+            focusSearchField()
+        }
+        .onKeyPress(.escape) {
+            onClose()
+            return .handled
+        }
+        .onDisappear {
+            isSearchFocused = false
+        }
+    }
+
+    private func focusSearchField() {
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            isSearchFocused = true
+        }
     }
 }
 
