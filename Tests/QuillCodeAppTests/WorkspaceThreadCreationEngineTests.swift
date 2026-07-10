@@ -50,7 +50,8 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
                 .init(role: .user, content: "latest question"),
                 .init(role: .tool, content: #"{"hidden":true}"#),
                 .init(role: .assistant, content: "latest answer")
-            ]
+            ],
+            goal: ThreadGoal(objective: "Resolve the issue")
         )
 
         let fork = WorkspaceThreadCreationEngine.forkThread(from: source, projectID: projectID)
@@ -63,6 +64,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
         XCTAssertFalse(fork.messages.contains { $0.role == .tool })
         XCTAssertEqual(fork.events.first?.summary, "Forked from Investigate issue")
         XCTAssertEqual(fork.events.first?.payloadJSON, source.id.uuidString)
+        XCTAssertEqual(fork.goal, source.goal)
     }
 
     func testForkThreadCanSeedSummarizedContext() {
@@ -129,6 +131,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
                 .init(role: .user, content: "latest task"),
                 .init(role: .assistant, content: "latest answer")
             ],
+            goal: ThreadGoal(objective: "Finish the large task"),
             instructions: [
                 ProjectInstruction(path: "AGENTS.md", title: "AGENTS", content: "Rules", byteCount: 5)
             ]
@@ -141,6 +144,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
         XCTAssertEqual(compacted.mode, .review)
         XCTAssertEqual(compacted.model, "z-ai/glm-5.2")
         XCTAssertEqual(compacted.instructions, source.instructions)
+        XCTAssertEqual(compacted.goal, source.goal)
         XCTAssertTrue(compacted.messages.first?.content.contains("Context compacted from \"Large thread\"") == true)
         XCTAssertEqual(Array(compacted.messages.map(\.content).suffix(2)), ["latest task", "latest answer"])
         XCTAssertEqual(compacted.events.first?.summary, "Compacted context from Large thread")
@@ -159,7 +163,8 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
             ],
             events: [
                 .init(kind: .notice, summary: "Original event")
-            ]
+            ],
+            goal: ThreadGoal(objective: "Implement the feature")
         )
         source.isPinned = true
         source.isArchived = true
@@ -172,6 +177,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
         XCTAssertEqual(duplicate.mode, .review)
         XCTAssertEqual(duplicate.model, "provider/model")
         XCTAssertEqual(duplicate.messages, source.messages)
+        XCTAssertEqual(duplicate.goal, source.goal)
         XCTAssertFalse(duplicate.isPinned)
         XCTAssertFalse(duplicate.isArchived)
         XCTAssertEqual(duplicate.events.last?.summary, "Duplicated from Implement feature")

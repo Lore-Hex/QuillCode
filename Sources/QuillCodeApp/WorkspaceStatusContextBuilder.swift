@@ -12,6 +12,7 @@ enum WorkspaceStatusContextBuilder {
             threadTitle: selectedThread?.title ?? "No chat",
             instructions: selectedProject?.instructions ?? selectedThread?.instructions ?? [],
             memories: selectedThread?.memories ?? fallbackThreadContext.memories,
+            goal: selectedThread?.goal,
             mode: root.topBar.mode,
             model: root.topBar.model,
             agentStatus: root.topBar.agentStatus

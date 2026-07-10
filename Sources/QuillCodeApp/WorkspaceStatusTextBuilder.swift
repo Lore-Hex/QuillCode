@@ -5,6 +5,7 @@ struct WorkspaceStatusContext: Sendable, Hashable {
     var threadTitle: String
     var instructions: [ProjectInstruction]
     var memories: [MemoryNote]
+    var goal: ThreadGoal?
     var mode: AgentMode
     var model: String
     var agentStatus: String
@@ -14,6 +15,7 @@ struct WorkspaceStatusContext: Sendable, Hashable {
         threadTitle: String,
         instructions: [ProjectInstruction] = [],
         memories: [MemoryNote] = [],
+        goal: ThreadGoal? = nil,
         mode: AgentMode,
         model: String,
         agentStatus: String
@@ -22,6 +24,7 @@ struct WorkspaceStatusContext: Sendable, Hashable {
         self.threadTitle = threadTitle
         self.instructions = instructions
         self.memories = memories
+        self.goal = goal
         self.mode = mode
         self.model = model
         self.agentStatus = agentStatus
@@ -35,6 +38,7 @@ struct WorkspaceStatusTextBuilder {
         Thread: \(context.threadTitle)
         Instructions: \(instructionLabel(for: context.instructions))
         Memories: \(memoryLabel(for: context.memories))
+        Goal: \(goalLabel(for: context.goal))
         Mode: \(modeLabel(context.mode))
         Model: \(statusModelLabel(context.model))
         Agent: \(context.agentStatus)
@@ -96,5 +100,16 @@ struct WorkspaceStatusTextBuilder {
         guard !memories.isEmpty else { return "No memories" }
         let truncated = memories.contains { $0.wasTruncated } ? ", truncated" : ""
         return "\(memories.count) memor\(memories.count == 1 ? "y" : "ies")\(truncated)"
+    }
+
+    static func goalLabel(for goal: ThreadGoal?) -> String {
+        guard let goal else { return "No durable goal" }
+        let status: String
+        switch goal.status {
+        case .active: status = "Active"
+        case .blocked: status = "Blocked"
+        case .completed: status = "Completed"
+        }
+        return "\(status) - \(goal.objective)"
     }
 }

@@ -12,6 +12,13 @@ extension SlashCommandCatalog {
             "Summarize the active project, mode, model, and loaded context."
         ),
         slashDefinition(
+            "/goal objective",
+            "Follow a goal",
+            "Attach a durable objective to this chat; use status, complete, block, resume, or clear to manage it.",
+            insert: "/goal ",
+            aliases: ["goal status", "goal complete", "goal block", "goal resume", "goal clear"]
+        ),
+        slashDefinition(
             "/new",
             "New chat",
             "Start a fresh thread in the selected project.",

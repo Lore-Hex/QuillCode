@@ -21,6 +21,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var agentStatus: String
     /// Compact summary of currently queued/running/review-gated work for the selected thread.
     public var liveWork: TopBarLiveWorkSurface?
+    /// Compact durable-goal status for the selected thread. The full objective stays in detail text
+    /// so the one-line top bar remains quiet even for long goals.
+    public var goal: TopBarGoalSurface?
     public var runtimeIssueLabel: String?
     public var runtimeIssueSeverity: RuntimeIssueSeverity?
     public var computerUseLabel: String
@@ -68,6 +71,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         modeLabel: String,
         agentStatus: String,
         liveWork: TopBarLiveWorkSurface? = nil,
+        goal: TopBarGoalSurface? = nil,
         runtimeIssueLabel: String? = nil,
         runtimeIssueSeverity: RuntimeIssueSeverity? = nil,
         computerUseLabel: String,
@@ -101,6 +105,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.modeLabel = modeLabel
         self.agentStatus = agentStatus
         self.liveWork = liveWork
+        self.goal = goal
         self.runtimeIssueLabel = runtimeIssueLabel
         self.runtimeIssueSeverity = runtimeIssueSeverity
         self.computerUseLabel = computerUseLabel
@@ -123,6 +128,24 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
 
     public func filteredModelScopeSummary(matching query: String) -> String? {
         ModelCategorySearchFilter.scopeSummary(for: filteredModelCategories(matching: query))
+    }
+}
+
+public enum TopBarGoalTone: String, Codable, Sendable, Hashable {
+    case active
+    case blocked
+    case completed
+}
+
+public struct TopBarGoalSurface: Codable, Sendable, Hashable {
+    public var label: String
+    public var detail: String
+    public var tone: TopBarGoalTone
+
+    public init(label: String, detail: String, tone: TopBarGoalTone) {
+        self.label = label
+        self.detail = detail
+        self.tone = tone
     }
 }
 

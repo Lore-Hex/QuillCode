@@ -10,6 +10,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var model: String
     public var messages: [ChatMessage]
     public var events: [ThreadEvent]
+    /// A durable objective for long-running work in this chat. It is kept outside transcript text so
+    /// the goal survives compaction and remains explicit model context until completed or cleared.
+    public var goal: ThreadGoal?
     public var isPinned: Bool
     public var isArchived: Bool
     public var createdAt: Date
@@ -38,6 +41,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         model: String = TrustedRouterDefaults.defaultModel,
         messages: [ChatMessage] = [],
         events: [ThreadEvent] = [],
+        goal: ThreadGoal? = nil,
         isPinned: Bool = false,
         isArchived: Bool = false,
         createdAt: Date = Date(),
@@ -59,6 +63,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.model = TrustedRouterDefaults.normalizedDefaultModelID(model)
         self.messages = messages
         self.events = events
+        self.goal = goal
         self.isPinned = isPinned
         self.isArchived = isArchived
         self.createdAt = createdAt
@@ -80,6 +85,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case model
         case messages
         case events
+        case goal
         case isPinned
         case isArchived
         case createdAt
@@ -102,6 +108,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.model = TrustedRouterDefaults.normalizedDefaultModelID(try container.decode(String.self, forKey: .model))
         self.messages = try container.decode([ChatMessage].self, forKey: .messages)
         self.events = try container.decode([ThreadEvent].self, forKey: .events)
+        self.goal = try container.decodeIfPresent(ThreadGoal.self, forKey: .goal)
         self.isPinned = try container.decode(Bool.self, forKey: .isPinned)
         self.isArchived = try container.decode(Bool.self, forKey: .isArchived)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
@@ -127,6 +134,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(model, forKey: .model)
         try container.encode(messages, forKey: .messages)
         try container.encode(events, forKey: .events)
+        try container.encodeIfPresent(goal, forKey: .goal)
         try container.encode(isPinned, forKey: .isPinned)
         try container.encode(isArchived, forKey: .isArchived)
         try container.encode(createdAt, forKey: .createdAt)

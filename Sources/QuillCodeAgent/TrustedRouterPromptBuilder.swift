@@ -43,6 +43,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         ]
 
         appendModeGuidance(from: thread, to: &messages)
+        appendGoal(from: thread, to: &messages)
         appendProjectInstructions(from: thread, to: &messages)
         appendMemories(from: thread, to: &messages)
         appendRecentHistory(from: thread, to: &messages)
@@ -184,6 +185,23 @@ public struct TrustedRouterPromptBuilder: Sendable {
         """
     }
 
+    public static func goalPrompt(_ goal: ThreadGoal) -> String {
+        var lines = [
+            "You are pursuing this durable thread goal:",
+            "Objective: \(goal.objective)",
+            "Status: \(goal.status.rawValue)"
+        ]
+        if let blocker = goal.blocker {
+            lines.append("Blocker: \(blocker)")
+        }
+        lines.append(
+            "Keep making concrete progress toward the objective across turns. Do not redefine the goal " +
+                "around partial work, and do not claim completion until the current evidence proves the " +
+                "objective is fully achieved."
+        )
+        return lines.joined(separator: "\n")
+    }
+
     private func appendProjectInstructions(from thread: ChatThread, to messages: inout [[String: Any]]) {
         guard !thread.instructions.isEmpty else { return }
         messages.append(Self.chatMessage(
@@ -198,6 +216,11 @@ public struct TrustedRouterPromptBuilder: Sendable {
             role: "system",
             content: Self.memoryPrompt(thread.memories)
         ))
+    }
+
+    private func appendGoal(from thread: ChatThread, to messages: inout [[String: Any]]) {
+        guard let goal = thread.goal, goal.status != .completed else { return }
+        messages.append(Self.chatMessage(role: "system", content: Self.goalPrompt(goal)))
     }
 
     private func appendModeGuidance(from thread: ChatThread, to messages: inout [[String: Any]]) {

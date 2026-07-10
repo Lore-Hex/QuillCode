@@ -40,6 +40,23 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertEqual(try store.load(thread.id).composerDraft, "half-written prompt")
     }
 
+    func testGoalPersistsWithThreadAcrossReload() throws {
+        let store = JSONThreadStore(directory: try makeTempDirectory())
+        var thread = ChatThread(title: "Goal")
+        thread.goal = try XCTUnwrap(ThreadGoal(
+            objective: "Ship the release",
+            status: .blocked,
+            blocker: "Waiting for CI"
+        ))
+
+        try store.save(thread)
+
+        let persistedGoal = try XCTUnwrap(store.load(thread.id).goal)
+        XCTAssertEqual(persistedGoal.objective, thread.goal?.objective)
+        XCTAssertEqual(persistedGoal.status, thread.goal?.status)
+        XCTAssertEqual(persistedGoal.blocker, thread.goal?.blocker)
+    }
+
     func testBlankComposerDraftDecodesAsNil() throws {
         let json = """
         {
@@ -139,5 +156,6 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         decoder.dateDecodingStrategy = .iso8601
         let thread = try decoder.decode(ChatThread.self, from: Data(json.utf8))
         XCTAssertEqual(thread.followUpQueue, [])
+        XCTAssertNil(thread.goal)
     }
 }

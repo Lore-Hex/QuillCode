@@ -62,6 +62,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             modeLabel: WorkspaceStatusTextBuilder.modeLabel(topBarState.mode),
             agentStatus: topBarState.agentStatus,
             liveWork: WorkspaceTopBarLiveWorkBuilder(thread: thread).surface(),
+            goal: thread?.goal.map(Self.goalSurface),
             runtimeIssueLabel: runtimeIssue?.title,
             runtimeIssueSeverity: runtimeIssue?.severity,
             computerUseLabel: topBarState.computerUseStatus.message,
@@ -86,6 +87,27 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
         var label: String
         var detail: String
         var isWarning: Bool
+    }
+
+    private static func goalSurface(_ goal: ThreadGoal) -> TopBarGoalSurface {
+        let label: String
+        let tone: TopBarGoalTone
+        switch goal.status {
+        case .active:
+            label = "Goal"
+            tone = .active
+        case .blocked:
+            label = "Goal blocked"
+            tone = .blocked
+        case .completed:
+            label = "Goal complete"
+            tone = .completed
+        }
+        var detail = "Goal: \(goal.objective). Status: \(goal.status.rawValue)."
+        if let blocker = goal.blocker {
+            detail += " Blocker: \(blocker)."
+        }
+        return TopBarGoalSurface(label: label, detail: detail, tone: tone)
     }
 
     private static func worktreeStatus(for thread: ChatThread) -> WorktreeStatus? {

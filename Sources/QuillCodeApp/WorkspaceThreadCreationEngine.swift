@@ -57,6 +57,7 @@ struct WorkspaceThreadCreationEngine {
                     payloadJSON: source.id.uuidString
                 )
             ],
+            goal: source.goal,
             instructions: source.instructions,
             memories: source.memories
         )
@@ -83,6 +84,7 @@ struct WorkspaceThreadCreationEngine {
                     payloadJSON: source.id.uuidString
                 )
             ],
+            goal: source.goal,
             instructions: source.instructions,
             memories: source.memories
         )
@@ -96,6 +98,7 @@ struct WorkspaceThreadCreationEngine {
             model: source.model,
             messages: source.messages,
             events: source.events,
+            goal: source.goal,
             isPinned: false,
             isArchived: false,
             instructions: source.instructions,

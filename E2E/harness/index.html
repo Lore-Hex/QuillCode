@@ -255,6 +255,7 @@
       gap: 2px;
     }
     .topbar-branch-chip,
+    .topbar-goal-chip,
     .topbar-worktree-chip,
     .topbar-usage-chip,
     .topbar-spend-chip {
@@ -267,6 +268,18 @@
       border-radius: 7px;
       padding: 2px 7px;
       white-space: nowrap;
+    }
+    .topbar-goal-chip[data-tone="active"] {
+      color: var(--blue);
+      background: rgba(84, 179, 255, 0.10);
+    }
+    .topbar-goal-chip[data-tone="blocked"] {
+      color: var(--yellow);
+      background: rgba(255, 190, 92, 0.12);
+    }
+    .topbar-goal-chip[data-tone="completed"] {
+      color: var(--green);
+      background: rgba(66, 214, 119, 0.10);
     }
     .topbar-spend-chip {
       color: var(--green);
@@ -4042,6 +4055,7 @@
       topBar: {
         primaryTitle: 'QuillCode',
         subtitle: 'QuillCode - Not started',
+        goal: null,
         branchStatusLabel: null,
         usageStatusLabel: null,
         tokenBudget: null,
@@ -5030,6 +5044,7 @@
     const slashCommandDefinitions = [
       { usage: '/help', title: 'Show slash commands', detail: 'List the available composer commands.', insertText: '/help', aliases: ['?'] },
       { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
+      { usage: '/goal objective', title: 'Follow a goal', detail: 'Attach a durable objective to this chat; use status, complete, block, resume, or clear to manage it.', insertText: '/goal ', aliases: ['goal status', 'goal complete', 'goal block', 'goal resume', 'goal clear'] },
       { usage: '/new', title: 'New chat', detail: 'Start a fresh thread in the selected project.', insertText: '/new', aliases: ['new-chat', 'newchat'] },
       { usage: '/clear', title: 'Clear chat', detail: 'Reset this thread transcript and queued follow-ups without deleting the chat.', insertText: '/clear', aliases: ['clear-chat', 'reset-chat'] },
       { usage: '/undo', title: 'Undo latest edit', detail: 'Reverse the latest revertable file edits from the current thread.', insertText: '/undo', aliases: ['revert', 'revert-latest', 'undo-edit'] },
@@ -8429,6 +8444,7 @@
                 <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
               </div>
               ${state.topBar.branchStatusLabel ? `<span class="topbar-branch-chip" data-testid="top-bar-branch" title="${escapeHTML(state.topBar.branchStatusLabel)}">${escapeHTML(state.topBar.branchStatusLabel)}</span>` : ''}
+              ${state.topBar.goal ? `<span class="topbar-goal-chip" data-testid="top-bar-goal" data-tone="${escapeHTML(state.topBar.goal.tone)}" title="${escapeHTML(state.topBar.goal.detail)}">${escapeHTML(state.topBar.goal.label)}</span>` : ''}
               ${state.topBar.worktreeStatusLabel ? `<span class="topbar-worktree-chip" data-testid="top-bar-worktree" data-tone="${state.topBar.worktreeStatusIsWarning ? 'warning' : 'normal'}" title="${escapeHTML(state.topBar.worktreeStatusDetail || state.topBar.worktreeStatusLabel)}">${escapeHTML(state.topBar.worktreeStatusLabel)}</span>` : ''}
               ${renderTopBarTokenBudget()}
               ${state.topBar.spendStatusLabel ? `<span class="topbar-spend-chip" data-testid="top-bar-spend" title="${escapeHTML(state.topBar.spendStatusDetail || state.topBar.spendStatusLabel)}">${escapeHTML(state.topBar.spendStatusLabel)}</span>` : ''}
@@ -9721,10 +9737,115 @@
         `Thread: ${selectedThread?.title || state.topBar.primaryTitle || 'New chat'}`,
         `Instructions: ${state.topBar.instructionLabel}`,
         `Memories: ${state.topBar.memoryLabel}`,
+        `Goal: ${threadGoalStatusLabel(selectedThread?.goal)}`,
         `Mode: ${state.topBar.modeLabel}`,
         `Model: ${statusModelLabel(state.topBar.selectedModelID)}`,
         `Agent: ${state.topBar.agentStatus}`
       ].join('\n');
+    }
+
+    function threadGoalStatusLabel(goal) {
+      if (!goal) return 'No durable goal';
+      const status = goal.status === 'blocked'
+        ? 'Blocked'
+        : goal.status === 'completed' ? 'Completed' : 'Active';
+      return `${status} - ${goal.objective}`;
+    }
+
+    function threadGoalSurface(goal) {
+      if (!goal) return null;
+      const label = goal.status === 'blocked'
+        ? 'Goal blocked'
+        : goal.status === 'completed' ? 'Goal complete' : 'Goal';
+      const blocker = goal.blocker ? ` Blocker: ${goal.blocker}.` : '';
+      return {
+        label,
+        tone: goal.status,
+        detail: `Goal: ${goal.objective}. Status: ${goal.status}.${blocker}`
+      };
+    }
+
+    function setSelectedThreadGoal(goal) {
+      ensureThread(state.topBar.primaryTitle === 'QuillCode' ? 'Goal' : state.topBar.primaryTitle);
+      state.sidebar.items = state.sidebar.items.map(item => (
+        item.id === state.sidebar.selectedThreadID ? { ...item, goal } : item
+      ));
+      state.topBar.goal = threadGoalSurface(goal);
+      touchSelectedThread();
+    }
+
+    function runGoalCommand(text) {
+      const usage = 'Try /goal objective, /goal status, /goal complete, /goal block reason, /goal resume, or /goal clear.';
+      const argument = text.replace(/^\/goal\b/i, '').trim();
+      const selected = selectedThread();
+      const current = selected?.goal || null;
+      const [rawAction = '', ...rest] = argument.split(/\s+/);
+      const action = rawAction.toLowerCase();
+      const remainder = rest.join(' ').trim();
+
+      if (!argument || ['status', 'show'].includes(action)) {
+        addMessage('assistant', current
+          ? `Goal: ${current.objective}\nStatus: ${current.status === 'blocked' ? 'Blocked' : current.status === 'completed' ? 'Completed' : 'Active'}${current.blocker ? `\nBlocker: ${current.blocker}` : ''}`
+          : 'No durable goal is attached to this chat. Start one with `/goal objective`.');
+        return;
+      }
+      if (['set', 'start', 'new'].includes(action) && !remainder) {
+        addMessage('assistant', usage);
+        return;
+      }
+      if (['block', 'blocked', 'pause'].includes(action) && !remainder) {
+        addMessage('assistant', usage);
+        return;
+      }
+      if (['complete', 'completed', 'done', 'finish', 'resume', 'continue', 'unblock', 'clear', 'remove', 'delete'].includes(action) && remainder) {
+        addMessage('assistant', usage);
+        return;
+      }
+
+      if (['complete', 'completed', 'done', 'finish'].includes(action)) {
+        if (!current) {
+          addMessage('assistant', 'No durable goal is attached to this chat. Start one with `/goal objective`.');
+          return;
+        }
+        const goal = { ...current, status: 'completed', blocker: null };
+        setSelectedThreadGoal(goal);
+        addMessage('assistant', `Goal completed: ${goal.objective}`);
+        return;
+      }
+      if (['block', 'blocked', 'pause'].includes(action)) {
+        if (!current) {
+          addMessage('assistant', 'No durable goal is attached to this chat. Start one with `/goal objective`.');
+          return;
+        }
+        const goal = { ...current, status: 'blocked', blocker: remainder };
+        setSelectedThreadGoal(goal);
+        addMessage('assistant', `Goal blocked: ${goal.objective}\nBlocker: ${goal.blocker}`);
+        return;
+      }
+      if (['resume', 'continue', 'unblock'].includes(action)) {
+        if (!current) {
+          addMessage('assistant', 'No durable goal is attached to this chat. Start one with `/goal objective`.');
+          return;
+        }
+        const goal = { ...current, status: 'active', blocker: null };
+        setSelectedThreadGoal(goal);
+        addMessage('assistant', `Goal resumed: ${goal.objective}`);
+        return;
+      }
+      if (['clear', 'remove', 'delete'].includes(action)) {
+        if (!current) {
+          addMessage('assistant', 'No durable goal is attached to this chat. Start one with `/goal objective`.');
+          return;
+        }
+        setSelectedThreadGoal(null);
+        addMessage('assistant', "Cleared this chat's durable goal.");
+        return;
+      }
+
+      const objective = ['set', 'start', 'new'].includes(action) ? remainder : argument;
+      const goal = { objective, status: 'active', blocker: null };
+      setSelectedThreadGoal(goal);
+      addMessage('assistant', `Goal started: ${goal.objective}`);
     }
 
     function modelBadgeClass(badge) {
@@ -12135,6 +12256,7 @@
       state.composer.isSending = false;
       state.composer.followUpQueue = [];
       state.topBar.primaryTitle = 'QuillCode';
+      state.topBar.goal = null;
       // The usage chip is per-thread; a fresh thread has no usage until its first turn.
       state.topBar.usageStatusLabel = null;
       state.topBar.tokenBudget = null;
@@ -16035,6 +16157,7 @@
 
     function restoreSelectedThreadSnapshot(threadID) {
       const selected = state.sidebar.items.find(item => item.id === threadID);
+      state.topBar.goal = threadGoalSurface(selected?.goal || null);
       if (!selected?.snapshot) {
         emptyTranscriptSurface();
         return;
@@ -16614,6 +16737,10 @@
         state.composer.isSending = false;
         state.topBar.agentStatus = 'Idle';
         addMessage('assistant', workspaceStatusText());
+      } else if (/^\/goal\b/i.test(text)) {
+        state.composer.isSending = false;
+        state.topBar.agentStatus = 'Idle';
+        runGoalCommand(text);
       } else if (/^\/(new-worktree|worktree-chat|worktree-thread)\b/i.test(text)) {
         // Must precede the /new branch: /new-worktree also matches /^\/(new)\b/. Mock stand-in for
         // the native new-worktree thread type — routes through the same command the palette runs,

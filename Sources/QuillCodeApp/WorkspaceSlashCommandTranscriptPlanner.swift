@@ -24,6 +24,10 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func goal(userText: String, assistantText: String) -> WorkspaceLocalCommandTranscript {
+        transcript(userText: userText, assistantText: assistantText, title: "Goal")
+    }
+
     static func mode(userText: String, mode: AgentMode) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,

@@ -115,6 +115,22 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    func runGoalSlashCommand(_ request: WorkspaceThreadGoalRequest, originalPrompt: String) {
+        if selectedThread == nil {
+            _ = newChat()
+        }
+        let outcome = WorkspaceThreadGoalEngine.apply(request, to: selectedThread?.goal)
+        if case .replace(let goal) = outcome.mutation {
+            mutateSelectedThread { thread in
+                thread.goal = goal
+            }
+        }
+        appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.goal(
+            userText: originalPrompt,
+            assistantText: outcome.assistantText
+        ))
+    }
+
     private func appendScheduledAutomationTranscript(
         _ automation: QuillAutomation?,
         success: (String) -> WorkspaceLocalCommandTranscript,

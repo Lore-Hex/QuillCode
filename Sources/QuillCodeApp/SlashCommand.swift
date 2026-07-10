@@ -4,6 +4,7 @@ import QuillCodeCore
 enum SlashCommand: Equatable {
     case help
     case status
+    case goal(WorkspaceThreadGoalRequest)
     case newChat
     case mode(AgentMode)
     case model(String)
@@ -54,6 +55,8 @@ enum SlashCommandParser {
             return .help
         case "status":
             return .status
+        case "goal":
+            return SlashGoalCommandParser.parse(argument)
         case let threadCommand where SlashThreadCommandParser.supports(threadCommand):
             return SlashThreadCommandParser.parse(name: threadCommand, argument: argument)
         case "follow-up", "followup", "schedule", "remind":

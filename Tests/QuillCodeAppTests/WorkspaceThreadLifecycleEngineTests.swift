@@ -237,6 +237,26 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
         XCTAssertEqual(threads.first?.title, "Updated")
     }
 
+    func testAgentRunThreadUpdatePreservesGoalChangedAfterSendStarted() throws {
+        var live = ChatThread(title: "Run")
+        live.goal = try XCTUnwrap(ThreadGoal(objective: "New live goal"))
+        var staleAgentSnapshot = live
+        staleAgentSnapshot.goal = try XCTUnwrap(ThreadGoal(objective: "Old send-start goal"))
+        staleAgentSnapshot.messages.append(.init(role: .assistant, content: "Progress"))
+        var threads = [live]
+
+        _ = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
+            staleAgentSnapshot,
+            threads: &threads,
+            projects: [],
+            selectedThreadID: live.id,
+            selectedProjectID: nil
+        )
+
+        XCTAssertEqual(threads[0].goal?.objective, "New live goal")
+        XCTAssertEqual(threads[0].messages.last?.content, "Progress")
+    }
+
     func testAgentRunThreadUpdateSelectsUpdatedThreadWhenSelectionIsStale() {
         let project = ProjectRef(name: "QuillCode", path: "/repo")
         let updated = ChatThread(title: "Updated", projectID: project.id)
