@@ -40,6 +40,7 @@ struct QuillCodeProjectRowView: View {
             .quillCodeSidebarRowChrome(background: project.isSelected ? QuillCodePalette.selection : Color.clear)
         }
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+        .accessibilityLabel(project.accessibilityLabel)
         .accessibilityHint("Selects this project. Drag the row to reorder it.")
     }
 

@@ -51,6 +51,15 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         isSelected ? "Current" : nil
     }
 
+    public var accessibilityLabel: String {
+        [
+            isSelected ? "Current project" : "Project",
+            name,
+            connectionKindLabel,
+            path
+        ].joined(separator: ", ")
+    }
+
     public init(
         project: ProjectRef,
         selectedProjectID: UUID?,

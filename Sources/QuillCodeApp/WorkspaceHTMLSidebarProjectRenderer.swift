@@ -36,7 +36,8 @@ enum WorkspaceHTMLSidebarProjectRenderer {
             classes: ["project-item", project.isSelected ? "selected" : ""],
             attributes: [
                 ("data-project-id", project.id.uuidString),
-                ("aria-current", project.isSelected ? "true" : "false")
+                ("aria-current", project.isSelected ? "true" : "false"),
+                ("aria-label", project.accessibilityLabel)
             ]
         ))>
           <span>\(escape(project.name))\(selectionBadge(for: project))\(connectionBadge(for: project))</span>
