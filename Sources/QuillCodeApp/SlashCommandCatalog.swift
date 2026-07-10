@@ -36,8 +36,13 @@ enum SlashCommandCatalog {
         + globalSuffixDefinitions
 
     static func helpText() -> String {
-        let commandLines = definitions.map { "\($0.usage) - \($0.detail)" }
-        return (["Slash commands:"] + commandLines).joined(separator: "\n")
+        let groupedDefinitions = helpCategoryOrder.compactMap { category in
+            let rows = definitions
+                .filter { helpCategory(for: $0) == category }
+                .map { "- `\($0.usage)` - \($0.detail)" }
+            return rows.isEmpty ? nil : ([category + ":"] + rows).joined(separator: "\n")
+        }
+        return (["Slash commands:"] + groupedDefinitions).joined(separator: "\n\n")
     }
 
     static func commandPaletteCommands() -> [WorkspaceCommandSurface] {
@@ -119,6 +124,91 @@ enum SlashCommandCatalog {
             return 70
         }
         return nil
+    }
+
+    private static let helpCategoryOrder = [
+        "Runtime and models",
+        "Chats",
+        "Workspace",
+        "Git and review",
+        "Browser",
+        "Memory",
+        "Automations and agents",
+        "Extensions",
+        "Local environment"
+    ]
+
+    private static func helpCategory(for definition: SlashCommandDefinition) -> String {
+        let usage = definition.usage
+        if usage.hasPrefix("/pr ")
+            || usage.hasPrefix("/review")
+            || usage.hasPrefix("/diff")
+            || usage.hasPrefix("/git")
+            || usage.hasPrefix("/branch")
+            || usage.hasPrefix("/worktree") {
+            return "Git and review"
+        }
+        if usage.hasPrefix("/browser") || usage.hasPrefix("/session") {
+            return "Browser"
+        }
+        if usage.hasPrefix("/memories")
+            || usage.hasPrefix("/remember")
+            || usage.hasPrefix("/forget") {
+            return "Memory"
+        }
+        if usage.hasPrefix("/follow-up")
+            || usage.hasPrefix("/workspace-check")
+            || usage.hasPrefix("/monitor")
+            || usage.hasPrefix("/subagents")
+            || usage.hasPrefix("/automations") {
+            return "Automations and agents"
+        }
+        if usage.hasPrefix("/extensions")
+            || usage.hasPrefix("/skills")
+            || usage.hasPrefix("/skill ") {
+            return "Extensions"
+        }
+        if usage.hasPrefix("/env") {
+            return "Local environment"
+        }
+        if usage.hasPrefix("/project")
+            || usage.hasPrefix("/init")
+            || usage.hasPrefix("/ssh")
+            || usage.hasPrefix("/terminal")
+            || usage.hasPrefix("/search")
+            || usage.hasPrefix("/find")
+            || usage.hasPrefix("/focus")
+            || usage.hasPrefix("/sidebar")
+            || usage.hasPrefix("/copy")
+            || usage.hasPrefix("/export")
+            || usage.hasPrefix("/settings")
+            || usage.hasPrefix("/computer-use")
+            || usage.hasPrefix("/shortcuts")
+            || usage.hasPrefix("/commands")
+            || usage.hasPrefix("/activity")
+            || usage.hasPrefix("/disconnect") {
+            return "Workspace"
+        }
+        if usage.hasPrefix("/new")
+            || usage.hasPrefix("/clear")
+            || usage.hasPrefix("/undo")
+            || usage.hasPrefix("/rename")
+            || usage.hasPrefix("/duplicate")
+            || usage.hasPrefix("/pin")
+            || usage.hasPrefix("/unpin")
+            || usage.hasPrefix("/archive")
+            || usage.hasPrefix("/unarchive")
+            || usage.hasPrefix("/delete")
+            || usage.hasPrefix("/fork")
+            || usage.hasPrefix("/compact")
+            || usage.hasPrefix("/stop")
+            || usage.hasPrefix("/retry")
+            || usage.hasPrefix("/back")
+            || usage.hasPrefix("/forward")
+            || usage.hasPrefix("/history") {
+            return "Chats"
+        }
+        return "Runtime and models"
     }
 
     private static func normalize(_ value: String) -> String {
