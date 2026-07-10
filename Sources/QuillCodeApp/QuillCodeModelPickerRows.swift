@@ -70,7 +70,10 @@ struct QuillCodeModelRow: View {
                     modelActionButton(
                         systemImage: isExpanded ? "info.circle.fill" : "info.circle",
                         tint: isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted,
-                        title: isExpanded ? "Hide model details" : "Show model details"
+                        title: isExpanded ? "Hide model details" : "Show model details",
+                        accessibilityLabel: isExpanded
+                            ? "Hide details for \(option.detailTitle)"
+                            : "Show details for \(option.detailTitle)"
                     ) {
                         onToggleExpanded(option)
                     }
@@ -78,7 +81,10 @@ struct QuillCodeModelRow: View {
                     modelActionButton(
                         systemImage: option.isFavorite ? "star.fill" : "star",
                         tint: option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted,
-                        title: option.isFavorite ? "Remove favorite model" : "Favorite model"
+                        title: option.isFavorite ? "Remove favorite model" : "Favorite model",
+                        accessibilityLabel: option.isFavorite
+                            ? "Remove \(option.detailTitle) from favorites"
+                            : "Add \(option.detailTitle) to favorites"
                     ) {
                         onToggleFavorite(option.id)
                     }
@@ -177,6 +183,7 @@ struct QuillCodeModelRow: View {
         systemImage: String,
         tint: Color,
         title: String,
+        accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -187,7 +194,7 @@ struct QuillCodeModelRow: View {
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help(title)
-        .accessibilityLabel(title)
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 
