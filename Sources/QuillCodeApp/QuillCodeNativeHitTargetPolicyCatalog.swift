@@ -61,7 +61,7 @@ extension QuillCodeNativeHitTargetAudit {
                 .search,
                 kinds: [.textEntry, .fullRow],
                 actions: [.textInput, .press],
-                focusTargets: [.searchChats]
+                focusTargets: [.searchChats, .shortcutsSearch]
             ),
             policy(
                 .settings,

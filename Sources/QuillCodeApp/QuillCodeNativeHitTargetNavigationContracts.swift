@@ -115,6 +115,16 @@ extension QuillCodeNativeHitTargetAudit {
                 testID: "search-result"
             ),
             contract(
+                "shortcuts.search",
+                family: .search,
+                surface: "Keyboard shortcuts",
+                label: "Search shortcuts",
+                kind: .textEntry,
+                minWidth: nil,
+                focusTarget: .shortcutsSearch,
+                testID: "quillcode-shortcuts-search-input"
+            ),
+            contract(
                 "settings.text-entry",
                 family: .settings,
                 surface: "Settings",
