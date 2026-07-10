@@ -31,6 +31,7 @@ public enum QuillCodeNativeFocusTarget: String, Codable, Sendable, Hashable, Cas
     case reviewThreadReply = "review.thread-reply"
     case searchChats = "search.chats"
     case settingsTrustedRouterBaseURL = "settings.trustedrouter-base-url"
+    case shortcutsSearch = "shortcuts.search"
     case terminalCommand = "terminal.command"
 }
 
