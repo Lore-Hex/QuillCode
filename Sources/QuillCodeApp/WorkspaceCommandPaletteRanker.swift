@@ -5,7 +5,20 @@ enum WorkspaceCommandPaletteRanker {
         _ commands: [WorkspaceCommandSurface],
         matching query: String
     ) -> [WorkspaceCommandSurface] {
-        let request = QueryRequest(query)
+        rankedCommands(commands, request: QueryRequest(query))
+    }
+
+    static func rankedActionCommands(
+        _ commands: [WorkspaceCommandSurface],
+        matching query: String
+    ) -> [WorkspaceCommandSurface] {
+        rankedCommands(commands, request: QueryRequest(scope: .actions, rawQuery: query))
+    }
+
+    private static func rankedCommands(
+        _ commands: [WorkspaceCommandSurface],
+        request: QueryRequest
+    ) -> [WorkspaceCommandSurface] {
         let searchableCommands = request.searchableCommands(from: commands)
         let scoredCommands = searchableCommands.enumerated().compactMap { index, command in
             score(command, query: request.normalizedQuery).map { score in
@@ -30,8 +43,21 @@ enum WorkspaceCommandPaletteRanker {
         _ commands: [WorkspaceCommandSurface],
         matching query: String
     ) -> [WorkspaceCommandGroupSurface] {
+        groupedCommands(rankedCommands(commands, matching: query))
+    }
+
+    static func groupedActionCommands(
+        _ commands: [WorkspaceCommandSurface],
+        matching query: String
+    ) -> [WorkspaceCommandGroupSurface] {
+        groupedCommands(rankedActionCommands(commands, matching: query))
+    }
+
+    private static func groupedCommands(
+        _ rankedCommands: [WorkspaceCommandSurface]
+    ) -> [WorkspaceCommandGroupSurface] {
         var groupsByCategory: [String: [WorkspaceCommandSurface]] = [:]
-        for command in rankedCommands(commands, matching: query) {
+        for command in rankedCommands {
             groupsByCategory[command.category, default: []].append(command)
         }
         return groupsByCategory.keys.sorted { lhs, rhs in
@@ -139,6 +165,11 @@ enum WorkspaceCommandPaletteRanker {
                 self.scope = .mixed
                 self.normalizedQuery = WorkspaceCommandPaletteRanker.normalize(trimmed)
             }
+        }
+
+        init(scope: Scope, rawQuery: String) {
+            self.scope = scope
+            self.normalizedQuery = WorkspaceCommandPaletteRanker.normalize(rawQuery)
         }
 
         func searchableCommands(from commands: [WorkspaceCommandSurface]) -> [WorkspaceCommandSurface] {

@@ -62,6 +62,17 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
         XCTAssertFalse(actionResults.contains { $0.id.hasPrefix(SlashCommandCatalog.commandPaletteIDPrefix) })
     }
 
+    func testActionOnlyGroupingDoesNotTreatSlashPrefixAsSlashScope() {
+        let commands = QuillCodeWorkspaceModel().surface().commands
+        let shortcutCommands = commands.filter { $0.shortcut?.isEmpty == false }
+
+        let groups = WorkspaceCommandPalette.groupedActionCommands(shortcutCommands, matching: "/")
+
+        XCTAssertFalse(groups.isEmpty)
+        XCTAssertFalse(groups.flatMap(\.commands).contains { $0.id.hasPrefix(SlashCommandCatalog.commandPaletteIDPrefix) })
+        XCTAssertTrue(groups.flatMap(\.commands).contains { $0.id == "keyboard-shortcuts" })
+    }
+
     func testMixedScopeAddsSlashCommandsOnlyForNonEmptyQueries() {
         let commands = QuillCodeWorkspaceModel().surface().commands
 

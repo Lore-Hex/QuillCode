@@ -288,4 +288,11 @@ public enum WorkspaceCommandPalette {
     ) -> [WorkspaceCommandGroupSurface] {
         WorkspaceCommandPaletteRanker.groupedCommands(commands, matching: query)
     }
+
+    public static func groupedActionCommands(
+        _ commands: [WorkspaceCommandSurface],
+        matching query: String
+    ) -> [WorkspaceCommandGroupSurface] {
+        WorkspaceCommandPaletteRanker.groupedActionCommands(commands, matching: query)
+    }
 }
