@@ -79,8 +79,9 @@ struct QuillCodeProjectRowView: View {
                     Text(action.kind.title)
                 }
                 .quillCodePlatformMenuItemTarget(reason: projectActionMenuGeometryReason)
+                .accessibilityLabel(action.accessibilityLabel(projectName: project.name))
                 .disabled(!action.isEnabled)
-                .help(action.disabledReason ?? action.kind.title)
+                .help(action.helpText(projectName: project.name))
             }
         } label: {
             Image(systemName: "ellipsis")
@@ -88,6 +89,9 @@ struct QuillCodeProjectRowView: View {
                 .foregroundStyle(QuillCodePalette.muted)
         }
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+        .accessibilityLabel(project.actionMenuAccessibilityLabel)
+        .accessibilityHint(project.actionMenuHelp)
+        .help(project.actionMenuHelp)
     }
 
     private var projectActionMenuGeometryReason: String {

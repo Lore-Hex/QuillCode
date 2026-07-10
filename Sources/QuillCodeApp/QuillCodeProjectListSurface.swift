@@ -101,6 +101,14 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         ].joined(separator: ", ")
     }
 
+    public var actionMenuAccessibilityLabel: String {
+        "Project actions for \(name)"
+    }
+
+    public var actionMenuHelp: String {
+        "New chat, refresh context, reorder, rename, or remove \(name)."
+    }
+
     public init(
         project: ProjectRef,
         selectedProjectID: UUID?,
@@ -178,7 +186,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
-public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
+public enum ProjectItemActionKind: String, CaseIterable, Codable, Sendable, Hashable {
     case newChat
     case refreshContext
     case moveToTop
@@ -208,6 +216,27 @@ public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
             return "Remove from list"
         }
     }
+
+    public func accessibilityLabel(projectName: String) -> String {
+        switch self {
+        case .newChat:
+            return "Start a new chat in \(projectName)"
+        case .refreshContext:
+            return "Refresh context for \(projectName)"
+        case .moveToTop:
+            return "Move \(projectName) to the top"
+        case .moveUp:
+            return "Move \(projectName) up"
+        case .moveDown:
+            return "Move \(projectName) down"
+        case .moveToBottom:
+            return "Move \(projectName) to the bottom"
+        case .rename:
+            return "Rename \(projectName)"
+        case .remove:
+            return "Remove \(projectName) from the project list"
+        }
+    }
 }
 
 public struct ProjectItemActionSurface: Codable, Sendable, Hashable, Identifiable {
@@ -218,6 +247,14 @@ public struct ProjectItemActionSurface: Codable, Sendable, Hashable, Identifiabl
 
     public var id: String {
         "\(projectID.uuidString)-\(kind.rawValue)"
+    }
+
+    public func accessibilityLabel(projectName: String) -> String {
+        kind.accessibilityLabel(projectName: projectName)
+    }
+
+    public func helpText(projectName: String) -> String {
+        disabledReason ?? accessibilityLabel(projectName: projectName)
     }
 
     public init(

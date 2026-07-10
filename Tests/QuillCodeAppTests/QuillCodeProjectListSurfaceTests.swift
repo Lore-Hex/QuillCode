@@ -74,12 +74,48 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertTrue(item.isSelected)
         XCTAssertEqual(item.selectionLabel, "Current")
         XCTAssertEqual(item.accessibilityLabel, "Current project, Feather, SSH Remote, ssh://quill@feather.local:22/srv/quill")
+        XCTAssertEqual(item.actionMenuAccessibilityLabel, "Project actions for Feather")
+        XCTAssertEqual(item.actionMenuHelp, "New chat, refresh context, reorder, rename, or remove Feather.")
         XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .moveToBottom, .rename, .remove])
         XCTAssertEqual(
             item.actions.map(\.kind.title),
             ["New chat", "Refresh context", "Move to top", "Move up", "Move down", "Move to bottom", "Rename", "Remove from list"]
         )
         XCTAssertEqual(item.actions.first?.id, "\(projectID.uuidString)-newChat")
+    }
+
+    func testProjectActionSurfaceBuildsProjectSpecificLabelsAndHelp() {
+        let projectID = UUID()
+        let actions = ProjectItemActionKind.allCases.map {
+            ProjectItemActionSurface(kind: $0, projectID: projectID)
+        }
+
+        XCTAssertEqual(
+            actions.map { $0.accessibilityLabel(projectName: "QuillCode") },
+            [
+                "Start a new chat in QuillCode",
+                "Refresh context for QuillCode",
+                "Move QuillCode to the top",
+                "Move QuillCode up",
+                "Move QuillCode down",
+                "Move QuillCode to the bottom",
+                "Rename QuillCode",
+                "Remove QuillCode from the project list"
+            ]
+        )
+        XCTAssertEqual(
+            ProjectItemActionSurface(
+                kind: .moveUp,
+                projectID: projectID,
+                isEnabled: false,
+                disabledReason: "Already at the top"
+            ).helpText(projectName: "QuillCode"),
+            "Already at the top"
+        )
+        XCTAssertEqual(
+            ProjectItemActionSurface(kind: .rename, projectID: projectID).helpText(projectName: "QuillCode"),
+            "Rename QuillCode"
+        )
     }
 
     func testProjectItemSurfaceDisablesUnavailableMoveActions() {
