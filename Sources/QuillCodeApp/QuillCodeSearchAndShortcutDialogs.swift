@@ -13,7 +13,7 @@ struct QuillCodeKeyboardShortcutsView: View {
     }
 
     private var groups: [WorkspaceCommandGroupSurface] {
-        WorkspaceCommandPalette.groupedCommands(shortcutCommands, matching: query)
+        WorkspaceCommandPalette.groupedActionCommands(shortcutCommands, matching: query)
     }
 
     var body: some View {

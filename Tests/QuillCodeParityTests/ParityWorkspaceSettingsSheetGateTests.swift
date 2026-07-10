@@ -51,7 +51,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         Self.assertSource(searchShortcutText, contains: "struct QuillCodeKeyboardShortcutsView")
         Self.assertSource(searchShortcutText, contains: "TextField(\"Search shortcuts\"")
         Self.assertSource(searchShortcutText, contains: "accessibilityIdentifier(\"quillcode-shortcuts-search-input\")")
-        Self.assertSource(searchShortcutText, contains: "WorkspaceCommandPalette.groupedCommands(shortcutCommands, matching: query)")
+        Self.assertSource(searchShortcutText, contains: "WorkspaceCommandPalette.groupedActionCommands(shortcutCommands, matching: query)")
         Self.assertSource(worktreeDialogsText, contains: "struct QuillCodeWorktreeCreateView")
         Self.assertSource(worktreeDialogsText, contains: "struct QuillCodeWorktreeRemoveView")
         Self.assertSource(worktreeCoordinatorText, contains: "final class QuillCodeWorktreeDialogCoordinator")
