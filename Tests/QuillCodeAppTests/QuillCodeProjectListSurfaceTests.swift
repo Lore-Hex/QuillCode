@@ -12,11 +12,47 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         let multiple = ProjectListSurface(items: [first, second], selectedProjectID: nil)
 
         XCTAssertEqual(empty.countLabel, "No projects")
+        XCTAssertEqual(empty.compactCountLabel, "No projects")
+        XCTAssertEqual(empty.connectionSummaryLabel, "No project connections")
         XCTAssertEqual(empty.accessibilitySummary, "Projects, no projects")
         XCTAssertEqual(single.countLabel, "1 project")
-        XCTAssertEqual(single.accessibilitySummary, "Projects, 1 project. Drag project rows to reorder them.")
+        XCTAssertEqual(single.compactCountLabel, "1 project")
+        XCTAssertEqual(single.connectionSummaryLabel, "1 local")
+        XCTAssertEqual(single.accessibilitySummary, "Projects, 1 project, 1 local. Drag project rows to reorder them.")
         XCTAssertEqual(multiple.countLabel, "2 projects")
-        XCTAssertEqual(multiple.accessibilitySummary, "Projects, 2 projects. Drag project rows to reorder them.")
+        XCTAssertEqual(multiple.compactCountLabel, "2 projects")
+        XCTAssertEqual(multiple.connectionSummaryLabel, "2 local")
+        XCTAssertEqual(multiple.accessibilitySummary, "Projects, 2 projects, 2 local. Drag project rows to reorder them.")
+    }
+
+    func testProjectListSurfaceSummarizesRemoteProjectsAndCurrentSelection() {
+        let local = ProjectRef(name: "QuillCode", path: "/repo")
+        let remoteID = UUID()
+        let remoteConnection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "feather.local",
+            user: "quill",
+            port: 22
+        )
+        let remote = ProjectRef(id: remoteID, name: "Feather", path: remoteConnection.path, connection: remoteConnection)
+        let surface = ProjectListSurface(
+            items: [
+                ProjectItemSurface(project: local, selectedProjectID: remoteID),
+                ProjectItemSurface(project: remote, selectedProjectID: remoteID)
+            ],
+            selectedProjectID: remoteID
+        )
+
+        XCTAssertEqual(surface.countLabel, "2 projects")
+        XCTAssertEqual(surface.remoteCountLabel, "1 remote")
+        XCTAssertEqual(surface.localCountLabel, "1 local")
+        XCTAssertEqual(surface.connectionSummaryLabel, "1 local · 1 remote")
+        XCTAssertEqual(surface.compactCountLabel, "2 projects · 1 remote")
+        XCTAssertEqual(surface.currentProjectLabel, "Current project: Feather")
+        XCTAssertEqual(
+            surface.accessibilitySummary,
+            "Projects, 2 projects, 1 local · 1 remote. Current project: Feather. Drag project rows to reorder them."
+        )
     }
 
     func testProjectItemSurfaceBuildsRemoteStateAndDefaultActions() {

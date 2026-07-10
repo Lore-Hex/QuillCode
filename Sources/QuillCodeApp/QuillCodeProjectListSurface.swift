@@ -30,11 +30,52 @@ public struct ProjectListSurface: Codable, Sendable, Hashable {
         }
     }
 
+    public var localCountLabel: String {
+        "\(localProjectCount) local"
+    }
+
+    public var remoteCountLabel: String {
+        "\(remoteProjectCount) remote"
+    }
+
+    public var connectionSummaryLabel: String {
+        guard !items.isEmpty else {
+            return "No project connections"
+        }
+        guard remoteProjectCount > 0 else {
+            return localCountLabel
+        }
+        if localProjectCount == 0 {
+            return remoteCountLabel
+        }
+        return "\(localCountLabel) · \(remoteCountLabel)"
+    }
+
+    public var compactCountLabel: String {
+        guard remoteProjectCount > 0 else {
+            return countLabel
+        }
+        return "\(countLabel) · \(remoteCountLabel)"
+    }
+
+    public var currentProjectLabel: String? {
+        items.first(where: \.isSelected).map { "Current project: \($0.name)" }
+    }
+
     public var accessibilitySummary: String {
         guard !items.isEmpty else {
             return "\(title), no projects"
         }
-        return "\(title), \(countLabel). Drag project rows to reorder them."
+        let current = currentProjectLabel.map { ". \($0)" } ?? ""
+        return "\(title), \(countLabel), \(connectionSummaryLabel)\(current). Drag project rows to reorder them."
+    }
+
+    private var remoteProjectCount: Int {
+        items.filter(\.isRemote).count
+    }
+
+    private var localProjectCount: Int {
+        items.count - remoteProjectCount
     }
 }
 
