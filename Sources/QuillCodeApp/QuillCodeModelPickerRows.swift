@@ -14,6 +14,7 @@ struct QuillCodeModelCategorySection: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
                 .padding(.horizontal, 10)
+                .help(category.providerSummaryLabel)
                 .accessibilityLabel(category.accessibilityLabel)
             ForEach(category.models) { option in
                 QuillCodeModelRow(
