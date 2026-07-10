@@ -8,6 +8,13 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
         XCTAssertEqual(help.userText, "/help")
         XCTAssertEqual(help.title, "Slash commands")
         XCTAssertTrue(help.assistantText.contains("/status"))
+        XCTAssertTrue(help.assistantText.contains("Runtime and models:\n- `/help`"))
+        XCTAssertTrue(help.assistantText.contains("Chats:\n- `/new`"))
+        XCTAssertTrue(help.assistantText.contains("Workspace:"))
+        XCTAssertTrue(help.assistantText.contains("- `/project open`"))
+        XCTAssertTrue(help.assistantText.contains("Git and review:"))
+        XCTAssertTrue(help.assistantText.contains("- `/pr list [open|closed|merged|all] [limit]`"))
+        XCTAssertTrue(help.assistantText.contains("Extensions:\n- `/extensions`"))
 
         let status = WorkspaceSlashCommandTranscriptPlanner.status(
             userText: "/status",
