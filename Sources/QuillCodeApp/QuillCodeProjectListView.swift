@@ -59,13 +59,14 @@ struct QuillCodeProjectListView: View {
             Text(projects.title.uppercased())
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
-            Text(projects.countLabel)
+            Text(projects.compactCountLabel)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(QuillCodePalette.muted.opacity(0.82))
                 .lineLimit(1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(projects.accessibilitySummary)
+        .help(projects.accessibilitySummary)
     }
 
     @ViewBuilder

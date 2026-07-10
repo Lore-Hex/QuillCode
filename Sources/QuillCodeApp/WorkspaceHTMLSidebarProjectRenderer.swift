@@ -6,7 +6,7 @@ enum WorkspaceHTMLSidebarProjectRenderer {
         <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
           <div class="sidebar-section-title">
             <h2>\(escape(projects.title))</h2>
-            <small data-testid="project-count" aria-label="\(escape(projects.accessibilitySummary))">\(escape(projects.countLabel))</small>
+            <small data-testid="project-count" aria-label="\(escape(projects.accessibilitySummary))">\(escape(projects.compactCountLabel))</small>
             \(WorkspaceHTMLPrimitives.commandButton(
                 "+",
                 testID: "add-project-button",
