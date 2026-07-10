@@ -27,9 +27,7 @@ struct QuillCodeProjectListView: View {
 
     private var projectHeader: some View {
         HStack(spacing: QuillCodeMetrics.minimumTargetClearance) {
-            Text(projects.title.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
+            projectHeaderTitle
             Spacer()
             Button(action: onAddProjectRequested) {
                 Image(systemName: "plus.circle")
@@ -54,6 +52,20 @@ struct QuillCodeProjectListView: View {
             .accessibilityIdentifier("quillcode-project-clear-button")
             .help("Clear project")
         }
+    }
+
+    private var projectHeaderTitle: some View {
+        HStack(spacing: 6) {
+            Text(projects.title.uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+            Text(projects.countLabel)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(QuillCodePalette.muted.opacity(0.82))
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(projects.accessibilitySummary)
     }
 
     @ViewBuilder

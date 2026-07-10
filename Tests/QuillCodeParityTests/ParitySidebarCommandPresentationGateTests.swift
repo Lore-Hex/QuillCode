@@ -54,11 +54,25 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
         let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
         let projectRowText = try Self.appSourceText(named: "QuillCodeProjectRowView.swift")
+        let projectSurfaceText = try Self.appSourceText(named: "QuillCodeProjectListSurface.swift")
+        let htmlProjectText = try Self.appSourceText(named: "WorkspaceHTMLSidebarProjectRenderer.swift")
+        let harnessText = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
 
         Self.assertSource(sidebarText, contains: "QuillCodeProjectListView(")
         Self.assertSource(projectListText, contains: "struct QuillCodeProjectListView")
         Self.assertSource(projectRowText, contains: "struct QuillCodeProjectRowView")
         Self.assertSource(projectListText, contains: "maxProjectListHeight")
+        Self.assertSource(projectSurfaceText, contains: "public var countLabel")
+        Self.assertSource(projectSurfaceText, contains: "public var accessibilitySummary")
+        Self.assertSource(projectListText, contains: "projects.countLabel")
+        Self.assertSource(projectListText, contains: "projects.accessibilitySummary")
+        Self.assertSource(htmlProjectText, contains: #"data-testid="project-count""#)
+        Self.assertSource(htmlProjectText, contains: "projects.countLabel")
+        Self.assertSource(harnessText, contains: "projectCountLabel")
+        Self.assertSource(harnessText, contains: #"data-testid="project-count""#)
         Self.assertSource(sidebarText, excludes: "struct QuillCodeProjectRowView")
         Self.assertSource(sidebarText, excludes: "maxProjectListHeight")
     }

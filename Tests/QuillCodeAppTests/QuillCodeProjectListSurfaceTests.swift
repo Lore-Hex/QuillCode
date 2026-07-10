@@ -3,6 +3,22 @@ import QuillCodeCore
 @testable import QuillCodeApp
 
 final class QuillCodeProjectListSurfaceTests: XCTestCase {
+    func testProjectListSurfaceSummarizesCountAndReorderHint() {
+        let first = ProjectItemSurface(project: ProjectRef(name: "QuillCode", path: "/repo"), selectedProjectID: nil)
+        let second = ProjectItemSurface(project: ProjectRef(name: "Tools", path: "/tools"), selectedProjectID: nil)
+
+        let empty = ProjectListSurface(items: [], selectedProjectID: nil)
+        let single = ProjectListSurface(items: [first], selectedProjectID: nil)
+        let multiple = ProjectListSurface(items: [first, second], selectedProjectID: nil)
+
+        XCTAssertEqual(empty.countLabel, "No projects")
+        XCTAssertEqual(empty.accessibilitySummary, "Projects, no projects")
+        XCTAssertEqual(single.countLabel, "1 project")
+        XCTAssertEqual(single.accessibilitySummary, "Projects, 1 project. Drag project rows to reorder them.")
+        XCTAssertEqual(multiple.countLabel, "2 projects")
+        XCTAssertEqual(multiple.accessibilitySummary, "Projects, 2 projects. Drag project rows to reorder them.")
+    }
+
     func testProjectItemSurfaceBuildsRemoteStateAndDefaultActions() {
         let projectID = UUID()
         let connection = ProjectConnection.ssh(

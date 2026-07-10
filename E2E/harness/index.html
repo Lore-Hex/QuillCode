@@ -1014,6 +1014,16 @@
       justify-content: space-between;
       gap: 8px;
     }
+    .sidebar-section-title small[data-testid="project-count"] {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 650;
+      letter-spacing: 0;
+      text-transform: none;
+      white-space: nowrap;
+      opacity: .82;
+    }
     /* Morning-triage Attention section + return digest (issue #877). */
     [data-testid="attention-section"] { margin-bottom: 8px; }
     [data-testid="attention-row"] {
@@ -4956,6 +4966,18 @@
       ].filter(Boolean).join(' ');
     }
 
+    function projectCountLabel() {
+      const count = state.projects.items.length;
+      if (count === 0) return 'No projects';
+      if (count === 1) return '1 project';
+      return `${count} projects`;
+    }
+
+    function projectListAccessibilitySummary() {
+      if (!state.projects.items.length) return `${state.projects.title}, no projects`;
+      return `${state.projects.title}, ${projectCountLabel()}. Drag project rows to reorder them.`;
+    }
+
     function renderSidebarChrome(sidebarThreadHeader, sidebarContent, projectsContent) {
       if (!state.chrome.isSidebarVisible) return '';
       return `<aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
@@ -4972,6 +4994,7 @@
         <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
           <div class="sidebar-section-title">
             <h2>${escapeHTML(state.projects.title)}</h2>
+            <small data-testid="project-count" aria-label="${escapeHTML(projectListAccessibilitySummary())}">${escapeHTML(projectCountLabel())}</small>
             <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-project-button" aria-label="Open project" data-command-id="add-project">+</button>
           </div>
           ${projectsContent}

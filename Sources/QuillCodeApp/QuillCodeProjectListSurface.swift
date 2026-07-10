@@ -18,6 +18,24 @@ public struct ProjectListSurface: Codable, Sendable, Hashable {
         self.selectedProjectID = selectedProjectID
         self.emptyTitle = emptyTitle
     }
+
+    public var countLabel: String {
+        switch items.count {
+        case 0:
+            return "No projects"
+        case 1:
+            return "1 project"
+        default:
+            return "\(items.count) projects"
+        }
+    }
+
+    public var accessibilitySummary: String {
+        guard !items.isEmpty else {
+            return "\(title), no projects"
+        }
+        return "\(title), \(countLabel). Drag project rows to reorder them."
+    }
 }
 
 public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
