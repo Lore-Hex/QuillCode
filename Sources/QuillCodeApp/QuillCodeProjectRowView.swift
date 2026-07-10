@@ -48,6 +48,15 @@ struct QuillCodeProjectRowView: View {
             Text(project.name)
                 .font(.system(size: 13, weight: .medium))
                 .lineLimit(1)
+            if let selectionLabel = project.selectionLabel {
+                Text(selectionLabel)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.green)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(QuillCodePalette.green.opacity(0.14))
+                    .clipShape(Capsule())
+            }
             if project.isRemote {
                 Text(project.connectionKindLabel)
                     .font(.caption2.weight(.bold))
