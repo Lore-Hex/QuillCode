@@ -16,16 +16,17 @@ extension TerminalScreenBuffer {
         lines = [[]]
         row = 0
         col = 0
+        currentStyle = .plain
         savedCursor = nil
         scrollRegion = nil
     }
 
     mutating func leaveAlternateScreen() {
         guard let mainBuffer = savedMainBuffer else { return }
-        let alternateFrame = text().trimmingCharacters(in: .newlines)
+        let alternateLines = trimmedAlternateLines(lines)
         restore(mainBuffer)
         savedMainBuffer = nil
-        appendAlternateFrame(alternateFrame)
+        appendAlternateFrame(alternateLines)
     }
 
     func snapshot() -> BufferSnapshot {
@@ -33,6 +34,7 @@ extension TerminalScreenBuffer {
             lines: lines,
             row: row,
             col: col,
+            currentStyle: currentStyle,
             savedCursor: savedCursor,
             scrollRegion: scrollRegion
         )
@@ -42,21 +44,30 @@ extension TerminalScreenBuffer {
         lines = snapshot.lines
         row = snapshot.row
         col = snapshot.col
+        currentStyle = snapshot.currentStyle
         savedCursor = snapshot.savedCursor
         scrollRegion = snapshot.scrollRegion
     }
 
-    mutating func appendAlternateFrame(_ frame: String) {
-        guard !frame.isEmpty else { return }
+    mutating func appendAlternateFrame(_ frameLines: [[TerminalScreenCell]]) {
+        guard !frameLines.isEmpty else { return }
         setCursor(row: Swift.max(0, lines.count - 1), col: lines.last?.count ?? 0)
         if !(lines.last?.isEmpty ?? true) { lineFeed(); col = 0 }
-        for scalar in frame.unicodeScalars {
-            if scalar == "\n" {
+        for (lineIndex, line) in frameLines.enumerated() {
+            if lineIndex > 0 {
                 lineFeed()
                 col = 0
-            } else {
-                put(Character(scalar))
             }
+            lines[row] = line
+            col = clampCol(line.count)
         }
+    }
+
+    func trimmedAlternateLines(_ source: [[TerminalScreenCell]]) -> [[TerminalScreenCell]] {
+        guard let first = source.firstIndex(where: { !$0.isEmpty }),
+              let last = source.lastIndex(where: { !$0.isEmpty }) else {
+            return []
+        }
+        return Array(source[first...last])
     }
 }

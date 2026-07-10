@@ -1966,6 +1966,15 @@
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
     }
     .terminal-entry pre { margin: 0; }
+    .terminal-ansi-run.ansi-bold { font-weight: 700; }
+    .terminal-ansi-run.ansi-faint { opacity: .65; }
+    .terminal-ansi-run.ansi-italic { font-style: italic; }
+    .terminal-ansi-run.ansi-underline { text-decoration-line: underline; }
+    .terminal-ansi-run.ansi-strikethrough { text-decoration-line: line-through; }
+    .terminal-ansi-run.ansi-underline.ansi-strikethrough {
+      text-decoration-line: underline line-through;
+    }
+    .terminal-ansi-run.ansi-concealed { color: transparent !important; }
     .terminal-status.ok { color: var(--green); }
     .terminal-status.running { color: var(--blue); }
     .terminal-status.stopped { color: var(--muted); }
@@ -11614,8 +11623,8 @@
               ${terminalStatusLabel(entry)} · ${terminalExitLabel(entry)}
             </span>
           </header>
-          ${entry.stdout ? `<pre data-testid="terminal-stdout">${escapeHTML(entry.stdout)}</pre>` : ''}
-          ${entry.stderr ? `<pre data-testid="terminal-stderr">${escapeHTML(entry.stderr)}</pre>` : ''}
+          ${renderTerminalOutput(entry.stdoutRuns, entry.stdout, 'terminal-stdout')}
+          ${renderTerminalOutput(entry.stderrRuns, entry.stderr, 'terminal-stderr', '#F0574C')}
         </article>`).join('') : '<p data-testid="terminal-empty">Run commands in this project without leaving QuillCode.</p>';
       return `
         <section class="terminal-pane" data-testid="terminal-pane">
@@ -11635,6 +11644,49 @@
           </form>
         </section>`;
 	    }
+
+      function renderTerminalOutput(runs, fallback, testID, defaultColor = '') {
+        if (!fallback) return '';
+        const source = Array.isArray(runs) && runs.length ? runs : [{ text: fallback, style: {} }];
+        const contents = source.map(run => renderTerminalRun(run, defaultColor)).join('');
+        return `<pre data-testid="${testID}">${contents}</pre>`;
+      }
+
+      function renderTerminalRun(run, defaultColor) {
+        const style = run?.style || {};
+        const classes = ['terminal-ansi-run'];
+        const declarations = [];
+        const flags = [
+          ['isBold', 'ansi-bold'],
+          ['isFaint', 'ansi-faint'],
+          ['isItalic', 'ansi-italic'],
+          ['isUnderlined', 'ansi-underline'],
+          ['isInverse', 'ansi-inverse'],
+          ['isConcealed', 'ansi-concealed'],
+          ['isStrikethrough', 'ansi-strikethrough']
+        ];
+        flags.forEach(([key, className]) => {
+          if (style[key]) classes.push(className);
+        });
+
+        let foreground = safeTerminalColor(style.foreground) || defaultColor;
+        let background = safeTerminalColor(style.background);
+        if (style.isInverse) {
+          const inverseBackground = foreground || '#ECECEC';
+          foreground = background || '#171717';
+          background = inverseBackground;
+        }
+        if (style.isConcealed) declarations.push('color:transparent');
+        else if (foreground) declarations.push(`color:${foreground}`);
+        if (background) declarations.push(`background-color:${background}`);
+        const styleAttribute = declarations.length ? ` style="${declarations.join(';')}"` : '';
+        return `<span class="${classes.join(' ')}"${styleAttribute}>${escapeHTML(run?.text || '')}</span>`;
+      }
+
+      function safeTerminalColor(value) {
+        const color = String(value || '').toUpperCase();
+        return /^#[0-9A-F]{6}$/.test(color) ? color : '';
+      }
 
 	    function renderBrowserPane() {
         const snapshot = state.browser.snapshot ? `
@@ -14506,6 +14558,8 @@
         command,
         stdout: '',
         stderr: '',
+        stdoutRuns: null,
+        stderrRuns: null,
         exitCode: null,
         ok: false,
         status: 'running',
@@ -14542,6 +14596,8 @@
         const output = terminalOutput(command, cwd, environment);
         entry.stdout = output.stdout;
         entry.stderr = output.stderr;
+        entry.stdoutRuns = output.stdoutRuns || null;
+        entry.stderrRuns = output.stderrRuns || null;
         entry.exitCode = output.exitCode;
         entry.ok = output.exitCode === 0;
         entry.status = entry.ok ? 'done' : 'failed';
@@ -14629,6 +14685,23 @@
       }
       if (command === 'stream-demo') {
         return { stdout: 'stream-start\nstream-end\n', stderr: '', exitCode: 0, cwd, environment };
+      }
+      if (command === 'ansi-demo') {
+        return {
+          stdout: 'success warning',
+          stderr: 'failed',
+          stdoutRuns: [
+            { text: 'success', style: { foreground: '#00CD00', isBold: true } },
+            { text: ' ', style: {} },
+            { text: 'warning', style: { foreground: '#CDCD00', isItalic: true, isUnderlined: true } }
+          ],
+          stderrRuns: [
+            { text: 'failed', style: { foreground: '#CD0000', isStrikethrough: true } }
+          ],
+          exitCode: 0,
+          cwd,
+          environment
+        };
       }
       if (command === 'pwd') {
         return { stdout: cwd + '\n', stderr: '', exitCode: 0, cwd, environment };

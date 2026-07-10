@@ -22,7 +22,7 @@ extension TerminalScreenBuffer {
         let target = combiningTargetColumn()
         ensureColumn(target)
         if lines[row][target].isBlank {
-            lines[row][target] = .content(character)
+            lines[row][target] = .content(character, style: currentStyle)
         } else if !lines[row][target].isContinuation {
             lines[row][target].text += String(character)
         }

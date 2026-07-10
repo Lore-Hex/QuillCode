@@ -15,7 +15,8 @@ struct TerminalScreenBuffer {
     var lines: [[TerminalScreenCell]] = [[]]
     var row = 0
     var col = 0
-    var savedCursor: (row: Int, col: Int)?
+    var currentStyle = TerminalTextStyle.plain
+    var savedCursor: CursorSnapshot?
     var scrollRegion: (top: Int, bottom: Int)?
     var savedMainBuffer: BufferSnapshot?
 
@@ -23,8 +24,15 @@ struct TerminalScreenBuffer {
         var lines: [[TerminalScreenCell]]
         var row: Int
         var col: Int
-        var savedCursor: (row: Int, col: Int)?
+        var currentStyle: TerminalTextStyle
+        var savedCursor: CursorSnapshot?
         var scrollRegion: (top: Int, bottom: Int)?
+    }
+
+    struct CursorSnapshot {
+        var row: Int
+        var col: Int
+        var style: TerminalTextStyle
     }
 
     init(ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow) {
@@ -73,11 +81,11 @@ struct TerminalScreenBuffer {
 
         ensureColumn(col)
         clearCellCluster(at: col)
-        lines[row][col] = .content(character)
+        lines[row][col] = .content(character, style: currentStyle)
         if width == 2, col < Self.maxCols {
             ensureColumn(col + 1)
             clearCellCluster(at: col + 1)
-            lines[row][col + 1] = .continuation
+            lines[row][col + 1] = .continuation(style: currentStyle)
         }
         col = clampCol(col + width)
     }
@@ -157,6 +165,10 @@ struct TerminalScreenBuffer {
     }
 
     func text() -> String {
-        lines.map(TerminalScreenLineText.render).joined(separator: "\n")
+        styledFrame().text
+    }
+
+    func styledFrame() -> TerminalRenderedFrame {
+        TerminalScreenStyledText.render(lines)
     }
 }

@@ -120,6 +120,8 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
 
         XCTAssertEqual(surface.stdout, "[####  ] 66%\ndone", "color codes stripped + \\r overwrite collapsed")
         XCTAssertEqual(surface.stderr, "warning\n")
+        XCTAssertEqual(surface.stdoutRuns?.first?.style.foreground, .cyan)
+        XCTAssertEqual(surface.stderrRuns?.first?.style.foreground, .red)
     }
 
     func testTerminalCommandSurfaceRendersCursorAddressedTUIOutputToLatestFrame() {

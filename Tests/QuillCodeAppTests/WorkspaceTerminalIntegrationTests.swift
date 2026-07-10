@@ -42,6 +42,29 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         XCTAssertEqual(model.terminal.entries.first?.stdout, "TTY")
     }
 
+    func testLocalPTYColorOutputReachesStyledTerminalSurface() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        await model.runTerminalCommand(
+            "printf '\\033[1;32mready\\033[0m \\033[38;2;12;34;56mcolor\\033[0m'",
+            workspaceRoot: root
+        )
+
+        let entry = try XCTUnwrap(model.surface().terminal.entries.first)
+        XCTAssertEqual(entry.stdout, "ready color")
+        let runs = try XCTUnwrap(entry.stdoutRuns)
+        XCTAssertEqual(runs.count, 3)
+        XCTAssertEqual(runs[0].text, "ready")
+        XCTAssertEqual(runs[0].style.foreground, .green)
+        XCTAssertTrue(runs[0].style.isBold)
+        XCTAssertEqual(runs[1], TerminalTextRun(text: " "))
+        XCTAssertEqual(
+            runs[2].style.foreground,
+            .rgb(TerminalRGBColor(red: 12, green: 34, blue: 56))
+        )
+    }
+
     func testLocalTerminalAppliesStoredWindowSizeToNewPTYSession() async throws {
         let root = try makeQuillCodeTestDirectory()
         let model = QuillCodeWorkspaceModel()

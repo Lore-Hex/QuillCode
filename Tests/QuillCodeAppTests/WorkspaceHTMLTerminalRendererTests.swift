@@ -50,4 +50,29 @@ final class WorkspaceHTMLTerminalRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"class="terminal-status running""#))
         XCTAssertTrue(html.contains(#"class="terminal-status stopped""#))
     }
+
+    func testHTMLRendererPreservesTerminalColorAndEmphasisRuns() {
+        let model = QuillCodeWorkspaceModel(terminal: TerminalState(
+            isVisible: true,
+            entries: [
+                TerminalCommandState(
+                    command: "ansi-demo",
+                    stdout: "\u{1B}[1;3;4;38;2;12;34;56mstyled\u{1B}[0m",
+                    stderr: "\u{1B}[31mwarning\u{1B}[0m",
+                    exitCode: 0,
+                    ok: true
+                )
+            ]
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains("ansi-bold"))
+        XCTAssertTrue(html.contains("ansi-italic"))
+        XCTAssertTrue(html.contains("ansi-underline"))
+        XCTAssertTrue(html.contains("color:#0C2238"))
+        XCTAssertTrue(html.contains("color:#CD0000"))
+        XCTAssertTrue(html.contains(">styled</span>"))
+        XCTAssertTrue(html.contains(">warning</span>"))
+    }
 }

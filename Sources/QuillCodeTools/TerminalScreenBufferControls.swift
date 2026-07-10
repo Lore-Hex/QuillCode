@@ -2,7 +2,7 @@ extension TerminalScreenBuffer {
     mutating func applyCSI(final: Unicode.Scalar, params: String) {
         switch final {
         case "m":
-            break  // SGR (color/style): strip for text-only rendering
+            applySGR(params)
         case "H", "f":  // CUP / HVP: 1-based row;column, default 1;1
             let parts = csiParams(params)
             let targetRow = (parts.count > 0 ? max(1, parts[0]) : 1) - 1
@@ -107,12 +107,13 @@ extension TerminalScreenBuffer {
     }
 
     mutating func saveCursor() {
-        savedCursor = (row, col)
+        savedCursor = CursorSnapshot(row: row, col: col, style: currentStyle)
     }
 
     mutating func restoreCursor() {
         guard let savedCursor else { return }
         setCursor(row: savedCursor.row, col: savedCursor.col)
+        currentStyle = savedCursor.style
     }
 
     mutating func ensureRow(_ target: Int) {

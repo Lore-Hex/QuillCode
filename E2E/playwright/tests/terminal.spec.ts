@@ -26,6 +26,17 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
   await expect(page.getByTestId('terminal-stdout').last()).toContainText('stream-end');
 
+  await page.getByLabel('Terminal command').fill('ansi-demo');
+  await page.getByTestId('terminal-run').click();
+  const styledStdout = page.getByTestId('terminal-stdout').last();
+  await expect(styledStdout).toHaveText('success warning');
+  await expect(styledStdout.locator('.ansi-bold')).toHaveText('success');
+  await expect(styledStdout.locator('.ansi-bold')).toHaveCSS('color', 'rgb(0, 205, 0)');
+  await expect(styledStdout.locator('.ansi-italic.ansi-underline')).toHaveText('warning');
+  const styledStderr = page.getByTestId('terminal-stderr').last();
+  await expect(styledStderr.locator('.ansi-strikethrough')).toHaveText('failed');
+  await expect(styledStderr.locator('.ansi-strikethrough')).toHaveCSS('color', 'rgb(205, 0, 0)');
+
   await page.getByLabel('Terminal command').fill('read-demo');
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');

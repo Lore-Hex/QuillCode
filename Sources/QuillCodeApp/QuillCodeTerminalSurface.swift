@@ -62,6 +62,8 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
     public var command: String
     public var stdout: String
     public var stderr: String
+    public var stdoutRuns: [TerminalTextRun]?
+    public var stderrRuns: [TerminalTextRun]?
     public var exitCodeLabel: String
     public var statusLabel: String
     public var executionContext: ExecutionContextSurface?
@@ -77,8 +79,18 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
         self.command = entry.command
         // Render raw PTY output (ANSI color codes, `\r` progress-bar overwrites, erase sequences) into
         // clean display text. The raw bytes stay in the entry for fidelity; only the surface is cleaned.
-        self.stdout = TerminalOutputRenderer.render(entry.stdout, ambiguousWidthPolicy: ambiguousWidthPolicy)
-        self.stderr = TerminalOutputRenderer.render(entry.stderr, ambiguousWidthPolicy: ambiguousWidthPolicy)
+        let stdoutFrame = TerminalOutputRenderer.renderFrame(
+            entry.stdout,
+            ambiguousWidthPolicy: ambiguousWidthPolicy
+        )
+        let stderrFrame = TerminalOutputRenderer.renderFrame(
+            entry.stderr,
+            ambiguousWidthPolicy: ambiguousWidthPolicy
+        )
+        self.stdout = stdoutFrame.text
+        self.stderr = stderrFrame.text
+        self.stdoutRuns = stdoutFrame.runs
+        self.stderrRuns = stderrFrame.runs
         self.exitCodeLabel = Self.exitCodeLabel(for: entry)
         self.statusLabel = Self.statusLabel(for: entry.status)
         self.executionContext = entry.executionContext

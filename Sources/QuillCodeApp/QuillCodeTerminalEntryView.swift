@@ -21,15 +21,20 @@ struct QuillCodeTerminalEntryView: View {
                     .foregroundStyle(statusColor)
             }
             if !entry.stdout.isEmpty {
-                Text(entry.stdout)
-                    .font(.caption.monospaced())
+                Text(QuillCodeTerminalAttributedText.render(
+                    runs: entry.stdoutRuns,
+                    fallback: entry.stdout,
+                    defaultForeground: QuillCodePalette.text
+                ))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             if !entry.stderr.isEmpty {
-                Text(entry.stderr)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(QuillCodePalette.red)
+                Text(QuillCodeTerminalAttributedText.render(
+                    runs: entry.stderrRuns,
+                    fallback: entry.stderr,
+                    defaultForeground: QuillCodePalette.red
+                ))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

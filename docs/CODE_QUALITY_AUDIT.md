@@ -15671,3 +15671,29 @@ Validation:
 - `swift test --filter WorkspaceRenderedCommandRoutingParityTests` (2 tests, 0 failures)
 - `git diff --check`
 - `swift test` (3405 tests, 2 skipped, 0 failures)
+
+## 2026-07-10 Styled Terminal Output Slice
+
+Overall grade after this slice: **A+ terminal rendering architecture, A terminal parity**.
+The integrated terminal now preserves SGR presentation state through cursor-addressed redraws instead
+of discarding every color and emphasis sequence. Raw PTY output remains the durable source of truth;
+the visible surface derives compact style runs for native SwiftUI and static HTML rendering.
+
+Code quality changes:
+
+- Added value-semantic, Codable terminal color/style/run models in `QuillCodeTools` so terminal
+  parsing stays UI-independent and both renderers consume one shared result.
+- Kept the existing plain-text renderer API as a compatibility facade over the new styled frame API.
+- Implemented standard, bright, 256-color, RGB, semicolon, and colon SGR forms plus independent
+  reset semantics for foreground, background, and emphasis attributes.
+- Preserved style state across saved cursors and alternate-screen frame extraction without altering
+  persisted raw terminal bytes.
+- Added native attributed-text rendering, escaped HTML style rendering, a matching Playwright harness
+  contract, and a real PTY integration test.
+
+Validation:
+
+- `swift test --filter 'TerminalOutputRendererTests|QuillCodeTerminalSurfaceTests|WorkspaceHTMLTerminalRendererTests'` (70 tests, 0 failures)
+- `swift test --filter WorkspaceTerminalIntegrationTests`
+- `npm test -- terminal.spec.ts` (2 tests, 0 failures)
+- `git diff --check`
