@@ -83,6 +83,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         assertCommandButton(html, testID: "add-project-button", commandID: "add-project", title: "+")
         XCTAssertTrue(html.contains(#"data-testid="project-item""#))
         XCTAssertTrue(html.contains(#"data-testid="project-selection-badge">Current</small>"#))
+        XCTAssertTrue(html.contains(#"aria-label="Current project, Unsafe &lt;project&gt;, Local, /tmp/unsafe""#))
         XCTAssertTrue(html.contains(#"data-testid="transcript""#))
         XCTAssertTrue(html.contains(#"data-testid="composer""#))
         XCTAssertTrue(html.contains(#"data-testid="composer-surface""#))

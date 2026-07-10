@@ -37,6 +37,7 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertTrue(item.isRemote)
         XCTAssertTrue(item.isSelected)
         XCTAssertEqual(item.selectionLabel, "Current")
+        XCTAssertEqual(item.accessibilityLabel, "Current project, Feather, SSH Remote, ssh://quill@feather.local:22/srv/quill")
         XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .moveToBottom, .rename, .remove])
         XCTAssertEqual(
             item.actions.map(\.kind.title),
@@ -83,6 +84,7 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertEqual(item.connectionKindLabel, "Local")
         XCTAssertFalse(item.isRemote)
         XCTAssertNil(item.selectionLabel)
+        XCTAssertEqual(item.accessibilityLabel, "Project, QuillCode, Local, /Users/quill/QuillCode")
         XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .moveToBottom, .rename, .remove])
         XCTAssertTrue(item.actions.allSatisfy(\.isEnabled))
     }
