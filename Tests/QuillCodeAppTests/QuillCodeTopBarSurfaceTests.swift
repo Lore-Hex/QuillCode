@@ -232,6 +232,45 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         )
     }
 
+    func testModelCategorySearchFilterMatchesCompactProviderModelAliases() {
+        let categories = [
+            ModelCategorySurface(category: "Coding", models: [
+                modelOption(
+                    id: "deepseek/deepseek-v4-flash",
+                    provider: "deepseek",
+                    displayName: "DeepSeek V4 Flash",
+                    category: "Coding"
+                ),
+                modelOption(
+                    id: "moonshotai/kimi-k2.6",
+                    provider: "moonshotai",
+                    displayName: "Kimi K2.6",
+                    category: "Coding"
+                ),
+                modelOption(
+                    id: TrustedRouterDefaults.minimaxM3Model,
+                    provider: "minimax",
+                    displayName: "MiniMax M3",
+                    category: "minimax"
+                )
+            ])
+        ]
+
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "deepseekv4flash").flatMap(\.models).map(\.id),
+            ["deepseek/deepseek-v4-flash"]
+        )
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "kimi k26").flatMap(\.models).map(\.id),
+            ["moonshotai/kimi-k2.6"]
+        )
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "minimaxm3").flatMap(\.models).map(\.id),
+            [TrustedRouterDefaults.minimaxM3Model]
+        )
+        XCTAssertTrue(ModelCategorySearchFilter.filter(categories, matching: "! @").isEmpty)
+    }
+
     func testModelOptionBuildsTrustedRouterRecommendedMetadata() throws {
         let option = modelOption(
             id: TrustedRouterDefaults.defaultModel,
