@@ -19,6 +19,67 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("\u{1B}[1;32mbold green\u{1B}[0m done"), "bold green done")
     }
 
+    func testPreservesSGRColorsAndEmphasisAsStyledRuns() {
+        let frame = TerminalOutputRenderer.renderFrame(
+            "plain \u{1B}[1;3;4;31;44mstyled\u{1B}[22;23;24;39;49m done"
+        )
+
+        XCTAssertEqual(frame.text, "plain styled done")
+        XCTAssertEqual(frame.runs.count, 3)
+        XCTAssertEqual(frame.runs[0], TerminalTextRun(text: "plain "))
+        XCTAssertEqual(frame.runs[1].text, "styled")
+        XCTAssertEqual(frame.runs[1].style.foreground, .red)
+        XCTAssertEqual(frame.runs[1].style.background, .blue)
+        XCTAssertTrue(frame.runs[1].style.isBold)
+        XCTAssertTrue(frame.runs[1].style.isItalic)
+        XCTAssertTrue(frame.runs[1].style.isUnderlined)
+        XCTAssertEqual(frame.runs[2], TerminalTextRun(text: " done"))
+    }
+
+    func testPreservesExtendedIndexedRGBInverseAndStrikethroughStyles() {
+        let frame = TerminalOutputRenderer.renderFrame(
+            "\u{1B}[38;5;202;48;2;1;2;3;7;9mvalue\u{1B}[0m"
+        )
+
+        XCTAssertEqual(frame.runs.count, 1)
+        let style = frame.runs[0].style
+        XCTAssertEqual(style.foreground, .indexed(202))
+        XCTAssertEqual(style.background, .rgb(TerminalRGBColor(red: 1, green: 2, blue: 3)))
+        XCTAssertTrue(style.isInverse)
+        XCTAssertTrue(style.isStrikethrough)
+    }
+
+    func testSupportsColonFormRGBAndUnderlineReset() {
+        let frame = TerminalOutputRenderer.renderFrame(
+            "\u{1B}[38:2::12:34:56;4:2munder\u{1B}[4:0m plain"
+        )
+
+        XCTAssertEqual(frame.text, "under plain")
+        XCTAssertEqual(
+            frame.runs[0].style.foreground,
+            .rgb(TerminalRGBColor(red: 12, green: 34, blue: 56))
+        )
+        XCTAssertTrue(frame.runs[0].style.isUnderlined)
+        XCTAssertFalse(frame.runs[1].style.isUnderlined)
+    }
+
+    func testIndexedColorPaletteResolvesStandardCubeAndGrayEntries() {
+        XCTAssertEqual(TerminalTextColor.indexed(1).resolvedRGB, .init(red: 205, green: 0, blue: 0))
+        XCTAssertEqual(TerminalTextColor.indexed(16).resolvedRGB, .init(red: 0, green: 0, blue: 0))
+        XCTAssertEqual(TerminalTextColor.indexed(21).resolvedRGB, .init(red: 0, green: 0, blue: 255))
+        XCTAssertEqual(TerminalTextColor.indexed(232).resolvedRGB, .init(red: 8, green: 8, blue: 8))
+        XCTAssertEqual(TerminalTextColor.indexed(255).resolvedRGB, .init(red: 238, green: 238, blue: 238))
+    }
+
+    func testAlternateScreenPreservesStyledLatestFrame() {
+        let frame = TerminalOutputRenderer.renderFrame(
+            "before\n\u{1B}[?1049h\u{1B}[32mALT\nFRAME\u{1B}[0m\u{1B}[?1049l after"
+        )
+
+        XCTAssertEqual(frame.text, "before\nALT\nFRAME after")
+        XCTAssertEqual(frame.runs.first(where: { $0.text.contains("ALT") })?.style.foreground, .green)
+    }
+
     func testCarriageReturnOverwritesFromColumnZero() {
         XCTAssertEqual(render("abc\rXYZ"), "XYZ")
         // A shorter overwrite leaves the tail of the original line in place.

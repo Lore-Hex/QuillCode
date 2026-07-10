@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeTools
 
 enum WorkspaceHTMLTerminalRenderer {
     static func render(_ terminal: TerminalSurface) -> String {
@@ -58,10 +59,67 @@ enum WorkspaceHTMLTerminalRenderer {
             </span>
             <span class="terminal-status \(statusClass(entry))" data-testid="terminal-status">\(escape(entry.statusLabel)) · \(escape(entry.exitCodeLabel))</span>
           </header>
-          \(entry.stdout.isEmpty ? "" : #"<pre data-testid="terminal-stdout">\#(escape(entry.stdout))</pre>"#)
-          \(entry.stderr.isEmpty ? "" : #"<pre data-testid="terminal-stderr">\#(escape(entry.stderr))</pre>"#)
+          \(renderOutput(entry.stdoutRuns, fallback: entry.stdout, testID: "terminal-stdout", defaultColor: nil))
+          \(renderOutput(entry.stderrRuns, fallback: entry.stderr, testID: "terminal-stderr", defaultColor: "#F0574C"))
         </article>
         """
+    }
+
+    private static func renderOutput(
+        _ runs: [TerminalTextRun]?,
+        fallback: String,
+        testID: String,
+        defaultColor: String?
+    ) -> String {
+        guard !fallback.isEmpty else { return "" }
+        let source = runs ?? [TerminalTextRun(text: fallback)]
+        let contents = source.map {
+            renderRun($0, defaultColor: defaultColor)
+        }.joined()
+        return #"<pre data-testid="\#(testID)">\#(contents)</pre>"#
+    }
+
+    private static func renderRun(_ run: TerminalTextRun, defaultColor: String?) -> String {
+        let style = run.style
+        var classes = ["terminal-ansi-run"]
+        if style.isBold { classes.append("ansi-bold") }
+        if style.isFaint { classes.append("ansi-faint") }
+        if style.isItalic { classes.append("ansi-italic") }
+        if style.isUnderlined { classes.append("ansi-underline") }
+        if style.isInverse { classes.append("ansi-inverse") }
+        if style.isConcealed { classes.append("ansi-concealed") }
+        if style.isStrikethrough { classes.append("ansi-strikethrough") }
+
+        var foreground = style.foreground.map { $0.resolvedRGB.cssHex } ?? defaultColor
+        var background = style.background.map { $0.resolvedRGB.cssHex }
+        if style.isInverse {
+            let inverseBackground = foreground ?? "#ECECEC"
+            foreground = background ?? "#171717"
+            background = inverseBackground
+        }
+
+        var declarations: [String] = []
+        if style.isConcealed {
+            declarations.append("color:transparent")
+        } else if let foreground {
+            declarations.append("color:\(foreground)")
+        }
+        if let background { declarations.append("background-color:\(background)") }
+        if style.isBold { declarations.append("font-weight:700") }
+        if style.isFaint { declarations.append("opacity:.65") }
+        if style.isItalic { declarations.append("font-style:italic") }
+        let decorations = [
+            style.isUnderlined ? "underline" : nil,
+            style.isStrikethrough ? "line-through" : nil
+        ].compactMap { $0 }
+        if !decorations.isEmpty {
+            declarations.append("text-decoration-line:\(decorations.joined(separator: " "))")
+        }
+
+        let styleAttribute = declarations.isEmpty
+            ? ""
+            : #" style="\#(declarations.joined(separator: ";"))""#
+        return #"<span class="\#(classes.joined(separator: " "))"\#(styleAttribute)>\#(escape(run.text))</span>"#
     }
 
     private static func statusClass(_ entry: TerminalCommandSurface) -> String {
