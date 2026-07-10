@@ -130,6 +130,22 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitWorktreeRemove.name)
     }
 
+    func testSlashProjectRemoveForgetsSelectedProjectWithoutDeletingFiles() async throws {
+        let firstRoot = try makeQuillCodeTestDirectory()
+        let secondRoot = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let firstProjectID = model.addProject(path: firstRoot, name: "First Project")
+        let secondProjectID = model.addProject(path: secondRoot, name: "Second Project")
+        model.selectProject(secondProjectID)
+
+        model.setDraft("/project remove")
+        await model.submitComposer(workspaceRoot: secondRoot)
+
+        XCTAssertEqual(model.root.projects.map(\.id), [firstProjectID])
+        XCTAssertEqual(model.selectedProject?.id, firstProjectID)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: secondRoot.path))
+    }
+
     private func worktreeCard(
         in model: QuillCodeWorkspaceModel,
         title: String
