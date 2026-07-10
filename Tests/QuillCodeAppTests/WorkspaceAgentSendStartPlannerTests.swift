@@ -29,4 +29,24 @@ final class WorkspaceAgentSendStartPlannerTests: XCTestCase {
         XCTAssertNil(plan.lifecycle.lastError)
         XCTAssertEqual(plan.lifecycle.agentStatus, TopBarAgentStatusLabel.running)
     }
+
+    func testStartedPlanCarriesImagesOntoUserMessageAndClearsComposerImages() throws {
+        let attachment = try XCTUnwrap(ChatAttachment(
+            displayName: "screen.png",
+            format: .png,
+            localURL: URL(fileURLWithPath: "/tmp/screen.png"),
+            byteCount: 8
+        ))
+        let plan = WorkspaceAgentSendStartPlanner.started(
+            prompt: "",
+            attachments: [attachment],
+            thread: ChatThread(),
+            composer: ComposerState(attachments: [attachment])
+        )
+
+        XCTAssertEqual(plan.thread.messages.last?.attachments, [attachment])
+        XCTAssertEqual(plan.thread.events.last?.summary, "Attached 1 image")
+        XCTAssertEqual(plan.thread.title, "Image: screen.png")
+        XCTAssertEqual(plan.lifecycle.composer.attachments, [])
+    }
 }

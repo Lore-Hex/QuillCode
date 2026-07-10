@@ -77,6 +77,7 @@ extension QuillCodeWorkspaceModel {
 
             threadPersistence.delete(id)
             applyLifecycleSelection(result.selectedThreadID, removing: id)
+            removeManagedImagesIfUnreferenced(Self.allImageAttachmentsForCleanup(in: result.removedThread))
             syncSelectedProjectAfterDelete()
             saveProjects()
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -87,6 +88,8 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func clearThread(_ id: UUID) -> Bool {
+        let attachments = root.threads.first(where: { $0.id == id })
+            .map(Self.allImageAttachmentsForCleanup) ?? []
         guard let result = updateThreadLifecycle({
             WorkspaceThreadLifecycleEngine.clearThread(id, threads: &$0)
         }) else {
@@ -94,8 +97,16 @@ extension QuillCodeWorkspaceModel {
         }
 
         clearComposerDraft(for: id)
+        clearComposerAttachments(for: id)
         persistChangedThread(result.changedThread)
+        removeManagedImagesIfUnreferenced(attachments)
         return true
+    }
+
+    private static func allImageAttachmentsForCleanup(in thread: ChatThread) -> [ChatAttachment] {
+        thread.composerAttachments
+            + thread.followUpQueue.flatMap(\.attachments)
+            + thread.messages.flatMap(\.attachments)
     }
 
     @discardableResult

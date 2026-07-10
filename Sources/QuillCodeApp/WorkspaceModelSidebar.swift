@@ -139,6 +139,13 @@ extension QuillCodeWorkspaceModel {
         for thread in result.removedThreads {
             threadPersistence.delete(thread.id)
         }
+        removeManagedImagesIfUnreferenced(
+            result.removedThreads.flatMap { thread in
+                thread.composerAttachments
+                    + thread.followUpQueue.flatMap(\.attachments)
+                    + thread.messages.flatMap(\.attachments)
+            }
+        )
         if !result.removedThreads.isEmpty {
             pruneNavigationHistory()
         }

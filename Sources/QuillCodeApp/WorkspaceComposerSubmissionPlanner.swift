@@ -7,9 +7,15 @@ struct WorkspaceComposerSubmissionPlanner {
         case agent(prompt: String)
     }
 
-    static func plan(draft: String) -> Plan {
+    static func plan(draft: String, hasAttachments: Bool = false) -> Plan {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else { return .ignore }
+        guard !prompt.isEmpty || hasAttachments else { return .ignore }
+
+        // An attachment turns slash-looking text into model context rather than a local command.
+        // This prevents a valid image from being discarded by a command that cannot consume it.
+        if hasAttachments {
+            return .agent(prompt: prompt)
+        }
 
         if let command = SlashCommandParser.parse(prompt) {
             // `/skill name` is a registry entry that resolves to a normal agent turn (load + run the

@@ -7,12 +7,37 @@ import Foundation
 public struct FollowUpItem: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var text: String
+    public var attachments: [ChatAttachment]
     public var createdAt: Date
 
-    public init(id: UUID = UUID(), text: String, createdAt: Date = Date()) {
+    public init(
+        id: UUID = UUID(),
+        text: String,
+        attachments: [ChatAttachment] = [],
+        createdAt: Date = Date()
+    ) {
         self.id = id
         self.text = text
+        self.attachments = Array(attachments.prefix(ChatAttachment.maximumCountPerTurn))
         self.createdAt = createdAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case text
+        case attachments
+        case createdAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.text = try container.decode(String.self, forKey: .text)
+        self.attachments = Array(
+            (try container.decodeIfPresent([ChatAttachment].self, forKey: .attachments) ?? [])
+                .prefix(ChatAttachment.maximumCountPerTurn)
+        )
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
 }
 
@@ -57,15 +82,22 @@ public enum FollowUpQueue {
     /// stored text is the trimmed value — exactly what a direct submit would send.
     public static func enqueue(
         _ text: String,
+        attachments: [ChatAttachment] = [],
         into queue: [FollowUpItem],
         id: UUID = UUID(),
         now: Date = Date()
     ) -> Enqueue {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
+        let boundedAttachments = Array(attachments.prefix(ChatAttachment.maximumCountPerTurn))
+        guard !trimmed.isEmpty || !boundedAttachments.isEmpty else {
             return Enqueue(queue: queue, appended: nil)
         }
-        let item = FollowUpItem(id: id, text: trimmed, createdAt: now)
+        let item = FollowUpItem(
+            id: id,
+            text: trimmed,
+            attachments: boundedAttachments,
+            createdAt: now
+        )
         return Enqueue(queue: queue + [item], appended: item)
     }
 

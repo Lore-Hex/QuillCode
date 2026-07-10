@@ -37,6 +37,8 @@ public struct QuillCodeWorkspaceView: View {
         isKeyboardShortcutsPresented: Binding<Bool>,
         copiedTranscriptItemID: String? = nil,
         onSend: @escaping () -> Void,
+        onAddImagesRequested: @escaping () -> Void = {},
+        onRemoveImage: @escaping (UUID) -> Void = { _ in },
         onRunTerminalCommand: @escaping () -> Void,
         onTerminalHistoryPrevious: @escaping () -> Void = {},
         onTerminalHistoryNext: @escaping () -> Void = {},
@@ -96,6 +98,8 @@ public struct QuillCodeWorkspaceView: View {
         self.copiedTranscriptItemID = copiedTranscriptItemID
         self.actions = QuillCodeWorkspaceActions(
             onSend: onSend,
+            onAddImagesRequested: onAddImagesRequested,
+            onRemoveImage: onRemoveImage,
             onRunTerminalCommand: onRunTerminalCommand,
             onTerminalHistoryPrevious: onTerminalHistoryPrevious,
             onTerminalHistoryNext: onTerminalHistoryNext,
@@ -188,6 +192,8 @@ public struct QuillCodeWorkspaceView: View {
                     onSetModel: actions.onSetModel,
                     onToggleModelFavorite: actions.onToggleModelFavorite,
                     onSend: handleComposerSend,
+                    onAddImagesRequested: actions.onAddImagesRequested,
+                    onRemoveImage: actions.onRemoveImage,
                     onRunTerminalCommand: actions.onRunTerminalCommand,
                     onTerminalHistoryPrevious: actions.onTerminalHistoryPrevious,
                     onTerminalHistoryNext: actions.onTerminalHistoryNext,
@@ -381,7 +387,10 @@ public struct QuillCodeWorkspaceView: View {
 
     private func handleComposerSend() {
         guard case .slash(.workspaceCommand(let commandID), _) =
-            WorkspaceComposerSubmissionPlanner.plan(draft: draft),
+            WorkspaceComposerSubmissionPlanner.plan(
+                draft: draft,
+                hasAttachments: !surface.composer.attachments.isEmpty
+            ),
             Self.composerPresentedCommandIDs.contains(commandID)
         else {
             actions.onSend()

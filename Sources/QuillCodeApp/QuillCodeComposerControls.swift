@@ -8,7 +8,7 @@ struct QuillCodeFollowUpQueueView: View {
         VStack(alignment: .leading, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             ForEach(items) { item in
                 HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                    Text(item.text)
+                    Text(itemLabel(item))
                         .font(.callout)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -43,6 +43,15 @@ struct QuillCodeFollowUpQueueView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Queued follow-ups")
+    }
+
+    private func itemLabel(_ item: FollowUpItemSurface) -> String {
+        let imageCount = item.attachments.count
+        guard !item.text.isEmpty else {
+            return "\(imageCount) image\(imageCount == 1 ? "" : "s")"
+        }
+        guard imageCount > 0 else { return item.text }
+        return "\(item.text) · \(imageCount) image\(imageCount == 1 ? "" : "s")"
     }
 }
 

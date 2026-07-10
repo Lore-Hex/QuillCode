@@ -17,6 +17,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onSetModel: (String) -> Void
     var onToggleModelFavorite: (String) -> Void
     var onSend: () -> Void
+    var onAddImagesRequested: () -> Void = {}
+    var onRemoveImage: (UUID) -> Void = { _ in }
     var onRunTerminalCommand: () -> Void
     var onTerminalHistoryPrevious: () -> Void
     var onTerminalHistoryNext: () -> Void
@@ -144,6 +146,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
                     onSetModel: onSetModel,
                     onToggleModelFavorite: onToggleModelFavorite,
                     onSend: onSend,
+                    onAddImagesRequested: onAddImagesRequested,
+                    onRemoveImage: onRemoveImage,
                     onStop: stopActiveRun,
                     onDeleteFollowUp: onDeleteFollowUp
                 )

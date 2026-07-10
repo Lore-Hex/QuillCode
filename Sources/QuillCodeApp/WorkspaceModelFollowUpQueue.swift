@@ -23,14 +23,21 @@ extension QuillCodeWorkspaceModel {
         }
         guard selectedThread != nil else { return false }
         var appended = false
+        let attachments = composer.attachments
         mutateSelectedThread { thread in
-            let result = FollowUpQueue.enqueue(text, into: thread.followUpQueue)
+            let result = FollowUpQueue.enqueue(
+                text,
+                attachments: attachments,
+                into: thread.followUpQueue
+            )
             thread.followUpQueue = result.queue
             appended = result.appended != nil
         }
         if appended {
             composer.draft = ""
+            composer.attachments = []
             clearComposerDraft(for: root.selectedThreadID)
+            clearComposerAttachments(for: root.selectedThreadID)
         }
         return appended
     }
@@ -39,9 +46,12 @@ extension QuillCodeWorkspaceModel {
     /// id, so deleting an already-drained chip is harmless. Persists with the thread. Deleting
     /// a chip before its turn drains guarantees it is never sent.
     public func deleteFollowUp(_ id: UUID) {
+        var removedAttachments: [ChatAttachment] = []
         mutateSelectedThread { thread in
+            removedAttachments = thread.followUpQueue.first { $0.id == id }?.attachments ?? []
             thread.followUpQueue = FollowUpQueue.delete(id, from: thread.followUpQueue)
         }
+        removeManagedImagesIfUnreferenced(removedAttachments)
     }
 
     /// Pops the run thread's next queued follow-up at a turn boundary, if any, returning its
@@ -52,13 +62,13 @@ extension QuillCodeWorkspaceModel {
     ///
     /// Drains from the RUN's thread (`runThreadID`), not whatever thread is selected now, so a
     /// mid-run thread switch never drains the wrong queue or drops the run thread's items.
-    func drainNextFollowUp(runThreadID: UUID) -> String? {
+    func drainNextFollowUp(runThreadID: UUID) -> FollowUpItem? {
         var next: FollowUpItem?
         mutateThread(runThreadID) { thread in
             let result = FollowUpQueue.dequeue(thread.followUpQueue)
             next = result.next
             thread.followUpQueue = result.remaining
         }
-        return next?.text
+        return next
     }
 }

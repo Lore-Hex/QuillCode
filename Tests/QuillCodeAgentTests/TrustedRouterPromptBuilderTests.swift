@@ -2,9 +2,69 @@ import XCTest
 import QuillCodeCore
 import QuillCodeTools
 import QuillCodeSafety
+import QuillCodePersistence
 @testable import QuillCodeAgent
 
 final class TrustedRouterPromptBuilderTests: XCTestCase {
+    func testManagedImageBecomesOpenAICompatibleMultimodalContent() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quillcode-prompt-image-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let source = root.appendingPathComponent("source.png")
+        let png = Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )!
+        try png.write(to: source)
+        let store = ImageAttachmentStore(directory: root.appendingPathComponent("managed"))
+        let attachment = try store.importImage(from: source, threadID: UUID())
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "Explain this screenshot", attachments: [attachment])
+        ])
+
+        let messages = TrustedRouterPromptBuilder(imageAttachmentStore: store).messages(
+            thread: thread,
+            userMessage: "Explain this screenshot",
+            tools: []
+        )
+        let user = try XCTUnwrap(messages.last { $0["role"] as? String == "user" })
+        let content = try XCTUnwrap(user["content"] as? [[String: Any]])
+        XCTAssertEqual(content.count, 2)
+        XCTAssertEqual(content[0]["type"] as? String, "text")
+        XCTAssertEqual(content[0]["text"] as? String, "Explain this screenshot")
+        XCTAssertEqual(content[1]["type"] as? String, "image_url")
+        let image = try XCTUnwrap(content[1]["image_url"] as? [String: Any])
+        XCTAssertEqual(image["detail"] as? String, "auto")
+        XCTAssertTrue((image["url"] as? String)?.hasPrefix("data:image/png;base64,") == true)
+    }
+
+    func testUnmanagedImageIsNeverReadIntoPrompt() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quillcode-unmanaged-image-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let outside = root.appendingPathComponent("secret.png")
+        try Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).write(to: outside)
+        let attachment = try XCTUnwrap(ChatAttachment(
+            displayName: "secret.png",
+            format: .png,
+            localURL: outside,
+            byteCount: 8
+        ))
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "", attachments: [attachment])
+        ])
+
+        let messages = TrustedRouterPromptBuilder(
+            imageAttachmentStore: ImageAttachmentStore(directory: root.appendingPathComponent("managed"))
+        ).messages(thread: thread, userMessage: "", tools: [])
+        let user = try XCTUnwrap(messages.last { $0["role"] as? String == "user" })
+        let content = try XCTUnwrap(user["content"] as? [[String: Any]])
+        XCTAssertEqual(content.count, 1)
+        XCTAssertEqual(content[0]["type"] as? String, "text")
+        XCTAssertEqual(content[0]["text"] as? String, "[Attached image unavailable: secret.png]")
+    }
+
     func testPromptRequiresNonEmptyShellCommand() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))

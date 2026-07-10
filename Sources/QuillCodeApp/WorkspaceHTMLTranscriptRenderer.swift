@@ -55,6 +55,7 @@ enum WorkspaceHTMLTranscriptRenderer {
           <div class="composer-surface" data-testid="composer-surface">
             <label class="composer-sr-only" for="message">Message</label>
             \(renderFollowUpQueue(composer.followUpQueue))
+            \(renderComposerAttachments(composer.attachments))
             <div class="composer-input-row">
               \(renderComposerTextArea(composer))
               \(button)
@@ -64,6 +65,13 @@ enum WorkspaceHTMLTranscriptRenderer {
               data-testid="composer-controls"
               aria-label="Composer model and safety controls"
             >
+              \(WorkspaceHTMLPrimitives.button(
+                  "Attach images",
+                  testID: "attach-images-button",
+                  hitTargetKind: .icon,
+                  classes: ["composer-attach-images"],
+                  ariaLabel: "Attach images"
+              ))
               <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                   testID: "model-picker-button",
                   hitTargetKind: .capsule,
@@ -119,6 +127,30 @@ enum WorkspaceHTMLTranscriptRenderer {
         return """
         <div class="composer-followup-queue" data-testid="composer-followup-queue" aria-label="Queued follow-ups">
           \(chips)
+        </div>
+        """
+    }
+
+    private static func renderComposerAttachments(_ attachments: [ImageAttachmentSurface]) -> String {
+        guard !attachments.isEmpty else { return "" }
+        return """
+        <div class="composer-attachments" data-testid="composer-attachments" aria-label="Attached images">
+          \(attachments.map { attachment in
+            """
+            <figure class="composer-attachment" data-testid="composer-attachment">
+              <img src="\(escape(attachment.previewURL))" alt="\(escape(attachment.displayName))">
+              <figcaption>\(escape(attachment.displayName))</figcaption>
+              \(WorkspaceHTMLPrimitives.button(
+                  "Remove",
+                  testID: "composer-attachment-remove",
+                  hitTargetKind: .icon,
+                  classes: ["composer-attachment-remove"],
+                  ariaLabel: "Remove attached image \(attachment.displayName)",
+                  attributes: [("data-attachment-id", attachment.id.uuidString)]
+              ))
+            </figure>
+            """
+          }.joined(separator: "\n"))
         </div>
         """
     }
@@ -275,7 +307,8 @@ enum WorkspaceHTMLTranscriptRenderer {
               data-timeline-id="\(escape(item.id))"
               aria-label="\(escape(message.accessibilityLabel))"
             >
-              <p>\(escape(message.text))</p>
+              \(renderMessageAttachments(message.attachments))
+              \(message.text.isEmpty ? "" : "<p>\(escape(message.text))</p>")
               <footer class="transcript-actions">
                 \(WorkspaceHTMLPrimitives.button(
                     "Copy",
@@ -297,6 +330,17 @@ enum WorkspaceHTMLTranscriptRenderer {
             guard let card = item.toolCard else { return "" }
             return WorkspaceHTMLToolCardRenderer.render(card, timelineItemID: item.id)
         }
+    }
+
+    private static func renderMessageAttachments(_ attachments: [ImageAttachmentSurface]) -> String {
+        guard !attachments.isEmpty else { return "" }
+        return """
+        <div class="message-attachments" data-testid="message-attachments" aria-label="Attached images">
+          \(attachments.map { attachment in
+            "<img data-testid=\"message-attachment\" src=\"\(escape(attachment.previewURL))\" alt=\"\(escape(attachment.displayName))\">"
+          }.joined(separator: "\n"))
+        </div>
+        """
     }
 
     private static func renderMessageDraftAction(_ message: MessageSurface) -> String {

@@ -29,6 +29,22 @@ final class ContextTokenEstimatorTests: XCTestCase {
         )
     }
 
+    func testImageAttachmentsAddConservativeContextAllowance() throws {
+        let attachment = try XCTUnwrap(ChatAttachment(
+            displayName: "screen.png",
+            format: .png,
+            localURL: URL(fileURLWithPath: "/tmp/screen.png"),
+            byteCount: 8
+        ))
+        let message = ChatMessage(role: .user, content: "", attachments: [attachment])
+
+        XCTAssertEqual(
+            ContextTokenEstimator.estimatedTokens(for: [message]),
+            ContextTokenEstimator.perMessageOverheadTokens
+                + ContextTokenEstimator.perImageAttachmentTokens
+        )
+    }
+
     func testSingleTextEstimateRoundsUp() {
         // 5 chars / 4 per token, rounded up = 2 tokens.
         XCTAssertEqual(ContextTokenEstimator.estimatedTokens(forText: "hello"), 2)

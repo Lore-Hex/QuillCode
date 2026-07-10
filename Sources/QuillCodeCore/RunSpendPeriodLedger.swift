@@ -59,6 +59,7 @@ public struct RunSpendPeriodLedger: Sendable, Hashable {
             instructions: thread.instructions,
             memories: thread.memories,
             composerDraft: thread.composerDraft,
+            composerAttachments: thread.composerAttachments,
             followUpQueue: thread.followUpQueue
         )
     }

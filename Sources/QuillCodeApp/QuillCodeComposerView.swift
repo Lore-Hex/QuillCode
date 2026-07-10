@@ -15,6 +15,8 @@ struct QuillCodeComposerView: View {
     var onSetModel: (String) -> Void
     var onToggleModelFavorite: (String) -> Void
     var onSend: () -> Void
+    var onAddImagesRequested: () -> Void = {}
+    var onRemoveImage: (UUID) -> Void = { _ in }
     var onStop: () -> Void
     var onDeleteFollowUp: (UUID) -> Void = { _ in }
 
@@ -107,6 +109,13 @@ struct QuillCodeComposerView: View {
                 )
             }
 
+            if !composer.attachments.isEmpty {
+                QuillCodeImageAttachmentStrip(
+                    attachments: composer.attachments,
+                    onRemove: onRemoveImage
+                )
+            }
+
             HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 QuillCodeComposerTextField(
                     placeholder: composer.placeholder,
@@ -180,13 +189,28 @@ struct QuillCodeComposerView: View {
     }
 
     private var canSendDraft: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !composer.attachments.isEmpty)
             && !composer.isSending
             && modelCommandEmptyCopy == nil
     }
 
     private var composerAccessoryBar: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+            Button(action: onAddImagesRequested) {
+                Image(systemName: "photo.badge.plus")
+                    .font(.callout.weight(.semibold))
+                    .quillCodeIconButtonTarget(
+                        size: QuillCodeMetrics.minimumHitTarget,
+                        radius: QuillCodeMetrics.composerControlRadius
+                    )
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .foregroundStyle(QuillCodePalette.muted)
+            .help("Attach images")
+            .accessibilityLabel("Attach images")
+            .accessibilityIdentifier("quillcode-attach-images-button")
+
             QuillCodeModelPickerView(
                 topBar: topBar,
                 isPresented: $isModelPickerPresented,

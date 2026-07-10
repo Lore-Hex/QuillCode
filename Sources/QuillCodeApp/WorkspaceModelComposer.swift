@@ -18,10 +18,12 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func prepareRetryLastUserTurn() -> Bool {
-        guard let draft = WorkspaceRetryPlanner.retryDraft(in: selectedThread) else {
+        guard let message = WorkspaceRetryPlanner.retryMessage(in: selectedThread) else {
             return false
         }
-        setDraft(draft)
+        setDraft(message.content)
+        composer.attachments = message.attachments
+        persistComposerAttachments(message.attachments, for: root.selectedThreadID)
         setLastError(nil)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
@@ -108,7 +110,11 @@ extension QuillCodeWorkspaceModel {
         onStarted: (@MainActor @Sendable () -> Void)?,
         onProgressUpdated: (@MainActor @Sendable () -> Void)?
     ) async -> AgentTurnResult? {
-        let submissionPlan = WorkspaceComposerSubmissionPlanner.plan(draft: composer.draft)
+        let attachments = composer.attachments
+        let submissionPlan = WorkspaceComposerSubmissionPlanner.plan(
+            draft: composer.draft,
+            hasAttachments: !attachments.isEmpty
+        )
         let draftThreadID = root.selectedThreadID
         let prompt: String
         switch submissionPlan {
@@ -126,6 +132,7 @@ extension QuillCodeWorkspaceModel {
 
         return await runAgentTurn(
             prompt: prompt,
+            attachments: attachments,
             clearingDraftFor: draftThreadID,
             workspaceRoot: workspaceRoot,
             onStarted: onStarted,
@@ -138,7 +145,7 @@ extension QuillCodeWorkspaceModel {
     /// even if the user switched threads mid-run; an already-deleted item never reaches here
     /// because `drainNextFollowUp` only returns items still present in the queue.
     private func sendFollowUpTurn(
-        _ prompt: String,
+        _ item: FollowUpItem,
         runThreadID: UUID,
         workspaceRoot: URL,
         onStarted: (@MainActor @Sendable () -> Void)?,
@@ -149,7 +156,8 @@ extension QuillCodeWorkspaceModel {
             selectThread(runThreadID)
         }
         return await runAgentTurn(
-            prompt: prompt,
+            prompt: item.text,
+            attachments: item.attachments,
             clearingDraftFor: nil,
             workspaceRoot: workspaceRoot,
             onStarted: onStarted,
@@ -164,6 +172,7 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     private func runAgentTurn(
         prompt: String,
+        attachments: [ChatAttachment] = [],
         clearingDraftFor draftThreadID: UUID?,
         workspaceRoot: URL,
         onStarted: (@MainActor @Sendable () -> Void)?,
@@ -172,13 +181,16 @@ extension QuillCodeWorkspaceModel {
         guard let thread = prepareAgentSendThread() else { return nil }
         let sendStart = WorkspaceAgentSendStartPlanner.started(
             prompt: prompt,
+            attachments: attachments,
             thread: thread,
             composer: composer
         )
         clearComposerDraft(for: draftThreadID)
+        clearComposerAttachments(for: draftThreadID)
         var startedThread = sendStart.thread
         if let liveThread = root.threads.first(where: { $0.id == startedThread.id }) {
             startedThread.composerDraft = liveThread.composerDraft
+            startedThread.composerAttachments = liveThread.composerAttachments
         }
         updateThreadFromAgentRun(startedThread)
         threadPersistence.save(startedThread)
@@ -219,8 +231,11 @@ extension QuillCodeWorkspaceModel {
         guard !composer.isSending, let thread = selectedThread,
               thread.id == expectedThreadID, thread.mode == .plan else { return }
         // Only resume when the user actually has a request on record to continue.
-        guard let intent = thread.messages.last(where: { $0.role == .user })?.content,
-              !intent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard let intentMessage = thread.messages.last(where: { $0.role == .user }),
+              !intentMessage.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !intentMessage.attachments.isEmpty
+        else { return }
+        let intent = intentMessage.content
 
         let sendStart = WorkspaceAgentSendStartPlan(
             prompt: intent,
@@ -244,8 +259,11 @@ extension QuillCodeWorkspaceModel {
         else {
             return
         }
-        guard let intent = thread.messages.last(where: { $0.role == .user })?.content,
-              !intent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard let intentMessage = thread.messages.last(where: { $0.role == .user }),
+              !intentMessage.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !intentMessage.attachments.isEmpty
+        else { return }
+        let intent = intentMessage.content
 
         let sendStart = WorkspaceAgentSendStartPlan(
             prompt: intent,
@@ -273,6 +291,7 @@ extension QuillCodeWorkspaceModel {
         if let liveThread = root.threads.first(where: { $0.id == thread.id }) {
             thread.followUpQueue = liveThread.followUpQueue
             thread.composerDraft = liveThread.composerDraft
+            thread.composerAttachments = liveThread.composerAttachments
         }
         updateThreadFromAgentRun(thread)
         try threadPersistence.saveOrThrow(thread)

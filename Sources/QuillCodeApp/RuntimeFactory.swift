@@ -74,6 +74,9 @@ public struct QuillCodeRuntimeFactory: Sendable {
         // safe here (the HTTP status error throws before any token is streamed) and covers both the
         // agent run loop and context-summary calls, since both go through this client.
         let baseClient = TrustedRouterLLMClient(
+            promptBuilder: TrustedRouterPromptBuilder(
+                imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory)
+            ),
             sessionStore: sessionStore,
             apiKeyOverride: apiKey,
             model: config.defaultModel,

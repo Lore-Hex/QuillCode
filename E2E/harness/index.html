@@ -3660,6 +3660,53 @@
     .composer-followup-delete:hover {
       color: var(--blue, #3dc9e6);
     }
+    .composer-attachments {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 8px 2px 4px;
+    }
+    .composer-attachment {
+      position: relative;
+      flex: 0 0 104px;
+      min-width: 0;
+    }
+    .composer-attachment img,
+    .message-attachments img {
+      display: block;
+      width: 100%;
+      height: 72px;
+      object-fit: contain;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 8px;
+      background: rgba(0,0,0,.24);
+    }
+    .composer-attachment span {
+      display: block;
+      overflow: hidden;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .composer-attachment-remove {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(0,0,0,.78);
+      color: white;
+    }
+    .message-attachments {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 8px;
+      max-width: 448px;
+      margin-bottom: 8px;
+    }
+    .message-attachments img { height: auto; max-height: 220px; }
     .composer-input-row {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -4405,6 +4452,7 @@
       },
       composer: {
         draft: '',
+        attachments: [],
         placeholder: 'Message QuillCode',
         isSending: false,
         canSend: false,
@@ -5897,11 +5945,12 @@
       };
     }
 
-    function addMessage(role, text) {
+    function addMessage(role, text, attachments = []) {
       const message = {
         id: `message-${state.nextTimelineIndex++}`,
         role,
-        text
+        text,
+        attachments: clonedPlainObject(attachments, [])
       };
       state.transcript.messages.push(message);
       state.transcript.timelineItems.push({
@@ -5921,7 +5970,7 @@
       const target = state.sidebar.items.find(item => item.id === threadID);
       if (!target || threadID === state.sidebar.selectedThreadID) return;
       const snapshot = target.snapshot || { messages: [], toolCards: [], timelineItems: [], review: emptyReviewSurface() };
-      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text };
+      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text, attachments: [] };
       const item = { id: `timeline-${state.nextTimelineIndex++}`, kind: 'message', message };
       const nextSnapshot = {
         ...snapshot,
@@ -7960,9 +8009,14 @@
         if (!message || message.role !== 'assistant' || message.id !== latestAssistantMessageID || !retryCommand) return '';
         return `<button type="button" class="transcript-message-action-button hit-target-text" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
       };
+      const renderMessageAttachments = message => (message.attachments || []).length ? `
+        <div class="message-attachments" data-testid="message-attachments" aria-label="Attached images">
+          ${(message.attachments || []).map(attachment => `<img data-testid="message-attachment" src="${escapeHTML(attachment.dataURL)}" alt="${escapeHTML(attachment.name)}">`).join('')}
+        </div>` : '';
       const renderMessage = (message, timelineID = '') => `
-        <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
-          <p>${escapeHTML(message.text)}</p>
+        <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text + ((message.attachments || []).length ? ` ${(message.attachments || []).length} attached images` : ''))}">
+          ${renderMessageAttachments(message)}
+          ${message.text ? `<p>${escapeHTML(message.text)}</p>` : ''}
           ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + revertButton(message) + retryButton(message))}
         </article>`;
       const thinkingTraceLines = () => state.transcript.toolCards
@@ -8514,6 +8568,7 @@
                 <div class="composer-surface" data-testid="composer-surface">
                   <label class="composer-sr-only" for="message">Message</label>
                   ${renderComposerFollowUpQueue()}
+                  ${renderComposerAttachments()}
                   <div class="composer-input-row">
                     <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1">${escapeHTML(state.composer.draft)}</textarea>
                     ${state.composer.isSending
@@ -8523,6 +8578,8 @@
                       : `<button class="hit-target-text" type="submit" data-testid="send-button" ${(state.composer.canSend && !modelCommandHasNoMatches()) ? '' : 'disabled'}>Send</button>`}
                   </div>
                   <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
+                    <button type="button" class="hit-target-icon" data-testid="attach-images-button" aria-label="Attach images" title="Attach images">▧</button>
+                    <input type="file" data-testid="image-file-input" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
                     <div class="model-picker-wrap">
                       <button class="composer-model-button hit-target-capsule" type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
                       ${modelBrowser}
@@ -8556,7 +8613,7 @@
       resizeComposerInput(input);
       input.addEventListener('input', event => {
         state.composer.draft = event.target.value;
-        state.composer.canSend = state.composer.draft.trim().length > 0;
+        state.composer.canSend = composerHasContent();
         state.composer.slashActiveIndex = 0;
         state.composer.modelCommandActiveIndex = 0;
         state.composer.mentionActiveIndex = 0;
@@ -8646,6 +8703,17 @@
         event.preventDefault();
         if (modelCommandHasNoMatches()) return;
         sendMessage(input.value);
+      });
+      document.querySelector('[data-testid="attach-images-button"]')?.addEventListener('click', () => {
+        document.querySelector('[data-testid="image-file-input"]')?.click();
+      });
+      document.querySelector('[data-testid="image-file-input"]')?.addEventListener('change', async event => {
+        await addComposerImageFiles(event.target.files);
+      });
+      document.querySelectorAll('[data-testid="composer-attachment-remove"]').forEach(button => {
+        button.addEventListener('click', event => {
+          removeComposerImage(event.currentTarget.getAttribute('data-attachment-id'));
+        });
       });
       document.querySelector('[data-testid="stop-button"]')?.addEventListener('click', () => {
         runCommand('stop-all');
@@ -10960,15 +11028,76 @@
     function renderComposerFollowUpQueue() {
       const items = state.composer.followUpQueue || [];
       if (!items.length) return '';
+      const label = item => {
+        const count = (item.attachments || []).length;
+        if (!item.text) return `${count} image${count === 1 ? '' : 's'}`;
+        return count ? `${item.text} · ${count} image${count === 1 ? '' : 's'}` : item.text;
+      };
       const chips = items.map(item => `
         <span class="composer-followup-chip" data-testid="composer-followup-chip" data-followup-id="${escapeHTML(item.id)}">
-          <span class="composer-followup-text" data-testid="composer-followup-text">${escapeHTML(item.text)}</span>
+          <span class="composer-followup-text" data-testid="composer-followup-text">${escapeHTML(label(item))}</span>
           <button type="button" class="composer-followup-delete hit-target-icon" data-testid="composer-followup-delete" data-followup-id="${escapeHTML(item.id)}" aria-label="Remove queued follow-up">×</button>
         </span>`).join('\n');
       return `
         <div class="composer-followup-queue" data-testid="composer-followup-queue" aria-label="Queued follow-ups">
           ${chips}
         </div>`;
+    }
+
+    function composerHasContent() {
+      return Boolean(String(state.composer.draft || '').trim())
+        || Boolean((state.composer.attachments || []).length);
+    }
+
+    function renderComposerAttachments() {
+      const attachments = state.composer.attachments || [];
+      if (!attachments.length) return '';
+      return `
+        <div class="composer-attachments" data-testid="composer-attachments" aria-label="Attached images">
+          ${attachments.map(attachment => `
+            <div class="composer-attachment" data-testid="composer-attachment" data-attachment-id="${escapeHTML(attachment.id)}">
+              <img src="${escapeHTML(attachment.dataURL)}" alt="${escapeHTML(attachment.name)}">
+              <span title="${escapeHTML(attachment.name)}">${escapeHTML(attachment.name)}</span>
+              <button type="button" class="composer-attachment-remove hit-target-icon" data-testid="composer-attachment-remove" data-attachment-id="${escapeHTML(attachment.id)}" aria-label="Remove attached image ${escapeHTML(attachment.name)}">×</button>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    function readImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          id: crypto.randomUUID(),
+          name: file.name,
+          mimeType: file.type,
+          byteCount: file.size,
+          dataURL: String(reader.result || '')
+        });
+        reader.onerror = () => reject(reader.error || new Error('Could not read image'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function addComposerImageFiles(fileList) {
+      const allowed = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+      const remaining = Math.max(0, 4 - (state.composer.attachments || []).length);
+      const files = Array.from(fileList || [])
+        .filter(file => allowed.has(file.type) && file.size > 0 && file.size <= 10 * 1024 * 1024)
+        .slice(0, remaining);
+      const attachments = [];
+      for (const file of files) attachments.push(await readImageFile(file));
+      state.composer.attachments = [...(state.composer.attachments || []), ...attachments];
+      state.composer.canSend = composerHasContent();
+      render();
+      focusComposerAtDraftEnd();
+    }
+
+    function removeComposerImage(id) {
+      state.composer.attachments = (state.composer.attachments || [])
+        .filter(attachment => attachment.id !== id);
+      state.composer.canSend = composerHasContent();
+      render();
+      focusComposerAtDraftEnd();
     }
 
     function renderComposerPlanProgress() {
@@ -16279,11 +16408,17 @@
 
     function stashComposerDraft(outgoingID) {
       if (!state.threadDrafts) state.threadDrafts = {};
+      if (!state.threadAttachments) state.threadAttachments = {};
       if (!outgoingID) return;
       if (String(state.composer.draft).trim().length) {
         state.threadDrafts[outgoingID] = state.composer.draft;
       } else {
         delete state.threadDrafts[outgoingID];
+      }
+      if ((state.composer.attachments || []).length) {
+        state.threadAttachments[outgoingID] = clonedPlainObject(state.composer.attachments, []);
+      } else {
+        delete state.threadAttachments[outgoingID];
       }
     }
 
@@ -16320,8 +16455,10 @@
       if (!threadID) return;
       emptyTranscriptSurface();
       state.composer.draft = '';
+      state.composer.attachments = [];
       state.composer.canSend = false;
       if (state.threadDrafts) delete state.threadDrafts[threadID];
+      if (state.threadAttachments) delete state.threadAttachments[threadID];
       saveSelectedThreadSnapshot(threadID);
       syncSelectedThreadSearchText();
       updateDynamicCommands();
@@ -16360,9 +16497,15 @@
 
     function restoreComposerDraft(incomingID) {
       if (!state.threadDrafts) state.threadDrafts = {};
+      if (!state.threadAttachments) state.threadAttachments = {};
       state.composer.draft = (incomingID && state.threadDrafts[incomingID]) || '';
+      state.composer.attachments = clonedPlainObject(
+        (incomingID && state.threadAttachments[incomingID]) || [],
+        []
+      );
       if (incomingID) delete state.threadDrafts[incomingID];
-      state.composer.canSend = state.composer.draft.trim().length > 0;
+      if (incomingID) delete state.threadAttachments[incomingID];
+      state.composer.canSend = composerHasContent();
       state.composer.historyRecallIndex = null;
       state.composer.historySavedDraft = null;
     }
@@ -16650,20 +16793,22 @@
 
     function sendMessage(value) {
       const text = String(value).trim();
-      if (!text) return;
-      if (runInstantStopSlashCommand(text)) return;
+      const attachments = clonedPlainObject(state.composer.attachments || [], []);
+      if (!text && !attachments.length) return;
+      if (!attachments.length && runInstantStopSlashCommand(text)) return;
       // Never lock the composer: a submit DURING a live run enqueues as a follow-up chip
       // (drained at the next turn boundary by finishMockAgentTurn) instead of starting a turn.
       if (state.composer.isSending) {
-        state.composer.followUpQueue.push({ id: crypto.randomUUID(), text });
+        state.composer.followUpQueue.push({ id: crypto.randomUUID(), text, attachments });
         state.composer.draft = '';
+        state.composer.attachments = [];
         state.composer.canSend = false;
         render();
         return;
       }
-      if (openBrowserSessionFromSlash(text)) return;
-      if (runInstantViewSlashCommand(text)) return;
-      startMockAgentTurn(text);
+      if (!attachments.length && openBrowserSessionFromSlash(text)) return;
+      if (!attachments.length && runInstantViewSlashCommand(text)) return;
+      startMockAgentTurn(text, attachments);
     }
 
     function runInstantStopSlashCommand(text) {
@@ -16741,16 +16886,18 @@
       syncSelectedThreadSearchText();
     }
 
-    function startMockAgentTurn(text) {
-      ensureThread(initialThreadTitleForPrompt(text));
+    function startMockAgentTurn(text, attachments = []) {
+      ensureThread(initialThreadTitleForPrompt(text || attachments[0]?.name || 'Image'));
       if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      if (state.threadAttachments) delete state.threadAttachments[state.sidebar.selectedThreadID];
       state.composer.draft = '';
+      state.composer.attachments = [];
       state.composer.canSend = false;
       state.composer.slashActiveIndex = 0;
       state.composer.historyRecallIndex = null;
       state.composer.historySavedDraft = null;
       state.runtimeIssue = null;
-      addMessage('user', text);
+      addMessage('user', text, attachments);
       touchSelectedThread();
       state.composer.isSending = true;
       state.topBar.agentStatus = 'Running';
@@ -16765,7 +16912,7 @@
 
     function finishMockAgentTurn() {
       state.composer.isSending = false;
-      state.composer.canSend = Boolean(state.composer.draft.trim());
+      state.composer.canSend = composerHasContent();
       const halted = ['Failed', 'Stopped'].includes(state.topBar.agentStatus);
       if (!halted) {
         state.topBar.agentStatus = 'Idle';
@@ -16780,7 +16927,7 @@
       // the native drain loop (which only continues after a completed outcome).
       if (!halted && state.composer.followUpQueue.length) {
         const next = state.composer.followUpQueue.shift();
-        startMockAgentTurn(next.text);
+        startMockAgentTurn(next.text, next.attachments || []);
         return;
       }
       render();

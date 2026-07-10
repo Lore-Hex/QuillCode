@@ -29,6 +29,24 @@ final class WorkspaceFollowUpQueueIntegrationTests: XCTestCase {
         XCTAssertTrue(model.followUpQueue.isEmpty)
     }
 
+    func testEnqueueImageOnlyFollowUpTransfersAttachmentAndClearsComposer() throws {
+        let attachment = try XCTUnwrap(ChatAttachment(
+            displayName: "screen.png",
+            format: .png,
+            localURL: URL(fileURLWithPath: "/tmp/screen.png"),
+            byteCount: 8
+        ))
+        let model = QuillCodeWorkspaceModel()
+        _ = model.newChat()
+        model.composer.attachments = [attachment]
+
+        XCTAssertTrue(model.enqueueFollowUp(""))
+
+        XCTAssertEqual(model.followUpQueue.first?.attachments, [attachment])
+        XCTAssertEqual(model.followUpQueue.first?.text, "")
+        XCTAssertEqual(model.composer.attachments, [])
+    }
+
     func testEnqueueFollowUpPreservesFIFOOrder() throws {
         let model = QuillCodeWorkspaceModel()
         _ = model.newChat()

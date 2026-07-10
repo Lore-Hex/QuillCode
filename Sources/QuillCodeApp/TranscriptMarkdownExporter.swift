@@ -12,7 +12,11 @@ public enum TranscriptMarkdownExporter {
             switch item.kind {
             case .message:
                 guard let message = item.message, let heading = heading(for: message.role) else { continue }
-                let body = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                let text = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                let images = message.attachments.map {
+                    "![\(escapedImageLabel($0.displayName))](\($0.previewURL))"
+                }.joined(separator: "\n")
+                let body = [images, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
                 guard !body.isEmpty else { continue }
                 blocks.append("## \(heading)\n\n\(body)")
             case .toolCard:
@@ -49,6 +53,10 @@ public enum TranscriptMarkdownExporter {
         case .system, .tool:
             return nil
         }
+    }
+
+    private static func escapedImageLabel(_ label: String) -> String {
+        label.replacingOccurrences(of: "]", with: "\\]")
     }
 
     /// A backtick fence at least one longer than the longest backtick run in `body`, so a

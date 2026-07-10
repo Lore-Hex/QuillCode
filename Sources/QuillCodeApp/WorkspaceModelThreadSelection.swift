@@ -58,6 +58,7 @@ extension QuillCodeWorkspaceModel {
         if let incoming {
             if let outgoing, outgoing != incoming {
                 persistComposerDraft(composer.draft, for: outgoing)
+                persistComposerAttachments(composer.attachments, for: outgoing)
             }
             let result = ComposerDraftStore.select(
                 outgoing: outgoing,
@@ -69,6 +70,7 @@ extension QuillCodeWorkspaceModel {
             composer.draft = result.restoredDraft.isEmpty
                 ? persistedComposerDraft(for: incoming) ?? ""
                 : result.restoredDraft
+            composer.attachments = persistedComposerAttachments(for: incoming)
         } else if let outgoing {
             stashOutgoingThreadDraft(outgoing)
         }
@@ -83,6 +85,8 @@ extension QuillCodeWorkspaceModel {
         }
         persistComposerDraft(normalizedDraft, for: outgoing)
         composer.draft = ""
+        persistComposerAttachments(composer.attachments, for: outgoing)
+        composer.attachments = []
     }
 
     private func selectThreadRecord(_ id: UUID, projectID: UUID?) {
