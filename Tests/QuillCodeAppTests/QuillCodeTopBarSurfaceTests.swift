@@ -96,6 +96,49 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
+    func testTopBarSummarizesFilteredModelScope() {
+        let topBar = TopBarSurface(
+            appName: "QuillCode",
+            primaryTitle: "Project",
+            subtitle: "Ready",
+            instructionLabel: "Instructions",
+            instructionSources: [],
+            memoryLabel: "Memory",
+            memorySources: [],
+            modelLabel: TrustedRouterDefaults.fastModelDisplayName,
+            selectedModelID: TrustedRouterDefaults.defaultModel,
+            modelCategories: [
+                ModelCategorySurface(category: "Coding", models: [
+                    modelOption(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
+                    modelOption(id: "deepseek/deepseek-v4-flash", provider: "deepseek", displayName: "DeepSeek V4 Flash", category: "Coding")
+                ]),
+                ModelCategorySurface(category: "Research", models: [
+                    modelOption(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Research")
+                ]),
+                ModelCategorySurface(category: "Vision", models: [
+                    modelOption(id: "minimax/vision", provider: "minimax", displayName: "MiniMax Vision", category: "Vision")
+                ]),
+                ModelCategorySurface(category: "Audio", models: [
+                    modelOption(id: "z-ai/audio", provider: "z-ai", displayName: "Z Audio", category: "Audio")
+                ])
+            ],
+            modeLabel: "Auto",
+            agentStatus: "Idle",
+            computerUseLabel: "Computer Use Ready",
+            showsComputerUseSetup: false
+        )
+
+        XCTAssertEqual(
+            topBar.filteredModelScopeSummary(matching: ""),
+            "Categories: Coding, Research, Vision +1 more · Providers: acme, deepseek, moonshotai +2 more"
+        )
+        XCTAssertEqual(
+            topBar.filteredModelScopeSummary(matching: "deepseekv4flash"),
+            "Categories: Coding · Providers: deepseek"
+        )
+        XCTAssertNil(topBar.filteredModelScopeSummary(matching: "does-not-exist"))
+    }
+
     func testHTMLTopBarRendersLiveWorkChip() {
         let topBar = TopBarSurface(
             appName: "QuillCode",

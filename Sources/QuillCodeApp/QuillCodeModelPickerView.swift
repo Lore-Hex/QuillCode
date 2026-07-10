@@ -161,23 +161,32 @@ struct QuillCodeModelPickerView: View {
     }
 
     private var resultSummary: some View {
-        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-            Text(resultSummaryText)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(QuillCodePalette.muted)
-                .lineLimit(1)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Text(resultSummaryText)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-            if !searchText.isEmpty {
-                Button("Clear") {
-                    clearSearch()
+                if !searchText.isEmpty {
+                    Button("Clear") {
+                        clearSearch()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .quillCodeTextButtonTarget(minWidth: 56)
+                    .help("Clear model search")
                 }
-                .font(.caption.weight(.semibold))
-                .buttonStyle(QuillCodePressableButtonStyle())
-                .foregroundStyle(QuillCodePalette.blue)
-                .quillCodeTextButtonTarget(minWidth: 56)
-                .help("Clear model search")
+            }
+            if let scopeSummary = topBar.filteredModelScopeSummary(matching: searchText), !filteredCategories.isEmpty {
+                Text(scopeSummary)
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted.opacity(0.86))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

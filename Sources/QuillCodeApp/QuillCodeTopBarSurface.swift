@@ -120,6 +120,10 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {
         ModelCategorySearchFilter.filter(modelCategories, matching: query)
     }
+
+    public func filteredModelScopeSummary(matching query: String) -> String? {
+        ModelCategorySearchFilter.scopeSummary(for: filteredModelCategories(matching: query))
+    }
 }
 
 public enum TopBarLiveWorkTone: String, Codable, Sendable, Hashable {
