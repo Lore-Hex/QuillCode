@@ -13,7 +13,11 @@ enum ModelCategorySearchFilter {
             }
             let models = category.models.filter { option in
                 let haystack = searchableText(for: option, in: category).lowercased()
-                return terms.allSatisfy { haystack.contains($0) }
+                let compactHaystack = compactSearchText(haystack)
+                return terms.allSatisfy { term in
+                    let compactTerm = compactSearchText(term)
+                    return haystack.contains(term) || (!compactTerm.isEmpty && compactHaystack.contains(compactTerm))
+                }
             }
             guard !models.isEmpty else {
                 return nil
@@ -71,5 +75,13 @@ enum ModelCategorySearchFilter {
                 row.label == "State" ? "state \(row.value)" : row.value
             }
             .joined(separator: " ")
+    }
+
+    private static func compactSearchText(_ text: String) -> String {
+        let scalars = text
+            .lowercased()
+            .unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+        return String(String.UnicodeScalarView(scalars))
     }
 }
