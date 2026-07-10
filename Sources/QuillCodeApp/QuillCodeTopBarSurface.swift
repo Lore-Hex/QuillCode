@@ -225,6 +225,19 @@ public struct ModelCategorySurface: Codable, Sendable, Hashable, Identifiable {
         self.category = category
         self.models = models
     }
+
+    public var modelCountLabel: String {
+        let noun = models.count == 1 ? "model" : "models"
+        return "\(models.count) \(noun)"
+    }
+
+    public var sectionTitle: String {
+        "\(category) · \(modelCountLabel)"
+    }
+
+    public var accessibilityLabel: String {
+        "\(category), \(modelCountLabel)"
+    }
 }
 
 public struct ModelMetadataRowSurface: Codable, Sendable, Hashable, Identifiable {
