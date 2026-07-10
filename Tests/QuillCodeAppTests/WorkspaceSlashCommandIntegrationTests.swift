@@ -81,6 +81,13 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertEqual(model.selectedProject?.name, "Slash Renamed")
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "Renamed project to Slash Renamed.")
 
+        model.setDraft("/project list")
+        await model.submitComposer(workspaceRoot: root)
+        let projectListMessage = try XCTUnwrap(model.selectedThread?.messages.last?.content)
+        XCTAssertTrue(projectListMessage.contains("Projects:\n- Slash Renamed"))
+        XCTAssertTrue(projectListMessage.contains("selected, Local"))
+        XCTAssertTrue(projectListMessage.contains(root.path))
+
         model.setDraft("/project new")
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.selectedThread?.projectID, projectID)

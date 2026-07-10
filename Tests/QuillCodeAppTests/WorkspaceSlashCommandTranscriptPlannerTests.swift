@@ -124,6 +124,42 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
         )
     }
 
+    func testProjectListTranscriptDescribesEmptyLocalAndRemoteProjects() {
+        XCTAssertEqual(
+            WorkspaceSlashCommandTranscriptPlanner.projectList(
+                userText: "/project list",
+                projects: [],
+                selectedProjectID: nil
+            ).assistantText,
+            "No projects are registered. Use `/project open` to add a local project or `/ssh user@host:/path` for a remote project."
+        )
+
+        let local = ProjectRef(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            name: "QuillCode",
+            path: "/repo"
+        )
+        let remote = ProjectRef(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            name: "Feather",
+            path: "/Quill",
+            connection: .ssh(path: "/Quill", host: "feather.local", user: "quill")
+        )
+
+        XCTAssertEqual(
+            WorkspaceSlashCommandTranscriptPlanner.projectList(
+                userText: "/project list",
+                projects: [local, remote],
+                selectedProjectID: remote.id
+            ).assistantText,
+            """
+            Projects:
+            - QuillCode — Local — /repo
+            - Feather — selected, SSH Remote — ssh://quill@feather.local/Quill
+            """
+        )
+    }
+
     func testScheduleTranscriptsUseConcreteDescriptionsAndFallbackCopy() {
         XCTAssertEqual(
             WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled(

@@ -203,6 +203,12 @@ extension SlashCommandCatalog {
             aliases: ["project top", "project up", "project down", "project bottom"]
         ),
         slashDefinition(
+            "/project list",
+            "List projects",
+            "Show registered projects, their selected state, and whether each is local or SSH Remote.",
+            aliases: ["project ls", "project show"]
+        ),
+        slashDefinition(
             "/init",
             "Initialize AGENTS.md",
             "Scaffold a starter AGENTS.md for the project from its build and test commands.",

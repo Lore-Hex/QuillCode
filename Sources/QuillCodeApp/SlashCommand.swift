@@ -9,6 +9,7 @@ enum SlashCommand: Equatable {
     case model(String)
     case renameThread(String)
     case renameProject(String)
+    case projectList
     case sshProject(String)
     case remember(String)
     case editMemory(id: String, content: String)

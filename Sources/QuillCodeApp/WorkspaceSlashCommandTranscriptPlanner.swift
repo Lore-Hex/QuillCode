@@ -60,6 +60,27 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func projectList(
+        userText: String,
+        projects: [ProjectRef],
+        selectedProjectID: UUID?
+    ) -> WorkspaceLocalCommandTranscript {
+        let message: String
+        if projects.isEmpty {
+            message = "No projects are registered. Use `/project open` to add a local project or `/ssh user@host:/path` for a remote project."
+        } else {
+            let rows = projects.map {
+                projectListRow($0, selectedProjectID: selectedProjectID)
+            }
+            message = "Projects:\n\(rows.joined(separator: "\n"))"
+        }
+        return transcript(
+            userText: userText,
+            assistantText: message,
+            title: "Projects"
+        )
+    }
+
     static func sshProjectAdded(userText: String, projectName: String, displayPath: String) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,
@@ -241,6 +262,12 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         let cwd = action.workingDirectory.map { " — cwd: \($0)" } ?? ""
         let timeout = action.timeoutSeconds.map { " — timeout: \($0)s" } ?? ""
         return "- `/env \(action.title)` — \(action.relativePath)\(cwd)\(timeout)\(detail)"
+    }
+
+    private static func projectListRow(_ project: ProjectRef, selectedProjectID: UUID?) -> String {
+        let selection = project.id == selectedProjectID ? "selected, " : ""
+        let location = project.isRemote ? "SSH Remote" : "Local"
+        return "- \(project.name) — \(selection)\(location) — \(project.displayPath)"
     }
 
     private static func modelConfirmationLabel(for model: String) -> String {

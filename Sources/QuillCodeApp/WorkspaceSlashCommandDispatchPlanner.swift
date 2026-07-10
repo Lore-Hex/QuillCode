@@ -8,6 +8,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case setModel(String, userText: String)
     case renameThread(String, userText: String)
     case renameProject(String, userText: String)
+    case projectList(userText: String)
     case addSSHProject(String, userText: String)
     case remember(String, userText: String)
     case editMemory(id: String, content: String, userText: String)
@@ -52,6 +53,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .renameThread(title, userText: userText)
         case .renameProject(let name):
             return .renameProject(name, userText: userText)
+        case .projectList:
+            return .projectList(userText: userText)
         case .sshProject(let address):
             return .addSSHProject(address, userText: userText)
         case .remember(let content):
