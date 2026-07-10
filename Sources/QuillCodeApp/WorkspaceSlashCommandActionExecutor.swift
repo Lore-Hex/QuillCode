@@ -5,6 +5,8 @@ extension QuillCodeWorkspaceModel {
         switch action {
         case .appendTranscript(let transcript):
             appendLocalCommandTranscript(transcript)
+        case .goal(let request, let userText):
+            runGoalSlashCommand(request, originalPrompt: userText)
         case .newChat:
             _ = newChat()
         case .setMode(let mode, let userText):

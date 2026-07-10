@@ -23,6 +23,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
             threadTitle: "Status thread",
             instructions: [instruction],
             memories: [memory],
+            goal: ThreadGoal(objective: "Ship QuillCode"),
             mode: .review,
             model: TrustedRouterDefaults.prometheusModel,
             agentStatus: "Running"
@@ -33,6 +34,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
         Thread: Status thread
         Instructions: 1 instruction file loaded
         Memories: 1 memory
+        Goal: Active - Ship QuillCode
         Mode: Review
         Model: Prometheus 1.0 (/prometheus)
         Agent: Running
@@ -42,6 +44,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
     func testInstructionAndMemoryLabelsHandleEmptyPluralAndTruncatedStates() {
         XCTAssertEqual(WorkspaceStatusTextBuilder.instructionLabel(for: []), "No project instructions")
         XCTAssertEqual(WorkspaceStatusTextBuilder.memoryLabel(for: []), "No memories")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.goalLabel(for: nil), "No durable goal")
 
         let instructions = [
             ProjectInstruction(path: "AGENTS.md", title: "Agent Rules", content: "", byteCount: 0),

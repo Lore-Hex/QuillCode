@@ -85,7 +85,10 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
             ComposerSurface(composer: ComposerState(draft: draft)).slashSuggestions
         }
 
-        XCTAssertEqual(suggestions(for: "/").prefix(3).map(\.usage), ["/help", "/status", "/new"])
+        XCTAssertEqual(
+            suggestions(for: "/").prefix(4).map(\.usage),
+            ["/help", "/status", "/goal objective", "/new"]
+        )
         XCTAssertEqual(suggestions(for: "/workt").first?.usage, "/worktrees")
         XCTAssertEqual(suggestions(for: "/workt").first?.insertText, "/worktrees")
         XCTAssertEqual(suggestions(for: "/fol").first?.usage, "/follow-up when")

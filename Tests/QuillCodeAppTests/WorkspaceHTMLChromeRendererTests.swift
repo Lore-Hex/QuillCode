@@ -25,7 +25,10 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
                 )
             ]
         )
-        var thread = ChatThread(title: "Unsafe <title>")
+        var thread = ChatThread(
+            title: "Unsafe <title>",
+            goal: ThreadGoal(objective: "Ship <safely>")
+        )
         thread.messages = [
             .init(role: .user, content: "<script>alert(1)</script>")
         ]
@@ -51,6 +54,9 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-sidebar-visible="true""#))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-primary-cluster""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-subtitle""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-goal""#))
+        XCTAssertTrue(html.contains(#"data-tone="active""#))
+        XCTAssertTrue(html.contains("Ship &lt;safely&gt;"))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-status-metadata""#))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-context-cluster""#))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-status-button""#))

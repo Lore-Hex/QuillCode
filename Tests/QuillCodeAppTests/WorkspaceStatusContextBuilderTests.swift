@@ -31,10 +31,12 @@ final class WorkspaceStatusContextBuilderTests: XCTestCase {
             path: "/tmp/quillcode",
             instructions: [instruction]
         )
+        let goal = ThreadGoal(objective: "Ship QuillCode")
         let thread = ChatThread(
             title: "Status thread",
             mode: .auto,
             model: TrustedRouterDefaults.fastModel,
+            goal: goal,
             memories: [memory]
         )
         let root = QuillCodeRootState(
@@ -57,6 +59,7 @@ final class WorkspaceStatusContextBuilderTests: XCTestCase {
         XCTAssertEqual(context.threadTitle, "Status thread")
         XCTAssertEqual(context.instructions, [instruction])
         XCTAssertEqual(context.memories, [memory])
+        XCTAssertEqual(context.goal, goal)
         XCTAssertEqual(context.mode, .review)
         XCTAssertEqual(context.model, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(context.agentStatus, "Running")
@@ -91,6 +94,7 @@ final class WorkspaceStatusContextBuilderTests: XCTestCase {
         XCTAssertEqual(context.threadTitle, "No chat")
         XCTAssertEqual(context.instructions, [])
         XCTAssertEqual(context.memories, [fallbackMemory])
+        XCTAssertNil(context.goal)
         XCTAssertEqual(context.mode, .auto)
         XCTAssertEqual(context.model, TrustedRouterDefaults.fastModel)
         XCTAssertEqual(context.agentStatus, "Idle")

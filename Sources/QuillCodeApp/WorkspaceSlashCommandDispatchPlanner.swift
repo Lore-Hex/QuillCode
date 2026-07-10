@@ -3,6 +3,7 @@ import QuillCodeCore
 
 enum WorkspaceSlashCommandDispatchAction: Equatable {
     case appendTranscript(WorkspaceLocalCommandTranscript)
+    case goal(WorkspaceThreadGoalRequest, userText: String)
     case newChat
     case setMode(AgentMode, userText: String)
     case setModel(String, userText: String)
@@ -43,6 +44,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
                 userText: userText,
                 statusText: statusText
             ))
+        case .goal(let request):
+            return .goal(request, userText: userText)
         case .newChat:
             return .newChat
         case .mode(let mode):

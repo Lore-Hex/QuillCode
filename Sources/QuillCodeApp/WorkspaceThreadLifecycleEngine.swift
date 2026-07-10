@@ -246,6 +246,9 @@ struct WorkspaceThreadLifecycleEngine {
             // and is still present for the turn-boundary drain.
             var updated = thread
             updated.followUpQueue = threads[index].followUpQueue
+            // Goals are also UI-owned durable state. A slash command can update or clear one while
+            // an agent is running, so the send-start agent snapshot must not overwrite that change.
+            updated.goal = threads[index].goal
             threads[index] = updated
         } else {
             threads.insert(thread, at: 0)

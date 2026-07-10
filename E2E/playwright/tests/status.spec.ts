@@ -16,6 +16,7 @@ test('mock harness reports workspace status from composer with branded default m
   await expect(statusMessage).toContainText('Thread: /status');
   await expect(statusMessage).toContainText('Instructions: 1 instruction file loaded');
   await expect(statusMessage).toContainText('Memories: 2 memories');
+  await expect(statusMessage).toContainText('Goal: No durable goal');
   await expect(statusMessage).toContainText('Mode: Auto');
   await expect(statusMessage).toContainText('Model: Nike 1.0 (trustedrouter/fast)');
   await expect(statusMessage).toContainText('Agent: Idle');

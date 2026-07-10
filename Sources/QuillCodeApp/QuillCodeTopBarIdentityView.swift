@@ -25,6 +25,12 @@ struct QuillCodeTopBarIdentityView: View {
                     .accessibilityHidden(true)
             }
 
+            if let goal = topBar.goal {
+                statusChip(goal.label, tint: goalTint(goal.tone))
+                    .help(goal.detail)
+                    .accessibilityLabel(goal.detail)
+            }
+
             if let liveWork = topBar.liveWork {
                 statusChip(
                     liveWork.label,
@@ -154,5 +160,13 @@ struct QuillCodeTopBarIdentityView: View {
         if budget.usedPercent >= 100 { return QuillCodePalette.red }
         if budget.usedPercent >= 80 { return QuillCodePalette.yellow }
         return QuillCodePalette.blue
+    }
+
+    private func goalTint(_ tone: TopBarGoalTone) -> Color {
+        switch tone {
+        case .active: QuillCodePalette.blue
+        case .blocked: QuillCodePalette.yellow
+        case .completed: QuillCodePalette.green
+        }
     }
 }
