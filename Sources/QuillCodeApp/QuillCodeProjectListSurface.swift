@@ -47,6 +47,10 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var actions: [ProjectItemActionSurface]
     public var isSelected: Bool
 
+    public var selectionLabel: String? {
+        isSelected ? "Current" : nil
+    }
+
     public init(
         project: ProjectRef,
         selectedProjectID: UUID?,

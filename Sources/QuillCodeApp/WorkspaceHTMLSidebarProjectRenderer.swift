@@ -39,10 +39,15 @@ enum WorkspaceHTMLSidebarProjectRenderer {
                 ("aria-current", project.isSelected ? "true" : "false")
             ]
         ))>
-          <span>\(escape(project.name))\(connectionBadge(for: project))</span>
+          <span>\(escape(project.name))\(selectionBadge(for: project))\(connectionBadge(for: project))</span>
           <small>\(escape(project.path))</small>
         </button>
         """
+    }
+
+    private static func selectionBadge(for project: ProjectItemSurface) -> String {
+        guard let label = project.selectionLabel else { return "" }
+        return #" <small data-testid="project-selection-badge">\#(escape(label))</small>"#
     }
 
     private static func connectionBadge(for project: ProjectItemSurface) -> String {
