@@ -28,6 +28,21 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertEqual(extensions.items.last?.statusLabel, "Available")
         XCTAssertEqual(extensions.items.last?.installCommandID, "extension-install:skill:burstyrouter")
 
+        XCTAssertTrue(setup.model.runWorkspaceCommand("show-skills", workspaceRoot: setup.root))
+        let skills = setup.model.surface().extensions
+        XCTAssertTrue(skills.isVisible)
+        XCTAssertEqual(skills.focusedKind, .skill)
+        XCTAssertEqual(skills.title, "Skills")
+        XCTAssertEqual(skills.subtitle, "4 skills · 4 available skills")
+        XCTAssertEqual(skills.items.map(\.name), [
+            "LLM Advisor",
+            "Browser Use",
+            "OpenClaw Video Toolkit",
+            "BurstyRouter"
+        ])
+        XCTAssertEqual(skills.pluginCount, 1)
+        XCTAssertEqual(skills.skillCount, 4)
+
         let commands = setup.model.surface().commands
         XCTAssertTrue(try command("extension-install:skill:llm-advisor", in: commands).keywords.contains {
             $0.localizedCaseInsensitiveContains("model selection")

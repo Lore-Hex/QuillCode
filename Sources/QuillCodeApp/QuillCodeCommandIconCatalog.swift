@@ -69,6 +69,8 @@ enum QuillCodeCommandIconCatalog {
             return "brain.head.profile"
         case "toggle-extensions":
             return "puzzlepiece.extension"
+        case "show-skills":
+            return "graduationcap"
         case "git-fetch":
             return "arrow.down.circle"
         case "git-pull":

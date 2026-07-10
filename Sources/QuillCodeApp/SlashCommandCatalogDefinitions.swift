@@ -304,7 +304,7 @@ extension SlashCommandCatalog {
             "/extensions",
             "Toggle extensions",
             "Show or hide project plugins, skills, MCP servers, and marketplace entries.",
-            aliases: ["plugins", "skills"]
+            aliases: ["plugins"]
         ),
         slashDefinition(
             "/skills",

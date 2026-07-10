@@ -76,10 +76,12 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
     func testUtilityPaneAliasesToggleExistingWorkspaceCommands() {
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "extensions"), .workspaceCommand("toggle-extensions"))
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "plugins"), .workspaceCommand("toggle-extensions"))
+        XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "skills"), .workspaceCommand("show-skills"))
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "automations"), .workspaceCommand("toggle-automations"))
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "activity"), .workspaceCommand("toggle-activity"))
         XCTAssertEqual(SlashCommandParser.parse("/extensions"), .workspaceCommand("toggle-extensions"))
         XCTAssertEqual(SlashCommandParser.parse("/plugins"), .workspaceCommand("toggle-extensions"))
+        XCTAssertEqual(SlashCommandParser.parse("/skills"), .workspaceCommand("show-skills"))
         XCTAssertEqual(SlashCommandParser.parse("/automations"), .workspaceCommand("toggle-automations"))
         XCTAssertEqual(SlashCommandParser.parse("/activity"), .workspaceCommand("toggle-activity"))
     }

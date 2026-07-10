@@ -15,6 +15,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case browserForward
     case browserReload
     case toggleExtensions
+    case showSkills
     case toggleMemories
     case toggleActivity
     case toggleAutomations
@@ -85,6 +86,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .browserReload
         case .toggleExtensions:
             return .toggleExtensions
+        case .showSkills:
+            return .showSkills
         case .toggleMemories:
             return .toggleMemories
         case .toggleActivity:
