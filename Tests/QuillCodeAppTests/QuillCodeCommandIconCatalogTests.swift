@@ -29,6 +29,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "toggle-memories": "brain.head.profile",
             "memory-add": "brain.head.profile",
             "toggle-extensions": "puzzlepiece.extension",
+            "show-skills": "graduationcap",
             "git-pr-create": "arrow.up.doc",
             "git-pr-checkout": "arrow.down.doc",
             "git-pr-reviewers": "person.2.badge.gearshape",

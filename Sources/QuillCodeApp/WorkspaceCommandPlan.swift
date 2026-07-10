@@ -233,6 +233,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case browserForward = "browser-forward"
     case browserReload = "browser-reload"
     case toggleExtensions = "toggle-extensions"
+    case showSkills = "show-skills"
     case toggleMemories = "toggle-memories"
     case toggleActivity = "toggle-activity"
     case toggleAutomations = "toggle-automations"

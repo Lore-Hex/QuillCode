@@ -253,6 +253,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: Category.extensions,
                 keywords: ["plugins", "skills", "mcp", "manifest"],
                 isEnabled: hasActiveWorkspaceRoot
+            ),
+            shortcut(
+                "show-skills",
+                "Skills",
+                category: Category.extensions,
+                keywords: ["skills", "installed skills", "available skills", "manifest"],
+                isEnabled: hasActiveWorkspaceRoot
             )
         ]
     }

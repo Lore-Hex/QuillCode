@@ -169,6 +169,7 @@ public extension QuillCodeWorkspaceModel {
             browser: BrowserSurface(browser: browser),
             extensions: WorkspaceExtensionsSurface(
                 isVisible: extensions.isVisible,
+                focusedKind: extensions.focusedKind,
                 manifests: selectedProject?.extensionManifests ?? [],
                 mcpServerStatuses: extensions.mcpServerStatuses,
                 mcpServerProbeSummaries: extensions.mcpServerProbeSummaries

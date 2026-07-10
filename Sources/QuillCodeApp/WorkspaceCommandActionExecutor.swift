@@ -48,6 +48,9 @@ extension QuillCodeWorkspaceModel {
         case .toggleExtensions:
             toggleExtensions()
             return true
+        case .showSkills:
+            showExtensions(focusedOn: .skill)
+            return true
         case .toggleMemories:
             toggleMemories()
             return true

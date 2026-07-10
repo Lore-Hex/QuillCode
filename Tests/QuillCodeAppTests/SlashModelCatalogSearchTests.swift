@@ -257,7 +257,7 @@ final class SlashSkillCommandPlannerTests: XCTestCase {
             """)
         )
         XCTAssertEqual(SlashCommandParser.parse("/skill"), .invalid(SlashSkillCommandPlanner.usage))
-        XCTAssertEqual(SlashCommandParser.parse("/skills"), .workspaceCommand("toggle-extensions"))
+        XCTAssertEqual(SlashCommandParser.parse("/skills"), .workspaceCommand("show-skills"))
     }
 
     func testSubmissionPlannerConvertsRunSkillToAgentTurn() {

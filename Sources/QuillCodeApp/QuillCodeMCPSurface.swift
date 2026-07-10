@@ -1,17 +1,21 @@
 import Foundation
+import QuillCodeCore
 import QuillCodeTools
 
 public struct ExtensionsState: Sendable, Hashable {
     public var isVisible: Bool
+    public var focusedKind: ProjectExtensionKind?
     public var mcpServerStatuses: [String: MCPServerLifecycleStatus]
     public var mcpServerProbeSummaries: [String: MCPServerProbeSummary]
 
     public init(
         isVisible: Bool = false,
+        focusedKind: ProjectExtensionKind? = nil,
         mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
         mcpServerProbeSummaries: [String: MCPServerProbeSummary] = [:]
     ) {
         self.isVisible = isVisible
+        self.focusedKind = focusedKind
         self.mcpServerStatuses = mcpServerStatuses
         self.mcpServerProbeSummaries = mcpServerProbeSummaries
     }

@@ -8,7 +8,13 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func toggleExtensions() {
+        extensions.focusedKind = nil
         extensions.isVisible.toggle()
+    }
+
+    public func showExtensions(focusedOn kind: ProjectExtensionKind? = nil) {
+        extensions.focusedKind = kind
+        extensions.isVisible = true
     }
 
     public func toggleMemories() {

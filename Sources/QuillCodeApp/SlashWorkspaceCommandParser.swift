@@ -67,8 +67,10 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("keyboard-shortcuts")
         case "commands", "command-palette", "palette":
             return .workspaceCommand("command-palette")
-        case "extensions", "plugins", "skills":
+        case "extensions", "plugins":
             return .workspaceCommand("toggle-extensions")
+        case "skills":
+            return .workspaceCommand("show-skills")
         case "automations":
             return .workspaceCommand("toggle-automations")
         case "activity":

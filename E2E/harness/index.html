@@ -4194,6 +4194,7 @@
       },
       extensions: {
         isVisible: false,
+        focusedKind: null,
         title: 'Extensions',
         subtitle: '1 plugin · 5 skills · 1 MCP server · 4 available extensions',
         pluginCount: 1,
@@ -4555,6 +4556,7 @@
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
+        { id: 'show-skills', title: 'Skills', shortcut: '', category: 'Extensions', keywords: ['skills', 'installed skills', 'available skills', 'manifest'], isEnabled: true },
         { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
         { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
         { id: 'mcp-resource:mcp_server:filesystem:0', title: 'Read README', shortcut: '', category: 'Extensions', keywords: ['mcp', 'resource', 'read', 'filesystem', 'README', 'file:///workspace/README.md'], isEnabled: false },
@@ -5071,7 +5073,7 @@
       { usage: '/computer-use', title: 'Computer Use setup', detail: 'Open Settings focused on Screen Recording and Accessibility setup.', insertText: '/computer-use', aliases: ['computer use', 'screen control', 'desktop control'] },
       { usage: '/shortcuts', title: 'Keyboard shortcuts', detail: 'Open the keyboard shortcut reference.', insertText: '/shortcuts', aliases: ['keyboard shortcuts', 'keys'] },
       { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
-      { usage: '/extensions', title: 'Toggle extensions', detail: 'Show or hide project plugins, skills, MCP servers, and marketplace entries.', insertText: '/extensions', aliases: ['plugins', 'skills'] },
+      { usage: '/extensions', title: 'Toggle extensions', detail: 'Show or hide project plugins, skills, MCP servers, and marketplace entries.', insertText: '/extensions', aliases: ['plugins'] },
       { usage: '/skills', title: 'Show skills', detail: 'Open the Extensions pane filtered around installed and available skills.', insertText: '/skills', aliases: ['skill list', 'installed skills', 'available skills'] },
       { usage: '/automations', title: 'Toggle automations', detail: 'Show or hide scheduled follow-ups, workspace checks, and automation history.', insertText: '/automations', aliases: [] },
       { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
@@ -11564,13 +11566,29 @@
     }
 
     function renderExtensionsPane() {
+      const focusedKind = state.extensions.focusedKind || null;
+      const visibleItems = focusedKind
+        ? state.extensions.items.filter(item => item.kind === focusedKind)
+        : state.extensions.items;
+      const focusedAvailableCount = visibleItems.filter(item => item.statusLabel === 'Available').length;
+      const title = focusedKind === 'skill' ? 'Skills' : state.extensions.title;
+      const subtitle = focusedKind === 'skill'
+        ? [
+            countLabel(visibleItems.length, 'skill'),
+            focusedAvailableCount ? countLabel(focusedAvailableCount, 'available skill') : ''
+          ].filter(Boolean).join(' · ')
+        : state.extensions.subtitle;
+      const emptyTitle = focusedKind === 'skill' ? 'No skills found' : state.extensions.emptyTitle;
+      const emptySubtitle = focusedKind === 'skill'
+        ? 'Add skill manifests under .quillcode/skills.'
+        : state.extensions.emptySubtitle;
       const counts = `
         <span data-testid="extensions-count">${countLabel(state.extensions.pluginCount, 'plugin')}</span>
         <span data-testid="extensions-count">${countLabel(state.extensions.skillCount, 'skill')}</span>
         <span data-testid="extensions-count">${countLabel(state.extensions.mcpServerCount, 'MCP server')}</span>`;
-      const content = state.extensions.items.length ? `
+      const content = visibleItems.length ? `
         <div class="extensions-grid" data-testid="extensions-grid">
-          ${state.extensions.items.map(item => `
+          ${visibleItems.map(item => `
             <article class="extension-card" data-testid="extension-item" data-kind="${escapeHTML(item.kind)}" data-status="${escapeHTML(item.statusLabel)}">
               <header>
                 <span data-testid="extension-kind">${escapeHTML(item.kindLabel)}</span>
@@ -11600,15 +11618,15 @@
             </article>`).join('')}
         </div>` : `
         <div class="extensions-empty" data-testid="extensions-empty">
-          <strong>${escapeHTML(state.extensions.emptyTitle)}</strong>
-          <p>${escapeHTML(state.extensions.emptySubtitle)}</p>
+          <strong>${escapeHTML(emptyTitle)}</strong>
+          <p>${escapeHTML(emptySubtitle)}</p>
         </div>`;
       return `
         <section class="extensions-pane" data-testid="extensions-pane" aria-label="Project extensions">
           <header>
             <div>
-              <strong>${escapeHTML(state.extensions.title)}</strong>
-              <p data-testid="extensions-subtitle">${escapeHTML(state.extensions.subtitle)}</p>
+              <strong>${escapeHTML(title)}</strong>
+              <p data-testid="extensions-subtitle">${escapeHTML(subtitle)}</p>
             </div>
             <span class="extensions-counts">${counts}</span>
           </header>
@@ -13353,6 +13371,7 @@
       'retry-last-turn',
       'search',
       'settings',
+      'show-skills',
       'sidebar-saved-search-create',
       'stop-all',
       'terminal-clear',
@@ -13976,7 +13995,12 @@
         state.composer.canSend = true;
       }
       if (commandID === 'toggle-extensions') {
+        state.extensions.focusedKind = null;
         state.extensions.isVisible = !state.extensions.isVisible;
+      }
+      if (commandID === 'show-skills') {
+        state.extensions.focusedKind = 'skill';
+        state.extensions.isVisible = true;
       }
       if (commandID?.startsWith('mcp-start:')) {
         setMCPStatus(commandID.slice('mcp-start:'.length), 'Ready');
@@ -16602,7 +16626,11 @@
         render();
         setTimeout(() => document.querySelector('[data-testid="command-palette-input"]')?.focus(), 0);
         return;
-      } else if (/^\/(extensions|plugins|skills)\b/i.test(text)) {
+      } else if (/^\/skills\b/i.test(text)) {
+        state.composer.isSending = false;
+        runCommand('show-skills');
+        return;
+      } else if (/^\/(extensions|plugins)\b/i.test(text)) {
         state.composer.isSending = false;
         runCommand('toggle-extensions');
         return;

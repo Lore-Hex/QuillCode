@@ -114,7 +114,16 @@ test('mock harness routes /skills to the extensions and skills pane', async ({ p
 
   await expect(message).toHaveValue('');
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
-  await expect(page.getByTestId('extensions-subtitle')).toContainText('skills');
+  await expect(page.getByTestId('extensions-pane')).toContainText('Skills');
+  await expect(page.getByTestId('extensions-subtitle')).toHaveText('5 skills · 4 available skills');
+  await expect(page.getByTestId('extension-item')).toHaveCount(5);
+  await expect(page.getByTestId('extension-item')).toContainText([
+    'Code Review',
+    'LLM Advisor',
+    'Browser Use',
+    'OpenClaw Video Toolkit',
+    'BurstyRouter'
+  ]);
 });
 
 test('mock harness SUBMITS /skill code-review on Enter and runs the skill', async ({ page }) => {

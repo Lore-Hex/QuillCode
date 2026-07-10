@@ -147,6 +147,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
+            "show-skills",
             "git-status",
             "git-diff",
             "git-fetch",

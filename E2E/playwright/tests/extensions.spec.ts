@@ -94,4 +94,12 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(commandPaletteResult(page, 'mcp-resource:mcp_server:filesystem:0')).toBeDisabled();
   await clickCommandPaletteCommand(page, '>extensions', 'toggle-extensions');
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expect(page.getByTestId('extensions-subtitle')).toHaveText(
+    '1 plugin · 5 skills · 1 MCP server · 4 available extensions'
+  );
+  await clickSidebarTool(page, 'command-palette-button');
+  await expect(page.getByTestId('command-palette-input')).toBeFocused();
+  await clickCommandPaletteCommand(page, '>skills', 'show-skills');
+  await expect(page.getByTestId('extensions-subtitle')).toHaveText('5 skills · 4 available skills');
+  await expect(page.getByTestId('extension-item')).toHaveCount(5);
 });
