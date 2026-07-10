@@ -33,6 +33,12 @@ extension QuillCodeWorkspaceModel {
                 requestedName: name,
                 succeeded: succeeded
             ))
+        case .projectList(let userText):
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.projectList(
+                userText: userText,
+                projects: root.projects,
+                selectedProjectID: root.selectedProjectID
+            ))
         case .addSSHProject(let address, let userText):
             appendSSHProjectTranscript(address: address, userText: userText)
         case .remember(let content, let userText):

@@ -6,7 +6,7 @@ final class SlashProjectCommandParserTests: XCTestCase {
         let expected = SlashCommand.invalid(
             """
             Usage: /project open, /project new, /project refresh, /project init, /project top, \
-            /project up, /project down, /project bottom, /project rename Name, or /project remove
+            /project up, /project down, /project bottom, /project list, /project rename Name, or /project remove
             """
         )
 
@@ -18,6 +18,10 @@ final class SlashProjectCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashProjectCommandParser.parse("open"), .workspaceCommand("add-project"))
         XCTAssertEqual(SlashProjectCommandParser.parse("add"), .workspaceCommand("add-project"))
         XCTAssertEqual(SlashCommandParser.parse("/project open"), .workspaceCommand("add-project"))
+        XCTAssertEqual(SlashProjectCommandParser.parse("list"), .projectList)
+        XCTAssertEqual(SlashProjectCommandParser.parse("ls"), .projectList)
+        XCTAssertEqual(SlashProjectCommandParser.parse("show"), .projectList)
+        XCTAssertEqual(SlashCommandParser.parse("/project list"), .projectList)
         XCTAssertEqual(SlashProjectCommandParser.parse("new"), .workspaceCommand("project-new-chat"))
         XCTAssertEqual(SlashProjectCommandParser.parse("new-chat"), .workspaceCommand("project-new-chat"))
         XCTAssertEqual(SlashProjectCommandParser.parse("chat"), .workspaceCommand("project-new-chat"))
@@ -55,7 +59,7 @@ final class SlashProjectCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashProjectCommandParser.parse("unknown"),
-            .invalid("Unknown project command 'unknown'. Use open, new, refresh, init, top, up, down, bottom, rename, or remove.")
+            .invalid("Unknown project command 'unknown'. Use open, new, refresh, init, top, up, down, bottom, list, rename, or remove.")
         )
     }
 }
