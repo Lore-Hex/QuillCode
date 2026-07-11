@@ -121,7 +121,7 @@ test('mock harness suspends and resumes a running terminal command', async ({ pa
   await expect(page.getByTestId('terminal-resume')).toHaveCount(0);
 });
 
-test('mock harness reports click and drag events to mouse-aware terminal apps', async ({ page }) => {
+test('mock harness reports pointer and wheel events to mouse-aware terminal apps', async ({ page }) => {
   await page.goto(harnessURL());
   await clickSidebarTool(page, 'terminal-button');
 
@@ -143,6 +143,16 @@ test('mock harness reports click and drag events to mouse-aware terminal apps', 
 
   await expect(output).toHaveAttribute('data-terminal-mouse-event-count', '3');
   await expect(output).toHaveAttribute('data-last-terminal-mouse-sequence', 'ESC[<0;3;1m');
+
+  await page.mouse.wheel(0, -120);
+  await expect(output).toHaveAttribute('data-terminal-mouse-event-count', '4');
+  await expect(output).toHaveAttribute('data-last-terminal-mouse-sequence', 'ESC[<64;3;1M');
+
+  await page.keyboard.down('Shift');
+  await page.mouse.click(box.x + 18, box.y + 9, { button: 'right' });
+  await page.keyboard.up('Shift');
+  await expect(output).toHaveAttribute('data-terminal-mouse-event-count', '6');
+  await expect(output).toHaveAttribute('data-last-terminal-mouse-sequence', 'ESC[<6;3;1m');
 
   await page.getByTestId('terminal-stop').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Stopped · stopped');

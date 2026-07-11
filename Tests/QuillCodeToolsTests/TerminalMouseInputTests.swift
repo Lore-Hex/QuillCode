@@ -144,6 +144,65 @@ final class TerminalMouseInputTests: XCTestCase {
         ))
     }
 
+    func testScrollAccumulatorQuantizesPreciseTrackpadDeltas() {
+        var accumulator = TerminalScrollWheelAccumulator()
+
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: 0, verticalDelta: 3, isPrecise: true),
+            []
+        )
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: 0, verticalDelta: 5, isPrecise: true),
+            [.scrollUp]
+        )
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: 0, verticalDelta: -16, isPrecise: true),
+            [.scrollDown, .scrollDown]
+        )
+    }
+
+    func testScrollAccumulatorUsesDominantAxisAndResetsAcrossAxisChanges() {
+        var accumulator = TerminalScrollWheelAccumulator()
+
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: 1, verticalDelta: 0, isPrecise: false),
+            [.scrollLeft]
+        )
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: -1, verticalDelta: 0, isPrecise: false),
+            [.scrollRight]
+        )
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: 20, verticalDelta: -40, isPrecise: true),
+            [.scrollDown, .scrollDown, .scrollDown, .scrollDown, .scrollDown]
+        )
+    }
+
+    func testScrollAccumulatorBoundsBurstsAndRejectsInvalidInput() {
+        var accumulator = TerminalScrollWheelAccumulator()
+
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: 0, verticalDelta: 1_000, isPrecise: true).count,
+            TerminalScrollWheelAccumulator.defaultMaximumEventsPerUpdate
+        )
+        XCTAssertEqual(
+            accumulator.consume(
+                horizontalDelta: 0,
+                verticalDelta: .greatestFiniteMagnitude,
+                isPrecise: true
+            ).count,
+            TerminalScrollWheelAccumulator.defaultMaximumEventsPerUpdate
+        )
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: .nan, verticalDelta: 1, isPrecise: false),
+            []
+        )
+        XCTAssertEqual(
+            accumulator.consume(horizontalDelta: 0, verticalDelta: 1, isPrecise: false),
+            [.scrollUp]
+        )
+    }
+
     private func encode(
         _ kind: TerminalMouseEventKind,
         button: TerminalMouseButton = .none,

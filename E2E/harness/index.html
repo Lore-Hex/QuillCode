@@ -14804,27 +14804,53 @@
     function bindTerminalMouseHandlers() {
       document.querySelectorAll('[data-terminal-mouse-input="true"]').forEach(output => {
         output.addEventListener('pointerdown', event => {
-          if (event.button !== 0) return;
+          const button = terminalPointerButton(event.button);
+          if (!button) return;
           event.preventDefault();
           output.setPointerCapture?.(event.pointerId);
-          sendTerminalMouseEvent(output, event, 'press', 'left');
+          sendTerminalMouseEvent(output, event, 'press', button);
         });
         output.addEventListener('pointermove', event => {
           const entry = terminalEntryForMouseOutput(output);
           if (!entry) return;
-          if ((event.buttons & 1) === 1) {
-            sendTerminalMouseEvent(output, event, 'motion', 'left');
+          const pressedButton = terminalPressedPointerButton(event.buttons);
+          if (pressedButton) {
+            sendTerminalMouseEvent(output, event, 'motion', pressedButton);
           } else if (entry.mouseReporting?.trackingMode === 'anyMotion') {
             sendTerminalMouseEvent(output, event, 'motion', 'none');
           }
         });
         output.addEventListener('pointerup', event => {
-          if (event.button !== 0) return;
+          const button = terminalPointerButton(event.button);
+          if (!button) return;
           event.preventDefault();
-          sendTerminalMouseEvent(output, event, 'release', 'left');
+          sendTerminalMouseEvent(output, event, 'release', button);
           output.releasePointerCapture?.(event.pointerId);
         });
+        output.addEventListener('wheel', event => {
+          if (event.deltaX === 0 && event.deltaY === 0) return;
+          event.preventDefault();
+          const kind = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+            ? (event.deltaY < 0 ? 'scrollUp' : 'scrollDown')
+            : (event.deltaX < 0 ? 'scrollLeft' : 'scrollRight');
+          sendTerminalMouseEvent(output, event, kind, 'none');
+        }, { passive: false });
+        output.addEventListener('contextmenu', event => event.preventDefault());
       });
+    }
+
+    function terminalPointerButton(buttonNumber) {
+      if (buttonNumber === 0) return 'left';
+      if (buttonNumber === 1) return 'middle';
+      if (buttonNumber === 2) return 'right';
+      return null;
+    }
+
+    function terminalPressedPointerButton(buttonMask) {
+      if ((buttonMask & 1) === 1) return 'left';
+      if ((buttonMask & 4) === 4) return 'middle';
+      if ((buttonMask & 2) === 2) return 'right';
+      return null;
     }
 
     function terminalEntryForMouseOutput(output) {
@@ -14848,8 +14874,16 @@
       if (kind === 'motion' && entry.lastMousePositionKey === positionKey) return;
       entry.lastMousePositionKey = kind === 'motion' ? positionKey : null;
 
-      const baseCode = button === 'left' ? 0 : button === 'middle' ? 1 : button === 'right' ? 2 : 3;
-      const code = baseCode + (kind === 'motion' ? 32 : 0);
+      const baseCode = kind === 'scrollUp' ? 64
+        : kind === 'scrollDown' ? 65
+          : kind === 'scrollLeft' ? 66
+            : kind === 'scrollRight' ? 67
+              : button === 'left' ? 0
+                : button === 'middle' ? 1
+                  : button === 'right' ? 2
+                    : 3;
+      const modifierCode = (event.shiftKey ? 4 : 0) + (event.altKey ? 8 : 0) + (event.ctrlKey ? 16 : 0);
+      const code = baseCode + modifierCode + (kind === 'motion' ? 32 : 0);
       const terminator = kind === 'release' ? 'm' : 'M';
       const sequence = `\u001b[<${code};${column};${row}${terminator}`;
       const label = sequence.replace('\u001b', 'ESC');

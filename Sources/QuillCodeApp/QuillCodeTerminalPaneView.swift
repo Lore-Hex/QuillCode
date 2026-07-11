@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodePlatformUI
 import QuillCodeTools
 
 struct QuillCodeTerminalPaneView: View {
@@ -122,8 +123,8 @@ enum TerminalWindowSizeEstimator {
     static func terminalWindowSize(for pointSize: CGSize) -> TerminalWindowSize? {
         guard pointSize.width > 0, pointSize.height > 0 else { return nil }
         return WorkspaceTerminalEngine.normalizedWindowSize(
-            rows: max(1, Int(pointSize.height / TerminalCellMetrics.height)),
-            columns: max(1, Int(pointSize.width / TerminalCellMetrics.width))
+            rows: max(1, Int(pointSize.height / TerminalCellMetrics.default.height)),
+            columns: max(1, Int(pointSize.width / TerminalCellMetrics.default.width))
         )
     }
 }
