@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeTools
 
 struct QuillCodeTerminalPaneView: View {
     var terminal: TerminalSurface
@@ -12,6 +13,7 @@ struct QuillCodeTerminalPaneView: View {
     var onHistoryPrevious: () -> Void
     var onHistoryNext: () -> Void
     var onResize: (TerminalWindowSize) -> Void = { _ in }
+    var onMouseInput: (TerminalMouseInputRequest) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -76,7 +78,7 @@ struct QuillCodeTerminalPaneView: View {
                         .padding(.vertical, 12)
                 } else {
                     ForEach(terminal.entries) { entry in
-                        QuillCodeTerminalEntryView(entry: entry)
+                        QuillCodeTerminalEntryView(entry: entry, onMouseInput: onMouseInput)
                     }
                 }
             }
@@ -117,14 +119,11 @@ struct QuillCodeTerminalPaneView: View {
 }
 
 enum TerminalWindowSizeEstimator {
-    private static let cellWidth: CGFloat = 8.4
-    private static let cellHeight: CGFloat = 18
-
     static func terminalWindowSize(for pointSize: CGSize) -> TerminalWindowSize? {
         guard pointSize.width > 0, pointSize.height > 0 else { return nil }
         return WorkspaceTerminalEngine.normalizedWindowSize(
-            rows: max(1, Int(pointSize.height / cellHeight)),
-            columns: max(1, Int(pointSize.width / cellWidth))
+            rows: max(1, Int(pointSize.height / TerminalCellMetrics.height)),
+            columns: max(1, Int(pointSize.width / TerminalCellMetrics.width))
         )
     }
 }

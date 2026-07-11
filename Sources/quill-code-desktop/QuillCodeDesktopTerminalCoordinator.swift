@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeApp
+import QuillCodeTools
 
 @MainActor
 struct QuillCodeDesktopTerminalCoordinator {
@@ -69,6 +70,10 @@ struct QuillCodeDesktopTerminalCoordinator {
             rows: Int(windowSize.rows),
             columns: Int(windowSize.columns)
         )
+    }
+
+    func sendMouseInput(_ request: TerminalMouseInputRequest, model: QuillCodeWorkspaceModel) {
+        model.sendTerminalMouseInput(request)
     }
 
     func suspendTerminal(model: QuillCodeWorkspaceModel) {

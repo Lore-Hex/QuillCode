@@ -70,6 +70,7 @@ let package = Package(
                 "QuillCodeCore",
                 "QuillCodeApp",
                 "QuillCodeAgent",
+                "QuillCodeTools",
                 "QuillComputerUseKit"
             ]
         ),

@@ -1,8 +1,10 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeTools
 
 struct QuillCodeTerminalEntryView: View {
     var entry: TerminalCommandSurface
+    var onMouseInput: (TerminalMouseInputRequest) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -14,6 +16,15 @@ struct QuillCodeTerminalEntryView: View {
                     if let executionContext = entry.executionContext {
                         QuillCodeExecutionContextChip(context: executionContext)
                     }
+                    if let label = entry.mouseInputLabel {
+                        Text(label)
+                            .font(.caption2.monospaced().weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.blue)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(QuillCodePalette.blue.opacity(0.12), in: Capsule())
+                            .accessibilityIdentifier("quillcode-terminal-mouse-status")
+                    }
                 }
                 Spacer()
                 Text("\(entry.statusLabel) · \(entry.exitCodeLabel)")
@@ -21,13 +32,15 @@ struct QuillCodeTerminalEntryView: View {
                     .foregroundStyle(statusColor)
             }
             if !entry.stdout.isEmpty {
-                Text(QuillCodeTerminalAttributedText.render(
-                    runs: entry.stdoutRuns,
-                    fallback: entry.stdout,
-                    defaultForeground: QuillCodePalette.text
-                ))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                QuillCodeTerminalInteractiveOutput(
+                    text: QuillCodeTerminalAttributedText.render(
+                        runs: entry.stdoutRuns,
+                        fallback: entry.stdout,
+                        defaultForeground: QuillCodePalette.text
+                    ),
+                    reporting: entry.acceptsMouseInput ? entry.mouseReporting : nil,
+                    onMouseInput: onMouseInput
+                )
             }
             if !entry.stderr.isEmpty {
                 Text(QuillCodeTerminalAttributedText.render(

@@ -147,6 +147,55 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.stdout, "PID CPU MEM\n101  9  2\n102  8  4")
     }
 
+    func testRunningTerminalSurfaceExposesMouseReportingMode() {
+        let running = TerminalCommandSurface(entry: TerminalCommandState(
+            command: "mouse-app",
+            stdout: "\u{1B}[?1000;1006hmenu",
+            stderr: "",
+            exitCode: nil,
+            ok: false,
+            status: .running
+        ))
+        let completed = TerminalCommandSurface(entry: TerminalCommandState(
+            command: "mouse-app",
+            stdout: "\u{1B}[?1000;1006hmenu",
+            stderr: "",
+            exitCode: 0,
+            ok: true,
+            status: .done
+        ))
+
+        XCTAssertTrue(running.acceptsMouseInput)
+        XCTAssertEqual(running.mouseReporting, TerminalMouseReporting(trackingMode: .button, encoding: .sgr))
+        XCTAssertEqual(running.mouseInputLabel, "Mouse · SGR")
+        XCTAssertFalse(completed.acceptsMouseInput)
+        XCTAssertNil(completed.mouseInputLabel)
+    }
+
+    func testTerminalMouseCoordinateMapperUsesOneBasedClampedCells() {
+        let size = CGSize(width: TerminalCellMetrics.width * 10, height: TerminalCellMetrics.height * 4)
+
+        XCTAssertEqual(
+            TerminalMouseCoordinateMapper.position(at: .zero, in: size),
+            TerminalMousePosition(column: 1, row: 1)
+        )
+        XCTAssertEqual(
+            TerminalMouseCoordinateMapper.position(
+                at: CGPoint(x: TerminalCellMetrics.width, y: TerminalCellMetrics.height),
+                in: size
+            ),
+            TerminalMousePosition(column: 2, row: 2)
+        )
+        XCTAssertEqual(
+            TerminalMouseCoordinateMapper.position(at: CGPoint(x: 10_000, y: 10_000), in: size),
+            TerminalMousePosition(column: 10, row: 4)
+        )
+        XCTAssertEqual(
+            TerminalMouseCoordinateMapper.position(at: CGPoint(x: -10, y: -10), in: size),
+            TerminalMousePosition(column: 1, row: 1)
+        )
+    }
+
     func testTerminalCommandSurfaceUsesInjectedAmbiguousWidthPolicyForLocaleFrames() {
         let raw = "ΩX\u{1B}[1;3HY"
         let entry = TerminalCommandState(

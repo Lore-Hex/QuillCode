@@ -19,6 +19,7 @@ struct TerminalScreenBuffer {
     var savedCursor: CursorSnapshot?
     var scrollRegion: (top: Int, bottom: Int)?
     var savedMainBuffer: BufferSnapshot?
+    var mouseModeState = TerminalMouseModeState()
 
     struct BufferSnapshot {
         var lines: [[TerminalScreenCell]]
@@ -169,6 +170,8 @@ struct TerminalScreenBuffer {
     }
 
     func styledFrame() -> TerminalRenderedFrame {
-        TerminalScreenStyledText.render(lines)
+        var frame = TerminalScreenStyledText.render(lines)
+        frame.mouseReporting = mouseReporting
+        return frame
     }
 }

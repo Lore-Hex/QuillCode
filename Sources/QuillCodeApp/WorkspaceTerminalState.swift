@@ -69,6 +69,8 @@ public struct TerminalState: Sendable, Hashable {
     public var historyDraft: String?
     public var isRunning: Bool
     public var isSuspended: Bool
+    public private(set) var mouseReporting: TerminalMouseReporting
+    var mouseReportingParser: TerminalMouseReportingParser
     public var entries: [TerminalCommandState]
 
     public init(
@@ -83,6 +85,7 @@ public struct TerminalState: Sendable, Hashable {
         historyDraft: String? = nil,
         isRunning: Bool = false,
         isSuspended: Bool = false,
+        mouseReporting: TerminalMouseReporting = .disabled,
         entries: [TerminalCommandState] = []
     ) {
         self.projectID = projectID
@@ -96,7 +99,19 @@ public struct TerminalState: Sendable, Hashable {
         self.historyDraft = historyDraft
         self.isRunning = isRunning
         self.isSuspended = isSuspended
+        self.mouseReporting = mouseReporting
+        self.mouseReportingParser = TerminalMouseReportingParser(reporting: mouseReporting)
         self.entries = entries
+    }
+
+    mutating func consumeMouseReporting(from output: String) {
+        mouseReportingParser.consume(output)
+        mouseReporting = mouseReportingParser.reporting
+    }
+
+    mutating func resetMouseReporting() {
+        mouseReportingParser.reset()
+        mouseReporting = mouseReportingParser.reporting
     }
 }
 

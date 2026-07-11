@@ -1,16 +1,6 @@
 import Foundation
 
 extension TerminalScreenBuffer {
-    mutating func applyPrivateMode(final: Unicode.Scalar, params: String) {
-        let modes = params.split(separator: ";", omittingEmptySubsequences: false)
-        guard modes.contains(where: { ["?47", "?1047", "?1049"].contains(String($0)) }) else { return }
-        if final == "h" {
-            enterAlternateScreen()
-        } else {
-            leaveAlternateScreen()
-        }
-    }
-
     mutating func enterAlternateScreen() {
         if savedMainBuffer == nil { savedMainBuffer = snapshot() }
         lines = [[]]

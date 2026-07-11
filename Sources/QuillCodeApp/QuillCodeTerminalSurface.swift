@@ -64,6 +64,7 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
     public var stderr: String
     public var stdoutRuns: [TerminalTextRun]?
     public var stderrRuns: [TerminalTextRun]?
+    public var mouseReporting: TerminalMouseReporting?
     public var exitCodeLabel: String
     public var statusLabel: String
     public var executionContext: ExecutionContextSurface?
@@ -91,12 +92,22 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
         self.stderr = stderrFrame.text
         self.stdoutRuns = stdoutFrame.runs
         self.stderrRuns = stderrFrame.runs
+        self.mouseReporting = stdoutFrame.mouseReporting
         self.exitCodeLabel = Self.exitCodeLabel(for: entry)
         self.statusLabel = Self.statusLabel(for: entry.status)
         self.executionContext = entry.executionContext
         self.isSuccess = entry.status == .done
         self.isRunning = entry.status == .running
         self.isStopped = entry.status == .stopped
+    }
+
+    public var acceptsMouseInput: Bool {
+        isRunning && mouseReporting?.isEnabled == true
+    }
+
+    public var mouseInputLabel: String? {
+        guard acceptsMouseInput, let mouseReporting else { return nil }
+        return "Mouse · \(mouseReporting.encoding.rawValue.uppercased())"
     }
 
     private static func exitCodeLabel(for entry: TerminalCommandState) -> String {

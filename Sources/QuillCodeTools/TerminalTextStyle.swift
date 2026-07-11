@@ -153,9 +153,15 @@ public struct TerminalTextRun: Codable, Sendable, Hashable {
 public struct TerminalRenderedFrame: Codable, Sendable, Hashable {
     public var text: String
     public var runs: [TerminalTextRun]
+    public var mouseReporting: TerminalMouseReporting
 
-    public init(text: String, runs: [TerminalTextRun]) {
+    public init(
+        text: String,
+        runs: [TerminalTextRun],
+        mouseReporting: TerminalMouseReporting = .disabled
+    ) {
         self.text = text
         self.runs = runs
+        self.mouseReporting = mouseReporting
     }
 }
