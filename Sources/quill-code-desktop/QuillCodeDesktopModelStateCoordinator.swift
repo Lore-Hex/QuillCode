@@ -48,6 +48,7 @@ struct QuillCodeDesktopModelStateCoordinator {
         surface.composer = ComposerSurface(
             composer: ComposerState(
                 draft: draft,
+                attachments: model.composer.attachments,
                 isSending: isComposerBusy,
                 placeholder: nextState.surface.composer.placeholder,
                 focusToken: model.composer.focusToken

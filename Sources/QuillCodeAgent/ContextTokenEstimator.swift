@@ -18,6 +18,10 @@ public enum ContextTokenEstimator {
     /// Per-message fixed overhead in tokens (role, delimiters, JSON envelope) charged on top of the
     /// content estimate.
     static let perMessageOverheadTokens = 4
+    /// Conservative provider-agnostic allowance for one image input. Providers tokenize images by
+    /// dimensions/tiles rather than file bytes; 1,024 keeps the proactive trip-wire useful without
+    /// treating a base64 transport string as model context.
+    static let perImageAttachmentTokens = 1_024
     /// The ceiling on the returned estimate. Far above any real context window, so the value stays a
     /// finite `Int` no matter how large the thread; anything at or beyond it has already blown every
     /// threshold, so the exact number past here is irrelevant.
@@ -32,6 +36,10 @@ public enum ContextTokenEstimator {
         var total = 0
         for message in messages {
             total = addSaturating(total, tokens(forContentCount: message.content.count))
+            total = addSaturating(
+                total,
+                message.attachments.count * perImageAttachmentTokens
+            )
             total = addSaturating(total, perMessageOverheadTokens)
             if total >= maxEstimatedTokens { return maxEstimatedTokens }
         }

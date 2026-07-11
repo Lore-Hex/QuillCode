@@ -41,7 +41,7 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
 
     static func estimatedContextTokens(for thread: ChatThread) -> Int {
         let messageCharacters = thread.messages.reduce(0) { total, message in
-            total + message.content.count + 24
+            total + message.content.count + 24 + (message.attachments.count * 4_096)
         }
         let eventCharacters = thread.events.reduce(0) { total, event in
             total + event.summary.count + (event.payloadJSON?.count ?? 0)

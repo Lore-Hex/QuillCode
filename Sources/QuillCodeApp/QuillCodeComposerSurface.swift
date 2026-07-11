@@ -4,6 +4,7 @@ import QuillCodeTools
 
 public struct ComposerSurface: Codable, Sendable, Hashable {
     public var draft: String
+    public var attachments: [ImageAttachmentSurface]
     public var placeholder: String
     public var isSending: Bool
     public var canSend: Bool
@@ -30,12 +31,14 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
         followUpQueue: [FollowUpItem] = []
     ) {
         self.draft = composer.draft
+        self.attachments = composer.attachments.map(ImageAttachmentSurface.init)
         self.placeholder = composer.placeholder
         self.isSending = composer.isSending
         // Sendable even while a run is in flight: a non-empty draft can always be submitted —
         // it enqueues as a follow-up chip when sending, and sends immediately when idle. The
         // composer never locks, so `canSend` no longer gates on `isSending`.
         self.canSend = !composer.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !composer.attachments.isEmpty
         self.slashSuggestions = SlashCommandCatalog.suggestions(for: composer.draft)
         self.fileMentionSuggestions = FileMentionCatalog.suggestions(
             for: composer.draft,
@@ -49,7 +52,7 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case draft, placeholder, isSending, canSend
+        case draft, attachments, placeholder, isSending, canSend
         case slashSuggestions, fileMentionSuggestions, sentMessageHistory, focusToken
         case planProgress, followUpQueue
     }
@@ -57,6 +60,10 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.draft = try container.decode(String.self, forKey: .draft)
+        self.attachments = try container.decodeIfPresent(
+            [ImageAttachmentSurface].self,
+            forKey: .attachments
+        ) ?? []
         self.placeholder = try container.decode(String.self, forKey: .placeholder)
         self.isSending = try container.decode(Bool.self, forKey: .isSending)
         self.canSend = try container.decode(Bool.self, forKey: .canSend)
@@ -75,6 +82,7 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(draft, forKey: .draft)
+        try container.encode(attachments, forKey: .attachments)
         try container.encode(placeholder, forKey: .placeholder)
         try container.encode(isSending, forKey: .isSending)
         try container.encode(canSend, forKey: .canSend)
@@ -92,14 +100,33 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
 public struct FollowUpItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var text: String
+    public var attachments: [ImageAttachmentSurface]
 
     public init(_ item: FollowUpItem) {
         self.id = item.id
         self.text = item.text
+        self.attachments = item.attachments.map(ImageAttachmentSurface.init)
     }
 
-    public init(id: UUID, text: String) {
+    public init(id: UUID, text: String, attachments: [ImageAttachmentSurface] = []) {
         self.id = id
         self.text = text
+        self.attachments = attachments
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case text
+        case attachments
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.text = try container.decode(String.self, forKey: .text)
+        self.attachments = try container.decodeIfPresent(
+            [ImageAttachmentSurface].self,
+            forKey: .attachments
+        ) ?? []
     }
 }

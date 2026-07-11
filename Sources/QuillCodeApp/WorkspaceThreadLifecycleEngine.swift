@@ -146,6 +146,7 @@ struct WorkspaceThreadLifecycleEngine {
                 || !threads[index].events.isEmpty
                 || !threads[index].followUpQueue.isEmpty
                 || threads[index].composerDraft != nil
+                || !threads[index].composerAttachments.isEmpty
         else {
             return nil
         }
@@ -154,6 +155,7 @@ struct WorkspaceThreadLifecycleEngine {
         threads[index].events = []
         threads[index].followUpQueue = []
         threads[index].composerDraft = nil
+        threads[index].composerAttachments = []
         threads[index].updatedAt = now
         return ClearResult(changedThread: threads[index])
     }
@@ -246,6 +248,8 @@ struct WorkspaceThreadLifecycleEngine {
             // and is still present for the turn-boundary drain.
             var updated = thread
             updated.followUpQueue = threads[index].followUpQueue
+            updated.composerDraft = threads[index].composerDraft
+            updated.composerAttachments = threads[index].composerAttachments
             // Goals are also UI-owned durable state. A slash command can update or clear one while
             // an agent is running, so the send-start agent snapshot must not overwrite that change.
             updated.goal = threads[index].goal

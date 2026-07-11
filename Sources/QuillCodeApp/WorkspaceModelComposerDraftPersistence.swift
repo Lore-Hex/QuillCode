@@ -4,12 +4,13 @@ import QuillCodeCore
 @MainActor
 extension QuillCodeWorkspaceModel {
     func restorePersistedSelectedComposerDraftIfNeeded() {
-        guard composer.draft.isEmpty,
-              let selectedThreadID = root.selectedThreadID
-        else {
-            return
+        guard let selectedThreadID = root.selectedThreadID else { return }
+        if composer.draft.isEmpty {
+            composer.draft = persistedComposerDraft(for: selectedThreadID) ?? ""
         }
-        composer.draft = persistedComposerDraft(for: selectedThreadID) ?? ""
+        if composer.attachments.isEmpty {
+            composer.attachments = persistedComposerAttachments(for: selectedThreadID)
+        }
     }
 
     func persistCurrentComposerDraft() {
@@ -28,6 +29,10 @@ extension QuillCodeWorkspaceModel {
 
     func persistedComposerDraft(for threadID: UUID) -> String? {
         root.threads.first { $0.id == threadID }?.composerDraft
+    }
+
+    func persistedComposerAttachments(for threadID: UUID) -> [ChatAttachment] {
+        root.threads.first { $0.id == threadID }?.composerAttachments ?? []
     }
 
     func persistComposerDraft(_ draft: String?, for threadID: UUID) {

@@ -13,6 +13,7 @@ struct QuillCodeDesktopComposerCoordinator {
     ) -> Bool {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty,
+              model.composer.attachments.isEmpty,
               !tasks.isRunning(.send),
               let slashTarget = browserSessionSlashTarget(prompt)
         else {
@@ -39,7 +40,7 @@ struct QuillCodeDesktopComposerCoordinator {
         onSlotFree: @escaping @MainActor () -> Void = {}
     ) {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else { return }
+        guard !prompt.isEmpty || !model.composer.attachments.isEmpty else { return }
 
         // Never lock the composer: a submit arriving DURING a live run enqueues as a follow-up
         // chip (drained at the next turn boundary by the run's own drain loop) instead of being

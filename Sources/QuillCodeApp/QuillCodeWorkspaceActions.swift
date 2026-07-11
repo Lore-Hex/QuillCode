@@ -4,6 +4,8 @@ import QuillCodeTools
 
 public struct QuillCodeWorkspaceActions {
     let onSend: () -> Void
+    let onAddImagesRequested: () -> Void
+    let onRemoveImage: (UUID) -> Void
     let onRunTerminalCommand: () -> Void
     let onTerminalHistoryPrevious: () -> Void
     let onTerminalHistoryNext: () -> Void
@@ -53,6 +55,8 @@ public struct QuillCodeWorkspaceActions {
 
     public init(
         onSend: @escaping () -> Void,
+        onAddImagesRequested: @escaping () -> Void = {},
+        onRemoveImage: @escaping (UUID) -> Void = { _ in },
         onRunTerminalCommand: @escaping () -> Void,
         onTerminalHistoryPrevious: @escaping () -> Void = {},
         onTerminalHistoryNext: @escaping () -> Void = {},
@@ -103,6 +107,8 @@ public struct QuillCodeWorkspaceActions {
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.onSend = onSend
+        self.onAddImagesRequested = onAddImagesRequested
+        self.onRemoveImage = onRemoveImage
         self.onRunTerminalCommand = onRunTerminalCommand
         self.onTerminalHistoryPrevious = onTerminalHistoryPrevious
         self.onTerminalHistoryNext = onTerminalHistoryNext

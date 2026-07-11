@@ -40,6 +40,25 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertEqual(try store.load(thread.id).composerDraft, "half-written prompt")
     }
 
+    func testComposerAndSentImageAttachmentsPersistAcrossReload() throws {
+        let store = JSONThreadStore(directory: try makeTempDirectory())
+        let attachment = try XCTUnwrap(ChatAttachment(
+            displayName: "screen.png",
+            format: .png,
+            localURL: URL(fileURLWithPath: "/tmp/screen.png"),
+            byteCount: 8
+        ))
+        var thread = ChatThread(title: "Images", composerAttachments: [attachment])
+        thread.messages = [ChatMessage(role: .user, content: "look", attachments: [attachment])]
+
+        try store.save(thread)
+
+        let reloaded = try store.load(thread.id)
+        XCTAssertEqual(reloaded.composerAttachments.map(\.id), [attachment.id])
+        XCTAssertEqual(reloaded.composerAttachments.map(\.displayName), ["screen.png"])
+        XCTAssertEqual(reloaded.messages.first?.attachments.map(\.id), [attachment.id])
+    }
+
     func testGoalPersistsWithThreadAcrossReload() throws {
         let store = JSONThreadStore(directory: try makeTempDirectory())
         var thread = ChatThread(title: "Goal")

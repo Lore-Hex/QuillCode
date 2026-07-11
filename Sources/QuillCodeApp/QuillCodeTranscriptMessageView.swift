@@ -17,9 +17,16 @@ struct QuillCodeMessageBubble: View {
                 Spacer(minLength: 80)
             }
             VStack(alignment: actionAlignment, spacing: 6) {
-                Text(message.text)
-                    .font(.body)
-                    .textSelection(.enabled)
+                VStack(alignment: .leading, spacing: 8) {
+                    if !message.attachments.isEmpty {
+                        QuillCodeMessageAttachmentGrid(attachments: message.attachments)
+                    }
+                    if !message.text.isEmpty {
+                        Text(message.text)
+                            .font(.body)
+                            .textSelection(.enabled)
+                    }
+                }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
                     .background(background)

@@ -20,6 +20,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     /// Unsent text in the composer for this thread. Persisted separately from messages so a
     /// half-written prompt survives relaunch without becoming part of the transcript.
     public var composerDraft: String?
+    /// Unsent images in this thread's composer. Stored separately from messages so image-only
+    /// drafts survive relaunch and thread switches without entering model context prematurely.
+    public var composerAttachments: [ChatAttachment]
     /// Composer submissions entered while a run was active, parked as visible chips and
     /// drained one per turn boundary (see `FollowUpQueue`). Stored on the thread so the
     /// queue persists with the conversation and survives a reload; decodes to empty for
@@ -49,6 +52,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         instructions: [ProjectInstruction] = [],
         memories: [MemoryNote] = [],
         composerDraft: String? = nil,
+        composerAttachments: [ChatAttachment] = [],
         followUpQueue: [FollowUpItem] = [],
         worktree: WorktreeBinding? = nil,
         forkParentThreadID: UUID? = nil,
@@ -69,6 +73,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.composerDraft = composerDraft
+        self.composerAttachments = Array(composerAttachments.prefix(ChatAttachment.maximumCountPerTurn))
         self.followUpQueue = followUpQueue
         self.worktree = worktree
         self.forkParentThreadID = forkParentThreadID
@@ -91,6 +96,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case createdAt
         case updatedAt
         case composerDraft
+        case composerAttachments
         case followUpQueue
         case worktree
         case forkParentThreadID
@@ -116,6 +122,10 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.composerDraft = Self.normalizedComposerDraft(
             try container.decodeIfPresent(String.self, forKey: .composerDraft)
         )
+        self.composerAttachments = Array(
+            (try container.decodeIfPresent([ChatAttachment].self, forKey: .composerAttachments) ?? [])
+                .prefix(ChatAttachment.maximumCountPerTurn)
+        )
         self.followUpQueue = try container.decodeIfPresent([FollowUpItem].self, forKey: .followUpQueue) ?? []
         self.worktree = try container.decodeIfPresent(WorktreeBinding.self, forKey: .worktree)
         self.forkParentThreadID = try container.decodeIfPresent(UUID.self, forKey: .forkParentThreadID)
@@ -128,6 +138,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(projectID, forKey: .projectID)
         try container.encodeIfPresent(composerDraft, forKey: .composerDraft)
+        try container.encode(composerAttachments, forKey: .composerAttachments)
         try container.encode(instructions, forKey: .instructions)
         try container.encode(memories, forKey: .memories)
         try container.encode(mode, forKey: .mode)

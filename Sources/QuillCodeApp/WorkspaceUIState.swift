@@ -1,5 +1,8 @@
+import QuillCodeCore
+
 public struct ComposerState: Sendable, Hashable {
     public var draft: String
+    public var attachments: [ChatAttachment]
     public var isSending: Bool
     public var placeholder: String
     /// Bumped each time the composer should grab focus (e.g. the `focus-composer` command). The
@@ -9,11 +12,13 @@ public struct ComposerState: Sendable, Hashable {
 
     public init(
         draft: String = "",
+        attachments: [ChatAttachment] = [],
         isSending: Bool = false,
         placeholder: String = "Message QuillCode",
         focusToken: Int = 0
     ) {
         self.draft = draft
+        self.attachments = Array(attachments.prefix(ChatAttachment.maximumCountPerTurn))
         self.isSending = isSending
         self.placeholder = placeholder
         self.focusToken = focusToken

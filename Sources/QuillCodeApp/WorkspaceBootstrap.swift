@@ -66,6 +66,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             sidebarSavedSearchStore: sidebarSavedSearchStore,
             permissionRuleStore: PermissionRuleFileStore(directory: paths.permissionsDirectory),
             globalMemoryDirectory: paths.memoriesDirectory,
+            imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),
             mcpSecretStore: MCPSecretStoreAdapter(
                 backing: FileSecretStore(directory: paths.secretsDirectory)
             )

@@ -35,7 +35,13 @@ enum WorkspaceContextSummaryPromptBuilder {
 
     private static func transcriptLines(for request: WorkspaceContextSummaryRequest) -> [String] {
         (request.olderMessages + request.recentMessages).map { message in
-            "- \(roleLabel(message.role)): \(singleLine(message.content, limit: 1_200))"
+            let imageSummary = message.attachments.isEmpty
+                ? ""
+                : "[Attached images: \(message.attachments.map(\.displayName).joined(separator: ", "))]"
+            let content = [singleLine(message.content, limit: 1_200), imageSummary]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            return "- \(roleLabel(message.role)): \(content)"
         }
     }
 

@@ -122,7 +122,7 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
         } else {
             lines.append("Earlier context:")
             for message in olderMessages.suffix(6) {
-                lines.append("- \(roleLabel(message.role)): \(singleLineExcerpt(message.content, limit: 180))")
+                lines.append("- \(roleLabel(message.role)): \(summaryContent(for: message))")
             }
         }
         lines.append(purpose.closingLine)
@@ -189,5 +189,14 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard collapsed.count > limit else { return collapsed }
         return String(collapsed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+
+    private static func summaryContent(for message: ChatMessage) -> String {
+        let imageSummary = message.attachments.isEmpty
+            ? ""
+            : "[Attached images: \(message.attachments.map(\.displayName).joined(separator: ", "))]"
+        return [singleLineExcerpt(message.content, limit: 180), imageSummary]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 }

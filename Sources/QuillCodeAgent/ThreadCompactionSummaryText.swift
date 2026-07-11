@@ -46,7 +46,7 @@ enum ThreadCompactionSummaryText {
         recentMessages: [ChatMessage]
     ) -> String {
         let joined = (olderMessages + recentMessages)
-            .map { "- \(roleLabel($0.role)): \(excerpt($0.content, limit: maxMessageExcerptCharacters))" }
+            .map { "- \(roleLabel($0.role)): \(summaryContent(for: $0, limit: maxMessageExcerptCharacters))" }
             .joined(separator: "\n")
         guard joined.count > maxTranscriptCharacters else { return joined }
         return String(joined.suffix(maxTranscriptCharacters))
@@ -87,7 +87,10 @@ enum ThreadCompactionSummaryText {
         } else {
             lines.append("Earlier context:")
             for message in olderMessages.suffix(maxDeterministicOlderLines) {
-                lines.append("- \(roleLabel(message.role)): \(excerpt(message.content, limit: maxDeterministicExcerptCharacters))")
+                lines.append(
+                    "- \(roleLabel(message.role)): "
+                        + summaryContent(for: message, limit: maxDeterministicExcerptCharacters)
+                )
             }
         }
         lines.append("Continue from the preserved latest turns below.")
@@ -118,6 +121,15 @@ enum ThreadCompactionSummaryText {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard collapsed.count > limit else { return collapsed }
         return String(collapsed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+
+    private static func summaryContent(for message: ChatMessage, limit: Int) -> String {
+        let imageSummary = message.attachments.isEmpty
+            ? ""
+            : "[Attached images: \(message.attachments.map(\.displayName).joined(separator: ", "))]"
+        return [excerpt(message.content, limit: limit), imageSummary]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     private static func pluralized(_ count: Int, noun: String) -> String {

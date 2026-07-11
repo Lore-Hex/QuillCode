@@ -73,6 +73,13 @@ struct QuillCodeDesktopRootView: View {
             ) { result in
                 controller.handleProjectImport(result)
             }
+            .fileImporter(
+                isPresented: $controller.isImageImporterPresented,
+                allowedContentTypes: [.png, .jpeg, .gif, .webP],
+                allowsMultipleSelection: true
+            ) { result in
+                controller.handleImageImport(result)
+            }
             .task {
                 await controller.refreshModelCatalog()
             }
@@ -89,6 +96,8 @@ struct QuillCodeDesktopRootView: View {
             isKeyboardShortcutsPresented: $controller.isKeyboardShortcutsPresented,
             copiedTranscriptItemID: controller.copiedTranscriptItemID,
             onSend: controller.send,
+            onAddImagesRequested: controller.requestAddImages,
+            onRemoveImage: controller.removeComposerImage,
             onRunTerminalCommand: controller.runTerminalCommand,
             onTerminalHistoryPrevious: controller.recallPreviousTerminalCommand,
             onTerminalHistoryNext: controller.recallNextTerminalCommand,

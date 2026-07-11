@@ -8,6 +8,7 @@ enum WorkspaceComposerSendLifecycle {
     static func started(from composer: ComposerState) -> WorkspaceComposerSendLifecyclePlan {
         var nextComposer = composer
         nextComposer.draft = ""
+        nextComposer.attachments = []
         nextComposer.isSending = true
         return WorkspaceComposerSendLifecyclePlan(
             composer: nextComposer,

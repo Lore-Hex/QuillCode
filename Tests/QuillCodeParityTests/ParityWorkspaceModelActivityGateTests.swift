@@ -21,8 +21,8 @@ final class ParityWorkspaceModelActivityGateTests: QuillCodeParityTestCase {
         )
         assertContains(
             composerText,
-            "WorkspaceRetryPlanner.retryDraft",
-            "Composer should delegate retry draft selection."
+            "WorkspaceRetryPlanner.retryMessage",
+            "Composer should delegate multimodal retry message selection."
         )
         assertContains(
             retryPlannerTests,
@@ -33,6 +33,11 @@ final class ParityWorkspaceModelActivityGateTests: QuillCodeParityTestCase {
             retryPlannerTests,
             "testRetryRequiresUserMessageAndIdleComposer",
             "Retry availability should have focused coverage."
+        )
+        assertContains(
+            retryPlannerTests,
+            "testImageOnlyUserMessageIsRetryable",
+            "Multimodal retry behavior should have focused coverage."
         )
         assertExcludes(modelText, "messages.last(where:", "WorkspaceModel should not scan transcript messages.")
         assertExcludes(modelText, "messages.contains {", "WorkspaceModel should not own retry availability scans.")

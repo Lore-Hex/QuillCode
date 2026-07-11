@@ -5,6 +5,7 @@ public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var role: ChatRole
     public var text: String
+    public var attachments: [ImageAttachmentSurface]
     public var accessibilityLabel: String
     /// Present on the user message that began a turn whose `apply_patch` edits can be
     /// reverted, so the UI can offer a "Revert this turn's edits" affordance there.
@@ -17,8 +18,32 @@ public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
         self.id = message.id
         self.role = message.role
         self.text = message.content
-        self.accessibilityLabel = "\(message.role.rawValue): \(message.content)"
+        self.attachments = message.attachments.map(ImageAttachmentSurface.init)
+        let imageSummary = attachments.isEmpty ? "" : " \(attachments.count) attached image(s)."
+        self.accessibilityLabel = "\(message.role.rawValue): \(message.content)\(imageSummary)"
         self.revert = revert
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case role
+        case text
+        case attachments
+        case accessibilityLabel
+        case revert
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.role = try container.decode(ChatRole.self, forKey: .role)
+        self.text = try container.decode(String.self, forKey: .text)
+        self.attachments = try container.decodeIfPresent(
+            [ImageAttachmentSurface].self,
+            forKey: .attachments
+        ) ?? []
+        self.accessibilityLabel = try container.decode(String.self, forKey: .accessibilityLabel)
+        self.revert = try container.decodeIfPresent(MessageRevertSurface.self, forKey: .revert)
     }
 }
 

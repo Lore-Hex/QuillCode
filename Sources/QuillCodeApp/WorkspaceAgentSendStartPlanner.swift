@@ -11,11 +11,12 @@ struct WorkspaceAgentSendStartPlan: Sendable {
 enum WorkspaceAgentSendStartPlanner {
     static func started(
         prompt: String,
+        attachments: [ChatAttachment] = [],
         thread: ChatThread,
         composer: ComposerState
     ) -> WorkspaceAgentSendStartPlan {
         var startedThread = thread
-        appendUserTurn(prompt, to: &startedThread)
+        appendUserTurn(prompt, attachments: attachments, to: &startedThread)
         return WorkspaceAgentSendStartPlan(
             prompt: prompt,
             thread: startedThread,
@@ -24,12 +25,21 @@ enum WorkspaceAgentSendStartPlanner {
         )
     }
 
-    private static func appendUserTurn(_ prompt: String, to thread: inout ChatThread) {
-        thread.messages.append(ChatMessage(role: .user, content: prompt))
-        thread.events.append(ThreadEvent(kind: .message, summary: prompt))
+    private static func appendUserTurn(
+        _ prompt: String,
+        attachments: [ChatAttachment],
+        to thread: inout ChatThread
+    ) {
+        thread.messages.append(ChatMessage(role: .user, content: prompt, attachments: attachments))
+        let summary = prompt.isEmpty
+            ? "Attached \(attachments.count) image\(attachments.count == 1 ? "" : "s")"
+            : prompt
+        thread.events.append(ThreadEvent(kind: .message, summary: summary))
         thread.updatedAt = Date()
         if thread.title == "New chat" {
-            thread.title = WorkspaceThreadSeedBuilder.title(fromUserPrompt: prompt)
+            thread.title = prompt.isEmpty
+                ? "Image: \(attachments.first?.displayName ?? "attachment")"
+                : WorkspaceThreadSeedBuilder.title(fromUserPrompt: prompt)
         }
     }
 }

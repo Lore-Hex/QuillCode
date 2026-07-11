@@ -28,4 +28,19 @@ final class WorkspaceRetryPlannerTests: XCTestCase {
         XCTAssertFalse(WorkspaceRetryPlanner.canRetryLastUserTurn(in: retryable, isSending: true))
         XCTAssertTrue(WorkspaceRetryPlanner.canRetryLastUserTurn(in: retryable, isSending: false))
     }
+
+    func testImageOnlyUserMessageIsRetryable() throws {
+        let attachment = try XCTUnwrap(ChatAttachment(
+            displayName: "screen.png",
+            format: .png,
+            localURL: URL(fileURLWithPath: "/tmp/screen.png"),
+            byteCount: 8
+        ))
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "", attachments: [attachment])
+        ])
+
+        XCTAssertTrue(WorkspaceRetryPlanner.canRetryLastUserTurn(in: thread, isSending: false))
+        XCTAssertEqual(WorkspaceRetryPlanner.retryMessage(in: thread)?.attachments, [attachment])
+    }
 }

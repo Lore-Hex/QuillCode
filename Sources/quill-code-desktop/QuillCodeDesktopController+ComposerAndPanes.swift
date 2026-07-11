@@ -1,3 +1,4 @@
+import Foundation
 import QuillCodeApp
 
 @MainActor
@@ -32,6 +33,35 @@ extension QuillCodeDesktopController {
             refresh: { [weak self] in self?.refresh() },
             onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
+    }
+
+    func requestAddImages() {
+        isImageImporterPresented = true
+    }
+
+    func removeComposerImage(_ id: UUID) {
+        model.removeComposerImage(id)
+        refresh()
+    }
+
+    func handleImageImport(_ result: Result<[URL], any Error>) {
+        switch result {
+        case .success(let urls):
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let securityScopes = urls.map { ($0, $0.startAccessingSecurityScopedResource()) }
+                defer {
+                    for (url, didStart) in securityScopes where didStart {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
+                await model.addComposerImages(from: urls)
+                refresh()
+            }
+        case .failure(let error):
+            model.reportImageAttachmentError(error)
+            refresh()
+        }
     }
 
     /// Recovers the currently-selected thread's stranded follow-up queue once the `.send` slot frees

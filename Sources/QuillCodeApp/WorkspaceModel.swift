@@ -50,6 +50,7 @@ public final class QuillCodeWorkspaceModel {
     /// (tests/CLI without persistence) disables saving; approval flows still work as before.
     let permissionRuleStore: PermissionRuleFileStore?
     let globalMemoryDirectory: URL?
+    let imageAttachmentStore: ImageAttachmentStore?
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
@@ -110,6 +111,7 @@ public final class QuillCodeWorkspaceModel {
         sidebarSavedSearchStore: JSONSidebarSavedSearchStore? = nil,
         permissionRuleStore: PermissionRuleFileStore? = nil,
         globalMemoryDirectory: URL? = nil,
+        imageAttachmentStore: ImageAttachmentStore? = nil,
         computerUseBackend: (any ComputerUseBackend)? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor(),
         mcpSecretStore: (any MCPSecretStore)? = nil
@@ -150,6 +152,7 @@ public final class QuillCodeWorkspaceModel {
         self.sidebarSavedSearchStore = sidebarSavedSearchStore
         self.permissionRuleStore = permissionRuleStore
         self.globalMemoryDirectory = globalMemoryDirectory
+        self.imageAttachmentStore = imageAttachmentStore
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
         self.mcpRuntime = WorkspaceMCPRuntime(

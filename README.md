@@ -52,10 +52,14 @@ To exercise the live TrustedRouter adapter:
 export TRUSTEDROUTER_API_KEY=sk-tr-v1-...
 swift run quill-code --live "run whoami"
 swift run quill-code --live --model trustedrouter/fast "make a file that says hello world"
+swift run quill-code --live --model google/gemini-2.5-flash-lite --image screenshot.png "explain this UI"
 swift run quill-code-desktop
 ```
 
-The live adapter asks the model for a strict QuillCode action JSON object, then routes that through the same safety and tool executor path as the mock harness.
+Image attachments require a model whose TrustedRouter catalog metadata includes image input; QuillCode
+keeps the selected model explicit rather than silently routing the image through a different model. The
+live adapter asks the model for a strict QuillCode action JSON object, then routes that through the same
+safety and tool executor path as the mock harness.
 
 To store or clear the local developer key used by the desktop shell:
 

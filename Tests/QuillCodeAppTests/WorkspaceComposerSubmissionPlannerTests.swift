@@ -16,6 +16,20 @@ final class WorkspaceComposerSubmissionPlannerTests: XCTestCase {
         )
     }
 
+    func testImageOnlyDraftRunsAgentTurn() {
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "", hasAttachments: true),
+            .agent(prompt: "")
+        )
+    }
+
+    func testAttachmentPreventsSlashCommandFromDiscardingImage() {
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "/settings", hasAttachments: true),
+            .agent(prompt: "/settings")
+        )
+    }
+
     func testSlashCommandKeepsTrimmedOriginalPrompt() {
         XCTAssertEqual(
             WorkspaceComposerSubmissionPlanner.plan(draft: "  /model Nike 1.0  "),

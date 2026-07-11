@@ -1,10 +1,16 @@
 import QuillCodeCore
+import QuillCodePersistence
 
 public struct TrustedRouterPromptBuilder: Sendable {
     public let historyLimit: Int
+    public let imageAttachmentStore: ImageAttachmentStore?
 
-    public init(historyLimit: Int = 20) {
+    public init(
+        historyLimit: Int = 20,
+        imageAttachmentStore: ImageAttachmentStore? = nil
+    ) {
         self.historyLimit = max(0, historyLimit)
+        self.imageAttachmentStore = imageAttachmentStore
     }
 
     static let trustedRouterModelAdvisorPrompt = """
@@ -280,7 +286,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
     private func appendRecentHistory(from thread: ChatThread, to messages: inout [[String: Any]]) {
         for message in thread.messages.suffix(historyLimit) {
-            messages.append(Self.chatMessage(message))
+            messages.append(chatMessage(message))
         }
     }
 
@@ -295,17 +301,41 @@ public struct TrustedRouterPromptBuilder: Sendable {
         messages.append(Self.chatMessage(role: "user", content: userMessage))
     }
 
-    private static func chatMessage(_ message: ChatMessage) -> [String: Any] {
+    private func chatMessage(_ message: ChatMessage) -> [String: Any] {
         switch message.role {
         case .system:
-            return chatMessage(role: "system", content: message.content)
+            return Self.chatMessage(role: "system", content: message.content)
         case .user:
-            return chatMessage(role: "user", content: message.content)
+            return ["role": "user", "content": userContent(for: message)]
         case .assistant:
-            return chatMessage(role: "assistant", content: message.content)
+            return Self.chatMessage(role: "assistant", content: message.content)
         case .tool:
-            return chatMessage(role: "assistant", content: "Tool output: \(message.content)")
+            return Self.chatMessage(role: "assistant", content: "Tool output: \(message.content)")
         }
+    }
+
+    private func userContent(for message: ChatMessage) -> Any {
+        guard !message.attachments.isEmpty else { return message.content }
+
+        var parts: [[String: Any]] = []
+        if !message.content.isEmpty {
+            parts.append(["type": "text", "text": message.content])
+        }
+        for attachment in message.attachments {
+            if let imageAttachmentStore,
+               let dataURL = try? imageAttachmentStore.dataURL(for: attachment) {
+                parts.append([
+                    "type": "image_url",
+                    "image_url": ["url": dataURL, "detail": "auto"]
+                ])
+            } else {
+                parts.append([
+                    "type": "text",
+                    "text": "[Attached image unavailable: \(attachment.displayName)]"
+                ])
+            }
+        }
+        return parts
     }
 
     private static func chatMessage(role: String, content: String) -> [String: Any] {

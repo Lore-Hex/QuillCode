@@ -22,6 +22,7 @@ struct QuillCodeCLI {
         var modelOverride: String?
         var baseURLOverride: String?
         var homeOverride: URL?
+        var imageURLs: [URL] = []
         let cwd: URL
         if let index = args.firstIndex(of: "--cwd"), args.indices.contains(args.index(after: index)) {
             cwd = URL(fileURLWithPath: args[args.index(after: index)])
@@ -54,6 +55,15 @@ struct QuillCodeCLI {
             args.remove(at: args.index(after: index))
             args.remove(at: index)
         }
+        while let index = args.firstIndex(of: "--image") {
+            let valueIndex = args.index(after: index)
+            guard args.indices.contains(valueIndex) else {
+                throw QuillCodeCLIError.missingImagePath
+            }
+            imageURLs.append(URL(fileURLWithPath: args[valueIndex].expandingTildeInPath))
+            args.remove(at: valueIndex)
+            args.remove(at: index)
+        }
 
         let paths = QuillCodePaths(home: homeOverride ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".quillcode"))
         try paths.ensure()
@@ -64,13 +74,17 @@ struct QuillCodeCLI {
         }
 
         let prompt = args.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else {
+        guard !prompt.isEmpty || !imageURLs.isEmpty else {
             print(usage)
             return
         }
 
         let config = try ConfigStore(fileURL: paths.configFile).load()
         var thread = ChatThread(mode: config.mode, model: config.defaultModel)
+        let imageAttachmentStore = ImageAttachmentStore(directory: paths.attachmentsDirectory)
+        let attachments = try imageURLs.map {
+            try imageAttachmentStore.importImage(from: $0, threadID: thread.id)
+        }
         let runner: AgentRunner
         if live {
             let sessionStore = SecretTrustedRouterSessionStore(
@@ -83,6 +97,7 @@ struct QuillCodeCLI {
             let baseURL = baseURLOverride ?? config.apiBaseURL
             let model = modelOverride ?? config.defaultModel
             let llm = TrustedRouterLLMClient(
+                promptBuilder: TrustedRouterPromptBuilder(imageAttachmentStore: imageAttachmentStore),
                 sessionStore: sessionStore,
                 apiKeyOverride: key,
                 model: model,
@@ -118,7 +133,27 @@ struct QuillCodeCLI {
             base: runner.safety,
             rules: PermissionRuleFileStore(directory: paths.permissionsDirectory)
         )
-        let result = try await gatedRunner.send(prompt, in: thread, workspaceRoot: cwd)
+        let recordsUserMessage = attachments.isEmpty
+        if !attachments.isEmpty {
+            thread.messages.append(ChatMessage(
+                role: .user,
+                content: prompt,
+                attachments: attachments
+            ))
+            let summary = prompt.isEmpty
+                ? "Attached \(attachments.count) image\(attachments.count == 1 ? "" : "s")"
+                : prompt
+            thread.events.append(ThreadEvent(kind: .message, summary: summary))
+            thread.title = prompt.isEmpty
+                ? "Image: \(attachments.first?.displayName ?? "attachment")"
+                : String(prompt.split(whereSeparator: \.isWhitespace).prefix(6).joined(separator: " "))
+        }
+        let result = try await gatedRunner.send(
+            prompt,
+            in: thread,
+            workspaceRoot: cwd,
+            recordUserMessage: recordsUserMessage
+        )
         thread = result.thread
         try JSONThreadStore(directory: paths.threadsDirectory).save(thread)
 
@@ -130,7 +165,7 @@ struct QuillCodeCLI {
     private static var usage: String {
         """
         Usage:
-          quill-code [--live] [--api-key KEY] [--model MODEL] [--base-url URL] [--cwd PATH] [--home PATH] "run whoami"
+          quill-code [--live] [--api-key KEY] [--model MODEL] [--base-url URL] [--cwd PATH] [--home PATH] [--image PATH]... "explain this"
           quill-code [--home PATH] auth status
           quill-code [--home PATH] auth set-key KEY
           quill-code [--home PATH] auth clear
@@ -167,5 +202,22 @@ struct QuillCodeCLI {
     private static func writeError(_ message: String) {
         guard let data = "\(message)\n".data(using: .utf8) else { return }
         FileHandle.standardError.write(data)
+    }
+}
+
+private enum QuillCodeCLIError: LocalizedError {
+    case missingImagePath
+
+    var errorDescription: String? {
+        switch self {
+        case .missingImagePath:
+            return "--image requires a PNG, JPEG, GIF, or WebP path."
+        }
+    }
+}
+
+private extension String {
+    var expandingTildeInPath: String {
+        NSString(string: self).expandingTildeInPath
     }
 }

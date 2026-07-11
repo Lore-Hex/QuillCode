@@ -59,6 +59,8 @@ extension QuillCodeWorkspaceModel {
         // state, so progress and completion snapshots must never resurrect a draft that was sent,
         // cleared, or edited while the run was active.
         thread.composerDraft = root.threads.first { $0.id == thread.id }?.composerDraft ?? thread.composerDraft
+        thread.composerAttachments = root.threads.first { $0.id == thread.id }?.composerAttachments
+            ?? thread.composerAttachments
         let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
             thread,
             threads: &root.threads,
