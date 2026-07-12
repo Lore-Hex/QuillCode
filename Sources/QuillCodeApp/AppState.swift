@@ -27,9 +27,12 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
         self.isPinned = thread.isPinned
         self.isArchived = thread.isArchived
         self.worktree = thread.worktree.map { binding in
-            SidebarItemWorktreeSummary(
+            let branch = binding.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+            return SidebarItemWorktreeSummary(
                 branch: binding.branch,
-                branchLeaf: binding.branch.split(separator: "/").last.map(String.init) ?? binding.branch,
+                branchLeaf: branch.isEmpty
+                    ? "Detached"
+                    : branch.split(separator: "/").last.map(String.init) ?? branch,
                 isResolvable: binding.isResolvable
             )
         }

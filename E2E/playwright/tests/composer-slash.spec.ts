@@ -258,7 +258,7 @@ test('mock harness suggests and runs the new-worktree thread command', async ({ 
   await message.fill('/new-worktree');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('message').last())
-    .toContainText('Started a new chat in a fresh worktree off the current branch.');
+    .toContainText('Started a detached worktree chat with the current local changes.');
   await expect
     .poll(async () => page.getByTestId('sidebar-thread-row').count())
     .toBeGreaterThan(before);

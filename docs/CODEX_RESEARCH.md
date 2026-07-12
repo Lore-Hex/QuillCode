@@ -5,6 +5,7 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 ## Current Research Inputs
 
 - Codex app: projects, worktrees, automations, Git review, in-app browser, Computer Use, artifact previews.
+- Official managed-worktree behavior: new Worktree tasks start at detached HEAD from the selected branch, can carry current uncommitted changes, copy normally ignored files only when selected by `.worktreeinclude`, automatically copy ignored `AGENTS.override.md`, and keep a stable task/worktree association. Handoff moves a task and its code between Local and that same worktree; managed cleanup saves restorable snapshots before deletion. Source: current Codex manual, Worktrees section (`environments/git-worktrees`).
 - Codex commands: command menu, keyboard shortcuts, thread search, slash commands.
 - Sandbox and Auto-review: enforce boundaries first, route eligible review requests through a reviewer model.
 - Remote connections: phone/host pairing, remote approvals, host-local files and tools.

@@ -18,6 +18,20 @@ final class WorkspaceWorktreeToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(try arguments.requiredString("base"), "origin/main")
     }
 
+    func testManagedCreateIncludesExplicitManagedFlagWithoutBranch() throws {
+        let call = WorkspaceWorktreeToolCallPlanner.create(.init(
+            path: "/tmp/repo-task",
+            base: "main",
+            managed: true
+        ))
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.gitWorktreeCreate.name)
+        XCTAssertEqual(arguments.bool("managed"), true)
+        XCTAssertEqual(arguments.string("base"), "main")
+        XCTAssertNil(arguments.string("branch"))
+    }
+
     func testCreateOmitsBlankOptionalArguments() throws {
         let call = WorkspaceWorktreeToolCallPlanner.create(.init(
             path: "../feature-worktree",

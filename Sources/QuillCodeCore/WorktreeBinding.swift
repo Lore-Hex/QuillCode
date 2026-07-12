@@ -8,7 +8,7 @@ import Foundation
 public struct WorktreeBinding: Codable, Sendable, Hashable {
     /// Absolute path to the worktree directory (a sibling of the project root).
     public var path: String
-    /// The branch checked out in the worktree.
+    /// The branch checked out in the worktree, or an empty string for a detached managed task.
     public var branch: String
     /// The ref this worktree was created from (its land-back target). nil when unknown.
     public var base: String?

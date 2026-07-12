@@ -17,6 +17,9 @@ enum WorkspaceWorktreeToolCallPlanner {
         if !base.isEmpty {
             arguments["base"] = base
         }
+        if request.managed {
+            arguments["managed"] = true
+        }
         return ToolCall(
             name: ToolDefinition.gitWorktreeCreate.name,
             argumentsJSON: ToolArguments.json(arguments)

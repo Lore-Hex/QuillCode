@@ -38,6 +38,32 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         assertWorktreeOwnershipExclusions(modelText, worktreeExtensionText)
     }
 
+    func testManagedWorktreeMaterializationStaysSplitAcrossFocusedBoundaries() throws {
+        let executor = try Self.toolsSourceText(named: "GitWorktreeToolExecutor.swift")
+        let materializer = try Self.toolsSourceText(named: "GitManagedWorktreeMaterializer.swift")
+        let snapshot = try Self.toolsSourceText(named: "ManagedWorktreeTransferSnapshot.swift")
+        let model = try Self.appSourceText(named: "WorkspaceModelWorktrees.swift")
+        let threadPlanner = try Self.appSourceText(named: "WorktreeThreadPlanner.swift")
+        let toolsTests = try Self.toolsTestSourceText(named: "GitWorktreeToolExecutorTests.swift")
+
+        Self.assertSource(executor, contains: "managedMaterializer.create")
+        Self.assertSource(materializer, contains: "[\"worktree\", \"add\", \"--detach\"")
+        Self.assertSource(materializer, contains: "[\"worktree\", \"remove\", \"--force\"")
+        Self.assertSource(snapshot, contains: "--cached")
+        Self.assertSource(snapshot, contains: ".worktreeinclude")
+        Self.assertSource(snapshot, contains: "AGENTS.override.md")
+        Self.assertSource(threadPlanner, contains: "managed: true")
+        Self.assertSource(model, excludes: "copyItem")
+        Self.assertSource(
+            toolsTests,
+            contains: "testManagedCreateStartsDetachedAndPreservesLocalChangeState"
+        )
+        Self.assertSource(
+            toolsTests,
+            contains: "testManagedCreateRollsBackWhenLocalFileWouldOverwriteBaseContent"
+        )
+    }
+
     private func assertWorktreeRequestAndEngineContracts(
         _ requestsText: String,
         _ engineText: String,
