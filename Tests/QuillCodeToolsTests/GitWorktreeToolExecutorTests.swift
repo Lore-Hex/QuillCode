@@ -338,6 +338,99 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertEqual(result.error, "Managed worktrees start detached and cannot create a branch.")
     }
 
+    func testCreateBranchHerePromotesDetachedManagedWorktree() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let worktreeName = "managed-branch-here-\(UUID().uuidString)"
+        let worktree = root.deletingLastPathComponent().appendingPathComponent(worktreeName)
+        let branch = "feature/managed-\(UUID().uuidString.prefix(8))"
+        let git = GitToolExecutor()
+        let create = git.createWorktree(cwd: root, path: worktreeName, managed: true)
+        XCTAssertTrue(create.ok, create.error ?? create.stderr)
+        defer { _ = git.removeWorktree(cwd: root, path: worktreeName, force: true) }
+
+        let promote = git.createWorktreeBranch(cwd: worktree, branch: String(branch))
+
+        XCTAssertTrue(promote.ok, promote.error ?? promote.stderr)
+        XCTAssertEqual(currentBranchName(in: worktree), String(branch))
+        XCTAssertEqual(promote.artifacts, [String(branch)])
+        XCTAssertTrue(promote.stdout.contains("Created branch"), promote.stdout)
+    }
+
+    func testCreateBranchHereRejectsExistingAndNonDetachedBranches() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let worktreeName = "managed-branch-collision-\(UUID().uuidString)"
+        let worktree = root.deletingLastPathComponent().appendingPathComponent(worktreeName)
+        let git = GitToolExecutor()
+        let create = git.createWorktree(cwd: root, path: worktreeName, managed: true)
+        XCTAssertTrue(create.ok, create.error ?? create.stderr)
+        defer { _ = git.removeWorktree(cwd: root, path: worktreeName, force: true) }
+
+        let existing = git.createWorktreeBranch(cwd: worktree, branch: "main")
+        XCTAssertFalse(existing.ok)
+        XCTAssertTrue(existing.error?.contains("already checked out") == true, existing.error ?? "")
+
+        let branch = "feature/owned-\(UUID().uuidString.prefix(8))"
+        XCTAssertTrue(git.createWorktreeBranch(cwd: worktree, branch: String(branch)).ok)
+        let secondPromotion = git.createWorktreeBranch(cwd: worktree, branch: "feature/second")
+        XCTAssertFalse(secondPromotion.ok)
+        XCTAssertTrue(
+            secondPromotion.error?.contains("already owns branch") == true,
+            secondPromotion.error ?? ""
+        )
+    }
+
+    func testCreateBranchHereRejectsExistingUnownedBranch() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let worktreeName = "managed-existing-branch-\(UUID().uuidString)"
+        let worktree = root.deletingLastPathComponent().appendingPathComponent(worktreeName)
+        let branch = "feature/existing-\(UUID().uuidString.prefix(8))"
+        let git = GitToolExecutor()
+        let createBranch = ShellToolExecutor().run(.init(command: "git branch \(branch)", cwd: root))
+        XCTAssertTrue(createBranch.ok, createBranch.error ?? createBranch.stderr)
+        let createWorktree = git.createWorktree(cwd: root, path: worktreeName, managed: true)
+        XCTAssertTrue(createWorktree.ok, createWorktree.error ?? createWorktree.stderr)
+        defer { _ = git.removeWorktree(cwd: root, path: worktreeName, force: true) }
+
+        let promote = git.createWorktreeBranch(cwd: worktree, branch: String(branch))
+
+        XCTAssertFalse(promote.ok)
+        XCTAssertTrue(promote.error?.contains("branch already exists") == true, promote.error ?? "")
+        XCTAssertEqual(currentBranchName(in: worktree), "")
+    }
+
+    func testCreateBranchHereRejectsDetachedMainCheckout() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let detach = ShellToolExecutor().run(.init(command: "git checkout --detach", cwd: root))
+        XCTAssertTrue(detach.ok, detach.error ?? detach.stderr)
+
+        let result = GitToolExecutor().createWorktreeBranch(cwd: root, branch: "feature/not-managed")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Git worktree path cannot be the main workspace.")
+        XCTAssertEqual(currentBranchName(in: root), "")
+    }
+
+    func testWorktreePorcelainParserNormalizesLocalBranchNames() {
+        let records = GitWorktreePorcelainParser.parse(
+            """
+            worktree /repo/main
+            HEAD 1111111
+            branch refs/heads/main
+
+            worktree /repo/task
+            HEAD 2222222
+            detached
+
+            """
+        )
+
+        XCTAssertEqual(records.count, 2)
+        XCTAssertEqual(records[0].branch, "main")
+        XCTAssertFalse(records[0].isDetached)
+        XCTAssertNil(records[1].branch)
+        XCTAssertTrue(records[1].isDetached)
+    }
+
     func testCreateListOpenAndRemoveSibling() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()

@@ -15813,3 +15813,25 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-12 Managed Worktree Branch Promotion Hardening
+
+Overall grade after this slice: **A+ Git ownership boundary, A+ regression coverage**.
+This follow-up hardens the merged Create branch here workflow without changing its public tool or UI contracts.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | The existing typed tool contract remains stable while one focused executor owns all branch-promotion invariants. |
+| Git correctness | A+ | Promotion requires a registered detached linked worktree, rejects the main checkout, existing branches, and branches owned by another worktree, then leaves final race enforcement to `git switch -c`. |
+| State integrity | A+ | Real-workspace tests verify both direct promotion and reconciliation after a generic agent branch-switch tool. |
+| Maintainability | A+ | One typed porcelain parser now serves both worktree UI projection and Git ownership validation. |
+| Tests | A+ | Real Git fixtures cover success, main-checkout rejection, existing and worktree-owned branches, attached worktrees, parsing, and durable model reconciliation. |
+
+Validation:
+
+- `swift test --filter 'GitWorktreeToolExecutorTests|WorkspaceWorktreeIntegrationTests|WorkspaceWorktreeListSurfaceTests'`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

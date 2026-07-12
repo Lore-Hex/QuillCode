@@ -56,6 +56,54 @@ public struct GitWorktreeToolExecutor: Sendable {
         }
     }
 
+    public func createBranchHere(cwd: URL, branch: String) -> ToolResult {
+        do {
+            let branchName = try GitInputValidator.safeName(branch)
+            let currentPath = normalizedPath(cwd.path)
+            let registered = registeredWorktrees(cwd: cwd)
+            if let failure = registered.failure {
+                return failure
+            }
+            guard let currentIndex = registered.records.firstIndex(where: {
+                normalizedPath($0.path) == currentPath
+            }) else {
+                throw GitToolError.unregisteredWorktree(currentPath)
+            }
+            let current = registered.records[currentIndex]
+            guard current.isDetached else {
+                throw GitToolError.worktreeAlreadyOwnsBranch(current.branch ?? "an existing branch")
+            }
+            guard currentIndex > registered.records.startIndex else {
+                throw GitToolError.mainWorkspaceWorktreePath
+            }
+            if let owner = registered.records.first(where: { $0.branch == branchName }) {
+                throw GitToolError.branchCheckedOutInWorktree(branch: branchName, path: owner.path)
+            }
+
+            let existing = runGit(
+                ["show-ref", "--verify", "--quiet", "refs/heads/\(branchName)"],
+                cwd: cwd,
+                timeoutSeconds: 10
+            )
+            if existing.ok {
+                throw GitToolError.branchAlreadyExists(branchName)
+            }
+            guard existing.exitCode == 1 else { return existing }
+
+            let result = runGit(["switch", "-c", branchName], cwd: cwd, timeoutSeconds: 30)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout.isEmpty ? "Created branch \(branchName).\n" : result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: [branchName]
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func open(cwd: URL, path: String) -> ToolResult {
         do {
             let worktreePath = try Self.safePath(path, cwd: cwd)
@@ -79,34 +127,6 @@ public struct GitWorktreeToolExecutor: Sendable {
 
     public func handoff(cwd: URL, destination: String) -> ToolResult {
         handoffExecutor.handoff(sourceRoot: cwd, destinationPath: destination)
-    }
-
-    public func createBranchHere(cwd: URL, branch: String) -> ToolResult {
-        do {
-            let branchName = try GitInputValidator.safeName(branch)
-            let symbolicRef = runGit(
-                ["symbolic-ref", "--quiet", "--short", "HEAD"],
-                cwd: cwd,
-                timeoutSeconds: 10
-            )
-            if symbolicRef.ok {
-                let current = symbolicRef.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-                throw GitToolError.worktreeAlreadyOwnsBranch(current.isEmpty ? "an existing branch" : current)
-            }
-            guard symbolicRef.exitCode == 1 else { return symbolicRef }
-
-            let result = runGit(["switch", "-c", branchName], cwd: cwd, timeoutSeconds: 30)
-            guard result.ok else { return result }
-            return ToolResult(
-                ok: true,
-                stdout: result.stdout.isEmpty ? "Created branch \(branchName).\n" : result.stdout,
-                stderr: result.stderr,
-                exitCode: result.exitCode,
-                artifacts: [branchName]
-            )
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
     }
 
     public func remove(cwd: URL, path: String, force: Bool = false) -> ToolResult {
@@ -168,19 +188,27 @@ public struct GitWorktreeToolExecutor: Sendable {
     }
 
     private func registeredPaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {
+        let registered = registeredWorktrees(cwd: cwd)
+        if let failure = registered.failure {
+            return ([], failure)
+        }
+        let paths = registered.records.map { normalizedPath($0.path) }
+        return (Set(paths), nil)
+    }
+
+    private func registeredWorktrees(cwd: URL) -> (records: [GitWorktreeRecord], failure: ToolResult?) {
         let result = list(cwd: cwd)
         guard result.ok else {
             return ([], result)
         }
-        let paths = result.stdout
-            .components(separatedBy: .newlines)
-            .compactMap { line -> String? in
-                guard line.hasPrefix("worktree ") else { return nil }
-                return URL(fileURLWithPath: String(line.dropFirst("worktree ".count)))
-                    .standardizedFileURL
-                    .path
-            }
-        return (Set(paths), nil)
+        return (GitWorktreePorcelainParser.parse(result.stdout), nil)
+    }
+
+    private func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
     }
 
     private func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
