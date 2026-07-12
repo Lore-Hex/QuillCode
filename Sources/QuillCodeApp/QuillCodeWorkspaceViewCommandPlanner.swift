@@ -11,6 +11,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case renameThread(threadID: UUID, title: String)
     case renameProject(projectID: UUID, name: String)
     case presentCreateWorktree
+    case presentCreateWorktreeBranch
     case presentOpenWorktree
     case presentRemoveWorktree
     case presentPruneWorktrees
@@ -46,6 +47,8 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
             return selectedProjectRenameAction()
         case "git-worktree-create":
             return .presentCreateWorktree
+        case "thread-create-branch-here":
+            return .presentCreateWorktreeBranch
         case "git-worktree-open":
             return .presentOpenWorktree
         case "git-worktree-remove":

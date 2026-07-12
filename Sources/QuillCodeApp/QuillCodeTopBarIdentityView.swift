@@ -2,9 +2,11 @@ import SwiftUI
 
 struct QuillCodeTopBarIdentityView: View {
     var topBar: TopBarSurface
+    var createBranchCommand: WorkspaceCommandSurface?
+    var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 9) {
+        HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(topBar.primaryTitle)
                     .font(.system(size: 15, weight: .semibold))
@@ -49,6 +51,10 @@ struct QuillCodeTopBarIdentityView: View {
                 .accessibilityLabel(topBar.worktreeStatusDetail ?? worktreeStatusLabel)
             }
 
+            if let createBranchCommand {
+                createBranchButton(createBranchCommand)
+            }
+
             if let tokenBudget = topBar.tokenBudget {
                 tokenBudgetView(tokenBudget)
                     .help(tokenBudget.accessibilityLabel)
@@ -82,6 +88,32 @@ struct QuillCodeTopBarIdentityView: View {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(tint.opacity(0.08))
             )
+    }
+
+    private func createBranchButton(_ command: WorkspaceCommandSurface) -> some View {
+        Button {
+            onCommand(command)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text(command.title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(QuillCodePalette.blue)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .quillCodeTextButtonTarget(minWidth: 126, radius: 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(QuillCodePalette.blue.opacity(0.10))
+            )
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help("Create a branch in this worktree")
+        .accessibilityIdentifier("quillcode-create-branch-here")
     }
 
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {

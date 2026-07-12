@@ -3,11 +3,27 @@ import QuillCodeCore
 
 enum QuillCodeWorktreeSheet: String, Identifiable {
     case create
+    case createBranch
     case open
     case remove
     case prune
 
     var id: String { rawValue }
+}
+
+struct QuillCodeWorktreeCreateBranchDraft: Equatable {
+    var branch = ""
+    var errorMessage: String?
+
+    var canCreate: Bool {
+        !branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var request: WorkspaceWorktreeCreateBranchRequest {
+        WorkspaceWorktreeCreateBranchRequest(
+            branch: branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
 }
 
 struct QuillCodeWorktreeCreateDraft: Equatable {

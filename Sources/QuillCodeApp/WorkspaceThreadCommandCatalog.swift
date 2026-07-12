@@ -8,6 +8,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadCanRevertLatestTurn: Bool
     var selectedThreadCanPin: Bool
     var selectedThreadCanUnpin: Bool
+    var selectedThreadCanCreateBranchHere: Bool = false
     var selectedThreadIsRunning: Bool = false
     var selectedThreadHandoffTitle: String? = nil
     var hasAnySidebarThread: Bool
@@ -49,6 +50,13 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "task", "handoff", "local", "worktree", "move", "transfer"],
                 isEnabled: availability.selectedThreadHandoffTitle != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-create-branch-here",
+                title: "Create branch here",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "worktree", "branch", "detached", "keep working"],
+                isEnabled: availability.selectedThreadCanCreateBranchHere
             ),
             savedFilterCommand(.all),
             savedFilterCommand(.pinned),

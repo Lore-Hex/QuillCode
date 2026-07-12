@@ -20,6 +20,14 @@ public struct WorkspaceWorktreeOpenRequest: Sendable, Hashable {
     }
 }
 
+public struct WorkspaceWorktreeCreateBranchRequest: Sendable, Hashable {
+    public var branch: String
+
+    public init(branch: String) {
+        self.branch = branch
+    }
+}
+
 public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
     public var path: String
     public var force: Bool

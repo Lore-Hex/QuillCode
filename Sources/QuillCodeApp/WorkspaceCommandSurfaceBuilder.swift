@@ -157,6 +157,9 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             selectedThreadCanRevertLatestTurn: selectedThreadCanRevertLatestTurn,
             selectedThreadCanPin: selectedThreadCanPin,
             selectedThreadCanUnpin: selectedThreadCanUnpin,
+            selectedThreadCanCreateBranchHere: selectedThread?.worktree?.canCreateBranchHere == true
+                && !selectedProjectIsRemote
+                && !selectedThreadIsRunning,
             selectedThreadIsRunning: selectedThreadIsRunning,
             selectedThreadHandoffTitle: selectedThreadHandoffTitle,
             hasAnySidebarThread: sidebarItemCount > 0,

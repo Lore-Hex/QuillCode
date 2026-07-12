@@ -40,6 +40,7 @@ public struct QuillCodeWorkspaceActions {
     let onToolCardAction: (ToolCardActionSurface) -> Void
     let onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     let onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
+    let onCreateWorktreeBranch: (WorkspaceWorktreeCreateBranchRequest) -> ToolResult
     let onListWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoad
     let onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     let onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
@@ -92,6 +93,9 @@ public struct QuillCodeWorkspaceActions {
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
+        onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> ToolResult = {
+            _ in ToolResult(ok: false, error: "Create branch here is unavailable.")
+        },
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
@@ -145,6 +149,7 @@ public struct QuillCodeWorkspaceActions {
         self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
+        self.onCreateWorktreeBranch = onCreateWorktreeBranch
         self.onListWorktreeChoices = onListWorktreeChoices
         self.onOpenWorktree = onOpenWorktree
         self.onRemoveWorktree = onRemoveWorktree

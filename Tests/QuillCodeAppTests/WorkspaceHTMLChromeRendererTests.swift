@@ -161,6 +161,19 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(worktree.path))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-worktree-branch""#))
         XCTAssertTrue(html.contains("⑂ ui"))
+        XCTAssertFalse(html.contains(#"data-testid="top-bar-create-branch-here""#))
+
+        var detached = thread
+        detached.worktree = WorktreeBinding(path: worktree.path, branch: "", base: "main")
+        let detachedHTML = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [detached],
+            selectedThreadID: detached.id
+        )).surface())
+        XCTAssertTrue(detachedHTML.contains(#"data-testid="top-bar-create-branch-here""#))
+        XCTAssertTrue(detachedHTML.contains(#"data-command-id="thread-create-branch-here""#))
+        XCTAssertTrue(detachedHTML.contains(#"data-testid="top-bar-handoff-button""#))
 
         var dangling = thread
         dangling.worktree = WorktreeBinding(

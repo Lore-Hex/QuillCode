@@ -73,6 +73,9 @@ public struct QuillCodeWorkspaceView: View {
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
+        onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> ToolResult = {
+            _ in ToolResult(ok: false, error: "Create branch here is unavailable.")
+        },
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
@@ -135,6 +138,7 @@ public struct QuillCodeWorkspaceView: View {
             onToolCardAction: onToolCardAction,
             onAddReviewComment: onAddReviewComment,
             onCreateWorktree: onCreateWorktree,
+            onCreateWorktreeBranch: onCreateWorktreeBranch,
             onListWorktreeChoices: onListWorktreeChoices,
             onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
@@ -245,6 +249,7 @@ public struct QuillCodeWorkspaceView: View {
             isKeyboardShortcutsPresented: $isKeyboardShortcutsPresented,
             worktreeSheet: $worktreeDialogs.sheet,
             createWorktreeDraft: $worktreeDialogs.createDraft,
+            createWorktreeBranchDraft: $worktreeDialogs.createBranchDraft,
             openWorktreeDraft: $worktreeDialogs.openDraft,
             removeWorktreeDraft: $worktreeDialogs.removeDraft,
             pruneWorktreeDraft: $worktreeDialogs.pruneDraft,
@@ -256,6 +261,7 @@ public struct QuillCodeWorkspaceView: View {
             onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
             onCommand: handleCommand,
             onCreateWorktree: actions.onCreateWorktree,
+            onCreateWorktreeBranch: actions.onCreateWorktreeBranch,
             onRetryWorktreeChoices: retryWorktreeChoices,
             onOpenWorktree: actions.onOpenWorktree,
             onRemoveWorktree: actions.onRemoveWorktree,
@@ -352,6 +358,8 @@ public struct QuillCodeWorkspaceView: View {
             renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
         case .presentCreateWorktree:
             worktreeDialogs.presentCreate()
+        case .presentCreateWorktreeBranch:
+            worktreeDialogs.presentCreateBranch()
         case .presentOpenWorktree:
             worktreeDialogs.presentOpen(loadChoices: actions.onListWorktreeChoices)
         case .presentRemoveWorktree:

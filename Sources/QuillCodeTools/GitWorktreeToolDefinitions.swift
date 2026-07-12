@@ -25,6 +25,18 @@ public extension ToolDefinition {
         risk: .append
     )
 
+    static let gitWorktreeCreateBranch = gitWorktreeTool(
+        name: "host.git.worktree.branch.create",
+        description: "Create a new branch in the current detached managed worktree and keep working there.",
+        parametersJSON: GitToolParameterSchema.object(
+            properties: [
+                "branch": .string(description: "New branch name for the current detached worktree.")
+            ],
+            required: ["branch"]
+        ),
+        risk: .append
+    )
+
     static let gitWorktreeOpen = gitWorktreeTool(
         name: "host.git.worktree.open",
         description: "Open a registered sibling git worktree for the project.",

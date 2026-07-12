@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeApp
+import QuillCodeCore
 
 @MainActor
 struct QuillCodeDesktopWorktreeCoordinator {
@@ -10,6 +11,13 @@ struct QuillCodeDesktopWorktreeCoordinator {
     ) {
         let root = workspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
         model.createWorktree(request, workspaceRoot: root)
+    }
+
+    func createBranchHere(
+        _ request: WorkspaceWorktreeCreateBranchRequest,
+        model: QuillCodeWorkspaceModel
+    ) -> ToolResult {
+        model.createBranchHere(request)
     }
 
     func worktreeChoiceLoad(

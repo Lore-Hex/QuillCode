@@ -3,6 +3,24 @@ import Foundation
 @testable import QuillCodeCore
 
 final class WorktreeBindingTests: XCTestCase {
+    func testDetachedResolvableBindingCanCreateBranchHere() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-binding-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let detached = WorktreeBinding(path: directory.path, branch: "", base: "main")
+        let local = WorktreeBinding(path: directory.path, branch: "", base: "main", location: .local)
+        let branched = WorktreeBinding(path: directory.path, branch: "feature/task", base: "main")
+
+        XCTAssertTrue(detached.isDetached)
+        XCTAssertTrue(detached.canCreateBranchHere)
+        XCTAssertTrue(local.isDetached)
+        XCTAssertFalse(local.canCreateBranchHere)
+        XCTAssertFalse(branched.isDetached)
+        XCTAssertFalse(branched.canCreateBranchHere)
+    }
+
     private func encodeDecode(_ thread: ChatThread) throws -> ChatThread {
         let data = try JSONEncoder().encode(thread)
         return try JSONDecoder().decode(ChatThread.self, from: data)

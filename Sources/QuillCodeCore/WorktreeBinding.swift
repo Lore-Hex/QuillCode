@@ -42,6 +42,14 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         location == .worktree && isResolvable
     }
 
+    public var isDetached: Bool {
+        branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    public var canCreateBranchHere: Bool {
+        usesWorktree && isDetached
+    }
+
     private enum CodingKeys: String, CodingKey {
         case path
         case branch

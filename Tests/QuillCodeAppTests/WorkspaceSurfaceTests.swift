@@ -78,6 +78,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "new-chat",
             "thread-new-worktree",
             "thread-handoff",
+            "thread-create-branch-here",
             "sidebar-filter:all",
             "sidebar-filter:pinned",
             "sidebar-filter:recent",

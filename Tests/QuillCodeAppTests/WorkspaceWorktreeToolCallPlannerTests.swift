@@ -4,6 +4,15 @@ import QuillCodeTools
 @testable import QuillCodeApp
 
 final class WorkspaceWorktreeToolCallPlannerTests: XCTestCase {
+    func testPlansCreateBranchHereCall() throws {
+        let call = WorkspaceWorktreeToolCallPlanner.createBranch(
+            WorkspaceWorktreeCreateBranchRequest(branch: "  feature/task  ")
+        )
+
+        XCTAssertEqual(call.name, ToolDefinition.gitWorktreeCreateBranch.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(arguments.string("branch"), "feature/task")
+    }
     func testCreateBuildsGitWorktreeCreateCallWithTrimmedOptionalArguments() throws {
         let call = WorkspaceWorktreeToolCallPlanner.create(.init(
             path: "../feature-worktree",

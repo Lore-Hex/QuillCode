@@ -296,6 +296,7 @@ extension QuillCodeWorkspaceModel {
             thread.composerDraft = liveThread.composerDraft
             thread.composerAttachments = liveThread.composerAttachments
         }
+        reconcileWorktreeBinding(in: &thread)
         updateThreadFromAgentRun(thread)
         try threadPersistence.saveOrThrow(thread)
         // A completed run may have created, moved, or deleted files; keep composer

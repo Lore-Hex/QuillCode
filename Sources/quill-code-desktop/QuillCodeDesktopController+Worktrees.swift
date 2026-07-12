@@ -1,10 +1,17 @@
 import QuillCodeApp
+import QuillCodeCore
 
 @MainActor
 extension QuillCodeDesktopController {
     func createWorktree(_ request: WorkspaceWorktreeCreateRequest) {
         worktreeCoordinator.createWorktree(request, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()
+    }
+
+    func createWorktreeBranch(_ request: WorkspaceWorktreeCreateBranchRequest) -> ToolResult {
+        let result = worktreeCoordinator.createBranchHere(request, model: model)
+        refresh()
+        return result
     }
 
     func worktreeChoiceLoad() async -> WorkspaceWorktreeChoiceLoad {

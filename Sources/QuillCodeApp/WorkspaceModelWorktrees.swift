@@ -28,6 +28,51 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    @discardableResult
+    public func createBranchHere(_ request: WorkspaceWorktreeCreateBranchRequest) -> ToolResult {
+        guard selectedProject?.isRemote != true,
+              let worktree = selectedThread?.worktree,
+              worktree.canCreateBranchHere
+        else {
+            return ToolResult(
+                ok: false,
+                error: "Create branch here is available only for a detached managed worktree."
+            )
+        }
+
+        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        let result = runToolCall(
+            WorkspaceWorktreeToolCallPlanner.createBranch(.init(branch: branch)),
+            workspaceRoot: URL(fileURLWithPath: worktree.path)
+        )
+        guard result.ok else { return result }
+
+        mutateSelectedThread { thread in
+            thread.worktree?.branch = branch
+            thread.updatedAt = Date()
+        }
+        refreshTopBar()
+        return result
+    }
+
+    func reconcileSelectedWorktreeBinding() {
+        mutateSelectedThread { thread in
+            reconcileWorktreeBinding(in: &thread)
+        }
+    }
+
+    func reconcileWorktreeBinding(in thread: inout ChatThread) {
+        guard var worktree = thread.worktree,
+              worktree.isResolvable,
+              let branch = localBranch(at: URL(fileURLWithPath: worktree.path)),
+              worktree.branch != branch
+        else { return }
+
+        worktree.branch = branch
+        thread.worktree = worktree
+        thread.updatedAt = Date()
+    }
+
     /// The Worktree thread type creates a detached managed worktree from the current branch, transfers
     /// bounded local changes, and binds a new thread in the same project to that isolated run root.
     @discardableResult
@@ -64,6 +109,11 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func currentLocalBranch(projectRoot: URL) -> String? {
+        guard let branch = localBranch(at: projectRoot), !branch.isEmpty else { return nil }
+        return branch
+    }
+
+    private func localBranch(at projectRoot: URL) -> String? {
         let result = GitToolExecutor().listBranches(cwd: projectRoot, includeRemote: false)
         guard result.ok else { return nil }
         for line in result.stdout.split(separator: "\n", omittingEmptySubsequences: true) {
@@ -73,9 +123,9 @@ extension QuillCodeWorkspaceModel {
                 continue
             }
             let branch = fields[1].trimmingCharacters(in: .whitespacesAndNewlines)
-            return branch.isEmpty ? nil : branch
+            return branch
         }
-        return nil
+        return ""
     }
 
     public func worktreeChoiceLoadRequest(workspaceRoot: URL) -> WorkspaceWorktreeChoiceLoadRequest {

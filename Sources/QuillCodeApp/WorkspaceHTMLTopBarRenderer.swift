@@ -14,7 +14,7 @@ enum WorkspaceHTMLTopBarRenderer {
             \(renderBranchStatus(topBar))
             \(renderGoal(topBar))
             \(renderLiveWork(topBar))
-            \(renderWorktreeStatus(topBar))
+            \(renderWorktreeStatus(topBar, commands: commands))
             \(renderTokenBudget(topBar))
             \(renderSpendStatus(topBar))
             \(renderUsageStatus(topBar))
@@ -29,12 +29,22 @@ enum WorkspaceHTMLTopBarRenderer {
 
     private static func renderStatusMetadata(_ topBar: TopBarSurface) -> String {
         let status = topBar.agentStatusPresentation
+        let instructionSources = escape(topBar.instructionSources.joined(separator: ", "))
+        let memorySources = escape(topBar.memorySources.joined(separator: ", "))
         return """
         <div class="topbar-status-metadata" data-testid="top-bar-status-metadata" aria-hidden="true">
-          <span data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)">\(escape(status.label))</span>
+          <span
+            data-testid="agent-status"
+            data-tone="\(escape(status.tone.rawValue))"
+            data-indicator="\(status.showsIndicator)"
+          >\(escape(status.label))</span>
           \(renderRuntimeIssuePill(topBar))
-          <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
-          <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
+          <span data-testid="project-instructions-status" title="\(instructionSources)">
+            \(escape(topBar.instructionLabel))
+          </span>
+          <span data-testid="project-memories-status" title="\(memorySources)">
+            \(escape(topBar.memoryLabel))
+          </span>
           <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
         </div>
         """
@@ -42,24 +52,66 @@ enum WorkspaceHTMLTopBarRenderer {
 
     private static func renderBranchStatus(_ topBar: TopBarSurface) -> String {
         guard let branchStatusLabel = topBar.branchStatusLabel else { return "" }
-        return #"<span class="topbar-branch-chip" data-testid="top-bar-branch" title="\#(escape(branchStatusLabel))">\#(escape(branchStatusLabel))</span>"#
+        return chip(
+            className: "topbar-branch-chip",
+            testID: "top-bar-branch",
+            label: branchStatusLabel,
+            title: branchStatusLabel
+        )
     }
 
     private static func renderLiveWork(_ topBar: TopBarSurface) -> String {
         guard let liveWork = topBar.liveWork else { return "" }
-        return #"<span class="topbar-live-work-chip" data-testid="top-bar-live-work" data-tone="\#(escape(liveWork.tone.rawValue))" title="\#(escape(liveWork.detail))">\#(escape(liveWork.label))</span>"#
+        return chip(
+            className: "topbar-live-work-chip",
+            testID: "top-bar-live-work",
+            label: liveWork.label,
+            title: liveWork.detail,
+            dataName: "tone",
+            dataValue: liveWork.tone.rawValue
+        )
     }
 
     private static func renderGoal(_ topBar: TopBarSurface) -> String {
         guard let goal = topBar.goal else { return "" }
-        return #"<span class="topbar-goal-chip" data-testid="top-bar-goal" data-tone="\#(escape(goal.tone.rawValue))" title="\#(escape(goal.detail))">\#(escape(goal.label))</span>"#
+        return chip(
+            className: "topbar-goal-chip",
+            testID: "top-bar-goal",
+            label: goal.label,
+            title: goal.detail,
+            dataName: "tone",
+            dataValue: goal.tone.rawValue
+        )
     }
 
-    private static func renderWorktreeStatus(_ topBar: TopBarSurface) -> String {
+    private static func renderWorktreeStatus(
+        _ topBar: TopBarSurface,
+        commands: [WorkspaceCommandSurface]
+    ) -> String {
         guard let worktreeStatusLabel = topBar.worktreeStatusLabel else { return "" }
         let title = topBar.worktreeStatusDetail ?? worktreeStatusLabel
         let tone = topBar.worktreeStatusIsWarning ? "warning" : "normal"
-        return #"<span class="topbar-worktree-chip" data-testid="top-bar-worktree" data-tone="\#(escape(tone))" title="\#(escape(title))">\#(escape(worktreeStatusLabel))</span>"#
+        let status = chip(
+            className: "topbar-worktree-chip",
+            testID: "top-bar-worktree",
+            label: worktreeStatusLabel,
+            title: title,
+            dataName: "tone",
+            dataValue: tone
+        )
+        guard let command = commands.first(where: {
+            $0.id == "thread-create-branch-here" && $0.isEnabled
+        }) else { return status }
+        let action = WorkspaceHTMLPrimitives.commandButton(
+            command.title,
+            testID: "top-bar-create-branch-here",
+            commandID: command.id,
+            hitTargetKind: .text,
+            classes: ["topbar-create-branch-here"],
+            ariaLabel: "Create branch here",
+            title: "Create a branch in this worktree"
+        )
+        return status + action
     }
 
     private static func renderUsageStatus(_ topBar: TopBarSurface) -> String {
@@ -67,13 +119,24 @@ enum WorkspaceHTMLTopBarRenderer {
               topBar.spendStatusLabel == nil,
               let usageStatusLabel = topBar.usageStatusLabel
         else { return "" }
-        return #"<span class="topbar-usage-chip" data-testid="top-bar-usage" title="\#(escape(usageStatusLabel))">\#(escape(usageStatusLabel))</span>"#
+        return chip(
+            className: "topbar-usage-chip",
+            testID: "top-bar-usage",
+            label: usageStatusLabel,
+            title: usageStatusLabel
+        )
     }
 
     private static func renderTokenBudget(_ topBar: TopBarSurface) -> String {
         guard let budget = topBar.tokenBudget else { return "" }
         return """
-        <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="\(escape(tokenBudgetTone(budget)))" title="\(escape(budget.accessibilityLabel))" aria-label="\(escape(budget.accessibilityLabel))">
+        <section
+          class="topbar-token-budget"
+          data-testid="top-bar-token-budget"
+          data-tone="\(escape(tokenBudgetTone(budget)))"
+          title="\(escape(budget.accessibilityLabel))"
+          aria-label="\(escape(budget.accessibilityLabel))"
+        >
           <div class="topbar-token-budget-row">
             <span class="topbar-token-budget-label">Tokens</span>
             <strong data-testid="top-bar-token-budget-primary">\(escape(budget.primaryLabel))</strong>
@@ -116,17 +179,33 @@ enum WorkspaceHTMLTopBarRenderer {
     private static func renderSpendStatus(_ topBar: TopBarSurface) -> String {
         guard let spendStatusLabel = topBar.spendStatusLabel else { return "" }
         let title = topBar.spendStatusDetail ?? spendStatusLabel
-        return #"<span class="topbar-spend-chip" data-testid="top-bar-spend" title="\#(escape(title))">\#(escape(spendStatusLabel))</span>"#
+        return chip(
+            className: "topbar-spend-chip",
+            testID: "top-bar-spend",
+            label: spendStatusLabel,
+            title: title
+        )
     }
 
     private static func renderRuntimeIssuePill(_ topBar: TopBarSurface) -> String {
         guard let issue = topBar.runtimeIssuePresentation else { return "" }
-        return #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(issue.tone.rawValue))">\#(escape(issue.label))</span>"#
+        return """
+        <span data-testid="runtime-issue-pill" data-severity="\(escape(issue.tone.rawValue))">
+          \(escape(issue.label))
+        </span>
+        """
     }
 
     private static func renderActivityHairline(_ topBar: TopBarSurface) -> String {
         guard showsActivityHairline(topBar) else { return "" }
-        return #"<div class="topbar-activity-hairline" data-testid="top-bar-activity-hairline" data-tone="\#(escape(activityHairlineTone(topBar)))" aria-hidden="true"></div>"#
+        return """
+        <div
+          class="topbar-activity-hairline"
+          data-testid="top-bar-activity-hairline"
+          data-tone="\(escape(activityHairlineTone(topBar)))"
+          aria-hidden="true"
+        ></div>
+        """
     }
 
     private static func showsActivityHairline(_ topBar: TopBarSurface) -> Bool {
@@ -260,6 +339,24 @@ enum WorkspaceHTMLTopBarRenderer {
             role: "menuitem",
             disabled: !command.isEnabled
         )
+    }
+
+    private static func chip(
+        className: String,
+        testID: String,
+        label: String,
+        title: String,
+        dataName: String? = nil,
+        dataValue: String? = nil
+    ) -> String {
+        let dataAttribute = dataName.flatMap { name in
+            dataValue.map { #" data-\#(name)="\#(escape($0))""# }
+        } ?? ""
+        return """
+        <span class="\(className)" data-testid="\(testID)"\(dataAttribute) title="\(escape(title))">
+          \(escape(label))
+        </span>
+        """
     }
 
     private static func escape(_ text: String) -> String {

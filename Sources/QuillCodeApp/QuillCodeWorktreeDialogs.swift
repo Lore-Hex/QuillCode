@@ -91,6 +91,51 @@ struct QuillCodeWorktreeCreateView: View {
     }
 }
 
+struct QuillCodeWorktreeCreateBranchView: View {
+    @Binding var draft: QuillCodeWorktreeCreateBranchDraft
+    var onCancel: () -> Void
+    var onCreate: () -> Void
+
+    var body: some View {
+        QuillCodeWorktreeDialogFrame(
+            title: "Create Branch Here",
+            subtitle: "Keep this task in its isolated worktree on a new branch.",
+            systemImage: "arrow.triangle.branch",
+            iconColor: QuillCodePalette.blue
+        ) {
+            QuillCodeLabeledTextField(
+                title: "Branch name",
+                placeholder: "feature/task-name",
+                text: $draft.branch,
+                footer: "The branch remains checked out in this worktree. Use Hand off when you need it in Local."
+            )
+
+            if let errorMessage = draft.errorMessage {
+                QuillCodeWorktreeChoiceStatusRow(
+                    systemImage: "exclamationmark.triangle",
+                    message: errorMessage,
+                    color: QuillCodePalette.yellow
+                )
+            }
+        } footer: {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                    .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
+                Button("Create branch", action: onCreate)
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 112))
+                    .quillCodeFormActionTarget(minWidth: 112)
+                    .disabled(!draft.canCreate)
+                    .accessibilityIdentifier("quillcode-create-branch-here-submit")
+            }
+        }
+        .onChange(of: draft.branch) { _, _ in
+            draft.errorMessage = nil
+        }
+    }
+}
+
 struct QuillCodeWorktreeRemoveView: View {
     @Binding var draft: QuillCodeWorktreeRemoveDraft
     var onCancel: () -> Void

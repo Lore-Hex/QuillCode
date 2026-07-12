@@ -33,7 +33,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, non-secret account persistence, userinfo fetch, runtime refresh, loopback/dev override.
 - QuillUI secret-store adapter.
 - macOS Computer Use permission detection, permission-denied behavior, screenshot capture, and input primitives; Linux helper-backed screenshot/input routing and failure handling.
-- Worktree creation plus selected-project/thread handoff; managed worktree detached-HEAD creation; staged/unstaged index preservation; bounded untracked and `.worktreeinclude` transfer; automatic ignored `AGENTS.override.md`; symlink skipping; overwrite rejection and rollback; Local/Worktree round trips that preserve staged, unstaged, and nonignored untracked state; exact preexisting destination-snapshot acceptance; different-destination and commit-divergence refusal without mutation; ignored-file retention; legacy location decoding; active-root and terminal-cwd switching; local env actions; MCP stdio server lifecycle; MCP readiness probes; and MCP tool routing through advertised `tools/call` allowlists.
+- Worktree creation plus selected-project/thread handoff; managed worktree detached-HEAD creation; staged/unstaged index preservation; bounded untracked and `.worktreeinclude` transfer; automatic ignored `AGENTS.override.md`; symlink skipping; overwrite rejection and rollback; Local/Worktree round trips that preserve staged, unstaged, and nonignored untracked state; exact preexisting destination-snapshot acceptance; different-destination and commit-divergence refusal without mutation; ignored-file retention; legacy location decoding; active-root and terminal-cwd switching; Create branch here success, existing-branch ownership rejection, non-detached rejection, durable binding promotion, and agent-authored branch reconciliation; local env actions; MCP stdio server lifecycle; MCP readiness probes; and MCP tool routing through advertised `tools/call` allowlists.
 
 ## Playwright E2E
 
@@ -76,7 +76,7 @@ Drive the QuillCode test harness with mock LLM:
 - terminal TUI keyboard focus, application-mode arrows, modified navigation keys, bounded bracketed paste, pointer/drag/hover/wheel input, Stop cleanup, and removal of interactive attributes after completion
 - `Cmd+/` Keyboard Shortcuts panel, plus command-palette access to the same panel
 - slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus command-palette `>` and `/` scope badges, slash-template insertion into the focused composer, multiline composer behavior, Shift+Enter newline handling, Enter-to-send, composer slash suggestion filtering, selected-row keyboard navigation, Enter/Tab accept behavior, click-to-insert, focus retention, and send-through-existing-command-path behavior
-- local and SSH Remote worktree create handoff into the selected worktree project and thread
+- local and SSH Remote worktree create handoff into the selected worktree project and thread; managed local task-header Create branch here dialog focus, validation retry, tool audit, sidebar/top-bar promotion state, and action removal after success
 - remote-pairing mock, SSH Remote registration mock, SSH Remote context-refresh mock, SSH Remote terminal mock, and SSH Remote chat shell mock
 
 ## Native Smoke Tests

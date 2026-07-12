@@ -229,6 +229,10 @@ public struct GitToolExecutor: Sendable {
         worktrees.create(cwd: cwd, path: path, branch: branch, base: base, managed: managed)
     }
 
+    public func createWorktreeBranch(cwd: URL, branch: String) -> ToolResult {
+        worktrees.createBranchHere(cwd: cwd, branch: branch)
+    }
+
     public func openWorktree(cwd: URL, path: String) -> ToolResult {
         worktrees.open(cwd: cwd, path: path)
     }

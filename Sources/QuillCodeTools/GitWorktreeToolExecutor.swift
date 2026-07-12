@@ -56,6 +56,48 @@ public struct GitWorktreeToolExecutor: Sendable {
         }
     }
 
+    public func createBranchHere(cwd: URL, branch: String) -> ToolResult {
+        do {
+            let branchName = try GitInputValidator.safeName(branch)
+            let currentPath = cwd.standardizedFileURL.path
+            let listResult = list(cwd: cwd)
+            guard listResult.ok else { return listResult }
+
+            let records = GitWorktreePorcelainParser.parse(listResult.stdout)
+            guard let current = records.first(where: { normalizedPath($0.path) == currentPath }) else {
+                throw GitToolError.unregisteredWorktree(currentPath)
+            }
+            guard current.isDetached else {
+                throw GitToolError.worktreeMustBeDetached(currentPath)
+            }
+            if let owner = records.first(where: { $0.branch == branchName }) {
+                throw GitToolError.branchCheckedOutInWorktree(branch: branchName, path: owner.path)
+            }
+
+            let existing = runner.runGit(
+                ["show-ref", "--verify", "--quiet", "refs/heads/\(branchName)"],
+                cwd: cwd,
+                timeoutSeconds: 10
+            )
+            if existing.ok {
+                throw GitToolError.branchAlreadyExists(branchName)
+            }
+            guard existing.exitCode == 1 else { return existing }
+
+            let result = runner.runGit(["switch", "-c", branchName], cwd: cwd, timeoutSeconds: 30)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout + "Created branch '\(branchName)' in this worktree.\n",
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: [currentPath]
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func open(cwd: URL, path: String) -> ToolResult {
         do {
             let worktreePath = try Self.safePath(path, cwd: cwd)
@@ -153,6 +195,10 @@ public struct GitWorktreeToolExecutor: Sendable {
                     .path
             }
         return (Set(paths), nil)
+    }
+
+    private func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.path
     }
 
     private func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {

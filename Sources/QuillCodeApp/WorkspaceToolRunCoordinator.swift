@@ -55,6 +55,11 @@ struct WorkspaceToolRunCoordinator {
                 forProjectID: model.root.selectedProjectID
             )
         }
+        let mutatesCurrentBranch = call.name == ToolDefinition.gitBranchSwitch.name
+            || call.name == ToolDefinition.gitWorktreeCreateBranch.name
+        if finishPlan.result.ok, mutatesCurrentBranch {
+            model.reconcileSelectedWorktreeBinding()
+        }
         model.refreshTopBar(agentStatus: finishPlan.agentStatus)
         return finishPlan.result
     }

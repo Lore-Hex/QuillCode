@@ -15813,3 +15813,26 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-12 Managed Worktree Branch Promotion Slice
+
+Overall grade after this slice: **A+ Git ownership boundary, A+ task-header workflow**.
+Detached managed tasks can become branch-owned worktrees without bypassing the shared tool audit or leaving durable UI state stale.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | One typed request and one structured tool call connect task-header UI to a focused Git executor; the workspace model owns only durable thread promotion. |
+| Git correctness | A+ | Promotion requires a registered detached checkout, rejects existing and already-owned branches distinctly, and leaves final race enforcement to `git switch -c`. |
+| State integrity | A+ | Successful UI calls persist the branch binding, while generic app and agent branch tools reconcile the binding from Git after completion. |
+| UX | A+ | The compact action appears only on eligible detached tasks, focuses the branch field, explains one-worktree ownership, and keeps actionable failures in the dialog. |
+| Maintainability | A+ | A shared porcelain parser replaces duplicated worktree parsing; native and HTML surfaces consume the same command availability contract. |
+| Tests | A+ | Real Git integration, parser/error paths, workspace persistence, command routing, HTML rendering, and Playwright focus/validation/state transition cover the full flow. |
+
+Validation:
+
+- `swift test --filter 'GitWorktreeToolExecutorTests|WorkspaceWorktreeIntegrationTests|QuillCodeWorkspaceViewCommandPlannerTests|QuillCodeWorktreeDialogCoordinatorTests'`
+- `npm test -- tests/managed-worktree-create-branch.spec.ts`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

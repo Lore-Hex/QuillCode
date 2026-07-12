@@ -51,7 +51,13 @@ struct QuillCodeTopBarView: View {
     }
 
     private var identityGroup: some View {
-        QuillCodeTopBarIdentityView(topBar: topBar)
+        QuillCodeTopBarIdentityView(
+            topBar: topBar,
+            createBranchCommand: commands.first {
+                $0.id == "thread-create-branch-here" && $0.isEnabled
+            },
+            onCommand: onCommand
+        )
     }
 
     private var showsActivityHairline: Bool {
