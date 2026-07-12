@@ -35,6 +35,30 @@ final class WorktreeBindingResolutionTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.worktree?.base, "main")
     }
 
+    func testActiveWorkspaceRootSwitchesBetweenStableWorktreeAndLocalCheckout() throws {
+        let model = QuillCodeWorkspaceModel()
+        let project = try tempDir("proj")
+        let worktree = try tempDir("wt")
+        let projectID = model.addProject(path: project, name: "Demo")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+        model.bindSelectedThreadToWorktree(path: worktree.path, branch: "", base: "main")
+
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, worktree.standardizedFileURL)
+        XCTAssertEqual(model.selectedThread?.worktree?.location, .worktree)
+
+        model.setSelectedThreadWorktreeLocation(.local)
+
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, project.standardizedFileURL)
+        XCTAssertEqual(model.selectedThread?.worktree?.path, worktree.path)
+        XCTAssertEqual(model.selectedThread?.worktree?.location, .local)
+
+        model.setSelectedThreadWorktreeLocation(.worktree)
+
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, worktree.standardizedFileURL)
+        XCTAssertEqual(model.selectedThread?.worktree?.path, worktree.path)
+    }
+
     func testFallsBackToProjectRootWhenBindingPathMissing() throws {
         let model = QuillCodeWorkspaceModel()
         let project = try tempDir("proj")

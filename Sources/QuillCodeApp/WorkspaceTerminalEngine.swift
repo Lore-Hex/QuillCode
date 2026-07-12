@@ -163,7 +163,10 @@ enum WorkspaceTerminalEngine {
         guard terminal.projectID == selectedProjectID else {
             return activeWorkspaceRoot
         }
-        if let path = terminal.currentDirectoryPath, !path.isEmpty {
+        if let path = terminal.currentDirectoryPath,
+           !path.isEmpty,
+           let activeWorkspaceRoot,
+           WorkspaceBoundary.isWithin(URL(fileURLWithPath: path), root: activeWorkspaceRoot) {
             return URL(fileURLWithPath: path).standardizedFileURL
         }
         return activeWorkspaceRoot

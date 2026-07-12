@@ -33,7 +33,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, non-secret account persistence, userinfo fetch, runtime refresh, loopback/dev override.
 - QuillUI secret-store adapter.
 - macOS Computer Use permission detection, permission-denied behavior, screenshot capture, and input primitives; Linux helper-backed screenshot/input routing and failure handling.
-- Worktree creation plus selected-project/thread handoff; managed worktree detached-HEAD creation; staged/unstaged index preservation; bounded untracked and `.worktreeinclude` transfer; automatic ignored `AGENTS.override.md`; symlink skipping; overwrite rejection and rollback; local env actions; MCP stdio server lifecycle; MCP readiness probes; and MCP tool routing through advertised `tools/call` allowlists.
+- Worktree creation plus selected-project/thread handoff; managed worktree detached-HEAD creation; staged/unstaged index preservation; bounded untracked and `.worktreeinclude` transfer; automatic ignored `AGENTS.override.md`; symlink skipping; overwrite rejection and rollback; Local/Worktree round trips that preserve staged, unstaged, and nonignored untracked state; exact preexisting destination-snapshot acceptance; different-destination and commit-divergence refusal without mutation; ignored-file retention; legacy location decoding; active-root and terminal-cwd switching; local env actions; MCP stdio server lifecycle; MCP readiness probes; and MCP tool routing through advertised `tools/call` allowlists.
 
 ## Playwright E2E
 

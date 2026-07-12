@@ -1,6 +1,11 @@
 import Foundation
 import QuillCodeCore
 
+enum ManagedWorktreeLocalFilePolicy: Sendable, Hashable {
+    case managedCreation
+    case handoff
+}
+
 struct ManagedWorktreeTransferFile: Sendable, Hashable {
     var relativePath: String
     var snapshotURL: URL
@@ -17,10 +22,30 @@ struct ManagedWorktreeTransferSnapshot: Sendable, Hashable {
     var files: [ManagedWorktreeTransferFile]
     var skippedSymlinkCount: Int
 
+    func hasSameContent(as other: ManagedWorktreeTransferSnapshot) throws -> Bool {
+        guard try data(at: stagedPatchURL) == data(at: other.stagedPatchURL),
+              try data(at: unstagedPatchURL) == data(at: other.unstagedPatchURL) else {
+            return false
+        }
+        let ownFiles = Dictionary(uniqueKeysWithValues: files.map { ($0.relativePath, $0.snapshotURL) })
+        let otherFiles = Dictionary(uniqueKeysWithValues: other.files.map { ($0.relativePath, $0.snapshotURL) })
+        guard Set(ownFiles.keys) == Set(otherFiles.keys) else { return false }
+        for path in ownFiles.keys {
+            guard let ownURL = ownFiles[path],
+                  let otherURL = otherFiles[path],
+                  try data(at: ownURL) == data(at: otherURL),
+                  try permissions(at: ownURL) == permissions(at: otherURL) else {
+                return false
+            }
+        }
+        return true
+    }
+
     static func capture(
         sourceRoot: URL,
         temporaryDirectory: URL,
         runner: GitProcessRunner,
+        localFilePolicy: ManagedWorktreeLocalFilePolicy = .managedCreation,
         limits: ManagedWorktreeTransferLimits = ManagedWorktreeTransferLimits()
     ) throws -> ManagedWorktreeTransferSnapshot {
         let stagedPatchURL = temporaryDirectory.appendingPathComponent("staged.patch")
@@ -45,6 +70,7 @@ struct ManagedWorktreeTransferSnapshot: Sendable, Hashable {
         let inventory = try ManagedWorktreeFileInventory.capture(
             sourceRoot: sourceRoot,
             runner: runner,
+            policy: localFilePolicy,
             limits: limits
         )
         let files = try inventory.freeze(
@@ -86,6 +112,29 @@ struct ManagedWorktreeTransferSnapshot: Sendable, Hashable {
             throw ManagedWorktreeMaterializationError.fileInspectionFailed(label, error.localizedDescription)
         }
     }
+
+    private func data(at url: URL) throws -> Data {
+        do {
+            return try Data(contentsOf: url, options: .mappedIfSafe)
+        } catch {
+            throw ManagedWorktreeMaterializationError.fileInspectionFailed(
+                url.lastPathComponent,
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func permissions(at url: URL) throws -> Int? {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            return (attributes[.posixPermissions] as? NSNumber)?.intValue
+        } catch {
+            throw ManagedWorktreeMaterializationError.fileInspectionFailed(
+                url.lastPathComponent,
+                error.localizedDescription
+            )
+        }
+    }
 }
 
 private struct ManagedWorktreeFileInventory {
@@ -95,6 +144,7 @@ private struct ManagedWorktreeFileInventory {
     static func capture(
         sourceRoot: URL,
         runner: GitProcessRunner,
+        policy: ManagedWorktreeLocalFilePolicy,
         limits: ManagedWorktreeTransferLimits
     ) throws -> ManagedWorktreeFileInventory {
         var candidates = try paths(
@@ -104,9 +154,11 @@ private struct ManagedWorktreeFileInventory {
             runner: runner,
             limits: limits
         )
-        candidates.formUnion(try includedIgnoredPaths(sourceRoot: sourceRoot, runner: runner, limits: limits))
-        if isIgnored("AGENTS.override.md", sourceRoot: sourceRoot, runner: runner) {
-            candidates.insert("AGENTS.override.md")
+        if policy == .managedCreation {
+            candidates.formUnion(try includedIgnoredPaths(sourceRoot: sourceRoot, runner: runner, limits: limits))
+            if isIgnored("AGENTS.override.md", sourceRoot: sourceRoot, runner: runner) {
+                candidates.insert("AGENTS.override.md")
+            }
         }
 
         var files = [ManagedWorktreeSourceFile]()

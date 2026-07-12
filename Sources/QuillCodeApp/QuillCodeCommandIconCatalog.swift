@@ -57,6 +57,8 @@ enum QuillCodeCommandIconCatalog {
             return "text.badge.xmark"
         case "thread-new-worktree":
             return "plus.rectangle.on.folder"
+        case "thread-handoff":
+            return "arrow.left.arrow.right"
         case "toggle-browser":
             return "globe"
         case "open-browser-session":

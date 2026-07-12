@@ -71,6 +71,45 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         ))
     }
 
+    func testCurrentDirectoryURLKeepsOnlyDirectoriesInsideActiveExecutionRoot() throws {
+        let projectID = UUID()
+        let localRoot = try makeQuillCodeTestDirectory()
+        let worktreeRoot = try makeQuillCodeTestDirectory()
+        let nestedWorktreeDirectory = worktreeRoot.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(
+            at: nestedWorktreeDirectory,
+            withIntermediateDirectories: true
+        )
+
+        let worktreeTerminal = TerminalState(
+            projectID: projectID,
+            currentDirectoryPath: nestedWorktreeDirectory.path
+        )
+        XCTAssertEqual(
+            WorkspaceTerminalEngine.currentDirectoryURL(
+                terminal: worktreeTerminal,
+                selectedProjectID: projectID,
+                selectedProjectIsRemote: false,
+                activeWorkspaceRoot: worktreeRoot
+            ),
+            nestedWorktreeDirectory.standardizedFileURL
+        )
+
+        let staleLocalTerminal = TerminalState(
+            projectID: projectID,
+            currentDirectoryPath: localRoot.path
+        )
+        XCTAssertEqual(
+            WorkspaceTerminalEngine.currentDirectoryURL(
+                terminal: staleLocalTerminal,
+                selectedProjectID: projectID,
+                selectedProjectIsRemote: false,
+                activeWorkspaceRoot: worktreeRoot
+            ),
+            worktreeRoot
+        )
+    }
+
     func testClearHistoryRefusesRunningTerminalAndPreservesSession() {
         var running = TerminalState(
             currentDirectoryPath: "/tmp/project",

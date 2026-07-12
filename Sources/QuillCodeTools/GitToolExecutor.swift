@@ -233,6 +233,10 @@ public struct GitToolExecutor: Sendable {
         worktrees.open(cwd: cwd, path: path)
     }
 
+    public func handoffWorktree(cwd: URL, destination: String) -> ToolResult {
+        worktrees.handoff(cwd: cwd, destination: destination)
+    }
+
     public func removeWorktree(cwd: URL, path: String, force: Bool = false) -> ToolResult {
         worktrees.remove(cwd: cwd, path: path, force: force)
     }

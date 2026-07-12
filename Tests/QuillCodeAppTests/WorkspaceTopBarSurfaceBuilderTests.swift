@@ -122,6 +122,36 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("worktree: Worktree feature/ui"))
     }
 
+    func testShowsLocalExecutionWhileRetainingAssociatedWorktree() throws {
+        var thread = ChatThread(title: "Managed task", model: TrustedRouterDefaults.fastModel)
+        let worktree = try makeTempDirectory("associated-worktree")
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "",
+            base: "main",
+            location: .local
+        )
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: nil
+        ).surface()
+
+        XCTAssertEqual(topBar.worktreeStatusLabel, "Local")
+        XCTAssertEqual(topBar.worktreeStatusIsWarning, false)
+        XCTAssertTrue(topBar.worktreeStatusDetail?.contains("local checkout") == true)
+        XCTAssertTrue(topBar.worktreeStatusDetail?.contains(worktree.path) == true)
+        XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("worktree: Local"))
+    }
+
     func testShowsDanglingWorktreeBindingAsWarningInTopBar() {
         var thread = ChatThread(title: "Feature", model: TrustedRouterDefaults.fastModel)
         thread.worktree = WorktreeBinding(path: "/tmp/quillcode-missing-\(UUID().uuidString)", branch: "feature/gone")

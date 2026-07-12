@@ -113,10 +113,17 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     private static func worktreeStatus(for thread: ChatThread) -> WorktreeStatus? {
         guard let worktree = thread.worktree else { return nil }
         let branch = worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines)
-        let label = branch.isEmpty ? "Worktree" : "Worktree \(branch)"
+        let label = worktree.location == .local
+            ? "Local"
+            : branch.isEmpty ? "Worktree" : "Worktree \(branch)"
         let path = worktree.path.trimmingCharacters(in: .whitespacesAndNewlines)
         var detailParts = [String]()
-        if !path.isEmpty {
+        if worktree.location == .local {
+            detailParts.append("Runs for this task use the local checkout.")
+            if !path.isEmpty {
+                detailParts.append("Associated worktree: \(path).")
+            }
+        } else if !path.isEmpty {
             detailParts.append("Runs for this thread use \(path).")
         }
         if let base = worktree.base?.trimmingCharacters(in: .whitespacesAndNewlines), !base.isEmpty {
@@ -124,7 +131,10 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
         }
         let isResolvable = worktree.isResolvable
         if !isResolvable {
-            detailParts.append("Worktree path is missing; runs fall back to the project root until it is reopened or recreated.")
+            let consequence = worktree.location == .local
+                ? "Handoff to Worktree is unavailable until it is reopened or recreated."
+                : "Runs fall back to the project root until it is reopened or recreated."
+            detailParts.append("Worktree path is missing; \(consequence)")
         }
         let detail = detailParts.isEmpty ? "Runs for this thread use an isolated git worktree." : detailParts.joined(separator: " ")
         return WorktreeStatus(label: label, detail: detail, isWarning: !isResolvable)

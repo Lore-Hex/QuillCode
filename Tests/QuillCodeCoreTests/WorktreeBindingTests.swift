@@ -19,6 +19,33 @@ final class WorktreeBindingTests: XCTestCase {
         XCTAssertEqual(decoded.forkAnchorTurnMessageID, thread.forkAnchorTurnMessageID)
     }
 
+    func testLegacyBindingWithoutLocationDefaultsToWorktree() throws {
+        let legacy = #"{"path":"/tmp/wt","branch":"","base":"main"}"#
+
+        let binding = try JSONDecoder().decode(
+            WorktreeBinding.self,
+            from: Data(legacy.utf8)
+        )
+
+        XCTAssertEqual(binding.location, .worktree)
+    }
+
+    func testExplicitLocationRoundTrips() throws {
+        let binding = WorktreeBinding(
+            path: "/tmp/wt",
+            branch: "",
+            base: "main",
+            location: .local
+        )
+
+        let data = try JSONEncoder().encode(binding)
+        let decoded = try JSONDecoder().decode(WorktreeBinding.self, from: data)
+
+        XCTAssertEqual(decoded, binding)
+        XCTAssertEqual(decoded.location, .local)
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains(#""location":"local""#))
+    }
+
     func testEncodesNoWorktreeKeysWhenNil() throws {
         let data = try JSONEncoder().encode(ChatThread(title: "T"))
         let json = String(decoding: data, as: UTF8.self)

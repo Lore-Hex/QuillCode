@@ -34,6 +34,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case removeProject(projectID: UUID)
     case duplicateThread(threadID: UUID)
     case newWorktreeThread
+    case handoffSelectedThread
     case setThreadPinned(threadID: UUID, isPinned: Bool)
     case clearThread(threadID: UUID)
     case revertLatestTurn
@@ -128,6 +129,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return selectedThreadID.map { .duplicateThread(threadID: $0) }
         case .threadNewWorktree:
             return .newWorktreeThread
+        case .threadHandoff:
+            return .handoffSelectedThread
         case .threadPin:
             guard let selectedThreadID,
                   let selectedThread,

@@ -22,8 +22,8 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await openCommandPalette(page);
   await fillCommandPalette(page, '>worktree');
 
-  // Five git-worktree tool commands plus the new-worktree-chat thread command.
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(6);
+  // Five git-worktree tools plus the new-worktree-chat and selected-task Handoff commands.
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(7);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expectCommandPaletteClosed(page);

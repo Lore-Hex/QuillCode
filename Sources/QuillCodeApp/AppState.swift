@@ -30,10 +30,13 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
             let branch = binding.branch.trimmingCharacters(in: .whitespacesAndNewlines)
             return SidebarItemWorktreeSummary(
                 branch: binding.branch,
-                branchLeaf: branch.isEmpty
-                    ? "Detached"
-                    : branch.split(separator: "/").last.map(String.init) ?? branch,
-                isResolvable: binding.isResolvable
+                branchLeaf: binding.location == .local
+                    ? "Local"
+                    : branch.isEmpty
+                        ? "Detached"
+                        : branch.split(separator: "/").last.map(String.init) ?? branch,
+                isResolvable: binding.isResolvable,
+                location: binding.location
             )
         }
     }

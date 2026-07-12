@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 // MARK: - Unit: the pure planner
@@ -150,5 +151,60 @@ final class WorktreeThreadModelTests: XCTestCase {
         // The two bound worktrees are distinct directories on disk.
         XCTAssertNotNil(firstPath)
         XCTAssertNotEqual(firstPath, secondBinding?.path)
+    }
+
+    func testManagedTaskHandsOffToLocalAndBackWithoutChangingItsThreadOrWorktree() throws {
+        let repo = try makeGitRepo()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+        try "task edit\n".write(
+            to: repo.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "task note\n".write(
+            to: repo.appendingPathComponent("notes.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let threadID = try XCTUnwrap(model.newWorktreeThread(name: "handoff"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        let worktree = URL(fileURLWithPath: worktreePath)
+        defer {
+            _ = GitToolExecutor().removeWorktree(
+                cwd: repo,
+                path: worktree.lastPathComponent,
+                force: true
+            )
+        }
+
+        XCTAssertTrue(model.handoffSelectedThread())
+        XCTAssertEqual(model.selectedThread?.id, threadID)
+        XCTAssertEqual(model.selectedThread?.worktree?.path, worktreePath)
+        XCTAssertEqual(model.selectedThread?.worktree?.location, .local)
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, repo.standardizedFileURL)
+        XCTAssertEqual(
+            try runGit(["status", "--porcelain=v1", "--untracked-files=all"], cwd: worktree),
+            ""
+        )
+
+        XCTAssertTrue(model.handoffSelectedThread())
+        XCTAssertEqual(model.selectedThread?.id, threadID)
+        XCTAssertEqual(model.selectedThread?.worktree?.path, worktreePath)
+        XCTAssertEqual(model.selectedThread?.worktree?.location, .worktree)
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, worktree.standardizedFileURL)
+        XCTAssertEqual(
+            try runGit(["status", "--porcelain=v1", "--untracked-files=all"], cwd: repo),
+            ""
+        )
+        XCTAssertEqual(
+            try String(contentsOf: worktree.appendingPathComponent("README.md")),
+            "task edit\n"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: worktree.appendingPathComponent("notes.txt")),
+            "task note\n"
+        )
     }
 }

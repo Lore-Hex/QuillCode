@@ -2,6 +2,153 @@ import XCTest
 @testable import QuillCodeTools
 
 final class GitWorktreeToolExecutorTests: XCTestCase {
+    func testHandoffTransfersStagedUnstagedAndUntrackedChangesAndCleansSource() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try addTaskChanges(to: fixture.root)
+
+        let result = fixture.git.handoffWorktree(
+            cwd: fixture.root,
+            destination: fixture.worktreeName
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, [fixture.worktree.path])
+        assertTaskChanges(in: fixture.worktree)
+        XCTAssertEqual(gitStatus(in: fixture.root), "")
+        XCTAssertEqual(
+            gitStatus(in: fixture.worktree),
+            "M  staged.txt\n M unstaged.txt\n?? notes/task.txt\n"
+        )
+    }
+
+    func testHandoffRoundTripsChangesBackToSameWorktreeAssociation() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try addTaskChanges(to: fixture.root)
+        let outbound = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+        XCTAssertTrue(outbound.ok, "\(outbound.error ?? "") \(outbound.stderr)")
+
+        let inbound = fixture.git.handoffWorktree(
+            cwd: fixture.worktree,
+            destination: fixture.root.lastPathComponent
+        )
+
+        XCTAssertTrue(inbound.ok, "\(inbound.error ?? "") \(inbound.stderr)")
+        XCTAssertEqual(inbound.artifacts, [fixture.root.path])
+        assertTaskChanges(in: fixture.root)
+        XCTAssertEqual(
+            gitStatus(in: fixture.root),
+            "M  staged.txt\n M unstaged.txt\n?? notes/task.txt\n"
+        )
+        XCTAssertEqual(gitStatus(in: fixture.worktree), "")
+    }
+
+    func testHandoffAcceptsAnExactTaskSnapshotAlreadyPresentAtDestination() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try addTaskChanges(to: fixture.root)
+        try addTaskChanges(to: fixture.worktree)
+
+        let result = fixture.git.handoffWorktree(
+            cwd: fixture.worktree,
+            destination: fixture.root.lastPathComponent
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(result.stdout.contains("already contained the exact task state"), result.stdout)
+        assertTaskChanges(in: fixture.root)
+        XCTAssertEqual(
+            gitStatus(in: fixture.root),
+            "M  staged.txt\n M unstaged.txt\n?? notes/task.txt\n"
+        )
+        XCTAssertEqual(gitStatus(in: fixture.worktree), "")
+    }
+
+    func testHandoffRejectsDirtyDestinationWithoutChangingEitherCheckout() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try addTaskChanges(to: fixture.root)
+        try "destination edit\n".write(
+            to: fixture.worktree.appendingPathComponent("unstaged.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let sourceStatus = gitStatus(in: fixture.root)
+        let destinationStatus = gitStatus(in: fixture.worktree)
+
+        let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("clean destination checkout") == true, result.error ?? "")
+        XCTAssertEqual(gitStatus(in: fixture.root), sourceStatus)
+        XCTAssertEqual(gitStatus(in: fixture.worktree), destinationStatus)
+        XCTAssertEqual(
+            try String(contentsOf: fixture.worktree.appendingPathComponent("unstaged.txt")),
+            "destination edit\n"
+        )
+        assertTaskChanges(in: fixture.root)
+    }
+
+    func testHandoffRejectsCommitMismatchWithoutChangingEitherCheckout() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try "new commit\n".write(
+            to: fixture.root.appendingPathComponent("committed-after-worktree.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        XCTAssertTrue(fixture.git.stage(cwd: fixture.root, path: "committed-after-worktree.txt").ok)
+        XCTAssertTrue(fixture.git.commit(cwd: fixture.root, message: "advance local checkout").ok)
+        try addTaskChanges(to: fixture.root)
+        let sourceStatus = gitStatus(in: fixture.root)
+        let destinationStatus = gitStatus(in: fixture.worktree)
+
+        let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("different commits") == true, result.error ?? "")
+        XCTAssertEqual(gitStatus(in: fixture.root), sourceStatus)
+        XCTAssertEqual(gitStatus(in: fixture.worktree), destinationStatus)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: fixture.worktree.appendingPathComponent("committed-after-worktree.txt").path
+            )
+        )
+        assertTaskChanges(in: fixture.root)
+    }
+
+    func testHandoffDoesNotMoveIgnoredFiles() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        let ignored = fixture.root.appendingPathComponent("private.secret")
+        try "do not transfer\n".write(to: ignored, atomically: true, encoding: .utf8)
+        try "transfer me\n".write(
+            to: fixture.root.appendingPathComponent("visible.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: ignored.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: fixture.worktree.appendingPathComponent("private.secret").path
+            )
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: fixture.root.appendingPathComponent("visible.txt").path)
+        )
+        XCTAssertEqual(
+            try String(contentsOf: fixture.worktree.appendingPathComponent("visible.txt")),
+            "transfer me\n"
+        )
+        XCTAssertEqual(gitStatus(in: fixture.root), "")
+        XCTAssertEqual(gitStatus(in: fixture.worktree), "?? visible.txt\n")
+    }
+
     func testManagedSnapshotFreezesValidatedLocalFileContent() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let source = root.appendingPathComponent("notes.txt")
@@ -241,4 +388,97 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertFalse(remove.ok)
         XCTAssertTrue(remove.error?.contains("not registered") == true, remove.error ?? "")
     }
+
+    private func makeHandoffFixture() throws -> HandoffFixture {
+        let root = try makeTempGitRepoWithInitialCommit()
+        try "base staged\n".write(
+            to: root.appendingPathComponent("staged.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "base unstaged\n".write(
+            to: root.appendingPathComponent("unstaged.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "*.secret\n".write(
+            to: root.appendingPathComponent(".gitignore"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let git = GitToolExecutor()
+        XCTAssertTrue(git.stage(cwd: root, path: "staged.txt").ok)
+        XCTAssertTrue(git.stage(cwd: root, path: "unstaged.txt").ok)
+        XCTAssertTrue(git.stage(cwd: root, path: ".gitignore").ok)
+        XCTAssertTrue(git.commit(cwd: root, message: "add handoff fixtures").ok)
+
+        let worktreeName = "handoff-\(UUID().uuidString)"
+        let worktree = root.deletingLastPathComponent().appendingPathComponent(worktreeName)
+        let create = git.createWorktree(cwd: root, path: worktreeName, managed: true)
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        return HandoffFixture(
+            root: root,
+            worktree: worktree.standardizedFileURL,
+            worktreeName: worktreeName,
+            git: git
+        )
+    }
+
+    private func addTaskChanges(to root: URL) throws {
+        try "staged task change\n".write(
+            to: root.appendingPathComponent("staged.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "staged.txt").ok)
+        try "unstaged task change\n".write(
+            to: root.appendingPathComponent("unstaged.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let notes = root.appendingPathComponent("notes")
+        try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
+        try "untracked task note\n".write(
+            to: notes.appendingPathComponent("task.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+
+    private func assertTaskChanges(in root: URL, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("staged.txt")),
+            "staged task change\n",
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("unstaged.txt")),
+            "unstaged task change\n",
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("notes/task.txt")),
+            "untracked task note\n",
+            file: file,
+            line: line
+        )
+    }
+
+    private func gitStatus(in root: URL, file: StaticString = #filePath, line: UInt = #line) -> String {
+        let result = ShellToolExecutor().run(.init(
+            command: "git status --porcelain=v1 --untracked-files=all",
+            cwd: root
+        ))
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)", file: file, line: line)
+        return result.stdout
+    }
+}
+
+private struct HandoffFixture {
+    let root: URL
+    let worktree: URL
+    let worktreeName: String
+    let git: GitToolExecutor
 }

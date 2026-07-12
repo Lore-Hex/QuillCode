@@ -27,9 +27,9 @@ extension QuillCodeWorkspaceModel {
               !project.isRemote
         else { return nil }
         // A thread bound to a worktree runs in that isolated directory instead of the shared project
-        // root, so two threads on the same project don't clobber each other. A dangling binding falls
-        // back to the project root rather than pointing at a missing directory.
-        if let worktree = thread?.worktree, worktree.isResolvable {
+        // root, so two threads on the same project don't clobber each other. A dangling or locally
+        // handed-off binding falls back to the project root.
+        if let worktree = thread?.worktree, worktree.usesWorktree {
             return URL(fileURLWithPath: worktree.path)
         }
         return URL(fileURLWithPath: project.path)
