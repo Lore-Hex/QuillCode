@@ -33,21 +33,17 @@ extension QuillCodeWorkspaceModel {
                 try? store.delete(previousReference)
             }
 
-            let removal = GitWorktreeToolExecutor(runner: GitProcessRunner()).remove(
-                cwd: projectRoot,
-                path: binding.path,
-                force: true
+            var capturedBinding = binding
+            capturedBinding.snapshot = reference
+            try store.removeIfUnchanged(
+                threadID: threadID,
+                reference: reference,
+                binding: capturedBinding,
+                projectRoot: projectRoot
             )
-            guard removal.ok else {
-                setLastError(
-                    "The task was archived, but its worktree was kept because cleanup failed: "
-                        + (removal.error ?? removal.stderr)
-                )
-                return
-            }
         } catch {
             setLastError(
-                "The task was archived, but its worktree was kept because its changes could not be saved: "
+                "The task was archived, but its worktree was kept because it could not be saved and removed safely: "
                     + error.localizedDescription
             )
         }
