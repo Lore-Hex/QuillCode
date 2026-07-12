@@ -62,16 +62,8 @@ struct TerminalMouseModeState: Sendable, Hashable {
 /// renderer, this parser retains an incomplete CSI sequence between output chunks, so streaming PTY
 /// output does not need to be reparsed from the beginning after every write.
 public struct TerminalMouseReportingParser: Sendable, Hashable {
-    private static let maximumParameterLength = 64
-
-    private enum State: Sendable, Hashable {
-        case ground
-        case escape
-        case csi(String)
-    }
-
     private var modeState: TerminalMouseModeState
-    private var state: State = .ground
+    private var parser = TerminalDECPrivateModeParser()
 
     public init(reporting: TerminalMouseReporting = .disabled) {
         self.modeState = TerminalMouseModeState(reporting: reporting)
@@ -82,8 +74,8 @@ public struct TerminalMouseReportingParser: Sendable, Hashable {
     }
 
     public mutating func consume(_ output: String) {
-        for scalar in output.unicodeScalars {
-            consume(scalar)
+        for update in parser.consume(output) {
+            modeState.update(privateMode: update.mode, isEnabled: update.isEnabled)
         }
     }
 
@@ -91,38 +83,4 @@ public struct TerminalMouseReportingParser: Sendable, Hashable {
         self = TerminalMouseReportingParser()
     }
 
-    private mutating func consume(_ scalar: Unicode.Scalar) {
-        switch state {
-        case .ground:
-            if scalar == "\u{1B}" { state = .escape }
-        case .escape:
-            if scalar == "[" {
-                state = .csi("")
-            } else {
-                state = scalar == "\u{1B}" ? .escape : .ground
-            }
-        case .csi(var parameters):
-            let value = scalar.value
-            if value >= 0x40, value <= 0x7E {
-                apply(final: scalar, parameters: parameters)
-                state = .ground
-            } else if scalar == "\u{1B}" {
-                state = .escape
-            } else if value >= 0x20, value <= 0x3F,
-                      parameters.unicodeScalars.count < Self.maximumParameterLength {
-                parameters.unicodeScalars.append(scalar)
-                state = .csi(parameters)
-            } else {
-                state = .ground
-            }
-        }
-    }
-
-    private mutating func apply(final: Unicode.Scalar, parameters: String) {
-        guard final == "h" || final == "l", parameters.first == "?" else { return }
-        let isEnabled = final == "h"
-        for mode in parameters.dropFirst().split(separator: ";").compactMap({ Int($0) }) {
-            modeState.update(privateMode: mode, isEnabled: isEnabled)
-        }
-    }
 }

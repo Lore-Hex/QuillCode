@@ -6,7 +6,7 @@ enum WorkspaceHTMLTerminalRenderer {
         guard terminal.isVisible else { return "" }
         let entries = terminal.entries.isEmpty
             ? #"<p data-testid="terminal-empty">\#(escape(terminal.emptyTitle))</p>"#
-            : terminal.entries.map(renderEntry).joined(separator: "\n")
+            : terminal.entries.map { renderEntry($0, keyboardMode: terminal.keyboardMode) }.joined(separator: "\n")
         return """
         <section class="terminal-pane" data-testid="terminal-pane">
           <header>
@@ -49,7 +49,10 @@ enum WorkspaceHTMLTerminalRenderer {
         return ""
     }
 
-    private static func renderEntry(_ entry: TerminalCommandSurface) -> String {
+    private static func renderEntry(
+        _ entry: TerminalCommandSurface,
+        keyboardMode: TerminalKeyboardMode
+    ) -> String {
         """
         <article class="terminal-entry" data-testid="terminal-entry"\(entry.executionContext.map { #" data-execution-context="\#(escape($0.kind.rawValue))""# } ?? "")>
           <header>
@@ -65,7 +68,8 @@ enum WorkspaceHTMLTerminalRenderer {
               fallback: entry.stdout,
               testID: "terminal-stdout",
               defaultColor: nil,
-              mouseReporting: entry.acceptsMouseInput ? entry.mouseReporting : nil
+              mouseReporting: entry.acceptsMouseInput ? entry.mouseReporting : nil,
+              keyboardMode: entry.isRunning ? keyboardMode : nil
           ))
           \(renderOutput(entry.stderrRuns, fallback: entry.stderr, testID: "terminal-stderr", defaultColor: "#F0574C"))
         </article>
@@ -77,7 +81,8 @@ enum WorkspaceHTMLTerminalRenderer {
         fallback: String,
         testID: String,
         defaultColor: String?,
-        mouseReporting: TerminalMouseReporting? = nil
+        mouseReporting: TerminalMouseReporting? = nil,
+        keyboardMode: TerminalKeyboardMode? = nil
     ) -> String {
         guard !fallback.isEmpty else { return "" }
         let source = runs ?? [TerminalTextRun(text: fallback)]
@@ -87,7 +92,10 @@ enum WorkspaceHTMLTerminalRenderer {
         let mouseAttributes = mouseReporting.map {
             #" data-terminal-mouse-input="true" data-terminal-mouse-encoding="\#(escape($0.encoding.rawValue))""#
         } ?? ""
-        return #"<pre data-testid="\#(testID)"\#(mouseAttributes)>\#(contents)</pre>"#
+        let keyboardAttributes = keyboardMode.map {
+            #" data-terminal-keyboard-input="true" data-terminal-application-cursor="\#($0.applicationCursorKeys)" data-terminal-bracketed-paste="\#($0.bracketedPaste)" tabindex="0""#
+        } ?? ""
+        return #"<pre data-testid="\#(testID)"\#(mouseAttributes)\#(keyboardAttributes)>\#(contents)</pre>"#
     }
 
     private static func renderRun(_ run: TerminalTextRun, defaultColor: String?) -> String {

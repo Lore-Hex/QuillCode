@@ -76,6 +76,10 @@ struct QuillCodeDesktopTerminalCoordinator {
         model.sendTerminalMouseInput(request)
     }
 
+    func sendKeyboardInput(_ request: TerminalKeyboardInputRequest, model: QuillCodeWorkspaceModel) {
+        model.sendTerminalKeyboardInput(request)
+    }
+
     func suspendTerminal(model: QuillCodeWorkspaceModel) {
         model.suspendTerminalCommand()
     }

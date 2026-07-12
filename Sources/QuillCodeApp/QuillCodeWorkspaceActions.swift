@@ -11,6 +11,7 @@ public struct QuillCodeWorkspaceActions {
     let onTerminalHistoryNext: () -> Void
     let onTerminalResize: (TerminalWindowSize) -> Void
     let onTerminalMouseInput: (TerminalMouseInputRequest) -> Void
+    let onTerminalKeyboardInput: (TerminalKeyboardInputRequest) -> Void
     let onTerminalSuspend: () -> Void
     let onTerminalResume: () -> Void
     let onOpenBrowserPreview: () -> Void
@@ -62,6 +63,7 @@ public struct QuillCodeWorkspaceActions {
         onTerminalHistoryNext: @escaping () -> Void = {},
         onTerminalResize: @escaping (TerminalWindowSize) -> Void = { _ in },
         onTerminalMouseInput: @escaping (TerminalMouseInputRequest) -> Void = { _ in },
+        onTerminalKeyboardInput: @escaping (TerminalKeyboardInputRequest) -> Void = { _ in },
         onTerminalSuspend: @escaping () -> Void = {},
         onTerminalResume: @escaping () -> Void = {},
         onOpenBrowserPreview: @escaping () -> Void,
@@ -114,6 +116,7 @@ public struct QuillCodeWorkspaceActions {
         self.onTerminalHistoryNext = onTerminalHistoryNext
         self.onTerminalResize = onTerminalResize
         self.onTerminalMouseInput = onTerminalMouseInput
+        self.onTerminalKeyboardInput = onTerminalKeyboardInput
         self.onTerminalSuspend = onTerminalSuspend
         self.onTerminalResume = onTerminalResume
         self.onOpenBrowserPreview = onOpenBrowserPreview

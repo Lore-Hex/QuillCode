@@ -103,6 +103,7 @@ struct QuillCodeDesktopRootView: View {
             onTerminalHistoryNext: controller.recallNextTerminalCommand,
             onTerminalResize: controller.resizeTerminal,
             onTerminalMouseInput: controller.sendTerminalMouseInput,
+            onTerminalKeyboardInput: controller.sendTerminalKeyboardInput,
             onTerminalSuspend: controller.suspendTerminal,
             onTerminalResume: controller.resumeTerminal,
             onOpenBrowserPreview: controller.openBrowserPreview,

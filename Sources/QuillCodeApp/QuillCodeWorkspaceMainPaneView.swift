@@ -24,6 +24,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onTerminalHistoryNext: () -> Void
     var onTerminalResize: (TerminalWindowSize) -> Void = { _ in }
     var onTerminalMouseInput: (TerminalMouseInputRequest) -> Void = { _ in }
+    var onTerminalKeyboardInput: (TerminalKeyboardInputRequest) -> Void = { _ in }
     var onTerminalSuspend: () -> Void = {}
     var onTerminalResume: () -> Void = {}
     var onOpenBrowserPreview: () -> Void
@@ -129,7 +130,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onHistoryPrevious: onTerminalHistoryPrevious,
                         onHistoryNext: onTerminalHistoryNext,
                         onResize: onTerminalResize,
-                        onMouseInput: onTerminalMouseInput
+                        onMouseInput: onTerminalMouseInput,
+                        onKeyboardInput: onTerminalKeyboardInput
                     )
                 }
                 Divider()

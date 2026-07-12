@@ -28,7 +28,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 ## Integration Tests
 
-- Real filesystem, git, shell, terminal PTY, and exact terminal mouse/wheel escape delivery.
+- Real filesystem, git, shell, terminal PTY, and exact terminal keyboard/mouse/wheel escape delivery, including DEC application-cursor mode, stale-mode rejection, and lifecycle reset.
 - File-change monitor automations over a real temporary project file, proving the workspace model creates one monitor thread with trigger context and does not rerun after `lastRunAt` advances.
 - OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, non-secret account persistence, userinfo fetch, runtime refresh, loopback/dev override.
 - QuillUI secret-store adapter.
@@ -73,6 +73,7 @@ Drive the QuillCode test harness with mock LLM:
 - Computer Use top-bar status labels for ready and missing-permission states, plus the Settings permission card and setup buttons
 - composer model/mode controls plus top-bar context/status/action clusters under long labels without horizontal overflow
 - top bar stop-all and composer Stop during active runs
+- terminal TUI keyboard focus, application-mode arrows, modified navigation keys, bounded bracketed paste, pointer/drag/hover/wheel input, Stop cleanup, and removal of interactive attributes after completion
 - `Cmd+/` Keyboard Shortcuts panel, plus command-palette access to the same panel
 - slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus command-palette `>` and `/` scope badges, slash-template insertion into the focused composer, multiline composer behavior, Shift+Enter newline handling, Enter-to-send, composer slash suggestion filtering, selected-row keyboard navigation, Enter/Tab accept behavior, click-to-insert, focus retention, and send-through-existing-command-path behavior
 - local and SSH Remote worktree create handoff into the selected worktree project and thread

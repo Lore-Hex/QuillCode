@@ -158,3 +158,39 @@ test('mock harness reports pointer and wheel events to mouse-aware terminal apps
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Stopped · stopped');
   await expect(page.getByTestId('terminal-mouse-mode')).toHaveCount(0);
 });
+
+test('mock harness sends navigation, modifiers, and bracketed paste to terminal apps', async ({ page }) => {
+  await page.goto(harnessURL());
+  await clickSidebarTool(page, 'terminal-button');
+
+  await page.getByLabel('Terminal command').fill('tui-demo');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
+
+  const output = page.getByTestId('terminal-stdout').last();
+  await expect(output).toHaveAttribute('data-terminal-keyboard-input', 'true');
+  await output.focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(output).toHaveAttribute('data-last-terminal-keyboard-sequence', 'ESCOA');
+
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect(output).toHaveAttribute('data-last-terminal-keyboard-sequence', 'ESC[1;2D');
+
+  await output.evaluate(element => {
+    const clipboard = new DataTransfer();
+    clipboard.setData('text/plain', 'hello');
+    element.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: clipboard
+    }));
+  });
+  await expect(output).toHaveAttribute('data-terminal-keyboard-event-count', '3');
+  await expect(output).toHaveAttribute(
+    'data-last-terminal-keyboard-sequence',
+    'ESC[200~helloESC[201~'
+  );
+
+  await page.getByTestId('terminal-stop').click();
+  await expect(output).not.toHaveAttribute('data-terminal-keyboard-input', 'true');
+});

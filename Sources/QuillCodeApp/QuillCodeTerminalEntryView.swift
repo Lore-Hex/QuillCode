@@ -4,7 +4,9 @@ import QuillCodeTools
 
 struct QuillCodeTerminalEntryView: View {
     var entry: TerminalCommandSurface
+    var keyboardMode: TerminalKeyboardMode?
     var onMouseInput: (TerminalMouseInputRequest) -> Void = { _ in }
+    var onKeyboardInput: (TerminalKeyboardInputRequest) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -39,7 +41,9 @@ struct QuillCodeTerminalEntryView: View {
                         defaultForeground: QuillCodePalette.text
                     ),
                     reporting: entry.acceptsMouseInput ? entry.mouseReporting : nil,
-                    onMouseInput: onMouseInput
+                    keyboardMode: entry.isRunning ? keyboardMode : nil,
+                    onMouseInput: onMouseInput,
+                    onKeyboardInput: onKeyboardInput
                 )
             }
             if !entry.stderr.isEmpty {

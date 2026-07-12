@@ -44,9 +44,64 @@ final class TerminalMouseCoordinateMapperTests: XCTestCase {
 
 #if canImport(AppKit)
 @MainActor
-final class TerminalPointerCaptureNSViewTests: XCTestCase {
+final class TerminalInputCaptureNSViewTests: XCTestCase {
+    func testKeyboardCaptureMapsSpecialTextControlAndPasteInput() throws {
+        let view = TerminalInputCaptureNSView(frame: NSRect(x: 0, y: 0, width: 100, height: 80))
+        let mode = TerminalKeyboardMode(applicationCursorKeys: true, bracketedPaste: true)
+        var requests: [TerminalKeyboardInputRequest] = []
+        view.update(
+            reporting: .disabled,
+            keyboardMode: mode,
+            metrics: .default,
+            onMouseInput: { _ in },
+            onKeyboardInput: { requests.append($0) }
+        )
+
+        XCTAssertTrue(view.handleKeyboard(try keyEvent(keyCode: 126)))
+        XCTAssertTrue(view.handleKeyboard(try keyEvent(
+            keyCode: 8,
+            characters: "\u{03}",
+            charactersIgnoringModifiers: "c",
+            modifiers: [.control]
+        )))
+        XCTAssertTrue(view.handlePaste("hello"))
+
+        XCTAssertEqual(requests.map(\.mode), [mode, mode, mode])
+        XCTAssertEqual(requests[0].event.key, .arrowUp)
+        XCTAssertEqual(requests[1].event.key, .text("c"))
+        XCTAssertEqual(requests[1].event.modifiers, .init(control: true))
+        XCTAssertEqual(requests[2].event.key, .paste("hello"))
+    }
+
+    func testKeyboardCaptureRejectsCommandShortcutsAndDisabledMode() throws {
+        let view = TerminalInputCaptureNSView(frame: .zero)
+        var requests: [TerminalKeyboardInputRequest] = []
+        view.update(
+            reporting: .disabled,
+            metrics: .default,
+            onMouseInput: { _ in },
+            onKeyboardInput: { requests.append($0) }
+        )
+
+        XCTAssertFalse(view.handleKeyboard(try keyEvent(keyCode: 126)))
+        view.update(
+            reporting: .disabled,
+            keyboardMode: .standard,
+            metrics: .default,
+            onMouseInput: { _ in },
+            onKeyboardInput: { requests.append($0) }
+        )
+        XCTAssertFalse(view.handleKeyboard(try keyEvent(
+            keyCode: 8,
+            characters: "c",
+            charactersIgnoringModifiers: "c",
+            modifiers: [.command]
+        )))
+        XCTAssertTrue(requests.isEmpty)
+    }
+
     func testPointerCaptureMapsButtonsModifiersAndDeduplicatesMotion() {
-        let view = TerminalPointerCaptureNSView(frame: NSRect(x: 0, y: 0, width: 100, height: 80))
+        let view = TerminalInputCaptureNSView(frame: NSRect(x: 0, y: 0, width: 100, height: 80))
         var requests: [TerminalMouseInputRequest] = []
         view.update(
             reporting: TerminalMouseReporting(trackingMode: .anyMotion, encoding: .sgr),
@@ -82,7 +137,7 @@ final class TerminalPointerCaptureNSViewTests: XCTestCase {
     }
 
     func testPointerCaptureAccumulatesPreciseScrollAndEmitsCellPosition() {
-        let view = TerminalPointerCaptureNSView(frame: NSRect(x: 0, y: 0, width: 100, height: 80))
+        let view = TerminalInputCaptureNSView(frame: NSRect(x: 0, y: 0, width: 100, height: 80))
         var requests: [TerminalMouseInputRequest] = []
         view.update(
             reporting: TerminalMouseReporting(trackingMode: .button, encoding: .sgr),
@@ -119,7 +174,7 @@ final class TerminalPointerCaptureNSViewTests: XCTestCase {
     }
 
     func testDisabledPointerCaptureLetsInputPassThrough() {
-        let view = TerminalPointerCaptureNSView(frame: NSRect(x: 0, y: 0, width: 100, height: 80))
+        let view = TerminalInputCaptureNSView(frame: NSRect(x: 0, y: 0, width: 100, height: 80))
         var requests: [TerminalMouseInputRequest] = []
         view.update(
             reporting: .disabled,
@@ -139,6 +194,26 @@ final class TerminalPointerCaptureNSViewTests: XCTestCase {
             location: CGPoint(x: 1, y: 1)
         ))
         XCTAssertTrue(requests.isEmpty)
+    }
+
+    private func keyEvent(
+        keyCode: UInt16,
+        characters: String = "",
+        charactersIgnoringModifiers: String = "",
+        modifiers: NSEvent.ModifierFlags = []
+    ) throws -> NSEvent {
+        try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: charactersIgnoringModifiers,
+            isARepeat: false,
+            keyCode: keyCode
+        ))
     }
 }
 #endif

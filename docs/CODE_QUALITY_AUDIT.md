@@ -15744,3 +15744,27 @@ Validation:
 - `npm test -- terminal.spec.ts`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-11 Interactive Terminal Keyboard Slice
+
+Overall grade after this slice: **A+ protocol architecture, A+ terminal keyboard parity**.
+Interactive local PTYs now receive terminal-native keyboard and paste sequences from a focused native
+adapter instead of relying on line-oriented text submission.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | One bounded `TerminalDECPrivateModeParser` feeds independent mouse and keyboard semantic state; AppKit mapping, app routing, and byte encoding remain separate modules. |
+| Input fidelity | A+ | Printable/control/Option input, navigation/editing keys, Tab variants, F1-F12, application cursor mode, and bracketed paste use xterm-compatible sequences. |
+| Lifecycle safety | A+ | Keyboard requests carry their observed mode and are rejected if the PTY mode changed; completion, cancellation, Stop All, new runs, and project switches reset input modes. |
+| Paste safety | A+ | Paste payloads are UTF-8 bounded, preserve complete grapheme clusters, and cannot inject nested bracketed-paste start/end boundaries. |
+| Platform boundary | A+ | `QuillCodePlatformUI` owns AppKit focus, key events, and pasteboard access; `QuillCodeApp` contains no platform import or conditional. |
+| Tests | A+ | Encoder/mode tests, native event mapping, reducer reset tests, exact real-PTY delivery, static HTML contracts, and Playwright keyboard/paste flows cover the complete path. |
+
+Validation:
+
+- `swift test --filter 'TerminalKeyboard|TerminalInputCapture|WorkspaceTerminalIntegration|WorkspaceTerminalEngine|WorkspaceHTMLTerminal|ParityTerminalPlatformAdapter'`
+- `npm test -- --grep terminal`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

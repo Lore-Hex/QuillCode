@@ -15,6 +15,7 @@ struct QuillCodeTerminalPaneView: View {
     var onHistoryNext: () -> Void
     var onResize: (TerminalWindowSize) -> Void = { _ in }
     var onMouseInput: (TerminalMouseInputRequest) -> Void = { _ in }
+    var onKeyboardInput: (TerminalKeyboardInputRequest) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -79,7 +80,12 @@ struct QuillCodeTerminalPaneView: View {
                         .padding(.vertical, 12)
                 } else {
                     ForEach(terminal.entries) { entry in
-                        QuillCodeTerminalEntryView(entry: entry, onMouseInput: onMouseInput)
+                        QuillCodeTerminalEntryView(
+                            entry: entry,
+                            keyboardMode: terminal.keyboardMode,
+                            onMouseInput: onMouseInput,
+                            onKeyboardInput: onKeyboardInput
+                        )
                     }
                 }
             }

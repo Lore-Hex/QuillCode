@@ -44,7 +44,7 @@ enum WorkspaceTerminalEngine {
         terminal.historyDraft = nil
         terminal.isVisible = true
         terminal.isRunning = true
-        terminal.resetMouseReporting()
+        terminal.resetInputModes()
         terminal.entries.append(TerminalCommandState(
             id: entryID,
             command: command,
@@ -72,7 +72,7 @@ enum WorkspaceTerminalEngine {
             terminal: &terminal
         )
         terminal.isRunning = false
-        terminal.resetMouseReporting()
+        terminal.resetInputModes()
     }
 
     @discardableResult
@@ -103,7 +103,7 @@ enum WorkspaceTerminalEngine {
     ) {
         WorkspaceTerminalSessionAdapter.removeMarkers(executionContext.markerURLs)
         terminal.isRunning = false
-        terminal.resetMouseReporting()
+        terminal.resetInputModes()
     }
 
     static func finishCancelledRun(
@@ -122,7 +122,7 @@ enum WorkspaceTerminalEngine {
             terminal: &terminal
         )
         terminal.isRunning = false
-        terminal.resetMouseReporting()
+        terminal.resetInputModes()
     }
 
     static func finishCompletedRun(
@@ -150,7 +150,7 @@ enum WorkspaceTerminalEngine {
             terminal: &terminal
         )
         terminal.isRunning = false
-        terminal.resetMouseReporting()
+        terminal.resetInputModes()
     }
 
     static func currentDirectoryURL(
@@ -179,7 +179,7 @@ enum WorkspaceTerminalEngine {
         terminal.currentDirectoryPath = selectedProjectDisplayPath
         terminal.environmentOverrides = [:]
         terminal.removedEnvironmentKeys = []
-        terminal.resetMouseReporting()
+        terminal.resetInputModes()
         terminal.historyCursor = nil
         terminal.historyDraft = nil
     }
@@ -197,7 +197,7 @@ enum WorkspaceTerminalEngine {
         terminal.entries[index].stdout += stdout
         terminal.entries[index].stderr += stderr
         if !stdout.isEmpty {
-            terminal.consumeMouseReporting(from: stdout)
+            terminal.consumeInputModes(from: stdout)
         }
     }
 
@@ -239,7 +239,7 @@ enum WorkspaceTerminalEngine {
             terminal.entries[index].ok = false
             terminal.entries[index].status = .stopped
         }
-        terminal.resetMouseReporting()
+        terminal.resetInputModes()
     }
 
     static func executionContext(
