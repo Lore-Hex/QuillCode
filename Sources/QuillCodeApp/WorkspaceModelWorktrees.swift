@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 @MainActor
 extension QuillCodeWorkspaceModel {
@@ -27,54 +28,29 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    /// The "Worktree" thread type (the Codex Local-vs-Worktree choice at thread creation): creates a
-    /// fresh worktree off the current branch and starts a NEW thread in the SAME project bound to it,
-    /// so it runs isolated without touching the current working tree — and without minting a sibling
-    /// project (unlike `createWorktree`, which is the standalone worktree-open flow). Returns the new
-    /// thread id, or nil if not on a local project or the worktree create failed.
+    /// The Worktree thread type creates a detached managed worktree from the current branch, transfers
+    /// bounded local changes, and binds a new thread in the same project to that isolated run root.
     @discardableResult
     public func newWorktreeThread(name: String? = nil) -> UUID? {
         guard let project = selectedProject, !project.isRemote else { return nil }
         let projectRoot = URL(fileURLWithPath: project.path)
-        let baseBranch = selectedProjectBranch(project) ?? "HEAD"
-        let request = WorktreeThreadPlanner.plan(
+        let baseBranch = selectedProjectBranch(project)
+            ?? currentLocalBranch(projectRoot: projectRoot)
+            ?? "HEAD"
+        let plan = WorktreeThreadPlanner.plan(
             projectRoot: projectRoot,
             baseBranch: baseBranch,
-            name: name,
-            existingBranches: existingLocalBranches(projectRoot: projectRoot, fallback: baseBranch)
+            name: name
         )
         let result = runToolCall(
-            WorkspaceWorktreeToolCallPlanner.create(request),
+            WorkspaceWorktreeToolCallPlanner.create(plan.request),
             workspaceRoot: projectRoot
         )
         guard result.ok, let worktreePath = result.artifacts.first else { return nil }
         let threadID = newChat(projectID: project.id)
-        bindSelectedThreadToWorktree(path: worktreePath, branch: request.branch, base: baseBranch)
+        _ = renameThread(threadID, to: plan.title)
+        bindSelectedThreadToWorktree(path: worktreePath, branch: "", base: baseBranch)
         return threadID
-    }
-
-    /// The local branch names, so the planner picks a collision-free branch even when earlier
-    /// worktree threads already claimed `quill/<slug>`. Passing only the base branch (as before) let
-    /// two `/new-worktree experiment` calls both plan `quill/experiment`, and the second git worktree
-    /// create failed on the already-existing branch. Best-effort: any git failure falls back to the
-    /// base branch alone (the prior behavior).
-    private func existingLocalBranches(projectRoot: URL, fallback baseBranch: String) -> [String] {
-        let call = ToolCall(
-            name: ToolDefinition.gitBranchList.name,
-            argumentsJSON: ToolArguments.json(["includeRemote": false])
-        )
-        let result = runToolCall(call, workspaceRoot: projectRoot)
-        guard result.ok else { return [baseBranch] }
-        // Each line is "%(HEAD)\t%(refname:short)\t%(upstream:short)"; field 1 is the branch name.
-        let names = result.stdout
-            .split(separator: "\n", omittingEmptySubsequences: true)
-            .compactMap { line -> String? in
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
-                guard fields.count >= 2 else { return nil }
-                let name = fields[1].trimmingCharacters(in: .whitespaces)
-                return name.isEmpty ? nil : name
-            }
-        return names.isEmpty ? [baseBranch] : names
     }
 
     private func selectedProjectBranch(_ project: ProjectRef) -> String? {
@@ -85,6 +61,21 @@ extension QuillCodeWorkspaceModel {
             return nil
         }
         return branch
+    }
+
+    private func currentLocalBranch(projectRoot: URL) -> String? {
+        let result = GitToolExecutor().listBranches(cwd: projectRoot, includeRemote: false)
+        guard result.ok else { return nil }
+        for line in result.stdout.split(separator: "\n", omittingEmptySubsequences: true) {
+            let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
+            guard fields.count >= 2,
+                  fields[0].trimmingCharacters(in: .whitespaces) == "*" else {
+                continue
+            }
+            let branch = fields[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            return branch.isEmpty ? nil : branch
+        }
+        return nil
     }
 
     public func worktreeChoiceLoadRequest(workspaceRoot: URL) -> WorkspaceWorktreeChoiceLoadRequest {

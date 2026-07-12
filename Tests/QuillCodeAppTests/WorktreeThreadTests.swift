@@ -15,27 +15,40 @@ final class WorktreeThreadPlannerTests: XCTestCase {
         XCTAssertNil(WorktreeThreadPlanner.slug(from: nil))
     }
 
-    func testBranchAndSiblingPath() {
-        let req = WorktreeThreadPlanner.plan(projectRoot: root, baseBranch: "main", name: "Try It", existingBranches: [])
-        XCTAssertEqual(req.branch, "quill/try-it")
-        XCTAssertEqual(req.base, "main")
-        // sibling of the project root, named <project>-<leaf>
-        XCTAssertEqual(req.path, "/work/MyRepo-try-it")
+    func testManagedRequestAndUniqueSiblingPath() {
+        let plan = WorktreeThreadPlanner.plan(
+            projectRoot: root,
+            baseBranch: "main",
+            name: "Try It",
+            identifier: "ABCDEF12-3456"
+        )
+        XCTAssertEqual(plan.request.branch, "")
+        XCTAssertEqual(plan.request.base, "main")
+        XCTAssertTrue(plan.request.managed)
+        XCTAssertEqual(plan.request.path, "/work/MyRepo-try-it-abcdef12")
+        XCTAssertEqual(plan.title, "Worktree: try-it")
     }
 
     func testDefaultNameWhenNil() {
-        let req = WorktreeThreadPlanner.plan(projectRoot: root, baseBranch: "main", name: nil, existingBranches: [])
-        XCTAssertEqual(req.branch, "quill/work")
-        XCTAssertEqual(req.path, "/work/MyRepo-work")
+        let plan = WorktreeThreadPlanner.plan(
+            projectRoot: root,
+            baseBranch: "main",
+            name: nil,
+            identifier: "12345678"
+        )
+        XCTAssertEqual(plan.request.branch, "")
+        XCTAssertEqual(plan.request.path, "/work/MyRepo-work-12345678")
+        XCTAssertEqual(plan.title, "Worktree: work")
     }
 
-    func testAvoidsBranchCollision() {
-        let req = WorktreeThreadPlanner.plan(
-            projectRoot: root, baseBranch: "main", name: "work",
-            existingBranches: ["quill/work", "quill/work-2"]
+    func testIdentifiersKeepSameNamePlansDistinct() {
+        let first = WorktreeThreadPlanner.plan(
+            projectRoot: root, baseBranch: "main", name: "work", identifier: "11111111"
         )
-        XCTAssertEqual(req.branch, "quill/work-3")
-        XCTAssertEqual(req.path, "/work/MyRepo-work-3")
+        let second = WorktreeThreadPlanner.plan(
+            projectRoot: root, baseBranch: "main", name: "work", identifier: "22222222"
+        )
+        XCTAssertNotEqual(first.request.path, second.request.path)
     }
 }
 
@@ -67,6 +80,16 @@ final class WorktreeThreadModelTests: XCTestCase {
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         let localThread = model.newChat(projectID: projectID)
+        try "local edit\n".write(
+            to: repo.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "local only\n".write(
+            to: repo.appendingPathComponent("notes.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
 
         let worktreeThread = model.newWorktreeThread(name: "experiment")
         XCTAssertNotNil(worktreeThread, "worktree thread should be created")
@@ -76,8 +99,20 @@ final class WorktreeThreadModelTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.projectID, projectID)
         let binding = model.selectedThread?.worktree
         XCTAssertNotNil(binding)
-        XCTAssertEqual(binding?.branch, "quill/experiment")
+        XCTAssertEqual(binding?.branch, "")
+        let baseBranch = try runGit(["branch", "--show-current"], cwd: repo)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertEqual(binding?.base, baseBranch)
         XCTAssertTrue(binding.map(\.isResolvable) ?? false, "worktree dir should exist on disk")
+        XCTAssertEqual(model.selectedThread?.title, "Worktree: experiment")
+        XCTAssertEqual(
+            try String(contentsOf: URL(fileURLWithPath: binding!.path).appendingPathComponent("README.md")),
+            "local edit\n"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: URL(fileURLWithPath: binding!.path).appendingPathComponent("notes.txt")),
+            "local only\n"
+        )
 
         // Isolation: the bound thread runs in the worktree; the local thread in the project root.
         XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL,
@@ -94,7 +129,7 @@ final class WorktreeThreadModelTests: XCTestCase {
         XCTAssertNil(model.newWorktreeThread(name: "x"), "no selected project → nil")
     }
 
-    func testSecondWorktreeThreadWithSameNameGetsACollisionFreeBranch() throws {
+    func testSecondWorktreeThreadWithSameNameGetsDistinctManagedPath() throws {
         let repo = try makeGitRepo()
         let model = QuillCodeWorkspaceModel()
         let projectID = model.addProject(path: repo, name: "Repo")
@@ -102,17 +137,14 @@ final class WorktreeThreadModelTests: XCTestCase {
 
         let first = model.newWorktreeThread(name: "experiment")
         XCTAssertNotNil(first)
-        XCTAssertEqual(model.selectedThread?.worktree?.branch, "quill/experiment")
+        XCTAssertEqual(model.selectedThread?.worktree?.branch, "")
         let firstPath = model.selectedThread?.worktree?.path
 
-        // A second worktree with the SAME requested name must NOT collide on the already-created
-        // quill/experiment branch: the planner enumerates real branches and picks quill/experiment-2.
-        // Before the fix it passed only [baseBranch], so the second create failed and returned nil.
         let second = model.newWorktreeThread(name: "experiment")
-        XCTAssertNotNil(second, "second worktree thread must be created, not fail on branch collision")
+        XCTAssertNotNil(second, "second worktree thread must be created with a unique managed path")
         XCTAssertNotEqual(second, first)
         let secondBinding = model.selectedThread?.worktree
-        XCTAssertEqual(secondBinding?.branch, "quill/experiment-2")
+        XCTAssertEqual(secondBinding?.branch, "")
         XCTAssertTrue(secondBinding.map(\.isResolvable) ?? false, "second worktree dir should exist")
 
         // The two bound worktrees are distinct directories on disk.

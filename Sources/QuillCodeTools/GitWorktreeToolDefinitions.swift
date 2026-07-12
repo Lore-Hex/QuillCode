@@ -10,11 +10,14 @@ public extension ToolDefinition {
 
     static let gitWorktreeCreate = gitWorktreeTool(
         name: "host.git.worktree.create",
-        description: "Create a sibling git worktree for the project, optionally with a new branch and base ref.",
+        description: "Create a sibling git worktree, optionally as a detached managed task with safe local-change transfer.",
         parametersJSON: GitToolParameterSchema.object(
             properties: [
                 "base": .string(),
                 "branch": .string(),
+                "managed": .boolean(
+                    description: "Create a detached task worktree and transfer bounded staged, unstaged, and allowed local files."
+                ),
                 "path": .string()
             ],
             required: ["path"]

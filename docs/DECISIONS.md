@@ -1,5 +1,9 @@
 # QuillCode Decisions
 
+## 2026-07-12
+
+- Managed Worktree tasks are transactional detached checkouts, not implicit feature branches. The materializer snapshots staged and unstaged patches plus frozen bounded local-file content before `git worktree add --detach`, then rolls the registered worktree back on any apply/copy failure. `.worktreeinclude` is evaluated as a gitignore-style selector but candidates must also be normally ignored; ignored `AGENTS.override.md` is included automatically. Untracked nonignored files transfer as current work, source symlinks are skipped, existing destinations are never overwritten, and explicit branch-creating worktrees remain a separate permanent workflow. This gives future Local/Worktree Handoff, cleanup snapshots, and restoration one deterministic materialization boundary.
+
 ## 2026-07-05
 
 - Project sidebar reordering stays recency-rank based until the sidebar owns a first-class manual ordering field.

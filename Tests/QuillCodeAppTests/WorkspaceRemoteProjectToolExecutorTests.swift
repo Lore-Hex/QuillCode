@@ -584,6 +584,26 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         )
     }
 
+    func testRemoteGitPlannerRejectsManagedWorktreeTransfer() {
+        XCTAssertThrowsError(
+            try WorkspaceRemoteGitToolRequestPlanner.request(
+                for: ToolCall(
+                    name: ToolDefinition.gitWorktreeCreate.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "quill-next",
+                        "managed": true
+                    ])
+                ),
+                connection: remoteProject(path: "/srv/quill").connection
+            )
+        ) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "Managed worktree tasks require a local project so QuillCode can transfer local changes safely."
+            )
+        }
+    }
+
     func testRemoteGitPlannerRejectsWorktreeOutsideRemoteWorkspaceParent() {
         XCTAssertThrowsError(
             try WorkspaceRemoteGitToolRequestPlanner.request(

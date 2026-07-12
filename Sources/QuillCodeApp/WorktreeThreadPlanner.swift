@@ -1,24 +1,36 @@
 import Foundation
 import QuillCodeCore
 
-/// Plans the git worktree for a new "Worktree" thread (the Codex Local-vs-Worktree choice): a
-/// collision-free branch off the current base and a sibling directory to check it out in. Pure so the
-/// naming is deterministic and unit-testable; the model runs the resulting create request.
+struct WorktreeThreadPlan: Sendable, Hashable {
+    var request: WorkspaceWorktreeCreateRequest
+    var title: String
+}
+
+/// Plans a Codex-style managed worktree for a new Worktree thread. Managed task worktrees start
+/// detached, so a short unique path component provides isolation without creating repository branches.
 enum WorktreeThreadPlanner {
     static func plan(
         projectRoot: URL,
         baseBranch: String,
         name: String?,
-        existingBranches: [String]
-    ) -> WorkspaceWorktreeCreateRequest {
+        identifier: String = UUID().uuidString
+    ) -> WorktreeThreadPlan {
         let slug = slug(from: name) ?? "work"
-        let branch = uniqueBranch(preferred: "quill/\(slug)", taken: Set(existingBranches))
-        // Sibling of the project root, named "<project>-<branch-leaf>", so worktrees sit next to the
-        // repo (the worktree tool already enforces sibling-in-parent).
-        let leaf = branch.split(separator: "/").last.map(String.init) ?? slug
-        let dirName = "\(projectRoot.lastPathComponent)-\(leaf)"
+        let suffix = identifier
+            .lowercased()
+            .filter { $0.isLetter || $0.isNumber }
+            .prefix(8)
+        let safeSuffix = suffix.isEmpty ? "managed" : String(suffix)
+        let dirName = "\(projectRoot.lastPathComponent)-\(slug)-\(safeSuffix)"
         let path = projectRoot.deletingLastPathComponent().appendingPathComponent(dirName).path
-        return WorkspaceWorktreeCreateRequest(path: path, branch: branch, base: baseBranch)
+        return WorktreeThreadPlan(
+            request: WorkspaceWorktreeCreateRequest(
+                path: path,
+                base: baseBranch,
+                managed: true
+            ),
+            title: "Worktree: \(slug)"
+        )
     }
 
     /// Lowercased, hyphen-separated, alphanumerics-and-hyphens only; nil when nothing usable remains.
@@ -38,13 +50,5 @@ enum WorktreeThreadPlanner {
         }
         let trimmed = out.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
         return trimmed.isEmpty ? nil : String(trimmed.prefix(40))
-    }
-
-    /// `preferred`, else `preferred-2`, `-3`, … until it's not in `taken`.
-    static func uniqueBranch(preferred: String, taken: Set<String>) -> String {
-        guard taken.contains(preferred) else { return preferred }
-        var n = 2
-        while taken.contains("\(preferred)-\(n)") { n += 1 }
-        return "\(preferred)-\(n)"
     }
 }

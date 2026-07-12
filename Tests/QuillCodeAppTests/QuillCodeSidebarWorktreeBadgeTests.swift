@@ -26,6 +26,21 @@ final class QuillCodeSidebarWorktreeBadgeTests: XCTestCase {
         XCTAssertEqual(summary?.isResolvable, false, "a removed worktree dir must surface as dangling")
     }
 
+    func testSidebarItemLabelsDetachedManagedWorktree() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-detached-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var thread = ChatThread(title: "Managed task")
+        thread.worktree = WorktreeBinding(path: dir.path, branch: "", base: "main")
+
+        let summary = try XCTUnwrap(SidebarItem(thread: thread).worktree)
+
+        XCTAssertEqual(summary.branch, "")
+        XCTAssertEqual(summary.branchLeaf, "Detached")
+        XCTAssertTrue(summary.isResolvable)
+    }
+
     func testSidebarItemHasNoWorktreeSummaryForAnUnboundThread() {
         XCTAssertNil(SidebarItem(thread: ChatThread(title: "Local")).worktree)
     }

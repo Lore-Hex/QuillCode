@@ -3,16 +3,30 @@ import QuillCodeCore
 
 public struct GitWorktreeToolExecutor: Sendable {
     private let runner: GitProcessRunner
+    private let managedMaterializer: GitManagedWorktreeMaterializer
 
     public init(runner: GitProcessRunner) {
         self.runner = runner
+        self.managedMaterializer = GitManagedWorktreeMaterializer(runner: runner)
     }
 
     public func list(cwd: URL) -> ToolResult {
         runGit(["worktree", "list", "--porcelain"], cwd: cwd, timeoutSeconds: 20)
     }
 
-    public func create(cwd: URL, path: String, branch: String? = nil, base: String? = nil) -> ToolResult {
+    public func create(
+        cwd: URL,
+        path: String,
+        branch: String? = nil,
+        base: String? = nil,
+        managed: Bool = false
+    ) -> ToolResult {
+        if managed {
+            guard GitInputValidator.trimmedNonEmpty(branch) == nil else {
+                return ToolResult(ok: false, error: "Managed worktrees start detached and cannot create a branch.")
+            }
+            return managedMaterializer.create(cwd: cwd, path: path, base: base)
+        }
         do {
             var arguments = ["worktree", "add"]
             if let branch = GitInputValidator.trimmedNonEmpty(branch) {

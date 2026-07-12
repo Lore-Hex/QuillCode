@@ -26,6 +26,9 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
         case ToolDefinition.gitWorktreeList.name:
             return WorkspaceRemoteGitWorktreePlan(command: "git worktree list --porcelain", artifacts: [])
         case ToolDefinition.gitWorktreeCreate.name:
+            guard args.bool("managed") != true else {
+                throw WorkspaceRemoteGitToolRequestPlannerError.managedWorktreeRequiresLocalProject
+            }
             return try planWithWorktreeArtifact(args: args, connection: connection) { worktreePath in
                 try createCommand(
                     worktreePath: worktreePath,

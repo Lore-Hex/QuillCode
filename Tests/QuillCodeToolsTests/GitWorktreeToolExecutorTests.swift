@@ -2,6 +2,151 @@ import XCTest
 @testable import QuillCodeTools
 
 final class GitWorktreeToolExecutorTests: XCTestCase {
+    func testManagedSnapshotFreezesValidatedLocalFileContent() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let source = root.appendingPathComponent("notes.txt")
+        let snapshotRoot = try makeTempDirectory()
+        try "captured\n".write(to: source, atomically: true, encoding: .utf8)
+
+        let snapshot = try ManagedWorktreeTransferSnapshot.capture(
+            sourceRoot: root,
+            temporaryDirectory: snapshotRoot,
+            runner: GitProcessRunner()
+        )
+        try "changed later\n".write(to: source, atomically: true, encoding: .utf8)
+
+        let frozen = try XCTUnwrap(snapshot.files.first { $0.relativePath == "notes.txt" })
+        XCTAssertEqual(try String(contentsOf: frozen.snapshotURL), "captured\n")
+    }
+
+    func testManagedCreateStartsDetachedAndPreservesLocalChangeState() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let staged = root.appendingPathComponent("staged.txt")
+        let unstaged = root.appendingPathComponent("unstaged.txt")
+        try "base staged\n".write(to: staged, atomically: true, encoding: .utf8)
+        try "base unstaged\n".write(to: unstaged, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "staged.txt").ok)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "unstaged.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "add transfer fixtures").ok)
+
+        try "staged change\n".write(to: staged, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "staged.txt").ok)
+        try "unstaged change\n".write(to: unstaged, atomically: true, encoding: .utf8)
+        try "untracked\n".write(
+            to: root.appendingPathComponent("notes.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let name = "managed-\(UUID().uuidString)"
+        let target = root.deletingLastPathComponent().appendingPathComponent(name)
+        let result = GitToolExecutor().createWorktree(cwd: root, path: name, base: "HEAD", managed: true)
+        defer { _ = GitToolExecutor().removeWorktree(cwd: root, path: name, force: true) }
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(currentBranchName(in: target), "", "managed task worktrees start detached")
+        XCTAssertEqual(try String(contentsOf: target.appendingPathComponent("staged.txt")), "staged change\n")
+        XCTAssertEqual(try String(contentsOf: target.appendingPathComponent("unstaged.txt")), "unstaged change\n")
+        XCTAssertEqual(try String(contentsOf: target.appendingPathComponent("notes.txt")), "untracked\n")
+        let status = GitToolExecutor().status(cwd: target)
+        XCTAssertTrue(status.stdout.contains("M  staged.txt"), status.stdout)
+        XCTAssertTrue(status.stdout.contains(" M unstaged.txt"), status.stdout)
+        XCTAssertTrue(status.stdout.contains("?? notes.txt"), status.stdout)
+    }
+
+    func testManagedCreateCopiesOnlyIncludedIgnoredFilesAndAgentsOverride() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        try ".env\nignored/\nAGENTS.override.md\n".write(
+            to: root.appendingPathComponent(".gitignore"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try ".env\nignored/config.json\nignored/link\n".write(
+            to: root.appendingPathComponent(".worktreeinclude"),
+            atomically: true,
+            encoding: .utf8
+        )
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: ".gitignore").ok)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: ".worktreeinclude").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "configure managed worktrees").ok)
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("ignored"),
+            withIntermediateDirectories: true
+        )
+        try "TOKEN=local\n".write(
+            to: root.appendingPathComponent(".env"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "{}\n".write(
+            to: root.appendingPathComponent("ignored/config.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "do not copy\n".write(
+            to: root.appendingPathComponent("ignored/not-included.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "local instructions\n".write(
+            to: root.appendingPathComponent("AGENTS.override.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("ignored/link"),
+            withDestinationURL: root.appendingPathComponent(".env")
+        )
+
+        let name = "managed-includes-\(UUID().uuidString)"
+        let target = root.deletingLastPathComponent().appendingPathComponent(name)
+        let result = GitToolExecutor().createWorktree(cwd: root, path: name, managed: true)
+        defer { _ = GitToolExecutor().removeWorktree(cwd: root, path: name, force: true) }
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: target.appendingPathComponent(".env").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: target.appendingPathComponent("ignored/config.json").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: target.appendingPathComponent("AGENTS.override.md").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent("ignored/not-included.txt").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent("ignored/link").path))
+        XCTAssertTrue(result.stdout.contains("Skipped 1 local symlink"), result.stdout)
+    }
+
+    func testManagedCreateRollsBackWhenLocalFileWouldOverwriteBaseContent() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let collision = root.appendingPathComponent("collision.txt")
+        try "tracked in old base\n".write(to: collision, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "collision.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "add collision").ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git tag collision-base", cwd: root)).ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git rm collision.txt", cwd: root)).ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "remove collision").ok)
+        try "untracked current file\n".write(to: collision, atomically: true, encoding: .utf8)
+
+        let name = "managed-rollback-\(UUID().uuidString)"
+        let target = root.deletingLastPathComponent().appendingPathComponent(name)
+        let result = GitToolExecutor().createWorktree(cwd: root, path: name, base: "collision-base", managed: true)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("refused to overwrite") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.path))
+        XCTAssertFalse(GitToolExecutor().listWorktrees(cwd: root).stdout.contains(target.path))
+    }
+
+    func testManagedCreateRejectsBranchCreation() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+
+        let result = GitToolExecutor().createWorktree(
+            cwd: root,
+            path: "managed-branch",
+            branch: "feature/not-detached",
+            managed: true
+        )
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Managed worktrees start detached and cannot create a branch.")
+    }
+
     func testCreateListOpenAndRemoveSibling() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()

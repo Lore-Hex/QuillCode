@@ -14045,10 +14045,8 @@
         return;
       }
       if (commandID === 'thread-new-worktree') {
-        // Mock stand-in: the native newWorktreeThread creates a fresh git worktree off the current
-        // branch and materializes a thread bound to it. The harness has no git, so it opens a fresh
-        // chat and materializes a worktree-bound sidebar row directly (newChat alone only enters
-        // fresh-chat mode without a row), so the row shows the branch chip.
+        // Mock stand-in: native newWorktreeThread snapshots local edits and creates a detached managed
+        // worktree. The harness has no git, so it materializes the bound row and detached status directly.
         newChat();
         const threadID = `thread-${state.nextThreadIndex++}`;
         state.sidebar.selectedThreadID = threadID;
@@ -14061,10 +14059,10 @@
           isSelected: true,
           isPinned: false,
           isArchived: false,
-          worktree: { branch: 'quill/experiment', branchLeaf: 'experiment', isResolvable: true }
+          worktree: { branch: '', branchLeaf: 'Detached', isResolvable: true }
         }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
         state.topBar.primaryTitle = 'Worktree: experiment';
-        addMessage('assistant', 'Started a new chat in a fresh worktree off the current branch.');
+        addMessage('assistant', 'Started a detached worktree chat with the current local changes.');
         render();
         return;
       }

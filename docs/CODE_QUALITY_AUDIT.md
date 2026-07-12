@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-07-11 Managed Worktree Materialization Slice
+
+Overall grade after this slice: **A+ transactional architecture, A managed-worktree setup parity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Architecture | A+ | Tool dispatch, transaction orchestration, transfer snapshot/inventory, workspace model planning, and presentation remain focused modules. |
+| Data safety | A+ | Patch and local-file content is frozen before creation; apply/copy failures force-remove the new registered worktree; destination overwrites and path escapes are rejected. |
+| Git fidelity | A+ | Managed tasks use detached HEAD, staged and unstaged patches are applied separately, and explicit branch creation remains unchanged. |
+| Local-file policy | A+ | Untracked files and normally ignored `.worktreeinclude` matches are bounded by count/per-file/total bytes; ignored `AGENTS.override.md` is automatic; symlinks are skipped. |
+| UX fidelity | A | Managed rows say Detached and task titles remain human-readable. Handoff, Create branch here, setup actions, retention, and restore remain explicit follow-ups. |
+| Tests | A+ | Real repositories prove detached state, index preservation, frozen local content, untracked/ignored transfer, symlink skipping, overwrite rollback, model wiring, remote rejection, and browser-surface copy. |
+
+Validation:
+
+- `swift test --filter GitWorktreeToolExecutorTests` (10 passed)
+- `swift test --filter 'WorktreeThread|WorkspaceWorktreeToolCallPlannerTests|WorkspaceRemoteProjectToolExecutorTests|QuillCodeSidebarWorktreeBadgeTests|ParityWorkspaceWorktreeGateTests'` (48 passed)
+- `swift test -q` (3,508 passed, 2 skipped, 0 failures)
+- `npm test` in `E2E/playwright` (210 passed)
+- `python3 scripts/grade-code-quality.py --root .` (all affected modules A+)
+- `git diff --check`
+
 ## 2026-07-09 Project Sidebar Reorder A+ Pass
 
 Overall grade after this slice: **A+ for precise project-list reordering without breaking the existing
