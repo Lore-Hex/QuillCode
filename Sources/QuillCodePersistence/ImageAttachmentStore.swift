@@ -38,21 +38,7 @@ public struct ImageAttachmentStore: Sendable, Hashable {
     }
 
     public func importImage(from sourceURL: URL, threadID: UUID) throws -> ChatAttachment {
-        let values = try sourceURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-        guard values.isRegularFile == true else {
-            throw ImageAttachmentStoreError.notARegularFile
-        }
-        if let fileSize = values.fileSize, fileSize > ChatAttachment.maximumByteCount {
-            throw ImageAttachmentStoreError.fileTooLarge(maximumBytes: ChatAttachment.maximumByteCount)
-        }
-
-        let data = try Data(contentsOf: sourceURL, options: .mappedIfSafe)
-        guard data.count <= ChatAttachment.maximumByteCount else {
-            throw ImageAttachmentStoreError.fileTooLarge(maximumBytes: ChatAttachment.maximumByteCount)
-        }
-        guard let format = ChatImageFormat.detect(in: data) else {
-            throw ImageAttachmentStoreError.unsupportedImage
-        }
+        let image = try validatedImage(at: sourceURL)
 
         let id = UUID()
         let threadDirectory = directory.appendingPathComponent(threadID.uuidString, isDirectory: true)
@@ -63,18 +49,41 @@ public struct ImageAttachmentStore: Sendable, Hashable {
         )
         let destination = threadDirectory
             .appendingPathComponent(id.uuidString)
-            .appendingPathExtension(format.fileExtension)
-        try data.write(to: destination, options: .atomic)
+            .appendingPathExtension(image.format.fileExtension)
+        try image.data.write(to: destination, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
 
         guard let attachment = ChatAttachment(
             id: id,
             displayName: sourceURL.lastPathComponent,
-            format: format,
+            format: image.format,
             localURL: destination,
-            byteCount: data.count
+            byteCount: image.data.count
         ) else {
             try? FileManager.default.removeItem(at: destination)
+            throw ImageAttachmentStoreError.unsupportedImage
+        }
+        return attachment
+    }
+
+    /// Adopts an image already written inside QuillCode-owned storage without copying its bytes.
+    /// Computer Use uses this path for screenshots so the preview artifact and model attachment are
+    /// one private file with one lifecycle. Outside paths are rejected before any bytes are read.
+    public func attachmentForManagedImage(
+        at fileURL: URL,
+        displayName: String? = nil
+    ) throws -> ChatAttachment {
+        guard contains(fileURL) else {
+            throw ImageAttachmentStoreError.unmanagedAttachment
+        }
+        let image = try validatedImage(at: fileURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+        guard let attachment = ChatAttachment(
+            displayName: displayName ?? fileURL.lastPathComponent,
+            format: image.format,
+            localURL: fileURL,
+            byteCount: image.data.count
+        ) else {
             throw ImageAttachmentStoreError.unsupportedImage
         }
         return attachment
@@ -119,5 +128,24 @@ public struct ImageAttachmentStore: Sendable, Hashable {
         let root = directory.resolvingSymlinksInPath().standardizedFileURL.path
         let candidate = fileURL.resolvingSymlinksInPath().standardizedFileURL.path
         return candidate.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+    }
+
+    private func validatedImage(at fileURL: URL) throws -> (data: Data, format: ChatImageFormat) {
+        let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard values.isRegularFile == true else {
+            throw ImageAttachmentStoreError.notARegularFile
+        }
+        if let fileSize = values.fileSize, fileSize > ChatAttachment.maximumByteCount {
+            throw ImageAttachmentStoreError.fileTooLarge(maximumBytes: ChatAttachment.maximumByteCount)
+        }
+
+        let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+        guard data.count <= ChatAttachment.maximumByteCount else {
+            throw ImageAttachmentStoreError.fileTooLarge(maximumBytes: ChatAttachment.maximumByteCount)
+        }
+        guard let format = ChatImageFormat.detect(in: data) else {
+            throw ImageAttachmentStoreError.unsupportedImage
+        }
+        return (data, format)
     }
 }

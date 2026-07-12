@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeSafety
 import QuillCodeTools
 import QuillComputerUseKit
@@ -14,6 +15,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let browser: BrowserState
     private let browserToolOverride: AgentToolExecutionOverride?
     private let computerUseBackend: (any ComputerUseBackend)?
+    private let imageAttachmentStore: ImageAttachmentStore?
     private let globalMemoryDirectory: URL?
     private let mcpToolDefinitions: [ToolDefinition]
     private let mcpToolExecutionOverride: AgentToolExecutionOverride?
@@ -30,6 +32,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         browser: BrowserState,
         browserToolOverride: AgentToolExecutionOverride?,
         computerUseBackend: (any ComputerUseBackend)?,
+        imageAttachmentStore: ImageAttachmentStore? = nil,
         globalMemoryDirectory: URL?,
         mcpToolDefinitions: [ToolDefinition],
         mcpToolExecutionOverride: AgentToolExecutionOverride?,
@@ -45,6 +48,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.browser = browser
         self.browserToolOverride = browserToolOverride
         self.computerUseBackend = computerUseBackend
+        self.imageAttachmentStore = imageAttachmentStore
         self.globalMemoryDirectory = globalMemoryDirectory
         self.mcpToolDefinitions = mcpToolDefinitions
         self.mcpToolExecutionOverride = mcpToolExecutionOverride
@@ -64,7 +68,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             // Pin this run to the THREAD's selected model so a `/model` switch (popup, typed, or
             // top-bar picker) takes effect on the next turn without a Settings save/re-sign-in, and
             // so each thread runs on its own model.
-            runner: configuredRunner(modelID: thread.model),
+            runner: configuredRunner(modelID: thread.model, threadID: thread.id),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
             runHooks: selectedProject?.runHooks ?? [],
@@ -76,7 +80,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     /// Builds the per-send runner, retargeting its LLM client at `modelID` (the thread's model).
     /// Internal (not private) so tests can assert the run path actually points at the selected
     /// model — the run-path is the load-bearing part of `/model`, not the persisted field alone.
-    func configuredRunner(modelID: String?) -> AgentRunner {
+    func configuredRunner(modelID: String?, threadID: UUID? = nil) -> AgentRunner {
         var runner = WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
             config: config,
@@ -85,6 +89,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             browser: browser,
             browserToolOverride: browserToolOverride,
             computerUseBackend: computerUseBackend,
+            imageAttachmentStore: imageAttachmentStore,
+            threadID: threadID,
             globalMemoryDirectory: globalMemoryDirectory,
             mcpToolDefinitions: mcpToolDefinitions,
             mcpToolExecutionOverride: mcpToolExecutionOverride,

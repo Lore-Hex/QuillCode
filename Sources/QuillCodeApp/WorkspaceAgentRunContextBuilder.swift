@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeSafety
 import QuillCodeTools
 import QuillComputerUseKit
@@ -13,6 +14,8 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     var browser: BrowserState
     var browserToolOverride: AgentToolExecutionOverride? = nil
     var computerUseBackend: (any ComputerUseBackend)?
+    var imageAttachmentStore: ImageAttachmentStore? = nil
+    var threadID: UUID? = nil
     var globalMemoryDirectory: URL?
     var mcpToolDefinitions: [ToolDefinition]
     var mcpToolExecutionOverride: AgentToolExecutionOverride?
@@ -32,6 +35,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         activeRunner.baseToolDefinitions = baseToolDefinitions
         activeRunner.additionalToolDefinitions = additionalToolDefinitions
         activeRunner.toolExecutionOverride = toolExecutionOverride
+        if let computerUseToolFeedbackAttachmentProvider {
+            activeRunner.toolFeedbackAttachmentProvider = computerUseToolFeedbackAttachmentProvider
+        }
         activeRunner.runSpendFusePolicy = RunSpendFusePolicy(
             fuseUSD: config.runSpendFuseUSD,
             periodLimits: config.runSpendPeriodLimits,
@@ -131,10 +137,36 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
             appApprovalPolicy: ComputerUseAppApprovalPolicy(
                 approvedBundleIdentifiers: config.computerUseApprovedBundleIdentifiers,
                 approvedAppNames: config.computerUseApprovedAppNames
-            )
+            ),
+            artifactDirectory: computerUseArtifactDirectory
         )
         return { call, _ in
             await executor.execute(call)
+        }
+    }
+
+    private var computerUseArtifactDirectory: URL {
+        guard let imageAttachmentStore, let threadID else {
+            return ComputerUseToolExecutor.defaultArtifactDirectory
+        }
+        return imageAttachmentStore.directory
+            .appendingPathComponent(threadID.uuidString, isDirectory: true)
+            .appendingPathComponent("computer-use", isDirectory: true)
+    }
+
+    private var computerUseToolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider? {
+        guard computerUseBackend != nil,
+              threadID != nil,
+              let imageAttachmentStore
+        else { return nil }
+        return { call, result in
+            guard call.name == ToolDefinition.computerScreenshot.name, result.ok else { return [] }
+            return Array(result.artifacts.lazy.compactMap { path in
+                try? imageAttachmentStore.attachmentForManagedImage(
+                    at: URL(fileURLWithPath: path),
+                    displayName: "Computer Use screenshot.png"
+                )
+            }.prefix(1))
         }
     }
 

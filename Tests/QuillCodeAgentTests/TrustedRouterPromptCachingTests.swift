@@ -126,6 +126,27 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
         XCTAssertEqual(sent[2]["content"] as? String, "{\"type\":\"tool\",\"name\":\"host.shell.run\"}")
     }
 
+    func testMultimodalScreenshotKeepsBreakpointOnPlainUserRequest() throws {
+        let screenshotContent: [[String: Any]] = [
+            ["type": "text", "text": "Tool output: screenshot captured"],
+            ["type": "image_url", "image_url": ["url": "data:image/png;base64,AAAA"]]
+        ]
+        let messages = [
+            message("system", "base system prompt"),
+            message("user", "inspect the screen"),
+            message("user", screenshotContent)
+        ]
+
+        let sent = try bodyMessages(serializedBody(model: anthropicModel, messages: messages))
+
+        XCTAssertEqual(breakpointIndexes(in: sent), [1])
+        try assertEphemeralTextBreakpoint(sent[1], originalText: "inspect the screen")
+        let preserved = try XCTUnwrap(sent[2]["content"] as? [[String: Any]])
+        XCTAssertEqual(preserved.count, 2)
+        XCTAssertNil(preserved[0]["cache_control"])
+        XCTAssertEqual(preserved[1]["type"] as? String, "image_url")
+    }
+
     /// The TrustedRouter gateway `str()`-concatenates system message content into Anthropic's
     /// top-level `system` string, so array-shaped system content would be corrupted into a
     /// Python repr. System messages must therefore never be annotated — under any layout.

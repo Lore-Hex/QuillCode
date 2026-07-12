@@ -2,6 +2,10 @@ import Foundation
 import QuillCodeCore
 
 public struct ComputerUseToolExecutor: Sendable {
+    public static let defaultArtifactDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("QuillCode", isDirectory: true)
+        .appendingPathComponent("screenshots", isDirectory: true)
+
     private let backend: any ComputerUseBackend
     private let artifactDirectory: URL
     private let appApprovalPolicy: ComputerUseAppApprovalPolicy
@@ -9,9 +13,7 @@ public struct ComputerUseToolExecutor: Sendable {
     public init(
         backend: any ComputerUseBackend,
         appApprovalPolicy: ComputerUseAppApprovalPolicy = .unrestricted,
-        artifactDirectory: URL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("QuillCode", isDirectory: true)
-            .appendingPathComponent("screenshots", isDirectory: true)
+        artifactDirectory: URL = Self.defaultArtifactDirectory
     ) {
         self.backend = backend
         self.appApprovalPolicy = appApprovalPolicy
@@ -264,6 +266,7 @@ public struct ComputerUseToolExecutor: Sendable {
             .appendingPathComponent("screenshot-\(UUID().uuidString)", isDirectory: false)
             .appendingPathExtension("png")
         try data.write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         return url.path
     }
 }

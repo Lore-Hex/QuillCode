@@ -88,3 +88,7 @@ public struct AgentToolFeedback: Codable, Sendable, Hashable {
 
 public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
 public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) async -> ToolResult?
+public typealias AgentToolFeedbackAttachmentProvider = @Sendable (
+    ToolCall,
+    ToolResult
+) -> [ChatAttachment]

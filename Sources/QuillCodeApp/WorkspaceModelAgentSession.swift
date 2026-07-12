@@ -66,6 +66,7 @@ extension QuillCodeWorkspaceModel {
                 return await self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
             },
             computerUseBackend: computerUseBackend,
+            imageAttachmentStore: imageAttachmentStore,
             globalMemoryDirectory: globalMemoryDirectory,
             mcpToolDefinitions: mcpRuntime.toolDefinitions(
                 manifests: selectedProject?.extensionManifests ?? [],
