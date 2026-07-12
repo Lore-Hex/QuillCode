@@ -172,30 +172,6 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
         XCTAssertNil(completed.mouseInputLabel)
     }
 
-    func testTerminalMouseCoordinateMapperUsesOneBasedClampedCells() {
-        let size = CGSize(width: TerminalCellMetrics.width * 10, height: TerminalCellMetrics.height * 4)
-
-        XCTAssertEqual(
-            TerminalMouseCoordinateMapper.position(at: .zero, in: size),
-            TerminalMousePosition(column: 1, row: 1)
-        )
-        XCTAssertEqual(
-            TerminalMouseCoordinateMapper.position(
-                at: CGPoint(x: TerminalCellMetrics.width, y: TerminalCellMetrics.height),
-                in: size
-            ),
-            TerminalMousePosition(column: 2, row: 2)
-        )
-        XCTAssertEqual(
-            TerminalMouseCoordinateMapper.position(at: CGPoint(x: 10_000, y: 10_000), in: size),
-            TerminalMousePosition(column: 10, row: 4)
-        )
-        XCTAssertEqual(
-            TerminalMouseCoordinateMapper.position(at: CGPoint(x: -10, y: -10), in: size),
-            TerminalMousePosition(column: 1, row: 1)
-        )
-    }
-
     func testTerminalCommandSurfaceUsesInjectedAmbiguousWidthPolicyForLocaleFrames() {
         let raw = "ΩX\u{1B}[1;3HY"
         let entry = TerminalCommandState(

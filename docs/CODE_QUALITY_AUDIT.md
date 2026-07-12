@@ -15720,3 +15720,27 @@ Validation:
 - `swift test --filter 'TerminalMouseInputTests|QuillCodeTerminalSurfaceTests|WorkspaceTerminalEngineTests|WorkspaceTerminalIntegrationTests|WorkspaceHTMLTerminalRendererTests'` (58 tests, 0 failures)
 - `npm test -- terminal.spec.ts` (3 tests, 0 failures)
 - `git diff --check`
+
+## 2026-07-11 Terminal Wheel And Platform Adapter Slice
+
+Overall grade after this slice: **A+ platform boundary, A+ terminal input parity**.
+Terminal pointer capture now lives behind a focused platform adapter, and mouse/trackpad wheel input reaches
+the active PTY through the same negotiated protocol path as clicks and drags.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | `QuillCodePlatformUI` owns AppKit input while app presentation and protocol encoding remain platform-neutral. |
+| Input fidelity | A+ | Left, middle, right, drag, any-motion hover, modifiers, vertical wheel, and horizontal wheel share one request model. |
+| Performance | A+ | Precise trackpad deltas are accumulated and each update is capped at eight protocol events; invalid and extreme inputs cannot allocate unbounded arrays. |
+| Lifecycle safety | A+ | Disabled or stale reporting modes cannot emit input, and reporting changes reset motion and wheel state. |
+| Cross-surface parity | A+ | Native AppKit, static HTML, and Playwright use the same one-based cell and SGR protocol contract. |
+| Tests | A+ | Pure quantizer tests, native adapter tests, exact real-PTY bytes, and wheel-driven Playwright coverage prove the complete path. |
+
+Validation:
+
+- `swift test --filter 'TerminalMouseInputTests|TerminalMouseCoordinateMapperTests|TerminalPointerCaptureNSViewTests|WorkspaceTerminalIntegrationTests|QuillCodeTerminalSurfaceTests'`
+- `npm test -- terminal.spec.ts`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

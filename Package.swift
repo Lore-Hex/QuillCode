@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "QuillCodeTools", targets: ["QuillCodeTools"]),
         .library(name: "QuillCodePersistence", targets: ["QuillCodePersistence"]),
         .library(name: "QuillComputerUseKit", targets: ["QuillComputerUseKit"]),
+        .library(name: "QuillCodePlatformUI", targets: ["QuillCodePlatformUI"]),
         .library(name: "QuillCodeAgent", targets: ["QuillCodeAgent"]),
         .library(name: "QuillCodeApp", targets: ["QuillCodeApp"]),
         .executable(name: "quill-code", targets: ["quill-code"]),
@@ -32,6 +33,7 @@ let package = Package(
         .target(name: "QuillCodeTools", dependencies: ["QuillCodeCore", "CQuillPTY"]),
         .target(name: "QuillCodePersistence", dependencies: ["QuillCodeCore", "QuillCodeSafety"]),
         .target(name: "QuillComputerUseKit", dependencies: ["QuillCodeCore"]),
+        .target(name: "QuillCodePlatformUI", dependencies: ["QuillCodeTools"]),
         .target(
             name: "QuillCodeAgent",
             dependencies: [
@@ -51,7 +53,8 @@ let package = Package(
                 "QuillCodeTools",
                 "QuillCodePersistence",
                 "QuillCodeSafety",
-                "QuillComputerUseKit"
+                "QuillComputerUseKit",
+                "QuillCodePlatformUI"
             ]
         ),
         .executableTarget(
@@ -83,6 +86,7 @@ let package = Package(
         .testTarget(name: "QuillCodeToolsTests", dependencies: ["QuillCodeTools"]),
         .testTarget(name: "QuillCodePersistenceTests", dependencies: ["QuillCodePersistence", "QuillCodeSafety"]),
         .testTarget(name: "QuillComputerUseKitTests", dependencies: ["QuillComputerUseKit"]),
+        .testTarget(name: "QuillCodePlatformUITests", dependencies: ["QuillCodePlatformUI"]),
         .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools", "QuillCodeSafety"]),
         .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),
         .testTarget(
