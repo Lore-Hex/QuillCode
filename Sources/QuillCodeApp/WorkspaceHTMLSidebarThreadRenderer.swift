@@ -158,10 +158,11 @@ enum WorkspaceHTMLSidebarThreadRenderer {
               classes: ["sidebar-item", item.isSelected ? "selected" : ""],
               attributes: [
                   ("data-thread-id", item.id.uuidString),
-                  ("aria-current", item.isSelected ? "true" : "false")
+                  ("aria-current", item.isSelected ? "true" : "false"),
+                  ("data-run-status", item.runStatusLabel ?? "")
               ]
           ))>
-            <span>\(escape(item.title))</span>
+            <span class="sidebar-title-line"><span>\(escape(item.title))</span>\(renderRunStatus(item.runStatusLabel))</span>
             <small>\(escape(item.subtitle))</small>
             \(renderWorktreeChip(item.worktree))
           </button>
@@ -169,6 +170,13 @@ enum WorkspaceHTMLSidebarThreadRenderer {
             \(item.actions.map(renderAction).joined(separator: "\n"))
           </span>
         </div>
+        """
+    }
+
+    private static func renderRunStatus(_ status: String?) -> String {
+        guard let status else { return "" }
+        return """
+        <span class="sidebar-run-status" data-testid="sidebar-run-status" title="\(escape(status))" aria-label="\(escape(status))"><span aria-hidden="true">●</span></span>
         """
     }
 

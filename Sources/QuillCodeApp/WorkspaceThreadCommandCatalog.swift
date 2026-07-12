@@ -8,6 +8,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadCanRevertLatestTurn: Bool
     var selectedThreadCanPin: Bool
     var selectedThreadCanUnpin: Bool
+    var selectedThreadIsRunning: Bool = false
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -15,6 +16,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var hasUnpinnedUnarchivedSidebarSelection: Bool
     var hasUnarchivedSidebarSelection: Bool
     var hasArchivedSidebarSelection: Bool
+    var hasRunningSidebarSelection: Bool = false
 
     var selectedThreadCanArchive: Bool {
         hasSelectedThread && !selectedThreadIsArchived
@@ -56,7 +58,7 @@ enum WorkspaceThreadCommandCatalog {
                 title: "Duplicate chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "copy"],
-                isEnabled: availability.hasSelectedThread
+                isEnabled: availability.hasSelectedThread && !availability.selectedThreadIsRunning
             ),
             WorkspaceCommandSurface(
                 id: "thread-pin",
@@ -105,7 +107,7 @@ enum WorkspaceThreadCommandCatalog {
                 title: "Delete chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "remove"],
-                isEnabled: availability.hasSelectedThread
+                isEnabled: availability.hasSelectedThread && !availability.selectedThreadIsRunning
             ),
             WorkspaceCommandSurface(
                 id: SidebarBulkActionSurface.commandID(for: .select),
@@ -161,7 +163,7 @@ enum WorkspaceThreadCommandCatalog {
                 title: "Delete selected chats",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "bulk", "delete"],
-                isEnabled: availability.hasSidebarSelection
+                isEnabled: availability.hasSidebarSelection && !availability.hasRunningSidebarSelection
             ),
             WorkspaceThreadForkStrategy.latestTurn.command(isEnabled: availability.selectedThreadHasMessages),
             WorkspaceThreadForkStrategy.summarizedContext.command(isEnabled: availability.selectedThreadHasMessages),

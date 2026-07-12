@@ -119,6 +119,7 @@ public extension QuillCodeWorkspaceModel {
             sidebarSavedSearches: sidebarSavedSearches,
             selectionIsActive: sidebarSelection.isActive,
             selectedThreadIDs: sidebarSelectedThreadIDs,
+            agentRuns: agentRuns,
             attentionCursorID: attentionCursorID
         ).surface()
         let topBar = WorkspaceTopBarSurfaceBuilder(
@@ -260,7 +261,7 @@ public extension QuillCodeWorkspaceModel {
             sidebarSavedSearches: sidebarSavedSearches,
             hasActiveWorkspaceRoot: activeWorkspaceRoot != nil,
             canRetryLastUserTurn: canRetryLastUserTurn,
-            composerIsSending: composer.isSending,
+            composerIsSending: activeAgentRunCount > 0,
             terminalHasEntries: !terminal.entries.isEmpty,
             terminalIsRunning: terminal.isRunning,
             browserCanGoBack: browser.canGoBack,
@@ -271,7 +272,9 @@ public extension QuillCodeWorkspaceModel {
             canNavigateForward: navigationHistory.canGoForward,
             mcpServerStatuses: extensions.mcpServerStatuses,
             mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
-            computerUseStatus: root.topBar.computerUseStatus
+            computerUseStatus: root.topBar.computerUseStatus,
+            selectedThreadIsRunning: isAgentRunActive(for: root.selectedThreadID),
+            runningThreadIDs: activeAgentRunThreadIDs
         )
     }
 

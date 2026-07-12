@@ -18,6 +18,7 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         refresh: @escaping @MainActor () -> Void
     ) {
         let workspaceRoot = activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
+        let actionThreadID = model.selectedThread?.id
         guard action.kind.decidesGate else {
             // `edit` only seeds a composer draft (it leaves the gate undecided) — immediate, local,
             // and unaffected by any in-flight send.
@@ -29,13 +30,12 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
             // DENY / skip is a REFUSAL — you must always be able to refuse a held tool, so record the
             // decision UNCONDITIONALLY (it runs no held tool and no resume, so it needs no `.send`
             // slot and is never dropped by an in-flight send). Then drain any queued follow-ups
-            // through the `.send` slot; the drain self-gates via `canDrainAfter`. If the slot is busy
-            // running ANOTHER thread, this drain is skipped — the decided thread's queue is then
-            // recovered by `recoverFollowUpQueueIfIdle` when that thread is next selected or when the
-            // slot frees (both wired in the controller), so a cross-thread deny never strands it.
+            // through that chat's `.send` slot; the drain self-gates via `canDrainAfter`. If that chat
+            // is already running, recovery retries the drain when its slot becomes idle, so a denial
+            // never strands queued follow-ups and another chat's run never blocks it.
             _ = model.runToolCardAction(action, workspaceRoot: workspaceRoot)
             let decidedThreadID = model.selectedThread?.id
-            tasks.startIfIdle(.send) { [weak model] in
+            tasks.startIfIdle(.send(actionThreadID)) { [weak model] in
                 await model?.drainFollowUpQueueAfterGateDecision(
                     threadID: decidedThreadID,
                     workspaceRoot: workspaceRoot
@@ -48,12 +48,14 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         }
 
         // APPROVE runs the held tool AND resumes the plan — route the WHOLE thing through the same
-        // `.send` slot a composer send uses (gated up front, mirroring the composer), so the held
-        // tool + resume + follow-up drain are atomic, Stop cancels them, and they never interleave
-        // with another send. `approveToolCardAndResume` is the single async choke point the tests
-        // drive: it resolves the gate and then drains any queued follow-ups.
-        guard !tasks.isRunning(.send) else { return }
-        tasks.startIfIdle(.send) { [weak model] in
+        // chat-specific `.send` slot a composer send uses, so the held tool + resume + follow-up
+        // drain are atomic for that chat and Stop cancels them. Other chats remain independent.
+        // `approveToolCardAndResume` is the single async choke point the tests drive: it resolves
+        // the gate and then drains any queued follow-ups.
+        guard !tasks.isSendRunning(threadID: actionThreadID),
+              !model.isAgentRunActive(for: actionThreadID)
+        else { return }
+        tasks.startIfIdle(.send(actionThreadID)) { [weak model] in
             _ = await model?.approveToolCardAndResume(action, workspaceRoot: workspaceRoot)
         } onFinish: {
             refresh()

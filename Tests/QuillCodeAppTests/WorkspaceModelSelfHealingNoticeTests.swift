@@ -12,7 +12,10 @@ final class WorkspaceModelSelfHealingNoticeTests: XCTestCase {
 
         // Simulate the retry decorator having self-healed a rate limit during the run.
         let channel = RetryEventChannel()
-        channel.record(attempt: 1, kind: .rateLimited)
+        let threadID = try XCTUnwrap(model.selectedThread?.id)
+        AgentRunRetryScope.$threadID.withValue(threadID) {
+            channel.record(attempt: 1, kind: .rateLimited)
+        }
         model.retryEventChannel = channel
 
         model.setDraft("run whoami")
@@ -27,25 +30,44 @@ final class WorkspaceModelSelfHealingNoticeTests: XCTestCase {
     }
 
     @MainActor
-    func testSelfHealNotMisattributedToADifferentThread() async throws {
-        // A run's self-heal must land on the RUN's thread, not whatever thread is selected now. Draining
-        // with a threadID that is not the selected thread must NOT append (and must clear the channel so
-        // the event never bleeds onto a later run).
+    func testBackgroundSelfHealIsAttributedToItsRunThread() async throws {
+        // A run's self-heal must land on the RUN's thread, not whatever thread is selected now.
         let root = try makeQuillCodeTestDirectory()
         let model = QuillCodeWorkspaceModel()
         _ = model.addProject(path: root, name: "Demo")
-        _ = model.newChat()
+        let runThreadID = model.newChat()
+        let foregroundThreadID = model.newChat()
 
         let channel = RetryEventChannel()
-        channel.record(attempt: 1, kind: .transport)
+        AgentRunRetryScope.$threadID.withValue(runThreadID) {
+            channel.record(attempt: 1, kind: .transport)
+        }
         model.retryEventChannel = channel
 
-        // Drain as if the finished run had targeted some OTHER (no-longer-selected) thread.
-        model.drainSelfHealingNotices(expectedThreadID: UUID())
+        model.drainSelfHealingNotices(expectedThreadID: runThreadID)
 
-        let notices = (model.selectedThread?.events ?? []).filter { $0.kind == .notice }
-        XCTAssertFalse(notices.contains { $0.summary.contains("Self-healing") }, "must not append to the wrong thread")
-        XCTAssertTrue(channel.drain().isEmpty, "the channel is still cleared, so the event never bleeds into a later run")
+        let runThread = try XCTUnwrap(model.root.threads.first { $0.id == runThreadID })
+        let foregroundThread = try XCTUnwrap(model.root.threads.first { $0.id == foregroundThreadID })
+        XCTAssertTrue(runThread.events.contains { $0.summary.contains("Self-healing") })
+        XCTAssertFalse(foregroundThread.events.contains { $0.summary.contains("Self-healing") })
+        XCTAssertTrue(channel.drain().isEmpty)
+    }
+
+    @MainActor
+    func testConcurrentRunRetryBucketsDrainIndependently() throws {
+        let first = UUID()
+        let second = UUID()
+        let channel = RetryEventChannel()
+        AgentRunRetryScope.$threadID.withValue(first) {
+            channel.record(attempt: 1, kind: .rateLimited)
+        }
+        AgentRunRetryScope.$threadID.withValue(second) {
+            channel.record(attempt: 2, kind: .transport)
+        }
+
+        XCTAssertEqual(channel.drain(threadID: second).map(\.kind), [.transport])
+        XCTAssertEqual(channel.drain(threadID: first).map(\.kind), [.rateLimited])
+        XCTAssertTrue(channel.drain().isEmpty)
     }
 
     @MainActor

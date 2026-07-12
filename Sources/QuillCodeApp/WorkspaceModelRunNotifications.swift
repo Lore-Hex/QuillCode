@@ -7,39 +7,44 @@ import QuillCodeTools
 extension QuillCodeWorkspaceModel {
     /// After a run ends, scan its transcript and stamp the run-integrity verdict
     /// (VERIFIED / UNVERIFIED / RED) onto the run's thread as a persisted notice, so the Activity badge
-    /// and the finish notification both read a stable verdict that survives reloads. Only stamps the
-    /// still-selected run thread (a mid-run thread switch drops the stamp — it is a per-run annotation),
-    /// and never stamps a user-cancelled run (they were watching).
+    /// and the finish notification both read a stable verdict that survives reloads. The thread ID is
+    /// explicit so a background completion cannot stamp whichever chat happens to be visible.
     func recordRunIntegrityIfNeeded(outcome: WorkspaceAgentSendTaskOutcome, expectedThreadID: UUID) {
         switch outcome {
         case .completed, .failed: break
         case .cancelled: return
         }
-        guard let thread = selectedThread, thread.id == expectedThreadID else { return }
-        mutateSelectedThread { thread in
+        guard root.threads.contains(where: { $0.id == expectedThreadID }) else { return }
+        mutateThread(expectedThreadID) { thread in
             RunIntegrityRecord.record(into: &thread)
         }
-        if let thread = selectedThread {
+        if let thread = root.threads.first(where: { $0.id == expectedThreadID }) {
             threadPersistence.save(thread)
         }
     }
 
     /// After a run ends, ping the user if they were away and it needs them: finished,
     /// errored, or blocked on an approval gate. A user-cancelled run is skipped.
-    func notifyRunFinishedIfNeeded(outcome: WorkspaceAgentSendTaskOutcome) {
+    func notifyRunFinishedIfNeeded(outcome: WorkspaceAgentSendTaskOutcome, threadID: UUID) {
         let didFail: Bool
         switch outcome {
         case .completed: didFail = false
         case .failed: didFail = true
         case .cancelled: return
         }
-        guard let handler = onRunNotification, let thread = selectedThread else { return }
-        let localActions = selectedProject?.localActions ?? []
+        guard let handler = onRunNotification,
+              let thread = root.threads.first(where: { $0.id == threadID })
+        else { return }
+        let runProject = thread.projectID.flatMap { projectID in
+            root.projects.first { $0.id == projectID }
+        }
+        let localActions = runProject?.localActions ?? []
 
         if let plan = verificationNotificationPlan(
             thread: thread,
             didFail: didFail,
-            localActions: localActions
+            localActions: localActions,
+            workspaceRoot: workspaceRoot(forThreadID: threadID)
         ) {
             Task { [weak self, handler] in
                 await self?.runVerificationAndNotify(
@@ -64,12 +69,13 @@ extension QuillCodeWorkspaceModel {
     private func verificationNotificationPlan(
         thread: ChatThread,
         didFail: Bool,
-        localActions: [LocalEnvironmentAction]
+        localActions: [LocalEnvironmentAction],
+        workspaceRoot: URL?
     ) -> (action: LocalEnvironmentAction, workspaceRoot: URL)? {
         guard !didFail,
               WorkspaceTurnRevertPlanner.threadMadeEdits(thread),
               let action = LocalEnvironmentActionMatcher.verificationAction(in: localActions),
-              let workspaceRoot = activeWorkspaceRoot else {
+              let workspaceRoot else {
             return nil
         }
         return (action, workspaceRoot)

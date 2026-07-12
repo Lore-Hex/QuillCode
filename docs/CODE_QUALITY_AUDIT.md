@@ -15790,3 +15790,26 @@ Validation:
 - `npm test -- --grep terminal`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-12 Concurrent Chat Run Ownership Slice
+
+Overall grade after this slice: **A+ runtime ownership, A+ desktop task coordination**.
+Chats can now run independently in the background without sharing cancellation, progress, or workspace context.
+
+Strict grades:
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | `WorkspaceAgentRunRegistry` owns session-only per-chat status, while task ownership stays in chat-keyed desktop send slots. |
+| Context safety | A+ | Every run carries its chat ID and project/worktree root through send, retry, progress, approval, persistence, and completion. |
+| Cancellation | A+ | Stop cancels the selected chat; Stop All enumerates and cancels every send slot, then closes queued/running tool state consistently. |
+| UX parity | A+ | Background chats keep compact sidebar progress, the selected composer reflects only its own run, and the top bar summarizes remaining background work. |
+| Maintainability | A+ | Composer preparation is a focused extension, and desktop window-report/concurrency tests are split into focused suites; all changed production files and the desktop test module grade A+. |
+| Tests | A+ | Concurrent execution, thread switching, first-send ownership, independent denial drains, lifecycle guards, Stop All, sidebar state, and browser parity are covered. |
+
+Validation:
+
+- `swift test`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

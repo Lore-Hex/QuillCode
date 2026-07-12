@@ -32,6 +32,7 @@ struct QuillCodeDesktopActiveWorkCoordinator {
     }
 
     private func cancelInteractiveTasks(_ tasks: QuillCodeDesktopTaskCoordinator) {
-        tasks.cancel([.send, .terminal, .browserPreview])
+        tasks.cancelAllSends()
+        tasks.cancel([.terminal, .browserPreview])
     }
 }

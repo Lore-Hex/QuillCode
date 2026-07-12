@@ -152,8 +152,8 @@ final class QuillCodeDesktopController: ObservableObject {
     /// first (a notification may target a thread the user is not currently viewing), then routes through
     /// the SAME coordinator `runToolCardAction` path as the in-app tool card. Going through the one
     /// path (rather than a bare `Task` calling `decidePendingApproval`) means the notification decision
-    /// serializes on the `.send` slot exactly like the in-app decision — the two can't interleave their
-    /// resume/drain — while a Skip still records unconditionally (the coordinator never drops a refusal).
+    /// serializes on that chat's `.send` slot exactly like the in-app decision, so two decisions for
+    /// the same chat cannot interleave their resume/drain. A Skip still records unconditionally.
     func decideNotificationApproval(requestID: String, approve: Bool, threadID: UUID?) {
         if let threadID, model.selectedThread?.id != threadID {
             selectThread(threadID)
@@ -184,7 +184,7 @@ final class QuillCodeDesktopController: ObservableObject {
             draft: &draft,
             terminalDraft: &terminalDraft,
             browserAddressDraft: &browserAddressDraft,
-            isComposerTaskRunning: tasks.isRunning(.send)
+            isComposerTaskRunning: tasks.isSendRunning(threadID: model.selectedThread?.id)
         )
     }
 }

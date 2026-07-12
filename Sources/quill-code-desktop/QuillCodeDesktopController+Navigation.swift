@@ -19,23 +19,16 @@ extension QuillCodeDesktopController {
         // Force-sync the restored draft even mid-send (the busy gate would otherwise
         // keep the old thread's text visible under the newly selected thread).
         modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
-        // Recover a follow-up queue that was stranded because its thread was decided/finished while
-        // the single `.send` slot was busy on another thread (a cross-thread deny). Selecting the
-        // thread makes it the active context, so drain it now if idle (self-gated: a no-op while a
-        // run is in flight or an approval is still undecided on it).
+        // Recover a persisted follow-up queue after relaunch or a previously unresolved gate.
         recoverFollowUpDrain(for: id)
         refresh()
     }
 
-    /// Drains a thread's stranded follow-up queue through the `.send` slot when it becomes idle/active
-    /// again (thread select, or a send/approval freeing the slot). `recoverFollowUpQueueIfIdle`
-    /// self-gates, so this is a safe no-op when there is nothing to recover. `threadID` is the
-    /// selected thread here, so the cheap `followUpQueue.isEmpty` pre-check avoids churning the
-    /// `.send` slot on the common case of selecting a thread with nothing queued.
+    /// Drains one thread's persisted follow-up queue through that thread's own run slot.
     func recoverFollowUpDrain(for threadID: UUID?) {
         guard threadID != nil, threadID == model.selectedThread?.id, !model.followUpQueue.isEmpty else { return }
         let root = model.activeWorkspaceRoot ?? workspaceRoot
-        tasks.startIfIdle(.send) { [weak self] in
+        tasks.startIfIdle(.send(threadID)) { [weak self] in
             await self?.model.recoverFollowUpQueueIfIdle(threadID: threadID, workspaceRoot: root)
         } onFinish: { [weak self] in
             self?.refresh()

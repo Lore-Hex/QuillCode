@@ -145,7 +145,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let prepareBody = String(composerText[prepareStart.lowerBound..<prepareEnd.lowerBound])
 
         XCTAssertTrue(
-            submitBody.contains("prepareAgentSendThread()"),
+            submitBody.contains("prepareAgentSendThread(threadID:"),
             "submitComposer should delegate thread creation and context sync to a named preparation boundary."
         )
         XCTAssertTrue(
@@ -249,11 +249,11 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "submitComposer should delegate typed send outcome handling."
         )
         XCTAssertTrue(
-            composerText.contains("try finishCompletedSend(result)"),
+            composerText.contains("try finishCompletedSend(result, runThreadID: runThreadID)"),
             "The terminal helper should delegate successful send completion."
         )
         XCTAssertTrue(
-            composerText.contains("finishFailedSend(error)"),
+            composerText.contains("finishFailedSend(error, runThreadID: runThreadID)"),
             "The terminal helper should delegate failed send completion."
         )
         XCTAssertFalse(

@@ -3,7 +3,7 @@ import XCTest
 final class ParityWorkspaceModelActivityGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesRetryPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let composerPreparationText = try Self.appSourceText(named: "WorkspaceModelComposerPreparation.swift")
         let retryPlannerText = try Self.appSourceText(named: "WorkspaceRetryPlanner.swift")
         let retryPlannerTests = try Self.appTestSourceText(named: "WorkspaceRetryPlannerTests.swift")
 
@@ -15,12 +15,12 @@ final class ParityWorkspaceModelActivityGateTests: QuillCodeParityTestCase {
         assertContains(retryPlannerText, "static func canRetryLastUserTurn", "Retry availability should be testable.")
         assertContains(retryPlannerText, "static func retryDraft", "Retry draft selection should be testable.")
         assertContains(
-            composerText,
+            composerPreparationText,
             "WorkspaceRetryPlanner.canRetryLastUserTurn",
             "Composer should delegate retry availability."
         )
         assertContains(
-            composerText,
+            composerPreparationText,
             "WorkspaceRetryPlanner.retryMessage",
             "Composer should delegate multimodal retry message selection."
         )

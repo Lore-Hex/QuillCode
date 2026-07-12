@@ -19,6 +19,10 @@ public final class QuillCodeTaskCoordinator<Slot: Hashable & Sendable> {
         tasks[slot] != nil
     }
 
+    public var runningSlots: Set<Slot> {
+        Set(tasks.keys)
+    }
+
     @discardableResult
     public func startIfIdle(
         _ slot: Slot,

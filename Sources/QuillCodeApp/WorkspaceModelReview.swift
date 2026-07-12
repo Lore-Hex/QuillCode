@@ -171,17 +171,11 @@ public extension QuillCodeWorkspaceModel {
         await drainFollowUpQueueForThread(threadID, workspaceRoot: workspaceRoot)
     }
 
-    /// Recovers a thread's follow-up queue that could not drain when it was first decided/finished
-    /// because the single global `.send` slot was busy running ANOTHER thread. There is only one
-    /// `.send` slot, so a deny on thread A while a run holds the slot for thread B skips A's drain,
-    /// and B's own completion drains only B's queue — leaving A's queue stranded as visible chips.
-    /// The desktop calls this for the now-idle thread when a thread becomes the active context
-    /// (select) and when the `.send` slot frees (a send/approval finishes), so A's queue drains as
-    /// soon as A is in front or the slot is free again — without needing two threads to run at once.
-    /// `canDrainAfter`-gated, so it never drains past an open gate, never drains a running thread,
-    /// and drains each item exactly once.
+    /// Recovers a thread's persisted follow-up queue after relaunch or a previously unresolved gate.
+    /// Per-thread run ownership means another chat can no longer block this recovery; only work that
+    /// already owns this same thread suppresses the drain.
     func recoverFollowUpQueueIfIdle(threadID: UUID?, workspaceRoot: URL) async {
-        guard !composer.isSending else { return }
+        guard !agentRuns.isRunning(threadID) else { return }
         await drainFollowUpQueueForThread(threadID, workspaceRoot: workspaceRoot)
     }
 

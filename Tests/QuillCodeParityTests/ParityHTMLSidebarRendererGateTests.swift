@@ -49,7 +49,10 @@ final class ParityHTMLSidebarRendererGateTests: QuillCodeParityTestCase {
             "WorkspaceHTMLPrimitives.escape",
             "renderWorktreeChip",
             "sidebar-worktree-branch",
-            "sidebar-worktree-warning"
+            "sidebar-worktree-warning",
+            "renderRunStatus",
+            "sidebar-run-status",
+            "data-run-status"
         ].forEach { Self.assertSource(source, contains: $0) }
     }
 
@@ -58,7 +61,7 @@ final class ParityHTMLSidebarRendererGateTests: QuillCodeParityTestCase {
         // so a change to one surface that isn't mirrored in the other fails here.
         let threadText = try Self.appSourceText(named: "WorkspaceHTMLSidebarThreadRenderer.swift")
         let harness = try harnessText()
-        for token in ["sidebar-worktree-branch", "sidebar-worktree-warning"] {
+        for token in ["sidebar-worktree-branch", "sidebar-worktree-warning", "sidebar-run-status", "data-run-status"] {
             Self.assertSource(threadText, contains: token)
             Self.assertSource(harness, contains: token)
         }

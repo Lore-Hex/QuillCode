@@ -14,14 +14,25 @@ extension QuillCodeWorkspaceModel {
     }
 
     public var activeWorkspaceRoot: URL? {
-        guard let selectedProject, !selectedProject.isRemote else { return nil }
+        workspaceRoot(forThreadID: root.selectedThreadID)
+    }
+
+    /// Resolves the local execution root for one chat without consulting current UI selection.
+    /// Background runs use this to remain pinned to their project/worktree while another chat is open.
+    public func workspaceRoot(forThreadID threadID: UUID?) -> URL? {
+        let thread = threadID.flatMap { id in root.threads.first { $0.id == id } }
+        let projectID = thread?.projectID ?? (threadID == root.selectedThreadID ? root.selectedProjectID : nil)
+        guard let projectID,
+              let project = root.projects.first(where: { $0.id == projectID }),
+              !project.isRemote
+        else { return nil }
         // A thread bound to a worktree runs in that isolated directory instead of the shared project
-        // root, so two threads on the same project don't clobber each other. A dangling binding (the
-        // worktree was removed) falls back to the project root rather than pointing at a missing dir.
-        if let worktree = selectedThread?.worktree, worktree.isResolvable {
+        // root, so two threads on the same project don't clobber each other. A dangling binding falls
+        // back to the project root rather than pointing at a missing directory.
+        if let worktree = thread?.worktree, worktree.isResolvable {
             return URL(fileURLWithPath: worktree.path)
         }
-        return URL(fileURLWithPath: selectedProject.path)
+        return URL(fileURLWithPath: project.path)
     }
 
     var terminalCurrentDirectoryURL: URL? {

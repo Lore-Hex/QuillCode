@@ -22,6 +22,7 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var activeSidebarSavedSearchID: UUID?
     public internal(set) var sidebarSavedSearches: [SidebarSavedSearch]
     public internal(set) var sidebarSelection: SidebarSelectionState
+    public internal(set) var agentRuns: WorkspaceAgentRunRegistry
     public private(set) var lastError: String?
 
     /// Set by the desktop layer to post a "come back and look" OS notification when an agent run
@@ -103,6 +104,7 @@ public final class QuillCodeWorkspaceModel {
         activeSidebarSavedSearchID: UUID? = nil,
         sidebarSavedSearches: [SidebarSavedSearch] = [],
         sidebarSelection: SidebarSelectionState = SidebarSelectionState(),
+        agentRuns: WorkspaceAgentRunRegistry = WorkspaceAgentRunRegistry(),
         runner: AgentRunner = AgentRunner(),
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         threadStore: JSONThreadStore? = nil,
@@ -133,6 +135,7 @@ public final class QuillCodeWorkspaceModel {
             ? activeSidebarSavedSearchID
             : nil
         self.sidebarSelection = sidebarSelection
+        self.agentRuns = agentRuns
         self.runner = runner
         // Subagent-worker calls are one-shot auxiliary housekeeping: LLMWorkspaceSubagentWorker.run
         // issues a single tool-free nextAction on a fresh, unique-prompt ChatThread that is never
@@ -227,7 +230,14 @@ public final class QuillCodeWorkspaceModel {
     }
 
     func refreshTopBar(agentStatus: String? = nil) {
-        root.topBar = WorkspaceTopBarStateBuilder.state(from: root, agentStatus: agentStatus)
+        let selectedRunStatus = agentRuns.status(for: root.selectedThreadID)
+        var resolvedStatus = selectedRunStatus ?? agentStatus ?? root.topBar.agentStatus
+        if selectedRunStatus == nil,
+           resolvedStatus == TopBarAgentStatusLabel.idle,
+           let backgroundAgentRunStatusLabel {
+            resolvedStatus = backgroundAgentRunStatusLabel
+        }
+        root.topBar = WorkspaceTopBarStateBuilder.state(from: root, agentStatus: resolvedStatus)
     }
 
     func touchProject(_ id: UUID?) {

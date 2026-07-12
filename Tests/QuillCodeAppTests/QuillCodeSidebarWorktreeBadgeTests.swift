@@ -75,5 +75,23 @@ final class QuillCodeSidebarWorktreeBadgeTests: XCTestCase {
         """
         let decoded = try JSONDecoder().decode(SidebarItemSurface.self, from: Data(json.utf8))
         XCTAssertNil(decoded.worktree)
+        XCTAssertNil(decoded.runStatusLabel)
+    }
+
+    func testSidebarItemSurfaceRoundTripsLiveRunStatus() throws {
+        let item = SidebarItem(thread: ChatThread(title: "Background work"))
+        let surface = SidebarItemSurface(
+            item: item,
+            selectedThreadID: nil,
+            runStatusLabel: "Running tests"
+        )
+
+        let decoded = try JSONDecoder().decode(
+            SidebarItemSurface.self,
+            from: JSONEncoder().encode(surface)
+        )
+
+        XCTAssertEqual(decoded.runStatusLabel, "Running tests")
+        XCTAssertTrue(decoded.isRunning)
     }
 }

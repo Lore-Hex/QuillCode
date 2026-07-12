@@ -41,10 +41,19 @@ struct QuillCodeSidebarThreadRowView: View {
             }
         } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(QuillCodePalette.text)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(item.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(QuillCodePalette.text)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if let runStatusLabel = item.runStatusLabel {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .help(runStatusLabel)
+                            .accessibilityLabel("\(item.title) is \(runStatusLabel.lowercased())")
+                    }
+                }
                 Text(item.subtitle)
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(QuillCodePalette.muted)
@@ -66,6 +75,7 @@ struct QuillCodeSidebarThreadRowView: View {
             .quillCodeSidebarRowChrome(background: item.isSelected ? QuillCodePalette.selection : Color.clear)
         }
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+        .accessibilityValue(item.runStatusLabel ?? "Idle")
     }
 
     private var actionsMenu: some View {

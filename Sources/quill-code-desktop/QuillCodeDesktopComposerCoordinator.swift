@@ -14,7 +14,8 @@ struct QuillCodeDesktopComposerCoordinator {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty,
               model.composer.attachments.isEmpty,
-              !tasks.isRunning(.send),
+              !tasks.isSendRunning(threadID: model.selectedThread?.id),
+              !model.isAgentRunActive(for: model.selectedThread?.id),
               let slashTarget = browserSessionSlashTarget(prompt)
         else {
             return false
@@ -45,7 +46,8 @@ struct QuillCodeDesktopComposerCoordinator {
         // Never lock the composer: a submit arriving DURING a live run enqueues as a follow-up
         // chip (drained at the next turn boundary by the run's own drain loop) instead of being
         // silently rejected. When idle, it sends immediately as before.
-        if tasks.isRunning(.send) {
+        let selectedThreadID = model.selectedThread?.id
+        if tasks.isSendRunning(threadID: selectedThreadID) || model.isAgentRunActive(for: selectedThreadID) {
             model.enqueueFollowUp(prompt)
             draft = ""
             refresh()
@@ -53,9 +55,11 @@ struct QuillCodeDesktopComposerCoordinator {
         }
 
         model.setDraft(prompt)
+        let threadID = model.prepareComposerSubmissionThread()
         draft = ""
         submitPreparedComposer(
             model: model,
+            threadID: threadID,
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
             tasks: tasks,
             refresh: refresh,
@@ -71,11 +75,16 @@ struct QuillCodeDesktopComposerCoordinator {
         refresh: @escaping @MainActor () -> Void,
         onSlotFree: @escaping @MainActor () -> Void = {}
     ) {
-        guard !tasks.isRunning(.send), model.prepareRetryLastUserTurn() else { return }
+        let threadID = model.selectedThread?.id
+        guard !tasks.isSendRunning(threadID: threadID),
+              !model.isAgentRunActive(for: threadID),
+              model.prepareRetryLastUserTurn()
+        else { return }
 
         draft = ""
         submitPreparedComposer(
             model: model,
+            threadID: threadID,
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
             tasks: tasks,
             refresh: refresh,
@@ -85,23 +94,25 @@ struct QuillCodeDesktopComposerCoordinator {
 
     private func submitPreparedComposer(
         model: QuillCodeWorkspaceModel,
+        threadID: UUID?,
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
         refresh: @escaping @MainActor () -> Void,
         onSlotFree: @escaping @MainActor () -> Void
     ) {
-        tasks.startIfIdle(.send) { [weak model] in
+        let runRoot = model.workspaceRoot(forThreadID: threadID) ?? fallbackWorkspaceRoot
+        tasks.startIfIdle(.send(threadID)) { [weak model] in
             guard let model else { return }
             await model.submitComposer(
-                workspaceRoot: model.activeWorkspaceRoot ?? fallbackWorkspaceRoot,
+                threadID: threadID,
+                workspaceRoot: runRoot,
                 onStarted: refresh,
                 onProgressUpdated: refresh
             )
         } onFinish: {
             refresh()
-            // The `.send` slot just freed. Recover any OTHER thread's follow-up queue that was
-            // stranded because it was decided/finished while this send held the single slot (a
-            // cross-thread deny). Self-gated, so a no-op when there is nothing to recover.
+            // This chat's send slot just freed. Recover any gate-resolved follow-up queue that may
+            // now continue; the recovery path is self-gated by its own chat slot.
             onSlotFree()
         }
     }

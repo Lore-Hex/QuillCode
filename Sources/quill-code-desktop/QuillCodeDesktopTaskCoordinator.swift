@@ -4,7 +4,7 @@ import QuillCodeApp
 @MainActor
 final class QuillCodeDesktopTaskCoordinator {
     enum Slot: Hashable, Sendable {
-        case send
+        case send(UUID?)
         case terminal
         case browserPreview
         case automationTicker
@@ -16,6 +16,17 @@ final class QuillCodeDesktopTaskCoordinator {
 
     func isRunning(_ slot: Slot) -> Bool {
         coordinator.isRunning(slot)
+    }
+
+    func isSendRunning(threadID: UUID?) -> Bool {
+        coordinator.isRunning(.send(threadID))
+    }
+
+    var runningSendThreadIDs: Set<UUID> {
+        Set(runningSendSlots.compactMap { slot in
+            guard case .send(let threadID) = slot else { return nil }
+            return threadID
+        })
     }
 
     @discardableResult
@@ -45,5 +56,16 @@ final class QuillCodeDesktopTaskCoordinator {
 
     func cancelAll() {
         coordinator.cancelAll()
+    }
+
+    func cancelAllSends() {
+        coordinator.cancel(Array(runningSendSlots))
+    }
+
+    private var runningSendSlots: Set<Slot> {
+        coordinator.runningSlots.filter { slot in
+            if case .send = slot { return true }
+            return false
+        }
     }
 }
