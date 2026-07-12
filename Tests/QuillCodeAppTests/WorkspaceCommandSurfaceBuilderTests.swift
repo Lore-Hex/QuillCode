@@ -274,6 +274,56 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         ).isEnabled)
     }
 
+    func testCreateBranchCommandRequiresIdleDetachedWorktreeTask() throws {
+        let worktree = FileManager.default.temporaryDirectory
+            .appendingPathComponent("create-branch-command-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: worktree) }
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        var thread = ChatThread(title: "Detached task")
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "",
+            base: "main",
+            location: .worktree
+        )
+
+        XCTAssertTrue(try command(
+            WorkspaceCommandAction.threadCreateBranch.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.location = .local
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadCreateBranch.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.location = .worktree
+        thread.worktree?.branch = "feature/owned"
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadCreateBranch.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.branch = ""
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadCreateBranch.rawValue,
+            in: makeBuilder(
+                selectedThread: thread,
+                selectedProject: project,
+                selectedThreadIsRunning: true,
+                runningThreadIDs: [thread.id]
+            ).commands
+        ).isEnabled)
+
+        thread.worktree?.path = worktree.path + "-missing"
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadCreateBranch.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+    }
+
     func testSavedSearchesAppearAsThreadCommands() throws {
         let searchID = try XCTUnwrap(UUID(uuidString: "44444444-4444-4444-4444-444444444444"))
         let secondSearchID = try XCTUnwrap(UUID(uuidString: "55555555-5555-5555-5555-555555555555"))

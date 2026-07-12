@@ -146,6 +146,7 @@ enum WorkspaceHTMLTopBarRenderer {
     ) -> String {
         """
         <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+          \(renderCreateBranchButton(commands: commands))
           \(renderHandoffButton(commands: commands))
           \(renderActiveStopButton(commands: commands))
           <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
@@ -231,6 +232,21 @@ enum WorkspaceHTMLTopBarRenderer {
             commandID: command.id,
             hitTargetKind: .icon,
             classes: ["topbar-handoff-button"],
+            ariaLabel: command.title,
+            title: command.title
+        )
+    }
+
+    private static func renderCreateBranchButton(commands: [WorkspaceCommandSurface]) -> String {
+        guard let command = commands.first(where: {
+            $0.id == WorkspaceCommandAction.threadCreateBranch.rawValue && $0.isEnabled
+        }) else { return "" }
+        return WorkspaceHTMLPrimitives.commandButton(
+            "Create branch here",
+            testID: "top-bar-create-branch-button",
+            commandID: command.id,
+            hitTargetKind: .text,
+            classes: ["topbar-create-branch-button"],
             ariaLabel: command.title,
             title: command.title
         )

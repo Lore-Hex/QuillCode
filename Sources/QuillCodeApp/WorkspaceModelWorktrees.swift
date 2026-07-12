@@ -28,6 +28,29 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    @discardableResult
+    public func createBranchHere(_ request: WorkspaceWorktreeCreateBranchRequest) -> Bool {
+        guard !composer.isSending,
+              !terminal.isRunning,
+              let threadID = root.selectedThreadID,
+              let binding = selectedThread?.worktree,
+              binding.location == .worktree,
+              binding.isResolvable,
+              binding.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let workspaceRoot = activeWorkspaceRoot,
+              workspaceRoot.standardizedFileURL.path == URL(fileURLWithPath: binding.path).standardizedFileURL.path
+        else { return false }
+
+        let result = runToolCall(
+            WorkspaceWorktreeToolCallPlanner.createBranch(request),
+            workspaceRoot: workspaceRoot
+        )
+        guard result.ok else { return false }
+        _ = reconcileManagedWorktreeBranch(threadID: threadID, workspaceRoot: workspaceRoot)
+        return root.threads.first(where: { $0.id == threadID })?.worktree?.branch
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
     /// The Worktree thread type creates a detached managed worktree from the current branch, transfers
     /// bounded local changes, and binds a new thread in the same project to that isolated run root.
     @discardableResult
@@ -76,6 +99,31 @@ extension QuillCodeWorkspaceModel {
             return branch.isEmpty ? nil : branch
         }
         return nil
+    }
+
+    @discardableResult
+    func reconcileManagedWorktreeBranch(threadID: UUID, workspaceRoot: URL) -> Bool {
+        guard let thread = root.threads.first(where: { $0.id == threadID }),
+              let binding = thread.worktree,
+              binding.location == .worktree,
+              binding.isResolvable,
+              binding.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              workspaceRoot.standardizedFileURL.path
+                == URL(fileURLWithPath: binding.path).standardizedFileURL.path,
+              let branch = currentLocalBranch(projectRoot: workspaceRoot)
+        else { return false }
+
+        mutateThread(threadID) { thread in
+            thread.worktree?.branch = branch
+            thread.updatedAt = Date()
+        }
+        if let updated = root.threads.first(where: { $0.id == threadID }) {
+            threadPersistence.save(updated)
+        }
+        if root.selectedThreadID == threadID {
+            refreshTopBar()
+        }
+        return true
     }
 
     public func worktreeChoiceLoadRequest(workspaceRoot: URL) -> WorkspaceWorktreeChoiceLoadRequest {

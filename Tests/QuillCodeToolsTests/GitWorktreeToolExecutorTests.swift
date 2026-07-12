@@ -201,6 +201,50 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(status.stdout.contains("?? notes.txt"), status.stdout)
     }
 
+    func testCreateBranchHereTurnsDetachedManagedWorktreeIntoOwnedBranch() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let name = "branch-here-\(UUID().uuidString)"
+        let target = root.deletingLastPathComponent().appendingPathComponent(name)
+        let git = GitToolExecutor()
+        let create = git.createWorktree(cwd: root, path: name, managed: true)
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        defer { _ = git.removeWorktree(cwd: root, path: name, force: true) }
+        XCTAssertEqual(currentBranchName(in: target), "")
+
+        let result = git.createWorktreeBranch(cwd: target, branch: "feature/owned-task")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["feature/owned-task"])
+        XCTAssertEqual(currentBranchName(in: target), "feature/owned-task")
+    }
+
+    func testCreateBranchHereRejectsCheckoutThatAlreadyOwnsBranch() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let before = currentBranchName(in: root)
+
+        let result = GitToolExecutor().createWorktreeBranch(cwd: root, branch: "feature/other")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("already owns branch") == true, result.error ?? "")
+        XCTAssertEqual(currentBranchName(in: root), before)
+    }
+
+    func testCreateBranchHereRejectsUnsafeBranchWithoutChangingDetachedState() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let name = "unsafe-branch-here-\(UUID().uuidString)"
+        let target = root.deletingLastPathComponent().appendingPathComponent(name)
+        let git = GitToolExecutor()
+        let create = git.createWorktree(cwd: root, path: name, managed: true)
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        defer { _ = git.removeWorktree(cwd: root, path: name, force: true) }
+
+        let result = git.createWorktreeBranch(cwd: target, branch: "feature bad; rm -rf /tmp/nope")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("unsupported characters") == true, result.error ?? "")
+        XCTAssertEqual(currentBranchName(in: target), "")
+    }
+
     func testManagedCreateCopiesOnlyIncludedIgnoredFilesAndAgentsOverride() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         try ".env\nignored/\nAGENTS.override.md\n".write(

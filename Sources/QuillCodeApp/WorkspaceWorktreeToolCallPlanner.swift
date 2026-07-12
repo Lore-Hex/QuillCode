@@ -52,6 +52,15 @@ enum WorkspaceWorktreeToolCallPlanner {
         )
     }
 
+    static func createBranch(_ request: WorkspaceWorktreeCreateBranchRequest) -> ToolCall {
+        ToolCall(
+            name: ToolDefinition.gitWorktreeCreateBranch.name,
+            argumentsJSON: ToolArguments.json([
+                "branch": request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+            ])
+        )
+    }
+
     static func prune(_ request: WorkspaceWorktreePruneRequest) -> ToolCall {
         ToolCall(
             name: ToolDefinition.gitWorktreePrune.name,

@@ -12,6 +12,7 @@ enum AgentToolAnswerFormatters {
             AgentUtilityToolAnswerFormatters.applyPatchAnswer,
             AgentGitToolAnswerFormatters.statusAnswer,
             AgentGitToolAnswerFormatters.diffAnswer,
+            AgentGitToolAnswerFormatters.worktreeCreateBranchAnswer,
             AgentGitToolAnswerFormatters.worktreePruneAnswer,
             AgentGitToolAnswerFormatters.pullRequestReviewThreadsAnswer,
             AgentUtilityToolAnswerFormatters.planUpdateAnswer,

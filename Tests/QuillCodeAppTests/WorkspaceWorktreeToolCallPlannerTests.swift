@@ -46,6 +46,14 @@ final class WorkspaceWorktreeToolCallPlannerTests: XCTestCase {
         XCTAssertNil(arguments.string("base"))
     }
 
+    func testCreateBranchBuildsDedicatedWorktreeCallWithTrimmedName() throws {
+        let call = WorkspaceWorktreeToolCallPlanner.createBranch(.init(branch: " feature/owned-task\n"))
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.gitWorktreeCreateBranch.name)
+        XCTAssertEqual(try arguments.requiredString("branch"), "feature/owned-task")
+    }
+
     func testRemoveBuildsGitWorktreeRemoveCall() throws {
         let call = WorkspaceWorktreeToolCallPlanner.remove(.init(
             path: "../feature-worktree",

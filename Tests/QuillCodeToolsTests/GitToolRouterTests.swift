@@ -40,6 +40,7 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.worktree.open"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
         XCTAssertTrue(definitions.contains("host.git.worktree.prune"))
+        XCTAssertTrue(definitions.contains("host.git.worktree.create_branch"))
     }
 
     func testGitToolCallDispatcherOwnsGitDefinitions() {
@@ -74,6 +75,20 @@ final class GitToolRouterTests: XCTestCase {
         let destination = try XCTUnwrap(properties["destination"] as? [String: Any])
         XCTAssertEqual(destination["type"] as? String, "string")
         XCTAssertEqual(schema["required"] as? [String], ["destination"])
+    }
+
+    func testGitWorktreeCreateBranchDefinitionAndDispatcherOwnership() throws {
+        let definition = ToolDefinition.gitWorktreeCreateBranch
+
+        XCTAssertEqual(definition.name, "host.git.worktree.create_branch")
+        XCTAssertEqual(definition.risk, .append)
+        XCTAssertTrue(ToolRouter.definitions.map(\.name).contains(definition.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(definition.name))
+
+        let schema = try schemaDictionary(for: definition)
+        let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
+        XCTAssertEqual((properties["branch"] as? [String: Any])?["type"] as? String, "string")
+        XCTAssertEqual(schema["required"] as? [String], ["branch"])
     }
 
     func testGitToolDefinitionsExposeValidObjectSchemas() throws {
@@ -145,6 +160,25 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertEqual(result.artifacts, [worktree.path])
         XCTAssertEqual(try String(contentsOf: worktree.appendingPathComponent("routed.txt")), "routed\n")
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("routed.txt").path))
+    }
+
+    func testToolRouterRoutesGitWorktreeCreateBranch() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let name = "router-branch-here-\(UUID().uuidString)"
+        let target = root.deletingLastPathComponent().appendingPathComponent(name)
+        let git = GitToolExecutor()
+        let create = git.createWorktree(cwd: root, path: name, managed: true)
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        defer { _ = git.removeWorktree(cwd: root, path: name, force: true) }
+
+        let result = ToolRouter(workspaceRoot: target).execute(ToolCall(
+            name: ToolDefinition.gitWorktreeCreateBranch.name,
+            argumentsJSON: #"{"branch":"feature/router-owned"}"#
+        ))
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["feature/router-owned"])
+        XCTAssertEqual(currentBranchName(in: target), "feature/router-owned")
     }
 
     func testToolRouterRoutesGitPush() throws {

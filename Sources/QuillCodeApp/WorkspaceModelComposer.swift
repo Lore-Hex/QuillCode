@@ -298,6 +298,9 @@ extension QuillCodeWorkspaceModel {
         }
         updateThreadFromAgentRun(thread)
         try threadPersistence.saveOrThrow(thread)
+        if let workspaceRoot = workspaceRoot(forThreadID: runThreadID) {
+            _ = reconcileManagedWorktreeBranch(threadID: runThreadID, workspaceRoot: workspaceRoot)
+        }
         // A completed run may have created, moved, or deleted files; keep composer
         // `@` mentions current for the selected local project without a manual refresh.
         if root.selectedThreadID == runThreadID {

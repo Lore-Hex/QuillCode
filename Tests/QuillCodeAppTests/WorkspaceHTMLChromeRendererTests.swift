@@ -209,6 +209,33 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-command-id="thread-handoff""#))
     }
 
+    func testHTMLRendererShowsCreateBranchOnlyForDetachedWorktreeTask() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
+        let worktree = try makeTempDirectory("detached-create-branch")
+        var thread = ChatThread(title: "Detached task", projectID: project.id)
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "",
+            base: "main",
+            location: .worktree
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let detachedHTML = WorkspaceHTMLRenderer.render(model.surface())
+        XCTAssertTrue(detachedHTML.contains(#"data-testid="top-bar-create-branch-button""#))
+        XCTAssertTrue(detachedHTML.contains(#"data-command-id="thread-create-branch""#))
+
+        model.root.threads[0].worktree?.branch = "feature/owned"
+        let ownedHTML = WorkspaceHTMLRenderer.render(model.surface())
+        XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-create-branch-button""#))
+        XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-handoff-button""#))
+    }
+
     func testHTMLRendererHidesSidebarAndExpandsWorkspaceGrid() {
         let model = QuillCodeWorkspaceModel(chrome: WorkspaceChromeState(isSidebarVisible: false))
 

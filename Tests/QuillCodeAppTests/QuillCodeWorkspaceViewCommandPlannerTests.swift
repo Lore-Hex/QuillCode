@@ -15,6 +15,7 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         XCTAssertEqual(planner.action(for: command("command-palette")), .presentCommandPalette)
         XCTAssertEqual(planner.action(for: command("keyboard-shortcuts")), .presentKeyboardShortcuts)
         XCTAssertEqual(planner.action(for: command("git-worktree-create")), .presentCreateWorktree)
+        XCTAssertEqual(planner.action(for: command("thread-create-branch")), .presentCreateWorktreeBranch)
         XCTAssertEqual(planner.action(for: command("git-worktree-open")), .presentOpenWorktree)
         XCTAssertEqual(planner.action(for: command("git-worktree-remove")), .presentRemoveWorktree)
         XCTAssertEqual(planner.action(for: command("git-worktree-prune")), .presentPruneWorktrees)

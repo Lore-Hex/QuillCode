@@ -39,3 +39,11 @@ public struct WorkspaceWorktreePruneRequest: Sendable, Hashable {
         self.verbose = verbose
     }
 }
+
+public struct WorkspaceWorktreeCreateBranchRequest: Sendable, Hashable {
+    public var branch: String
+
+    public init(branch: String) {
+        self.branch = branch
+    }
+}

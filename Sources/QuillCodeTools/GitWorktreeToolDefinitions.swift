@@ -45,6 +45,16 @@ public extension ToolDefinition {
         risk: .destructive
     )
 
+    static let gitWorktreeCreateBranch = gitWorktreeTool(
+        name: "host.git.worktree.create_branch",
+        description: "Create and check out a permanent branch in the current detached managed worktree.",
+        parametersJSON: GitToolParameterSchema.object(
+            properties: ["branch": .string(description: "New branch name to create in this worktree.")],
+            required: ["branch"]
+        ),
+        risk: .append
+    )
+
     static let gitWorktreeRemove = gitWorktreeTool(
         name: "host.git.worktree.remove",
         description: "Remove a registered sibling git worktree for the project.",

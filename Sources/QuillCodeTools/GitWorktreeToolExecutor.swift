@@ -81,6 +81,34 @@ public struct GitWorktreeToolExecutor: Sendable {
         handoffExecutor.handoff(sourceRoot: cwd, destinationPath: destination)
     }
 
+    public func createBranchHere(cwd: URL, branch: String) -> ToolResult {
+        do {
+            let branchName = try GitInputValidator.safeName(branch)
+            let symbolicRef = runGit(
+                ["symbolic-ref", "--quiet", "--short", "HEAD"],
+                cwd: cwd,
+                timeoutSeconds: 10
+            )
+            if symbolicRef.ok {
+                let current = symbolicRef.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                throw GitToolError.worktreeAlreadyOwnsBranch(current.isEmpty ? "an existing branch" : current)
+            }
+            guard symbolicRef.exitCode == 1 else { return symbolicRef }
+
+            let result = runGit(["switch", "-c", branchName], cwd: cwd, timeoutSeconds: 30)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout.isEmpty ? "Created branch \(branchName).\n" : result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: [branchName]
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func remove(cwd: URL, path: String, force: Bool = false) -> ToolResult {
         do {
             let worktreePath = try Self.safePath(path, cwd: cwd)

@@ -96,7 +96,10 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
             WorkspaceCommandPalette.threadCategory,
             WorkspaceCommandPalette.gitCategory
         ])
-        XCTAssertEqual(groups.first?.commands.map(\.id), ["thread-new-worktree", "thread-handoff"])
+        XCTAssertEqual(
+            groups.first?.commands.map(\.id),
+            ["thread-new-worktree", "thread-create-branch", "thread-handoff"]
+        )
         XCTAssertEqual(groups.last?.commands.map(\.id), [
             "git-worktree-list",
             "git-worktree-create",

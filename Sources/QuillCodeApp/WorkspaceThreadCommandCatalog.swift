@@ -10,6 +10,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadCanUnpin: Bool
     var selectedThreadIsRunning: Bool = false
     var selectedThreadHandoffTitle: String? = nil
+    var selectedThreadCanCreateBranch: Bool = false
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -42,6 +43,13 @@ enum WorkspaceThreadCommandCatalog {
                 title: "New worktree chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "worktree", "branch", "isolated", "fork", "parallel"]
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadCreateBranch.rawValue,
+                title: "Create branch here",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "worktree", "branch", "permanent", "detached"],
+                isEnabled: availability.selectedThreadCanCreateBranch
             ),
             WorkspaceCommandSurface(
                 id: WorkspaceCommandAction.threadHandoff.rawValue,
