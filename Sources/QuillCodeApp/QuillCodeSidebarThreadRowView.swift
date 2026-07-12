@@ -69,6 +69,11 @@ struct QuillCodeSidebarThreadRowView: View {
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .foregroundStyle(QuillCodePalette.blue)
                             .lineLimit(1)
+                    } else if worktree.hasRestorableSnapshot {
+                        Text("↻ Worktree saved")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(QuillCodePalette.blue)
+                            .lineLimit(1)
                     } else {
                         Text("⚠ Worktree missing")
                             .font(.system(size: 10, weight: .medium))

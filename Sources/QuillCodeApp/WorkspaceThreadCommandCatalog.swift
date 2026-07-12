@@ -9,6 +9,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadCanPin: Bool
     var selectedThreadCanUnpin: Bool
     var selectedThreadIsRunning: Bool = false
+    var selectedThreadCanRestoreWorktree: Bool = false
     var selectedThreadHandoffTitle: String? = nil
     var selectedThreadCanCreateBranch: Bool = false
     var hasAnySidebarThread: Bool
@@ -43,6 +44,13 @@ enum WorkspaceThreadCommandCatalog {
                 title: "New worktree chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "worktree", "branch", "isolated", "fork", "parallel"]
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadRestoreWorktree.rawValue,
+                title: "Restore worktree",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "worktree", "snapshot", "restore", "archive"],
+                isEnabled: availability.selectedThreadCanRestoreWorktree
             ),
             WorkspaceCommandSurface(
                 id: WorkspaceCommandAction.threadCreateBranch.rawValue,

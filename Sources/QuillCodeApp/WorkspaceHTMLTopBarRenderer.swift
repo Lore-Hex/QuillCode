@@ -146,6 +146,7 @@ enum WorkspaceHTMLTopBarRenderer {
     ) -> String {
         """
         <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+          \(renderRestoreWorktreeButton(commands: commands))
           \(renderCreateBranchButton(commands: commands))
           \(renderHandoffButton(commands: commands))
           \(renderActiveStopButton(commands: commands))
@@ -232,6 +233,21 @@ enum WorkspaceHTMLTopBarRenderer {
             commandID: command.id,
             hitTargetKind: .icon,
             classes: ["topbar-handoff-button"],
+            ariaLabel: command.title,
+            title: command.title
+        )
+    }
+
+    private static func renderRestoreWorktreeButton(commands: [WorkspaceCommandSurface]) -> String {
+        guard let command = commands.first(where: {
+            $0.id == WorkspaceCommandAction.threadRestoreWorktree.rawValue && $0.isEnabled
+        }) else { return "" }
+        return WorkspaceHTMLPrimitives.commandButton(
+            "Restore worktree",
+            testID: "top-bar-restore-worktree-button",
+            commandID: command.id,
+            hitTargetKind: .text,
+            classes: ["topbar-restore-worktree-button"],
             ariaLabel: command.title,
             title: command.title
         )

@@ -147,4 +147,30 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
             XCTAssertEqual(planner.effect(for: action), .sidebarBulkAction(kind))
         }
     }
+
+    func testRestoreWorktreeRequiresSelectedRestorableSnapshot() {
+        var thread = ChatThread(title: "Archived task")
+        thread.worktree = WorktreeBinding(
+            path: "/tmp/quillcode-missing-\(UUID().uuidString)",
+            branch: "",
+            snapshot: WorktreeSnapshotReference(
+                headCommit: String(repeating: "a", count: 40),
+                fileCount: 1,
+                byteCount: 12
+            )
+        )
+        let planner = WorkspaceCommandActionPlanner(
+            selectedThreadID: thread.id,
+            selectedThread: thread
+        )
+
+        XCTAssertEqual(
+            planner.effect(for: .threadRestoreWorktree),
+            .restoreManagedWorktree(threadID: thread.id)
+        )
+        XCTAssertNil(WorkspaceCommandActionPlanner(
+            selectedThreadID: thread.id,
+            selectedThread: ChatThread(title: "No snapshot")
+        ).effect(for: .threadRestoreWorktree))
+    }
 }

@@ -22,8 +22,8 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await openCommandPalette(page);
   await fillCommandPalette(page, '>worktree');
 
-  // Five git-worktree tools plus new-worktree-chat, Create branch here, and Handoff.
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(8);
+  // Five git-worktree tools plus new/restore-worktree-chat, Create branch here, and Handoff.
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(9);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expectCommandPaletteClosed(page);
@@ -55,6 +55,35 @@ test('detached worktree task can create and own a branch in place', async ({ pag
   await expect(page.getByTestId('top-bar-worktree')).toContainText('feature/owned-task');
   await expect(page.getByTestId('top-bar-create-branch-button')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-handoff-button')).toHaveCount(0);
+});
+
+test('archived managed worktree can be restored with its saved task state', async ({ page }) => {
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Worktree');
+
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>archive chat', 'thread-archive');
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>show archived', 'sidebar-filter:archived');
+  await page.getByTestId('sidebar-item').filter({ hasText: 'Worktree: experiment' }).click();
+  await expect(page.getByTestId('sidebar-worktree-snapshot')).toBeVisible();
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>unarchive chat', 'thread-unarchive');
+
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Worktree saved');
+  await expect(page.getByTestId('top-bar-restore-worktree-button')).toBeVisible();
+
+  await page.getByTestId('top-bar-restore-worktree-button').click();
+
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Worktree');
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>show all', 'sidebar-filter:all');
+  await expect(page.getByTestId('sidebar-worktree-branch')).toContainText('Detached');
+  await expect(page.getByTestId('sidebar-worktree-snapshot')).toHaveCount(0);
+  await expect(page.getByTestId('message').last()).toContainText(
+    'Restored the managed worktree with all staged, unstaged, and local changes.'
+  );
 });
 
 test('mock harness prunes worktrees from the command palette', async ({ page }) => {

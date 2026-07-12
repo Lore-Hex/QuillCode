@@ -9,6 +9,9 @@ struct QuillCodeTopBarActionClusterView: View {
 
     var body: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+            if let restoreWorktreeCommand {
+                restoreWorktreeButton(restoreWorktreeCommand)
+            }
             if let createBranchCommand {
                 createBranchButton(createBranchCommand)
             }
@@ -39,8 +42,38 @@ struct QuillCodeTopBarActionClusterView: View {
         commands.first { $0.id == WorkspaceCommandAction.threadHandoff.rawValue && $0.isEnabled }
     }
 
+    private var restoreWorktreeCommand: WorkspaceCommandSurface? {
+        commands.first {
+            $0.id == WorkspaceCommandAction.threadRestoreWorktree.rawValue && $0.isEnabled
+        }
+    }
+
     private var createBranchCommand: WorkspaceCommandSurface? {
         commands.first { $0.id == WorkspaceCommandAction.threadCreateBranch.rawValue && $0.isEnabled }
+    }
+
+    private func restoreWorktreeButton(_ command: WorkspaceCommandSurface) -> some View {
+        Button {
+            onCommand(command)
+        } label: {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.caption.weight(.semibold))
+                    .accessibilityHidden(true)
+                Text("Restore worktree")
+                    .font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(QuillCodePalette.text)
+            .padding(.horizontal, 12)
+            .quillCodeTextButtonTarget(minWidth: 128, radius: QuillCodeMetrics.minimumHitTarget / 2)
+            .background(QuillCodePalette.selection.opacity(0.72))
+            .overlay { Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1) }
+            .clipShape(Capsule())
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help(command.title)
+        .accessibilityLabel(command.title)
+        .accessibilityIdentifier("quillcode-top-bar-restore-worktree")
     }
 
     private func createBranchButton(_ command: WorkspaceCommandSurface) -> some View {

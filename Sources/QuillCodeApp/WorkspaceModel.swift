@@ -52,6 +52,7 @@ public final class QuillCodeWorkspaceModel {
     let permissionRuleStore: PermissionRuleFileStore?
     let globalMemoryDirectory: URL?
     let imageAttachmentStore: ImageAttachmentStore?
+    let worktreeSnapshotStore: ManagedWorktreeSnapshotStore?
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
@@ -114,6 +115,7 @@ public final class QuillCodeWorkspaceModel {
         permissionRuleStore: PermissionRuleFileStore? = nil,
         globalMemoryDirectory: URL? = nil,
         imageAttachmentStore: ImageAttachmentStore? = nil,
+        worktreeSnapshotStore: ManagedWorktreeSnapshotStore? = nil,
         computerUseBackend: (any ComputerUseBackend)? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor(),
         mcpSecretStore: (any MCPSecretStore)? = nil
@@ -156,6 +158,7 @@ public final class QuillCodeWorkspaceModel {
         self.permissionRuleStore = permissionRuleStore
         self.globalMemoryDirectory = globalMemoryDirectory
         self.imageAttachmentStore = imageAttachmentStore
+        self.worktreeSnapshotStore = worktreeSnapshotStore
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
         self.mcpRuntime = WorkspaceMCPRuntime(

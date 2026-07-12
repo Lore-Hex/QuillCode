@@ -4592,6 +4592,7 @@
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
         { id: 'thread-new-worktree', title: 'New worktree chat', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
+        { id: 'thread-restore-worktree', title: 'Restore worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'snapshot', 'restore', 'archive'], isEnabled: false },
         { id: 'thread-create-branch', title: 'Create branch here', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'create', 'ownership'], isEnabled: false },
         { id: 'thread-handoff', title: 'Hand off task', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'handoff', 'local', 'worktree', 'move', 'transfer'], isEnabled: false },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
@@ -7248,6 +7249,14 @@
         .map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning } :
+        command.id === 'thread-restore-worktree' ? {
+          ...command,
+          isEnabled: Boolean(
+            selectedThread?.worktree?.hasRestorableSnapshot
+            && !selectedThread?.worktree?.isResolvable
+            && !selectedThreadIsRunning
+          )
+        } :
         command.id === 'thread-create-branch' ? {
           ...command,
           isEnabled: Boolean(
@@ -8336,6 +8345,9 @@
         if (worktree.isResolvable) {
           return `<span class="sidebar-worktree-chip" data-testid="sidebar-worktree-branch" title="${escapeHTML(worktree.branch)}">⑂ ${escapeHTML(worktree.branchLeaf)}</span>`;
         }
+        if (worktree.hasRestorableSnapshot) {
+          return `<span class="sidebar-worktree-chip" data-testid="sidebar-worktree-snapshot" title="Managed worktree saved and ready to restore">↻ Worktree saved</span>`;
+        }
         return `<span class="sidebar-worktree-chip" data-tone="warning" data-testid="sidebar-worktree-warning" title="Worktree missing — running in the project root">⚠ Worktree missing</span>`;
       };
       const renderSidebarRunStatus = (status) => status ? `
@@ -8570,6 +8582,10 @@
       const topBarCreateBranchButton = topBarCreateBranchCommand?.isEnabled
         ? `<button type="button" class="topbar-create-branch-button hit-target-text" data-testid="top-bar-create-branch-button" data-command-id="thread-create-branch" title="${escapeHTML(topBarCreateBranchCommand.title)}" aria-label="${escapeHTML(topBarCreateBranchCommand.title)}">Create branch here</button>`
         : '';
+      const topBarRestoreWorktreeCommand = commandByID('thread-restore-worktree');
+      const topBarRestoreWorktreeButton = topBarRestoreWorktreeCommand?.isEnabled
+        ? `<button type="button" class="topbar-restore-worktree-button hit-target-text" data-testid="top-bar-restore-worktree-button" data-command-id="thread-restore-worktree" title="${escapeHTML(topBarRestoreWorktreeCommand.title)}" aria-label="${escapeHTML(topBarRestoreWorktreeCommand.title)}">Restore worktree</button>`
+        : '';
       const topBarBackCommand = commandByID('workspace-back') || { id: 'workspace-back', title: 'Back', isEnabled: false };
       const topBarForwardCommand = commandByID('workspace-forward') || { id: 'workspace-forward', title: 'Forward', isEnabled: false };
       const renderTopBarNavigationButton = (command, label, testID, ariaLabel) => `
@@ -8613,6 +8629,7 @@
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+                ${topBarRestoreWorktreeButton}
                 ${topBarCreateBranchButton}
                 ${topBarHandoffButton}
                 ${topBarStopButton}
@@ -13870,6 +13887,7 @@
       'thread-handoff',
       'thread-new-worktree',
       'thread-pin',
+      'thread-restore-worktree',
       'thread-revert-latest',
       'thread-rename',
       'thread-selection-clear',
@@ -14145,7 +14163,7 @@
           isSelected: true,
           isPinned: false,
           isArchived: false,
-          worktree: { branch: '', branchLeaf: 'Detached', isResolvable: true, location: 'worktree' }
+          worktree: { branch: '', branchLeaf: 'Detached', isResolvable: true, location: 'worktree', hasRestorableSnapshot: false }
         }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
         state.topBar.primaryTitle = 'Worktree: experiment';
         state.topBar.worktreeStatusLabel = 'Worktree';
@@ -14161,6 +14179,19 @@
         state.worktreeDialog = { ...state.worktreeDialog, mode: 'create-branch', branchName: '' };
         render();
         document.querySelector('[data-testid="worktree-create-branch-form"] input[name="branch"]')?.focus();
+        return;
+      }
+      if (commandID === 'thread-restore-worktree') {
+        const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+        if (!thread?.worktree?.hasRestorableSnapshot || thread.worktree.isResolvable) return;
+        thread.worktree.isResolvable = true;
+        thread.worktree.hasRestorableSnapshot = false;
+        state.topBar.worktreeStatusLabel = 'Worktree';
+        state.topBar.worktreeStatusDetail = 'Runs for this task use /mock/quillcode-worktree-experiment.';
+        state.topBar.worktreeStatusIsWarning = false;
+        addMessage('assistant', 'Restored the managed worktree with all staged, unstaged, and local changes.');
+        updateDynamicCommands();
+        render();
         return;
       }
       if (commandID === 'thread-handoff') {
@@ -16645,9 +16676,18 @@
         )));
       }
       if (action === 'archive') {
-        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
-          ids.has(item.id) ? { ...item, isPinned: false, isArchived: true, isSelected: false } : item
-        )));
+        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => {
+          if (!ids.has(item.id)) return item;
+          const shouldSaveWorktree = item.worktree?.location === 'worktree'
+            && !item.worktree.branch
+            && item.worktree.isResolvable
+            && !item.isPinned
+            && !item.runStatusLabel;
+          const worktree = shouldSaveWorktree
+            ? { ...item.worktree, isResolvable: false, hasRestorableSnapshot: true }
+            : item.worktree;
+          return { ...item, worktree, isPinned: false, isArchived: true, isSelected: false };
+        }));
       }
       if (action === 'unarchive') {
         state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
@@ -16859,6 +16899,15 @@
         )));
       }
       if (action === 'archive') {
+        const shouldSaveWorktree = thread.worktree?.location === 'worktree'
+          && !thread.worktree.branch
+          && thread.worktree.isResolvable
+          && !thread.isPinned
+          && !thread.runStatusLabel;
+        if (shouldSaveWorktree) {
+          thread.worktree.isResolvable = false;
+          thread.worktree.hasRestorableSnapshot = true;
+        }
         state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
           item.id === threadID ? { ...item, isArchived: true, isPinned: false, isSelected: false } : item
         )));
@@ -16886,6 +16935,11 @@
             : { ...item, isSelected: false }
         )));
         state.topBar.primaryTitle = thread.title;
+        if (thread.worktree?.hasRestorableSnapshot && !thread.worktree.isResolvable) {
+          state.topBar.worktreeStatusLabel = 'Worktree saved';
+          state.topBar.worktreeStatusDetail = 'This managed worktree was removed after archive and is ready to restore.';
+          state.topBar.worktreeStatusIsWarning = false;
+        }
       }
       if (action === 'delete') {
         state.sidebar.items = state.sidebar.items.filter(item => item.id !== threadID);

@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 
 public struct QuillCodeWorkspaceBootstrap: Sendable {
     public typealias ModelCatalogFetcher = @Sendable (AppConfig) async -> TrustedRouterModelCatalog
@@ -67,6 +68,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             permissionRuleStore: PermissionRuleFileStore(directory: paths.permissionsDirectory),
             globalMemoryDirectory: paths.memoriesDirectory,
             imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),
+            worktreeSnapshotStore: ManagedWorktreeSnapshotStore(directory: paths.worktreeSnapshotsDirectory),
             mcpSecretStore: MCPSecretStoreAdapter(
                 backing: FileSecretStore(directory: paths.secretsDirectory)
             )

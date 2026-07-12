@@ -112,6 +112,14 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
 
     private static func worktreeStatus(for thread: ChatThread) -> WorktreeStatus? {
         guard let worktree = thread.worktree else { return nil }
+        if let snapshot = worktree.snapshot, worktree.canRestoreSnapshot {
+            let fileLabel = "\(snapshot.fileCount) local file\(snapshot.fileCount == 1 ? "" : "s")"
+            return WorktreeStatus(
+                label: "Worktree saved",
+                detail: "This managed worktree was removed after archive. Restore it at the captured commit with \(fileLabel) and all staged and unstaged changes.",
+                isWarning: false
+            )
+        }
         let branch = worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines)
         let label = worktree.location == .local
             ? "Local"

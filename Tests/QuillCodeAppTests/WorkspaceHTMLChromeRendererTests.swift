@@ -209,6 +209,32 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-command-id="thread-handoff""#))
     }
 
+    func testHTMLRendererShowsSavedWorktreeAndRestoreAction() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
+        var thread = ChatThread(title: "Archived task", projectID: project.id)
+        thread.worktree = WorktreeBinding(
+            path: "/tmp/quillcode-missing-\(UUID().uuidString)",
+            branch: "",
+            snapshot: WorktreeSnapshotReference(
+                headCommit: String(repeating: "a", count: 40),
+                fileCount: 1,
+                byteCount: 24
+            )
+        )
+        let html = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [thread],
+            selectedThreadID: thread.id
+        )).surface())
+
+        XCTAssertTrue(html.contains("Worktree saved"))
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-worktree-snapshot""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-restore-worktree-button""#))
+        XCTAssertTrue(html.contains(#"data-command-id="thread-restore-worktree""#))
+        XCTAssertFalse(html.contains(#"data-testid="sidebar-worktree-warning""#))
+    }
+
     func testHTMLRendererShowsCreateBranchOnlyForDetachedWorktreeTask() throws {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
         let worktree = try makeTempDirectory("detached-create-branch")

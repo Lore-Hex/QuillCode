@@ -174,6 +174,36 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(topBar.worktreeStatusDetail?.contains("fall back to the project root") == true)
     }
 
+    func testShowsRestorableSnapshotInsteadOfMissingWorktreeWarning() {
+        var thread = ChatThread(title: "Archived task", model: TrustedRouterDefaults.fastModel)
+        thread.worktree = WorktreeBinding(
+            path: "/tmp/quillcode-missing-\(UUID().uuidString)",
+            branch: "",
+            snapshot: WorktreeSnapshotReference(
+                headCommit: String(repeating: "a", count: 40),
+                fileCount: 2,
+                byteCount: 128
+            )
+        )
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: nil
+        ).surface()
+
+        XCTAssertEqual(topBar.worktreeStatusLabel, "Worktree saved")
+        XCTAssertFalse(topBar.worktreeStatusIsWarning)
+        XCTAssertTrue(topBar.worktreeStatusDetail?.contains("2 local files") == true)
+    }
+
     func testBuildsFallbackTitleAndNoProjectSubtitle() {
         let topBar = WorkspaceTopBarSurfaceBuilder(
             topBarState: TopBarState(),

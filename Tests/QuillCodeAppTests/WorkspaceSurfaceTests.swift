@@ -77,6 +77,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.map(\.id), [
             "new-chat",
             "thread-new-worktree",
+            "thread-restore-worktree",
             "thread-create-branch",
             "thread-handoff",
             "sidebar-filter:all",

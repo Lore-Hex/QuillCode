@@ -28,6 +28,7 @@ final class WorktreeBindingTests: XCTestCase {
         )
 
         XCTAssertEqual(binding.location, .worktree)
+        XCTAssertNil(binding.snapshot)
     }
 
     func testExplicitLocationRoundTrips() throws {
@@ -76,5 +77,40 @@ final class WorktreeBindingTests: XCTestCase {
         XCTAssertTrue(WorktreeBinding(path: dir.path, branch: "b").isResolvable)
         XCTAssertFalse(WorktreeBinding(path: dir.path + "-missing", branch: "b").isResolvable)
         XCTAssertFalse(WorktreeBinding(path: "", branch: "b").isResolvable)
+    }
+
+    func testSnapshotReferenceRoundTripsAndEnablesOnlyMissingDetachedRestore() throws {
+        let reference = WorktreeSnapshotReference(
+            headCommit: String(repeating: "a", count: 40),
+            fileCount: 3,
+            byteCount: 512
+        )
+        let missingPath = "/tmp/quillcode-missing-\(UUID().uuidString)"
+        let binding = WorktreeBinding(
+            path: missingPath,
+            branch: "",
+            base: "main",
+            snapshot: reference
+        )
+
+        let decoded = try JSONDecoder().decode(
+            WorktreeBinding.self,
+            from: JSONEncoder().encode(binding)
+        )
+
+        XCTAssertEqual(decoded, binding)
+        XCTAssertTrue(decoded.isDisposableManagedWorktree)
+        XCTAssertTrue(decoded.canRestoreSnapshot)
+        XCTAssertFalse(WorktreeBinding(
+            path: missingPath,
+            branch: "feature/permanent",
+            snapshot: reference
+        ).canRestoreSnapshot)
+        XCTAssertFalse(WorktreeBinding(
+            path: missingPath,
+            branch: "",
+            location: .local,
+            snapshot: reference
+        ).canRestoreSnapshot)
     }
 }
