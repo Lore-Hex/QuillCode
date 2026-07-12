@@ -217,6 +217,69 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertEqual(model.currentToolCards.last?.status, .done)
     }
 
+    func testCreateBranchHerePromotesManagedThreadAndUpdatesCommandAvailability() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Worktree Project")
+        model.selectProject(projectID)
+        let threadID = try XCTUnwrap(model.newWorktreeThread(name: "branch promotion"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        let branch = "feature/promoted-\(UUID().uuidString.prefix(8))"
+        defer {
+            _ = GitToolExecutor().removeWorktree(cwd: root, path: worktreePath, force: true)
+        }
+
+        XCTAssertEqual(model.selectedThread?.id, threadID)
+        XCTAssertTrue(model.surface().commands.first {
+            $0.id == WorkspaceCommandAction.threadCreateBranch.rawValue
+        }?.isEnabled == true)
+
+        let didCreate = model.createBranchHere(.init(branch: String(branch)))
+
+        XCTAssertTrue(didCreate)
+        XCTAssertEqual(model.selectedThread?.worktree?.branch, String(branch))
+        XCTAssertEqual(try currentBranchName(in: URL(fileURLWithPath: worktreePath)), String(branch))
+        XCTAssertFalse(model.surface().commands.first {
+            $0.id == WorkspaceCommandAction.threadCreateBranch.rawValue
+        }?.isEnabled == true)
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitWorktreeCreateBranch.name)
+        XCTAssertEqual(card.status, .done)
+        let arguments = try ToolArguments(XCTUnwrap(card.inputJSON))
+        XCTAssertEqual(arguments.string("branch"), String(branch))
+    }
+
+    func testAgentBranchCreationReconcilesManagedThreadBinding() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Worktree Project")
+        model.selectProject(projectID)
+        _ = try XCTUnwrap(model.newWorktreeThread(name: "agent branch promotion"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        let branch = "feature/agent-promoted-\(UUID().uuidString.prefix(8))"
+        defer {
+            _ = GitToolExecutor().removeWorktree(cwd: root, path: worktreePath, force: true)
+        }
+
+        let result = model.runToolCall(
+            ToolCall(
+                name: ToolDefinition.gitBranchSwitch.name,
+                argumentsJSON: ToolArguments.json([
+                    "branch": String(branch),
+                    "create": true
+                ])
+            ),
+            workspaceRoot: URL(fileURLWithPath: worktreePath)
+        )
+
+        XCTAssertTrue(result.ok, result.error ?? result.stderr)
+        XCTAssertEqual(model.selectedThread?.worktree?.branch, String(branch))
+        XCTAssertEqual(try currentBranchName(in: URL(fileURLWithPath: worktreePath)), String(branch))
+        XCTAssertFalse(model.surface().commands.first {
+            $0.id == WorkspaceCommandAction.threadCreateBranch.rawValue
+        }?.isEnabled == true)
+    }
+
     func testRemoteWorkspaceCreateWorktreeOpensSSHProjectAndKeepsToolAudit() throws {
         let fixture = try makeRemoteWorktreeFixture()
         let parent = fixture.remoteRoot.deletingLastPathComponent()

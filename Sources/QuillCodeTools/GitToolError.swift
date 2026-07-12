@@ -29,6 +29,8 @@ public enum GitToolError: Error, CustomStringConvertible {
     case mainWorkspaceWorktreePath
     case unregisteredWorktree(String)
     case worktreeAlreadyOwnsBranch(String)
+    case branchAlreadyExists(String)
+    case branchCheckedOutInWorktree(branch: String, path: String)
     case patchPathMismatch(String)
     case temporaryPatchFailed(String)
 
@@ -94,6 +96,10 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git worktree is not registered: \(path)"
         case .worktreeAlreadyOwnsBranch(let branch):
             return "This worktree already owns branch \(branch). Create branch here is available only from detached HEAD."
+        case .branchAlreadyExists(let branch):
+            return "Git branch already exists: \(branch)"
+        case .branchCheckedOutInWorktree(let branch, let path):
+            return "Git branch '\(branch)' is already checked out in worktree: \(path)"
         case .patchPathMismatch(let path):
             return "Git patch touches a different path than requested: \(path)"
         case .temporaryPatchFailed(let message):
