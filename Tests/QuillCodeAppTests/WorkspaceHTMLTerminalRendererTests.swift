@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 @MainActor
@@ -97,5 +98,33 @@ final class WorkspaceHTMLTerminalRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="terminal-mouse-mode">Mouse · SGR"#))
         XCTAssertTrue(html.contains(#"data-terminal-mouse-input="true""#))
         XCTAssertTrue(html.contains(#"data-terminal-mouse-encoding="sgr""#))
+    }
+
+    func testHTMLRendererExposesActiveTerminalKeyboardModes() {
+        let model = QuillCodeWorkspaceModel(terminal: TerminalState(
+            isVisible: true,
+            isRunning: true,
+            keyboardMode: TerminalKeyboardMode(
+                applicationCursorKeys: true,
+                bracketedPaste: true
+            ),
+            entries: [
+                TerminalCommandState(
+                    command: "tui-app",
+                    stdout: "menu",
+                    stderr: "",
+                    exitCode: nil,
+                    ok: false,
+                    status: .running
+                )
+            ]
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-terminal-keyboard-input="true""#))
+        XCTAssertTrue(html.contains(#"data-terminal-application-cursor="true""#))
+        XCTAssertTrue(html.contains(#"data-terminal-bracketed-paste="true""#))
+        XCTAssertTrue(html.contains(#"tabindex="0""#))
     }
 }

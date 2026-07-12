@@ -39,6 +39,10 @@ extension QuillCodeDesktopController {
         terminalCoordinator.sendMouseInput(request, model: model)
     }
 
+    func sendTerminalKeyboardInput(_ request: TerminalKeyboardInputRequest) {
+        terminalCoordinator.sendKeyboardInput(request, model: model)
+    }
+
     func suspendTerminal() {
         terminalCoordinator.suspendTerminal(model: model)
         // Rebuild the published surface so the pane re-renders with the new isSuspended state

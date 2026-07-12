@@ -193,6 +193,44 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         XCTAssertEqual(model.terminal.mouseReporting, .disabled)
     }
 
+    func testLocalTerminalDeliversApplicationCursorKeyToPTYApplication() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let command = "stty raw -echo; printf '\\033[?1h'; "
+            + "bytes=$(dd bs=1 count=3 2>/dev/null | od -An -tx1 | tr -d ' \\n'); "
+            + "printf '\\033[?1l'; stty sane; printf 'keys:%s' \"$bytes\""
+
+        XCTAssertFalse(model.sendTerminalKeyboardInput(TerminalKeyboardInputRequest(
+            event: TerminalKeyboardInputEvent(key: .arrowUp),
+            mode: .standard
+        )))
+
+        let task = Task {
+            await model.runTerminalCommand(command, workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 2) {
+            model.terminal.keyboardMode.applicationCursorKeys
+        }
+
+        XCTAssertFalse(model.sendTerminalKeyboardInput(TerminalKeyboardInputRequest(
+            event: TerminalKeyboardInputEvent(key: .arrowUp),
+            mode: .standard
+        )), "A request encoded against stale terminal modes must be rejected.")
+        let mode = model.terminal.keyboardMode
+        XCTAssertTrue(model.sendTerminalKeyboardInput(TerminalKeyboardInputRequest(
+            event: TerminalKeyboardInputEvent(key: .arrowUp),
+            mode: mode
+        )))
+        await task.value
+
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertTrue(
+            model.terminal.entries.first?.stdout.contains("keys:1b4f41") == true,
+            "Expected the PTY command to receive ESC O A, got: \(model.terminal.entries.first?.stdout ?? "<nil>")"
+        )
+        XCTAssertEqual(model.terminal.keyboardMode, .standard)
+    }
+
     func testSuspendAndResumeAreRejectedWhenNoCommandIsRunning() async throws {
         let model = QuillCodeWorkspaceModel()
         XCTAssertFalse(model.suspendTerminalCommand(), "Nothing is running to suspend.")

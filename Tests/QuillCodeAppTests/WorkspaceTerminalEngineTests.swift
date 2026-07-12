@@ -301,6 +301,24 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertEqual(terminal.mouseReporting, .disabled)
     }
 
+    func testStreamingOutputTracksAndResetsTerminalKeyboardModes() {
+        var terminal = TerminalState()
+        let id = WorkspaceTerminalEngine.beginRun(command: "tui", terminal: &terminal)
+
+        _ = WorkspaceTerminalEngine.applyStreamingEvent(
+            .stdout("\u{1B}[?1;2004hmenu"),
+            id: id,
+            terminal: &terminal
+        )
+        XCTAssertEqual(
+            terminal.keyboardMode,
+            TerminalKeyboardMode(applicationCursorKeys: true, bracketedPaste: true)
+        )
+
+        WorkspaceTerminalEngine.stopRunningEntries(terminal: &terminal)
+        XCTAssertEqual(terminal.keyboardMode, .standard)
+    }
+
     func testTerminalRunLifecycleCompletesAndCancelsWithMarkerCleanup() throws {
         let root = try makeQuillCodeTestDirectory()
         let context = WorkspaceTerminalSessionAdapter.localExecutionContext(

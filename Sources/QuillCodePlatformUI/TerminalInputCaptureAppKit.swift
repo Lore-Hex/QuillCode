@@ -1,113 +1,66 @@
-import SwiftUI
-import QuillCodeTools
-
 #if canImport(AppKit)
 import AppKit
-#endif
-
-public struct TerminalCellMetrics: Sendable, Hashable {
-    public var width: CGFloat
-    public var height: CGFloat
-
-    public init(width: CGFloat = 8.4, height: CGFloat = 18) {
-        self.width = width
-        self.height = height
-    }
-
-    public static let `default` = TerminalCellMetrics()
-}
-
-public enum TerminalMouseCoordinateMapper {
-    public static func position(
-        at location: CGPoint,
-        in size: CGSize,
-        metrics: TerminalCellMetrics = .default
-    ) -> TerminalMousePosition {
-        let safeWidth = max(1, metrics.width)
-        let safeHeight = max(1, metrics.height)
-        let maxColumn = max(1, Int(ceil(size.width / safeWidth)))
-        let maxRow = max(1, Int(ceil(size.height / safeHeight)))
-        return TerminalMousePosition(
-            column: min(maxColumn, max(1, Int(floor(location.x / safeWidth)) + 1)),
-            row: min(maxRow, max(1, Int(floor(location.y / safeHeight)) + 1))
-        )
-    }
-}
-
-public struct TerminalPointerInputCaptureView: View {
-    private var reporting: TerminalMouseReporting
-    private var metrics: TerminalCellMetrics
-    private var onMouseInput: (TerminalMouseInputRequest) -> Void
-
-    public init(
-        reporting: TerminalMouseReporting,
-        metrics: TerminalCellMetrics = .default,
-        onMouseInput: @escaping (TerminalMouseInputRequest) -> Void
-    ) {
-        self.reporting = reporting
-        self.metrics = metrics
-        self.onMouseInput = onMouseInput
-    }
-
-    public var body: some View {
-        PlatformTerminalPointerInputCapture(
-            reporting: reporting,
-            metrics: metrics,
-            onMouseInput: onMouseInput
-        )
-        .accessibilityElement()
-        .accessibilityIdentifier("quillcode-terminal-mouse-input")
-        .accessibilityLabel("Interactive terminal output")
-        .accessibilityHint("Pointer clicks, drags, movement, and scrolling are sent to the running terminal program.")
-    }
-}
-
-#if canImport(AppKit)
-private struct PlatformTerminalPointerInputCapture: NSViewRepresentable {
-    var reporting: TerminalMouseReporting
-    var metrics: TerminalCellMetrics
-    var onMouseInput: (TerminalMouseInputRequest) -> Void
-
-    func makeNSView(context: Context) -> TerminalPointerCaptureNSView {
-        let view = TerminalPointerCaptureNSView()
-        view.update(reporting: reporting, metrics: metrics, onMouseInput: onMouseInput)
-        return view
-    }
-
-    func updateNSView(_ view: TerminalPointerCaptureNSView, context: Context) {
-        view.update(reporting: reporting, metrics: metrics, onMouseInput: onMouseInput)
-    }
-}
+import QuillCodeTools
 
 @MainActor
-final class TerminalPointerCaptureNSView: NSView {
+final class TerminalInputCaptureNSView: NSView {
     private var reporting = TerminalMouseReporting.disabled
+    private var keyboardMode: TerminalKeyboardMode?
     private var metrics = TerminalCellMetrics.default
     private var onMouseInput: (TerminalMouseInputRequest) -> Void = { _ in }
+    private var onKeyboardInput: (TerminalKeyboardInputRequest) -> Void = { _ in }
     private var scrollAccumulator = TerminalScrollWheelAccumulator()
     private var lastMotion: MotionIdentity?
     private var trackingAreaReference: NSTrackingArea?
 
     override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { keyboardMode != nil }
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        needsDisplay = accepted
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        needsDisplay = resigned
+        return resigned
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard window?.firstResponder === self else { return }
+        NSColor.controlAccentColor.withAlphaComponent(0.8).setStroke()
+        let path = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 1, dy: 1),
+            xRadius: 4,
+            yRadius: 4
+        )
+        path.lineWidth = 2
+        path.stroke()
+    }
 
     func update(
         reporting: TerminalMouseReporting,
+        keyboardMode: TerminalKeyboardMode? = nil,
         metrics: TerminalCellMetrics,
-        onMouseInput: @escaping (TerminalMouseInputRequest) -> Void
+        onMouseInput: @escaping (TerminalMouseInputRequest) -> Void,
+        onKeyboardInput: @escaping (TerminalKeyboardInputRequest) -> Void = { _ in }
     ) {
         if self.reporting != reporting {
             scrollAccumulator.reset()
             lastMotion = nil
         }
         self.reporting = reporting
+        self.keyboardMode = keyboardMode
         self.metrics = metrics
         self.onMouseInput = onMouseInput
+        self.onKeyboardInput = onKeyboardInput
     }
 
     override func updateTrackingAreas() {
-        if let trackingAreaReference {
-            removeTrackingArea(trackingAreaReference)
-        }
+        if let trackingAreaReference { removeTrackingArea(trackingAreaReference) }
         let area = NSTrackingArea(
             rect: .zero,
             options: [.activeInKeyWindow, .inVisibleRect, .mouseMoved, .mouseEnteredAndExited],
@@ -119,6 +72,7 @@ final class TerminalPointerCaptureNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        focusForKeyboardInput()
         handlePointer(kind: .press, button: .left, event: event)
     }
 
@@ -132,6 +86,7 @@ final class TerminalPointerCaptureNSView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        focusForKeyboardInput()
         handlePointer(kind: .press, button: .right, event: event)
     }
 
@@ -146,6 +101,7 @@ final class TerminalPointerCaptureNSView: NSView {
 
     override func otherMouseDown(with event: NSEvent) {
         guard event.buttonNumber == 2 else { return }
+        focusForKeyboardInput()
         handlePointer(kind: .press, button: .middle, event: event)
     }
 
@@ -184,6 +140,42 @@ final class TerminalPointerCaptureNSView: NSView {
         )
     }
 
+    override func keyDown(with event: NSEvent) {
+        guard handleKeyboard(event) else {
+            super.keyDown(with: event)
+            return
+        }
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "v" else {
+            return false
+        }
+        guard let text = NSPasteboard.general.string(forType: .string) else { return true }
+        return handlePaste(text)
+    }
+
+    @discardableResult
+    func handleKeyboard(_ event: NSEvent) -> Bool {
+        guard let keyboardMode,
+              let inputEvent = TerminalMacKeyboardMapper.inputEvent(from: event) else {
+            return false
+        }
+        onKeyboardInput(TerminalKeyboardInputRequest(event: inputEvent, mode: keyboardMode))
+        return true
+    }
+
+    @discardableResult
+    func handlePaste(_ text: String) -> Bool {
+        guard let keyboardMode, !text.isEmpty else { return false }
+        onKeyboardInput(TerminalKeyboardInputRequest(
+            event: TerminalKeyboardInputEvent(key: .paste(text)),
+            mode: keyboardMode
+        ))
+        return true
+    }
+
     @discardableResult
     func handleScroll(
         horizontalDelta: Double,
@@ -199,11 +191,7 @@ final class TerminalPointerCaptureNSView: NSView {
             isPrecise: isPrecise
         )
         guard !kinds.isEmpty else { return true }
-        let position = TerminalMouseCoordinateMapper.position(
-            at: location,
-            in: bounds.size,
-            metrics: metrics
-        )
+        let position = mappedPosition(at: location)
         for kind in kinds {
             send(kind: kind, button: .none, position: position, modifiers: modifiers)
         }
@@ -218,15 +206,9 @@ final class TerminalPointerCaptureNSView: NSView {
         modifiers: TerminalMouseModifiers = TerminalMouseModifiers()
     ) -> Bool {
         guard reporting.isEnabled else { return false }
-        let position = TerminalMouseCoordinateMapper.position(
-            at: location,
-            in: bounds.size,
-            metrics: metrics
-        )
+        let position = mappedPosition(at: location)
         let motion = MotionIdentity(position: position, button: button)
-        if kind == .motion, motion == lastMotion {
-            return true
-        }
+        if kind == .motion, motion == lastMotion { return true }
         lastMotion = kind == .motion ? motion : nil
         send(kind: kind, button: button, position: position, modifiers: modifiers)
         return true
@@ -245,8 +227,17 @@ final class TerminalPointerCaptureNSView: NSView {
         )
     }
 
+    private func mappedPosition(at location: CGPoint) -> TerminalMousePosition {
+        TerminalMouseCoordinateMapper.position(at: location, in: bounds.size, metrics: metrics)
+    }
+
     private func localLocation(for event: NSEvent) -> CGPoint {
         convert(event.locationInWindow, from: nil)
+    }
+
+    private func focusForKeyboardInput() {
+        guard keyboardMode != nil else { return }
+        window?.makeFirstResponder(self)
     }
 
     private func modifiers(for event: NSEvent) -> TerminalMouseModifiers {
@@ -277,52 +268,6 @@ final class TerminalPointerCaptureNSView: NSView {
     private struct MotionIdentity: Equatable {
         var position: TerminalMousePosition
         var button: TerminalMouseButton
-    }
-}
-#else
-private struct PlatformTerminalPointerInputCapture: View {
-    var reporting: TerminalMouseReporting
-    var metrics: TerminalCellMetrics
-    var onMouseInput: (TerminalMouseInputRequest) -> Void
-
-    @State private var isDragging = false
-    @State private var lastMotion: TerminalMousePosition?
-
-    var body: some View {
-        GeometryReader { proxy in
-            Color.clear
-                .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onChanged { value in
-                        let position = mapped(value.location, size: proxy.size)
-                        if !isDragging {
-                            isDragging = true
-                            send(.press, button: .left, position: position)
-                        } else if position != lastMotion {
-                            send(.motion, button: .left, position: position)
-                        }
-                        lastMotion = position
-                    }
-                    .onEnded { value in
-                        send(.release, button: .left, position: mapped(value.location, size: proxy.size))
-                        isDragging = false
-                        lastMotion = nil
-                    })
-        }
-    }
-
-    private func mapped(_ location: CGPoint, size: CGSize) -> TerminalMousePosition {
-        TerminalMouseCoordinateMapper.position(at: location, in: size, metrics: metrics)
-    }
-
-    private func send(
-        _ kind: TerminalMouseEventKind,
-        button: TerminalMouseButton,
-        position: TerminalMousePosition
-    ) {
-        onMouseInput(TerminalMouseInputRequest(
-            event: TerminalMouseInputEvent(kind: kind, button: button, position: position),
-            reporting: reporting
-        ))
     }
 }
 #endif

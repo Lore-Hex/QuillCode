@@ -6,6 +6,7 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
     public var draft: String
     public var isRunning: Bool
     public var isSuspended: Bool
+    public var keyboardMode: TerminalKeyboardMode
     public var cwdLabel: String
     public var entries: [TerminalCommandSurface]
     public var emptyTitle: String
@@ -49,6 +50,7 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
         self.draft = terminal.draft
         self.isRunning = terminal.isRunning
         self.isSuspended = terminal.isSuspended
+        self.keyboardMode = terminal.keyboardMode
         self.cwdLabel = cwd?.path ?? terminal.currentDirectoryPath ?? "No project"
         self.entries = terminal.entries.map {
             TerminalCommandSurface(entry: $0, ambiguousWidthPolicy: ambiguousWidthPolicy)

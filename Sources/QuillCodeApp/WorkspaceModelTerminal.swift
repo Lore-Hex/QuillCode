@@ -71,6 +71,17 @@ extension QuillCodeWorkspaceModel {
         return activeTerminalSession.sendInput(input)
     }
 
+    @discardableResult
+    public func sendTerminalKeyboardInput(_ request: TerminalKeyboardInputRequest) -> Bool {
+        guard terminal.isRunning,
+              terminal.keyboardMode == request.mode,
+              let activeTerminalSession,
+              let input = TerminalKeyboardInputEncoder.encode(request) else {
+            return false
+        }
+        return activeTerminalSession.sendInput(input)
+    }
+
     /// Suspends the running terminal command (job control, like a shell's Ctrl+Z). Returns `false` if
     /// nothing is running, it is already suspended, or the session does not support suspension (only
     /// the local PTY does).

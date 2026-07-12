@@ -1986,6 +1986,10 @@
       letter-spacing: .02em;
     }
     [data-terminal-mouse-input="true"] { cursor: default; user-select: none; }
+    [data-terminal-keyboard-input="true"]:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--blue) 70%, transparent);
+      outline-offset: 2px;
+    }
     .terminal-form { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
     .browser-tabs {
       display: flex;
@@ -4694,6 +4698,7 @@
         historyDraft: null,
         isRunning: false,
         isSuspended: false,
+        keyboardMode: { applicationCursorKeys: false, bracketedPaste: false },
         cwdLabel: '/mock/QuillCode',
         environment: {},
         entries: []
@@ -11799,7 +11804,11 @@
         const mouseAttributes = terminalAcceptsMouseInput(entry)
           ? ` data-terminal-mouse-input="true" data-terminal-mouse-encoding="${escapeHTML(entry.mouseReporting.encoding)}" data-terminal-entry-index="${entryIndex}" data-terminal-mouse-event-count="${entry.mouseEvents?.length || 0}" data-last-terminal-mouse-sequence="${escapeHTML(entry.lastMouseSequenceLabel || '')}"`
           : '';
-        return `<pre data-testid="${testID}"${mouseAttributes}>${contents}</pre>`;
+        const acceptsKeyboard = Boolean(entry) && terminalStatus(entry) === 'running';
+        const keyboardAttributes = acceptsKeyboard
+          ? ` data-terminal-keyboard-input="true" tabindex="0" data-terminal-entry-index="${entryIndex}" data-terminal-keyboard-event-count="${entry.keyboardEvents?.length || 0}" data-last-terminal-keyboard-sequence="${escapeHTML(entry.lastKeyboardSequenceLabel || '')}"`
+          : '';
+        return `<pre data-testid="${testID}"${mouseAttributes}${keyboardAttributes}>${contents}</pre>`;
       }
 
       function renderTerminalRun(run, defaultColor) {
@@ -13644,6 +13653,7 @@
       }
       state.composer.isSending = false;
       state.terminal.isRunning = false;
+      state.terminal.keyboardMode = { applicationCursorKeys: false, bracketedPaste: false };
       state.terminal.entries
         .filter(entry => terminalStatus(entry) === 'running')
         .forEach(entry => {
@@ -14716,6 +14726,9 @@
         mouseReporting: null,
         mouseEvents: [],
         lastMouseSequenceLabel: '',
+        keyboardMode: { applicationCursorKeys: false, bracketedPaste: false },
+        keyboardEvents: [],
+        lastKeyboardSequenceLabel: '',
         executionContext: executionContextForCWD(cwd)
       };
       state.terminal.entries.push(entry);
@@ -14730,6 +14743,15 @@
           isEnabled: true
         };
         activeTerminalRun = { entry, timer: null, kind: 'mouse' };
+        render();
+        return;
+      }
+
+      if (command === 'tui-demo') {
+        entry.stdout = 'keyboard-ready\n';
+        entry.keyboardMode = { applicationCursorKeys: true, bracketedPaste: true };
+        state.terminal.keyboardMode = { ...entry.keyboardMode };
+        activeTerminalRun = { entry, timer: null, kind: 'keyboard' };
         render();
         return;
       }
@@ -14769,6 +14791,7 @@
         state.terminal.cwdLabel = output.cwd || cwd;
         state.terminal.environment = output.environment || environment;
         state.terminal.isRunning = false;
+        state.terminal.keyboardMode = { applicationCursorKeys: false, bracketedPaste: false };
         activeTerminalRun = null;
         updateDynamicCommands();
         render();
@@ -14791,6 +14814,7 @@
         entry.ok = true;
         entry.status = 'done';
         state.terminal.isRunning = false;
+        state.terminal.keyboardMode = { applicationCursorKeys: false, bracketedPaste: false };
         activeTerminalRun = null;
         updateDynamicCommands();
         render();
@@ -14837,6 +14861,67 @@
         }, { passive: false });
         output.addEventListener('contextmenu', event => event.preventDefault());
       });
+      document.querySelectorAll('[data-terminal-keyboard-input="true"]').forEach(output => {
+        output.addEventListener('keydown', event => {
+          if (event.metaKey) return;
+          const sequence = terminalKeyboardSequence(event);
+          if (!sequence) return;
+          event.preventDefault();
+          sendTerminalKeyboardSequence(output, sequence);
+        });
+        output.addEventListener('paste', event => {
+          const text = event.clipboardData?.getData('text/plain') || '';
+          if (!text) return;
+          event.preventDefault();
+          const entry = terminalEntryForKeyboardOutput(output);
+          if (!entry) return;
+          const sanitized = text.replaceAll('\u001b[200~', '').replaceAll('\u001b[201~', '');
+          const sequence = entry.keyboardMode?.bracketedPaste
+            ? `\u001b[200~${sanitized}\u001b[201~`
+            : sanitized;
+          sendTerminalKeyboardSequence(output, sequence);
+        });
+      });
+    }
+
+    function terminalEntryForKeyboardOutput(output) {
+      const index = Number(output.dataset.terminalEntryIndex);
+      const entry = Number.isInteger(index) ? state.terminal.entries[index] : null;
+      if (!entry || activeTerminalRun?.entry !== entry || terminalStatus(entry) !== 'running') return null;
+      return entry;
+    }
+
+    function terminalKeyboardSequence(event) {
+      const modifier = 1 + (event.shiftKey ? 1 : 0) + (event.altKey ? 2 : 0) + (event.ctrlKey ? 4 : 0);
+      const applicationMode = Boolean(activeTerminalRun?.entry?.keyboardMode?.applicationCursorKeys);
+      const cursor = final => modifier > 1
+        ? `\u001b[1;${modifier}${final}`
+        : applicationMode ? `\u001bO${final}` : `\u001b[${final}`;
+      const tilde = code => modifier > 1 ? `\u001b[${code};${modifier}~` : `\u001b[${code}~`;
+      const special = {
+        ArrowUp: cursor('A'), ArrowDown: cursor('B'), ArrowRight: cursor('C'), ArrowLeft: cursor('D'),
+        Home: cursor('H'), End: cursor('F'), PageUp: tilde(5), PageDown: tilde(6),
+        Insert: tilde(2), Delete: tilde(3), Enter: '\r', Escape: '\u001b', Backspace: '\u007f',
+        Tab: event.shiftKey ? '\u001b[Z' : (modifier === 1 ? '\t' : `\u001b[1;${modifier}I`)
+      };
+      if (special[event.key]) return special[event.key];
+      if (event.key.length !== 1) return '';
+      let text = event.ctrlKey
+        ? String.fromCharCode(event.key.toLowerCase().charCodeAt(0) & 0x1f)
+        : event.key;
+      if (event.altKey) text = `\u001b${text}`;
+      return text;
+    }
+
+    function sendTerminalKeyboardSequence(output, sequence) {
+      const entry = terminalEntryForKeyboardOutput(output);
+      if (!entry || !sequence) return;
+      const label = sequence.replaceAll('\u001b', 'ESC').replaceAll('\r', 'CR').replaceAll('\t', 'TAB');
+      entry.keyboardEvents.push(sequence);
+      entry.stdin = `${entry.stdin || ''}${sequence}`;
+      entry.lastKeyboardSequenceLabel = label;
+      output.dataset.terminalKeyboardEventCount = String(entry.keyboardEvents.length);
+      output.dataset.lastTerminalKeyboardSequence = label;
     }
 
     function terminalPointerButton(buttonNumber) {

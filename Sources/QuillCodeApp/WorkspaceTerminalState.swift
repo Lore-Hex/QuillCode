@@ -70,7 +70,9 @@ public struct TerminalState: Sendable, Hashable {
     public var isRunning: Bool
     public var isSuspended: Bool
     public private(set) var mouseReporting: TerminalMouseReporting
+    public private(set) var keyboardMode: TerminalKeyboardMode
     var mouseReportingParser: TerminalMouseReportingParser
+    var keyboardModeParser: TerminalKeyboardModeParser
     public var entries: [TerminalCommandState]
 
     public init(
@@ -86,6 +88,7 @@ public struct TerminalState: Sendable, Hashable {
         isRunning: Bool = false,
         isSuspended: Bool = false,
         mouseReporting: TerminalMouseReporting = .disabled,
+        keyboardMode: TerminalKeyboardMode = .standard,
         entries: [TerminalCommandState] = []
     ) {
         self.projectID = projectID
@@ -100,18 +103,24 @@ public struct TerminalState: Sendable, Hashable {
         self.isRunning = isRunning
         self.isSuspended = isSuspended
         self.mouseReporting = mouseReporting
+        self.keyboardMode = keyboardMode
         self.mouseReportingParser = TerminalMouseReportingParser(reporting: mouseReporting)
+        self.keyboardModeParser = TerminalKeyboardModeParser(mode: keyboardMode)
         self.entries = entries
     }
 
-    mutating func consumeMouseReporting(from output: String) {
+    mutating func consumeInputModes(from output: String) {
         mouseReportingParser.consume(output)
         mouseReporting = mouseReportingParser.reporting
+        keyboardModeParser.consume(output)
+        keyboardMode = keyboardModeParser.mode
     }
 
-    mutating func resetMouseReporting() {
+    mutating func resetInputModes() {
         mouseReportingParser.reset()
         mouseReporting = mouseReportingParser.reporting
+        keyboardModeParser.reset()
+        keyboardMode = keyboardModeParser.mode
     }
 }
 
