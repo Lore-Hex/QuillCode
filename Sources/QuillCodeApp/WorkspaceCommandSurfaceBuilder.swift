@@ -23,6 +23,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var mcpServerStatuses: [String: MCPServerLifecycleStatus]
     var mcpServerProbeSummaries: [String: MCPServerProbeSummary]
     var computerUseStatus: ComputerUseStatus
+    var selectedThreadIsRunning: Bool = false
+    var runningThreadIDs: Set<UUID> = []
 
     var commands: [WorkspaceCommandSurface] {
         WorkspaceThreadCommandCatalog.commands(
@@ -104,14 +106,14 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     }
 
     private var selectedThreadCanClear: Bool {
-        guard let selectedThread else { return false }
+        guard let selectedThread, !selectedThreadIsRunning else { return false }
         return !selectedThread.messages.isEmpty
             || !selectedThread.events.isEmpty
             || !selectedThread.followUpQueue.isEmpty
     }
 
     private var selectedThreadCanRevertLatestTurn: Bool {
-        guard let selectedThread, !selectedProjectIsRemote else { return false }
+        guard let selectedThread, !selectedProjectIsRemote, !selectedThreadIsRunning else { return false }
         return WorkspaceTurnRevertPlanner.latestPlan(in: selectedThread) != nil
     }
 
@@ -136,18 +138,20 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         WorkspaceThreadCommandAvailability(
             hasSelectedThread: hasSelectedThread,
             selectedThreadIsArchived: selectedThread?.isArchived == true,
-            selectedThreadHasMessages: selectedThreadHasMessages,
+            selectedThreadHasMessages: selectedThreadHasMessages && !selectedThreadIsRunning,
             selectedThreadCanClear: selectedThreadCanClear,
             selectedThreadCanRevertLatestTurn: selectedThreadCanRevertLatestTurn,
             selectedThreadCanPin: selectedThreadCanPin,
             selectedThreadCanUnpin: selectedThreadCanUnpin,
+            selectedThreadIsRunning: selectedThreadIsRunning,
             hasAnySidebarThread: sidebarItemCount > 0,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             hasSidebarSelection: !selectedSidebarThreads.isEmpty,
             hasPinnedSidebarSelection: selectedSidebarThreads.contains { $0.isPinned },
             hasUnpinnedUnarchivedSidebarSelection: selectedSidebarThreads.contains { !$0.isPinned && !$0.isArchived },
             hasUnarchivedSidebarSelection: selectedSidebarThreads.contains { !$0.isArchived },
-            hasArchivedSidebarSelection: selectedSidebarThreads.contains { $0.isArchived }
+            hasArchivedSidebarSelection: selectedSidebarThreads.contains { $0.isArchived },
+            hasRunningSidebarSelection: selectedSidebarThreads.contains { runningThreadIDs.contains($0.id) }
         )
     }
 }

@@ -69,6 +69,56 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(surface.sidebar.bulkActions.first?.isEnabled, true)
     }
 
+    func testProjectsLiveRunStatusOntoItsOwningSidebarRow() throws {
+        let runningThread = ChatThread(title: "Running in background")
+        let selectedThread = ChatThread(title: "Selected")
+        var agentRuns = WorkspaceAgentRunRegistry()
+        agentRuns.begin(threadID: runningThread.id, status: "Running tests")
+
+        let surface = WorkspaceNavigationSurfaceBuilder(
+            projects: [],
+            selectedProjectID: nil,
+            sidebarItems: [SidebarItem(thread: runningThread), SidebarItem(thread: selectedThread)],
+            selectedThreadID: selectedThread.id,
+            threads: [runningThread, selectedThread],
+            activeSidebarFilter: .all,
+            selectionIsActive: false,
+            selectedThreadIDs: [],
+            agentRuns: agentRuns
+        ).surface()
+
+        let runningRow = try XCTUnwrap(surface.sidebar.items.first { $0.id == runningThread.id })
+        let selectedRow = try XCTUnwrap(surface.sidebar.items.first { $0.id == selectedThread.id })
+        XCTAssertEqual(runningRow.runStatusLabel, "Running tests")
+        XCTAssertTrue(runningRow.isRunning)
+        XCTAssertFalse(runningRow.actions.contains { $0.kind == .duplicate })
+        XCTAssertFalse(runningRow.actions.contains { $0.kind == .delete })
+        XCTAssertNil(selectedRow.runStatusLabel)
+        XCTAssertFalse(selectedRow.isRunning)
+    }
+
+    func testBulkDeleteDisablesWhenSelectionContainsARunningChat() throws {
+        let runningThread = ChatThread(title: "Running")
+        let idleThread = ChatThread(title: "Idle")
+        var agentRuns = WorkspaceAgentRunRegistry()
+        agentRuns.begin(threadID: runningThread.id, status: "Running")
+
+        let surface = WorkspaceNavigationSurfaceBuilder(
+            projects: [],
+            selectedProjectID: nil,
+            sidebarItems: [SidebarItem(thread: runningThread), SidebarItem(thread: idleThread)],
+            selectedThreadID: idleThread.id,
+            threads: [runningThread, idleThread],
+            activeSidebarFilter: .all,
+            selectionIsActive: true,
+            selectedThreadIDs: [runningThread.id, idleThread.id],
+            agentRuns: agentRuns
+        ).surface()
+
+        let delete = try XCTUnwrap(surface.sidebar.bulkActions.first { $0.kind == .delete })
+        XCTAssertFalse(delete.isEnabled)
+    }
+
     func testInactiveSelectionIgnoresSelectedThreadIDs() throws {
         let thread = ChatThread(title: "Thread")
 

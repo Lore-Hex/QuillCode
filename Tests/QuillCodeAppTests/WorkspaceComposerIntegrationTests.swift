@@ -420,6 +420,103 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertTrue(secondThread.messages.isEmpty)
     }
 
+    func testTwoThreadsRunConcurrentlyAndKeepIndependentPresentationState() async throws {
+        let root = try makeTempDirectory()
+        let gate = ConcurrentPromptGate()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: ConcurrentPromptGateLLMClient(gate: gate))
+        )
+        let firstThreadID = model.newChat()
+
+        model.setDraft("alpha task")
+        let firstTask = Task {
+            await model.submitComposer(threadID: firstThreadID, workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.isAgentRunActive(for: firstThreadID)
+        }
+
+        let secondThreadID = model.newChat()
+        model.setDraft("beta task")
+        let secondTask = Task {
+            await model.submitComposer(threadID: secondThreadID, workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.activeAgentRunThreadIDs == [firstThreadID, secondThreadID]
+        }
+        let alphaStarted = await gate.hasStarted("alpha task")
+        let betaStarted = await gate.hasStarted("beta task")
+        XCTAssertTrue(alphaStarted && betaStarted, "both model calls must be live concurrently")
+
+        XCTAssertEqual(model.root.selectedThreadID, secondThreadID)
+        XCTAssertTrue(model.composer.isSending)
+        let runningRows = model.surface().sidebar.items.filter(\.isRunning)
+        XCTAssertEqual(Set(runningRows.map(\.id)), [firstThreadID, secondThreadID])
+
+        let idleThreadID = model.newChat()
+        XCTAssertEqual(model.root.selectedThreadID, idleThreadID)
+        XCTAssertFalse(model.composer.isSending, "an idle selected chat must keep an editable composer")
+        XCTAssertEqual(model.root.topBar.agentStatus, "2 chats running")
+
+        model.selectThread(firstThreadID)
+        XCTAssertTrue(model.composer.isSending)
+        XCTAssertEqual(model.root.topBar.agentStatus, TopBarAgentStatusLabel.running)
+
+        await gate.release("beta task")
+        await secondTask.value
+        XCTAssertEqual(model.root.selectedThreadID, firstThreadID, "a background completion must not steal selection")
+        XCTAssertTrue(model.isAgentRunActive(for: firstThreadID))
+        XCTAssertFalse(model.isAgentRunActive(for: secondThreadID))
+        XCTAssertTrue(model.composer.isSending)
+
+        await gate.release("alpha task")
+        await firstTask.value
+        XCTAssertTrue(model.activeAgentRunThreadIDs.isEmpty)
+        XCTAssertFalse(model.composer.isSending)
+        XCTAssertEqual(model.root.topBar.agentStatus, TopBarAgentStatusLabel.idle)
+
+        let first = try XCTUnwrap(model.root.threads.first { $0.id == firstThreadID })
+        let second = try XCTUnwrap(model.root.threads.first { $0.id == secondThreadID })
+        XCTAssertTrue(first.messages.contains { $0.role == .assistant && $0.content == "Finished alpha task" })
+        XCTAssertTrue(second.messages.contains { $0.role == .assistant && $0.content == "Finished beta task" })
+    }
+
+    func testExplicitThreadSubmissionUsesThatThreadsStashedDraftAfterSelectionChanges() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let firstThreadID = model.newChat()
+        model.setDraft("send this to alpha")
+        let secondThreadID = model.newChat()
+
+        await model.submitComposer(threadID: firstThreadID, workspaceRoot: root)
+
+        XCTAssertEqual(model.root.selectedThreadID, secondThreadID)
+        let first = try XCTUnwrap(model.root.threads.first { $0.id == firstThreadID })
+        let second = try XCTUnwrap(model.root.threads.first { $0.id == secondThreadID })
+        XCTAssertEqual(first.messages.first?.content, "send this to alpha")
+        XCTAssertTrue(second.messages.isEmpty)
+    }
+
+    func testPreparingFirstAgentSubmissionMaterializesAStableTaskOwner() throws {
+        let model = QuillCodeWorkspaceModel()
+        model.setDraft("inspect this project")
+
+        let threadID = try XCTUnwrap(model.prepareComposerSubmissionThread())
+
+        XCTAssertEqual(model.root.selectedThreadID, threadID)
+        XCTAssertEqual(model.root.threads.map(\.id), [threadID])
+        XCTAssertEqual(model.composer.draft, "inspect this project")
+        XCTAssertEqual(model.root.threads.first?.composerDraft, "inspect this project")
+    }
+
+    func testPreparingViewOnlySlashCommandDoesNotCreateAChat() {
+        let model = QuillCodeWorkspaceModel()
+        model.setDraft("/settings")
+
+        XCTAssertNil(model.prepareComposerSubmissionThread())
+        XCTAssertTrue(model.root.threads.isEmpty)
+    }
+
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")
@@ -548,5 +645,45 @@ private struct SlowApprovingSafetyReviewer: SafetyReviewer {
             rationale: "The tool call is bounded and matches the current user request.",
             userIntentMatched: true
         )
+    }
+}
+
+private actor ConcurrentPromptGate {
+    private var started: Set<String> = []
+    private var released: Set<String> = []
+    private var waiters: [String: [CheckedContinuation<Void, Never>]] = [:]
+
+    func wait(for prompt: String) async {
+        started.insert(prompt)
+        if released.remove(prompt) != nil { return }
+        await withCheckedContinuation { continuation in
+            waiters[prompt, default: []].append(continuation)
+        }
+    }
+
+    func release(_ prompt: String) {
+        let continuations = waiters.removeValue(forKey: prompt) ?? []
+        if continuations.isEmpty {
+            released.insert(prompt)
+        } else {
+            continuations.forEach { $0.resume() }
+        }
+    }
+
+    func hasStarted(_ prompt: String) -> Bool {
+        started.contains(prompt)
+    }
+}
+
+private struct ConcurrentPromptGateLLMClient: LLMClient {
+    var gate: ConcurrentPromptGate
+
+    func nextAction(
+        thread _: ChatThread,
+        userMessage: String,
+        tools _: [ToolDefinition]
+    ) async throws -> AgentAction {
+        await gate.wait(for: userMessage)
+        return .say("Finished \(userMessage)")
     }
 }

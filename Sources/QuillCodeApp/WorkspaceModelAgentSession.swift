@@ -14,18 +14,24 @@ extension QuillCodeWorkspaceModel {
         workspaceRoot: URL,
         onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
     ) async -> WorkspaceAgentSendTaskOutcome {
-        let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
+        let runProject = sendStart.thread.projectID.flatMap(project(id:))
+        let session = agentSendSessionFactory(
+            workspaceRoot: workspaceRoot,
+            runProject: runProject
+        )
             .makeSession(
                 prompt: sendStart.prompt,
                 thread: sendStart.thread,
                 recordsUserMessage: false
             )
-        return await WorkspaceAgentSendTaskCoordinator(
-            start: sendStart,
-            session: session
-        ).run { [weak self] progressThread in
-            await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
-            await onProgressUpdated?()
+        return await AgentRunRetryScope.$threadID.withValue(sendStart.threadID) {
+            await WorkspaceAgentSendTaskCoordinator(
+                start: sendStart,
+                session: session
+            ).run { [weak self] progressThread in
+                await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
+                await onProgressUpdated?()
+            }
         }
     }
 
@@ -35,12 +41,12 @@ extension QuillCodeWorkspaceModel {
     /// authoritative copy and would clobber a model-appended notice.
     func drainSelfHealingNotices(expectedThreadID: UUID?) {
         guard let channel = retryEventChannel else { return }
-        let events = channel.drain()
+        guard let expectedThreadID else { return }
+        let events = channel.drain(threadID: expectedThreadID)
         guard !events.isEmpty,
-              let thread = selectedThread,
-              thread.id == expectedThreadID
+              root.threads.contains(where: { $0.id == expectedThreadID })
         else { return }
-        mutateSelectedThread { thread in
+        mutateThread(expectedThreadID) { thread in
             for event in events {
                 thread.events.append(ThreadEvent(
                     kind: .notice,
@@ -48,15 +54,18 @@ extension QuillCodeWorkspaceModel {
                 ))
             }
         }
-        if let thread = selectedThread {
+        if let thread = root.threads.first(where: { $0.id == expectedThreadID }) {
             threadPersistence.save(thread)
         }
     }
 
-    private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
+    private func agentSendSessionFactory(
+        workspaceRoot: URL,
+        runProject: ProjectRef?
+    ) -> WorkspaceAgentSendSessionFactory {
         WorkspaceAgentSendSessionFactory(
             baseRunner: runner,
-            selectedProject: selectedProject,
+            selectedProject: runProject,
             config: root.config,
             modelCatalog: root.modelCatalog,
             spendPeriodThreads: root.threads,
@@ -69,7 +78,7 @@ extension QuillCodeWorkspaceModel {
             imageAttachmentStore: imageAttachmentStore,
             globalMemoryDirectory: globalMemoryDirectory,
             mcpToolDefinitions: mcpRuntime.toolDefinitions(
-                manifests: selectedProject?.extensionManifests ?? [],
+                manifests: runProject?.extensionManifests ?? [],
                 extensions: extensions
             ),
             mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),

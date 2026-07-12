@@ -123,9 +123,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-stop-button""#))
 
-        let activeHTML = WorkspaceHTMLRenderer.render(
-            QuillCodeWorkspaceModel(composer: ComposerState(isSending: true)).surface()
-        )
+        let activeHTML = WorkspaceHTMLRenderer.render(activeRunModel().surface())
         XCTAssertFalse(activeHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
         XCTAssertFalse(activeHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
         XCTAssertTrue(activeHTML.contains(#"data-testid="top-bar-stop-button""#))
@@ -206,7 +204,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
     }
 
     func testHTMLRendererShowsStopButtonDuringActiveSend() {
-        let model = QuillCodeWorkspaceModel(composer: ComposerState(isSending: true))
+        let model = activeRunModel()
 
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
@@ -218,6 +216,15 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"rows="1""#))
         XCTAssertTrue(html.contains("disabled"))
         XCTAssertFalse(html.contains(#"data-testid="send-button""#))
+    }
+
+    private func activeRunModel() -> QuillCodeWorkspaceModel {
+        let thread = ChatThread(title: "Running")
+        return QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            composer: ComposerState(isSending: true),
+            agentRuns: WorkspaceAgentRunRegistry(statusesByThreadID: [thread.id: "Working"])
+        )
     }
 
     func testHTMLRendererSendButtonUsesTextHitTargetForItsLabel() {

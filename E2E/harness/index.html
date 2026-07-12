@@ -313,6 +313,28 @@
       background: rgba(255, 190, 92, 0.12);
       font-family: inherit;
     }
+    .sidebar-title-line {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-title-line > span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sidebar-run-status {
+      flex: 0 0 auto;
+      width: 10px;
+      height: 10px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--blue);
+      font-size: 8px;
+      line-height: 1;
+    }
     .topbar-token-budget {
       flex: 0 1 min(420px, 40vw);
       min-width: 360px;
@@ -7155,9 +7177,12 @@
     function updateDynamicCommands() {
       const selectedThread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
       const hasThread = Boolean(selectedThread);
+      const selectedThreadIsRunning = Boolean(selectedThread?.runStatusLabel);
       const hasMessages = Boolean(state.sidebar.selectedThreadID && state.transcript.messages.length);
       const hasUserMessages = state.transcript.messages.some(message => message.role === 'user' && String(message.text || '').trim());
-      const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
+      const hasActiveWork = state.composer.isSending
+        || state.sidebar.items.some(item => Boolean(item.runStatusLabel))
+        || state.terminal.isRunning;
       const hasProject = Boolean(state.projects.selectedProjectID);
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       const hasLocalProject = hasProject && !selectedProject?.isRemote;
@@ -7173,6 +7198,7 @@
       const hasUnpinnedUnarchivedBulkSelection = selectedThreads.some(item => !item.isPinned && !item.isArchived);
       const hasUnarchivedBulkSelection = selectedThreads.some(item => !item.isArchived);
       const hasArchivedBulkSelection = selectedThreads.some(item => item.isArchived);
+      const hasRunningBulkSelection = selectedThreads.some(item => Boolean(item.runStatusLabel));
       const hasSidebarThreads = visibleSidebarItems.length > 0;
       const savedSearchCommands = sidebarSavedSearches().flatMap(savedSearch => [
         {
@@ -7218,14 +7244,14 @@
         })
         .map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
-        command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
+        command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning } :
         command.id === 'thread-pin' ? { ...command, isEnabled: hasThread && !selectedThread.isPinned && !selectedThread.isArchived } :
         command.id === 'thread-unpin' ? { ...command, isEnabled: hasThread && selectedThread.isPinned } :
-        command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
-        command.id === 'thread-revert-latest' ? { ...command, isEnabled: hasThread && latestRevertableTurnID() !== null } :
+        command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
+        command.id === 'thread-revert-latest' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning && latestRevertableTurnID() !== null } :
         command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThread.isArchived } :
         command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && selectedThread.isArchived } :
-        command.id === 'thread-delete' ? { ...command, isEnabled: hasThread } :
+        command.id === 'thread-delete' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning } :
         command.id === 'thread-selection-start' ? { ...command, isEnabled: hasSidebarThreads } :
         command.id === 'thread-selection-select-all' ? { ...command, isEnabled: hasSidebarThreads } :
         command.id === 'thread-selection-clear' ? { ...command, isEnabled: state.sidebar.isSelectionMode } :
@@ -7233,7 +7259,7 @@
         command.id === 'thread-bulk-unpin' ? { ...command, isEnabled: hasPinnedBulkSelection } :
         command.id === 'thread-bulk-archive' ? { ...command, isEnabled: hasUnarchivedBulkSelection } :
         command.id === 'thread-bulk-unarchive' ? { ...command, isEnabled: hasArchivedBulkSelection } :
-        command.id === 'thread-bulk-delete' ? { ...command, isEnabled: hasBulkSelection } :
+        command.id === 'thread-bulk-delete' ? { ...command, isEnabled: hasBulkSelection && !hasRunningBulkSelection } :
         command.id === 'project-new-chat' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-init' ? { ...command, isEnabled: hasProject } :
@@ -7252,10 +7278,10 @@
         command.id === 'git-worktree-open' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-remove' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-prune' ? { ...command, isEnabled: hasLocalProject } :
-        command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
-        command.id === 'fork-with-summary' ? { ...command, isEnabled: hasMessages } :
-        command.id === 'fork-full-context' ? { ...command, isEnabled: hasMessages } :
-        command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
+        command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
+        command.id === 'fork-with-summary' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
+        command.id === 'fork-full-context' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
+        command.id === 'compact-context' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'workspace-back' ? { ...command, isEnabled: canNavigateWorkspaceBack() } :
         command.id === 'workspace-forward' ? { ...command, isEnabled: canNavigateWorkspaceForward() } :
@@ -8279,14 +8305,17 @@
         }
         return `<span class="sidebar-worktree-chip" data-tone="warning" data-testid="sidebar-worktree-warning" title="Worktree missing — running in the project root">⚠ Worktree missing</span>`;
       };
+      const renderSidebarRunStatus = (status) => status ? `
+        <span class="sidebar-run-status" data-testid="sidebar-run-status" title="${escapeHTML(status)}" aria-label="${escapeHTML(status)}"><span aria-hidden="true">●</span></span>
+      ` : '';
       const renderSidebarSection = (title, items) => items.length ? `
         <section data-testid="sidebar-section">
           <h3 data-testid="sidebar-section-title">${escapeHTML(title)}</h3>
           ${items.map(item => `
           <div class="sidebar-thread-row ${state.sidebar.isSelectionMode ? 'selection-mode' : ''} ${state.sidebar.selectedThreadIDs.includes(item.id) ? 'bulk-selected' : ''}" data-testid="sidebar-thread-row">
             ${state.sidebar.isSelectionMode ? `<button class="sidebar-select-toggle hit-target-icon" type="button" data-testid="sidebar-select-toggle" data-thread-id="${escapeHTML(item.id)}" aria-label="${state.sidebar.selectedThreadIDs.includes(item.id) ? 'Deselect' : 'Select'} ${escapeHTML(item.title)}">${state.sidebar.selectedThreadIDs.includes(item.id) ? '✓' : '○'}</button>` : ''}
-            <button class="sidebar-item hit-target-row ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
-              <span>${escapeHTML(item.title)}</span>
+            <button class="sidebar-item hit-target-row ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" data-run-status="${escapeHTML(item.runStatusLabel || '')}" aria-current="${item.isSelected ? 'true' : 'false'}">
+              <span class="sidebar-title-line"><span>${escapeHTML(item.title)}</span>${renderSidebarRunStatus(item.runStatusLabel)}</span>
               <small>${escapeHTML(item.subtitle)}</small>
               ${renderSidebarWorktreeChip(item.worktree)}
             </button>
@@ -12161,18 +12190,20 @@
 
     function sidebarActionsFor(item) {
       if (item.isArchived) {
-        return [
-          { id: 'unarchive', title: 'Unarchive' },
-          { id: 'delete', title: 'Delete' }
-        ];
+        return item.runStatusLabel
+          ? [{ id: 'unarchive', title: 'Unarchive' }]
+          : [{ id: 'unarchive', title: 'Unarchive' }, { id: 'delete', title: 'Delete' }];
       }
-      return [
+      const actions = [
         { id: 'rename', title: 'Rename' },
-        { id: 'duplicate', title: 'Duplicate' },
         { id: item.isPinned ? 'unpin' : 'pin', title: item.isPinned ? 'Unpin' : 'Pin' },
-        { id: 'archive', title: 'Archive' },
-        { id: 'delete', title: 'Delete' }
+        { id: 'archive', title: 'Archive' }
       ];
+      if (!item.runStatusLabel) {
+        actions.splice(1, 0, { id: 'duplicate', title: 'Duplicate' });
+        actions.push({ id: 'delete', title: 'Delete' });
+      }
+      return actions;
     }
 
     const sidebarFilterDefinitions = [
@@ -12376,6 +12407,7 @@
       const hasUnpinnedUnarchived = selected.some(item => !item.isPinned && !item.isArchived);
       const hasUnarchived = selected.some(item => !item.isArchived);
       const hasArchived = selected.some(item => item.isArchived);
+      const hasRunning = selected.some(item => Boolean(item.runStatusLabel));
       const visibleSelectedCount = visibleItems.filter(item => state.sidebar.selectedThreadIDs.includes(item.id)).length;
       return [
         { id: 'clearSelection', title: 'Done', commandID: 'thread-selection-clear', enabled: true, destructive: false },
@@ -12384,7 +12416,7 @@
         { id: 'unpin', title: 'Unpin', commandID: 'thread-bulk-unpin', enabled: hasPinned, destructive: false },
         { id: 'archive', title: 'Archive', commandID: 'thread-bulk-archive', enabled: hasUnarchived, destructive: false },
         { id: 'unarchive', title: 'Unarchive', commandID: 'thread-bulk-unarchive', enabled: hasArchived, destructive: false },
-        { id: 'delete', title: 'Delete', commandID: 'thread-bulk-delete', enabled: hasSelection, destructive: true }
+        { id: 'delete', title: 'Delete', commandID: 'thread-bulk-delete', enabled: hasSelection && !hasRunning, destructive: true }
       ];
     }
 
@@ -16661,6 +16693,7 @@
       if (!threadID) return;
       const thread = state.sidebar.items.find(item => item.id === threadID);
       if (!thread) return;
+      if (thread.runStatusLabel && ['duplicate', 'delete'].includes(action)) return;
       const previousLocation = currentWorkspaceLocation();
       if (action === 'rename') {
         const nextTitle = window.prompt('Rename chat', thread.title);
@@ -18205,6 +18238,12 @@
           digestOutcome: spec.outcome || 'No final answer recorded.'
         };
       });
+      render();
+    };
+    window.__quillCodeTestSetThreadRunStatus = function(threadID, status) {
+      state.sidebar.items = state.sidebar.items.map(item => (
+        item.id === threadID ? { ...item, runStatusLabel: status || null } : item
+      ));
       render();
     };
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;

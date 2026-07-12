@@ -93,8 +93,9 @@ extension QuillCodeWorkspaceModel {
         root.selectedThreadID = id
         root.selectedProjectID = knownProjectID(projectID)
         syncTerminalSessionToSelectedProject()
+        refreshFileMentionIndex()
         touchProject(root.selectedProjectID)
         saveProjects()
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        refreshSelectedAgentRunPresentation()
     }
 }

@@ -5,23 +5,42 @@ import QuillCodeCore
 @testable import quill_code_desktop
 
 /// A safety regression guard: refusing a held tool (Deny / Skip) must NEVER be silently dropped,
-/// even while a `.send` task is in flight. Routing every gate decision through the `.send` slot once
-/// subjected Deny to a `!isRunning(.send)` guard that swallowed the click; the decision-recording is
-/// now unconditional (a refusal always resolves the gate) and only the follow-up drain is slot-gated.
+/// even while that chat's send task is in flight. The decision is unconditional; only the same-chat
+/// follow-up drain is slot-gated. Work in another chat must never block the decision or drain.
 @MainActor
 final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
+    func testDifferentThreadsOwnIndependentSendSlots() async {
+        let first = UUID()
+        let second = UUID()
+        let firstRelease = ManualRelease()
+        let secondRelease = ManualRelease()
+        let tasks = QuillCodeDesktopTaskCoordinator()
+
+        XCTAssertTrue(tasks.startIfIdle(.send(first)) { await firstRelease.wait() })
+        XCTAssertTrue(tasks.startIfIdle(.send(second)) { await secondRelease.wait() })
+        XCTAssertFalse(tasks.startIfIdle(.send(first)) {})
+        XCTAssertEqual(tasks.runningSendThreadIDs, [first, second])
+
+        tasks.cancel(.send(first))
+        XCTAssertFalse(tasks.isRunning(.send(first)))
+        XCTAssertTrue(tasks.isRunning(.send(second)))
+        await firstRelease.open()
+        await secondRelease.open()
+    }
+
     func testDenyIsRecordedEvenWhileASendTaskIsInFlight() async throws {
         let workspaceRoot = try makeTempDirectory()
         let (model, requestID) = try gatedModel(queued: ["queued behind gate"])
         let coordinator = QuillCodeDesktopWorkspaceActionCoordinator()
         let tasks = QuillCodeDesktopTaskCoordinator()
+        let threadID = try XCTUnwrap(model.selectedThread?.id)
 
         // Simulate a `.send` task genuinely in flight (a long-running operation holding the slot).
         let release = ManualRelease()
-        tasks.startIfIdle(.send) {
+        tasks.startIfIdle(.send(threadID)) {
             await release.wait()
         }
-        XCTAssertTrue(tasks.isRunning(.send))
+        XCTAssertTrue(tasks.isRunning(.send(threadID)))
 
         // The user clicks Skip while the slot is busy. The refusal MUST be recorded — not dropped.
         coordinator.runToolCardAction(
@@ -43,7 +62,7 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
         // Let the in-flight send finish; the queue then drains (the in-flight send's completion, or a
         // later interaction, drains the now-decided thread — nothing is stranded).
         await release.open()
-        try await waitUntil(timeoutSeconds: 2) { !tasks.isRunning(.send) }
+        try await waitUntil(timeoutSeconds: 2) { !tasks.isRunning(.send(threadID)) }
     }
 
     func testDenyDrainsQueuedFollowUpWhenSlotIsFree() async throws {
@@ -51,6 +70,7 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
         let (model, requestID) = try gatedModel(queued: ["drain me"])
         let coordinator = QuillCodeDesktopWorkspaceActionCoordinator()
         let tasks = QuillCodeDesktopTaskCoordinator()
+        let threadID = try XCTUnwrap(model.selectedThread?.id)
 
         // The normal case: a gate is shown when the run is blocked, so the `.send` slot is free.
         coordinator.runToolCardAction(
@@ -63,16 +83,16 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
 
         // The deny records immediately and the drain runs through the slot.
         XCTAssertTrue(isGateDecided(requestID: requestID, in: model.selectedThread))
-        try await waitUntil(timeoutSeconds: 2) { model.followUpQueue.isEmpty && !tasks.isRunning(.send) }
+        try await waitUntil(timeoutSeconds: 2) {
+            model.followUpQueue.isEmpty && !tasks.isRunning(.send(threadID))
+        }
         let userTurns = model.selectedThread?.messages.filter { $0.role == .user }.map(\.content)
         XCTAssertEqual(userTurns?.filter { $0 == "drain me" }.count, 1, "the queued follow-up drained once")
     }
 
-    func testCrossThreadDenyStrandsQueueThenRecoversWhenSlotFrees() async throws {
-        // MAJOR: thread A holds an open gate with a queued follow-up; the user switches to thread B
-        // and runs a send (B holds the single `.send` slot); denying A's gate records the decision
-        // but A's drain is skipped because the slot is busy. The queue must NOT be stranded — it
-        // recovers when the slot frees / A becomes active again.
+    func testCrossThreadDenyDrainsImmediatelyWhileAnotherThreadRuns() async throws {
+        // Thread A holds an open gate with a queued follow-up while thread B owns an independent run.
+        // Denying A must use A's slot and drain immediately instead of waiting for B.
         let workspaceRoot = try makeTempDirectory()
         let threadA = try gatedThread(requestID: "gate-a", queued: ["stranded then recovered"])
         let threadB = ChatThread(mode: .auto, messages: [ChatMessage(role: .user, content: "thread B")])
@@ -82,10 +102,10 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
         let coordinator = QuillCodeDesktopWorkspaceActionCoordinator()
         let tasks = QuillCodeDesktopTaskCoordinator()
 
-        // Thread B holds the single `.send` slot (a run in flight).
+        // Thread B owns its per-thread send slot.
         let release = ManualRelease()
-        tasks.startIfIdle(.send) { await release.wait() }
-        XCTAssertTrue(tasks.isRunning(.send))
+        tasks.startIfIdle(.send(threadB.id)) { await release.wait() }
+        XCTAssertTrue(tasks.isRunning(.send(threadB.id)))
 
         // Deny A's gate. The desktop selects the gate's thread before deciding (mirrors
         // decideNotificationApproval), so the decision applies to A; A is then the active thread.
@@ -101,25 +121,18 @@ final class QuillCodeDesktopDenyGateDrainTests: XCTestCase {
             isGateDecided(requestID: "gate-a", in: model.selectedThread),
             "the refusal is recorded even while B holds the slot"
         )
-        XCTAssertEqual(
-            model.selectedThread?.followUpQueue.map(\.text),
-            ["stranded then recovered"],
-            "A's queue cannot drain yet — the slot is busy on B"
-        )
-
-        // B's run completes, freeing the slot. Recover the now-active thread A (the controller
-        // triggers this on slot-free / thread-select; here we drive the same model recovery method).
-        await release.open()
-        try await waitUntil(timeoutSeconds: 2) { !tasks.isRunning(.send) }
-        await model.recoverFollowUpQueueIfIdle(threadID: model.selectedThread?.id, workspaceRoot: workspaceRoot)
-
+        try await waitUntil(timeoutSeconds: 2) {
+            model.root.threads.first { $0.id == threadA.id }?.followUpQueue.isEmpty == true
+        }
         let recovered = model.root.threads.first { $0.id == threadA.id }
-        XCTAssertTrue(recovered?.followUpQueue.isEmpty == true, "A's stranded queue must recover")
+        XCTAssertTrue(recovered?.followUpQueue.isEmpty == true, "A's queue must drain independently")
         let aUserTurns = recovered?.messages.filter { $0.role == .user }.map(\.content)
         XCTAssertEqual(
             aUserTurns?.filter { $0 == "stranded then recovered" }.count, 1,
-            "A's queued follow-up drained exactly once on recovery"
+            "A's queued follow-up drained exactly once while B remained active"
         )
+        XCTAssertTrue(tasks.isRunning(.send(threadB.id)), "A's drain must not cancel or wait for B")
+        await release.open()
     }
 
     // MARK: helpers

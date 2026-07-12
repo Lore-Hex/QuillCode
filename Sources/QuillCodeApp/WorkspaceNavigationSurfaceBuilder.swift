@@ -17,6 +17,7 @@ struct WorkspaceNavigationSurfaceBuilder {
     var sidebarSavedSearches: [SidebarSavedSearch] = []
     var selectionIsActive: Bool
     var selectedThreadIDs: Set<UUID>
+    var agentRuns: WorkspaceAgentRunRegistry = WorkspaceAgentRunRegistry()
     /// The morning-triage Attention preview cursor (issue #877) — which row j/k highlight. Distinct from
     /// `selectedThreadID`: cursoring is preview/navigation and must not move the workspace selection.
     var attentionCursorID: UUID? = nil
@@ -37,7 +38,8 @@ struct WorkspaceNavigationSurfaceBuilder {
                     SidebarItemSurface(
                         item: $0,
                         selectedThreadID: selectedThreadID,
-                        selectedThreadIDs: resolvedSelectedThreadIDs
+                        selectedThreadIDs: resolvedSelectedThreadIDs,
+                        runStatusLabel: agentRuns.status(for: $0.id)
                     )
                 },
                 selectedThreadID: selectedThreadID,
@@ -109,6 +111,7 @@ struct WorkspaceNavigationSurfaceBuilder {
         let hasUnpinnedUnarchivedSelection = selectedThreads.contains { !$0.isPinned && !$0.isArchived }
         let hasUnarchivedSelection = selectedThreads.contains { !$0.isArchived }
         let hasArchivedSelection = selectedThreads.contains { $0.isArchived }
+        let hasRunningSelection = selectedThreadIDs.contains { agentRuns.isRunning($0) }
         return [
             SidebarBulkActionSurface(kind: .clearSelection),
             SidebarBulkActionSurface(
@@ -133,7 +136,7 @@ struct WorkspaceNavigationSurfaceBuilder {
             ),
             SidebarBulkActionSurface(
                 kind: .delete,
-                isEnabled: hasSelection,
+                isEnabled: hasSelection && !hasRunningSelection,
                 isDestructive: true
             )
         ]

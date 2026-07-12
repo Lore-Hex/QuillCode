@@ -39,19 +39,29 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var isPinned: Bool
     public var isArchived: Bool
     public var worktree: SidebarItemWorktreeSummary?
+    /// Live, session-only agent status for this chat. nil means no task currently owns the chat.
+    public var runStatusLabel: String?
 
-    public init(item: SidebarItem, selectedThreadID: UUID?, selectedThreadIDs: Set<UUID> = []) {
+    public var isRunning: Bool { runStatusLabel != nil }
+
+    public init(
+        item: SidebarItem,
+        selectedThreadID: UUID?,
+        selectedThreadIDs: Set<UUID> = [],
+        runStatusLabel: String? = nil
+    ) {
         self.id = item.id
         self.title = item.title
         self.subtitle = item.subtitle
         self.searchText = item.searchText
         self.updatedAt = item.updatedAt
-        self.actions = Self.actions(for: item)
+        self.actions = Self.actions(for: item, isRunning: runStatusLabel != nil)
         self.isSelected = item.id == selectedThreadID
         self.isBulkSelected = selectedThreadIDs.contains(item.id)
         self.isPinned = item.isPinned
         self.isArchived = item.isArchived
         self.worktree = item.worktree
+        self.runStatusLabel = runStatusLabel
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -66,6 +76,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         case isPinned
         case isArchived
         case worktree
+        case runStatusLabel
     }
 
     public init(from decoder: Decoder) throws {
@@ -81,6 +92,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.isPinned = try container.decode(Bool.self, forKey: .isPinned)
         self.isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
         self.worktree = try container.decodeIfPresent(SidebarItemWorktreeSummary.self, forKey: .worktree)
+        self.runStatusLabel = try container.decodeIfPresent(String.self, forKey: .runStatusLabel)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -96,25 +108,30 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         try container.encode(isPinned, forKey: .isPinned)
         try container.encode(isArchived, forKey: .isArchived)
         try container.encodeIfPresent(worktree, forKey: .worktree)
+        try container.encodeIfPresent(runStatusLabel, forKey: .runStatusLabel)
     }
 
-    private static func actions(for item: SidebarItem) -> [SidebarItemActionSurface] {
+    private static func actions(for item: SidebarItem, isRunning: Bool) -> [SidebarItemActionSurface] {
         if item.isArchived {
-            return [
-                SidebarItemActionSurface(kind: .unarchive, threadID: item.id),
-                SidebarItemActionSurface(kind: .delete, threadID: item.id)
-            ]
+            var actions = [SidebarItemActionSurface(kind: .unarchive, threadID: item.id)]
+            if !isRunning {
+                actions.append(SidebarItemActionSurface(kind: .delete, threadID: item.id))
+            }
+            return actions
         }
-        return [
+        var actions = [
             SidebarItemActionSurface(kind: .rename, threadID: item.id),
-            SidebarItemActionSurface(kind: .duplicate, threadID: item.id),
             SidebarItemActionSurface(
                 kind: item.isPinned ? .unpin : .pin,
                 threadID: item.id
             ),
-            SidebarItemActionSurface(kind: .archive, threadID: item.id),
-            SidebarItemActionSurface(kind: .delete, threadID: item.id)
+            SidebarItemActionSurface(kind: .archive, threadID: item.id)
         ]
+        if !isRunning {
+            actions.insert(SidebarItemActionSurface(kind: .duplicate, threadID: item.id), at: 1)
+            actions.append(SidebarItemActionSurface(kind: .delete, threadID: item.id))
+        }
+        return actions
     }
 }
 

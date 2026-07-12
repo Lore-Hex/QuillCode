@@ -149,6 +149,45 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("compact-context", in: commands).isEnabled, false)
     }
 
+    func testRunningThreadDisablesContextReplacingAndDestructiveCommands() throws {
+        let selectedThread = ChatThread(messages: [.init(role: .user, content: "Run tests")])
+        let commands = makeBuilder(
+            selectedThread: selectedThread,
+            selectedThreadIsRunning: true,
+            runningThreadIDs: [selectedThread.id]
+        ).commands
+
+        for commandID in [
+            "thread-duplicate",
+            "thread-clear",
+            "thread-revert-latest",
+            "thread-delete",
+            "fork-from-last",
+            "fork-with-summary",
+            "fork-full-context",
+            "compact-context"
+        ] {
+            XCTAssertFalse(try command(commandID, in: commands).isEnabled, commandID)
+        }
+        XCTAssertTrue(try command("thread-rename", in: commands).isEnabled)
+        XCTAssertTrue(try command("thread-archive", in: commands).isEnabled)
+    }
+
+    func testBulkDeleteDisablesWhenSelectedChatsIncludeARunningThread() throws {
+        let running = ChatThread(title: "Running")
+        let idle = ChatThread(title: "Idle")
+        let commands = makeBuilder(
+            selectedThread: idle,
+            selectedSidebarThreads: [running, idle],
+            sidebarSelectionIsActive: true,
+            sidebarItemCount: 2,
+            runningThreadIDs: [running.id]
+        ).commands
+
+        XCTAssertFalse(try command("thread-bulk-delete", in: commands).isEnabled)
+        XCTAssertTrue(try command("thread-bulk-archive", in: commands).isEnabled)
+    }
+
     func testSavedSearchesAppearAsThreadCommands() throws {
         let searchID = try XCTUnwrap(UUID(uuidString: "44444444-4444-4444-4444-444444444444"))
         let secondSearchID = try XCTUnwrap(UUID(uuidString: "55555555-5555-5555-5555-555555555555"))
@@ -328,7 +367,9 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         computerUseStatus: ComputerUseStatus = .permissionStatus(
             screenRecordingGranted: false,
             accessibilityGranted: false
-        )
+        ),
+        selectedThreadIsRunning: Bool = false,
+        runningThreadIDs: Set<UUID> = []
     ) -> WorkspaceCommandSurfaceBuilder {
         WorkspaceCommandSurfaceBuilder(
             selectedThread: selectedThread,
@@ -350,7 +391,9 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             canNavigateForward: canNavigateForward,
             mcpServerStatuses: mcpServerStatuses,
             mcpServerProbeSummaries: mcpServerProbeSummaries,
-            computerUseStatus: computerUseStatus
+            computerUseStatus: computerUseStatus,
+            selectedThreadIsRunning: selectedThreadIsRunning,
+            runningThreadIDs: runningThreadIDs
         )
     }
 

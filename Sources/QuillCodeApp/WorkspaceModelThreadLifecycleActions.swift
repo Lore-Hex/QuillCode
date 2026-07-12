@@ -49,7 +49,7 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func unarchiveThread(_ id: UUID) -> Bool {
-        applyNavigationLifecycleChange {
+        return applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({
                 WorkspaceThreadLifecycleEngine.unarchiveThread(id, threads: &$0)
             }) else { return false }
@@ -66,7 +66,11 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func deleteThread(_ id: UUID) -> Bool {
-        applyNavigationLifecycleChange {
+        guard !agentRuns.isRunning(id) else {
+            setLastError("Stop this chat before deleting it.")
+            return false
+        }
+        return applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({ threads in
                 WorkspaceThreadLifecycleEngine.deleteThread(
                     id,
@@ -88,6 +92,10 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func clearThread(_ id: UUID) -> Bool {
+        guard !agentRuns.isRunning(id) else {
+            setLastError("Stop this chat before clearing it.")
+            return false
+        }
         let attachments = root.threads.first(where: { $0.id == id })
             .map(Self.allImageAttachmentsForCleanup) ?? []
         guard let result = updateThreadLifecycle({

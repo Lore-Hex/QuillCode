@@ -45,3 +45,36 @@ test('mock harness starts a new chat from the sidebar action', async ({ page }) 
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
   await expect(page.getByLabel('Message')).toHaveValue('');
 });
+
+test('background chat keeps its running indicator while another chat is selected', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await sendSidebarPrompt(page, 'run whoami');
+  await expect(page.getByText('mock-user').last()).toBeVisible();
+  const backgroundRow = page.getByTestId('sidebar-thread-row').filter({ hasText: 'run whoami' });
+  const backgroundThreadID = await backgroundRow.getByTestId('sidebar-item').getAttribute('data-thread-id');
+  if (!backgroundThreadID) {
+    throw new Error('Expected the background chat row to expose its thread ID');
+  }
+
+  await page.getByTestId('new-chat-button').click();
+  await sendSidebarPrompt(page, 'show current directory');
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
+  const selectedRow = page.getByTestId('sidebar-thread-row').filter({ hasText: 'show current directory' });
+  await expect(selectedRow.getByTestId('sidebar-item')).toHaveAttribute('aria-current', 'true');
+
+  await page.evaluate(threadID => {
+    const harness = window as unknown as {
+      __quillCodeTestSetThreadRunStatus: (id: string, status: string | null) => void
+    };
+    harness.__quillCodeTestSetThreadRunStatus(threadID, 'Running tests');
+  }, backgroundThreadID);
+
+  await expect(backgroundRow.getByTestId('sidebar-item')).toHaveAttribute('data-run-status', 'Running tests');
+  await expect(backgroundRow.getByTestId('sidebar-run-status')).toHaveAttribute('title', 'Running tests');
+  await backgroundRow.getByLabel(/^Actions for /).click();
+  await expect(backgroundRow.getByTestId('sidebar-thread-action').filter({ hasText: /^Duplicate$/ })).toHaveCount(0);
+  await expect(backgroundRow.getByTestId('sidebar-thread-action').filter({ hasText: /^Delete$/ })).toHaveCount(0);
+  await expect(selectedRow.getByTestId('sidebar-run-status')).toHaveCount(0);
+  await expect(selectedRow.getByTestId('sidebar-item')).toHaveAttribute('aria-current', 'true');
+});

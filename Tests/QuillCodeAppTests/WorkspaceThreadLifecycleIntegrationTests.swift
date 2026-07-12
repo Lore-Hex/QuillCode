@@ -477,6 +477,25 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.threads.map(\.id), [olderThread.id])
         XCTAssertEqual(model.root.selectedThreadID, olderThread.id)
     }
+
+    func testRunningThreadCannotBeClearedOrDeletedUntilStopped() {
+        let thread = ChatThread(
+            title: "Running",
+            messages: [.init(role: .user, content: "Run tests")]
+        )
+        var agentRuns = WorkspaceAgentRunRegistry()
+        agentRuns.begin(threadID: thread.id, status: "Running tests")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            agentRuns: agentRuns
+        )
+
+        XCTAssertFalse(model.clearThread(thread.id))
+        XCTAssertEqual(model.lastError, "Stop this chat before clearing it.")
+        XCTAssertFalse(model.deleteThread(thread.id))
+        XCTAssertEqual(model.lastError, "Stop this chat before deleting it.")
+        XCTAssertEqual(model.root.threads.first?.messages, thread.messages)
+    }
 }
 
 private struct FixedContextSummaryGenerator: WorkspaceContextSummaryGenerating {
