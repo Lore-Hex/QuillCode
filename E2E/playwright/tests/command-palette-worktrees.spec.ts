@@ -22,14 +22,39 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await openCommandPalette(page);
   await fillCommandPalette(page, '>worktree');
 
-  // Five git-worktree tools plus the new-worktree-chat and selected-task Handoff commands.
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(7);
+  // Five git-worktree tools plus new-worktree-chat, Create branch here, and Handoff.
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(8);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expectCommandPaletteClosed(page);
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.worktree.list');
   await expect(page.getByTestId('tool-card-output')).toContainText('/mock/quillcode-existing');
   await expect(page.getByTestId('message').last()).toContainText('worktree /mock/QuillCode');
+});
+
+test('detached worktree task can create and own a branch in place', async ({ page }) => {
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');
+
+  await expect(page.getByTestId('top-bar-create-branch-button')).toBeVisible();
+  await expect(page.getByTestId('top-bar-handoff-button')).toBeVisible();
+  await page.getByTestId('top-bar-create-branch-button').click();
+
+  const branchInput = page.getByLabel('Branch name');
+  await expect(page.getByTestId('worktree-create-branch-panel')).toBeVisible();
+  await expect(branchInput).toBeFocused();
+  await expect(page.getByTestId('worktree-create-branch-submit')).toBeDisabled();
+  await branchInput.fill('feature/owned-task');
+  await expect(page.getByTestId('worktree-create-branch-submit')).toBeEnabled();
+  await page.getByTestId('worktree-create-branch-submit').click();
+
+  await expect(page.getByTestId('worktree-create-branch-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.create_branch');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('feature/owned-task');
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('owned-task');
+  await expect(page.getByTestId('top-bar-worktree')).toContainText('feature/owned-task');
+  await expect(page.getByTestId('top-bar-create-branch-button')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-handoff-button')).toHaveCount(0);
 });
 
 test('mock harness prunes worktrees from the command palette', async ({ page }) => {

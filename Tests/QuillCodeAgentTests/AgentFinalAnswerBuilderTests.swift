@@ -17,6 +17,18 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertEqual(answer, "You are `quill` in this workspace.")
     }
 
+    func testCreateBranchHereAnswerNamesOwnedBranch() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitWorktreeCreateBranch.name,
+                argumentsJSON: ToolArguments.json(["branch": "feature/owned-task"])
+            ),
+            result: ToolResult(ok: true, stdout: "Switched to a new branch 'feature/owned-task'\n")
+        )
+
+        XCTAssertEqual(answer, "Created branch `feature/owned-task` in this worktree.")
+    }
+
     func testOpenClawDiscoverySummarizesMissingBinary() {
         let answer = AgentFinalAnswerBuilder.finalAnswer(
             for: ToolCall(

@@ -131,6 +131,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .newWorktreeThread
         case .threadHandoff:
             return .handoffSelectedThread
+        case .threadCreateBranch:
+            return .setDraft("/branch create ")
         case .threadPin:
             guard let selectedThreadID,
                   let selectedThread,

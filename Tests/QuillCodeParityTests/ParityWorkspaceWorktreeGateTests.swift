@@ -62,6 +62,12 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
             toolsTests,
             contains: "testManagedCreateRollsBackWhenLocalFileWouldOverwriteBaseContent"
         )
+        Self.assertSource(
+            toolsTests,
+            contains: "testCreateBranchHereTurnsDetachedManagedWorktreeIntoOwnedBranch"
+        )
+        Self.assertSource(executor, contains: "func createBranchHere")
+        Self.assertSource(model, contains: "func reconcileManagedWorktreeBranch")
     }
 
     private func assertWorktreeRequestAndEngineContracts(
@@ -70,6 +76,7 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         _ plannerText: String
     ) {
         Self.assertSource(requestsText, contains: "public struct WorkspaceWorktreeCreateRequest")
+        Self.assertSource(requestsText, contains: "public struct WorkspaceWorktreeCreateBranchRequest")
         Self.assertSource(requestsText, contains: "public struct WorkspaceWorktreeRemoveRequest")
         Self.assertSource(requestsText, contains: "public struct WorkspaceWorktreePruneRequest")
         Self.assertSource(engineText, contains: "struct WorkspaceWorktreeOpenEngine")
@@ -77,6 +84,7 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         Self.assertSource(engineText, contains: "static func remoteThread")
         Self.assertSource(plannerText, contains: "enum WorkspaceWorktreeToolCallPlanner")
         Self.assertSource(plannerText, contains: "static func create")
+        Self.assertSource(plannerText, contains: "static func createBranch")
         Self.assertSource(plannerText, contains: "static func remove")
         Self.assertSource(plannerText, contains: "static func prune")
     }
@@ -84,6 +92,7 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
     private func assertWorktreeExtensionDelegation(_ worktreeExtensionText: String) {
         Self.assertSource(worktreeExtensionText, contains: "extension QuillCodeWorkspaceModel")
         Self.assertSource(worktreeExtensionText, contains: "WorkspaceWorktreeToolCallPlanner.create")
+        Self.assertSource(worktreeExtensionText, contains: "WorkspaceWorktreeToolCallPlanner.createBranch")
         Self.assertSource(worktreeExtensionText, contains: "WorkspaceWorktreeToolCallPlanner.remove")
         Self.assertSource(worktreeExtensionText, contains: "WorkspaceWorktreeToolCallPlanner.prune")
         Self.assertSource(worktreeExtensionText, contains: "WorkspaceWorktreeOpenEngine.localThread")
@@ -96,6 +105,7 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         _ worktreeExtensionText: String
     ) {
         Self.assertSource(modelText, excludes: "public func createWorktree")
+        Self.assertSource(modelText, excludes: "public func createBranchHere")
         Self.assertSource(modelText, excludes: "public func openWorktree")
         Self.assertSource(modelText, excludes: "public func removeWorktree")
         Self.assertSource(modelText, excludes: "public func pruneWorktrees")

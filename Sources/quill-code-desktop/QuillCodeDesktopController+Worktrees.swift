@@ -7,6 +7,11 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    func createWorktreeBranch(_ request: WorkspaceWorktreeCreateBranchRequest) {
+        _ = model.createBranchHere(request)
+        refresh()
+    }
+
     func worktreeChoiceLoad() async -> WorkspaceWorktreeChoiceLoad {
         await worktreeCoordinator.worktreeChoiceLoad(model: model, fallbackWorkspaceRoot: workspaceRoot)
     }

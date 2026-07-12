@@ -1,5 +1,41 @@
 import SwiftUI
 
+struct QuillCodeWorktreeCreateBranchView: View {
+    @Binding var draft: QuillCodeWorktreeCreateBranchDraft
+    var onCancel: () -> Void
+    var onCreate: () -> Void
+    @FocusState private var isBranchFocused: Bool
+
+    var body: some View {
+        QuillCodeWorktreeDialogFrame(
+            title: "Create Branch Here",
+            subtitle: "Keep this task in its worktree as a permanent Git branch.",
+            systemImage: "arrow.triangle.branch",
+            iconColor: QuillCodePalette.blue
+        ) {
+            QuillCodeLabeledTextField(
+                title: "Branch name",
+                placeholder: "feature/quillcode",
+                text: $draft.branch,
+                footer: "After creation, this worktree owns the branch and Handoff is no longer available."
+            )
+            .focused($isBranchFocused)
+        } footer: {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                    .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
+                Button("Create Branch", action: onCreate)
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 112))
+                    .quillCodeFormActionTarget(minWidth: 112)
+                    .disabled(!draft.canCreate)
+            }
+        }
+        .onAppear { isBranchFocused = true }
+    }
+}
+
 struct QuillCodeWorktreeOpenView: View {
     @Binding var draft: QuillCodeWorktreeOpenDraft
     var onCancel: () -> Void

@@ -18,6 +18,10 @@ final class WorkspaceToolDisplayNameBuilderTests: XCTestCase {
             WorkspaceToolDisplayNameBuilder.displayName(for: ToolDefinition.computerScreenshot.name),
             "Screenshot"
         )
+        XCTAssertEqual(
+            WorkspaceToolDisplayNameBuilder.displayName(for: ToolDefinition.gitWorktreeCreateBranch.name),
+            "Create branch here"
+        )
     }
 
     func testDisplayNameFallsBackForUnknownTools() {

@@ -4570,6 +4570,7 @@
       },
       worktreeDialog: {
         mode: null,
+        branchName: '',
         createPath: '',
         createBranch: '',
         createBase: '',
@@ -4591,6 +4592,7 @@
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
         { id: 'thread-new-worktree', title: 'New worktree chat', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
+        { id: 'thread-create-branch', title: 'Create branch here', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'create', 'ownership'], isEnabled: false },
         { id: 'thread-handoff', title: 'Hand off task', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'handoff', 'local', 'worktree', 'move', 'transfer'], isEnabled: false },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
         { id: 'focus-composer', title: 'Focus message input', shortcut: 'Cmd+L', category: 'Workspace', keywords: ['focus', 'composer', 'message', 'input', 'prompt', 'type'], isEnabled: true },
@@ -7246,6 +7248,18 @@
         .map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning } :
+        command.id === 'thread-create-branch' ? {
+          ...command,
+          isEnabled: Boolean(
+            hasLocalProject
+            && selectedThread?.worktree?.location === 'worktree'
+            && selectedThread?.worktree?.isResolvable
+            && !selectedThread?.worktree?.branch
+            && !selectedThread?.isArchived
+            && !selectedThreadIsRunning
+            && !state.terminal.isRunning
+          )
+        } :
         command.id === 'thread-handoff' ? {
           ...command,
           title: selectedThread?.worktree?.location === 'local' ? 'Hand off to Worktree' : 'Hand off to Local',
@@ -8552,6 +8566,10 @@
       const topBarHandoffButton = topBarHandoffCommand?.isEnabled
         ? `<button type="button" class="topbar-handoff-button hit-target-icon" data-testid="top-bar-handoff-button" data-command-id="thread-handoff" title="${escapeHTML(topBarHandoffCommand.title)}" aria-label="${escapeHTML(topBarHandoffCommand.title)}">↔</button>`
         : '';
+      const topBarCreateBranchCommand = commandByID('thread-create-branch');
+      const topBarCreateBranchButton = topBarCreateBranchCommand?.isEnabled
+        ? `<button type="button" class="topbar-create-branch-button hit-target-text" data-testid="top-bar-create-branch-button" data-command-id="thread-create-branch" title="${escapeHTML(topBarCreateBranchCommand.title)}" aria-label="${escapeHTML(topBarCreateBranchCommand.title)}">Create branch here</button>`
+        : '';
       const topBarBackCommand = commandByID('workspace-back') || { id: 'workspace-back', title: 'Back', isEnabled: false };
       const topBarForwardCommand = commandByID('workspace-forward') || { id: 'workspace-forward', title: 'Forward', isEnabled: false };
       const renderTopBarNavigationButton = (command, label, testID, ariaLabel) => `
@@ -8595,6 +8613,7 @@
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+                ${topBarCreateBranchButton}
                 ${topBarHandoffButton}
                 ${topBarStopButton}
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
@@ -9528,6 +9547,15 @@
           branch: form.elements.namedItem('branch').value.trim(),
           base: form.elements.namedItem('base').value.trim()
         });
+      });
+      document.querySelector('[data-testid="worktree-create-branch-form"]')?.addEventListener('input', event => {
+        const form = event.currentTarget;
+        state.worktreeDialog.branchName = form.elements.namedItem('branch').value;
+        document.querySelector('[data-testid="worktree-create-branch-submit"]').disabled = !state.worktreeDialog.branchName.trim();
+      });
+      document.querySelector('[data-testid="worktree-create-branch-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        createBranchHere(event.currentTarget.elements.namedItem('branch').value.trim());
       });
       document.querySelector('[data-testid="worktree-open-form"]')?.addEventListener('input', event => {
         const form = event.currentTarget;
@@ -13836,6 +13864,7 @@
       'thread-bulk-unarchive',
       'thread-bulk-unpin',
       'thread-clear',
+      'thread-create-branch',
       'thread-delete',
       'thread-duplicate',
       'thread-handoff',
@@ -14124,6 +14153,14 @@
         state.topBar.worktreeStatusIsWarning = false;
         addMessage('assistant', 'Started a detached worktree chat with the current local changes.');
         render();
+        return;
+      }
+      if (commandID === 'thread-create-branch') {
+        const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+        if (thread?.worktree?.location !== 'worktree' || !thread.worktree.isResolvable || thread.worktree.branch) return;
+        state.worktreeDialog = { ...state.worktreeDialog, mode: 'create-branch', branchName: '' };
+        render();
+        document.querySelector('[data-testid="worktree-create-branch-form"] input[name="branch"]')?.focus();
         return;
       }
       if (commandID === 'thread-handoff') {
@@ -16081,6 +16118,29 @@
     }
 
     function renderWorktreeDialog() {
+      if (state.worktreeDialog.mode === 'create-branch') {
+        return `
+          <div class="search-panel" data-testid="worktree-create-branch-panel">
+            <form class="search-card" data-testid="worktree-create-branch-form" role="dialog" aria-label="Create branch here">
+              <header>
+                <div>
+                  <h2>Create Branch Here</h2>
+                  <p>Keep this task in its worktree and turn the detached checkout into a permanent Git branch.</p>
+                </div>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-close">Close</button>
+              </header>
+              <label>
+                Branch name
+                <input class="hit-target-text-entry" name="branch" aria-label="Branch name" placeholder="feature/quillcode" value="${escapeHTML(state.worktreeDialog.branchName)}" autofocus>
+              </label>
+              <p>After creation, this worktree owns the branch and Handoff is no longer available.</p>
+              <div class="settings-actions">
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" class="hit-target-form-action" data-testid="worktree-create-branch-submit" ${state.worktreeDialog.branchName.trim() ? '' : 'disabled'}>Create Branch</button>
+              </div>
+            </form>
+          </div>`;
+      }
       if (state.worktreeDialog.mode === 'create') {
         return `
           <div class="search-panel" data-testid="worktree-create-panel">
@@ -16355,6 +16415,26 @@
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
       openCreatedWorktree(values);
+      render();
+    }
+
+    function createBranchHere(branch) {
+      const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      if (!branch || thread?.worktree?.location !== 'worktree' || !thread.worktree.isResolvable || thread.worktree.branch) return;
+      thread.worktree.branch = branch;
+      thread.worktree.branchLeaf = branch.split('/').filter(Boolean).at(-1) || branch;
+      state.topBar.worktreeStatusLabel = `Worktree · ${branch}`;
+      state.topBar.worktreeStatusDetail = `This worktree owns branch ${branch}.`;
+      addToolCard({
+        title: 'host.git.worktree.create_branch',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ branch }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: `Switched to a new branch '${branch}'\n`, artifacts: [branch] }, null, 2)
+      });
+      addMessage('assistant', `Created branch ${branch} in this worktree.`);
+      state.worktreeDialog.mode = null;
+      updateDynamicCommands();
       render();
     }
 

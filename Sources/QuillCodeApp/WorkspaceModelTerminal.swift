@@ -174,6 +174,11 @@ extension QuillCodeWorkspaceModel {
             result: result,
             terminal: &terminal
         )
+        if result.ok,
+           let threadID = root.selectedThreadID,
+           let managedRoot = self.workspaceRoot(forThreadID: threadID) {
+            _ = reconcileManagedWorktreeBranch(threadID: threadID, workspaceRoot: managedRoot)
+        }
         applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.finished(result: result))
     }
 

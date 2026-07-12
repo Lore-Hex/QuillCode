@@ -91,6 +91,7 @@ struct WorkspaceExecutionContextSurfaceBuilder: Sendable, Hashable {
         ToolDefinition.gitPullRequestMerge.name,
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
+        ToolDefinition.gitWorktreeCreateBranch.name,
         ToolDefinition.gitWorktreeOpen.name,
         ToolDefinition.gitWorktreeRemove.name,
         ToolDefinition.gitWorktreePrune.name

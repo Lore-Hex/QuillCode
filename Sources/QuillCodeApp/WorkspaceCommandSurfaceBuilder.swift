@@ -140,6 +140,20 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         return worktree.location == .worktree ? "Hand off to Local" : "Hand off to Worktree"
     }
 
+    private var selectedThreadCanCreateBranch: Bool {
+        guard !composerIsSending,
+              !selectedThreadIsRunning,
+              !terminalIsRunning,
+              selectedProject != nil,
+              selectedProjectIsRemote == false,
+              selectedThread?.isArchived == false,
+              let worktree = selectedThread?.worktree,
+              worktree.location == .worktree,
+              worktree.isResolvable
+        else { return false }
+        return worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var selectedProjectIsRemote: Bool {
         selectedProject?.isRemote == true
     }
@@ -159,6 +173,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             selectedThreadCanUnpin: selectedThreadCanUnpin,
             selectedThreadIsRunning: selectedThreadIsRunning,
             selectedThreadHandoffTitle: selectedThreadHandoffTitle,
+            selectedThreadCanCreateBranch: selectedThreadCanCreateBranch,
             hasAnySidebarThread: sidebarItemCount > 0,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             hasSidebarSelection: !selectedSidebarThreads.isEmpty,

@@ -3,6 +3,19 @@ import XCTest
 
 @MainActor
 final class QuillCodeWorktreeDialogCoordinatorTests: XCTestCase {
+    func testPresentCreateBranchResetsDraftAndBuildsTrimmedRequest() {
+        let coordinator = QuillCodeWorktreeDialogCoordinator()
+        coordinator.createBranchDraft.branch = "stale"
+
+        coordinator.presentCreateBranch()
+
+        XCTAssertEqual(coordinator.sheet, .createBranch)
+        XCTAssertFalse(coordinator.createBranchDraft.canCreate)
+        coordinator.createBranchDraft.branch = " feature/owned-task\n"
+        XCTAssertTrue(coordinator.createBranchDraft.canCreate)
+        XCTAssertEqual(coordinator.createBranchDraft.request.branch, "feature/owned-task")
+    }
+
     func testPresentOpenLoadsChoicesIntoOpenDraft() async {
         let coordinator = QuillCodeWorktreeDialogCoordinator()
         let choice = WorkspaceWorktreeChoice(

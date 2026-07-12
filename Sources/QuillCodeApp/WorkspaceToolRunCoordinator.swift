@@ -55,6 +55,11 @@ struct WorkspaceToolRunCoordinator {
                 forProjectID: model.root.selectedProjectID
             )
         }
+        let mayCreateBranch = call.name == ToolDefinition.gitWorktreeCreateBranch.name
+            || call.name == ToolDefinition.gitBranchSwitch.name
+        if finishPlan.result.ok, mayCreateBranch, let threadID = model.root.selectedThreadID {
+            _ = model.reconcileManagedWorktreeBranch(threadID: threadID, workspaceRoot: workspaceRoot)
+        }
         model.refreshTopBar(agentStatus: finishPlan.agentStatus)
         return finishPlan.result
     }

@@ -41,6 +41,7 @@ enum WorkspaceToolDisplayNameBuilder {
         ToolDefinition.gitPullRequestMerge.name,
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
+        ToolDefinition.gitWorktreeCreateBranch.name,
         ToolDefinition.gitWorktreeOpen.name,
         ToolDefinition.gitWorktreeRemove.name,
         ToolDefinition.gitWorktreePrune.name,
@@ -136,6 +137,8 @@ enum WorkspaceToolDisplayNameBuilder {
             return "List worktrees"
         case ToolDefinition.gitWorktreeCreate.name:
             return "Create worktree"
+        case ToolDefinition.gitWorktreeCreateBranch.name:
+            return "Create branch here"
         case ToolDefinition.gitWorktreeOpen.name:
             return "Open worktree"
         case ToolDefinition.gitWorktreeRemove.name:

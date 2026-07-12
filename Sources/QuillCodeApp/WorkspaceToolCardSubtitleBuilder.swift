@@ -67,6 +67,8 @@ enum WorkspaceToolCardSubtitleBuilder {
             return sanitized(arguments.string("action")) ?? sanitized(arguments.string("threadId"))
         case ToolDefinition.gitWorktreeCreate.name:
             return sanitized(arguments.string("branch")) ?? sanitized(arguments.string("path"))
+        case ToolDefinition.gitWorktreeCreateBranch.name:
+            return sanitized(arguments.string("branch"))
         case ToolDefinition.planUpdate.name:
             return "plan"
         case ToolDefinition.handoffUpdate.name:

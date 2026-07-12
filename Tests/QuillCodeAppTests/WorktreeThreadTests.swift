@@ -207,4 +207,48 @@ final class WorktreeThreadModelTests: XCTestCase {
             "task note\n"
         )
     }
+
+    func testCreateBranchHereKeepsTaskInWorktreeAndPersistsOwnership() throws {
+        let repo = try makeGitRepo()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+        let threadID = try XCTUnwrap(model.newWorktreeThread(name: "owned"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        let worktree = URL(fileURLWithPath: worktreePath)
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+
+        XCTAssertTrue(model.createBranchHere(.init(branch: "feature/owned-task")))
+
+        XCTAssertEqual(model.selectedThread?.id, threadID)
+        XCTAssertEqual(model.selectedThread?.worktree?.path, worktreePath)
+        XCTAssertEqual(model.selectedThread?.worktree?.location, .worktree)
+        XCTAssertEqual(model.selectedThread?.worktree?.branch, "feature/owned-task")
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, worktree.standardizedFileURL)
+        XCTAssertEqual(
+            try runGit(["branch", "--show-current"], cwd: worktree)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            "feature/owned-task"
+        )
+        XCTAssertFalse(model.handoffSelectedThread(), "branch-owned worktrees cannot hand off")
+    }
+
+    func testCreateBranchHereFailureDoesNotMutateDetachedBinding() throws {
+        let repo = try makeGitRepo()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+        _ = try XCTUnwrap(model.newWorktreeThread(name: "invalid"))
+        let worktree = URL(fileURLWithPath: try XCTUnwrap(model.selectedThread?.worktree?.path))
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+
+        XCTAssertFalse(model.createBranchHere(.init(branch: "invalid branch; nope")))
+
+        XCTAssertEqual(model.selectedThread?.worktree?.branch, "")
+        XCTAssertEqual(
+            try runGit(["branch", "--show-current"], cwd: worktree)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            ""
+        )
+    }
 }

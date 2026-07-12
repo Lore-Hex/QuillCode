@@ -46,6 +46,18 @@ enum AgentGitToolAnswerFormatters {
         return gitWorktreePruneAnswer(call: call, result: result)
     }
 
+    static func worktreeCreateBranchAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.gitWorktreeCreateBranch.name,
+              result.ok,
+              let branch = AgentToolAnswerFormatterSupport.argument("branch", in: call)
+        else { return nil }
+        return "Created branch `\(branch)` in this worktree."
+    }
+
     static func pullRequestReviewThreadsAnswer(
         call: ToolCall,
         result: ToolResult,

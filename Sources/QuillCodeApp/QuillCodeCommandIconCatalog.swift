@@ -59,6 +59,8 @@ enum QuillCodeCommandIconCatalog {
             return "plus.rectangle.on.folder"
         case "thread-handoff":
             return "arrow.left.arrow.right"
+        case "thread-create-branch":
+            return "arrow.triangle.branch"
         case "toggle-browser":
             return "globe"
         case "open-browser-session":
