@@ -133,6 +133,53 @@ final class ManagedWorktreeSnapshotStoreTests: XCTestCase {
         }
     }
 
+    func testRemoveIfUnchangedRejectsConcurrentMutationAndKeepsWorktree() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.container) }
+        let store = ManagedWorktreeSnapshotStore(directory: fixture.snapshotDirectory)
+        let threadID = UUID()
+        let reference = try store.capture(threadID: threadID, binding: fixture.binding)
+        var capturedBinding = fixture.binding
+        capturedBinding.snapshot = reference
+        try "changed after capture\n".write(
+            to: fixture.worktree.appendingPathComponent("unstaged.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertThrowsError(try store.removeIfUnchanged(
+            threadID: threadID,
+            reference: reference,
+            binding: capturedBinding,
+            projectRoot: fixture.root
+        )) { error in
+            XCTAssertEqual(error as? ManagedWorktreeSnapshotError, .sourceChanged)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.worktree.path))
+        XCTAssertTrue(fixture.git.listWorktrees(cwd: fixture.root).stdout.contains(fixture.worktree.path))
+    }
+
+    func testRemoveIfUnchangedRemovesAnExactCapturedWorktree() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.container) }
+        try addTaskChanges(to: fixture.worktree)
+        let store = ManagedWorktreeSnapshotStore(directory: fixture.snapshotDirectory)
+        let threadID = UUID()
+        let reference = try store.capture(threadID: threadID, binding: fixture.binding)
+        var capturedBinding = fixture.binding
+        capturedBinding.snapshot = reference
+
+        try store.removeIfUnchanged(
+            threadID: threadID,
+            reference: reference,
+            binding: capturedBinding,
+            projectRoot: fixture.root
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.worktree.path))
+        XCTAssertFalse(fixture.git.listWorktrees(cwd: fixture.root).stdout.contains(fixture.worktree.path))
+    }
+
     func testCorruptPatchRollsBackCreatedWorktree() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.container) }

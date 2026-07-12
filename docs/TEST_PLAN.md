@@ -2,6 +2,8 @@
 
 QuillCode uses unit, functional, integration, Playwright, and native smoke tests.
 
+- **Managed worktree snapshots:** real-Git tests cover exact staged, unstaged, untracked, and commit restoration; repository/task binding; private storage; corrupt payload rollback; permanent-worktree protection; concurrent source mutation between capture and removal; exact-state removal; and post-restore verification.
+
 ## Unit Tests
 
 - Config parsing, model catalog, auth state, secret store.

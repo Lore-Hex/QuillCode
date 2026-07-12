@@ -72,6 +72,7 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
 
     func testManagedArchiveSnapshotsStayDurableTransactionalAndUserOwnedSafe() throws {
         let store = try Self.toolsSourceText(named: "ManagedWorktreeSnapshotStore.swift")
+        let removal = try Self.toolsSourceText(named: "ManagedWorktreeSnapshotStoreRemoval.swift")
         let model = try Self.appSourceText(named: "WorkspaceModelManagedWorktreeSnapshots.swift")
         let core = try Self.coreSourceText(named: "WorktreeBinding.swift")
         let toolsTests = try Self.toolsTestSourceText(named: "ManagedWorktreeSnapshotStoreTests.swift")
@@ -83,11 +84,13 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
             "repositoryCommonDirectory",
             "WorktreeSnapshotReference",
             "worktree\", \"add\", \"--detach",
-            "worktree\", \"remove\", \"--force",
             "ManagedWorktreeSnapshotApplier"
         ] {
             Self.assertSource(store, contains: contract)
         }
+        Self.assertSource(removal, contains: "func removeIfUnchanged")
+        Self.assertSource(removal, contains: "worktree\", \"remove\", \"--force")
+        Self.assertSource(removal, contains: "mismatchError: .sourceChanged")
         Self.assertSource(core, contains: "isDisposableManagedWorktree")
         Self.assertSource(core, contains: "canRestoreSnapshot")
         Self.assertSource(model, contains: "!root.threads[threadIndex].isPinned")

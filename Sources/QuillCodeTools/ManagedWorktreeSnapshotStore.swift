@@ -1,57 +1,15 @@
 import Foundation
 import QuillCodeCore
 
-public enum ManagedWorktreeSnapshotError: Error, LocalizedError, Sendable, Equatable {
-    case invalidBinding(String)
-    case unregisteredWorktree(String)
-    case repositoryMismatch
-    case snapshotMissing(UUID)
-    case snapshotCorrupt(String)
-    case destinationExists(String)
-    case gitFailed(String, String)
-    case filesystemFailed(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case .invalidBinding(let detail):
-            "This task does not own a disposable worktree: \(detail)"
-        case .unregisteredWorktree(let path):
-            "The managed worktree is not registered with git: \(path)"
-        case .repositoryMismatch:
-            "The snapshot belongs to a different git repository."
-        case .snapshotMissing(let id):
-            "The saved worktree snapshot is missing: \(id.uuidString)"
-        case .snapshotCorrupt(let detail):
-            "The saved worktree snapshot is invalid: \(detail)"
-        case .destinationExists(let path):
-            "The worktree cannot be restored because the destination already exists: \(path)"
-        case .gitFailed(let operation, let detail):
-            "Git failed while \(operation): \(detail)"
-        case .filesystemFailed(let detail):
-            "The worktree snapshot could not be saved: \(detail)"
-        }
-    }
-}
-
-public struct ManagedWorktreeSnapshotRestoreResult: Sendable, Hashable {
-    public var path: String
-    public var restoredFileCount: Int
-
-    public init(path: String, restoredFileCount: Int) {
-        self.path = path
-        self.restoredFileCount = restoredFileCount
-    }
-}
-
 /// Persists the exact staged, unstaged, and safe local-file state of a disposable managed worktree.
 /// Snapshots are repository-bound and restored at the captured commit, so archive cleanup cannot
 /// silently move a task onto newer code or into a different checkout.
 public struct ManagedWorktreeSnapshotStore: Sendable {
     private static let manifestVersion = 1
 
-    private let directory: URL
-    private let runner: GitProcessRunner
-    private let limits: ManagedWorktreeTransferLimits
+    let directory: URL
+    let runner: GitProcessRunner
+    let limits: ManagedWorktreeTransferLimits
 
     public init(directory: URL, runner: GitProcessRunner = GitProcessRunner()) {
         self.directory = directory
@@ -170,6 +128,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         guard isCommitHash(reference.headCommit) else {
             throw ManagedWorktreeSnapshotError.snapshotCorrupt("captured commit is malformed")
         }
+        let transfer = try transferSnapshot(from: manifest, snapshotRoot: snapshotRoot)
         let commitCheck = runner.runGit(
             ["cat-file", "-e", "\(reference.headCommit)^{commit}"],
             cwd: root,
@@ -189,10 +148,14 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         }
 
         do {
-            let transfer = try transferSnapshot(from: manifest, snapshotRoot: snapshotRoot)
             let restoredFileCount = try ManagedWorktreeSnapshotApplier(runner: runner).apply(
                 transfer,
                 to: URL(fileURLWithPath: targetPath)
+            )
+            try verify(
+                transfer,
+                matches: URL(fileURLWithPath: targetPath),
+                mismatchError: .snapshotCorrupt("restored state did not match the saved payload")
             )
             return ManagedWorktreeSnapshotRestoreResult(
                 path: targetPath,
@@ -218,7 +181,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         }
     }
 
-    private func validate(
+    func validate(
         manifest: Manifest,
         threadID: UUID,
         reference: WorktreeSnapshotReference,
@@ -229,6 +192,10 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         }
         guard manifest.reference == reference else {
             throw ManagedWorktreeSnapshotError.snapshotCorrupt("thread metadata does not match the manifest")
+        }
+        guard isCommitHash(reference.headCommit),
+              Set(manifest.filePaths).count == manifest.filePaths.count else {
+            throw ManagedWorktreeSnapshotError.snapshotCorrupt("manifest contains invalid object identifiers or paths")
         }
         guard manifest.threadID == threadID else {
             throw ManagedWorktreeSnapshotError.snapshotCorrupt("snapshot belongs to a different task")
@@ -242,7 +209,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         }
     }
 
-    private func transferSnapshot(
+    func transferSnapshot(
         from manifest: Manifest,
         snapshotRoot: URL
     ) throws -> ManagedWorktreeTransferSnapshot {
@@ -281,7 +248,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         }
     }
 
-    private func registeredWorktrees(cwd: URL) throws -> [GitWorktreeRecord] {
+    func registeredWorktrees(cwd: URL) throws -> [GitWorktreeRecord] {
         let result = runner.runGit(["worktree", "list", "--porcelain"], cwd: cwd, timeoutSeconds: 20)
         guard result.ok else {
             throw gitError("listing worktrees", result: result)
@@ -289,7 +256,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         return GitWorktreePorcelainParser.parse(result.stdout)
     }
 
-    private func repositoryCommonDirectory(cwd: URL) throws -> String {
+    func repositoryCommonDirectory(cwd: URL) throws -> String {
         normalizedPath(try requiredGitOutput(
             ["rev-parse", "--path-format=absolute", "--git-common-dir"],
             cwd: cwd,
@@ -297,7 +264,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         ))
     }
 
-    private func requiredGitOutput(
+    func requiredGitOutput(
         _ arguments: [String],
         cwd: URL,
         operation: String
@@ -311,7 +278,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         return value
     }
 
-    private func gitError(_ operation: String, result: ToolResult) -> ManagedWorktreeSnapshotError {
+    func gitError(_ operation: String, result: ToolResult) -> ManagedWorktreeSnapshotError {
         .gitFailed(operation, result.error ?? result.stderr.nonEmpty ?? "unknown git error")
     }
 
@@ -331,7 +298,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         try data.write(to: snapshotRoot.appendingPathComponent("manifest.json"), options: .atomic)
     }
 
-    private func readManifest(from snapshotRoot: URL) throws -> Manifest {
+    func readManifest(from snapshotRoot: URL) throws -> Manifest {
         let url = snapshotRoot.appendingPathComponent("manifest.json")
         do {
             try validateRegularFile(url, inside: snapshotRoot)
@@ -350,27 +317,47 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         try setPrivatePermissions(url)
     }
 
+    func verify(
+        _ expected: ManagedWorktreeTransferSnapshot,
+        matches worktreeRoot: URL,
+        mismatchError: ManagedWorktreeSnapshotError
+    ) throws {
+        let verificationRoot = directory.appendingPathComponent(".verify-\(UUID().uuidString)")
+        try ensurePrivateDirectory(verificationRoot)
+        defer { try? FileManager.default.removeItem(at: verificationRoot) }
+        let actual = try ManagedWorktreeTransferSnapshot.capture(
+            sourceRoot: worktreeRoot,
+            temporaryDirectory: verificationRoot,
+            runner: runner,
+            localFilePolicy: .managedCreation,
+            limits: limits
+        )
+        guard try expected.hasSameContent(as: actual) else {
+            throw mismatchError
+        }
+    }
+
     private func setPrivatePermissions(_ url: URL) throws {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     }
 
-    private func snapshotDirectory(_ id: UUID) -> URL {
+    func snapshotDirectory(_ id: UUID) -> URL {
         directory.appendingPathComponent(id.uuidString.lowercased())
     }
 
-    private func normalizedPath(_ path: String) -> String {
+    func normalizedPath(_ path: String) -> String {
         normalizedPath(URL(fileURLWithPath: path))
     }
 
-    private func normalizedPath(_ url: URL) -> String {
+    func normalizedPath(_ url: URL) -> String {
         url.resolvingSymlinksInPath().standardizedFileURL.path
     }
 
     private func isCommitHash(_ value: String) -> Bool {
-        (7...64).contains(value.count) && value.allSatisfy(\.isHexDigit)
+        (value.count == 40 || value.count == 64) && value.allSatisfy(\.isHexDigit)
     }
 
-    private struct Manifest: Codable, Sendable, Hashable {
+    struct Manifest: Codable, Sendable, Hashable {
         var version: Int
         var threadID: UUID
         var reference: WorktreeSnapshotReference
