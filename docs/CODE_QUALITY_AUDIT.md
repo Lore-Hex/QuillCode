@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-07-12 Committed-History Handoff Slice
+
+Overall grade after this slice: **A+ transactional Git architecture, A worktree parity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Architecture | A+ | Preflight owns repository/history classification, the history-transfer component owns fast-forward/rollback mechanics, and the existing executor composes history with the bounded local-state transaction. |
+| Git safety | A+ | Only a clean destination proven to be an ancestor advances; destination-ahead and diverged histories fail without intentional mutation; rollback refuses to rewrite an unexpectedly changed destination. |
+| Data safety | A+ | The source snapshot is frozen before history mutation, source and destination commits plus task snapshots are verified before cleanup, and a failed later transfer restores history QuillCode advanced. |
+| DRY and idioms | A+ | Revision/history mechanics have one owner, commands remain argv-only, transition state is a typed `Sendable`/`Hashable` enum, and existing snapshot/application policies are reused. |
+| UX | A | Existing Handoff controls now support committed work transparently and failures explain dirty, backward, and diverged states. Rich branch-landing automation remains a separate workflow. |
+| Tests | A+ | Real Git worktrees cover Local and Worktree sources, branch preservation, multiple commits, history-only moves, combined local state, rollback, and dirty/ahead/diverged refusal. |
+
+Validation:
+
+- `swift test --filter GitWorktreeToolExecutorTests` (25 passed)
+- `swift test` (3,561 passed, 2 skipped, 0 failures)
+- `npm test` in `E2E/playwright` (212 passed)
+- `./scripts/smoke.sh` (CLI workflows, packaged macOS direct/Launch Services/live-window smoke, and Playwright passed)
+- Linux Swift 6.2 container build of `quill-code` passed; clean-container helper smoke remains enforced by CI.
+- `python3 scripts/grade-code-quality.py --root .` (all affected files and modules A+)
+- `git diff --check`
+
 ## 2026-07-11 Managed Worktree Materialization Slice
 
 Overall grade after this slice: **A+ transactional architecture, A managed-worktree setup parity**.

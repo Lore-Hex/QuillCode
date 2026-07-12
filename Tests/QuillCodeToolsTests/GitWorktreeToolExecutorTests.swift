@@ -90,7 +90,7 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         assertTaskChanges(in: fixture.root)
     }
 
-    func testHandoffRejectsCommitMismatchWithoutChangingEitherCheckout() throws {
+    func testHandoffFastForwardsCommittedHistoryAndTransfersLocalChanges() throws {
         let fixture = try makeHandoffFixture()
         defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
         try "new commit\n".write(
@@ -101,21 +101,194 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(fixture.git.stage(cwd: fixture.root, path: "committed-after-worktree.txt").ok)
         XCTAssertTrue(fixture.git.commit(cwd: fixture.root, message: "advance local checkout").ok)
         try addTaskChanges(to: fixture.root)
-        let sourceStatus = gitStatus(in: fixture.root)
-        let destinationStatus = gitStatus(in: fixture.worktree)
+        let sourceCommit = headCommit(in: fixture.root)
+
+        let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(result.stdout.contains("Fast-forwarded committed history"), result.stdout)
+        XCTAssertEqual(headCommit(in: fixture.worktree), sourceCommit)
+        XCTAssertEqual(
+            try String(contentsOf: fixture.worktree.appendingPathComponent("committed-after-worktree.txt")),
+            "new commit\n"
+        )
+        assertTaskChanges(in: fixture.worktree)
+        XCTAssertEqual(gitStatus(in: fixture.root), "")
+    }
+
+    func testHandoffFastForwardsLocalBranchFromDetachedWorktreeCommit() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        let localBranch = currentBranchName(in: fixture.root)
+        try "worktree commit\n".write(
+            to: fixture.worktree.appendingPathComponent("worktree-commit.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        XCTAssertTrue(fixture.git.stage(cwd: fixture.worktree, path: "worktree-commit.txt").ok)
+        XCTAssertTrue(fixture.git.commit(cwd: fixture.worktree, message: "commit in detached worktree").ok)
+        try addTaskChanges(to: fixture.worktree)
+        let worktreeCommit = headCommit(in: fixture.worktree)
+
+        let result = fixture.git.handoffWorktree(
+            cwd: fixture.worktree,
+            destination: fixture.root.lastPathComponent
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(headCommit(in: fixture.root), worktreeCommit)
+        XCTAssertEqual(currentBranchName(in: fixture.root), localBranch)
+        XCTAssertEqual(
+            try String(contentsOf: fixture.root.appendingPathComponent("worktree-commit.txt")),
+            "worktree commit\n"
+        )
+        assertTaskChanges(in: fixture.root)
+        XCTAssertEqual(gitStatus(in: fixture.worktree), "")
+    }
+
+    func testHandoffFastForwardsMultipleCommitsWithoutLocalChanges() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try commitFile(
+            "first.txt",
+            contents: "first\n",
+            message: "first task commit",
+            in: fixture.root,
+            git: fixture.git
+        )
+        try commitFile(
+            "second.txt",
+            contents: "second\n",
+            message: "second task commit",
+            in: fixture.root,
+            git: fixture.git
+        )
+        let sourceCommit = headCommit(in: fixture.root)
+
+        let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(headCommit(in: fixture.worktree), sourceCommit)
+        XCTAssertEqual(
+            try String(contentsOf: fixture.worktree.appendingPathComponent("first.txt")),
+            "first\n"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: fixture.worktree.appendingPathComponent("second.txt")),
+            "second\n"
+        )
+        XCTAssertEqual(gitStatus(in: fixture.root), "")
+        XCTAssertEqual(gitStatus(in: fixture.worktree), "")
+    }
+
+    func testHistoryTransferRollbackRestoresOriginalDestinationCommit() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        let originalCommit = headCommit(in: fixture.worktree)
+        try commitFile(
+            "advanced.txt",
+            contents: "advanced\n",
+            message: "advance source",
+            in: fixture.root,
+            git: fixture.git
+        )
+        let sourceCommit = headCommit(in: fixture.root)
+        let transfer = GitWorktreeHandoffHistoryTransfer(runner: GitProcessRunner())
+        let transition = GitWorktreeHandoffHistoryTransition.fastForward(
+            from: originalCommit,
+            to: sourceCommit
+        )
+
+        try transfer.apply(transition, at: fixture.worktree)
+        XCTAssertEqual(headCommit(in: fixture.worktree), sourceCommit)
+        let rollback = transfer.rollback(transition, at: fixture.worktree)
+
+        XCTAssertTrue(rollback.ok, rollback.error ?? "")
+        XCTAssertEqual(headCommit(in: fixture.worktree), originalCommit)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: fixture.worktree.appendingPathComponent("advanced.txt").path)
+        )
+    }
+
+    func testHandoffRejectsDestinationAheadWithoutChangingEitherCheckout() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try commitFile(
+            "destination-only.txt",
+            contents: "destination commit\n",
+            message: "advance destination",
+            in: fixture.worktree,
+            git: fixture.git
+        )
+        let sourceCommit = headCommit(in: fixture.root)
+        let destinationCommit = headCommit(in: fixture.worktree)
 
         let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
 
         XCTAssertFalse(result.ok)
-        XCTAssertTrue(result.error?.contains("different commits") == true, result.error ?? "")
-        XCTAssertEqual(gitStatus(in: fixture.root), sourceStatus)
-        XCTAssertEqual(gitStatus(in: fixture.worktree), destinationStatus)
-        XCTAssertFalse(
-            FileManager.default.fileExists(
-                atPath: fixture.worktree.appendingPathComponent("committed-after-worktree.txt").path
-            )
+        XCTAssertTrue(result.error?.contains("destination is ahead") == true, result.error ?? "")
+        XCTAssertEqual(headCommit(in: fixture.root), sourceCommit)
+        XCTAssertEqual(headCommit(in: fixture.worktree), destinationCommit)
+    }
+
+    func testHandoffRejectsDivergedCommittedHistoryWithoutMutation() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try commitFile(
+            "source-only.txt",
+            contents: "source commit\n",
+            message: "advance source",
+            in: fixture.root,
+            git: fixture.git
         )
-        assertTaskChanges(in: fixture.root)
+        try commitFile(
+            "destination-only.txt",
+            contents: "destination commit\n",
+            message: "advance destination",
+            in: fixture.worktree,
+            git: fixture.git
+        )
+        let sourceCommit = headCommit(in: fixture.root)
+        let destinationCommit = headCommit(in: fixture.worktree)
+
+        let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("have diverged") == true, result.error ?? "")
+        XCTAssertEqual(headCommit(in: fixture.root), sourceCommit)
+        XCTAssertEqual(headCommit(in: fixture.worktree), destinationCommit)
+        XCTAssertEqual(gitStatus(in: fixture.root), "")
+        XCTAssertEqual(gitStatus(in: fixture.worktree), "")
+    }
+
+    func testHandoffRejectsDirtyDestinationBeforeFastForward() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        try commitFile(
+            "source-commit.txt",
+            contents: "source commit\n",
+            message: "advance source",
+            in: fixture.root,
+            git: fixture.git
+        )
+        try "destination edit\n".write(
+            to: fixture.worktree.appendingPathComponent("unstaged.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let sourceCommit = headCommit(in: fixture.root)
+        let destinationCommit = headCommit(in: fixture.worktree)
+
+        let result = fixture.git.handoffWorktree(cwd: fixture.root, destination: fixture.worktreeName)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("only into a clean destination") == true, result.error ?? "")
+        XCTAssertEqual(headCommit(in: fixture.root), sourceCommit)
+        XCTAssertEqual(headCommit(in: fixture.worktree), destinationCommit)
+        XCTAssertEqual(
+            try String(contentsOf: fixture.worktree.appendingPathComponent("unstaged.txt")),
+            "destination edit\n"
+        )
     }
 
     func testHandoffDoesNotMoveIgnoredFiles() throws {
@@ -298,7 +471,11 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: target.appendingPathComponent(".env").path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: target.appendingPathComponent("ignored/config.json").path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: target.appendingPathComponent("AGENTS.override.md").path))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent("ignored/not-included.txt").path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: target.appendingPathComponent("ignored/not-included.txt").path
+            )
+        )
         XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent("ignored/link").path))
         XCTAssertTrue(result.stdout.contains("Skipped 1 local symlink"), result.stdout)
     }
@@ -601,6 +778,29 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
             file: file,
             line: line
         )
+    }
+
+    private func commitFile(
+        _ path: String,
+        contents: String,
+        message: String,
+        in root: URL,
+        git: GitToolExecutor
+    ) throws {
+        try contents.write(
+            to: root.appendingPathComponent(path),
+            atomically: true,
+            encoding: .utf8
+        )
+        XCTAssertTrue(git.stage(cwd: root, path: path).ok)
+        let commit = git.commit(cwd: root, message: message)
+        XCTAssertTrue(commit.ok, "\(commit.error ?? "") \(commit.stderr)")
+    }
+
+    private func headCommit(in root: URL, file: StaticString = #filePath, line: UInt = #line) -> String {
+        let result = ShellToolExecutor().run(.init(command: "git rev-parse HEAD", cwd: root))
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)", file: file, line: line)
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func gitStatus(in root: URL, file: StaticString = #filePath, line: UInt = #line) -> String {
