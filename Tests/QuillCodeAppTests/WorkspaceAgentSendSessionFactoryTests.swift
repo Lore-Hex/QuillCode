@@ -1,7 +1,9 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
@@ -109,5 +111,46 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
 
         XCTAssertEqual(result?.ok, true)
         XCTAssertEqual(result?.stdout, "custom browser snapshot")
+    }
+
+    func testFactoryStoresComputerScreenshotsAsThreadOwnedModelFeedback() async throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let store = ImageAttachmentStore(
+            directory: workspaceRoot.appendingPathComponent("attachments", isDirectory: true)
+        )
+        let thread = ChatThread(title: "Computer Use")
+        let session = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: StubComputerUseBackend(),
+            imageAttachmentStore: store,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: workspaceRoot
+        ).makeSession(prompt: "Inspect the screen", thread: thread)
+        let override = try XCTUnwrap(session.runner.toolExecutionOverride)
+        let optionalResult = await override(
+            ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}"),
+            workspaceRoot
+        )
+        let result = try XCTUnwrap(optionalResult)
+        let provider = try XCTUnwrap(session.runner.toolFeedbackAttachmentProvider)
+        let attachments = provider(
+            ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}"),
+            result
+        )
+
+        XCTAssertTrue(result.ok)
+        let artifact = try XCTUnwrap(result.artifacts.first)
+        XCTAssertTrue(artifact.contains("/\(thread.id.uuidString)/computer-use/"))
+        XCTAssertEqual(attachments.count, 1)
+        XCTAssertEqual(attachments.first?.localURL.path, artifact)
+        XCTAssertTrue(store.contains(try XCTUnwrap(attachments.first?.localURL)))
+        XCTAssertFalse(try store.data(for: XCTUnwrap(attachments.first)).isEmpty)
     }
 }

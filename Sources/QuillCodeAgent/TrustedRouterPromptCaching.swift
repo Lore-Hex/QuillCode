@@ -97,9 +97,11 @@ public enum TrustedRouterPromptCaching {
 
     /// Deterministic breakpoint positions, newest-prefix-first semantics:
     ///
-    /// 1. The LATEST user message. Its breakpoint caches everything before it — system prompt,
-    ///    tool definitions, and history — and stays on the same element for every model call
-    ///    within the turn's tool loop, so intra-turn calls re-read one stable cache entry.
+    /// 1. The LATEST plain-text user message. Its breakpoint caches everything before it — system
+    ///    prompt, tool definitions, and history — and stays on the same element for every model
+    ///    call within the turn's tool loop, so intra-turn calls re-read one stable cache entry.
+    ///    Multimodal user continuations (for example Computer Use screenshots) remain byte-for-byte
+    ///    untouched while the preceding text request keeps its reusable breakpoint.
     /// 2. The FINAL message, when the request continues past the latest user message (tool
     ///    feedback is appended as assistant messages). Each loop iteration then extends the
     ///    cache over the previous iteration's tool output instead of re-reading it at full
@@ -111,7 +113,9 @@ public enum TrustedRouterPromptCaching {
     /// four-breakpoint limit.
     static func breakpointIndexes(_ messages: [[String: Any]]) -> [Int] {
         var indexes: [Int] = []
-        if let lastUser = messages.lastIndex(where: { role(of: $0) == "user" }) {
+        if let lastUser = messages.lastIndex(where: {
+            role(of: $0) == "user" && annotatableText(of: $0) != nil
+        }) {
             indexes.append(lastUser)
         }
         if let last = messages.indices.last,

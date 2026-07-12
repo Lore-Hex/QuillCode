@@ -27,6 +27,9 @@ final class ComputerUseToolExecutorTests: XCTestCase {
         let screenshot = try await assertScreenshotSucceeds(executor)
         XCTAssertTrue(screenshot.stdout.contains(#""width" : 1"#))
         XCTAssertFalse(screenshot.stdout.contains("pngBase64"))
+        let artifact = try XCTUnwrap(screenshot.artifacts.first)
+        let permissions = try FileManager.default.attributesOfItem(atPath: artifact)[.posixPermissions]
+        XCTAssertEqual((permissions as? NSNumber)?.intValue, 0o600)
 
         await executeStandardInputActions(with: executor)
         let actions = await backend.recordedActions()

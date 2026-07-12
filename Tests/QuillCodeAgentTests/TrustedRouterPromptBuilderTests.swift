@@ -65,6 +65,57 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertEqual(content[0]["text"] as? String, "[Attached image unavailable: secret.png]")
     }
 
+    func testManagedScreenshotToolFeedbackBecomesMultimodalContinuation() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quillcode-prompt-screenshot-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let source = root.appendingPathComponent("source.png")
+        let png = Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )!
+        try png.write(to: source)
+        let store = ImageAttachmentStore(directory: root.appendingPathComponent("managed"))
+        let attachment = try store.importImage(from: source, threadID: UUID())
+        let feedback = AgentToolFeedback(
+            toolCall: ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}"),
+            result: ToolResult(ok: true, stdout: #"{"width":1,"height":1}"#)
+        )
+        let feedbackJSON = try JSONHelpers.encodePretty(feedback)
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "Inspect the screen"),
+            ChatMessage(role: .tool, content: feedbackJSON, attachments: [attachment])
+        ])
+
+        let messages = TrustedRouterPromptBuilder(imageAttachmentStore: store).messages(
+            thread: thread,
+            userMessage: "Inspect the screen",
+            tools: [.computerScreenshot, .computerClick]
+        )
+        let continuation = try XCTUnwrap(messages.last)
+        XCTAssertEqual(continuation["role"] as? String, "user")
+        let content = try XCTUnwrap(continuation["content"] as? [[String: Any]])
+        XCTAssertEqual(content.count, 2)
+        XCTAssertTrue((content[0]["text"] as? String)?.contains("Tool output:") == true)
+        XCTAssertFalse((content[0]["text"] as? String)?.contains("base64") == true)
+        XCTAssertEqual(content[1]["type"] as? String, "image_url")
+        let image = try XCTUnwrap(content[1]["image_url"] as? [String: Any])
+        XCTAssertTrue((image["url"] as? String)?.hasPrefix("data:image/png;base64,") == true)
+    }
+
+    func testComputerUsePromptRequiresFreshScreenshotsAndTreatsPixelsAsUntrusted() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .computerScreenshot,
+            .computerClick
+        ])
+
+        XCTAssertTrue(prompt.contains("Inspect that image before choosing coordinates"))
+        XCTAssertTrue(prompt.contains("capture a fresh screenshot"))
+        XCTAssertTrue(prompt.contains("untrusted page content"))
+        XCTAssertFalse(TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun])
+            .contains("Computer Use screenshot results"))
+    }
+
     func testPromptRequiresNonEmptyShellCommand() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))

@@ -57,6 +57,56 @@ final class ImageAttachmentStoreTests: PersistenceTestCase {
         }
     }
 
+    func testAdoptsManagedImageWithoutCopyingIt() throws {
+        let root = try makeTempDirectory()
+        let managed = root.appendingPathComponent("managed")
+        let screenshot = managed
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("computer-use", isDirectory: true)
+            .appendingPathComponent("screenshot.png")
+        try FileManager.default.createDirectory(
+            at: screenshot.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Self.onePixelPNG.write(to: screenshot)
+        let store = ImageAttachmentStore(directory: managed)
+
+        let attachment = try store.attachmentForManagedImage(
+            at: screenshot,
+            displayName: "Computer Use screenshot.png"
+        )
+
+        XCTAssertEqual(
+            attachment.localURL.resolvingSymlinksInPath(),
+            screenshot.resolvingSymlinksInPath()
+        )
+        XCTAssertEqual(attachment.displayName, "Computer Use screenshot.png")
+        XCTAssertEqual(attachment.format, .png)
+        XCTAssertEqual(try store.data(for: attachment), Self.onePixelPNG)
+        let files = try FileManager.default.contentsOfDirectory(
+            at: screenshot.deletingLastPathComponent(),
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(files.count, 1)
+        XCTAssertEqual(
+            files.first?.resolvingSymlinksInPath(),
+            screenshot.resolvingSymlinksInPath()
+        )
+        let permissions = try FileManager.default.attributesOfItem(atPath: screenshot.path)[.posixPermissions]
+        XCTAssertEqual((permissions as? NSNumber)?.intValue, 0o600)
+    }
+
+    func testRefusesToAdoptImageOutsideManagedStorage() throws {
+        let root = try makeTempDirectory()
+        let outside = root.appendingPathComponent("outside.png")
+        try Self.onePixelPNG.write(to: outside)
+        let store = ImageAttachmentStore(directory: root.appendingPathComponent("managed"))
+
+        XCTAssertThrowsError(try store.attachmentForManagedImage(at: outside)) { error in
+            XCTAssertEqual(error as? ImageAttachmentStoreError, .unmanagedAttachment)
+        }
+    }
+
     private static let onePixelPNG = Data(base64Encoded:
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
     )!

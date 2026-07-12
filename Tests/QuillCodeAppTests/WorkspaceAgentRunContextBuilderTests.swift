@@ -30,6 +30,25 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         ])
     }
 
+    func testContextPreservesUnrelatedToolFeedbackAttachmentProvider() {
+        let baseRunner = AgentRunner(
+            baseToolDefinitions: [],
+            additionalToolDefinitions: [],
+            toolFeedbackAttachmentProvider: { _, _ in [] }
+        )
+        let runner = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ).configuredRunner(from: baseRunner)
+
+        XCTAssertNotNil(runner.toolFeedbackAttachmentProvider)
+    }
+
     func testRemoteContextUsesRemoteToolDefinitions() {
         let project = ProjectRef(
             name: "Feather",

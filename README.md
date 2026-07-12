@@ -13,7 +13,7 @@ This initial repository contains the compile-stable foundation:
 - Auto safety review policy with `glm-5.2` and `kimi-k2.6` model slots
 - TrustedRouter LLM and safety-model adapters
 - JSON thread/project persistence and a single secret-store protocol
-- Computer Use backend protocol and stub backend
+- Computer Use screenshot/input backends with private visual model feedback
 - deterministic mock LLM agent runner
 - `quill-code` CLI harness
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings

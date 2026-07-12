@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 @testable import QuillCodeAgent
 
@@ -125,6 +126,51 @@ final class AgentToolLoopTests: XCTestCase {
             .toolCompleted,
             .message
         ])
+    }
+
+    func testScreenshotAttachmentReachesNextModelStepAsHiddenToolFeedback() async throws {
+        let root = try makeTempDirectory()
+        let store = ImageAttachmentStore(directory: root.appendingPathComponent("attachments"))
+        let screenshot = store.directory
+            .appendingPathComponent("computer-use", isDirectory: true)
+            .appendingPathComponent("screenshot.png")
+        try FileManager.default.createDirectory(
+            at: screenshot.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try onePixelPNG.write(to: screenshot)
+        let state = ScreenshotAwareLLMState()
+        let runner = AgentRunner(
+            llm: ScreenshotAwareLLMClient(state: state),
+            additionalToolDefinitions: [.computerScreenshot],
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.computerScreenshot.name else { return nil }
+                return ToolResult(ok: true, stdout: #"{"width":1,"height":1}"#, artifacts: [screenshot.path])
+            },
+            toolFeedbackAttachmentProvider: { call, result in
+                guard call.name == ToolDefinition.computerScreenshot.name,
+                      let path = result.artifacts.first,
+                      let attachment = try? store.attachmentForManagedImage(
+                          at: URL(fileURLWithPath: path)
+                      )
+                else { return [] }
+                return [attachment]
+            }
+        )
+
+        let result = try await runner.send(
+            "Inspect the screen and tell me what you see",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.thread.messages.map(\.role), [.user, .tool, .assistant])
+        let feedback = try XCTUnwrap(result.thread.messages.first { $0.role == .tool })
+        XCTAssertEqual(feedback.attachments.count, 1)
+        XCTAssertEqual(feedback.attachments.first?.localURL, screenshot.standardizedFileURL)
+        XCTAssertEqual(result.thread.messages.last?.content, "I inspected the screenshot.")
+        let sawScreenshotAttachment = await state.sawScreenshotAttachment
+        XCTAssertTrue(sawScreenshotAttachment)
     }
 
     func testExplicitUserCommandedFileWriteCanOverwriteExistingFileInOneTurn() async throws {
@@ -497,6 +543,38 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Patch applied. Review the resulting diff below.")
     }
 }
+
+private actor ScreenshotAwareLLMState {
+    private var callCount = 0
+    private(set) var sawScreenshotAttachment = false
+
+    func next(thread: ChatThread) -> AgentAction {
+        callCount += 1
+        if callCount == 1 {
+            return .tool(ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}"))
+        }
+        sawScreenshotAttachment = thread.messages.contains { message in
+            message.role == .tool && !message.attachments.isEmpty
+        }
+        return .say(sawScreenshotAttachment ? "I inspected the screenshot." : "I could not see the screenshot.")
+    }
+}
+
+private struct ScreenshotAwareLLMClient: LLMClient {
+    let state: ScreenshotAwareLLMState
+
+    func nextAction(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AgentAction {
+        await state.next(thread: thread)
+    }
+}
+
+private let onePixelPNG = Data(base64Encoded:
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)!
 
 private struct EmptyArgumentsThenSayLLMClient: LLMClient {
     private let state: EmptyArgumentsThenSayState

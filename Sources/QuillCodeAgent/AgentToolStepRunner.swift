@@ -106,7 +106,15 @@ extension AgentRunner {
             followUpResult: completion.followUpReviewResult
         )
         let content = (try? JSONHelpers.encodePretty(feedback)) ?? "{}"
-        thread.messages.append(.init(role: .tool, content: content))
+        let attachments = toolFeedbackAttachmentProvider?(
+            completion.call,
+            completion.result
+        ) ?? []
+        thread.messages.append(.init(
+            role: .tool,
+            content: content,
+            attachments: attachments
+        ))
         thread.updatedAt = Date()
     }
 
