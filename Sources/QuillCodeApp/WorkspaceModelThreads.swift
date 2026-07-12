@@ -66,4 +66,11 @@ extension QuillCodeWorkspaceModel {
             thread.updatedAt = Date()
         }
     }
+
+    func setSelectedThreadWorktreeLocation(_ location: WorktreeExecutionLocation) {
+        mutateSelectedThread { thread in
+            thread.worktree?.location = location
+            thread.updatedAt = Date()
+        }
+    }
 }

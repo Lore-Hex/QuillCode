@@ -9,6 +9,9 @@ struct QuillCodeTopBarActionClusterView: View {
 
     var body: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+            if let handoffCommand {
+                handoffButton(handoffCommand)
+            }
             if let activeStopCommand {
                 stopButton(activeStopCommand)
                     .transition(reduceMotion ? .identity : .opacity.combined(with: .scale(scale: 0.96)))
@@ -27,6 +30,25 @@ struct QuillCodeTopBarActionClusterView: View {
 
     private var activeStopCommand: WorkspaceCommandSurface? {
         commands.first { $0.id == "stop-all" && $0.isEnabled }
+    }
+
+    private var handoffCommand: WorkspaceCommandSurface? {
+        commands.first { $0.id == WorkspaceCommandAction.threadHandoff.rawValue && $0.isEnabled }
+    }
+
+    private func handoffButton(_ command: WorkspaceCommandSurface) -> some View {
+        Button {
+            onCommand(command)
+        } label: {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .quillCodeIconButtonTarget()
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help(command.title)
+        .accessibilityLabel(command.title)
+        .accessibilityIdentifier("quillcode-top-bar-handoff")
     }
 
     private func stopButton(_ command: WorkspaceCommandSurface) -> some View {

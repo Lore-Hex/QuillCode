@@ -45,6 +45,13 @@ enum WorkspaceWorktreeToolCallPlanner {
         )
     }
 
+    static func handoff(destination: String) -> ToolCall {
+        ToolCall(
+            name: ToolDefinition.gitWorktreeHandoff.name,
+            argumentsJSON: ToolArguments.json(["destination": destination])
+        )
+    }
+
     static func prune(_ request: WorkspaceWorktreePruneRequest) -> ToolCall {
         ToolCall(
             name: ToolDefinition.gitWorktreePrune.name,

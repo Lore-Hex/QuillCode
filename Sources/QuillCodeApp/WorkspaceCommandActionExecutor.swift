@@ -93,6 +93,8 @@ extension QuillCodeWorkspaceModel {
             return duplicateThread(threadID) != nil
         case .newWorktreeThread:
             return newWorktreeThread() != nil
+        case .handoffSelectedThread:
+            return handoffSelectedThread()
         case .setThreadPinned(let threadID, let isPinned):
             return setPinThread(threadID, isPinned: isPinned)
         case .clearThread(let threadID):

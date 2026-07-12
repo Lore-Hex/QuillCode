@@ -188,6 +188,92 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(try command("thread-bulk-archive", in: commands).isEnabled)
     }
 
+    func testHandoffCommandNamesDestinationAndRequiresIdleDetachedManagedTask() throws {
+        let worktree = FileManager.default.temporaryDirectory
+            .appendingPathComponent("handoff-command-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: worktree) }
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        var thread = ChatThread(title: "Managed task")
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "",
+            base: "main",
+            location: .worktree
+        )
+
+        let worktreeCommand = try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        )
+        XCTAssertEqual(worktreeCommand.title, "Hand off to Local")
+        XCTAssertTrue(worktreeCommand.isEnabled)
+
+        thread.worktree?.location = .local
+        let localCommand = try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        )
+        XCTAssertEqual(localCommand.title, "Hand off to Worktree")
+        XCTAssertTrue(localCommand.isEnabled)
+
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(
+                selectedThread: thread,
+                selectedProject: project,
+                composerIsSending: true
+            ).commands
+        ).isEnabled)
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(
+                selectedThread: thread,
+                selectedProject: project,
+                selectedThreadIsRunning: true,
+                runningThreadIDs: [thread.id]
+            ).commands
+        ).isEnabled)
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(
+                selectedThread: thread,
+                selectedProject: project,
+                terminalIsRunning: true
+            ).commands
+        ).isEnabled)
+
+        thread.worktree?.branch = "feature/owned"
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.branch = ""
+        thread.isArchived = true
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.isArchived = false
+        let remoteProject = ProjectRef(
+            name: "Remote",
+            path: "/srv/quill",
+            connection: .ssh(path: "/srv/quill", host: "quill.local", user: "quill")
+        )
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: remoteProject).commands
+        ).isEnabled)
+
+        thread.worktree?.path = worktree.path + "-missing"
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadHandoff.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+    }
+
     func testSavedSearchesAppearAsThreadCommands() throws {
         let searchID = try XCTUnwrap(UUID(uuidString: "44444444-4444-4444-4444-444444444444"))
         let secondSearchID = try XCTUnwrap(UUID(uuidString: "55555555-5555-5555-5555-555555555555"))

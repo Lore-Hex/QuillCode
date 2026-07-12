@@ -35,6 +35,16 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let gitWorktreeHandoff = gitWorktreeTool(
+        name: "host.git.worktree.handoff",
+        description: "Move uncommitted task changes between a local checkout and its managed worktree.",
+        parametersJSON: GitToolParameterSchema.object(
+            properties: ["destination": .string()],
+            required: ["destination"]
+        ),
+        risk: .destructive
+    )
+
     static let gitWorktreeRemove = gitWorktreeTool(
         name: "host.git.worktree.remove",
         description: "Remove a registered sibling git worktree for the project.",

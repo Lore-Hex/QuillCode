@@ -146,6 +146,7 @@ enum WorkspaceHTMLTopBarRenderer {
     ) -> String {
         """
         <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+          \(renderHandoffButton(commands: commands))
           \(renderActiveStopButton(commands: commands))
           <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
             \(WorkspaceHTMLPrimitives.summary(
@@ -217,6 +218,21 @@ enum WorkspaceHTMLTopBarRenderer {
             classes: ["topbar-stop-button"],
             ariaLabel: "Stop active work",
             title: title
+        )
+    }
+
+    private static func renderHandoffButton(commands: [WorkspaceCommandSurface]) -> String {
+        guard let command = commands.first(where: {
+            $0.id == WorkspaceCommandAction.threadHandoff.rawValue && $0.isEnabled
+        }) else { return "" }
+        return WorkspaceHTMLPrimitives.commandButton(
+            "↔",
+            testID: "top-bar-handoff-button",
+            commandID: command.id,
+            hitTargetKind: .icon,
+            classes: ["topbar-handoff-button"],
+            ariaLabel: command.title,
+            title: command.title
         )
     }
 

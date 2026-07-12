@@ -4591,6 +4591,7 @@
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
         { id: 'thread-new-worktree', title: 'New worktree chat', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
+        { id: 'thread-handoff', title: 'Hand off task', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'handoff', 'local', 'worktree', 'move', 'transfer'], isEnabled: false },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
         { id: 'focus-composer', title: 'Focus message input', shortcut: 'Cmd+L', category: 'Workspace', keywords: ['focus', 'composer', 'message', 'input', 'prompt', 'type'], isEnabled: true },
         { id: 'toggle-sidebar', title: 'Toggle sidebar', shortcut: 'Cmd+B', category: 'Navigation', keywords: ['sidebar', 'navigation', 'hide', 'show', 'chats', 'projects'], isEnabled: true },
@@ -7245,6 +7246,18 @@
         .map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning } :
+        command.id === 'thread-handoff' ? {
+          ...command,
+          title: selectedThread?.worktree?.location === 'local' ? 'Hand off to Worktree' : 'Hand off to Local',
+          isEnabled: Boolean(
+            hasLocalProject
+            && selectedThread?.worktree?.isResolvable
+            && !selectedThread?.worktree?.branch
+            && !selectedThread?.isArchived
+            && !selectedThreadIsRunning
+            && !state.terminal.isRunning
+          )
+        } :
         command.id === 'thread-pin' ? { ...command, isEnabled: hasThread && !selectedThread.isPinned && !selectedThread.isArchived } :
         command.id === 'thread-unpin' ? { ...command, isEnabled: hasThread && selectedThread.isPinned } :
         command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
@@ -8300,6 +8313,12 @@
       };
       const renderSidebarWorktreeChip = (worktree) => {
         if (!worktree) return '';
+        if (worktree.location === 'local') {
+          const title = worktree.isResolvable
+            ? 'Task runs in the local checkout'
+            : 'Task runs locally; its associated worktree is missing';
+          return `<span class="sidebar-worktree-chip" data-tone="${worktree.isResolvable ? 'normal' : 'warning'}" data-testid="sidebar-worktree-local" title="${escapeHTML(title)}">Local</span>`;
+        }
         if (worktree.isResolvable) {
           return `<span class="sidebar-worktree-chip" data-testid="sidebar-worktree-branch" title="${escapeHTML(worktree.branch)}">⑂ ${escapeHTML(worktree.branchLeaf)}</span>`;
         }
@@ -8529,6 +8548,10 @@
       const topBarStopButton = topBarStopCommand?.isEnabled
         ? `<button type="button" class="topbar-stop-button hit-target-text" data-testid="top-bar-stop-button" data-command-id="stop-all" title="Stop all (${escapeHTML(topBarStopCommand.shortcut || 'Esc')})" aria-label="Stop active work">Stop</button>`
         : '';
+      const topBarHandoffCommand = commandByID('thread-handoff');
+      const topBarHandoffButton = topBarHandoffCommand?.isEnabled
+        ? `<button type="button" class="topbar-handoff-button hit-target-icon" data-testid="top-bar-handoff-button" data-command-id="thread-handoff" title="${escapeHTML(topBarHandoffCommand.title)}" aria-label="${escapeHTML(topBarHandoffCommand.title)}">↔</button>`
+        : '';
       const topBarBackCommand = commandByID('workspace-back') || { id: 'workspace-back', title: 'Back', isEnabled: false };
       const topBarForwardCommand = commandByID('workspace-forward') || { id: 'workspace-forward', title: 'Forward', isEnabled: false };
       const renderTopBarNavigationButton = (command, label, testID, ariaLabel) => `
@@ -8572,6 +8595,7 @@
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+                ${topBarHandoffButton}
                 ${topBarStopButton}
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
                   <summary class="hit-target-icon" data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
@@ -13814,6 +13838,7 @@
       'thread-clear',
       'thread-delete',
       'thread-duplicate',
+      'thread-handoff',
       'thread-new-worktree',
       'thread-pin',
       'thread-revert-latest',
@@ -14091,10 +14116,33 @@
           isSelected: true,
           isPinned: false,
           isArchived: false,
-          worktree: { branch: '', branchLeaf: 'Detached', isResolvable: true }
+          worktree: { branch: '', branchLeaf: 'Detached', isResolvable: true, location: 'worktree' }
         }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
         state.topBar.primaryTitle = 'Worktree: experiment';
+        state.topBar.worktreeStatusLabel = 'Worktree';
+        state.topBar.worktreeStatusDetail = 'Runs for this task use /mock/quillcode-worktree-experiment.';
+        state.topBar.worktreeStatusIsWarning = false;
         addMessage('assistant', 'Started a detached worktree chat with the current local changes.');
+        render();
+        return;
+      }
+      if (commandID === 'thread-handoff') {
+        const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+        if (!thread?.worktree?.isResolvable || thread.worktree.branch) return;
+        const movingToLocal = thread.worktree.location !== 'local';
+        thread.worktree.location = movingToLocal ? 'local' : 'worktree';
+        thread.worktree.branchLeaf = movingToLocal ? 'Local' : 'Detached';
+        state.topBar.worktreeStatusLabel = movingToLocal ? 'Local' : 'Worktree';
+        state.topBar.worktreeStatusDetail = movingToLocal
+          ? 'Runs for this task use the local checkout. Associated worktree: /mock/quillcode-worktree-experiment.'
+          : 'Runs for this task use /mock/quillcode-worktree-experiment.';
+        addMessage(
+          'assistant',
+          movingToLocal
+            ? 'Handed off this task to the local checkout.'
+            : 'Handed off this task to its worktree.'
+        );
+        updateDynamicCommands();
         render();
         return;
       }

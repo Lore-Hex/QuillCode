@@ -9,6 +9,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadCanPin: Bool
     var selectedThreadCanUnpin: Bool
     var selectedThreadIsRunning: Bool = false
+    var selectedThreadHandoffTitle: String? = nil
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -41,6 +42,13 @@ enum WorkspaceThreadCommandCatalog {
                 title: "New worktree chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "worktree", "branch", "isolated", "fork", "parallel"]
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadHandoff.rawValue,
+                title: availability.selectedThreadHandoffTitle ?? "Hand off task",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "handoff", "local", "worktree", "move", "transfer"],
+                isEnabled: availability.selectedThreadHandoffTitle != nil
             ),
             savedFilterCommand(.all),
             savedFilterCommand(.pinned),

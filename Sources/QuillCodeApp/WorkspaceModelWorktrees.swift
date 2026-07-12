@@ -106,6 +106,44 @@ extension QuillCodeWorkspaceModel {
         worktreePrunePreviewLoadRequest(workspaceRoot: workspaceRoot).load()
     }
 
+    @discardableResult
+    public func handoffSelectedThread() -> Bool {
+        guard !composer.isSending,
+              !terminal.isRunning,
+              let project = selectedProject,
+              !project.isRemote,
+              let binding = selectedThread?.worktree,
+              binding.isResolvable,
+              binding.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let sourceRoot = activeWorkspaceRoot else {
+            return false
+        }
+        let destination: URL
+        let nextLocation: WorktreeExecutionLocation
+        switch binding.location {
+        case .worktree:
+            destination = URL(fileURLWithPath: project.path).standardizedFileURL
+            nextLocation = .local
+        case .local:
+            destination = URL(fileURLWithPath: binding.path).standardizedFileURL
+            nextLocation = .worktree
+        }
+        let result = runToolCall(
+            WorkspaceWorktreeToolCallPlanner.handoff(destination: destination.path),
+            workspaceRoot: sourceRoot
+        )
+        guard result.ok else { return false }
+
+        setSelectedThreadWorktreeLocation(nextLocation)
+        terminal.currentDirectoryPath = destination.path
+        terminal.environmentOverrides = [:]
+        terminal.removedEnvironmentKeys = []
+        terminal.resetInputModes()
+        refreshFileMentionIndex()
+        refreshTopBar()
+        return true
+    }
+
     public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {
         runToolCall(
             WorkspaceWorktreeToolCallPlanner.remove(request),

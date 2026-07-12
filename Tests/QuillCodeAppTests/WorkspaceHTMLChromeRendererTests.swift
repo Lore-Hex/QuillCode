@@ -159,6 +159,8 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Worktree feature/ui"))
         XCTAssertTrue(html.contains("Base: main."))
         XCTAssertTrue(html.contains(worktree.path))
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-worktree-branch""#))
+        XCTAssertTrue(html.contains("⑂ ui"))
 
         var dangling = thread
         dangling.worktree = WorktreeBinding(
@@ -175,7 +177,36 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(warningHTML.contains(#"data-testid="top-bar-worktree""#))
         XCTAssertTrue(warningHTML.contains(#"data-tone="warning""#))
         XCTAssertTrue(warningHTML.contains("Worktree feature/gone"))
-        XCTAssertTrue(warningHTML.contains("runs fall back to the project root"))
+        XCTAssertTrue(warningHTML.contains("Runs fall back to the project root"))
+    }
+
+    func testHTMLRendererShowsLocalHandoffStatusInTopBarAndSidebar() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
+        let worktree = try makeTempDirectory("local-associated-worktree")
+        var thread = ChatThread(title: "Managed task", projectID: project.id)
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "",
+            base: "main",
+            location: .local
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-worktree""#))
+        XCTAssertTrue(html.contains(">Local</span>"))
+        XCTAssertTrue(html.contains("local checkout"))
+        XCTAssertTrue(html.contains(worktree.path))
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-worktree-local""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-handoff-button""#))
+        XCTAssertTrue(html.contains(#"aria-label="Hand off to Worktree""#))
+        XCTAssertTrue(html.contains(#"data-command-id="thread-handoff""#))
     }
 
     func testHTMLRendererHidesSidebarAndExpandsWorkspaceGrid() {

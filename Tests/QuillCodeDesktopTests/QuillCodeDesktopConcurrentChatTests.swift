@@ -46,10 +46,11 @@ final class QuillCodeDesktopConcurrentChatTests: XCTestCase {
 
         XCTAssertEqual(firstDraft, "")
         XCTAssertEqual(secondDraft, "")
-        let alphaStarted = await gate.hasStarted("alpha desktop task")
-        let betaStarted = await gate.hasStarted("beta desktop task")
-        XCTAssertTrue(alphaStarted)
-        XCTAssertTrue(betaStarted)
+        try await waitUntilAsync(timeoutSeconds: 2) {
+            let alphaStarted = await gate.hasStarted("alpha desktop task")
+            let betaStarted = await gate.hasStarted("beta desktop task")
+            return alphaStarted && betaStarted
+        }
 
         await gate.release("beta desktop task")
         try await waitUntil(timeoutSeconds: 1) {
@@ -139,6 +140,22 @@ final class QuillCodeDesktopConcurrentChatTests: XCTestCase {
         while !condition() {
             if Date() > deadline {
                 XCTFail("Timed out waiting for desktop condition", file: file, line: line)
+                return
+            }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+    }
+
+    private func waitUntilAsync(
+        timeoutSeconds: TimeInterval,
+        condition: @MainActor @escaping () async -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while !(await condition()) {
+            if Date() > deadline {
+                XCTFail("Timed out waiting for asynchronous desktop condition", file: file, line: line)
                 return
             }
             try await Task.sleep(nanoseconds: 1_000_000)

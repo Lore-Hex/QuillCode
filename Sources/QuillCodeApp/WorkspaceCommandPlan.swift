@@ -254,6 +254,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case threadRename = "thread-rename"
     case threadDuplicate = "thread-duplicate"
     case threadNewWorktree = "thread-new-worktree"
+    case threadHandoff = "thread-handoff"
     case threadPin = "thread-pin"
     case threadUnpin = "thread-unpin"
     case threadClear = "thread-clear"

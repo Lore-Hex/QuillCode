@@ -15,6 +15,7 @@ final class QuillCodeSidebarWorktreeBadgeTests: XCTestCase {
         XCTAssertEqual(summary.branch, "quill/add-login")
         XCTAssertEqual(summary.branchLeaf, "add-login", "the chip shows the branch's last segment")
         XCTAssertTrue(summary.isResolvable)
+        XCTAssertEqual(summary.location, .worktree)
     }
 
     func testSidebarItemFlagsDanglingWorktreeBinding() {
@@ -38,6 +39,27 @@ final class QuillCodeSidebarWorktreeBadgeTests: XCTestCase {
 
         XCTAssertEqual(summary.branch, "")
         XCTAssertEqual(summary.branchLeaf, "Detached")
+        XCTAssertTrue(summary.isResolvable)
+        XCTAssertEqual(summary.location, .worktree)
+    }
+
+    func testSidebarItemLabelsLocalExecutionAndKeepsWorktreeAssociation() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-local-handoff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var thread = ChatThread(title: "Managed task")
+        thread.worktree = WorktreeBinding(
+            path: dir.path,
+            branch: "",
+            base: "main",
+            location: .local
+        )
+
+        let summary = try XCTUnwrap(SidebarItem(thread: thread).worktree)
+
+        XCTAssertEqual(summary.branchLeaf, "Local")
+        XCTAssertEqual(summary.location, .local)
         XCTAssertTrue(summary.isResolvable)
     }
 
@@ -93,5 +115,16 @@ final class QuillCodeSidebarWorktreeBadgeTests: XCTestCase {
 
         XCTAssertEqual(decoded.runStatusLabel, "Running tests")
         XCTAssertTrue(decoded.isRunning)
+    }
+
+    func testLegacySidebarWorktreeSummaryDefaultsToWorktreeLocation() throws {
+        let json = #"{"branch":"","branchLeaf":"Detached","isResolvable":true}"#
+
+        let decoded = try JSONDecoder().decode(
+            SidebarItemWorktreeSummary.self,
+            from: Data(json.utf8)
+        )
+
+        XCTAssertEqual(decoded.location, .worktree)
     }
 }

@@ -59,7 +59,12 @@ struct QuillCodeSidebarThreadRowView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
                 if let worktree = item.worktree {
-                    if worktree.isResolvable {
+                    if worktree.location == .local {
+                        Text(worktree.isResolvable ? "Local" : "Local · worktree missing")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(worktree.isResolvable ? QuillCodePalette.muted : QuillCodePalette.red)
+                            .lineLimit(1)
+                    } else if worktree.isResolvable {
                         Text("⑂ \(worktree.branchLeaf)")
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .foregroundStyle(QuillCodePalette.blue)

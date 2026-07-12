@@ -4,6 +4,7 @@ import QuillCodeCore
 struct GitManagedWorktreeMaterializer: Sendable {
     private let runner: GitProcessRunner
     private let limits: ManagedWorktreeTransferLimits
+    private let snapshotApplier: ManagedWorktreeSnapshotApplier
 
     init(
         runner: GitProcessRunner,
@@ -11,6 +12,7 @@ struct GitManagedWorktreeMaterializer: Sendable {
     ) {
         self.runner = runner
         self.limits = limits
+        self.snapshotApplier = ManagedWorktreeSnapshotApplier(runner: runner)
     }
 
     func create(cwd: URL, path: String, base: String?) -> ToolResult {
@@ -38,9 +40,10 @@ struct GitManagedWorktreeMaterializer: Sendable {
             guard create.ok else { return create }
 
             do {
-                try apply(snapshot.stagedPatchURL, staged: true, worktreePath: worktreePath)
-                try apply(snapshot.unstagedPatchURL, staged: false, worktreePath: worktreePath)
-                let copied = try copy(snapshot.files, worktreePath: worktreePath)
+                let copied = try snapshotApplier.apply(
+                    snapshot,
+                    to: URL(fileURLWithPath: worktreePath)
+                )
                 let summary = transferSummary(snapshot: snapshot, copied: copied)
                 return ToolResult(
                     ok: true,
@@ -62,54 +65,6 @@ struct GitManagedWorktreeMaterializer: Sendable {
             try? FileManager.default.removeItem(at: temporaryDirectory)
             return ToolResult(ok: false, error: String(describing: error))
         }
-    }
-
-    private func apply(_ patchURL: URL, staged: Bool, worktreePath: String) throws {
-        let size = (try? patchURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        guard size > 0 else { return }
-        var arguments = ["apply", "--binary", "--whitespace=nowarn"]
-        if staged {
-            arguments.append("--index")
-        }
-        arguments.append(patchURL.path)
-        let result = runner.runGit(
-            arguments,
-            cwd: URL(fileURLWithPath: worktreePath),
-            timeoutSeconds: 30
-        )
-        guard result.ok else {
-            throw ManagedWorktreeMaterializationError.commandFailed(
-                staged ? "staged patch apply" : "unstaged patch apply",
-                result
-            )
-        }
-    }
-
-    private func copy(_ files: [ManagedWorktreeTransferFile], worktreePath: String) throws -> Int {
-        let destinationRoot = URL(fileURLWithPath: worktreePath).standardizedFileURL
-        var copied = 0
-        for file in files {
-            guard let destination = WorkspaceBoundary.safeURL(file.relativePath, root: destinationRoot) else {
-                throw ManagedWorktreeMaterializationError.unsafeSource(file.relativePath)
-            }
-            guard !FileManager.default.fileExists(atPath: destination.path) else {
-                throw ManagedWorktreeMaterializationError.destinationAlreadyExists(file.relativePath)
-            }
-            do {
-                try FileManager.default.createDirectory(
-                    at: destination.deletingLastPathComponent(),
-                    withIntermediateDirectories: true
-                )
-                try FileManager.default.copyItem(at: file.snapshotURL, to: destination)
-                copied += 1
-            } catch {
-                throw ManagedWorktreeMaterializationError.fileCopyFailed(
-                    file.relativePath,
-                    error.localizedDescription
-                )
-            }
-        }
-        return copied
     }
 
     private func transferSummary(snapshot: ManagedWorktreeTransferSnapshot, copied: Int) -> String {

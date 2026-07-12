@@ -262,6 +262,22 @@ test('mock harness suggests and runs the new-worktree thread command', async ({ 
   await expect
     .poll(async () => page.getByTestId('sidebar-thread-row').count())
     .toBeGreaterThan(before);
+
+  const handoff = page.getByTestId('top-bar-handoff-button');
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Worktree');
+  await expect(page.getByTestId('sidebar-worktree-branch')).toHaveText('⑂ Detached');
+  await expect(handoff).toHaveAttribute('aria-label', 'Hand off to Local');
+  await handoff.click();
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Local');
+  await expect(page.getByTestId('sidebar-worktree-local')).toHaveText('Local');
+  await expect(handoff).toHaveAttribute('aria-label', 'Hand off to Worktree');
+  await expect(page.getByTestId('message').last()).toContainText('Handed off this task to the local checkout.');
+
+  await handoff.click();
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Worktree');
+  await expect(page.getByTestId('sidebar-worktree-branch')).toHaveText('⑂ Detached');
+  await expect(handoff).toHaveAttribute('aria-label', 'Hand off to Local');
+  await expect(page.getByTestId('message').last()).toContainText('Handed off this task to its worktree.');
 });
 
 test('mock harness suggests slash commands in the composer', async ({ page }) => {

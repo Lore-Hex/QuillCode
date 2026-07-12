@@ -37,6 +37,7 @@ struct GitToolCallDispatcher: Sendable {
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeOpen,
+        .gitWorktreeHandoff,
         .gitWorktreeRemove,
         .gitWorktreePrune
     ]
@@ -214,6 +215,11 @@ struct GitToolCallDispatcher: Sendable {
             )
         case ToolDefinition.gitWorktreeOpen.name:
             return git.openWorktree(cwd: workspaceRoot, path: try args.requiredString("path"))
+        case ToolDefinition.gitWorktreeHandoff.name:
+            return git.handoffWorktree(
+                cwd: workspaceRoot,
+                destination: try args.requiredString("destination")
+            )
         case ToolDefinition.gitWorktreeRemove.name:
             return git.removeWorktree(
                 cwd: workspaceRoot,

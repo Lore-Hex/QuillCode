@@ -182,6 +182,15 @@ enum WorkspaceHTMLSidebarThreadRenderer {
 
     private static func renderWorktreeChip(_ worktree: SidebarItemWorktreeSummary?) -> String {
         guard let worktree else { return "" }
+        if worktree.location == .local {
+            let title = worktree.isResolvable
+                ? "Task runs in the local checkout"
+                : "Task runs locally; its associated worktree is missing"
+            let tone = worktree.isResolvable ? "normal" : "warning"
+            return """
+            <span class="sidebar-worktree-chip" data-tone="\(tone)" data-testid="sidebar-worktree-local" title="\(escape(title))">Local</span>
+            """
+        }
         if worktree.isResolvable {
             return """
             <span class="sidebar-worktree-chip" data-testid="sidebar-worktree-branch" title="\(escape(worktree.branch))">⑂ \(escape(worktree.branchLeaf))</span>

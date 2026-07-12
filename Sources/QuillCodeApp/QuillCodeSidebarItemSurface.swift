@@ -19,11 +19,44 @@ public struct SidebarItemWorktreeSummary: Codable, Sendable, Hashable {
     public var branch: String
     public var branchLeaf: String
     public var isResolvable: Bool
+    public var location: WorktreeExecutionLocation
 
-    public init(branch: String, branchLeaf: String, isResolvable: Bool) {
+    public init(
+        branch: String,
+        branchLeaf: String,
+        isResolvable: Bool,
+        location: WorktreeExecutionLocation = .worktree
+    ) {
         self.branch = branch
         self.branchLeaf = branchLeaf
         self.isResolvable = isResolvable
+        self.location = location
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case branch
+        case branchLeaf
+        case isResolvable
+        case location
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.branch = try container.decode(String.self, forKey: .branch)
+        self.branchLeaf = try container.decode(String.self, forKey: .branchLeaf)
+        self.isResolvable = try container.decode(Bool.self, forKey: .isResolvable)
+        self.location = try container.decodeIfPresent(
+            WorktreeExecutionLocation.self,
+            forKey: .location
+        ) ?? .worktree
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(branch, forKey: .branch)
+        try container.encode(branchLeaf, forKey: .branchLeaf)
+        try container.encode(isResolvable, forKey: .isResolvable)
+        try container.encode(location, forKey: .location)
     }
 }
 

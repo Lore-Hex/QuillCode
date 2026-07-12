@@ -58,6 +58,24 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(gitDefinitions.allSatisfy(routerDefinitions.contains))
     }
 
+    func testGitWorktreeHandoffDefinitionAndDispatcherOwnership() throws {
+        let definition = ToolDefinition.gitWorktreeHandoff
+        let routerDefinitions = ToolRouter.definitions.map(\.name)
+        let dispatcherDefinitions = GitToolCallDispatcher.definitions.map(\.name)
+
+        XCTAssertEqual(definition.name, "host.git.worktree.handoff")
+        XCTAssertEqual(definition.risk, .destructive)
+        XCTAssertTrue(routerDefinitions.contains(definition.name))
+        XCTAssertTrue(dispatcherDefinitions.contains(definition.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(definition.name))
+
+        let schema = try schemaDictionary(for: definition)
+        let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
+        let destination = try XCTUnwrap(properties["destination"] as? [String: Any])
+        XCTAssertEqual(destination["type"] as? String, "string")
+        XCTAssertEqual(schema["required"] as? [String], ["destination"])
+    }
+
     func testGitToolDefinitionsExposeValidObjectSchemas() throws {
         for definition in GitToolCallDispatcher.definitions {
             let schema = try schemaDictionary(for: definition)
@@ -102,6 +120,31 @@ final class GitToolRouterTests: XCTestCase {
         ))
 
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+    }
+
+    func testToolRouterRoutesGitWorktreeHandoff() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let worktreeName = "router-handoff-\(UUID().uuidString)"
+        let worktree = root.deletingLastPathComponent().appendingPathComponent(worktreeName)
+        let git = GitToolExecutor()
+        let create = git.createWorktree(cwd: root, path: worktreeName, managed: true)
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        defer { _ = git.removeWorktree(cwd: root, path: worktreeName, force: true) }
+        try "routed\n".write(
+            to: root.appendingPathComponent("routed.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.gitWorktreeHandoff.name,
+            argumentsJSON: #"{"destination":"\#(worktreeName)"}"#
+        ))
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, [worktree.path])
+        XCTAssertEqual(try String(contentsOf: worktree.appendingPathComponent("routed.txt")), "routed\n")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("routed.txt").path))
     }
 
     func testToolRouterRoutesGitPush() throws {

@@ -4,10 +4,12 @@ import QuillCodeCore
 public struct GitWorktreeToolExecutor: Sendable {
     private let runner: GitProcessRunner
     private let managedMaterializer: GitManagedWorktreeMaterializer
+    private let handoffExecutor: GitWorktreeHandoffExecutor
 
     public init(runner: GitProcessRunner) {
         self.runner = runner
         self.managedMaterializer = GitManagedWorktreeMaterializer(runner: runner)
+        self.handoffExecutor = GitWorktreeHandoffExecutor(runner: runner)
     }
 
     public func list(cwd: URL) -> ToolResult {
@@ -73,6 +75,10 @@ public struct GitWorktreeToolExecutor: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    public func handoff(cwd: URL, destination: String) -> ToolResult {
+        handoffExecutor.handoff(sourceRoot: cwd, destinationPath: destination)
     }
 
     public func remove(cwd: URL, path: String, force: Bool = false) -> ToolResult {
