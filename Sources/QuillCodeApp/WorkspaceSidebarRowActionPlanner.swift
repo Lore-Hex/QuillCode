@@ -116,8 +116,7 @@ public struct WorkspaceSidebarRowMutationExecutor {
             model.togglePinThread(threadID)
             return true
         case .archive(let threadID):
-            model.archiveThread(threadID)
-            return true
+            return model.archiveThread(threadID)
         case .unarchive(let threadID):
             return model.unarchiveThread(threadID)
         case .delete(let threadID):

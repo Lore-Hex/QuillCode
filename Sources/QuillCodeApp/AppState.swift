@@ -36,7 +36,8 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
                         ? "Detached"
                         : branch.split(separator: "/").last.map(String.init) ?? branch,
                 isResolvable: binding.isResolvable,
-                location: binding.location
+                location: binding.location,
+                hasRestorableSnapshot: binding.canRestoreSnapshot
             )
         }
     }

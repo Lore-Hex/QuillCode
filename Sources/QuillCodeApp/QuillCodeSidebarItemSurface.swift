@@ -20,17 +20,20 @@ public struct SidebarItemWorktreeSummary: Codable, Sendable, Hashable {
     public var branchLeaf: String
     public var isResolvable: Bool
     public var location: WorktreeExecutionLocation
+    public var hasRestorableSnapshot: Bool
 
     public init(
         branch: String,
         branchLeaf: String,
         isResolvable: Bool,
-        location: WorktreeExecutionLocation = .worktree
+        location: WorktreeExecutionLocation = .worktree,
+        hasRestorableSnapshot: Bool = false
     ) {
         self.branch = branch
         self.branchLeaf = branchLeaf
         self.isResolvable = isResolvable
         self.location = location
+        self.hasRestorableSnapshot = hasRestorableSnapshot
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -38,6 +41,7 @@ public struct SidebarItemWorktreeSummary: Codable, Sendable, Hashable {
         case branchLeaf
         case isResolvable
         case location
+        case hasRestorableSnapshot
     }
 
     public init(from decoder: Decoder) throws {
@@ -49,6 +53,7 @@ public struct SidebarItemWorktreeSummary: Codable, Sendable, Hashable {
             WorktreeExecutionLocation.self,
             forKey: .location
         ) ?? .worktree
+        self.hasRestorableSnapshot = try container.decodeIfPresent(Bool.self, forKey: .hasRestorableSnapshot) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -57,6 +62,7 @@ public struct SidebarItemWorktreeSummary: Codable, Sendable, Hashable {
         try container.encode(branchLeaf, forKey: .branchLeaf)
         try container.encode(isResolvable, forKey: .isResolvable)
         try container.encode(location, forKey: .location)
+        try container.encode(hasRestorableSnapshot, forKey: .hasRestorableSnapshot)
     }
 }
 

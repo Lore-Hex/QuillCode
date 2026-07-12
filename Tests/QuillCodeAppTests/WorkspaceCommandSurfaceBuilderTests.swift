@@ -324,6 +324,40 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         ).isEnabled)
     }
 
+    func testRestoreWorktreeCommandRequiresIdleRestorableSnapshot() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        var thread = ChatThread(title: "Archived task")
+        thread.worktree = WorktreeBinding(
+            path: "/tmp/quillcode-missing-\(UUID().uuidString)",
+            branch: "",
+            snapshot: WorktreeSnapshotReference(
+                headCommit: String(repeating: "a", count: 40),
+                fileCount: 1,
+                byteCount: 8
+            )
+        )
+
+        XCTAssertTrue(try command(
+            WorkspaceCommandAction.threadRestoreWorktree.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadRestoreWorktree.rawValue,
+            in: makeBuilder(
+                selectedThread: thread,
+                selectedProject: project,
+                selectedThreadIsRunning: true,
+                runningThreadIDs: [thread.id]
+            ).commands
+        ).isEnabled)
+
+        thread.worktree?.snapshot = nil
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadRestoreWorktree.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+    }
+
     func testSavedSearchesAppearAsThreadCommands() throws {
         let searchID = try XCTUnwrap(UUID(uuidString: "44444444-4444-4444-4444-444444444444"))
         let secondSearchID = try XCTUnwrap(UUID(uuidString: "55555555-5555-5555-5555-555555555555"))

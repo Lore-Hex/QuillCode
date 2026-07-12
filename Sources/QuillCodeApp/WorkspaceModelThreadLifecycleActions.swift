@@ -8,7 +8,7 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func archiveSelectedThread() {
-        withSelectedThreadID(archiveThread)
+        withSelectedThreadID { _ = archiveThread($0) }
     }
 
     @discardableResult
@@ -31,8 +31,13 @@ extension QuillCodeWorkspaceModel {
         } != nil
     }
 
-    public func archiveThread(_ id: UUID) {
-        applyNavigationLifecycleChange {
+    @discardableResult
+    public func archiveThread(_ id: UUID) -> Bool {
+        guard root.threads.contains(where: { $0.id == id && !$0.isArchived }) else {
+            return false
+        }
+        preserveDisposableWorktreeBeforeArchive(threadID: id)
+        return applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({ threads in
                 WorkspaceThreadLifecycleEngine.archiveThread(
                     id,
@@ -80,6 +85,7 @@ extension QuillCodeWorkspaceModel {
             }) else { return false }
 
             threadPersistence.delete(id)
+            deleteWorktreeSnapshotIfPresent(in: result.removedThread)
             applyLifecycleSelection(result.selectedThreadID, removing: id)
             removeManagedImagesIfUnreferenced(Self.allImageAttachmentsForCleanup(in: result.removedThread))
             syncSelectedProjectAfterDelete()

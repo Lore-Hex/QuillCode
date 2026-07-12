@@ -122,6 +122,11 @@ extension QuillCodeWorkspaceModel {
         ) else {
             return false
         }
+        if case .archive(let ids) = plan.mutation {
+            for id in ids {
+                preserveDisposableWorktreeBeforeArchive(threadID: id)
+            }
+        }
         guard let result = WorkspaceSidebarBulkActionExecutor.execute(
             plan,
             threads: root.threads,
@@ -143,6 +148,7 @@ extension QuillCodeWorkspaceModel {
         threadPersistence.save(result.changedThreads)
         for thread in result.removedThreads {
             threadPersistence.delete(thread.id)
+            deleteWorktreeSnapshotIfPresent(in: thread)
         }
         removeManagedImagesIfUnreferenced(
             result.removedThreads.flatMap { thread in

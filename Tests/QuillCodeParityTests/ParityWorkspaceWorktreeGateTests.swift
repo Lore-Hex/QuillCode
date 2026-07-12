@@ -70,6 +70,43 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         Self.assertSource(model, contains: "func reconcileManagedWorktreeBranch")
     }
 
+    func testManagedArchiveSnapshotsStayDurableTransactionalAndUserOwnedSafe() throws {
+        let store = try Self.toolsSourceText(named: "ManagedWorktreeSnapshotStore.swift")
+        let model = try Self.appSourceText(named: "WorkspaceModelManagedWorktreeSnapshots.swift")
+        let core = try Self.coreSourceText(named: "WorktreeBinding.swift")
+        let toolsTests = try Self.toolsTestSourceText(named: "ManagedWorktreeSnapshotStoreTests.swift")
+        let appTests = try Self.appTestSourceText(
+            named: "WorkspaceManagedWorktreeSnapshotIntegrationTests.swift"
+        )
+
+        for contract in [
+            "repositoryCommonDirectory",
+            "WorktreeSnapshotReference",
+            "worktree\", \"add\", \"--detach",
+            "worktree\", \"remove\", \"--force",
+            "ManagedWorktreeSnapshotApplier"
+        ] {
+            Self.assertSource(store, contains: contract)
+        }
+        Self.assertSource(core, contains: "isDisposableManagedWorktree")
+        Self.assertSource(core, contains: "canRestoreSnapshot")
+        Self.assertSource(model, contains: "!root.threads[threadIndex].isPinned")
+        Self.assertSource(model, contains: "!agentRuns.isRunning(threadID)")
+        Self.assertSource(model, contains: "try threadPersistence.saveOrThrow(savedThread)")
+        Self.assertSource(
+            toolsTests,
+            contains: "testCaptureRemoveAndRestorePreservesExactTaskState"
+        )
+        Self.assertSource(toolsTests, contains: "testCorruptPatchRollsBackCreatedWorktree")
+        Self.assertSource(
+            appTests,
+            contains: "testArchivePersistsSnapshotRemovesWorktreeAndCommandRestoresIt"
+        )
+        Self.assertSource(appTests, contains: "testPinnedManagedTaskArchivesWithoutRemovingWorktree")
+        Self.assertSource(appTests, contains: "testRunningManagedTaskArchivesWithoutRemovingWorktree")
+        Self.assertSource(appTests, contains: "testNamedBranchTaskArchivesWithoutRemovingPermanentWorktree")
+    }
+
     private func assertWorktreeRequestAndEngineContracts(
         _ requestsText: String,
         _ engineText: String,

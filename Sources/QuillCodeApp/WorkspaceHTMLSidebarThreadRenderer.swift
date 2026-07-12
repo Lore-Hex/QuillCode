@@ -196,6 +196,11 @@ enum WorkspaceHTMLSidebarThreadRenderer {
             <span class="sidebar-worktree-chip" data-testid="sidebar-worktree-branch" title="\(escape(worktree.branch))">⑂ \(escape(worktree.branchLeaf))</span>
             """
         }
+        if worktree.hasRestorableSnapshot {
+            return """
+            <span class="sidebar-worktree-chip" data-testid="sidebar-worktree-snapshot" title="Managed worktree saved and ready to restore">↻ Worktree saved</span>
+            """
+        }
         return """
         <span class="sidebar-worktree-warning" data-testid="sidebar-worktree-warning" title="Worktree missing — running in the project root">⚠ Worktree missing</span>
         """

@@ -21,6 +21,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "project-remove": "minus.circle",
             "thread-clear": "text.badge.xmark",
             "thread-new-worktree": "plus.rectangle.on.folder",
+            "thread-restore-worktree": "arrow.counterclockwise",
             "thread-create-branch": "arrow.triangle.branch",
             "thread-handoff": "arrow.left.arrow.right",
             "toggle-terminal": "terminal",

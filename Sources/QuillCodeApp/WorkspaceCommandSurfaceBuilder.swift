@@ -172,6 +172,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             selectedThreadCanPin: selectedThreadCanPin,
             selectedThreadCanUnpin: selectedThreadCanUnpin,
             selectedThreadIsRunning: selectedThreadIsRunning,
+            selectedThreadCanRestoreWorktree: selectedThread?.worktree?.canRestoreSnapshot == true
+                && !selectedThreadIsRunning,
             selectedThreadHandoffTitle: selectedThreadHandoffTitle,
             selectedThreadCanCreateBranch: selectedThreadCanCreateBranch,
             hasAnySidebarThread: sidebarItemCount > 0,

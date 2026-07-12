@@ -93,6 +93,8 @@ extension QuillCodeWorkspaceModel {
             return duplicateThread(threadID) != nil
         case .newWorktreeThread:
             return newWorktreeThread() != nil
+        case .restoreManagedWorktree(let threadID):
+            return restoreManagedWorktree(threadID: threadID)
         case .handoffSelectedThread:
             return handoffSelectedThread()
         case .setThreadPinned(let threadID, let isPinned):
@@ -102,8 +104,7 @@ extension QuillCodeWorkspaceModel {
         case .revertLatestTurn:
             return runLatestTurnRevert(workspaceRoot: workspaceRoot)
         case .archiveThread(let threadID):
-            archiveThread(threadID)
-            return true
+            return archiveThread(threadID)
         case .unarchiveThread(let threadID):
             return unarchiveThread(threadID)
         case .deleteThread(let threadID):
