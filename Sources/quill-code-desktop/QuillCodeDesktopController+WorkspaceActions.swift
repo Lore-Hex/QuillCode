@@ -4,6 +4,20 @@ import QuillCodeCore
 
 @MainActor
 extension QuillCodeDesktopController {
+    func loadSubagentTranscript(
+        parentThreadID: UUID,
+        runID: UUID,
+        workerID: String
+    ) -> WorkspaceSubagentTranscriptSurface? {
+        let transcript = model.loadSubagentTranscript(
+            parentThreadID: parentThreadID,
+            runID: runID,
+            workerID: workerID
+        )
+        refresh()
+        return transcript
+    }
+
     func runToolCardAction(_ action: ToolCardActionSurface) {
         workspaceActionCoordinator.runToolCardAction(
             action,

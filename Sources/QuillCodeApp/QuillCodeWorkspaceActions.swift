@@ -54,6 +54,7 @@ public struct QuillCodeWorkspaceActions {
     let onSaveSidebarSavedSearch: (String, String) -> Void
     let onOpenAttentionDigest: (UUID) -> Void
     let onCloseAttentionDigest: () -> Void
+    let onLoadSubagentTranscript: (UUID, UUID, String) -> WorkspaceSubagentTranscriptSurface?
     let onCommand: (WorkspaceCommandSurface) -> Void
 
     public init(
@@ -110,6 +111,7 @@ public struct QuillCodeWorkspaceActions {
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onOpenAttentionDigest: @escaping (UUID) -> Void = { _ in },
         onCloseAttentionDigest: @escaping () -> Void = {},
+        onLoadSubagentTranscript: @escaping (UUID, UUID, String) -> WorkspaceSubagentTranscriptSurface? = { _, _, _ in nil },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.onSend = onSend
@@ -163,6 +165,7 @@ public struct QuillCodeWorkspaceActions {
         self.onSaveSidebarSavedSearch = onSaveSidebarSavedSearch
         self.onOpenAttentionDigest = onOpenAttentionDigest
         self.onCloseAttentionDigest = onCloseAttentionDigest
+        self.onLoadSubagentTranscript = onLoadSubagentTranscript
         self.onCommand = onCommand
     }
 }

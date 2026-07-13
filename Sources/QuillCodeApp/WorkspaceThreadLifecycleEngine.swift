@@ -144,6 +144,7 @@ struct WorkspaceThreadLifecycleEngine {
         guard let index = threads.firstIndex(where: { $0.id == id }),
               !threads[index].messages.isEmpty
                 || !threads[index].events.isEmpty
+                || !threads[index].subagentRuns.isEmpty
                 || !threads[index].followUpQueue.isEmpty
                 || threads[index].composerDraft != nil
                 || !threads[index].composerAttachments.isEmpty
@@ -153,6 +154,7 @@ struct WorkspaceThreadLifecycleEngine {
 
         threads[index].messages = []
         threads[index].events = []
+        threads[index].subagentRuns = []
         threads[index].followUpQueue = []
         threads[index].composerDraft = nil
         threads[index].composerAttachments = []

@@ -7,7 +7,13 @@ public final class QuillCodeTaskCoordinator<Slot: Hashable & Sendable> {
         var task: Task<Void, Never>
     }
 
+    private struct QueuedTask {
+        var operation: @MainActor () async -> Void
+        var onFinish: @MainActor () -> Void
+    }
+
     private var tasks: [Slot: RunningTask] = [:]
+    private var queuedTasks: [Slot: [QueuedTask]] = [:]
 
     public init() {}
 
@@ -36,6 +42,22 @@ public final class QuillCodeTaskCoordinator<Slot: Hashable & Sendable> {
         return true
     }
 
+    /// Runs immediately when the slot is idle, or serially after work already owning that slot.
+    /// Cancellation clears both the active task and its queued continuations.
+    public func enqueue(
+        _ slot: Slot,
+        operation: @escaping @MainActor () async -> Void,
+        onFinish: @escaping @MainActor () -> Void = {}
+    ) {
+        guard tasks[slot] != nil else {
+            start(slot, operation: operation, onFinish: onFinish)
+            return
+        }
+        queuedTasks[slot, default: []].append(
+            QueuedTask(operation: operation, onFinish: onFinish)
+        )
+    }
+
     public func replace(
         _ slot: Slot,
         operation: @escaping @MainActor () async -> Void,
@@ -46,6 +68,7 @@ public final class QuillCodeTaskCoordinator<Slot: Hashable & Sendable> {
     }
 
     public func cancel(_ slot: Slot) {
+        queuedTasks.removeValue(forKey: slot)
         tasks.removeValue(forKey: slot)?.task.cancel()
     }
 
@@ -56,6 +79,7 @@ public final class QuillCodeTaskCoordinator<Slot: Hashable & Sendable> {
     public func cancelAll() {
         let runningTasks = tasks.values.map(\.task)
         tasks.removeAll()
+        queuedTasks.removeAll()
         runningTasks.forEach { $0.cancel() }
     }
 
@@ -71,6 +95,7 @@ public final class QuillCodeTaskCoordinator<Slot: Hashable & Sendable> {
                 await operation()
                 guard self?.finish(slot, id: id) == true else { return }
                 onFinish()
+                self?.startNextQueuedTask(in: slot)
             }
         )
     }
@@ -81,5 +106,15 @@ public final class QuillCodeTaskCoordinator<Slot: Hashable & Sendable> {
         }
         tasks.removeValue(forKey: slot)
         return true
+    }
+
+    private func startNextQueuedTask(in slot: Slot) {
+        guard tasks[slot] == nil,
+              var queue = queuedTasks[slot],
+              !queue.isEmpty
+        else { return }
+        let next = queue.removeFirst()
+        queuedTasks[slot] = queue.isEmpty ? nil : queue
+        start(slot, operation: next.operation, onFinish: next.onFinish)
     }
 }

@@ -146,8 +146,10 @@ extension QuillCodeWorkspaceModel {
         root.selectedThreadID = result.selectedThreadID
         root.selectedProjectID = result.selectedProjectID
         threadPersistence.save(result.changedThreads)
+        var removedSubagentAttachments: [ChatAttachment] = []
         for thread in result.removedThreads {
             threadPersistence.delete(thread.id)
+            removedSubagentAttachments += removeSubagentArtifacts(for: thread)
             deleteWorktreeSnapshotIfPresent(in: thread)
         }
         removeManagedImagesIfUnreferenced(
@@ -155,7 +157,7 @@ extension QuillCodeWorkspaceModel {
                 thread.composerAttachments
                     + thread.followUpQueue.flatMap(\.attachments)
                     + thread.messages.flatMap(\.attachments)
-            }
+            } + removedSubagentAttachments
         )
         if !result.removedThreads.isEmpty {
             pruneNavigationHistory()

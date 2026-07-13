@@ -17,6 +17,43 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         tasks: QuillCodeDesktopTaskCoordinator,
         refresh: @escaping @MainActor () -> Void
     ) {
+        if let target = action.subagentTarget {
+            let workspaceRoot = model.workspaceRoot(forThreadID: target.parentThreadID)
+                ?? fallbackWorkspaceRoot
+            if !action.kind.approvesHeldTool {
+                // Persist the refusal immediately, then serialize dependency cleanup behind any
+                // parent send already in flight. This keeps Skip unconditional without allowing
+                // two async operations to mutate the same parent task concurrently.
+                guard model.recordSubagentDenial(action) else {
+                    refresh()
+                    return
+                }
+                tasks.enqueue(.send(target.parentThreadID)) { [weak model] in
+                    _ = await model?.resumeSubagentRunAfterDecision(
+                        target,
+                        workspaceRoot: workspaceRoot
+                    )
+                } onFinish: {
+                    refresh()
+                }
+                refresh()
+                return
+            }
+
+            guard !tasks.isSendRunning(threadID: target.parentThreadID),
+                  !model.isAgentRunActive(for: target.parentThreadID)
+            else { return }
+            tasks.startIfIdle(.send(target.parentThreadID)) { [weak model] in
+                _ = await model?.approveSubagentToolCardAndResume(
+                    action,
+                    workspaceRoot: workspaceRoot
+                )
+            } onFinish: {
+                refresh()
+            }
+            return
+        }
+
         let workspaceRoot = activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
         let actionThreadID = model.selectedThread?.id
         guard action.kind.decidesGate else {

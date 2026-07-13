@@ -5,6 +5,67 @@ import QuillCodePersistence
 
 @MainActor
 final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
+    func testDeletingParentRemovesHiddenSubagentThreadAndApprovalPayload() throws {
+        let root = try makeTempDirectory()
+        let childStore = SubagentThreadStore(directory: root.appendingPathComponent("children"))
+        let payloadStore = SubagentApprovalPayloadStore(directory: root.appendingPathComponent("payloads"))
+        let childID = UUID()
+        let payloadKey = UUID()
+        try childStore.save(ChatThread(id: childID, title: "Hidden child"))
+        try payloadStore.save(ToolCall(name: "host.shell.run", argumentsJSON: #"{"cmd":"whoami"}"#), key: payloadKey)
+        let parent = ChatThread(subagentRuns: [SubagentRunRecord(
+            objective: "inspect",
+            workers: [SubagentWorkerRecord(
+                id: "worker",
+                childThreadID: childID,
+                name: "Worker",
+                role: "inspect",
+                status: .awaitingApproval,
+                pendingApproval: SubagentPendingApproval(requestID: "approval", payloadKey: payloadKey)
+            )]
+        )])
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [parent], selectedThreadID: parent.id),
+            subagentThreadStore: childStore,
+            subagentApprovalPayloadStore: payloadStore
+        )
+
+        XCTAssertTrue(model.deleteThread(parent.id))
+        XCTAssertThrowsError(try childStore.load(childID))
+        XCTAssertThrowsError(try payloadStore.load(payloadKey))
+    }
+
+    func testClearingParentRemovesHiddenSubagentArtifactsAndManifest() throws {
+        let root = try makeTempDirectory()
+        let childStore = SubagentThreadStore(directory: root.appendingPathComponent("children"))
+        let payloadStore = SubagentApprovalPayloadStore(directory: root.appendingPathComponent("payloads"))
+        let childID = UUID()
+        let payloadKey = UUID()
+        try childStore.save(ChatThread(id: childID, title: "Hidden child"))
+        try payloadStore.save(ToolCall(name: "host.shell.run", argumentsJSON: #"{"cmd":"whoami"}"#), key: payloadKey)
+        let parent = ChatThread(subagentRuns: [SubagentRunRecord(
+            objective: "inspect",
+            workers: [SubagentWorkerRecord(
+                id: "worker",
+                childThreadID: childID,
+                name: "Worker",
+                role: "inspect",
+                status: .awaitingApproval,
+                pendingApproval: SubagentPendingApproval(requestID: "approval", payloadKey: payloadKey)
+            )]
+        )])
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [parent], selectedThreadID: parent.id),
+            subagentThreadStore: childStore,
+            subagentApprovalPayloadStore: payloadStore
+        )
+
+        XCTAssertTrue(model.clearThread(parent.id))
+        XCTAssertTrue(model.selectedThread?.subagentRuns.isEmpty == true)
+        XCTAssertThrowsError(try childStore.load(childID))
+        XCTAssertThrowsError(try payloadStore.load(payloadKey))
+    }
+
     func testNewChatSelectsThreadAndRefreshesTopBar() {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(projects: [project]))

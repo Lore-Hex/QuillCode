@@ -144,15 +144,7 @@ enum WorkspaceApprovalActionPlanner {
     }
 
     static func pendingRequest(id: String, in thread: ChatThread?) -> ApprovalRequest? {
-        thread?.events.lazy.compactMap { event -> ApprovalRequest? in
-            guard event.kind == .approvalRequested,
-                  let request = decode(ApprovalRequest.self, from: event.payloadJSON),
-                  request.id == id
-            else {
-                return nil
-            }
-            return request
-        }.last
+        undecidedRequests(in: thread).first { $0.id == id }
     }
 
     /// Undecided approval requests from the CURRENT turn — the backfill set for a new "always" rule.
@@ -161,7 +153,8 @@ enum WorkspaceApprovalActionPlanner {
     /// earlier turn (the user sent a new message after it without deciding it, redirecting) is
     /// stale: re-running it now could clobber current state with a week-old write. So the set is
     /// bounded to requests that appear AFTER the last user message in the event stream. Order is
-    /// preserved (oldest first) so resolution is deterministic.
+    /// preserved by each request's latest occurrence (oldest first) so a reissued request uses its
+    /// exact current payload while resolution remains deterministic.
     static func undecidedRequests(in thread: ChatThread?) -> [ApprovalRequest] {
         guard let thread else { return [] }
         let turnStartIndex = currentTurnStartIndex(in: thread)
@@ -173,7 +166,7 @@ enum WorkspaceApprovalActionPlanner {
         }
         var seenIDs = Set<String>()
         var requests: [ApprovalRequest] = []
-        for index in thread.events.indices where index >= turnStartIndex {
+        for index in thread.events.indices.reversed() where index >= turnStartIndex {
             let event = thread.events[index]
             guard event.kind == .approvalRequested,
                   let request = decode(ApprovalRequest.self, from: event.payloadJSON),
@@ -184,7 +177,7 @@ enum WorkspaceApprovalActionPlanner {
             }
             requests.append(request)
         }
-        return requests
+        return Array(requests.reversed())
     }
 
     /// The event index at which the current turn begins: just after the last user-authored message

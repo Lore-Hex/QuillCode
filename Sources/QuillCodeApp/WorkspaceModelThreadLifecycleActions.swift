@@ -92,9 +92,12 @@ extension QuillCodeWorkspaceModel {
             }) else { return false }
 
             threadPersistence.delete(id)
+            let subagentAttachments = removeSubagentArtifacts(for: result.removedThread)
             deleteWorktreeSnapshotIfPresent(in: result.removedThread)
             applyLifecycleSelection(result.selectedThreadID, removing: id)
-            removeManagedImagesIfUnreferenced(Self.allImageAttachmentsForCleanup(in: result.removedThread))
+            removeManagedImagesIfUnreferenced(
+                Self.allImageAttachmentsForCleanup(in: result.removedThread) + subagentAttachments
+            )
             syncSelectedProjectAfterDelete()
             saveProjects()
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -109,8 +112,8 @@ extension QuillCodeWorkspaceModel {
             setLastError("Stop this chat before clearing it.")
             return false
         }
-        let attachments = root.threads.first(where: { $0.id == id })
-            .map(Self.allImageAttachmentsForCleanup) ?? []
+        let originalThread = root.threads.first(where: { $0.id == id })
+        let attachments = originalThread.map(Self.allImageAttachmentsForCleanup) ?? []
         guard let result = updateThreadLifecycle({
             WorkspaceThreadLifecycleEngine.clearThread(id, threads: &$0)
         }) else {
@@ -120,7 +123,8 @@ extension QuillCodeWorkspaceModel {
         clearComposerDraft(for: id)
         clearComposerAttachments(for: id)
         persistChangedThread(result.changedThread)
-        removeManagedImagesIfUnreferenced(attachments)
+        let subagentAttachments = originalThread.map(removeSubagentArtifacts) ?? []
+        removeManagedImagesIfUnreferenced(attachments + subagentAttachments)
         return true
     }
 

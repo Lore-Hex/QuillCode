@@ -532,6 +532,44 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertFalse(payload.contains("agent-secret-value"))
     }
 
+    func testBlockedRunReturnsRawHeldCallAndApprovedContinuationUsesNormalToolPath() async throws {
+        let root = try makeTempDirectory()
+        let rawCall = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"printf '%s' \"$QUILL_AGENT_SECRET\"","environment":{"QUILL_AGENT_SECRET":"held-secret-value"}}"#
+        )
+        let runner = AgentRunner(
+            llm: FixedToolLLMClient(call: rawCall),
+            safety: AlwaysAskingSafetyReviewer()
+        )
+
+        let blocked = try await runner.send(
+            "run the environment command",
+            in: ChatThread(mode: .review),
+            workspaceRoot: root
+        )
+
+        let heldCall = try XCTUnwrap(blocked.pendingApprovalToolCall)
+        XCTAssertTrue(heldCall.argumentsJSON.contains("held-secret-value"))
+        let approvalPayload = try XCTUnwrap(
+            blocked.thread.events.last(where: { $0.kind == .approvalRequested })?.payloadJSON
+        )
+        XCTAssertFalse(approvalPayload.contains("held-secret-value"))
+        XCTAssertTrue(approvalPayload.contains(ToolCall.redactedEnvironmentValue))
+
+        let resumed = try await runner.executeApprovedToolCall(
+            heldCall,
+            in: blocked.thread,
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(resumed.toolResults.first?.stdout, "held-secret-value")
+        XCTAssertEqual(resumed.thread.events.filter { $0.kind == .toolQueued }.count, 1)
+        XCTAssertEqual(resumed.thread.events.filter { $0.kind == .toolRunning }.count, 1)
+        XCTAssertEqual(resumed.thread.events.filter { $0.kind == .toolCompleted }.count, 1)
+        XCTAssertEqual(resumed.thread.messages.last?.role, .tool)
+    }
+
     func testApplyPatchRefreshesReviewDiffInSameTurn() async throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)

@@ -321,7 +321,7 @@ public struct AgentRunner: Sendable {
         return nil
     }
 
-    private static func mergedToolDefinitions(
+    static func mergedToolDefinitions(
         _ base: [ToolDefinition],
         _ additional: [ToolDefinition]
     ) -> [ToolDefinition] {

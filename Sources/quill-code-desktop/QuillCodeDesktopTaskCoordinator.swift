@@ -38,6 +38,14 @@ final class QuillCodeDesktopTaskCoordinator {
         coordinator.startIfIdle(slot, operation: operation, onFinish: onFinish)
     }
 
+    func enqueue(
+        _ slot: Slot,
+        operation: @escaping @MainActor () async -> Void,
+        onFinish: @escaping @MainActor () -> Void = {}
+    ) {
+        coordinator.enqueue(slot, operation: operation, onFinish: onFinish)
+    }
+
     func replace(
         _ slot: Slot,
         operation: @escaping @MainActor () async -> Void,

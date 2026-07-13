@@ -249,7 +249,8 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertEqual(activity.map(\.title), ["Planner", "Compile"])
         XCTAssertEqual(activity.map(\.statusLabel), ["Done", "Done"])
         XCTAssertTrue(activity.last?.detail.contains("Path: Planner / Compile") == true)
-        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.subagentsUpdate.name)
+        XCTAssertEqual(activity.last?.actions.first?.title, "View")
+        XCTAssertTrue(model.currentToolCards.isEmpty)
     }
 
     func testSlashNewCreatesFreshThreadWithoutAgentRun() async throws {

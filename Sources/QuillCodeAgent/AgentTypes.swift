@@ -104,6 +104,11 @@ public struct AgentRunResult: Sendable {
     public var stopReason: AgentRunStopReason
     public var pendingApproval: AgentPendingApproval?
 
+    /// Compatibility accessor for callers that only need the exact held call. The complete
+    /// in-memory continuation is `pendingApproval`; durable callers must move this call into a
+    /// protected payload store rather than serializing it with the transcript.
+    public var pendingApprovalToolCall: ToolCall? { pendingApproval?.heldToolCall }
+
     public init(
         thread: ChatThread,
         toolResults: [ToolResult],

@@ -127,7 +127,7 @@ extension QuillCodeWorkspaceModel {
             let latestParent = root.threads.first(where: { $0.id == record.parentThreadID }) ?? parentThread
             let runProject = latestParent.projectID.flatMap(project(id:))
             let scheduler = subagentSchedulerOverride ?? WorkspaceSubagentScheduler(
-                worker: AgentWorkspaceSubagentWorker.scheduledWorker(
+                legacyWorker: AgentWorkspaceSubagentWorker.scheduledWorker(
                     sessionFactory: agentSendSessionFactory(
                         workspaceRoot: workspaceRoot,
                         runProject: runProject
