@@ -57,6 +57,18 @@ test('detached worktree task can create and own a branch in place', async ({ pag
   await expect(page.getByTestId('top-bar-handoff-button')).toHaveCount(0);
 });
 
+test('new managed worktree shows automatic environment setup in the transcript', async ({ page }) => {
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');
+
+  const setupCard = page.getByTestId('tool-card').last();
+  await expect(setupCard.getByTestId('tool-card-title')).toHaveText('host.shell.run');
+  await expect(setupCard.getByTestId('tool-card-input')).toContainText('.quillcode/setup.sh');
+  await expect(setupCard).toHaveAttribute('data-status', 'done');
+  await setupCard.click();
+  await expect(setupCard.getByTestId('tool-card-output')).toContainText('Worktree environment ready.');
+});
+
 test('archived managed worktree can be restored with its saved task state', async ({ page }) => {
   await openCommandPalette(page);
   await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');

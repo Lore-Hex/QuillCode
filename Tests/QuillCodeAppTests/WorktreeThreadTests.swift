@@ -171,6 +171,74 @@ final class WorktreeThreadModelTests: XCTestCase {
         XCTAssertNotEqual(firstPath, secondBinding?.path)
     }
 
+    func testNewManagedWorktreeRunsSetupInsideIsolatedCheckout() throws {
+        let repo = try makeGitRepo()
+        let setupDirectory = repo.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: setupDirectory, withIntermediateDirectories: true)
+        try "printf setup-ok > setup-result.txt; printf setup-stdout".write(
+            to: setupDirectory.appendingPathComponent("setup.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", ".quillcode/setup.sh"], cwd: repo)
+        _ = try runGit(["commit", "-m", "Add worktree setup"], cwd: repo)
+
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        let threadID = try XCTUnwrap(model.newWorktreeThread(name: "setup"))
+        let worktree = URL(fileURLWithPath: try XCTUnwrap(model.selectedThread?.worktree?.path))
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+
+        XCTAssertEqual(model.selectedThread?.id, threadID)
+        XCTAssertEqual(
+            try String(contentsOf: worktree.appendingPathComponent("setup-result.txt")),
+            "setup-ok"
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: repo.appendingPathComponent("setup-result.txt").path))
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, "host.shell.run")
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(try shellResult(from: card).stdout, "setup-stdout")
+    }
+
+    func testFailedManagedWorktreeSetupStaysVisibleAndKeepsCheckout() throws {
+        let repo = try makeGitRepo()
+        let setupDirectory = repo.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: setupDirectory, withIntermediateDirectories: true)
+        try "printf setup-failed >&2; exit 9".write(
+            to: setupDirectory.appendingPathComponent("setup.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", ".quillcode/setup.sh"], cwd: repo)
+        _ = try runGit(["commit", "-m", "Add failing setup"], cwd: repo)
+
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        XCTAssertNotNil(model.newWorktreeThread(name: "failed setup"))
+        let worktree = URL(fileURLWithPath: try XCTUnwrap(model.selectedThread?.worktree?.path))
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.status, .failed)
+        let result = try shellResult(from: card)
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.stderr, "setup-failed")
+    }
+
+    private func shellResult(from card: ToolCardState) throws -> ToolResult {
+        try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+    }
+
     func testManagedTaskHandsOffToLocalAndBackWithoutChangingItsThreadOrWorktree() throws {
         let repo = try makeGitRepo()
         let model = QuillCodeWorkspaceModel(

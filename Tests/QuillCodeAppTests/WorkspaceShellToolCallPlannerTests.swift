@@ -46,6 +46,23 @@ final class WorkspaceShellToolCallPlannerTests: XCTestCase {
         XCTAssertNil(arguments.int("timeoutSeconds"))
     }
 
+    func testWorktreeSetupBuildsBoundedShellToolCall() throws {
+        let script = WorktreeSetupScript(
+            relativePath: ".quillcode/setup.sh",
+            command: "sh '.quillcode/setup.sh'",
+            environment: ["QUILL_ENV": "development"],
+            timeoutSeconds: 900
+        )
+
+        let call = WorkspaceShellToolCallPlanner.worktreeSetupScript(script)
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "sh '.quillcode/setup.sh'")
+        XCTAssertEqual(arguments.stringDictionary("environment"), ["QUILL_ENV": "development"])
+        XCTAssertEqual(try arguments.requiredInt("timeoutSeconds"), 900)
+    }
+
     func testProjectExtensionUpdateBuildsShellToolCall() throws {
         let manifest = ProjectExtensionManifest(
             id: "plugin:github",

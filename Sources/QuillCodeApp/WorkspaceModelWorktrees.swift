@@ -79,8 +79,24 @@ extension QuillCodeWorkspaceModel {
             base: baseBranch,
             managedRoot: plan.managedRoot.path
         )
+        runManagedWorktreeSetupIfPresent(worktreeRoot: URL(fileURLWithPath: worktreePath))
         enforceManagedWorktreeRetention()
         return threadID
+    }
+
+    @discardableResult
+    func runManagedWorktreeSetupIfPresent(worktreeRoot: URL) -> ToolResult? {
+        let configuration = WorkspaceProjectConfigurationLoader.load(from: worktreeRoot)
+        guard let script = WorktreeSetupScriptLoader.load(
+            from: worktreeRoot,
+            configuration: configuration.worktreeSetup
+        ) else {
+            return nil
+        }
+        return runToolCall(
+            WorkspaceShellToolCallPlanner.worktreeSetupScript(script),
+            workspaceRoot: worktreeRoot
+        )
     }
 
     private func selectedProjectBranch(_ project: ProjectRef) -> String? {
