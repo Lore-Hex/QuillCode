@@ -106,6 +106,15 @@ final class WorkspaceCommandPlanTests: XCTestCase {
 
     func testPrefixCommandsParseStructuredValues() {
         let id = UUID()
+        let runID = UUID()
+        guard case .resolveSubagentApproval(let approval) = WorkspaceCommandPlan(
+            commandID: "subagent-approval:approve:\(runID.uuidString):request_123"
+        ) else {
+            return XCTFail("Expected a structured subagent approval command.")
+        }
+        XCTAssertEqual(approval.action, .approve)
+        XCTAssertEqual(approval.runID, runID.uuidString)
+        XCTAssertEqual(approval.requestID, "request_123")
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "local-env:bootstrap"),
             .localEnvironmentAction("local-env:bootstrap")
@@ -222,6 +231,13 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             WorkspaceCommandPlan(commandID: "activity-instruction-dismiss:instruction-conflict"),
             .dismissInstructionDiagnostic(id: "instruction-conflict")
         )
+    }
+
+    func testMalformedSubagentApprovalCommandsAreNotRoutable() {
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "subagent-approval:approve:not-a-uuid:request"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "subagent-approval:approve:\(UUID()):request:extra"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "subagent-approval:approve:\(UUID()):../request"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "subagent-approval:unknown:\(UUID()):request"))
     }
 
     func testAutomationScheduleCommandsParseTimeAndRecurrence() {

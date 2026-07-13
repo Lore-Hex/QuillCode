@@ -84,29 +84,43 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertFalse(result.transcript.map(\.detail).joined().contains("private objective"))
     }
 
-    func testRunSurfacesSafetyBlockInsteadOfBypassingParentMode() async throws {
+    func testRunPausesForApprovalAndResumesTheExactWorker() async throws {
         let root = try makeQuillCodeTestDirectory()
         let parent = ChatThread(mode: .review)
         let worker = makeWorker(
             root: root,
-            actions: [.tool(ToolCall(
-                name: ToolDefinition.fileWrite.name,
-                argumentsJSON: ToolArguments.json(["path": "blocked.txt", "content": "no"])
-            ))],
+            actions: [
+                .tool(ToolCall(
+                    name: ToolDefinition.fileWrite.name,
+                    argumentsJSON: ToolArguments.json(["path": "blocked.txt", "content": "no"])
+                )),
+                .say("Done.")
+            ],
             safety: StaticSafetyReviewer(),
             parentThread: parent
         )
 
+        let pause: WorkspaceSubagentApprovalPause
         do {
-            _ = try await worker.run(
+            _ = try await worker.runWithTranscript(
                 WorkspaceSubagentJob(name: "Builder", role: "write a file", objective: "test review mode")
             )
             XCTFail("Expected review mode to block an unapproved delegated write")
-        } catch {
-            XCTAssertTrue(error.localizedDescription.contains("Safety review blocked delegated work"))
-            XCTAssertTrue(error.localizedDescription.contains("explicit approval"))
+            return
+        } catch let caught as WorkspaceSubagentApprovalPause {
+            pause = caught
         }
+
+        XCTAssertEqual(pause.pendingApproval.request.toolCall.name, ToolDefinition.fileWrite.name)
+        XCTAssertEqual(pause.pendingApproval.heldToolCall?.name, ToolDefinition.fileWrite.name)
+        XCTAssertTrue(pause.pendingApproval.request.reason.contains("explicit approval"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))
+
+        let resumed = try await worker.resume(pause, fallbackRole: "write a file")
+
+        XCTAssertEqual(resumed.summary, "Done.")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))
+        XCTAssertTrue(resumed.transcript.contains { $0.kind == .tool && $0.statusLabel == "Done" })
     }
 
     func testRunInheritsParentProjectContext() async throws {

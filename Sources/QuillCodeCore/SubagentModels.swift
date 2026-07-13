@@ -2,6 +2,7 @@ public enum SubagentStatus: String, Codable, Sendable, Hashable, CaseIterable {
     case queued
     case running
     case blocked
+    case awaitingApproval
     case completed
     case cancelled
     case failed
@@ -14,6 +15,8 @@ public enum SubagentStatus: String, Codable, Sendable, Hashable, CaseIterable {
             return "Running"
         case .blocked:
             return "Blocked"
+        case .awaitingApproval:
+            return "Needs approval"
         case .completed:
             return "Done"
         case .cancelled:
@@ -21,6 +24,22 @@ public enum SubagentStatus: String, Codable, Sendable, Hashable, CaseIterable {
         case .failed:
             return "Failed"
         }
+    }
+}
+
+/// A bounded, presentation-safe projection of a delegated worker's approval gate. Exact tool
+/// arguments and the child thread remain in the private subagent session store.
+public struct SubagentApprovalGate: Codable, Sendable, Hashable {
+    public var runID: String
+    public var requestID: String
+    public var toolName: String
+    public var reason: String
+
+    public init(runID: String, requestID: String, toolName: String, reason: String) {
+        self.runID = runID
+        self.requestID = requestID
+        self.toolName = toolName
+        self.reason = reason
     }
 }
 
@@ -59,13 +78,15 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
     public var summary: String?
     public var groupPath: [String]
     public var transcript: [SubagentTranscriptEntry]
+    public var approvalGate: SubagentApprovalGate?
 
     public init(
         name: String,
         role: String,
         status: SubagentStatus,
         summary: String? = nil,
-        transcript: [SubagentTranscriptEntry] = []
+        transcript: [SubagentTranscriptEntry] = [],
+        approvalGate: SubagentApprovalGate? = nil
     ) {
         self.init(
             name: name,
@@ -73,7 +94,8 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
             status: status,
             summary: summary,
             groupPath: [],
-            transcript: transcript
+            transcript: transcript,
+            approvalGate: approvalGate
         )
     }
 
@@ -83,7 +105,8 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         status: SubagentStatus,
         summary: String? = nil,
         groupPath: [String],
-        transcript: [SubagentTranscriptEntry] = []
+        transcript: [SubagentTranscriptEntry] = [],
+        approvalGate: SubagentApprovalGate? = nil
     ) {
         self.name = name
         self.role = role
@@ -91,6 +114,7 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         self.summary = summary
         self.groupPath = groupPath
         self.transcript = transcript
+        self.approvalGate = approvalGate
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -100,6 +124,7 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         case status
         case summary
         case transcript
+        case approvalGate
     }
 
     public init(from decoder: any Decoder) throws {
@@ -110,6 +135,7 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         summary = try container.decodeIfPresent(String.self, forKey: .summary)
         groupPath = try container.decodeIfPresent([String].self, forKey: .groupPath) ?? []
         transcript = try container.decodeIfPresent([SubagentTranscriptEntry].self, forKey: .transcript) ?? []
+        approvalGate = try container.decodeIfPresent(SubagentApprovalGate.self, forKey: .approvalGate)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -124,6 +150,7 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         if !transcript.isEmpty {
             try container.encode(transcript, forKey: .transcript)
         }
+        try container.encodeIfPresent(approvalGate, forKey: .approvalGate)
     }
 }
 

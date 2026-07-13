@@ -13,6 +13,9 @@ enum SubagentProgressToolExecutor {
     private static let maxTranscriptTitleCharacters = 72
     private static let maxTranscriptDetailCharacters = 320
     private static let maxTranscriptStatusCharacters = 24
+    private static let maxApprovalIDCharacters = 96
+    private static let maxApprovalToolNameCharacters = 96
+    private static let maxApprovalReasonCharacters = 220
 
     static func execute(_ call: ToolCall) -> ToolResult {
         guard call.name == ToolDefinition.subagentsUpdate.name else {
@@ -40,6 +43,7 @@ enum SubagentProgressToolExecutor {
                 detail: detail(for: item, objective: update.objective),
                 kind: "subagent",
                 statusLabel: item.status.label,
+                actions: actions(for: item),
                 transcript: item.transcript
             )
         }
@@ -77,14 +81,51 @@ enum SubagentProgressToolExecutor {
 
     private static func normalizedItem(_ item: SubagentProgressItem) -> SubagentProgressItem {
         let name = boundedLine(item.name, limit: maxNameCharacters)
+        let approvalGate = item.status == .awaitingApproval
+            ? normalizedApprovalGate(item.approvalGate)
+            : nil
+        let status: SubagentStatus = item.status == .awaitingApproval && approvalGate == nil
+            ? .blocked
+            : item.status
         return SubagentProgressItem(
             name: name,
             role: boundedLine(item.role, limit: maxRoleCharacters),
-            status: item.status,
+            status: status,
             summary: boundedOptionalText(item.summary, limit: maxSummaryCharacters),
             groupPath: normalizedGroupPath(item.groupPath, fallbackName: name),
-            transcript: normalizedTranscript(item.transcript)
+            transcript: normalizedTranscript(item.transcript),
+            approvalGate: approvalGate
         )
+    }
+
+    private static func normalizedApprovalGate(_ gate: SubagentApprovalGate?) -> SubagentApprovalGate? {
+        guard let gate else { return nil }
+        let runID = boundedLine(gate.runID, limit: maxApprovalIDCharacters)
+        let requestID = boundedLine(gate.requestID, limit: maxApprovalIDCharacters)
+        let toolName = boundedRedactedLine(gate.toolName, limit: maxApprovalToolNameCharacters)
+        let normalized = SubagentApprovalGate(
+            runID: runID,
+            requestID: requestID,
+            toolName: toolName,
+            reason: boundedRedactedLine(gate.reason, limit: maxApprovalReasonCharacters)
+        )
+        return WorkspaceSubagentApprovalCommand.isValid(normalized) ? normalized : nil
+    }
+
+    private static func actions(for item: SubagentProgressItem) -> [ActivityItemActionSurface] {
+        guard item.status == .awaitingApproval, let gate = item.approvalGate else { return [] }
+        return [
+            ActivityItemActionSurface(
+                title: "Approve",
+                commandID: WorkspaceSubagentApprovalCommand.approveCommandID(for: gate),
+                kind: "approve"
+            ),
+            ActivityItemActionSurface(
+                title: "Skip",
+                commandID: WorkspaceSubagentApprovalCommand.rejectCommandID(for: gate),
+                kind: "reject"
+            )
+        ]
     }
 
     private static func normalizedTranscript(_ entries: [SubagentTranscriptEntry]) -> [SubagentTranscriptEntry] {
@@ -107,6 +148,7 @@ enum SubagentProgressToolExecutor {
             groupPathDetail(for: item),
             item.role,
             item.summary,
+            item.approvalGate.map { "Approval: \($0.reason)" },
             objective.map { "Goal: \($0)" }
         ].compactMap { text -> String? in
             guard let text, !text.isEmpty else { return nil }

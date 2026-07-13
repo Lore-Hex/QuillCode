@@ -107,6 +107,48 @@ test('mock harness shows model-authored subagent progress in Activity', async ({
   await expect(explorerTranscript).toContainText('Found the Activity surface and tool routing seams.');
 });
 
+test('mock harness approves a paused subagent from Activity and keeps the completed state', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('show subagent approval for a workspace write');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await clickSidebarTool(page, 'activity-button');
+
+  const worker = page.getByTestId('activity-subagent');
+  await expect(worker).toHaveCount(1);
+  await expect(worker).toContainText('Builder');
+  await expect(worker).toContainText('Needs approval');
+  await expect(worker.getByRole('button', { name: 'Approve' })).toBeVisible();
+  await expect(worker.getByRole('button', { name: 'Skip' })).toBeVisible();
+
+  await worker.getByRole('button', { name: 'Approve' }).click();
+
+  await expect(worker).toContainText('Done');
+  await expect(worker.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+  await expect(
+    page.getByTestId('timeline').getByText('The Builder subagent completed after approval.')
+  ).toBeVisible();
+
+  await clickSidebarTool(page, 'activity-button');
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-subagent')).toContainText('Done');
+});
+
+test('mock harness can skip a paused subagent without running it', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('show subagent approval for a workspace write');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await clickSidebarTool(page, 'activity-button');
+
+  const worker = page.getByTestId('activity-subagent');
+  await worker.getByRole('button', { name: 'Skip' }).click();
+
+  await expect(worker).toContainText('Cancelled');
+  await expect(worker.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+  await expect(page.getByText('The Builder subagent completed after approval.')).toHaveCount(0);
+});
+
 test('mock harness parses slash subagents into named activity rows', async ({ page }) => {
   await page.goto(harnessURL());
 

@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeAgent
 import QuillCodeCore
 @testable import QuillCodeApp
 
@@ -375,6 +376,108 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertTrue(names.contains("P2/Check"))
         XCTAssertEqual(result.update.subagents.count, 4, "the two same-named children stay distinct jobs")
     }
+
+    func testSchedulerPersistsApprovalPauseAndContinuesDependentWorkAfterResolution() async throws {
+        let exactCall = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "result.txt", "content": "done"])
+        )
+        let request = ApprovalRequest(
+            toolCall: exactCall.redactedForTranscript(),
+            toolDefinition: ToolDefinition.fileWrite,
+            reason: "Confirm this write."
+        )
+        var childThread = ChatThread(title: "Subagent: Builder")
+        childThread.events.append(ThreadEvent(
+            kind: .approvalRequested,
+            summary: request.reason,
+            payloadJSON: try JSONHelpers.encodePretty(request)
+        ))
+        let pause = WorkspaceSubagentApprovalPause(
+            prompt: "Build it",
+            thread: childThread,
+            pendingApproval: AgentPendingApproval(request: request, heldToolCall: exactCall)
+        )
+        let scheduler = WorkspaceSubagentScheduler(worker: { job in
+            if job.name == "Builder" { throw pause }
+            return WorkspaceSubagentWorkerResult(summary: "verified")
+        })
+        let runRequest = WorkspaceSubagentRunRequest(
+            objective: "ship",
+            workers: [
+                WorkspaceSubagentWorkerRequest(name: "Builder", role: "build"),
+                WorkspaceSubagentWorkerRequest(name: "Verifier", role: "verify", dependsOn: ["Builder"])
+            ]
+        )
+
+        let paused = await scheduler.run(request: runRequest)
+
+        XCTAssertTrue(paused.isPaused)
+        XCTAssertEqual(paused.update.subagents[0].status, .awaitingApproval)
+        XCTAssertEqual(paused.update.subagents[0].approvalGate?.requestID, request.id)
+        XCTAssertEqual(paused.update.subagents[1].status, .blocked)
+        XCTAssertEqual(paused.state.pausedWorkers["Builder"]?.pendingApproval.heldToolCall, exactCall)
+
+        let encoded = try JSONEncoder().encode(paused.state)
+        var restored = try JSONDecoder().decode(WorkspaceSubagentRunState.self, from: encoded)
+        restored.pausedWorkers.removeValue(forKey: "Builder")
+        restored.items[0].status = .completed
+        restored.items[0].summary = "built"
+        restored.items[0].approvalGate = nil
+
+        let completed = await WorkspaceSubagentScheduler(worker: { _ in
+            WorkspaceSubagentWorkerResult(summary: "verified")
+        }).run(state: restored)
+
+        XCTAssertFalse(completed.isPaused)
+        XCTAssertEqual(completed.update.subagents.map(\.status), [.completed, .completed])
+        XCTAssertTrue(completed.summary.contains("2 workers"))
+    }
+
+    func testSameNamedWorkersKeepDistinctApprovalContinuations() async throws {
+        func pause(_ marker: String) throws -> WorkspaceSubagentApprovalPause {
+            let call = ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json(["path": "\(marker).txt", "content": marker])
+            )
+            let request = ApprovalRequest(
+                toolCall: call.redactedForTranscript(),
+                toolDefinition: ToolDefinition.fileWrite,
+                reason: "Confirm \(marker)."
+            )
+            var thread = ChatThread(title: "Subagent: Reviewer")
+            thread.events.append(ThreadEvent(
+                kind: .approvalRequested,
+                summary: request.reason,
+                payloadJSON: try JSONHelpers.encodePretty(request)
+            ))
+            return WorkspaceSubagentApprovalPause(
+                prompt: "Review \(marker)",
+                thread: thread,
+                pendingApproval: AgentPendingApproval(request: request, heldToolCall: call)
+            )
+        }
+
+        let pauses = ApprovalPauseQueue([try pause("one"), try pause("two")])
+        let scheduler = WorkspaceSubagentScheduler(worker: { _ in
+            let pause = try await pauses.next()
+            throw pause
+        })
+        let result = await scheduler.run(request: WorkspaceSubagentRunRequest(
+            objective: "review both",
+            workers: [
+                WorkspaceSubagentWorkerRequest(name: "Reviewer", role: "first review"),
+                WorkspaceSubagentWorkerRequest(name: "Reviewer", role: "second review")
+            ]
+        ))
+
+        XCTAssertEqual(result.state.pausedWorkers.count, 2)
+        XCTAssertEqual(Set(result.state.pausedWorkers.keys), ["Reviewer", "Reviewer#2"])
+        XCTAssertEqual(
+            Set(result.state.pausedWorkers.values.map { $0.pendingApproval.request.reason }),
+            ["Confirm one.", "Confirm two."]
+        )
+    }
 }
 
 private actor OrderRecorder {
@@ -383,6 +486,23 @@ private actor OrderRecorder {
 
     func start(_ name: String) { startOrder.append(name) }
     func finish(_ name: String) { finishOrder.append(name) }
+}
+
+private actor ApprovalPauseQueue {
+    private var pauses: [WorkspaceSubagentApprovalPause]
+
+    init(_ pauses: [WorkspaceSubagentApprovalPause]) {
+        self.pauses = pauses
+    }
+
+    func next() throws -> WorkspaceSubagentApprovalPause {
+        guard !pauses.isEmpty else { throw ApprovalPauseQueueError.empty }
+        return pauses.removeFirst()
+    }
+}
+
+private enum ApprovalPauseQueueError: Error {
+    case empty
 }
 
 private actor JobCapture {

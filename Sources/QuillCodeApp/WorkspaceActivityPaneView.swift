@@ -194,7 +194,7 @@ private struct QuillCodeActivityItemView: View {
             return QuillCodePalette.green
         case "failed", "conflict":
             return QuillCodePalette.red
-        case "review", "queued":
+        case "review", "queued", "needs approval":
             return QuillCodePalette.yellow
         case "pending", "optional":
             return QuillCodePalette.muted

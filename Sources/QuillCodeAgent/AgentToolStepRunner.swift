@@ -5,7 +5,7 @@ import QuillCodeTools
 
 enum AgentToolStep: Sendable {
     case completed(AgentToolStepCompletion)
-    case blocked
+    case blocked(AgentPendingApproval)
 }
 
 struct AgentToolStepCompletion: Sendable {
@@ -16,6 +16,92 @@ struct AgentToolStepCompletion: Sendable {
 }
 
 extension AgentRunner {
+    /// Continues the exact run that paused at `pending`, after an explicit user approval.
+    ///
+    /// The decision is recorded before execution, the original unredacted call is executed once,
+    /// its normal tool feedback is appended, and the same thread resumes without another user
+    /// message. Callers should persist each `onProgress` snapshot so a relaunch never falls back to
+    /// the redacted presentation payload.
+    public func resumeApproved(
+        _ pending: AgentPendingApproval,
+        in thread: ChatThread,
+        workspaceRoot: URL,
+        userMessage: String,
+        onProgress: AgentRunProgressHandler? = nil
+    ) async throws -> AgentRunResult {
+        try validatePendingApproval(pending, in: thread)
+
+        var next = thread
+        let decision = ApprovalDecision(
+            requestID: pending.request.id,
+            verdict: .approve,
+            rationale: "Approved delegated worker action.",
+            reviewTelemetry: pending.request.reviewTelemetry
+        )
+        next.events.append(.init(
+            kind: .approvalDecided,
+            summary: "approve: \(decision.rationale)",
+            payloadJSON: try? JSONHelpers.encodePretty(decision)
+        ))
+        next.updatedAt = Date()
+        await onProgress?(next)
+
+        var resumedToolResults: [ToolResult] = []
+        if pending.request.scope == .tool {
+            guard let call = pending.heldToolCall else {
+                throw AgentApprovalResumeError.missingHeldTool(pending.request.toolCall.name)
+            }
+            guard call.id == pending.request.toolCall.id,
+                  call.name == pending.request.toolCall.name else {
+                throw AgentApprovalResumeError.mismatchedHeldTool(pending.request.toolCall.name)
+            }
+
+            let router = ToolRouter(
+                workspaceRoot: workspaceRoot,
+                editGuard: .session(for: next.id),
+                lsp: lsp
+            )
+            let result = try await executeApprovedTool(
+                call,
+                router: router,
+                workspaceRoot: workspaceRoot,
+                thread: &next,
+                onProgress: onProgress
+            )
+            let followUpReviewResult = try await runFollowUpReviewIfNeeded(
+                after: call,
+                result: result,
+                router: router,
+                workspaceRoot: workspaceRoot,
+                thread: &next,
+                onProgress: onProgress
+            )
+            let completion = AgentToolStepCompletion(
+                call: call,
+                result: result,
+                followUpReviewResult: followUpReviewResult,
+                toolResults: followUpReviewResult.map { [result, $0] } ?? [result]
+            )
+            appendToolFeedback(completion, to: &next)
+            resumedToolResults = completion.toolResults
+            await onProgress?(next)
+        }
+
+        let continuation = try await send(
+            userMessage,
+            in: next,
+            workspaceRoot: workspaceRoot,
+            recordUserMessage: false,
+            onProgress: onProgress
+        )
+        return AgentRunResult(
+            thread: continuation.thread,
+            toolResults: resumedToolResults + continuation.toolResults,
+            stopReason: continuation.stopReason,
+            pendingApproval: continuation.pendingApproval
+        )
+    }
+
     func runToolStep(
         _ call: ToolCall,
         userMessage: String,
@@ -63,14 +149,14 @@ extension AgentRunner {
         try Task.checkCancellation()
 
         if review.verdict != .approve {
-            await appendBlockedReview(
+            let pendingApproval = await appendBlockedReview(
                 review,
                 for: call,
                 definition: definition,
                 to: &thread,
                 onProgress: onProgress
             )
-            return .blocked
+            return .blocked(pendingApproval)
         }
 
         let result = try await executeApprovedTool(
@@ -231,7 +317,7 @@ extension AgentRunner {
         definition: ToolDefinition?,
         to thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?
-    ) async {
+    ) async -> AgentPendingApproval {
         let text: String
         let request = ApprovalRequest(
             toolCall: call.redactedForTranscript(),
@@ -247,7 +333,7 @@ extension AgentRunner {
         case .deny:
             text = "I cannot run \(call.name): \(review.rationale)"
         case .approve:
-            return
+            preconditionFailure("Approved reviews do not create approval requests")
         }
         thread.events.append(.init(
             kind: .approvalRequested,
@@ -258,6 +344,7 @@ extension AgentRunner {
         thread.events.append(.init(kind: .message, summary: text))
         thread.updatedAt = Date()
         await onProgress?(thread)
+        return AgentPendingApproval(request: request, heldToolCall: call)
     }
 
     private func toolResultSummary(
@@ -269,5 +356,28 @@ extension AgentRunner {
             return "\(call.name) unavailable"
         }
         return result.ok ? "\(call.name) completed" : "\(call.name) failed"
+    }
+
+    private func validatePendingApproval(
+        _ pending: AgentPendingApproval,
+        in thread: ChatThread
+    ) throws {
+        let hasRequest = thread.events.contains { event in
+            guard event.kind == .approvalRequested,
+                  let payloadJSON = event.payloadJSON,
+                  let request = try? JSONHelpers.decode(ApprovalRequest.self, from: payloadJSON)
+            else { return false }
+            return request == pending.request
+        }
+        let hasDecision = thread.events.contains { event in
+            guard event.kind == .approvalDecided,
+                  let payloadJSON = event.payloadJSON,
+                  let decision = try? JSONHelpers.decode(ApprovalDecision.self, from: payloadJSON)
+            else { return false }
+            return decision.requestID == pending.request.id
+        }
+        guard hasRequest, !hasDecision else {
+            throw AgentApprovalResumeError.requestNotPending(pending.request.id)
+        }
     }
 }

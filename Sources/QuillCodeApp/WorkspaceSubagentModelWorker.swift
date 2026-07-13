@@ -35,19 +35,51 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             try await session.run()
         }
 
-        if let approval = WorkspaceApprovalActionPlanner.undecidedRequests(in: result.thread).last {
-            throw WorkspaceSubagentWorkerError.safetyBlocked(
-                WorkspaceContextSummarySanitizer.diagnostic(from: approval.reason)
+        if let pendingApproval = result.pendingApproval {
+            throw WorkspaceSubagentApprovalPause(
+                prompt: prompt,
+                thread: result.thread,
+                pendingApproval: pendingApproval
             )
         }
 
-        let assistantText = result.thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
+        return Self.workerResult(from: result.thread, fallbackRole: job.role)
+    }
+
+    func resume(
+        _ pause: WorkspaceSubagentApprovalPause,
+        fallbackRole: String,
+        onProgress: AgentRunProgressHandler? = nil
+    ) async throws -> WorkspaceSubagentWorkerResult {
+        let result = try await AgentRunRetryScope.$threadID.withValue(pause.thread.id) {
+            try await sessionFactory.resumeApproved(
+                pause.pendingApproval,
+                prompt: pause.prompt,
+                thread: pause.thread,
+                onProgress: onProgress
+            )
+        }
+        if let pendingApproval = result.pendingApproval {
+            throw WorkspaceSubagentApprovalPause(
+                prompt: pause.prompt,
+                thread: result.thread,
+                pendingApproval: pendingApproval
+            )
+        }
+        return Self.workerResult(from: result.thread, fallbackRole: fallbackRole)
+    }
+
+    private static func workerResult(
+        from thread: ChatThread,
+        fallbackRole: String
+    ) -> WorkspaceSubagentWorkerResult {
+        let assistantText = thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
         let summary = WorkspaceContextSummarySanitizer.summary(from: assistantText)
             .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
-        let finalSummary = summary.flatMap { $0.isEmpty ? nil : $0 } ?? "Completed \(job.role)"
+        let finalSummary = summary.flatMap { $0.isEmpty ? nil : $0 } ?? "Completed \(fallbackRole)"
         return WorkspaceSubagentWorkerResult(
             summary: finalSummary,
-            transcript: WorkspaceSubagentTranscriptBuilder.entries(from: result.thread)
+            transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
         )
     }
 }
@@ -64,17 +96,6 @@ private enum WorkspaceSubagentThreadBuilder {
             memories: parent.memories,
             worktree: parent.worktree
         )
-    }
-}
-
-private enum WorkspaceSubagentWorkerError: LocalizedError {
-    case safetyBlocked(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .safetyBlocked(let reason):
-            return "Safety review blocked delegated work: \(reason)"
-        }
     }
 }
 

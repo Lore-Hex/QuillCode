@@ -11152,6 +11152,26 @@
       };
     }
 
+    function approvalMockSubagentUpdate() {
+      return {
+        objective: 'Update a workspace file after explicit review.',
+        subagents: [
+          {
+            name: 'Builder',
+            role: 'Apply the reviewed workspace change.',
+            status: 'awaitingApproval',
+            summary: 'Approval needed for host.file.write.',
+            approvalGate: {
+              runID: '11111111-1111-1111-1111-111111111111',
+              requestID: 'approval-mock-builder',
+              toolName: 'host.file.write',
+              reason: 'Confirm this workspace write.'
+            }
+          }
+        ]
+      };
+    }
+
     function parseMockSubagentSlash(text) {
       const match = text.trim().match(/^\/(?:subagents?|parallel|agents)\b\s*(.*)$/i);
       if (!match) return null;
@@ -11195,6 +11215,7 @@
       if (status === 'cancelled') return 'Cancelled';
       if (status === 'failed') return 'Failed';
       if (status === 'blocked') return 'Blocked';
+      if (status === 'awaitingApproval') return 'Needs approval';
       return 'Running';
     }
 
@@ -11205,13 +11226,27 @@
         render();
         return;
       }
-      const update = parsed || defaultMockSubagentUpdate();
+      const update = parsed || (text.toLowerCase().includes('approval')
+        ? approvalMockSubagentUpdate()
+        : defaultMockSubagentUpdate());
       state.activity.authoredSubagents = update.subagents.map((subagent, index) => ({
         id: `subagent-${index}-${subagent.name}`,
         title: subagent.groupPath?.length ? subagent.name.split('/').pop() : subagent.name,
         detail: `${subagent.role} - ${subagent.summary} - Goal: ${update.objective}`,
         kind: 'subagent',
         statusLabel: subagentStatusLabel(subagent.status),
+        actions: subagent.approvalGate ? [
+          {
+            title: 'Approve',
+            commandID: `subagent-approval:approve:${subagent.approvalGate.runID}:${subagent.approvalGate.requestID}`,
+            kind: 'approve'
+          },
+          {
+            title: 'Skip',
+            commandID: `subagent-approval:reject:${subagent.approvalGate.runID}:${subagent.approvalGate.requestID}`,
+            kind: 'reject'
+          }
+        ] : [],
         transcript: [
           {
             id: `tool-${index}`,
@@ -14255,6 +14290,7 @@
     ]);
 
     const harnessRoutableCommandPrefixes = [
+      'subagent-approval:',
       'activity-toggle-section:',
       'activity-instruction-dismiss:',
       'activity-instruction-apply:',
@@ -14343,6 +14379,36 @@
       if (commandID === 'attention-acknowledge') { attentionAcknowledgeSelected(); return; }
       if (commandID === 'attention-dismiss') { attentionDismissSelected(); return; }
       if (commandID === 'attention-digest-close') { closeAttentionDigest(); return; }
+      if (commandID?.startsWith('subagent-approval:')) {
+        const parts = commandID.split(':');
+        const action = parts[1];
+        const requestID = parts[3];
+        const item = (state.activity.authoredSubagents || []).find(candidate =>
+          (candidate.actions || []).some(candidateAction => candidateAction.commandID === commandID)
+        );
+        if (!item || !requestID) return;
+        item.actions = [];
+        if (action === 'approve') {
+          item.statusLabel = 'Done';
+          item.detail = 'Apply the reviewed workspace change. - Completed after approval.';
+          item.transcript = [
+            ...(item.transcript || []),
+            {
+              id: `approved-${requestID}`,
+              kind: 'tool',
+              title: 'Write file',
+              detail: 'Completed after explicit approval.',
+              statusLabel: 'Done'
+            }
+          ];
+          addMessage('assistant', 'The Builder subagent completed after approval.');
+        } else {
+          item.statusLabel = 'Cancelled';
+          item.detail = 'Apply the reviewed workspace change. - Skipped by user.';
+        }
+        render();
+        return;
+      }
       if (commandID === 'command-palette') {
         openCommandPalette();
         return;

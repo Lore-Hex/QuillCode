@@ -50,6 +50,7 @@ public final class QuillCodeWorkspaceModel {
     /// this same store per review, so a rule saved here applies to the very next tool call. Nil
     /// (tests/CLI without persistence) disables saving; approval flows still work as before.
     let permissionRuleStore: PermissionRuleFileStore?
+    let subagentSessionStore: WorkspaceSubagentSessionStore?
     let globalMemoryDirectory: URL?
     let imageAttachmentStore: ImageAttachmentStore?
     let worktreeSnapshotStore: ManagedWorktreeSnapshotStore?
@@ -63,6 +64,7 @@ public final class QuillCodeWorkspaceModel {
     /// Building it per run is essential: project, worktree, model, permissions, MCP, and SSH routing
     /// can all differ from one chat to another.
     var subagentSchedulerOverride: WorkspaceSubagentScheduler?
+    var resolvingSubagentApprovals: Set<String> = []
     /// The edit session for app/UI-initiated tool runs (`runToolCall`): review-pane opens,
     /// slash commands, diagnostic applies. Deliberately SEPARATE from every chat thread's
     /// `FileEditSessionGuard.session(for:)`, so a file the user merely opened in the UI never
@@ -118,6 +120,7 @@ public final class QuillCodeWorkspaceModel {
         automationStore: JSONAutomationStore? = nil,
         sidebarSavedSearchStore: JSONSidebarSavedSearchStore? = nil,
         permissionRuleStore: PermissionRuleFileStore? = nil,
+        subagentSessionStoreDirectory: URL? = nil,
         globalMemoryDirectory: URL? = nil,
         imageAttachmentStore: ImageAttachmentStore? = nil,
         worktreeSnapshotStore: ManagedWorktreeSnapshotStore? = nil,
@@ -153,6 +156,7 @@ public final class QuillCodeWorkspaceModel {
         self.automationStore = automationStore
         self.sidebarSavedSearchStore = sidebarSavedSearchStore
         self.permissionRuleStore = permissionRuleStore
+        self.subagentSessionStore = subagentSessionStoreDirectory.map(WorkspaceSubagentSessionStore.init)
         self.globalMemoryDirectory = globalMemoryDirectory
         self.imageAttachmentStore = imageAttachmentStore
         self.worktreeSnapshotStore = worktreeSnapshotStore

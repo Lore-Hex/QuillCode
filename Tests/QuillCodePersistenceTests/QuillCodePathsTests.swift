@@ -15,7 +15,8 @@ final class QuillCodePathsTests: PersistenceTestCase {
             paths.memoriesDirectory,
             paths.worktreeSnapshotsDirectory,
             paths.worktreesDirectory,
-            paths.secretsDirectory
+            paths.secretsDirectory,
+            paths.subagentSessionsDirectory
         ] {
             var isDirectory: ObjCBool = false
             XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory))
