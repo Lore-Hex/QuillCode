@@ -13,6 +13,10 @@ public struct AgentRunner: Sendable {
     public var baseToolDefinitions: [ToolDefinition]
     public var additionalToolDefinitions: [ToolDefinition]
     public var toolExecutionOverride: AgentToolExecutionOverride?
+    /// Executes tools whose durable state must be merged back into the active thread. Keep ordinary
+    /// host tools on `toolExecutionOverride`; this path is reserved for thread-owning workflows such
+    /// as delegated agents.
+    public var threadToolExecutionOverride: AgentThreadToolExecutionOverride?
     /// Converts trusted, managed tool artifacts into hidden model-feedback attachments. The app
     /// uses this for Computer Use screenshots; nil preserves text-only tool continuation.
     public var toolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider?
@@ -50,6 +54,7 @@ public struct AgentRunner: Sendable {
         baseToolDefinitions: [ToolDefinition] = ToolRouter.definitions,
         additionalToolDefinitions: [ToolDefinition] = [],
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
+        threadToolExecutionOverride: AgentThreadToolExecutionOverride? = nil,
         toolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider? = nil,
         skillResolver: SkillResolver? = nil,
         webSearch: (any WebSearchClient)? = nil,
@@ -65,6 +70,7 @@ public struct AgentRunner: Sendable {
         self.baseToolDefinitions = baseToolDefinitions
         self.additionalToolDefinitions = additionalToolDefinitions
         self.toolExecutionOverride = toolExecutionOverride
+        self.threadToolExecutionOverride = threadToolExecutionOverride
         self.toolFeedbackAttachmentProvider = toolFeedbackAttachmentProvider
         self.skillResolver = skillResolver
         self.webSearch = webSearch

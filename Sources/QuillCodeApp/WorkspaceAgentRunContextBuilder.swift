@@ -81,7 +81,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
             ToolDefinition.handoffUpdate
         ]
         if allowsSubagents {
-            definitions.append(ToolDefinition.subagentsUpdate)
+            definitions.append(ToolDefinition.subagentsRun)
         }
         return definitions + [
             ToolDefinition.browserInspect,

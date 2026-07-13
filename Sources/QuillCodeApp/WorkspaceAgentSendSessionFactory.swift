@@ -23,6 +23,10 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let sshRemoteShellExecutor: SSHRemoteShellExecutor
     private let permissionRules: (any PermissionRulesProviding)?
     private let workspaceRoot: URL
+    private let subagentThreadStore: SubagentThreadStore?
+    private let subagentApprovalPayloadStore: SubagentApprovalPayloadStore?
+    private let subagentSchedulerOverride: WorkspaceSubagentScheduler?
+    private let subagentRunRecordSink: WorkspaceSubagentRunRecordSink?
 
     init(
         baseRunner: AgentRunner,
@@ -39,6 +43,10 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         mcpToolExecutionOverride: AgentToolExecutionOverride?,
         sshRemoteShellExecutor: SSHRemoteShellExecutor,
         permissionRules: (any PermissionRulesProviding)? = nil,
+        subagentThreadStore: SubagentThreadStore? = nil,
+        subagentApprovalPayloadStore: SubagentApprovalPayloadStore? = nil,
+        subagentSchedulerOverride: WorkspaceSubagentScheduler? = nil,
+        subagentRunRecordSink: WorkspaceSubagentRunRecordSink? = nil,
         workspaceRoot: URL
     ) {
         self.baseRunner = baseRunner
@@ -59,15 +67,21 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.mcpToolExecutionOverride = mcpToolExecutionOverride
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
         self.permissionRules = permissionRules
+        self.subagentThreadStore = subagentThreadStore
+        self.subagentApprovalPayloadStore = subagentApprovalPayloadStore
+        self.subagentSchedulerOverride = subagentSchedulerOverride
+        self.subagentRunRecordSink = subagentRunRecordSink
         self.workspaceRoot = workspaceRoot
     }
 
     func makeSession(
         prompt: String,
         thread: ChatThread,
-        recordsUserMessage: Bool = true
+        recordsUserMessage: Bool = true,
+        allowsSubagents: Bool? = nil
     ) -> WorkspaceAgentSendSession {
-        WorkspaceAgentSendSession(
+        let permitsSubagents = allowsSubagents ?? !thread.runtimeContext.isEphemeral
+        return WorkspaceAgentSendSession(
             prompt: prompt,
             thread: thread,
             // Pin this run to the THREAD's selected model so a `/model` switch (popup, typed, or
@@ -76,7 +90,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             runner: configuredRunner(
                 modelID: thread.model,
                 threadID: thread.id,
-                allowsSubagents: !thread.runtimeContext.isEphemeral
+                allowsSubagents: permitsSubagents
             ),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
@@ -90,12 +104,14 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         _ pendingApproval: AgentPendingApproval,
         prompt: String,
         thread: ChatThread,
-        onProgress: AgentRunProgressHandler? = nil
+        onProgress: AgentRunProgressHandler? = nil,
+        allowsSubagents: Bool? = nil
     ) async throws -> WorkspaceAgentSendSessionResult {
         try await makeSession(
             prompt: prompt,
             thread: thread,
-            recordsUserMessage: false
+            recordsUserMessage: false,
+            allowsSubagents: allowsSubagents
         ).resumeApproved(pendingApproval, onProgress: onProgress)
     }
 
@@ -133,6 +149,17 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             forWorkspace: workspaceRoot,
             isRemote: selectedProject?.isRemote == true
         )
+        if allowsSubagents {
+            runner.threadToolExecutionOverride = WorkspaceSubagentRunToolExecutor(
+                sessionFactory: self,
+                threadStore: subagentThreadStore,
+                approvalPayloadStore: subagentApprovalPayloadStore,
+                schedulerOverride: subagentSchedulerOverride,
+                recordSink: subagentRunRecordSink
+            ).executionOverride
+        } else {
+            runner.threadToolExecutionOverride = nil
+        }
         return runner
     }
 }

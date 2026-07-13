@@ -6610,7 +6610,7 @@
       if (toolName === 'host.git.worktree.create') return toolCardSanitized(args.branch) || toolCardSanitized(args.path);
       if (toolName === 'host.plan.update') return 'plan';
       if (toolName === 'host.handoff.update') return 'handoff';
-      if (toolName === 'host.subagents.update') return 'subagents';
+      if (toolName === 'host.subagents.run' || toolName === 'host.subagents.update') return 'subagents';
       if (toolName === 'host.browser.open') return toolCardSanitized(args.url);
       if (toolName === 'host.memory.remember') return toolCardSanitized(args.content);
       if (toolName === 'host.mcp.call') return toolCardSanitized(args.toolName);
@@ -11145,8 +11145,8 @@
           {
             name: 'Verifier',
             role: 'Run focused validation and report failures.',
-            status: 'running',
-            summary: 'Preparing smoke coverage.'
+            status: 'completed',
+            summary: 'Focused checks passed.'
           }
         ]
       };
@@ -11212,6 +11212,7 @@
 
     function subagentStatusLabel(status) {
       if (status === 'completed') return 'Done';
+      if (status === 'queued') return 'Queued';
       if (status === 'cancelled') return 'Cancelled';
       if (status === 'failed') return 'Failed';
       if (status === 'blocked') return 'Blocked';
@@ -11219,17 +11220,8 @@
       return 'Running';
     }
 
-    function runMockSubagentAction(text) {
-      const parsed = parseMockSubagentSlash(text);
-      if (parsed?.error) {
-        addMessage('assistant', parsed.error);
-        render();
-        return;
-      }
-      const update = parsed || (text.toLowerCase().includes('approval')
-        ? approvalMockSubagentUpdate()
-        : defaultMockSubagentUpdate());
-      state.activity.authoredSubagents = update.subagents.map((subagent, index) => ({
+    function mockSubagentActivityItems(update) {
+      return update.subagents.map((subagent, index) => ({
         id: `subagent-${index}-${subagent.name}`,
         title: subagent.groupPath?.length ? subagent.name.split('/').pop() : subagent.name,
         detail: `${subagent.role} - ${subagent.summary} - Goal: ${update.objective}`,
@@ -11264,14 +11256,104 @@
           }
         ]
       }));
-      addToolCard({
-        title: 'host.subagents.update',
-        subtitle: 'Completed',
-        status: 'done',
-        inputJSON: JSON.stringify(update, null, 2),
-        outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
+    }
+
+    function mockSubagentRunRequest(update) {
+      return {
+        objective: update.objective,
+        workers: update.subagents.map(subagent => ({
+          name: subagent.name,
+          role: subagent.role,
+          ...(subagent.dependsOn?.length ? { dependsOn: subagent.dependsOn } : {}),
+          ...(subagent.groupPath?.length ? { groupPath: subagent.groupPath } : {})
+        }))
+      };
+    }
+
+    function mockSubagentRunOutput(update, runID) {
+      return {
+        runID,
+        summary: update.subagents.map(subagent => `${subagent.name}: ${subagent.summary}`).join('\n'),
+        workers: update.subagents.map(subagent => ({
+          name: subagent.name,
+          role: subagent.role,
+          status: subagent.status,
+          summary: subagent.summary
+        })),
+        awaitingApproval: update.subagents.some(subagent => subagent.status === 'awaitingApproval')
+      };
+    }
+
+    // Returns true when the model-authored run will finish asynchronously. Slash-command runs and
+    // approval pauses settle synchronously, matching their native command/approval boundaries.
+    function runMockSubagentAction(text) {
+      const parsed = parseMockSubagentSlash(text);
+      if (parsed?.error) {
+        addMessage('assistant', parsed.error);
+        render();
+        return false;
+      }
+      const update = parsed || (text.toLowerCase().includes('approval')
+        ? approvalMockSubagentUpdate()
+        : defaultMockSubagentUpdate());
+
+      if (parsed) {
+        state.activity.authoredSubagents = mockSubagentActivityItems(update);
+        addToolCard({
+          title: 'host.subagents.update',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify(update, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
+        });
+        addMessage('assistant', 'Updated subagent progress.');
+        return false;
+      }
+
+      const runID = crypto.randomUUID();
+      const request = mockSubagentRunRequest(update);
+      const awaitingApproval = update.subagents.some(subagent => subagent.status === 'awaitingApproval');
+      const initialUpdate = awaitingApproval ? update : {
+        ...update,
+        subagents: update.subagents.map((subagent, index) => ({
+          ...subagent,
+          status: index === 0 ? 'running' : 'queued'
+        }))
+      };
+      state.activity.authoredSubagents = mockSubagentActivityItems(initialUpdate);
+      const card = addToolCard({
+        title: 'host.subagents.run',
+        subtitle: awaitingApproval ? 'Completed' : 'Running',
+        status: awaitingApproval ? 'done' : 'running',
+        inputJSON: JSON.stringify(request, null, 2),
+        outputJSON: awaitingApproval
+          ? JSON.stringify({
+              ok: true,
+              stdout: JSON.stringify(mockSubagentRunOutput(update, runID), null, 2)
+            }, null, 2)
+          : null
       });
-      addMessage('assistant', 'Updated subagent progress.');
+
+      if (awaitingApproval) {
+        addMessage('assistant', 'Delegated work is waiting for approval.');
+        return false;
+      }
+
+      const timer = window.setTimeout(() => {
+        if (!activeMockRun || activeMockRun.id !== runID) return;
+        state.activity.authoredSubagents = mockSubagentActivityItems(update);
+        updateToolCardLifecycle(card, 'done', 'Completed');
+        card.outputJSON = JSON.stringify({
+          ok: true,
+          stdout: JSON.stringify(mockSubagentRunOutput(update, runID), null, 2)
+        }, null, 2);
+        card.artifacts = artifactsFromOutput(card.outputJSON);
+        activeMockRun = null;
+        addMessage('assistant', 'The parallel review is complete.');
+        finishMockAgentTurn();
+      }, 600);
+      activeMockRun = { id: runID, timer };
+      return true;
     }
 
     function runMockTurnRevert(turnID) {
@@ -18317,7 +18399,7 @@
         });
         addMessage('assistant', 'Updated the task plan.');
       } else if (isSubagentRequest(text)) {
-        runMockSubagentAction(text);
+        shouldFinishMockAgentTurn = !runMockSubagentAction(text);
       } else if (text.toLowerCase().includes('handoff')) {
         const update = {
           summary: 'Current task state is ready for continuation.',

@@ -17,6 +17,7 @@ enum AgentToolAnswerFormatters {
             AgentGitToolAnswerFormatters.pullRequestReviewThreadsAnswer,
             AgentUtilityToolAnswerFormatters.planUpdateAnswer,
             AgentUtilityToolAnswerFormatters.handoffUpdateAnswer,
+            AgentUtilityToolAnswerFormatters.subagentsRunAnswer,
             AgentUtilityToolAnswerFormatters.subagentsUpdateAnswer,
             AgentUtilityToolAnswerFormatters.memoryRememberAnswer,
             AgentShellToolAnswerFormatters.shellRunAnswer,

@@ -1,7 +1,7 @@
 import Foundation
 import QuillCodeCore
 
-struct WorkspaceSubagentScheduler {
+struct WorkspaceSubagentScheduler: Sendable {
     typealias Worker = @Sendable (WorkspaceSubagentJob) async throws -> String
     typealias DetailedWorker = @Sendable (WorkspaceSubagentJob) async throws -> WorkspaceSubagentWorkerResult
     typealias Spawner = @Sendable (WorkspaceSubagentJob, String) async -> [WorkspaceSubagentWorkerRequest]

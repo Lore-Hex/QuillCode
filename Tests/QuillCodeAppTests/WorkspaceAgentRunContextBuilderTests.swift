@@ -21,7 +21,7 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), [
             ToolDefinition.planUpdate.name,
             ToolDefinition.handoffUpdate.name,
-            ToolDefinition.subagentsUpdate.name,
+            ToolDefinition.subagentsRun.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.browserOpen.name,
             ToolDefinition.browserClick.name,
@@ -92,7 +92,7 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         let expectedNames = [
             ToolDefinition.planUpdate.name,
             ToolDefinition.handoffUpdate.name,
-            ToolDefinition.subagentsUpdate.name,
+            ToolDefinition.subagentsRun.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.browserOpen.name,
             ToolDefinition.browserClick.name,

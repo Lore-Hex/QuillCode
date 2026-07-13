@@ -56,6 +56,7 @@ Drive the QuillCode test harness with mock LLM:
 - surface file/URL artifacts from tool-card output, with source/text preview metadata visible and raw successful-tool JSON collapsed until opened
 - open the Activity pane and verify the deterministic task plan, current task, recent events, tools, sources, artifacts, latest answer, handoff summary, and collapsible section state are reconstructed from the same transcript state
 - pause a delegated worker on a reviewed tool, approve or skip it from Activity, verify actions disappear immediately, reopen Activity to prove replay, and recreate the workspace model to prove the exact worker resumes from private persisted state without a duplicate user turn
+- request parallel work in natural language, verify `host.subagents.run` becomes visibly Running, verify queued/running worker rows transition to Done, inspect a worker transcript, and require one consolidated parent answer; native integration tests additionally prove the parent manifest persists before completion and raw child transcript details never enter parent model feedback
 - render image artifacts from screenshot/generated-media tool output as bounded previews with visible type, extension, and source metadata below the artifact chips
 - chronological user/tool/answer transcript rendering
 - hidden agent tool-feedback messages never render as transcript bubbles, sidebar search hits, fork seed messages, or compaction summary content

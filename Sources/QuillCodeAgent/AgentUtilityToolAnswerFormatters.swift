@@ -145,6 +145,28 @@ enum AgentUtilityToolAnswerFormatters {
         call.name == ToolDefinition.subagentsUpdate.name ? "Updated subagent progress." : nil
     }
 
+    static func subagentsRunAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.subagentsRun.name,
+              let output = try? JSONHelpers.decode(SubagentRunAnswerOutput.self, from: result.stdout)
+        else {
+            return nil
+        }
+        let summary = output.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !summary.isEmpty else {
+            return output.awaitingApproval
+                ? "Delegated work is waiting for approval in Activity."
+                : "Delegated work completed."
+        }
+        let boundedSummary = AgentToolAnswerFormatters.truncated(summary)
+        return output.awaitingApproval
+            ? "Delegated work is waiting for approval in Activity.\n\n\(boundedSummary)"
+            : boundedSummary
+    }
+
     static func memoryRememberAnswer(
         call: ToolCall,
         result: ToolResult,
@@ -214,4 +236,9 @@ enum AgentUtilityToolAnswerFormatters {
         let output = result.stdout.trimmedNonEmpty
         return output.map { "Computer Use completed: \($0)" } ?? "Computer Use action completed."
     }
+}
+
+private struct SubagentRunAnswerOutput: Decodable {
+    var summary: String
+    var awaitingApproval: Bool
 }

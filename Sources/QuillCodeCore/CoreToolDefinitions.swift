@@ -42,6 +42,21 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let subagentsRun = ToolDefinition(
+        name: "host.subagents.run",
+        description: """
+        Run real delegated agents in parallel for an explicitly requested multi-agent workflow, wait for their work, \
+        and return a consolidated result. Each worker receives a short stable name, a precise role, the parent \
+        project/model/safety context, and any completed prerequisite summaries. Use dependencies only when one \
+        worker genuinely needs another worker's result. Do not use this merely to display progress.
+        """,
+        parametersJSON: """
+        {"type":"object","properties":{"objective":{"type":"string","description":"Shared objective for the delegated workflow."},"workers":{"type":"array","minItems":1,"maxItems":6,"items":{"type":"object","properties":{"name":{"type":"string","description":"Short stable worker label, for example Explorer, Security reviewer, or Tests/Verifier."},"role":{"type":"string","description":"Specific work this worker must perform and verify."},"dependsOn":{"type":"array","maxItems":6,"items":{"type":"string"},"description":"Optional worker names that must complete before this worker starts."},"groupPath":{"type":"array","maxItems":4,"items":{"type":"string"},"description":"Optional presentation hierarchy for nested plans."}},"required":["name","role"]}},"maxConcurrentWorkers":{"type":"integer","minimum":1,"maximum":6,"description":"Optional cap on workers running at once."}},"required":["objective","workers"]}
+        """,
+        host: .local,
+        risk: .read
+    )
+
     static let browserInspect = ToolDefinition(
         name: "host.browser.inspect",
         description: """

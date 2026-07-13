@@ -73,6 +73,8 @@ enum WorkspaceToolCardSubtitleBuilder {
             return "plan"
         case ToolDefinition.handoffUpdate.name:
             return "handoff"
+        case ToolDefinition.subagentsRun.name:
+            return sanitized(arguments.string("objective")) ?? "subagents"
         case ToolDefinition.subagentsUpdate.name:
             return "subagents"
         case ToolDefinition.browserOpen.name, ToolDefinition.webFetch.name:

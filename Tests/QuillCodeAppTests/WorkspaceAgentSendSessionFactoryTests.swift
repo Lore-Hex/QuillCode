@@ -37,7 +37,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         XCTAssertEqual(session.runner.additionalToolDefinitions.map(\.name), [
             ToolDefinition.planUpdate.name,
             ToolDefinition.handoffUpdate.name,
-            ToolDefinition.subagentsUpdate.name,
+            ToolDefinition.subagentsRun.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.browserOpen.name,
             ToolDefinition.browserClick.name,
@@ -46,6 +46,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
             ToolDefinition.memoryRemember.name,
             mcpTool.name
         ])
+        XCTAssertNotNil(session.runner.threadToolExecutionOverride)
     }
 
     func testSideConversationDoesNotAdvertiseSubagentTool() throws {
@@ -71,8 +72,9 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         ).makeSession(prompt: "Explain this", thread: thread)
 
         XCTAssertFalse(session.runner.additionalToolDefinitions.contains {
-            $0.name == ToolDefinition.subagentsUpdate.name
+            $0.name == ToolDefinition.subagentsRun.name
         })
+        XCTAssertNil(session.runner.threadToolExecutionOverride)
         XCTAssertTrue(session.runner.additionalToolDefinitions.contains {
             $0.name == ToolDefinition.planUpdate.name
         })

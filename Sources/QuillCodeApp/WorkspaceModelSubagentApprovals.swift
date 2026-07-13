@@ -137,7 +137,11 @@ private extension QuillCodeWorkspaceModel {
             record.updatedAt = Date()
             try replaceSubagentRun(record, parentThreadID: target.parentThreadID)
 
-            let runner = factory.configuredRunner(modelID: child.model, threadID: child.id)
+            let runner = factory.configuredRunner(
+                modelID: child.model,
+                threadID: child.id,
+                allowsSubagents: false
+            )
             let execution = try await AgentRunRetryScope.$threadID.withValue(child.id) {
                 try await runner.executeApprovedToolCall(
                     heldCall,
@@ -155,7 +159,12 @@ private extension QuillCodeWorkspaceModel {
         // the held payload is obsolete and must not survive as replayable state.
         try payloadStore.delete(pending.payloadKey)
 
-        let session = factory.makeSession(prompt: prompt, thread: child, recordsUserMessage: false)
+        let session = factory.makeSession(
+            prompt: prompt,
+            thread: child,
+            recordsUserMessage: false,
+            allowsSubagents: false
+        )
         let continuation = try await AgentRunRetryScope.$threadID.withValue(child.id) {
             try await session.run { progressThread in
                 try? childStore.save(progressThread)

@@ -84,6 +84,12 @@ extension QuillCodeWorkspaceModel {
             mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             permissionRules: permissionRuleStore,
+            subagentThreadStore: subagentThreadStore,
+            subagentApprovalPayloadStore: subagentApprovalPayloadStore,
+            subagentSchedulerOverride: subagentSchedulerOverride,
+            subagentRunRecordSink: { [weak self] record, parentThreadID in
+                await self?.recordSubagentRun(record, threadID: parentThreadID)
+            },
             workspaceRoot: workspaceRoot
         )
     }

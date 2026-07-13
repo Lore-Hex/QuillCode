@@ -173,10 +173,24 @@ final class ToolSchemaCoreTests: XCTestCase {
         XCTAssertNil(decoded.approvalGate)
     }
 
+    func testSubagentRunToolRequiresExecutableWorkerPlan() {
+        let definition = ToolDefinition.subagentsRun
+
+        XCTAssertEqual(definition.name, "host.subagents.run")
+        XCTAssertEqual(definition.host, .local)
+        XCTAssertEqual(definition.risk, .read)
+        XCTAssertTrue(definition.description.contains("Run real delegated agents"))
+        XCTAssertTrue(definition.parametersJSON.contains(#""objective""#))
+        XCTAssertTrue(definition.parametersJSON.contains(#""workers""#))
+        XCTAssertTrue(definition.parametersJSON.contains(#""dependsOn""#))
+        XCTAssertTrue(definition.parametersJSON.contains(#""maxConcurrentWorkers""#))
+    }
+
     func testCoreToolDefinitionSchemasAreValidJSONObjects() throws {
         let definitions: [ToolDefinition] = [
             .planUpdate,
             .handoffUpdate,
+            .subagentsRun,
             .subagentsUpdate,
             .browserInspect,
             .browserOpen,
