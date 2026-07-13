@@ -8,6 +8,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="\(workspaceGridClass(for: surface))">
             \(sidebarHTML(for: surface))
             <main class="transcript" data-testid="transcript">
+              \(sideConversationHTML(for: surface))
               \(WorkspaceHTMLSecondaryPaneRenderer.renderAutomations(surface.automations))
               \(WorkspaceHTMLTranscriptRenderer.render(
                 transcript: surface.transcript,
@@ -25,6 +26,26 @@ public enum WorkspaceHTMLRenderer {
             </main>
           </div>
           \(attentionDigestHTML(for: surface))
+        </section>
+        """
+    }
+
+    private static func sideConversationHTML(for surface: WorkspaceSurface) -> String {
+        guard let side = surface.sideConversation else { return "" }
+        return """
+        <section class="side-conversation" data-testid="side-conversation" data-parent-thread-id="\(side.parentThreadID.uuidString)">
+          <div>
+            <strong data-testid="side-conversation-title">Side conversation</strong>
+            <span data-testid="side-conversation-parent">From \(WorkspaceHTMLPrimitives.escape(side.parentTitle))</span>
+            <span data-testid="side-conversation-status">\(WorkspaceHTMLPrimitives.escape(side.parentStatus))</span>
+          </div>
+          \(WorkspaceHTMLPrimitives.commandButton(
+              side.returnCommand.title,
+              testID: "side-conversation-return",
+              commandID: side.returnCommand.id,
+              hitTargetKind: .text,
+              classes: ["side-conversation-return"]
+          ))
         </section>
         """
     }

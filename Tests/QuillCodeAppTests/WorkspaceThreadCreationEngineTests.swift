@@ -183,4 +183,27 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
         XCTAssertEqual(duplicate.events.last?.summary, "Duplicated from Implement feature")
         XCTAssertEqual(duplicate.events.last?.payloadJSON, source.id.uuidString)
     }
+
+    func testSideConversationCopiesReferenceContextButNotDurableGoal() {
+        let projectID = UUID()
+        let source = ChatThread(
+            title: "Main task",
+            projectID: projectID,
+            messages: [
+                .init(role: .user, content: "Main request"),
+                .init(role: .tool, content: #"{"stdout":"context"}"#)
+            ],
+            goal: ThreadGoal(objective: "Ship main task"),
+            worktree: WorktreeBinding(path: "/tmp/worktree", branch: "feature/main")
+        )
+
+        let side = WorkspaceThreadCreationEngine.sideConversation(from: source, projectID: projectID)
+
+        XCTAssertEqual(side.title, "Side: Main task")
+        XCTAssertEqual(side.messages, source.messages)
+        XCTAssertEqual(side.worktree, source.worktree)
+        XCTAssertNil(side.goal)
+        XCTAssertEqual(side.runtimeContext.sideConversationParentThreadID, source.id)
+        XCTAssertEqual(side.events.first?.payloadJSON, source.id.uuidString)
+    }
 }

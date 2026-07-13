@@ -57,6 +57,32 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertEqual(card.textPreviewArtifacts.map(\.label), ["hello.txt"])
     }
 
+    func testInlineSideConversationRunsOneTurnWithoutMutatingParentTranscript() async throws {
+        let workspaceRoot = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.setDraft("Explain the main implementation")
+        await model.submitComposer(workspaceRoot: workspaceRoot)
+        let parent = try XCTUnwrap(model.selectedThread)
+        let parentMessages = parent.messages
+
+        model.setDraft("/side run whoami")
+        await model.submitComposer(workspaceRoot: workspaceRoot)
+
+        let side = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(side.runtimeContext.sideConversationParentThreadID, parent.id)
+        XCTAssertEqual(Array(side.messages.prefix(parentMessages.count)), parentMessages)
+        XCTAssertEqual(side.messages[parentMessages.count].role, .user)
+        XCTAssertEqual(side.messages[parentMessages.count].content, "run whoami")
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.shellRun.name)
+        XCTAssertTrue(model.currentToolCards.last?.inputJSON?.contains("whoami") == true)
+        XCTAssertEqual(model.root.threads.first { $0.id == parent.id }?.messages, parentMessages)
+        XCTAssertEqual(model.root.sidebarItems.map(\.id), [parent.id])
+
+        XCTAssertTrue(model.returnFromSideConversation())
+        XCTAssertEqual(model.selectedThread?.id, parent.id)
+        XCTAssertEqual(model.selectedThread?.messages, parentMessages)
+    }
+
     func testWorkspaceSurfaceCoversRealWorldActionPromptFamily() async throws {
         let root = try makeTempDirectory()
         let downloadSource = root.appendingPathComponent("source.html")

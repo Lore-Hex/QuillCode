@@ -5,6 +5,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case appendTranscript(WorkspaceLocalCommandTranscript)
     case goal(WorkspaceThreadGoalRequest, userText: String)
     case newChat
+    case sideConversation(String?)
     case setMode(AgentMode, userText: String)
     case setModel(String, userText: String)
     case renameThread(String, userText: String)
@@ -48,6 +49,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .goal(request, userText: userText)
         case .newChat:
             return .newChat
+        case .sideConversation(let prompt):
+            return .sideConversation(prompt)
         case .mode(let mode):
             return .setMode(mode, userText: userText)
         case .model(let model):

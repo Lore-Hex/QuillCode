@@ -6,6 +6,7 @@ enum SlashCommand: Equatable {
     case status
     case goal(WorkspaceThreadGoalRequest)
     case newChat
+    case sideConversation(String?)
     case mode(AgentMode)
     case model(String)
     case renameThread(String)
@@ -55,6 +56,8 @@ enum SlashCommandParser {
             return .help
         case "status":
             return .status
+        case "side", "btw":
+            return .sideConversation(argument.isEmpty ? nil : argument)
         case "goal":
             return SlashGoalCommandParser.parse(argument)
         case let threadCommand where SlashThreadCommandParser.supports(threadCommand):

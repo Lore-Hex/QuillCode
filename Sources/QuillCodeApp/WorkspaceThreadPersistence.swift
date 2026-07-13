@@ -12,10 +12,12 @@ struct WorkspaceThreadPersistence {
     }
 
     func save(_ thread: ChatThread) {
+        guard !thread.runtimeContext.isEphemeral else { return }
         try? store?.save(thread)
     }
 
     func saveOrThrow(_ thread: ChatThread) throws {
+        guard !thread.runtimeContext.isEphemeral else { return }
         try store?.save(thread)
     }
 

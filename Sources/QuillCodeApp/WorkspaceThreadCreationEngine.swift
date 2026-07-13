@@ -111,4 +111,25 @@ struct WorkspaceThreadCreationEngine {
         ))
         return duplicate
     }
+
+    static func sideConversation(from source: ChatThread, projectID: UUID?) -> ChatThread {
+        ChatThread(
+            title: "Side: \(source.title)",
+            projectID: projectID,
+            mode: source.mode,
+            model: source.model,
+            messages: source.messages,
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Side conversation from \(source.title)",
+                    payloadJSON: source.id.uuidString
+                )
+            ],
+            instructions: source.instructions,
+            memories: source.memories,
+            worktree: source.worktree,
+            runtimeContext: .sideConversation(parentThreadID: source.id)
+        )
+    }
 }

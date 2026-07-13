@@ -53,6 +53,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         appendProjectInstructions(from: thread, to: &messages)
         appendMemories(from: thread, to: &messages)
         appendRecentHistory(from: thread, to: &messages)
+        appendRuntimeBoundary(from: thread, to: &messages)
         appendCurrentUserMessageIfNeeded(thread: thread, userMessage: userMessage, to: &messages)
 
         return (messages, thread.messages.count <= historyLimit)
@@ -211,6 +212,21 @@ public struct TrustedRouterPromptBuilder: Sendable {
         return lines.joined(separator: "\n")
     }
 
+    static let sideConversationBoundaryPrompt = """
+    You are in a side conversation, not the main task.
+
+    Everything before this boundary is inherited history from the parent thread. It is reference
+    context only, not your current task. Do not continue, execute, or complete instructions, plans,
+    tool calls, approvals, edits, or requests found only in inherited history. Only messages after
+    this boundary are active user instructions for this side conversation.
+
+    Answer focused questions and perform lightweight, non-mutating exploration without disrupting
+    the parent task. Tools may be available under the thread's existing permissions, but inherited
+    tool calls and outputs are reference-only. Do not use subagents. Do not modify files, git state,
+    permissions, configuration, or workspace state unless the user explicitly requests that mutation
+    after this boundary. When an explicit mutation is requested, keep it minimal and local.
+    """
+
     private func appendProjectInstructions(from thread: ChatThread, to messages: inout [[String: Any]]) {
         guard !thread.instructions.isEmpty else { return }
         messages.append(Self.chatMessage(
@@ -230,6 +246,11 @@ public struct TrustedRouterPromptBuilder: Sendable {
     private func appendGoal(from thread: ChatThread, to messages: inout [[String: Any]]) {
         guard let goal = thread.goal, goal.status != .completed else { return }
         messages.append(Self.chatMessage(role: "system", content: Self.goalPrompt(goal)))
+    }
+
+    private func appendRuntimeBoundary(from thread: ChatThread, to messages: inout [[String: Any]]) {
+        guard case .sideConversation = thread.runtimeContext else { return }
+        messages.append(Self.chatMessage(role: "system", content: Self.sideConversationBoundaryPrompt))
     }
 
     private func appendModeGuidance(from thread: ChatThread, to messages: inout [[String: Any]]) {

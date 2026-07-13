@@ -65,4 +65,21 @@ final class WorkspaceThreadPersistenceTests: XCTestCase {
         XCTAssertNil(persistence.mutate(UUID(), threads: &threads) { $0.title = "Changed" })
         XCTAssertEqual(threads, [thread])
     }
+
+    func testEphemeralThreadIsNeverPersisted() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let parentID = UUID()
+        let side = ChatThread(
+            title: "Side conversation",
+            runtimeContext: .sideConversation(parentThreadID: parentID)
+        )
+        let persistence = WorkspaceThreadPersistence(store: store)
+
+        persistence.save(side)
+        try persistence.saveOrThrow(side)
+        persistence.save([side])
+
+        XCTAssertThrowsError(try store.load(side.id))
+    }
 }

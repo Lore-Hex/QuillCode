@@ -3,6 +3,7 @@ import Foundation
 struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var hasSelectedThread: Bool
     var selectedThreadIsArchived: Bool
+    var selectedThreadIsEphemeral: Bool = false
     var selectedThreadHasMessages: Bool
     var selectedThreadCanClear: Bool
     var selectedThreadCanRevertLatestTurn: Bool
@@ -22,7 +23,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var hasRunningSidebarSelection: Bool = false
 
     var selectedThreadCanArchive: Bool {
-        hasSelectedThread && !selectedThreadIsArchived
+        hasSelectedThread && !selectedThreadIsArchived && !selectedThreadIsEphemeral
     }
 }
 
@@ -31,7 +32,7 @@ enum WorkspaceThreadCommandCatalog {
         availability: WorkspaceThreadCommandAvailability,
         savedSearches: [SidebarSavedSearch] = []
     ) -> [WorkspaceCommandSurface] {
-        [
+        sideConversationCommands(availability: availability) + [
             WorkspaceCommandSurface(
                 id: "new-chat",
                 title: "New chat",
@@ -75,42 +76,44 @@ enum WorkspaceThreadCommandCatalog {
                 title: "Rename chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "title"],
-                isEnabled: availability.hasSelectedThread
+                isEnabled: availability.hasSelectedThread && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: "thread-duplicate",
                 title: "Duplicate chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "copy"],
-                isEnabled: availability.hasSelectedThread && !availability.selectedThreadIsRunning
+                isEnabled: availability.hasSelectedThread
+                    && !availability.selectedThreadIsRunning
+                    && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: "thread-pin",
                 title: "Pin chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "pin", "pinned"],
-                isEnabled: availability.selectedThreadCanPin
+                isEnabled: availability.selectedThreadCanPin && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: "thread-unpin",
                 title: "Unpin chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "pin", "unpin", "pinned"],
-                isEnabled: availability.selectedThreadCanUnpin
+                isEnabled: availability.selectedThreadCanUnpin && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: "thread-clear",
                 title: "Clear chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "reset", "context", "transcript"],
-                isEnabled: availability.selectedThreadCanClear
+                isEnabled: availability.selectedThreadCanClear && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: "thread-revert-latest",
                 title: "Undo latest edit",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "undo", "revert", "latest", "edit"],
-                isEnabled: availability.selectedThreadCanRevertLatestTurn
+                isEnabled: availability.selectedThreadCanRevertLatestTurn && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: "thread-archive",
@@ -124,14 +127,16 @@ enum WorkspaceThreadCommandCatalog {
                 title: "Unarchive chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "restore"],
-                isEnabled: availability.selectedThreadIsArchived
+                isEnabled: availability.selectedThreadIsArchived && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: "thread-delete",
                 title: "Delete chat",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "remove"],
-                isEnabled: availability.hasSelectedThread && !availability.selectedThreadIsRunning
+                isEnabled: availability.hasSelectedThread
+                    && !availability.selectedThreadIsRunning
+                    && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: SidebarBulkActionSurface.commandID(for: .select),
@@ -189,15 +194,21 @@ enum WorkspaceThreadCommandCatalog {
                 keywords: ["thread", "chat", "bulk", "delete"],
                 isEnabled: availability.hasSidebarSelection && !availability.hasRunningSidebarSelection
             ),
-            WorkspaceThreadForkStrategy.latestTurn.command(isEnabled: availability.selectedThreadHasMessages),
-            WorkspaceThreadForkStrategy.summarizedContext.command(isEnabled: availability.selectedThreadHasMessages),
-            WorkspaceThreadForkStrategy.fullContext.command(isEnabled: availability.selectedThreadHasMessages),
+            WorkspaceThreadForkStrategy.latestTurn.command(
+                isEnabled: availability.selectedThreadHasMessages && !availability.selectedThreadIsEphemeral
+            ),
+            WorkspaceThreadForkStrategy.summarizedContext.command(
+                isEnabled: availability.selectedThreadHasMessages && !availability.selectedThreadIsEphemeral
+            ),
+            WorkspaceThreadForkStrategy.fullContext.command(
+                isEnabled: availability.selectedThreadHasMessages && !availability.selectedThreadIsEphemeral
+            ),
             WorkspaceCommandSurface(
                 id: "compact-context",
                 title: "Compact context",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "context", "summarize", "compact"],
-                isEnabled: availability.selectedThreadHasMessages
+                isEnabled: availability.selectedThreadHasMessages && !availability.selectedThreadIsEphemeral
             ),
             WorkspaceCommandSurface(
                 id: WorkspaceCommandAction.sidebarSavedSearchCreate.rawValue,
@@ -206,6 +217,20 @@ enum WorkspaceThreadCommandCatalog {
                 keywords: ["thread", "chat", "sidebar", "filter"]
             )
         ] + savedSearchCommands(savedSearches)
+    }
+
+    private static func sideConversationCommands(
+        availability: WorkspaceThreadCommandAvailability
+    ) -> [WorkspaceCommandSurface] {
+        guard availability.selectedThreadIsEphemeral else { return [] }
+        return [
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.sideConversationReturn.rawValue,
+                title: "Return to main chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["side", "conversation", "return", "back", "btw"]
+            )
+        ]
     }
 
     private static func savedFilterCommand(_ filter: SidebarSavedFilterKind) -> WorkspaceCommandSurface {

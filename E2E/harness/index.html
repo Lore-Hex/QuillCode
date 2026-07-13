@@ -1784,6 +1784,39 @@
     .find-bar + .timeline { grid-row: 2; }
     .transcript > .timeline:first-child { grid-row: 1 / 3; }
     .timeline:has(.empty) { justify-content: flex-end; }
+    .side-conversation-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--control-cluster-gap);
+      min-height: 48px;
+      padding: 8px 10px;
+      border: 1px solid rgba(180, 145, 255, .24);
+      border-radius: 10px;
+      background: rgba(180, 145, 255, .07);
+    }
+    .side-conversation-banner-copy {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .side-conversation-banner-copy strong { font-size: 13px; }
+    .side-conversation-banner-copy span {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .side-conversation-return {
+      min-height: var(--hit-target);
+      margin-left: auto;
+      padding: 0 12px;
+      border: 1px solid rgba(180, 145, 255, .28);
+      border-radius: 8px;
+      color: var(--text);
+      background: rgba(180, 145, 255, .12);
+      font-weight: 700;
+    }
     .transcript-jump-bar {
       grid-row: 1;
       display: flex;
@@ -4264,6 +4297,7 @@
         selectedThreadIDs: [],
         items: []
       },
+      sideConversation: null,
       // Morning-triage inbox (issue #877): the thread whose return digest card is open, or null.
       attentionDigestThreadID: null,
       // The Attention section's preview cursor — which row j/k highlight. Distinct from the workspace
@@ -4620,6 +4654,7 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
+        { id: 'side-conversation-return', title: 'Return to main chat', shortcut: '', category: 'Thread', keywords: ['side', 'conversation', 'return', 'back', 'btw'], isEnabled: false },
         { id: 'thread-new-worktree', title: 'New worktree task', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
         { id: 'thread-restore-worktree', title: 'Restore worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'snapshot', 'restore', 'archive'], isEnabled: false },
         { id: 'thread-create-branch', title: 'Create branch here', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'create', 'ownership'], isEnabled: false },
@@ -5202,6 +5237,7 @@
       { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
       { usage: '/goal objective', title: 'Follow a goal', detail: 'Attach a durable objective to this chat; use status, complete, block, resume, or clear to manage it.', insertText: '/goal ', aliases: ['goal status', 'goal complete', 'goal block', 'goal resume', 'goal clear'] },
       { usage: '/new', title: 'New chat', detail: 'Start a fresh thread in the selected project.', insertText: '/new', aliases: ['new-chat', 'newchat'] },
+      { usage: '/side question', title: 'Ask a side question', detail: 'Open an ephemeral conversation with this chat as reference while the main task keeps its place.', insertText: '/side ', aliases: ['btw'] },
       { usage: '/clear', title: 'Clear chat', detail: 'Reset this thread transcript and queued follow-ups without deleting the chat.', insertText: '/clear', aliases: ['clear-chat', 'reset-chat'] },
       { usage: '/undo', title: 'Undo latest edit', detail: 'Reverse the latest revertable file edits from the current thread.', insertText: '/undo', aliases: ['revert', 'revert-latest', 'undo-edit'] },
       { usage: '/rename title', title: 'Rename chat', detail: 'Rename the current thread.', insertText: '/rename ', aliases: ['rename-chat', 'title'] },
@@ -7227,6 +7263,7 @@
     function updateDynamicCommands() {
       const selectedThread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
       const hasThread = Boolean(selectedThread);
+      const selectedThreadIsEphemeral = Boolean(selectedThread?.isEphemeral);
       const selectedThreadIsRunning = Boolean(selectedThread?.runStatusLabel);
       const hasMessages = Boolean(state.sidebar.selectedThreadID && state.transcript.messages.length);
       const hasUserMessages = state.transcript.messages.some(message => message.role === 'user' && String(message.text || '').trim());
@@ -7293,8 +7330,9 @@
             && !id.startsWith('sidebar-saved-search-move-down:');
         })
         .map(command => (
-        command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
-        command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning } :
+        command.id === 'side-conversation-return' ? { ...command, isEnabled: selectedThreadIsEphemeral } :
+        command.id === 'thread-rename' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral } :
+        command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning && !selectedThreadIsEphemeral } :
         command.id === 'thread-restore-worktree' ? {
           ...command,
           isEnabled: Boolean(
@@ -7327,13 +7365,13 @@
             && !state.terminal.isRunning
           )
         } :
-        command.id === 'thread-pin' ? { ...command, isEnabled: hasThread && !selectedThread.isPinned && !selectedThread.isArchived } :
-        command.id === 'thread-unpin' ? { ...command, isEnabled: hasThread && selectedThread.isPinned } :
-        command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
-        command.id === 'thread-revert-latest' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning && latestRevertableTurnID() !== null } :
-        command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThread.isArchived } :
-        command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && selectedThread.isArchived } :
-        command.id === 'thread-delete' ? { ...command, isEnabled: hasThread && !selectedThreadIsRunning } :
+        command.id === 'thread-pin' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && !selectedThread.isPinned && !selectedThread.isArchived } :
+        command.id === 'thread-unpin' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && selectedThread.isPinned } :
+        command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && !selectedThreadIsRunning && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
+        command.id === 'thread-revert-latest' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && !selectedThreadIsRunning && latestRevertableTurnID() !== null } :
+        command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && !selectedThread.isArchived } :
+        command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && selectedThread.isArchived } :
+        command.id === 'thread-delete' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && !selectedThreadIsRunning } :
         command.id === 'thread-selection-start' ? { ...command, isEnabled: hasSidebarThreads } :
         command.id === 'thread-selection-select-all' ? { ...command, isEnabled: hasSidebarThreads } :
         command.id === 'thread-selection-clear' ? { ...command, isEnabled: state.sidebar.isSelectionMode } :
@@ -7360,10 +7398,10 @@
         command.id === 'git-worktree-open' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-remove' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-prune' ? { ...command, isEnabled: hasLocalProject } :
-        command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
-        command.id === 'fork-with-summary' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
-        command.id === 'fork-full-context' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
-        command.id === 'compact-context' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning } :
+        command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning && !selectedThreadIsEphemeral } :
+        command.id === 'fork-with-summary' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning && !selectedThreadIsEphemeral } :
+        command.id === 'fork-full-context' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning && !selectedThreadIsEphemeral } :
+        command.id === 'compact-context' ? { ...command, isEnabled: hasMessages && !selectedThreadIsRunning && !selectedThreadIsEphemeral } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'workspace-back' ? { ...command, isEnabled: canNavigateWorkspaceBack() } :
         command.id === 'workspace-forward' ? { ...command, isEnabled: canNavigateWorkspaceForward() } :
@@ -8701,7 +8739,7 @@
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
 	              ${state.automations.isVisible ? renderAutomationsPane() : ''}
 	              ${hasTimelineContent ? renderTranscriptJumpBar() : ''}
-	              <div class="timeline" data-testid="timeline">${renderNewTurnsPill()}${timeline}</div>
+	              <div class="timeline" data-testid="timeline">${renderSideConversationBanner()}${renderNewTurnsPill()}${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
@@ -9058,6 +9096,9 @@
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
+      });
+      document.querySelector('[data-testid="side-conversation-return"]')?.addEventListener('click', event => {
+        runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
       document.querySelectorAll('[data-testid="runtime-issue-action"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -11223,6 +11264,19 @@
           aria-label="${escapeHTML(pill.label)}">${escapeHTML(pill.label)}</button>`;
     }
 
+    function renderSideConversationBanner() {
+      const side = state.sideConversation;
+      if (!side) return '';
+      return `
+        <section class="side-conversation-banner" data-testid="side-conversation" data-parent-thread-id="${escapeHTML(side.parentThreadID)}">
+          <div class="side-conversation-banner-copy">
+            <strong data-testid="side-conversation-title">Side conversation</strong>
+            <span data-testid="side-conversation-parent">From ${escapeHTML(side.parentTitle)} · ${escapeHTML(side.parentStatus)}</span>
+          </div>
+          <button type="button" class="side-conversation-return hit-target-text" data-testid="side-conversation-return" data-command-id="side-conversation-return">Return</button>
+        </section>`;
+    }
+
     function renderFindBar(matches) {
       const query = state.find.query.trim();
       const status = !query
@@ -12448,14 +12502,15 @@
     }
 
     function filteredSidebarItems(filterID) {
+      const durableItems = state.sidebar.items.filter(item => !item.isEphemeral);
       if (filterID) {
-        return state.sidebar.items.filter(item => sidebarFilterIncludes(item, filterID));
+        return durableItems.filter(item => sidebarFilterIncludes(item, filterID));
       }
       const savedSearch = activeSidebarSavedSearch();
       if (savedSearch) {
-        return state.sidebar.items.filter(item => sidebarItemMatchesQuery(item, savedSearch.query));
+        return durableItems.filter(item => sidebarItemMatchesQuery(item, savedSearch.query));
       }
-      return state.sidebar.items.filter(item => sidebarFilterIncludes(item, activeSidebarFilter()));
+      return durableItems.filter(item => sidebarFilterIncludes(item, activeSidebarFilter()));
     }
 
     function sidebarFilterCount(filterID) {
@@ -12666,7 +12721,89 @@
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
     }
 
+    function sideConversationSlash(text) {
+      const match = String(text || '').trim().match(/^\/(side|btw)(?:\s+([\s\S]*))?$/i);
+      if (!match) return null;
+      const prompt = String(match[2] || '').trim();
+      return { prompt: prompt || null };
+    }
+
+    function startSideConversation(prompt = null) {
+      if (state.sideConversation) return false;
+      const parent = selectedThread();
+      const hasParentTurn = state.transcript.messages.some(message => (
+        message.role === 'user' && String(message.text || '').trim()
+      ));
+      if (!parent || !hasParentTurn) return false;
+
+      saveSelectedThreadSnapshot(parent.id);
+      stashComposerDraft(parent.id);
+      const sideThreadID = `side-${crypto.randomUUID()}`;
+      const parentStatus = parent.runStatusLabel
+        ? `Main chat: ${parent.runStatusLabel}`
+        : 'Main chat is ready';
+      const side = {
+        ...parent,
+        id: sideThreadID,
+        title: `Side: ${parent.title}`,
+        isSelected: true,
+        isPinned: false,
+        isArchived: false,
+        isEphemeral: true,
+        runStatusLabel: null,
+        updatedAt: new Date().toISOString(),
+        snapshot: selectedThreadSnapshot()
+      };
+      state.sideConversation = {
+        sideThreadID,
+        parentThreadID: parent.id,
+        parentTitle: parent.title,
+        parentStatus
+      };
+      state.sidebar.selectedThreadID = sideThreadID;
+      state.sidebar.items = [
+        side,
+        ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))
+      ];
+      restoreComposerDraft(sideThreadID);
+      state.composer.draft = prompt || '';
+      state.composer.canSend = Boolean(prompt);
+      state.composer.isSending = false;
+      state.composer.followUpQueue = [];
+      state.topBar.primaryTitle = side.title;
+      state.topBar.agentStatus = 'Idle';
+      const project = state.projects.items.find(item => item.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${project?.name || 'No project'} - Side conversation - ${state.topBar.modelLabel}`;
+      updateDynamicCommands();
+      render();
+      return true;
+    }
+
+    function returnFromSideConversation(options = {}) {
+      const side = state.sideConversation;
+      if (!side) return false;
+      stashComposerDraft(side.sideThreadID);
+      state.sidebar.items = state.sidebar.items.filter(item => item.id !== side.sideThreadID);
+      state.sideConversation = null;
+      state.sidebar.selectedThreadID = side.parentThreadID;
+      state.sidebar.items = state.sidebar.items.map(item => ({
+        ...item,
+        isSelected: item.id === side.parentThreadID
+      }));
+      restoreComposerDraft(side.parentThreadID);
+      restoreSelectedThreadSnapshot(side.parentThreadID);
+      const parent = selectedThread();
+      state.topBar.primaryTitle = parent?.title || 'QuillCode';
+      state.topBar.agentStatus = parent?.runStatusLabel || 'Idle';
+      const project = state.projects.items.find(item => item.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      updateDynamicCommands();
+      if (options.render !== false) render();
+      return true;
+    }
+
     function newChat() {
+      returnFromSideConversation({ render: false });
       const previousLocation = currentWorkspaceLocation();
       // The user has seen the outgoing thread up to its current end before starting a new chat;
       // advance its "N new turns" watermark so later background growth is what surfaces the pill.
@@ -12943,6 +13080,7 @@
     }
 
     function selectProject(projectID, options = {}) {
+      returnFromSideConversation({ render: false });
       const previousLocation = currentWorkspaceLocation();
       state.projects.selectedProjectID = projectID;
       state.topBar.branchStatusLabel = null;
@@ -13986,6 +14124,7 @@
       'search',
       'settings',
       'show-skills',
+      'side-conversation-return',
       'sidebar-saved-search-create',
       'stop-all',
       'terminal-clear',
@@ -14244,6 +14383,10 @@
       state.commandPalette.isOpen = false;
       if (commandID === 'new-chat') {
         newChat();
+        return;
+      }
+      if (commandID === 'side-conversation-return') {
+        returnFromSideConversation();
         return;
       }
       if (commandID === 'cycle-mode') {
@@ -17012,6 +17155,9 @@
     }
 
     function selectThread(threadID, options = {}) {
+      if (state.sideConversation && threadID !== state.sideConversation.sideThreadID) {
+        returnFromSideConversation({ render: false });
+      }
       const selected = state.sidebar.items.find(item => item.id === threadID);
       if (!selected) return;
       const previousLocation = currentWorkspaceLocation();
@@ -17312,6 +17458,17 @@
       const attachments = clonedPlainObject(state.composer.attachments || [], []);
       if (!text && !attachments.length) return;
       if (!attachments.length && runInstantStopSlashCommand(text)) return;
+      if (!attachments.length) {
+        const sideSlash = sideConversationSlash(text);
+        if (sideSlash) {
+          const parentWasSending = state.composer.isSending;
+          if (!startSideConversation(sideSlash.prompt)) return;
+          if (sideSlash.prompt && !parentWasSending) {
+            startMockAgentTurn(sideSlash.prompt);
+          }
+          return;
+        }
+      }
       // Never lock the composer: a submit DURING a live run enqueues as a follow-up chip
       // (drained at the next turn boundary by finishMockAgentTurn) instead of starting a turn.
       if (state.composer.isSending) {

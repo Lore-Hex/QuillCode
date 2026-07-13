@@ -166,6 +166,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         WorkspaceThreadCommandAvailability(
             hasSelectedThread: hasSelectedThread,
             selectedThreadIsArchived: selectedThread?.isArchived == true,
+            selectedThreadIsEphemeral: selectedThread?.runtimeContext.isEphemeral == true,
             selectedThreadHasMessages: selectedThreadHasMessages && !selectedThreadIsRunning,
             selectedThreadCanClear: selectedThreadCanClear,
             selectedThreadCanRevertLatestTurn: selectedThreadCanRevertLatestTurn,

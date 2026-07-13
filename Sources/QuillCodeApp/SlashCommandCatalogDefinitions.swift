@@ -25,6 +25,13 @@ extension SlashCommandCatalog {
             aliases: ["new-chat", "newchat"]
         ),
         slashDefinition(
+            "/side question",
+            "Ask without interrupting",
+            "Open an ephemeral full-context conversation while the main task keeps running.",
+            insert: "/side ",
+            aliases: ["btw"]
+        ),
+        slashDefinition(
             "/clear",
             "Clear chat",
             "Reset the current thread transcript and queued follow-ups without deleting the chat.",

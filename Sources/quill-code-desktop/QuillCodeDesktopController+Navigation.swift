@@ -6,6 +6,7 @@ extension QuillCodeDesktopController {
     func newChat() {
         // Stash the live draft to the outgoing thread before opening a new chat.
         model.setDraft(draft)
+        cancelSelectedSideConversationTask()
         navigationCoordinator.newChat(model: model)
         modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
         refresh()
@@ -15,6 +16,9 @@ extension QuillCodeDesktopController {
         // Persist the live in-progress draft to the outgoing thread before switching
         // so the model can stash it and restore the incoming thread's draft.
         model.setDraft(draft)
+        if id != model.selectedThread?.id {
+            cancelSelectedSideConversationTask()
+        }
         navigationCoordinator.selectThread(id, model: model)
         // Force-sync the restored draft even mid-send (the busy gate would otherwise
         // keep the old thread's text visible under the newly selected thread).
@@ -69,8 +73,16 @@ extension QuillCodeDesktopController {
     }
 
     func selectProject(_ id: UUID?) {
+        cancelSelectedSideConversationTask()
         navigationCoordinator.selectProject(id, model: model)
         refresh()
+    }
+
+    func cancelSelectedSideConversationTask() {
+        guard model.activeSideConversationParentThreadID != nil,
+              let sideThreadID = model.selectedThread?.id
+        else { return }
+        tasks.cancel(.send(sideThreadID))
     }
 
     func runProjectAction(_ mutation: WorkspaceProjectRowMutation) {

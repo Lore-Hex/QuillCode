@@ -68,7 +68,11 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             // Pin this run to the THREAD's selected model so a `/model` switch (popup, typed, or
             // top-bar picker) takes effect on the next turn without a Settings save/re-sign-in, and
             // so each thread runs on its own model.
-            runner: configuredRunner(modelID: thread.model, threadID: thread.id),
+            runner: configuredRunner(
+                modelID: thread.model,
+                threadID: thread.id,
+                allowsSubagents: !thread.runtimeContext.isEphemeral
+            ),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
             runHooks: selectedProject?.runHooks ?? [],
@@ -80,7 +84,11 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     /// Builds the per-send runner, retargeting its LLM client at `modelID` (the thread's model).
     /// Internal (not private) so tests can assert the run path actually points at the selected
     /// model — the run-path is the load-bearing part of `/model`, not the persisted field alone.
-    func configuredRunner(modelID: String?, threadID: UUID? = nil) -> AgentRunner {
+    func configuredRunner(
+        modelID: String?,
+        threadID: UUID? = nil,
+        allowsSubagents: Bool = true
+    ) -> AgentRunner {
         var runner = WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
             config: config,
@@ -95,7 +103,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             mcpToolDefinitions: mcpToolDefinitions,
             mcpToolExecutionOverride: mcpToolExecutionOverride,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
-            permissionRules: permissionRules
+            permissionRules: permissionRules,
+            allowsSubagents: allowsSubagents
         ).configuredRunner(from: baseRunner, modelID: modelID)
         // Attach the (opt-in) per-workspace LSP coordinator so writes get diagnostics-after-write +
         // format-on-save and the host.lsp.* tools work. The coordinator is cached per workspace so the
