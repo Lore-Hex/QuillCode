@@ -2,6 +2,11 @@ import QuillCodeApp
 
 @MainActor
 extension QuillCodeDesktopController {
+    func createWorktreeThread(_ request: WorkspaceNewWorktreeThreadRequest) {
+        _ = model.newWorktreeThread(request)
+        refresh()
+    }
+
     func createWorktree(_ request: WorkspaceWorktreeCreateRequest) {
         worktreeCoordinator.createWorktree(request, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()

@@ -72,6 +72,7 @@ public struct QuillCodeWorkspaceView: View {
         onSubmitPullRequestReviewDraft: @escaping () -> Void = {},
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
+        onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void = { _ in },
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> Void = { _ in },
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
@@ -135,6 +136,7 @@ public struct QuillCodeWorkspaceView: View {
             onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
             onToolCardAction: onToolCardAction,
             onAddReviewComment: onAddReviewComment,
+            onCreateWorktreeThread: onCreateWorktreeThread,
             onCreateWorktree: onCreateWorktree,
             onCreateWorktreeBranch: onCreateWorktreeBranch,
             onListWorktreeChoices: onListWorktreeChoices,
@@ -246,6 +248,7 @@ public struct QuillCodeWorkspaceView: View {
             settingsDraft: $settingsDraft,
             isKeyboardShortcutsPresented: $isKeyboardShortcutsPresented,
             worktreeSheet: $worktreeDialogs.sheet,
+            newWorktreeTaskDraft: $worktreeDialogs.newTaskDraft,
             createWorktreeDraft: $worktreeDialogs.createDraft,
             createWorktreeBranchDraft: $worktreeDialogs.createBranchDraft,
             openWorktreeDraft: $worktreeDialogs.openDraft,
@@ -258,6 +261,7 @@ public struct QuillCodeWorkspaceView: View {
             onSaveSettings: actions.onSaveSettings,
             onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
             onCommand: handleCommand,
+            onCreateWorktreeThread: actions.onCreateWorktreeThread,
             onCreateWorktree: actions.onCreateWorktree,
             onCreateWorktreeBranch: actions.onCreateWorktreeBranch,
             onRetryWorktreeChoices: retryWorktreeChoices,
@@ -354,6 +358,8 @@ public struct QuillCodeWorkspaceView: View {
             renameThreadDraft = QuillCodeThreadRenameDraft(threadID: threadID, title: title)
         case let .renameProject(projectID, name):
             renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
+        case .presentNewWorktreeTask:
+            worktreeDialogs.presentNewTask(environments: surface.worktreeEnvironments)
         case .presentCreateWorktree:
             worktreeDialogs.presentCreate()
         case .presentCreateWorktreeBranch:

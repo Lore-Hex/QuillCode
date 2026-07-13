@@ -205,6 +205,75 @@ final class WorktreeThreadModelTests: XCTestCase {
         XCTAssertEqual(try shellResult(from: card).stdout, "setup-stdout")
     }
 
+    func testNewManagedWorktreeRunsSelectedNamedEnvironmentAndPersistsChoice() throws {
+        let repo = try makeGitRepo()
+        let environmentDirectory = repo.appendingPathComponent(".quillcode/environments/development")
+        try FileManager.default.createDirectory(at: environmentDirectory, withIntermediateDirectories: true)
+        try """
+        [local_environments.development]
+        title = "Development"
+        """.write(
+            to: repo.appendingPathComponent(".quillcode/config.toml"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "printf named-ok > named-setup.txt".write(
+            to: environmentDirectory.appendingPathComponent("setup.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", ".quillcode"], cwd: repo)
+        _ = try runGit(["commit", "-m", "Add named environment"], cwd: repo)
+
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        let threadID = try XCTUnwrap(model.newWorktreeThread(.init(
+            name: "development task",
+            setupSelection: .named("development")
+        )))
+        let worktree = URL(fileURLWithPath: try XCTUnwrap(model.selectedThread?.worktree?.path))
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+
+        XCTAssertEqual(model.selectedThread?.id, threadID)
+        XCTAssertEqual(model.selectedThread?.worktree?.setupSelection, .named("development"))
+        XCTAssertEqual(
+            try String(contentsOf: worktree.appendingPathComponent("named-setup.txt")),
+            "named-ok"
+        )
+        XCTAssertEqual(model.currentToolCards.last?.status, .done)
+    }
+
+    func testNewManagedWorktreeCanExplicitlySkipProjectSetup() throws {
+        let repo = try makeGitRepo()
+        let setupDirectory = repo.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: setupDirectory, withIntermediateDirectories: true)
+        try "printf should-not-run > skipped-setup.txt".write(
+            to: setupDirectory.appendingPathComponent("setup.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", ".quillcode/setup.sh"], cwd: repo)
+        _ = try runGit(["commit", "-m", "Add setup"], cwd: repo)
+
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        _ = try XCTUnwrap(model.newWorktreeThread(.init(setupSelection: .none)))
+        let worktree = URL(fileURLWithPath: try XCTUnwrap(model.selectedThread?.worktree?.path))
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+
+        XCTAssertEqual(model.selectedThread?.worktree?.setupSelection, WorktreeSetupSelection.none)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.appendingPathComponent("skipped-setup.txt").path))
+        XCTAssertTrue(model.currentToolCards.isEmpty)
+    }
+
     func testFailedManagedWorktreeSetupStaysVisibleAndKeepsCheckout() throws {
         let repo = try makeGitRepo()
         let setupDirectory = repo.appendingPathComponent(".quillcode")

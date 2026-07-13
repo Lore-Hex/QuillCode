@@ -4,6 +4,7 @@ import QuillCodeCore
 @MainActor
 final class QuillCodeWorktreeDialogCoordinator: ObservableObject {
     @Published var sheet: QuillCodeWorktreeSheet?
+    @Published var newTaskDraft = QuillCodeNewWorktreeTaskDraft()
     @Published var createDraft = QuillCodeWorktreeCreateDraft()
     @Published var createBranchDraft = QuillCodeWorktreeCreateBranchDraft()
     @Published var openDraft = QuillCodeWorktreeOpenDraft()
@@ -11,6 +12,12 @@ final class QuillCodeWorktreeDialogCoordinator: ObservableObject {
     @Published var pruneDraft = QuillCodeWorktreePruneDraft()
 
     private let tasks = QuillCodeWorktreeDialogTasks()
+
+    func presentNewTask(environments: WorkspaceWorktreeEnvironmentSurface) {
+        tasks.cancelPending()
+        newTaskDraft = QuillCodeNewWorktreeTaskDraft(environments: environments)
+        sheet = .newTask
+    }
 
     func presentCreate() {
         tasks.cancelPending()
@@ -106,7 +113,7 @@ private enum QuillCodeWorktreeChoiceSheet {
             self = .open
         case .remove:
             self = .remove
-        case .create, .createBranch, .prune:
+        case .newTask, .create, .createBranch, .prune:
             return nil
         }
     }

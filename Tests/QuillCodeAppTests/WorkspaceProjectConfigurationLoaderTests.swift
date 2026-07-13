@@ -123,6 +123,57 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
         XCTAssertFalse(configuration.worktreeSetup.isValid)
     }
 
+    func testParseLoadsNamedLocalEnvironmentsAndDefault() throws {
+        let configuration = WorkspaceProjectConfigurationLoader.parse(
+            """
+            [worktree_setup]
+            default_environment = "development"
+
+            [local_environments.development]
+            title = "Development"
+            description = "Install dependencies for app development."
+            script = "tools/environments/dev.sh"
+            macos = "tools/environments/dev-macos.sh"
+            linux = "tools/environments/dev-linux.sh"
+
+            [local_environments.ci]
+            title = "CI"
+            """
+        )
+
+        XCTAssertEqual(configuration.defaultLocalEnvironmentID, "development")
+        XCTAssertEqual(configuration.localEnvironments.map(\.id), ["development", "ci"])
+        let development = try XCTUnwrap(configuration.localEnvironments.first)
+        XCTAssertEqual(development.title, "Development")
+        XCTAssertEqual(development.description, "Install dependencies for app development.")
+        XCTAssertEqual(development.setup.scriptPath, "tools/environments/dev.sh")
+        XCTAssertEqual(development.setup.macOSScriptPath, "tools/environments/dev-macos.sh")
+        XCTAssertEqual(development.setup.linuxScriptPath, "tools/environments/dev-linux.sh")
+        XCTAssertEqual(
+            configuration.localEnvironments.last?.setup.scriptPath,
+            ".quillcode/environments/ci/setup.sh"
+        )
+    }
+
+    func testParseRejectsUnsafeNamedEnvironmentIDsAndDanglingDefault() {
+        let configuration = WorkspaceProjectConfigurationLoader.parse(
+            """
+            [worktree_setup]
+            default_environment = "missing"
+
+            [local_environments.good]
+            script = "../escape.sh"
+
+            [local_environments.bad/path]
+            title = "Ignored"
+            """
+        )
+
+        XCTAssertEqual(configuration.localEnvironments.map(\.id), ["good"])
+        XCTAssertFalse(try XCTUnwrap(configuration.localEnvironments.first).setup.isValid)
+        XCTAssertNil(configuration.defaultLocalEnvironmentID)
+    }
+
     func testLoadBoundsConfigFileToProject() throws {
         let root = try makeQuillCodeTestDirectory()
         let quillDirectory = root.appendingPathComponent(".quillcode")

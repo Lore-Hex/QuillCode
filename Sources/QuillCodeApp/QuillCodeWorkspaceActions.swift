@@ -39,6 +39,7 @@ public struct QuillCodeWorkspaceActions {
     let onSubmitPullRequestReviewDraft: () -> Void
     let onToolCardAction: (ToolCardActionSurface) -> Void
     let onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
+    let onCreateWorktreeThread: (WorkspaceNewWorktreeThreadRequest) -> Void
     let onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     let onCreateWorktreeBranch: (WorkspaceWorktreeCreateBranchRequest) -> Void
     let onListWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoad
@@ -92,6 +93,7 @@ public struct QuillCodeWorkspaceActions {
         onSubmitPullRequestReviewDraft: @escaping () -> Void = {},
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
+        onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void = { _ in },
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> Void = { _ in },
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
@@ -146,6 +148,7 @@ public struct QuillCodeWorkspaceActions {
         self.onSubmitPullRequestReviewDraft = onSubmitPullRequestReviewDraft
         self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
+        self.onCreateWorktreeThread = onCreateWorktreeThread
         self.onCreateWorktree = onCreateWorktree
         self.onCreateWorktreeBranch = onCreateWorktreeBranch
         self.onListWorktreeChoices = onListWorktreeChoices

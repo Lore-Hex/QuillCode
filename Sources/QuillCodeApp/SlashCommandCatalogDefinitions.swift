@@ -51,7 +51,7 @@ extension SlashCommandCatalog {
         ),
         slashDefinition(
             "/new-worktree",
-            "New worktree chat",
+            "New worktree task",
             "Start a new thread in a fresh git worktree off the current branch, isolated from the working tree.",
             aliases: ["worktree-chat", "worktree-thread"]
         ),

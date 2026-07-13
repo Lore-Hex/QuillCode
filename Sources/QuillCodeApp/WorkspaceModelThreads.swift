@@ -64,14 +64,16 @@ extension QuillCodeWorkspaceModel {
         path: String,
         branch: String,
         base: String? = nil,
-        managedRoot: String? = nil
+        managedRoot: String? = nil,
+        setupSelection: WorktreeSetupSelection = .automatic
     ) {
         mutateSelectedThread { thread in
             thread.worktree = WorktreeBinding(
                 path: path,
                 branch: branch,
                 base: base,
-                managedRoot: managedRoot
+                managedRoot: managedRoot,
+                setupSelection: setupSelection
             )
             thread.updatedAt = Date()
         }

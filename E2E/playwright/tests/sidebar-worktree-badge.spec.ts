@@ -13,6 +13,8 @@ test('mock harness shows a detached chip on a managed worktree thread row', asyn
   // Managed worktree tasks start detached, avoiding repository branch pollution.
   await page.getByLabel('Message').fill('/new-worktree');
   await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('worktree-new-task-panel')).toBeVisible();
+  await page.getByTestId('worktree-new-task-submit').click();
 
   const chip = page.getByTestId('sidebar-worktree-branch');
   await expect(chip).toBeVisible();

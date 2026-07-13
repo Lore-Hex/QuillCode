@@ -131,6 +131,7 @@ struct QuillCodeDesktopRootView: View {
             onSubmitPullRequestReviewDraft: controller.submitPullRequestReviewDraft,
             onToolCardAction: controller.runToolCardAction,
             onAddReviewComment: controller.addReviewComment,
+            onCreateWorktreeThread: controller.createWorktreeThread,
             onCreateWorktree: controller.createWorktree,
             onCreateWorktreeBranch: controller.createWorktreeBranch,
             onListWorktreeChoices: controller.worktreeChoiceLoad,

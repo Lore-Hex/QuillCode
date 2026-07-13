@@ -1,5 +1,102 @@
 import SwiftUI
 
+struct QuillCodeNewWorktreeTaskView: View {
+    @Binding var draft: QuillCodeNewWorktreeTaskDraft
+    var onCancel: () -> Void
+    var onCreate: () -> Void
+    @FocusState private var isNameFocused: Bool
+
+    var body: some View {
+        QuillCodeWorktreeDialogFrame(
+            title: "New Worktree Task",
+            subtitle: "Start an isolated task and choose how its local environment is prepared.",
+            systemImage: "plus.rectangle.on.folder",
+            iconColor: QuillCodePalette.blue
+        ) {
+            QuillCodeLabeledTextField(
+                title: "Task name",
+                placeholder: "Optional",
+                text: $draft.name
+            )
+            .focused($isNameFocused)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Local environment")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .textCase(.uppercase)
+
+                environmentButton(
+                    choice: .automatic,
+                    title: "Automatic",
+                    detail: draft.environments.automaticDetail
+                )
+                environmentButton(
+                    choice: .none,
+                    title: "No setup",
+                    detail: "Create the task without running a project setup script."
+                )
+                ForEach(draft.environments.options) { environment in
+                    environmentButton(
+                        choice: .named(environment.id),
+                        title: environment.title,
+                        detail: environment.description
+                            ?? "Run this project's \(environment.title) setup."
+                    )
+                }
+            }
+        } footer: {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                    .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
+                Button("Create Task", action: onCreate)
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 104))
+                    .quillCodeFormActionTarget(minWidth: 104)
+            }
+        }
+        .onAppear { isNameFocused = true }
+    }
+
+    private func environmentButton(
+        choice: QuillCodeWorktreeSetupChoice,
+        title: String,
+        detail: String
+    ) -> some View {
+        Button {
+            draft.setupChoice = choice
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: draft.setupChoice == choice ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(draft.setupChoice == choice ? QuillCodePalette.blue : QuillCodePalette.muted)
+                    .frame(width: 18, height: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.text)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(draft.setupChoice == choice ? QuillCodePalette.blue.opacity(0.12) : Color.white.opacity(0.035))
+            )
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .quillCodeFullRowButtonTarget(radius: 8)
+        .accessibilityLabel("\(title) local environment")
+        .accessibilityValue(draft.setupChoice == choice ? "Selected" : "Not selected")
+    }
+}
+
 struct QuillCodeWorktreeCreateBranchView: View {
     @Binding var draft: QuillCodeWorktreeCreateBranchDraft
     var onCancel: () -> Void

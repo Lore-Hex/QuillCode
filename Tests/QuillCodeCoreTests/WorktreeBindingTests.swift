@@ -10,7 +10,12 @@ final class WorktreeBindingTests: XCTestCase {
 
     func testBindingRoundTrips() throws {
         var thread = ChatThread(title: "T")
-        thread.worktree = WorktreeBinding(path: "/tmp/wt", branch: "feature/x", base: "main")
+        thread.worktree = WorktreeBinding(
+            path: "/tmp/wt",
+            branch: "feature/x",
+            base: "main",
+            setupSelection: .named("development")
+        )
         thread.forkParentThreadID = UUID()
         thread.forkAnchorTurnMessageID = UUID()
         let decoded = try encodeDecode(thread)
@@ -30,6 +35,22 @@ final class WorktreeBindingTests: XCTestCase {
         XCTAssertEqual(binding.location, .worktree)
         XCTAssertNil(binding.managedRoot)
         XCTAssertNil(binding.snapshot)
+        XCTAssertEqual(binding.setupSelection, .automatic)
+    }
+
+    func testNoSetupSelectionRoundTrips() throws {
+        let binding = WorktreeBinding(
+            path: "/tmp/wt",
+            branch: "",
+            setupSelection: .none
+        )
+
+        let decoded = try JSONDecoder().decode(
+            WorktreeBinding.self,
+            from: JSONEncoder().encode(binding)
+        )
+
+        XCTAssertEqual(decoded.setupSelection, .none)
     }
 
     func testManagedRootRoundTripsWithBinding() throws {

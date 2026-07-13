@@ -142,7 +142,8 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
     }
 
     func testManagedWorktreeSetupStaysBoundedVisibleAndCrossPlatform() throws {
-        let configuration = try Self.appSourceText(named: "WorkspaceProjectConfigurationLoader.swift")
+        let configuration = try Self.appSourceText(named: "WorkspaceProjectConfiguration.swift")
+        let configurationLoader = try Self.appSourceText(named: "WorkspaceProjectConfigurationLoader.swift")
         let loader = try Self.appSourceText(named: "WorktreeSetupScriptLoader.swift")
         let model = try Self.appSourceText(named: "WorkspaceModelWorktrees.swift")
         let planner = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
@@ -155,9 +156,11 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         )
 
         Self.assertSource(configuration, contains: "struct WorktreeSetupConfiguration")
-        Self.assertSource(configuration, contains: "(\"worktree_setup\", \"script\")")
         Self.assertSource(configuration, contains: "isExplicitlyConfigured")
         Self.assertSource(configuration, contains: "isValid")
+        Self.assertSource(configurationLoader, contains: "(\"worktree_setup\", \"script\")")
+        Self.assertSource(configurationLoader, contains: "(\"worktree_setup\", \"default_environment\")")
+        Self.assertSource(configurationLoader, contains: "local_environments.")
         Self.assertSource(loader, contains: "HostOperatingSystem")
         Self.assertSource(loader, contains: "resolvingSymlinksInPath")
         Self.assertSource(loader, contains: "ProjectScriptMetadataLoader.load")
@@ -171,11 +174,11 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
             modelTests,
             contains: "testMissingExplicitWorktreeSetupKeepsCheckoutAndExplainsRepair"
         )
+        Self.assertSource(loaderTests, contains: "testSymlinkOutsideWorktreeIsRejected")
         Self.assertSource(
             loaderTests,
             contains: "testInvalidExplicitConfigurationNeverFallsBackToDefaultScript"
         )
-        Self.assertSource(loaderTests, contains: "testSymlinkOutsideWorktreeIsRejected")
         Self.assertSource(playwright, contains: "shows automatic environment setup in the transcript")
     }
 

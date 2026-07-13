@@ -55,6 +55,11 @@ extension QuillCodeWorkspaceModel {
     /// bounded local changes, and binds a new thread in the same project to that isolated run root.
     @discardableResult
     public func newWorktreeThread(name: String? = nil) -> UUID? {
+        newWorktreeThread(WorkspaceNewWorktreeThreadRequest(name: name))
+    }
+
+    @discardableResult
+    public func newWorktreeThread(_ request: WorkspaceNewWorktreeThreadRequest) -> UUID? {
         guard let project = selectedProject, !project.isRemote else { return nil }
         let projectRoot = URL(fileURLWithPath: project.path)
         let baseBranch = selectedProjectBranch(project)
@@ -63,7 +68,7 @@ extension QuillCodeWorkspaceModel {
         let plan = WorktreeThreadPlanner.plan(
             projectRoot: projectRoot,
             baseBranch: baseBranch,
-            name: name,
+            name: request.name,
             managedRoot: managedWorktreeRoot
         )
         let result = runToolCall(
@@ -77,50 +82,73 @@ extension QuillCodeWorkspaceModel {
             path: worktreePath,
             branch: "",
             base: baseBranch,
-            managedRoot: plan.managedRoot.path
+            managedRoot: plan.managedRoot.path,
+            setupSelection: request.setupSelection
         )
-        runManagedWorktreeSetupIfPresent(worktreeRoot: URL(fileURLWithPath: worktreePath))
+        runManagedWorktreeSetupIfPresent(
+            worktreeRoot: URL(fileURLWithPath: worktreePath),
+            selection: request.setupSelection
+        )
         enforceManagedWorktreeRetention()
         return threadID
     }
 
     @discardableResult
-    func runManagedWorktreeSetupIfPresent(worktreeRoot: URL) -> ToolResult? {
+    func runManagedWorktreeSetupIfPresent(
+        worktreeRoot: URL,
+        selection: WorktreeSetupSelection = .automatic
+    ) -> ToolResult? {
         let configuration = WorkspaceProjectConfigurationLoader.load(from: worktreeRoot)
-        guard configuration.worktreeSetup.isValid else {
-            return recordWorktreeSetupFailure(
-                "Worktree setup configuration is invalid. "
-                    + "Paths must be relative .sh files inside the project."
-            )
-        }
-        guard let script = WorktreeSetupScriptLoader.load(
+        switch WorktreeSetupScriptLoader.resolve(
             from: worktreeRoot,
-            configuration: configuration.worktreeSetup
-        ) else {
-            if configuration.worktreeSetup.isExplicitlyConfigured {
-                return recordWorktreeSetupFailure(
-                    "The configured worktree setup script was not found for this platform. "
-                        + "Check [worktree_setup] in .quillcode/config.toml."
-                )
-            }
+            configuration: configuration,
+            selection: selection
+        ) {
+        case .skipped:
             return nil
+        case .script(let script):
+            let result = runToolCall(
+                WorkspaceShellToolCallPlanner.worktreeSetupScript(script),
+                workspaceRoot: worktreeRoot
+            )
+            if !result.ok {
+                let message = "Worktree setup failed. Review the failed shell card, fix the script, and rerun it."
+                appendNotice(message)
+                setLastError(message)
+            }
+            return result
+        case .failure(let message):
+            return recordWorktreeSetupFailure(message, selection: selection)
         }
-        let result = runToolCall(
-            WorkspaceShellToolCallPlanner.worktreeSetupScript(script),
-            workspaceRoot: worktreeRoot
-        )
-        if !result.ok {
-            let message = "Worktree setup failed. Review the failed shell card, fix the script, and rerun it."
-            appendNotice(message)
-            setLastError(message)
-        }
-        return result
     }
 
-    private func recordWorktreeSetupFailure(_ message: String) -> ToolResult {
-        appendNotice(message)
+    private func recordWorktreeSetupFailure(
+        _ message: String,
+        selection: WorktreeSetupSelection
+    ) -> ToolResult {
+        let environmentID: String
+        switch selection {
+        case .automatic:
+            environmentID = "automatic"
+        case .none:
+            environmentID = "none"
+        case .named(let id):
+            environmentID = id
+        }
+        let call = ToolCall(
+            name: "host.worktree.setup",
+            argumentsJSON: ToolArguments.json(["environment": environmentID])
+        )
+        let result = ToolResult(ok: false, error: message)
+        mutateSelectedThread { thread in
+            WorkspaceToolEventRecorder.append(call: call, result: result, to: &thread)
+            WorkspaceThreadNoticeAppender.appendNotice(message, to: &thread)
+        }
+        if let thread = selectedThread {
+            threadPersistence.save(thread)
+        }
         setLastError(message)
-        return ToolResult(ok: false, error: message)
+        return result
     }
 
     private func selectedProjectBranch(_ project: ProjectRef) -> String? {

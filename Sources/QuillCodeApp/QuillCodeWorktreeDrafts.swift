@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeCore
 
 enum QuillCodeWorktreeSheet: String, Identifiable {
+    case newTask
     case create
     case createBranch
     case open
@@ -9,6 +10,38 @@ enum QuillCodeWorktreeSheet: String, Identifiable {
     case prune
 
     var id: String { rawValue }
+}
+
+enum QuillCodeWorktreeSetupChoice: Hashable, Identifiable {
+    case automatic
+    case none
+    case named(String)
+
+    var id: String {
+        switch self {
+        case .automatic: "automatic"
+        case .none: "none"
+        case .named(let id): "named:\(id)"
+        }
+    }
+
+    var selection: WorktreeSetupSelection {
+        switch self {
+        case .automatic: .automatic
+        case .none: .none
+        case .named(let id): .named(id)
+        }
+    }
+}
+
+struct QuillCodeNewWorktreeTaskDraft: Equatable {
+    var name = ""
+    var setupChoice = QuillCodeWorktreeSetupChoice.automatic
+    var environments = WorkspaceWorktreeEnvironmentSurface()
+
+    var request: WorkspaceNewWorktreeThreadRequest {
+        WorkspaceNewWorktreeThreadRequest(name: name, setupSelection: setupChoice.selection)
+    }
 }
 
 struct QuillCodeWorktreeCreateBranchDraft: Equatable {

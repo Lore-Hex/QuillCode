@@ -4581,6 +4581,8 @@
       },
       worktreeDialog: {
         mode: null,
+        taskName: '',
+        taskEnvironment: 'automatic',
         branchName: '',
         createPath: '',
         createBranch: '',
@@ -4602,7 +4604,7 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
-        { id: 'thread-new-worktree', title: 'New worktree chat', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
+        { id: 'thread-new-worktree', title: 'New worktree task', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
         { id: 'thread-restore-worktree', title: 'Restore worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'snapshot', 'restore', 'archive'], isEnabled: false },
         { id: 'thread-create-branch', title: 'Create branch here', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'create', 'ownership'], isEnabled: false },
         { id: 'thread-handoff', title: 'Hand off task', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'handoff', 'local', 'worktree', 'move', 'transfer'], isEnabled: false },
@@ -5171,7 +5173,7 @@
       { usage: '/undo', title: 'Undo latest edit', detail: 'Reverse the latest revertable file edits from the current thread.', insertText: '/undo', aliases: ['revert', 'revert-latest', 'undo-edit'] },
       { usage: '/rename title', title: 'Rename chat', detail: 'Rename the current thread.', insertText: '/rename ', aliases: ['rename-chat', 'title'] },
       { usage: '/duplicate', title: 'Duplicate chat', detail: 'Copy the current thread into a new one.', insertText: '/duplicate', aliases: ['duplicate-chat', 'copy-chat'] },
-      { usage: '/new-worktree', title: 'New worktree chat', detail: 'Start a new thread in a fresh git worktree off the current branch, isolated from the working tree.', insertText: '/new-worktree', aliases: ['worktree-chat', 'worktree-thread'] },
+      { usage: '/new-worktree', title: 'New worktree task', detail: 'Start a new thread in a fresh git worktree off the current branch, isolated from the working tree.', insertText: '/new-worktree', aliases: ['worktree-chat', 'worktree-thread'] },
       { usage: '/pin', title: 'Pin chat', detail: 'Keep the current thread in the pinned section.', insertText: '/pin', aliases: ['pin-chat'] },
       { usage: '/unpin', title: 'Unpin chat', detail: 'Remove the current thread from the pinned section.', insertText: '/unpin', aliases: ['unpin-chat'] },
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
@@ -9574,6 +9576,19 @@
       document.querySelector('[data-testid="worktree-dialog-cancel"]')?.addEventListener('click', () => {
         state.worktreeDialog.mode = null;
         render();
+      });
+      document.querySelector('[data-testid="worktree-new-task-form"]')?.addEventListener('input', event => {
+        const form = event.currentTarget;
+        state.worktreeDialog.taskName = form.elements.namedItem('taskName').value;
+        state.worktreeDialog.taskEnvironment = form.elements.namedItem('environment').value;
+      });
+      document.querySelector('[data-testid="worktree-new-task-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        createNewWorktreeTask({
+          name: form.elements.namedItem('taskName').value.trim(),
+          environment: form.elements.namedItem('environment').value
+        });
       });
       document.querySelector('[data-testid="worktree-create-form"]')?.addEventListener('input', event => {
         const form = event.currentTarget;
@@ -14210,35 +14225,14 @@
         return;
       }
       if (commandID === 'thread-new-worktree') {
-        // Mock stand-in: native newWorktreeThread snapshots local edits and creates a detached managed
-        // worktree. The harness has no git, so it materializes the bound row and detached status directly.
-        newChat();
-        const threadID = `thread-${state.nextThreadIndex++}`;
-        state.sidebar.selectedThreadID = threadID;
-        state.sidebar.items = [{
-          id: threadID,
-          title: 'Worktree: experiment',
-          subtitle: state.topBar.modelLabel,
-          searchText: '',
-          updatedAt: new Date().toISOString(),
-          isSelected: true,
-          isPinned: false,
-          isArchived: false,
-          worktree: { branch: '', branchLeaf: 'Detached', isResolvable: true, location: 'worktree', hasRestorableSnapshot: false }
-        }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
-        state.topBar.primaryTitle = 'Worktree: experiment';
-        state.topBar.worktreeStatusLabel = 'Worktree';
-        state.topBar.worktreeStatusDetail = 'Runs for this task use /mock/quillcode-worktree-experiment.';
-        state.topBar.worktreeStatusIsWarning = false;
-        addToolCard({
-          title: 'host.shell.run',
-          subtitle: 'Completed · sh .quillcode/setup.sh',
-          status: 'done',
-          inputJSON: JSON.stringify({ cmd: "sh '.quillcode/setup.sh'" }, null, 2),
-          outputJSON: JSON.stringify({ ok: true, stdout: 'Worktree environment ready.\n', stderr: '', exitCode: 0 }, null, 2)
-        });
-        addMessage('assistant', 'Started a detached worktree chat with the current local changes.');
+        state.worktreeDialog = {
+          ...state.worktreeDialog,
+          mode: 'new-task',
+          taskName: '',
+          taskEnvironment: 'automatic'
+        };
         render();
+        document.querySelector('[data-testid="worktree-new-task-form"] [name="taskName"]')?.focus();
         return;
       }
       if (commandID === 'thread-create-branch') {
@@ -16217,6 +16211,42 @@
     }
 
     function renderWorktreeDialog() {
+      if (state.worktreeDialog.mode === 'new-task') {
+        const selected = state.worktreeDialog.taskEnvironment;
+        const option = (value, title, detail) => `
+          <label class="dialog-choice hit-target-row" data-testid="worktree-environment-option">
+            <input type="radio" class="hit-target-adjustable" name="environment" value="${value}" ${selected === value ? 'checked' : ''}>
+            <strong>${escapeHTML(title)}</strong>
+            <span>${escapeHTML(detail)}</span>
+          </label>`;
+        return `
+          <div class="search-panel" data-testid="worktree-new-task-panel">
+            <form class="search-card" data-testid="worktree-new-task-form" role="dialog" aria-label="New worktree task">
+              <header>
+                <div>
+                  <h2>New Worktree Task</h2>
+                  <p>Start an isolated task and choose how its local environment is prepared.</p>
+                </div>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-close">Close</button>
+              </header>
+              <label>
+                Task name
+                <input class="hit-target-text-entry" name="taskName" aria-label="Task name" placeholder="Optional" value="${escapeHTML(state.worktreeDialog.taskName)}" autofocus>
+              </label>
+              <div class="dialog-choice-list" aria-label="Local environment">
+                <p class="eyebrow">Local environment</p>
+                ${option('automatic', 'Automatic', 'Use the project default environment, Development.')}
+                ${option('none', 'No setup', 'Create the task without running a project setup script.')}
+                ${option('development', 'Development', 'Install dependencies for app development.')}
+                ${option('ci', 'CI', 'Prepare the project for its test suite.')}
+              </div>
+              <div class="settings-actions">
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" class="hit-target-form-action" data-testid="worktree-new-task-submit">Create Task</button>
+              </div>
+            </form>
+          </div>`;
+      }
       if (state.worktreeDialog.mode === 'create-branch') {
         return `
           <div class="search-panel" data-testid="worktree-create-branch-panel">
@@ -16492,6 +16522,53 @@
       });
       addMessage('assistant', 'Output:\n' + stdout);
       syncSelectedThreadSearchText();
+      render();
+    }
+
+    function createNewWorktreeTask(values) {
+      // Mock stand-in: native newWorktreeThread snapshots local edits and creates a detached managed
+      // worktree. The harness materializes the selected setup environment and bound task directly.
+      newChat();
+      const taskName = values.name || 'experiment';
+      const title = `Worktree: ${taskName}`;
+      const threadID = `thread-${state.nextThreadIndex++}`;
+      state.sidebar.selectedThreadID = threadID;
+      state.sidebar.items = [{
+        id: threadID,
+        title,
+        subtitle: state.topBar.modelLabel,
+        searchText: '',
+        updatedAt: new Date().toISOString(),
+        isSelected: true,
+        isPinned: false,
+        isArchived: false,
+        worktree: {
+          branch: '',
+          branchLeaf: 'Detached',
+          isResolvable: true,
+          location: 'worktree',
+          hasRestorableSnapshot: false,
+          setupEnvironment: values.environment
+        }
+      }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+      state.topBar.primaryTitle = title;
+      state.topBar.worktreeStatusLabel = 'Worktree';
+      state.topBar.worktreeStatusDetail = 'Runs for this task use /mock/quillcode-worktree-experiment.';
+      state.topBar.worktreeStatusIsWarning = false;
+      state.worktreeDialog.mode = null;
+
+      if (values.environment !== 'none') {
+        const environment = values.environment === 'automatic' ? 'development' : values.environment;
+        const command = `sh '.quillcode/environments/${environment}/setup.sh'`;
+        addToolCard({
+          title: 'host.shell.run',
+          subtitle: `Completed · ${command}`,
+          status: 'done',
+          inputJSON: JSON.stringify({ cmd: command }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `${environment} environment ready.\n`, stderr: '', exitCode: 0 }, null, 2)
+        });
+      }
+      addMessage('assistant', 'Started a detached worktree task with the current local changes.');
       render();
     }
 

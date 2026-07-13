@@ -123,4 +123,86 @@ final class WorktreeSetupScriptLoaderTests: XCTestCase {
             operatingSystem: .other
         ))
     }
+
+    func testNamedEnvironmentResolvesItsPlatformScript() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let directory = root.appendingPathComponent(".quillcode/environments/development")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "printf development".write(
+            to: directory.appendingPathComponent("setup.macos.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let environment = try XCTUnwrap(WorktreeLocalEnvironment(id: "development", title: "Development"))
+        let configuration = WorkspaceProjectConfiguration(
+            localEnvironments: [environment],
+            defaultLocalEnvironmentID: "development"
+        )
+
+        let resolution = WorktreeSetupScriptLoader.resolve(
+            from: root,
+            configuration: configuration,
+            selection: .automatic,
+            operatingSystem: .macOS
+        )
+
+        guard case .script(let script) = resolution else {
+            return XCTFail("Expected named setup script, got \(resolution)")
+        }
+        XCTAssertEqual(script.relativePath, ".quillcode/environments/development/setup.macos.sh")
+        XCTAssertEqual(script.environmentID, "development")
+    }
+
+    func testExplicitNoSetupSkipsAvailableScripts() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let directory = root.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "printf default".write(
+            to: directory.appendingPathComponent("setup.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertEqual(
+            WorktreeSetupScriptLoader.resolve(
+                from: root,
+                configuration: WorkspaceProjectConfiguration(),
+                selection: .none
+            ),
+            .skipped
+        )
+    }
+
+    func testMissingNamedEnvironmentReturnsActionableFailure() throws {
+        let resolution = WorktreeSetupScriptLoader.resolve(
+            from: try makeQuillCodeTestDirectory(),
+            configuration: WorkspaceProjectConfiguration(),
+            selection: .named("missing")
+        )
+
+        XCTAssertEqual(
+            resolution,
+            .failure("The selected local environment 'missing' is not configured in this checkout.")
+        )
+    }
+
+    func testInvalidNamedEnvironmentReturnsActionableFailure() throws {
+        let environment = try XCTUnwrap(WorktreeLocalEnvironment(
+            id: "broken",
+            scriptPath: "../escape.sh"
+        ))
+        let resolution = WorktreeSetupScriptLoader.resolve(
+            from: try makeQuillCodeTestDirectory(),
+            configuration: WorkspaceProjectConfiguration(localEnvironments: [environment]),
+            selection: .named("broken")
+        )
+
+        XCTAssertEqual(
+            resolution,
+            .failure(
+                "The local environment 'Broken' has invalid setup paths. "
+                    + "Paths must be relative .sh files inside the project."
+            )
+        )
+    }
 }

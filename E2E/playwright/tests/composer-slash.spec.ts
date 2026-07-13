@@ -250,15 +250,17 @@ test('mock harness suggests and runs the new-worktree thread command', async ({ 
   // Suggestion: /new-w surfaces the new-worktree-chat command, distinct from /new.
   await message.fill('/new-w');
   await expect(page.getByTestId('slash-suggestion').first()).toContainText('/new-worktree');
-  await expect(page.getByTestId('slash-suggestion').first()).toContainText('New worktree chat');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('New worktree task');
 
   // Execution: /new-worktree routes through the thread-new-worktree command (mock stand-in for the
   // worktree-bound thread native creates) — NOT swallowed by /new, NOT sent as a chat prompt.
   const before = await page.getByTestId('sidebar-thread-row').count();
   await message.fill('/new-worktree');
   await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('worktree-new-task-panel')).toBeVisible();
+  await page.getByTestId('worktree-new-task-submit').click();
   await expect(page.getByTestId('message').last())
-    .toContainText('Started a detached worktree chat with the current local changes.');
+    .toContainText('Started a detached worktree task with the current local changes.');
   await expect
     .poll(async () => page.getByTestId('sidebar-thread-row').count())
     .toBeGreaterThan(before);
