@@ -1,5 +1,19 @@
 # Code Quality Audit
 
+## 2026-07-12 Permission Globstar Directory Semantics
+
+Overall grade after this slice: **A+ safety correctness, A+ bounded matching**.
+
+`PermissionWildcardPattern` previously represented every `**` with one self-looping state. That
+kept matching bounded, but `**/` could not skip zero complete path segments: for example,
+`**/.env` missed `.env`, and `a/**/b` missed `a/b`. The matcher now compiles `**/` into separate
+boundary and in-segment states. Only a boundary can skip to the following token, so root matches
+work without allowing partial-segment counterexamples such as `x.env`, `a/xb`, or `ax`.
+
+The implementation remains backtracking-free and input-bounded. Dedicated tests cover positive
+and negative examples, permission-table integration, maximum-size repeated fragments, Unicode and
+empty segments, and a generated corpus checked against an independent memoized recursive oracle.
+
 ## 2026-07-12 Managed Worktree Environment Setup Slice
 
 Overall grade after this slice: **A+ execution reuse, A+ path safety, A worktree setup parity**.

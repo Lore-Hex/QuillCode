@@ -2,6 +2,7 @@
 
 ## 2026-07-12
 
+- Permission wildcard `**/` is compiled as a two-state complete-segment NFA fragment, while bare `**` keeps its cross-separator self-loop. Only the directory-boundary state may epsilon-skip the fragment. A direct epsilon edge around the slash would also be reachable after consuming a partial segment and could broaden an allow rule, so the matcher is regression-checked against an independent recursive oracle over a generated corpus.
 - Managed Worktree tasks are transactional detached checkouts, not implicit feature branches. The materializer snapshots staged and unstaged patches plus frozen bounded local-file content before `git worktree add --detach`, then rolls the registered worktree back on any apply/copy failure. `.worktreeinclude` is evaluated as a gitignore-style selector but candidates must also be normally ignored; ignored `AGENTS.override.md` is included automatically. Untracked nonignored files transfer as current work, source symlinks are skipped, existing destinations are never overwritten, and explicit branch-creating worktrees remain a separate permanent workflow. This gives future Local/Worktree Handoff, cleanup snapshots, and restoration one deterministic materialization boundary.
 
 ## 2026-07-05
