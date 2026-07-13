@@ -181,6 +181,10 @@ private struct QuillCodeActivityItemView: View {
                 }
                 .padding(.leading, 15)
             }
+            if !item.transcript.isEmpty {
+                QuillCodeSubagentTranscriptView(entries: item.transcript)
+                    .padding(.leading, 15)
+            }
         }
     }
 
@@ -196,6 +200,88 @@ private struct QuillCodeActivityItemView: View {
             return QuillCodePalette.muted
         default:
             return QuillCodePalette.blue
+        }
+    }
+}
+
+private struct QuillCodeSubagentTranscriptView: View {
+    var entries: [SubagentTranscriptEntry]
+
+    var body: some View {
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(entries) { entry in
+                    transcriptRow(entry)
+                    if entry.id != entries.last?.id {
+                        Divider()
+                            .opacity(0.45)
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .background(QuillCodePalette.background.opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        } label: {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Image(systemName: "text.alignleft")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.blue)
+                Text("Transcript")
+                    .font(.caption2.weight(.semibold))
+                Spacer()
+                Text("\(entries.count) step\(entries.count == 1 ? "" : "s")")
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .monospacedDigit()
+            }
+            .quillCodeFullRowButtonTarget()
+        }
+        .tint(QuillCodePalette.muted)
+        .accessibilityLabel("Subagent transcript, \(entries.count) steps")
+    }
+
+    private func transcriptRow(_ entry: SubagentTranscriptEntry) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: iconName(for: entry.kind))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(color(for: entry.kind))
+                .frame(width: 14, height: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                    Text(entry.title)
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                    if !entry.statusLabel.isEmpty {
+                        Text(entry.statusLabel)
+                            .font(.caption2)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
+                }
+                if !entry.detail.isEmpty {
+                    Text(entry.detail)
+                        .font(.caption2)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func iconName(for kind: SubagentTranscriptEntryKind) -> String {
+        switch kind {
+        case .assistant: return "text.bubble"
+        case .tool: return "wrench.and.screwdriver"
+        case .approval: return "checkmark.shield"
+        }
+    }
+
+    private func color(for kind: SubagentTranscriptEntryKind) -> Color {
+        switch kind {
+        case .assistant: return QuillCodePalette.green
+        case .tool: return QuillCodePalette.blue
+        case .approval: return QuillCodePalette.yellow
         }
     }
 }

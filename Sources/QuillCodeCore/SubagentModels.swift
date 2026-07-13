@@ -24,23 +24,73 @@ public enum SubagentStatus: String, Codable, Sendable, Hashable, CaseIterable {
     }
 }
 
+public enum SubagentTranscriptEntryKind: String, Codable, Sendable, Hashable {
+    case assistant
+    case tool
+    case approval
+}
+
+public struct SubagentTranscriptEntry: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var kind: SubagentTranscriptEntryKind
+    public var title: String
+    public var detail: String
+    public var statusLabel: String
+
+    public init(
+        id: String,
+        kind: SubagentTranscriptEntryKind,
+        title: String,
+        detail: String = "",
+        statusLabel: String = ""
+    ) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.detail = detail
+        self.statusLabel = statusLabel
+    }
+}
+
 public struct SubagentProgressItem: Codable, Sendable, Hashable {
     public var name: String
     public var role: String
     public var status: SubagentStatus
     public var summary: String?
     public var groupPath: [String]
+    public var transcript: [SubagentTranscriptEntry]
 
-    public init(name: String, role: String, status: SubagentStatus, summary: String? = nil) {
-        self.init(name: name, role: role, status: status, summary: summary, groupPath: [])
+    public init(
+        name: String,
+        role: String,
+        status: SubagentStatus,
+        summary: String? = nil,
+        transcript: [SubagentTranscriptEntry] = []
+    ) {
+        self.init(
+            name: name,
+            role: role,
+            status: status,
+            summary: summary,
+            groupPath: [],
+            transcript: transcript
+        )
     }
 
-    public init(name: String, role: String, status: SubagentStatus, summary: String? = nil, groupPath: [String]) {
+    public init(
+        name: String,
+        role: String,
+        status: SubagentStatus,
+        summary: String? = nil,
+        groupPath: [String],
+        transcript: [SubagentTranscriptEntry] = []
+    ) {
         self.name = name
         self.role = role
         self.status = status
         self.summary = summary
         self.groupPath = groupPath
+        self.transcript = transcript
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -49,6 +99,7 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         case role
         case status
         case summary
+        case transcript
     }
 
     public init(from decoder: any Decoder) throws {
@@ -58,6 +109,7 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         status = try container.decode(SubagentStatus.self, forKey: .status)
         summary = try container.decodeIfPresent(String.self, forKey: .summary)
         groupPath = try container.decodeIfPresent([String].self, forKey: .groupPath) ?? []
+        transcript = try container.decodeIfPresent([SubagentTranscriptEntry].self, forKey: .transcript) ?? []
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -69,6 +121,9 @@ public struct SubagentProgressItem: Codable, Sendable, Hashable {
         try container.encode(role, forKey: .role)
         try container.encode(status, forKey: .status)
         try container.encodeIfPresent(summary, forKey: .summary)
+        if !transcript.isEmpty {
+            try container.encode(transcript, forKey: .transcript)
+        }
     }
 }
 

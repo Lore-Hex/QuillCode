@@ -17,10 +17,14 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             sessionFactory: sessionFactory,
             parentThread: parentThread
         )
-        return { job in try await worker.run(job) }
+        return { job in try await worker.runWithTranscript(job) }
     }
 
     func run(_ job: WorkspaceSubagentJob) async throws -> String {
+        try await runWithTranscript(job).summary
+    }
+
+    func runWithTranscript(_ job: WorkspaceSubagentJob) async throws -> WorkspaceSubagentWorkerResult {
         let prompt = WorkspaceSubagentPromptBuilder.prompt(objective: job.objective, job: job)
         let thread = WorkspaceSubagentThreadBuilder.thread(
             for: job,
@@ -40,10 +44,11 @@ struct AgentWorkspaceSubagentWorker: Sendable {
         let assistantText = result.thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
         let summary = WorkspaceContextSummarySanitizer.summary(from: assistantText)
             .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
-        guard let summary, !summary.isEmpty else {
-            return "Completed \(job.role)"
-        }
-        return summary
+        let finalSummary = summary.flatMap { $0.isEmpty ? nil : $0 } ?? "Completed \(job.role)"
+        return WorkspaceSubagentWorkerResult(
+            summary: finalSummary,
+            transcript: WorkspaceSubagentTranscriptBuilder.entries(from: result.thread)
+        )
     }
 }
 

@@ -8,6 +8,11 @@ enum SubagentProgressToolExecutor {
     private static let maxNameCharacters = 72
     private static let maxRoleCharacters = 140
     private static let maxSummaryCharacters = 220
+    private static let maxTranscriptEntryCount = 24
+    private static let maxTranscriptIDCharacters = 96
+    private static let maxTranscriptTitleCharacters = 72
+    private static let maxTranscriptDetailCharacters = 320
+    private static let maxTranscriptStatusCharacters = 24
 
     static func execute(_ call: ToolCall) -> ToolResult {
         guard call.name == ToolDefinition.subagentsUpdate.name else {
@@ -34,7 +39,8 @@ enum SubagentProgressToolExecutor {
                 title: displayTitle(for: item),
                 detail: detail(for: item, objective: update.objective),
                 kind: "subagent",
-                statusLabel: item.status.label
+                statusLabel: item.status.label,
+                transcript: item.transcript
             )
         }
     }
@@ -76,8 +82,24 @@ enum SubagentProgressToolExecutor {
             role: boundedLine(item.role, limit: maxRoleCharacters),
             status: item.status,
             summary: boundedOptionalText(item.summary, limit: maxSummaryCharacters),
-            groupPath: normalizedGroupPath(item.groupPath, fallbackName: name)
+            groupPath: normalizedGroupPath(item.groupPath, fallbackName: name),
+            transcript: normalizedTranscript(item.transcript)
         )
+    }
+
+    private static func normalizedTranscript(_ entries: [SubagentTranscriptEntry]) -> [SubagentTranscriptEntry] {
+        entries.prefix(maxTranscriptEntryCount).enumerated().compactMap { index, entry in
+            let title = boundedRedactedLine(entry.title, limit: maxTranscriptTitleCharacters)
+            guard !title.isEmpty else { return nil }
+            let normalizedID = boundedLine(entry.id, limit: maxTranscriptIDCharacters)
+            return SubagentTranscriptEntry(
+                id: normalizedID.isEmpty ? "transcript-\(index)" : normalizedID,
+                kind: entry.kind,
+                title: title,
+                detail: boundedRedactedLine(entry.detail, limit: maxTranscriptDetailCharacters),
+                statusLabel: boundedRedactedLine(entry.statusLabel, limit: maxTranscriptStatusCharacters)
+            )
+        }
     }
 
     private static func detail(for item: SubagentProgressItem, objective: String?) -> String {
@@ -136,6 +158,10 @@ enum SubagentProgressToolExecutor {
             .joined(separator: " ")
         guard normalized.count > limit else { return normalized }
         return String(normalized.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+
+    private static func boundedRedactedLine(_ text: String, limit: Int) -> String {
+        boundedLine(WorkspaceContextSummarySanitizer.summary(from: text) ?? "", limit: limit)
     }
 
     private static func userFacingError(_ error: any Error) -> String {

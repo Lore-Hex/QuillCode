@@ -15825,6 +15825,25 @@ Validation:
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
 
+## 2026-07-13 Durable Subagent Transcript Drilldown
+
+Overall grade after this slice: **A+ event architecture, A+ privacy boundary, A+ cross-surface UX**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | One typed worker result flows through the existing scheduler and replayable `host.subagents.update` event; no second transcript store or hidden durable child thread was added. |
+| Privacy | A+ | The projection includes only credential-redacted tool milestones and assistant responses, excludes generated prompts and raw payloads, and is bounded before persistence. |
+| Compatibility | A+ | Legacy progress JSON decodes with no transcript, empty projections stay absent on encode, and summary-only injected scheduler workers remain source-compatible. |
+| UX | A+ | Native SwiftUI, static HTML, and Playwright share a compact disclosure with a stable tabular step count, restrained nested surface, and full-size interaction target. |
+| Tests | A+ | Core round trips, legacy decoding, real worker tool execution, redaction, scheduler propagation, thread persistence replay, static HTML, and Playwright disclosure behavior cover the full path. |
+
+Validation:
+
+- `swift test --filter 'WorkspaceSubagentModelWorkerTests|WorkspaceSubagentSchedulerTests|WorkspaceActivitySubagentIntegrationTests|ToolSchemaCoreTests'`
+- `npm test -- workspace-state.spec.ts`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
+
 ## 2026-07-11 Interactive Terminal Keyboard Slice
 
 Overall grade after this slice: **A+ protocol architecture, A+ terminal keyboard parity**.

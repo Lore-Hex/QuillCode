@@ -110,7 +110,23 @@ final class ToolSchemaCoreTests: XCTestCase {
                     name: "Explorer",
                     role: "Find relevant files.",
                     status: .completed,
-                    summary: "Mapped the Activity pane."
+                    summary: "Mapped the Activity pane.",
+                    transcript: [
+                        SubagentTranscriptEntry(
+                            id: "tool-search",
+                            kind: .tool,
+                            title: "Search files",
+                            detail: "Completed - Activity pane",
+                            statusLabel: "Done"
+                        ),
+                        SubagentTranscriptEntry(
+                            id: "response",
+                            kind: .assistant,
+                            title: "Response",
+                            detail: "Mapped the Activity pane.",
+                            statusLabel: "Answered"
+                        )
+                    ]
                 ),
                 SubagentProgressItem(
                     name: "Verifier",
@@ -131,6 +147,8 @@ final class ToolSchemaCoreTests: XCTestCase {
         let decoded = try JSONHelpers.decode(SubagentProgressUpdate.self, from: encoded)
 
         XCTAssertEqual(decoded, update)
+        XCTAssertEqual(decoded.subagents[0].transcript.count, 2)
+        XCTAssertEqual(decoded.subagents[0].transcript[0].kind, .tool)
         XCTAssertEqual(decoded.subagents[2].groupPath, ["Frontend"])
         XCTAssertEqual(ToolDefinition.subagentsUpdate.name, "host.subagents.update")
         XCTAssertEqual(ToolDefinition.subagentsUpdate.host, .local)
@@ -141,6 +159,14 @@ final class ToolSchemaCoreTests: XCTestCase {
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""groupPath""#))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("blocked"))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("cancelled"))
+    }
+
+    func testLegacySubagentProgressItemDecodesWithoutTranscript() throws {
+        let legacyJSON = #"{"name":"Explorer","role":"Inspect files","status":"completed"}"#
+
+        let decoded = try JSONHelpers.decode(SubagentProgressItem.self, from: legacyJSON)
+
+        XCTAssertTrue(decoded.transcript.isEmpty)
     }
 
     func testCoreToolDefinitionSchemasAreValidJSONObjects() throws {

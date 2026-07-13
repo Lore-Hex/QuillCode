@@ -1970,6 +1970,63 @@
       gap: 6px;
       margin-top: 5px;
     }
+    .activity-subagent-transcript {
+      grid-column: 1 / -1;
+      min-width: 0;
+      margin-top: 5px;
+      border-radius: 10px;
+      background: rgba(0,0,0,.16);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .activity-subagent-transcript summary {
+      min-height: var(--hit-target);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .activity-subagent-transcript summary small {
+      margin-left: auto;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+    .activity-subagent-transcript > div {
+      padding: 0 10px;
+    }
+    .activity-transcript-entry {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 2px 8px;
+      padding: 8px 0;
+    }
+    .activity-transcript-entry + .activity-transcript-entry {
+      box-shadow: inset 0 1px rgba(255,255,255,.06);
+    }
+    .activity-transcript-entry strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .activity-transcript-entry em {
+      color: var(--muted);
+      font-size: 11px;
+      font-style: normal;
+    }
+    .activity-transcript-entry p {
+      grid-column: 1 / -1;
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 4;
+      text-wrap: pretty;
+    }
     .activity-source-action {
       flex: 0 0 auto;
       width: auto;
@@ -11154,7 +11211,23 @@
         title: subagent.groupPath?.length ? subagent.name.split('/').pop() : subagent.name,
         detail: `${subagent.role} - ${subagent.summary} - Goal: ${update.objective}`,
         kind: 'subagent',
-        statusLabel: subagentStatusLabel(subagent.status)
+        statusLabel: subagentStatusLabel(subagent.status),
+        transcript: [
+          {
+            id: `tool-${index}`,
+            kind: 'tool',
+            title: index === 0 ? 'Search files' : 'Shell command',
+            detail: index === 0 ? 'Completed - Activity pane sources' : 'Completed - swift test',
+            statusLabel: 'Done'
+          },
+          {
+            id: `response-${index}`,
+            kind: 'assistant',
+            title: 'Response',
+            detail: subagent.summary,
+            statusLabel: 'Answered'
+          }
+        ]
       }));
       addToolCard({
         title: 'host.subagents.update',
@@ -11966,6 +12039,7 @@
               <span>${escapeHTML(item.statusLabel || '')}</span>
               <p>${escapeHTML(item.detail || '')}</p>
               ${renderActivityItemActions(item)}
+              ${renderActivityItemTranscript(item)}
             </article>`).join('');
         } else {
           content = `<p data-testid="${section.itemTestID}-empty">${escapeHTML(section.emptyTitle)}</p>`;
@@ -11988,6 +12062,26 @@
           </button>
           ${content}
         </section>`;
+    }
+
+    function renderActivityItemTranscript(item) {
+      if (!Array.isArray(item.transcript) || !item.transcript.length) return '';
+      const entries = item.transcript.map(entry => `
+        <article
+          class="activity-transcript-entry"
+          data-testid="activity-subagent-transcript-entry"
+          data-kind="${escapeHTML(entry.kind || '')}"
+        >
+          <strong>${escapeHTML(entry.title || '')}</strong>
+          ${entry.statusLabel ? `<em>${escapeHTML(entry.statusLabel)}</em>` : ''}
+          ${entry.detail ? `<p>${escapeHTML(entry.detail)}</p>` : ''}
+        </article>`).join('');
+      const count = item.transcript.length;
+      return `
+        <details class="activity-subagent-transcript" data-testid="activity-subagent-transcript">
+          <summary>Transcript <small>${count} ${count === 1 ? 'step' : 'steps'}</small></summary>
+          <div>${entries}</div>
+        </details>`;
     }
 
     function renderActivityItemActions(item) {
