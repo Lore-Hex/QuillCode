@@ -94,6 +94,21 @@ public enum TopBarOverflowCommandCatalog {
     }
 }
 
+public enum TopBarProjectActionCatalog {
+    public static let commandIDPrefix = "local-env:"
+    public static let testID = "top-bar-project-action"
+
+    public static func commands(
+        from commands: [WorkspaceCommandSurface]
+    ) -> [WorkspaceCommandSurface] {
+        commands.filter { command in
+            command.isEnabled
+                && command.category == WorkspaceCommandPalette.environmentCategory
+                && command.id.hasPrefix(commandIDPrefix)
+        }
+    }
+}
+
 public extension WorkspaceCommandSurface {
     static func automationCreateThreadFollowUp(isEnabled: Bool) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(

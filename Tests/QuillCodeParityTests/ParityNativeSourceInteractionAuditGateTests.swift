@@ -32,6 +32,35 @@ final class ParityNativeSourceInteractionAuditGateTests: QuillCodeParityTestCase
         """)
     }
 
+    func testNativeSourceAuditFindsOuterMenuLabelAfterGroupedButtonLabels() throws {
+        try assertNoNativeSourceAuditViolations(for: """
+        import SwiftUI
+
+        struct GroupedMenuTargets: View {
+            var body: some View {
+                Menu {
+                    Section("Actions") {
+                        Button {} label: {
+                            Label("Bootstrap", systemImage: "hammer")
+                        }
+                        .quillCodePlatformMenuItemTarget(reason: "AppKit owns menu rows.")
+                    }
+
+                    Button {} label: {
+                        Text("Settings")
+                    }
+                    .quillCodePlatformMenuItemTarget(reason: "AppKit owns menu rows.")
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .quillCodeIconButtonTarget()
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .help("More actions")
+            }
+        }
+        """)
+    }
+
     func testNativeSourceAuditRejectsActionButtonStyleWithoutSemanticTarget() throws {
         try assertNativeSourceAuditContains(
             "Button lacks shared hit target",

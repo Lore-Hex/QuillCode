@@ -122,6 +122,24 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-stop-button""#))
+        XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-project-actions""#))
+
+        let action = LocalEnvironmentAction(
+            id: "local-env:.quillcode/actions/bootstrap.sh",
+            title: "Bootstrap",
+            relativePath: ".quillcode/actions/bootstrap.sh",
+            command: "sh .quillcode/actions/bootstrap.sh"
+        )
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode", localActions: [action])
+        let projectHTML = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id
+        )).surface())
+        XCTAssertTrue(projectHTML.contains(#"data-testid="top-bar-project-actions""#))
+        XCTAssertTrue(projectHTML.contains(#"aria-label="Project actions""#))
+        XCTAssertTrue(projectHTML.contains(#"data-testid="top-bar-project-action""#))
+        XCTAssertTrue(projectHTML.contains(#"data-command-id="local-env:.quillcode/actions/bootstrap.sh""#))
+        XCTAssertTrue(projectHTML.contains(">Run Bootstrap</button>"))
 
         let activeHTML = WorkspaceHTMLRenderer.render(activeRunModel().surface())
         XCTAssertFalse(activeHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))

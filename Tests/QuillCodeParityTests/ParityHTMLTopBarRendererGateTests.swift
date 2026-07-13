@@ -18,6 +18,7 @@ final class ParityHTMLTopBarRendererGateTests: QuillCodeParityTestCase {
             "private static func renderActionCluster",
             "private static func renderActivityHairline",
             "private static func renderRuntimeIssuePill",
+            "TopBarProjectActionCatalog.commands",
             "TopBarOverflowCommandCatalog.commands",
             "WorkspaceHTMLPrimitives.escape"
         ].forEach { Self.assertSource(source, contains: $0) }

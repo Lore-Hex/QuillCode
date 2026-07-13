@@ -33,6 +33,26 @@ test('mock harness opens utilities from the top-bar overflow', async ({ page }) 
   await expect(page.getByTestId('top-bar-stop-button')).toHaveCount(0);
 });
 
+test('mock harness runs project Actions from the top-bar overflow', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await openTopBarOverflow(page);
+  await expect(page.getByTestId('top-bar-project-actions')).toBeVisible();
+  const bootstrap = page.locator(
+    '[data-testid="top-bar-project-action"][data-command-id="local-env:.quillcode/actions/bootstrap.sh"]'
+  );
+  await expect(bootstrap).toHaveText('Run Bootstrap');
+  await bootstrap.click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card-input')).toContainText('.quillcode/actions/bootstrap.sh');
+  await expect(page.getByTestId('tool-card-input')).toContainText('QUILL_ENV');
+  await expect(page.getByTestId('tool-card-input')).toContainText('<redacted>');
+  await expect(page.getByTestId('message').last()).toContainText(
+    'Local environment action completed'
+  );
+});
+
 test('mock harness navigates workspace history from the top bar', async ({ page }) => {
   await page.goto(harnessURL());
 
