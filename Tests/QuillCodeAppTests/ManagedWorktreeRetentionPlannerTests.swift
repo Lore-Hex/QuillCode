@@ -64,6 +64,25 @@ final class ManagedWorktreeRetentionPlannerTests: XCTestCase {
         XCTAssertEqual(plan.targetRemovalCount, 1)
         XCTAssertEqual(plan.candidateThreadIDs, [threads[4].id])
     }
+
+    func testProtectsEveryThreadSharingTheSameWorktreePath() throws {
+        let fixture = try Fixture(count: 3)
+        defer { fixture.remove() }
+        var threads = fixture.threads
+        let sharedPath = try XCTUnwrap(threads[0].worktree?.path)
+        threads[1].worktree?.path = sharedPath
+
+        let plan = ManagedWorktreeRetentionPlanner.plan(
+            threads: threads,
+            selectedThreadID: nil,
+            runningThreadIDs: [],
+            settings: ManagedWorktreeSettings(retentionLimit: 1)
+        )
+
+        XCTAssertEqual(plan.activeManagedWorktreeCount, 3)
+        XCTAssertEqual(plan.targetRemovalCount, 2)
+        XCTAssertEqual(plan.candidateThreadIDs, [threads[2].id])
+    }
 }
 
 private final class Fixture {

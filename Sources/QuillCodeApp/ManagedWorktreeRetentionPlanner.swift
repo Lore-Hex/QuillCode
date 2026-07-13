@@ -26,6 +26,11 @@ enum ManagedWorktreeRetentionPlanner {
             thread.worktree?.isDisposableManagedWorktree == true
                 && thread.worktree?.isResolvable == true
         }
+        let bindingCounts = Dictionary(
+            grouping: active,
+            by: normalizedWorktreePath
+        )
+        .mapValues(\.count)
         let targetRemovalCount = max(0, active.count - settings.retentionLimit)
         let candidates = active
             .filter { thread in
@@ -33,6 +38,7 @@ enum ManagedWorktreeRetentionPlanner {
                     && thread.id != selectedThreadID
                     && !runningThreadIDs.contains(thread.id)
                     && thread.worktree?.snapshot == nil
+                    && bindingCounts[normalizedWorktreePath(thread)] == 1
             }
             .sorted { lhs, rhs in
                 if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt < rhs.updatedAt }
@@ -45,5 +51,12 @@ enum ManagedWorktreeRetentionPlanner {
             targetRemovalCount: targetRemovalCount,
             candidateThreadIDs: candidates
         )
+    }
+
+    private static func normalizedWorktreePath(_ thread: ChatThread) -> String {
+        URL(fileURLWithPath: thread.worktree?.path ?? "")
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
     }
 }
