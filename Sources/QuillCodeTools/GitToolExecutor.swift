@@ -9,12 +9,13 @@ public struct GitToolExecutor: Sendable {
 
     public init(
         shell: ShellToolExecutor = ShellToolExecutor(),
-        githubCLIExecutable: URL? = nil
+        githubCLIExecutable: URL? = nil,
+        managedWorktreeRoot: URL? = nil
     ) {
         let runner = GitProcessRunner(githubCLIExecutable: githubCLIExecutable)
         self.local = GitLocalToolExecutor(shell: shell, runner: runner)
         self.pullRequests = GitHubPullRequestToolExecutor(runner: runner)
-        self.worktrees = GitWorktreeToolExecutor(runner: runner)
+        self.worktrees = GitWorktreeToolExecutor(runner: runner, managedRoot: managedWorktreeRoot)
         self.patches = GitPatchToolExecutor(runner: runner)
     }
 

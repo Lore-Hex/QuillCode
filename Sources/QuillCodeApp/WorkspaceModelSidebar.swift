@@ -170,6 +170,9 @@ extension QuillCodeWorkspaceModel {
             saveProjects()
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         }
+        if kind == .unpin {
+            enforceManagedWorktreeRetention()
+        }
         return true
     }
 }

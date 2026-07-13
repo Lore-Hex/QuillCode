@@ -14,6 +14,7 @@ final class QuillCodePathsTests: PersistenceTestCase {
             paths.attachmentsDirectory,
             paths.memoriesDirectory,
             paths.worktreeSnapshotsDirectory,
+            paths.worktreesDirectory,
             paths.secretsDirectory
         ] {
             var isDirectory: ObjCBool = false

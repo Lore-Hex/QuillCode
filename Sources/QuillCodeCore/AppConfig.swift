@@ -67,6 +67,72 @@ public struct RunSpendPeriodLimits: Codable, Sendable, Hashable {
     }
 }
 
+public struct ManagedWorktreeSettings: Codable, Sendable, Hashable {
+    public static let defaultRetentionLimit = 15
+    public static let retentionLimitRange = 1...1_000
+
+    /// nil uses QuillCode's application-owned worktree directory.
+    public var rootPath: String?
+    public var automaticCleanupEnabled: Bool
+    public var retentionLimit: Int
+
+    public init(
+        rootPath: String? = nil,
+        automaticCleanupEnabled: Bool = true,
+        retentionLimit: Int = Self.defaultRetentionLimit
+    ) {
+        self.rootPath = Self.normalizedRootPath(rootPath)
+        self.automaticCleanupEnabled = automaticCleanupEnabled
+        self.retentionLimit = Self.normalizedRetentionLimit(retentionLimit)
+    }
+
+    public func resolvedRoot(defaultRoot: URL, homeDirectory: URL) -> URL {
+        guard let rootPath else { return defaultRoot.standardizedFileURL }
+        if rootPath == "~" {
+            return homeDirectory.standardizedFileURL
+        }
+        if rootPath.hasPrefix("~/") {
+            return homeDirectory
+                .appendingPathComponent(String(rootPath.dropFirst(2)))
+                .standardizedFileURL
+        }
+        return URL(fileURLWithPath: rootPath).standardizedFileURL
+    }
+
+    public static func normalizedRetentionLimit(_ value: Int) -> Int {
+        min(max(value, retentionLimitRange.lowerBound), retentionLimitRange.upperBound)
+    }
+
+    public static func normalizedRootPath(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard trimmed == "~" || trimmed.hasPrefix("~/") || trimmed.hasPrefix("/") else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rootPath
+        case automaticCleanupEnabled
+        case retentionLimit
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            rootPath: try container.decodeIfPresent(String.self, forKey: .rootPath),
+            automaticCleanupEnabled: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .automaticCleanupEnabled
+            ) ?? true,
+            retentionLimit: try container.decodeIfPresent(Int.self, forKey: .retentionLimit)
+                ?? Self.defaultRetentionLimit
+        )
+    }
+}
+
 public struct AppConfig: Codable, Sendable, Hashable {
     public var defaultModel: String
     public var mode: AgentMode
@@ -82,6 +148,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var notificationPreferences: QuillCodeNotificationPreferences
     public var runSpendFuseUSD: Double?
     public var runSpendPeriodLimits: RunSpendPeriodLimits
+    public var managedWorktrees: ManagedWorktreeSettings
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -98,6 +165,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case notificationPreferences
         case runSpendFuseUSD
         case runSpendPeriodLimits
+        case managedWorktrees
     }
 
     public init(
@@ -114,7 +182,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         browserBlockedDomains: [String] = [],
         notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
         runSpendFuseUSD: Double? = 1.0,
-        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits()
+        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
+        managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings()
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -136,6 +205,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.notificationPreferences = notificationPreferences
         self.runSpendFuseUSD = Self.normalizedRunSpendFuse(runSpendFuseUSD)
         self.runSpendPeriodLimits = runSpendPeriodLimits
+        self.managedWorktrees = managedWorktrees
     }
 
     public var browserDomainPolicy: BrowserDomainPolicy {
@@ -191,7 +261,11 @@ public struct AppConfig: Codable, Sendable, Hashable {
             runSpendPeriodLimits: try container.decodeIfPresent(
                 RunSpendPeriodLimits.self,
                 forKey: .runSpendPeriodLimits
-            ) ?? RunSpendPeriodLimits()
+            ) ?? RunSpendPeriodLimits(),
+            managedWorktrees: try container.decodeIfPresent(
+                ManagedWorktreeSettings.self,
+                forKey: .managedWorktrees
+            ) ?? ManagedWorktreeSettings()
         )
     }
 

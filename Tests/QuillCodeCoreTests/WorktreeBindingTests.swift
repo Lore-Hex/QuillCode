@@ -28,7 +28,25 @@ final class WorktreeBindingTests: XCTestCase {
         )
 
         XCTAssertEqual(binding.location, .worktree)
+        XCTAssertNil(binding.managedRoot)
         XCTAssertNil(binding.snapshot)
+    }
+
+    func testManagedRootRoundTripsWithBinding() throws {
+        let binding = WorktreeBinding(
+            path: "/state/worktrees/task-1",
+            branch: "",
+            base: "main",
+            managedRoot: "/state/worktrees"
+        )
+
+        let decoded = try JSONDecoder().decode(
+            WorktreeBinding.self,
+            from: JSONEncoder().encode(binding)
+        )
+
+        XCTAssertEqual(decoded, binding)
+        XCTAssertEqual(decoded.managedRoot, "/state/worktrees")
     }
 
     func testExplicitLocationRoundTrips() throws {

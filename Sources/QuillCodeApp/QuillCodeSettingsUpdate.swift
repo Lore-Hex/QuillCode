@@ -14,6 +14,7 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var notificationPreferences: QuillCodeNotificationPreferences
     public var runSpendFuseUSD: Double?
     public var runSpendPeriodLimits: RunSpendPeriodLimits
+    public var managedWorktrees: ManagedWorktreeSettings
 
     public init(
         apiBaseURL: String,
@@ -27,7 +28,8 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         browserBlockedDomains: [String] = [],
         notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
         runSpendFuseUSD: Double? = 1.0,
-        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits()
+        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
+        managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings()
     ) {
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
@@ -50,5 +52,6 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         self.notificationPreferences = notificationPreferences
         self.runSpendFuseUSD = RunSpendLedger.normalizedFuse(runSpendFuseUSD)
         self.runSpendPeriodLimits = runSpendPeriodLimits
+        self.managedWorktrees = managedWorktrees
     }
 }

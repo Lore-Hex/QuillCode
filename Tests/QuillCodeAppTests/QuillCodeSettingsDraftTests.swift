@@ -30,6 +30,39 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(draft.runSpendDailyLimitUSDText, "")
         XCTAssertEqual(draft.runSpendWeeklyLimitUSDText, "")
         XCTAssertEqual(draft.runSpendMonthlyLimitUSDText, "")
+        XCTAssertEqual(draft.managedWorktreeRetentionLimit, 15)
+        XCTAssertTrue(draft.managedWorktreeAutomaticCleanupEnabled)
+        XCTAssertEqual(draft.managedWorktreeRootPathText, draft.managedWorktreeDefaultRootPath)
+    }
+
+    func testManagedWorktreeSettingsInitializeUpdateAndResetToDefault() {
+        let defaultRoot = URL(fileURLWithPath: "/state/default-worktrees")
+        let surface = WorkspaceSettingsSurface(
+            config: AppConfig(managedWorktrees: ManagedWorktreeSettings(
+                rootPath: "/Volumes/Quill Tasks",
+                automaticCleanupEnabled: false,
+                retentionLimit: 27
+            )),
+            hasStoredAPIKey: false,
+            managedWorktreeDefaultRoot: defaultRoot
+        )
+        var draft = QuillCodeSettingsDraft(settings: surface)
+
+        XCTAssertEqual(draft.managedWorktreeRootPathText, "/Volumes/Quill Tasks")
+        XCTAssertFalse(draft.managedWorktreeAutomaticCleanupEnabled)
+        XCTAssertEqual(draft.managedWorktreeRetentionLimit, 27)
+        XCTAssertEqual(draft.update.managedWorktrees.rootPath, "/Volumes/Quill Tasks")
+
+        draft.managedWorktreeRootPathText = draft.managedWorktreeDefaultRootPath
+        XCTAssertNil(draft.update.managedWorktrees.rootPath)
+    }
+
+    func testRelativeManagedWorktreeRootCannotSave() {
+        var draft = QuillCodeSettingsDraft()
+        draft.apiBaseURL = "https://api.trustedrouter.test/v1"
+        draft.managedWorktreeRootPathText = "relative/worktrees"
+
+        XCTAssertFalse(draft.canSave)
     }
 
     func testUpdateTrimsBaseURLAndReplacementKey() {

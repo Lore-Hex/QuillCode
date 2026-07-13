@@ -849,6 +849,8 @@
     .settings-card,
     .search-card {
       width: min(520px, 100%);
+      min-width: 0;
+      max-width: 100%;
       max-height: calc(100vh - 48px);
       overflow: auto;
       display: grid;
@@ -861,6 +863,10 @@
     }
     .search-card { width: min(620px, 100%); }
     .settings-card h2, .settings-card p { margin: 0; }
+    .settings-card > *,
+    .permission-card > * { min-width: 0; }
+    .settings-card p,
+    .permission-card p { overflow-wrap: anywhere; }
     .search-card h2, .search-card p { margin: 0; }
     .settings-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
     .search-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
@@ -988,10 +994,11 @@
     }
     .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
-    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 10px; background: rgba(255,255,255,.035); border: 1px solid rgba(255, 255, 255, .08); }
+    .permission-card { min-width: 0; display: grid; gap: 12px; padding: 14px; border-radius: 10px; background: rgba(255,255,255,.035); border: 1px solid rgba(255, 255, 255, .08); }
     .permission-card h3 { margin: 0 0 6px; }
     .permission-card p { margin: 0; }
-    .permission-card header, .permission-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .permission-card header, .permission-row { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .permission-card header > div { min-width: 0; }
     .permission-row { padding: 10px; border-radius: 10px; background: rgba(0, 0, 0, .16); }
     .permission-row > div { min-width: 0; }
     .permission-row strong { display: block; }
@@ -4510,6 +4517,10 @@
         modelProviderHealthDetail: 'TrustedRouter catalog did not include live provider status metadata.',
         accountLabel: null,
         replacementAPIKey: '',
+        managedWorktreeRootPath: '/Users/quill/.quillcode/worktrees',
+        managedWorktreeDefaultRootPath: '/Users/quill/.quillcode/worktrees',
+        managedWorktreeAutomaticCleanupEnabled: true,
+        managedWorktreeRetentionLimit: 15,
         computerUseStatus: {
           available: false,
           screenRecordingGranted: false,
@@ -9403,12 +9414,27 @@
         }
         render();
       });
+      document.querySelector('[data-testid="worktree-settings-use-default"]')?.addEventListener('click', () => {
+        state.settings.managedWorktreeRootPath = state.settings.managedWorktreeDefaultRootPath;
+        render();
+      });
+      document.querySelector('[data-testid="worktree-settings-cleanup"]')?.addEventListener('change', event => {
+        state.settings.managedWorktreeAutomaticCleanupEnabled = event.currentTarget.checked;
+        render();
+      });
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
         state.settings.apiBaseURL = form.elements.namedItem('apiBaseURL').value.trim();
         state.settings.authMode = form.elements.namedItem('authMode').value;
         state.settings.developerOverrideEnabled = state.settings.authMode === 'developer-override';
+        state.settings.managedWorktreeRootPath = form.elements.namedItem('managedWorktreeRootPath').value.trim();
+        state.settings.managedWorktreeAutomaticCleanupEnabled = form.elements
+          .namedItem('managedWorktreeAutomaticCleanupEnabled').checked;
+        state.settings.managedWorktreeRetentionLimit = Math.max(
+          1,
+          Math.min(1000, Number(form.elements.namedItem('managedWorktreeRetentionLimit')?.value || 15))
+        );
         state.settings.computerUseApprovedBundleIdentifiers = normalizedApprovalValues(
           form.elements.namedItem('computerUseApprovedBundleIdentifiers')?.value || ''
         );
@@ -10205,6 +10231,7 @@
             <p data-testid="settings-model-catalog-status" title="${escapeHTML(state.settings.modelCatalogStatusDetail || state.settings.modelCatalogStatusLabel)}">${escapeHTML(state.settings.modelCatalogStatusLabel)}</p>
             ${state.settings.modelProviderHealthLabel ? `<p data-testid="settings-provider-health" title="${escapeHTML(state.settings.modelProviderHealthDetail || state.settings.modelProviderHealthLabel)}">${escapeHTML(state.settings.modelProviderHealthLabel)}</p>` : ''}
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
+            ${renderManagedWorktreeSettingsCard()}
             ${renderComputerUseSettingsCard()}
             ${renderComputerUseApprovalSettingsCard()}
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
@@ -10236,6 +10263,40 @@
             </div>
           </form>
         </div>`;
+    }
+
+    function renderManagedWorktreeSettingsCard() {
+      const automatic = state.settings.managedWorktreeAutomaticCleanupEnabled;
+      const status = automatic ? `Keep ${state.settings.managedWorktreeRetentionLimit}` : 'Manual cleanup';
+      const summary = automatic
+        ? `New task worktrees use ${state.settings.managedWorktreeRootPath}. QuillCode snapshots and removes the oldest eligible worktrees after the newest ${state.settings.managedWorktreeRetentionLimit}.`
+        : `New task worktrees use ${state.settings.managedWorktreeRootPath}. Automatic deletion is off; archive cleanup still saves work before removing disposable worktrees.`;
+      return `
+        <section class="permission-card" data-testid="managed-worktree-settings">
+          <header>
+            <div>
+              <h3>Worktrees</h3>
+              <p data-testid="managed-worktree-summary">${escapeHTML(summary)}</p>
+            </div>
+            <span class="permission-status-pill" data-testid="managed-worktree-status" data-available="${automatic}">${escapeHTML(status)}</span>
+          </header>
+          <label>
+            Worktree root
+            <input class="hit-target-text-entry" name="managedWorktreeRootPath" data-testid="worktree-settings-root" aria-label="Worktree root" value="${escapeHTML(state.settings.managedWorktreeRootPath)}">
+          </label>
+          <div class="permission-actions">
+            <button class="hit-target-text" type="button" data-testid="worktree-settings-use-default" ${state.settings.managedWorktreeRootPath === state.settings.managedWorktreeDefaultRootPath ? 'disabled' : ''}>Use default</button>
+          </div>
+          <label class="hit-target-switch-row" data-hit-target-kind="switch-row" data-hit-target-action="press" data-hit-target-source="explicit">
+            <input type="checkbox" name="managedWorktreeAutomaticCleanupEnabled" data-testid="worktree-settings-cleanup" ${automatic ? 'checked' : ''}>
+            <span>Automatically clean up old managed worktrees</span>
+          </label>
+          <label>
+            Keep recent worktrees
+            <input class="hit-target-text-entry" type="number" min="1" max="1000" name="managedWorktreeRetentionLimit" data-testid="worktree-settings-retention" aria-label="Keep recent worktrees" value="${state.settings.managedWorktreeRetentionLimit}" ${automatic ? '' : 'disabled'}>
+          </label>
+          <p class="permission-footnote">Pinned, running, selected, Local-handoff, and permanent branch worktrees are never removed automatically. Every eligible worktree is snapshotted before deletion.</p>
+        </section>`;
     }
 
     function renderComputerUseSettingsCard() {

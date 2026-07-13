@@ -51,6 +51,20 @@ final class WorktreeThreadPlannerTests: XCTestCase {
         )
         XCTAssertNotEqual(first.request.path, second.request.path)
     }
+
+    func testConfiguredManagedRootOwnsCreatedPath() {
+        let managedRoot = URL(fileURLWithPath: "/state/quillcode/worktrees")
+        let plan = WorktreeThreadPlanner.plan(
+            projectRoot: root,
+            baseBranch: "main",
+            name: "Try It",
+            managedRoot: managedRoot,
+            identifier: "ABCDEF12-3456"
+        )
+
+        XCTAssertEqual(plan.request.path, "/state/quillcode/worktrees/MyRepo-try-it-abcdef12")
+        XCTAssertEqual(plan.managedRoot, managedRoot)
+    }
 }
 
 // MARK: - Functional/integration: newWorktreeThread through the model against a real git repo
@@ -77,7 +91,9 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testNewWorktreeThreadCreatesIsolatedBoundThreadInSameProject() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         let localThread = model.newChat(projectID: projectID)
@@ -132,7 +148,9 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testSecondWorktreeThreadWithSameNameGetsDistinctManagedPath() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
 
@@ -155,7 +173,9 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testManagedTaskHandsOffToLocalAndBackWithoutChangingItsThreadOrWorktree() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         try "task edit\n".write(
@@ -210,7 +230,9 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testCreateBranchHereKeepsTaskInWorktreeAndPersistsOwnership() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         let threadID = try XCTUnwrap(model.newWorktreeThread(name: "owned"))
@@ -235,7 +257,9 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testCreateBranchHereFailureDoesNotMutateDetachedBinding() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         _ = try XCTUnwrap(model.newWorktreeThread(name: "invalid"))

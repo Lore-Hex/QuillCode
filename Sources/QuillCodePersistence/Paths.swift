@@ -11,6 +11,7 @@ public struct QuillCodePaths: Sendable, Hashable {
     public var attachmentsDirectory: URL { home.appendingPathComponent("attachments") }
     public var memoriesDirectory: URL { home.appendingPathComponent("memories") }
     public var worktreeSnapshotsDirectory: URL { home.appendingPathComponent("worktree-snapshots") }
+    public var worktreesDirectory: URL { home.appendingPathComponent("worktrees") }
     public var secretsDirectory: URL { home.appendingPathComponent("secrets") }
     public var permissionsDirectory: URL { home.appendingPathComponent("permissions") }
 
@@ -24,6 +25,7 @@ public struct QuillCodePaths: Sendable, Hashable {
         try FileManager.default.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: memoriesDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: worktreeSnapshotsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: worktreesDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: secretsDirectory, withIntermediateDirectories: true)
     }
 }

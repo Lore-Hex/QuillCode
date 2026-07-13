@@ -18,6 +18,38 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.prometheusModel)
     }
 
+    func testConfigRoundTripsManagedWorktreeSettings() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(managedWorktrees: ManagedWorktreeSettings(
+            rootPath: "~/QuillCode Tasks",
+            automaticCleanupEnabled: false,
+            retentionLimit: 42
+        ))
+
+        try store.save(config)
+
+        XCTAssertEqual(try store.load().managedWorktrees, config.managedWorktrees)
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"managed_worktree_root = "~/QuillCode Tasks""#))
+        XCTAssertTrue(stored.contains("managed_worktree_automatic_cleanup_enabled = false"))
+        XCTAssertTrue(stored.contains("managed_worktree_retention_limit = 42"))
+    }
+
+    func testConfigNormalizesInvalidManagedWorktreeValues() throws {
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        try """
+        managed_worktree_root = "relative/path"
+        managed_worktree_automatic_cleanup_enabled = nope
+        managed_worktree_retention_limit = 0
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let settings = try ConfigStore(fileURL: fileURL).load().managedWorktrees
+
+        XCTAssertNil(settings.rootPath)
+        XCTAssertTrue(settings.automaticCleanupEnabled)
+        XCTAssertEqual(settings.retentionLimit, 1)
+    }
+
     func testConfigDefaultsToOAuthAuthMode() throws {
         let store = try makeConfigStore()
 

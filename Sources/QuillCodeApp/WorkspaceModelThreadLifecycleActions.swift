@@ -19,16 +19,23 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func togglePinThread(_ id: UUID) {
-        _ = updateAndSaveThread { threads in
+        let changed = updateAndSaveThread { threads in
             WorkspaceThreadLifecycleEngine.togglePinThread(id, threads: &threads)
+        }
+        if changed?.isPinned == false {
+            enforceManagedWorktreeRetention()
         }
     }
 
     @discardableResult
     public func setPinThread(_ id: UUID, isPinned: Bool) -> Bool {
-        updateAndSaveThread { threads in
+        let changed = updateAndSaveThread { threads in
             WorkspaceThreadLifecycleEngine.setPinThread(id, isPinned: isPinned, threads: &threads)
-        } != nil
+        }
+        if changed != nil, !isPinned {
+            enforceManagedWorktreeRetention()
+        }
+        return changed != nil
     }
 
     @discardableResult

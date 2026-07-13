@@ -642,6 +642,40 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(prune.ok, "\(prune.error ?? "") \(prune.stderr)")
     }
 
+    func testManagedCreateOpenAndRemoveUsesConfiguredRootOutsideRepositoryParent() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let managedRoot = try makeTempDirectory().appendingPathComponent("managed-worktrees")
+        let worktree = managedRoot.appendingPathComponent("task-one")
+        let git = GitToolExecutor(managedWorktreeRoot: managedRoot)
+
+        let create = git.createWorktree(cwd: root, path: worktree.path, managed: true)
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        XCTAssertEqual(create.artifacts, [worktree.path])
+
+        let open = git.openWorktree(cwd: root, path: worktree.path)
+        XCTAssertTrue(open.ok, "\(open.error ?? "") \(open.stderr)")
+        XCTAssertEqual(open.artifacts, [worktree.path])
+
+        let remove = git.removeWorktree(cwd: root, path: worktree.path, force: true)
+        XCTAssertTrue(remove.ok, "\(remove.error ?? "") \(remove.stderr)")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
+    }
+
+    func testConfiguredManagedRootDoesNotAuthorizeOrdinaryWorktreeCreation() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let managedRoot = try makeTempDirectory().appendingPathComponent("managed-worktrees")
+        let git = GitToolExecutor(managedWorktreeRoot: managedRoot)
+
+        let result = git.createWorktree(
+            cwd: root,
+            path: managedRoot.appendingPathComponent("ordinary").path,
+            branch: "feature/ordinary"
+        )
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+    }
+
     func testCreateRejectsUnsafePath() throws {
         let root = try makeTempGitRepoWithInitialCommit()
 
@@ -669,6 +703,42 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         }
         // A legitimate sibling worktree (no symlink) is still allowed.
         XCTAssertNoThrow(try GitWorktreeToolExecutor.safePath("project-wt", cwd: workspace))
+    }
+
+    func testManagedPathRejectsRootSiblingAndSymlinkEscape() throws {
+        let workspace = try makeTempDirectory().appendingPathComponent("project")
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let managedRoot = try makeTempDirectory().appendingPathComponent("managed")
+        try FileManager.default.createDirectory(at: managedRoot, withIntermediateDirectories: true)
+        let outside = try makeTempDirectory()
+        try FileManager.default.createSymbolicLink(
+            at: managedRoot.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+
+        XCTAssertThrowsError(try GitWorktreeToolExecutor.safeManagedPath(
+            managedRoot.path,
+            cwd: workspace,
+            managedRoot: managedRoot
+        ))
+        XCTAssertThrowsError(try GitWorktreeToolExecutor.safeManagedPath(
+            managedRoot.deletingLastPathComponent().appendingPathComponent("sibling").path,
+            cwd: workspace,
+            managedRoot: managedRoot
+        ))
+        XCTAssertThrowsError(try GitWorktreeToolExecutor.safeManagedPath(
+            "escape/task",
+            cwd: workspace,
+            managedRoot: managedRoot
+        ))
+        XCTAssertEqual(
+            try GitWorktreeToolExecutor.safeManagedPath(
+                "task",
+                cwd: workspace,
+                managedRoot: managedRoot
+            ),
+            managedRoot.appendingPathComponent("task").path
+        )
     }
 
     func testCreateRejectsUnsafeBranchAndBaseNames() throws {

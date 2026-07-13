@@ -20,6 +20,7 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.browserBlockedDomains, [])
         XCTAssertEqual(config.notificationPreferences, QuillCodeNotificationPreferences())
         XCTAssertEqual(config.runSpendFuseUSD, 1.0)
+        XCTAssertEqual(config.managedWorktrees, ManagedWorktreeSettings())
     }
 
     func testAppConfigDecodesAndNormalizesRunSpendFuse() throws {

@@ -15,14 +15,19 @@ struct GitManagedWorktreeMaterializer: Sendable {
         self.snapshotApplier = ManagedWorktreeSnapshotApplier(runner: runner)
     }
 
-    func create(cwd: URL, path: String, base: String?) -> ToolResult {
+    func create(cwd: URL, path: String, base: String?, managedRoot: URL?) -> ToolResult {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-managed-worktree-\(UUID().uuidString)")
         do {
-            let worktreePath = try GitWorktreeToolExecutor.safePath(path, cwd: cwd)
+            let worktreePath = try managedRoot.map {
+                try GitWorktreeToolExecutor.safeManagedPath(path, cwd: cwd, managedRoot: $0)
+            } ?? GitWorktreeToolExecutor.safePath(path, cwd: cwd)
             let baseRef = try GitInputValidator.safeName(
                 GitInputValidator.trimmedNonEmpty(base) ?? "HEAD"
             )
+            if let managedRoot {
+                try FileManager.default.createDirectory(at: managedRoot, withIntermediateDirectories: true)
+            }
             try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
