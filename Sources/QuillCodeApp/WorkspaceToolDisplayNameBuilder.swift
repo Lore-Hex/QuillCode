@@ -61,6 +61,7 @@ enum WorkspaceToolDisplayNameBuilder {
         ToolDefinition.mcpCall.name,
         ToolDefinition.mcpReadResource.name,
         ToolDefinition.mcpGetPrompt.name,
+        ToolDefinition.localPluginInstall.name,
         ToolDefinition.memoryRemember.name,
         ToolDefinition.planUpdate.name,
         ToolDefinition.handoffUpdate.name,
@@ -177,6 +178,8 @@ enum WorkspaceToolDisplayNameBuilder {
             return "MCP resource"
         case ToolDefinition.mcpGetPrompt.name:
             return "MCP prompt"
+        case ToolDefinition.localPluginInstall.name:
+            return "Install plugin"
         case ToolDefinition.memoryRemember.name:
             return "Save memory"
         case ToolDefinition.planUpdate.name:

@@ -109,6 +109,11 @@ public struct ToolRouter: Sendable {
                 )
             case ToolDefinition.skillLoad.name:
                 return skill.load(name: try args.requiredString("name"))
+            case ToolDefinition.localPluginInstall.name:
+                return LocalPluginInstallToolExecutor(workspaceRoot: workspaceRoot).install(
+                    sourceRelativePath: try args.requiredString("source"),
+                    expectedPluginName: try args.requiredString("pluginName")
+                )
             default:
                 return ToolResult(ok: false, error: "Unknown tool: \(call.name)")
             }

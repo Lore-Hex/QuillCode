@@ -105,6 +105,23 @@ final class ProjectExtensionManifestSurfaceTests: XCTestCase {
         XCTAssertNil(missingCommandSurface.startCommandID)
     }
 
+    func testLocalMarketplacePackageIsAvailableWithoutExposingACommand() {
+        let manifest = ProjectExtensionManifest(
+            id: "plugin:review-kit",
+            kind: .plugin,
+            name: "Review Kit",
+            relativePath: ".agents/plugins/marketplace.json#review-kit",
+            localInstallSourceRelativePath: "./plugins/review-kit"
+        )
+
+        let surface = ProjectExtensionManifestSurface(manifest: manifest)
+
+        XCTAssertEqual(surface.statusLabel, "Available")
+        XCTAssertTrue(surface.canInstall)
+        XCTAssertEqual(surface.installCommandID, "extension-install:plugin:review-kit")
+        XCTAssertNil(surface.installCommand)
+    }
+
     func testDecodesOlderPayloadWithoutMCPResourcesPromptsOrUpdateMetadata() throws {
         let data = """
         {

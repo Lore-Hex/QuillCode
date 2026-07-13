@@ -88,6 +88,8 @@ enum WorkspaceToolCardSubtitleBuilder {
                 ?? sanitized(arguments.string("uri"))
         case ToolDefinition.mcpGetPrompt.name:
             return sanitized(arguments.string("promptName")) ?? sanitized(arguments.string("name"))
+        case ToolDefinition.localPluginInstall.name:
+            return sanitized(arguments.string("pluginName"))
         case ToolDefinition.computerClick.name, ToolDefinition.computerMove.name:
             return coordinateDetail(arguments, "x", "y")
         case ToolDefinition.computerScroll.name:

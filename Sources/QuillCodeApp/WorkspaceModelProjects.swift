@@ -162,7 +162,7 @@ extension QuillCodeWorkspaceModel {
         runProjectExtensionCommand(
             id: id,
             workspaceRoot: workspaceRoot,
-            planToolCall: WorkspaceShellToolCallPlanner.projectExtensionUpdate,
+            planToolCall: WorkspaceExtensionToolCallPlanner.update,
             successNotice: { "Updated extension \($0.name)" },
             failureNotice: { "Extension update failed for \($0.name)" }
         )
@@ -173,7 +173,7 @@ extension QuillCodeWorkspaceModel {
         runProjectExtensionCommand(
             id: id,
             workspaceRoot: workspaceRoot,
-            planToolCall: WorkspaceShellToolCallPlanner.projectExtensionInstall,
+            planToolCall: WorkspaceExtensionToolCallPlanner.install,
             successNotice: { "Installed extension \($0.name)" },
             failureNotice: { "Extension install failed for \($0.name)" }
         )

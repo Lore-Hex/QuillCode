@@ -120,7 +120,7 @@ enum WorkspaceProjectCommandCatalog {
         hasActiveWorkspaceRoot: Bool
     ) -> [WorkspaceCommandSurface] {
         manifests
-            .filter { action.command(for: $0) != nil }
+            .filter { action.isAvailable(for: $0) }
             .map { manifest in
                 WorkspaceCommandSurface(
                     id: "extension-\(action.rawValue):\(manifest.id)",
@@ -204,12 +204,12 @@ private enum ExtensionLifecycleAction: String {
         }
     }
 
-    func command(for manifest: ProjectExtensionManifest) -> String? {
+    func isAvailable(for manifest: ProjectExtensionManifest) -> Bool {
         switch self {
         case .install:
-            return manifest.installCommand
+            return manifest.installCommand != nil || manifest.localInstallSourceRelativePath != nil
         case .update:
-            return manifest.updateCommand
+            return manifest.updateCommand != nil
         }
     }
 }

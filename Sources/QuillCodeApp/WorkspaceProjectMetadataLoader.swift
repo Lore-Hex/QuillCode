@@ -11,8 +11,12 @@ enum WorkspaceProjectMetadataLoader {
             from: root,
             installedManifests: installedManifests
         )
+        let standardMarketplaceManifests = CodexPluginMarketplaceLoader.load(
+            from: root,
+            installedManifests: installedManifests + marketplaceManifests
+        )
         let bundledMarketplaceManifests = BundledExtensionMarketplace.availableManifests(
-            excluding: installedManifests + marketplaceManifests
+            excluding: installedManifests + marketplaceManifests + standardMarketplaceManifests
         )
         return WorkspaceProjectMetadata(
             instructions: ProjectInstructionLoader.load(from: root),
@@ -27,7 +31,10 @@ enum WorkspaceProjectMetadataLoader {
                 afterAgentRunDirectories: configuration.afterAgentRunHookDirectories,
                 maxHooks: configuration.maxRunHooks
             ),
-            extensionManifests: installedManifests + marketplaceManifests + bundledMarketplaceManifests,
+            extensionManifests: installedManifests
+                + marketplaceManifests
+                + standardMarketplaceManifests
+                + bundledMarketplaceManifests,
             memories: MemoryNoteLoader.loadProject(from: root)
         )
     }

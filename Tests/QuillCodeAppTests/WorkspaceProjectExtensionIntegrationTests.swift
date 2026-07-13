@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 @MainActor
@@ -217,6 +218,56 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertTrue(
             model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true
         )
+    }
+
+    func testStandardMarketplaceInstallUsesTypedToolAndRefreshesToInstalledPackage() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let catalog = root.appendingPathComponent(".agents/plugins/marketplace.json")
+        let manifest = root.appendingPathComponent("catalog/github/.codex-plugin/plugin.json")
+        try FileManager.default.createDirectory(
+            at: catalog.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: manifest.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"name":"repo-tools","plugins":[{"name":"github","source":"./catalog/github"}]}"#.write(
+            to: catalog,
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"name":"github","version":"1.2.0","description":"PR workflow helpers."}"#.write(
+            to: manifest,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Standard Marketplace Project")
+        model.selectProject(projectID)
+
+        let available = try XCTUnwrap(model.surface().extensions.items.first { $0.id == "plugin:github" })
+        XCTAssertEqual(available.statusLabel, "Available")
+        XCTAssertNil(available.installCommand)
+        XCTAssertEqual(available.installCommandID, "extension-install:plugin:github")
+
+        XCTAssertTrue(model.runWorkspaceCommand("extension-install:plugin:github", workspaceRoot: root))
+
+        let installed = try XCTUnwrap(model.surface().extensions.items.first { $0.id == "plugin:github" })
+        XCTAssertEqual(installed.statusLabel, "Discovered")
+        XCTAssertEqual(installed.relativePath, ".quillcode/plugins/github/.codex-plugin/plugin.json")
+        XCTAssertNil(installed.installCommandID)
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent(".quillcode/plugins/github/.codex-plugin/plugin.json").path
+        ))
+        XCTAssertTrue(model.selectedThread?.events.contains(where: {
+            $0.kind == .toolCompleted
+                && $0.summary == "\(ToolDefinition.localPluginInstall.name) completed"
+        }) == true)
+        XCTAssertTrue(model.selectedThread?.events.contains(where: {
+            $0.summary == "Installed extension \(available.name)"
+        }) == true)
     }
 
     func testProjectExtensionUpdateFailureKeepsManifestAndRecordsFailureNotice() throws {

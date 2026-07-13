@@ -51,6 +51,9 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
     public var launchEnvironment: [String: String]?
     /// Parent-process environment names a bundled server explicitly requests.
     public var inheritedEnvironmentVariableNames: [String]?
+    /// Workspace-relative source of a data-only local plugin package offered by a marketplace.
+    /// Installation revalidates this path and the package manifest immediately before copying.
+    public var localInstallSourceRelativePath: String?
     public var installCommand: String?
     public var installTimeoutSeconds: Int?
     public var updateCommand: String?
@@ -76,6 +79,7 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         skillDirectoryRelativePaths: [String]? = nil,
         launchEnvironment: [String: String]? = nil,
         inheritedEnvironmentVariableNames: [String]? = nil,
+        localInstallSourceRelativePath: String? = nil,
         installCommand: String? = nil,
         installTimeoutSeconds: Int? = nil,
         updateCommand: String? = nil,
@@ -100,6 +104,7 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         self.skillDirectoryRelativePaths = skillDirectoryRelativePaths
         self.launchEnvironment = launchEnvironment
         self.inheritedEnvironmentVariableNames = inheritedEnvironmentVariableNames
+        self.localInstallSourceRelativePath = localInstallSourceRelativePath
         self.installCommand = installCommand
         self.installTimeoutSeconds = installTimeoutSeconds
         self.updateCommand = updateCommand
