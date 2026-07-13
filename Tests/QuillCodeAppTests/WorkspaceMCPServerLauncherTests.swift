@@ -20,6 +20,8 @@ final class WorkspaceMCPServerLauncherTests: XCTestCase {
         XCTAssertEqual(request.serverID, "mcp_server:filesystem")
         XCTAssertEqual(request.command, "mcp-server")
         XCTAssertEqual(request.arguments, ["--root", "."])
+        XCTAssertEqual(request.environment, [:])
+        XCTAssertEqual(request.workingDirectory, root)
         XCTAssertEqual(request.workspaceRoot, root)
     }
 
@@ -49,17 +51,17 @@ final class WorkspaceMCPServerLauncherTests: XCTestCase {
         let absolute = WorkspaceMCPProcessLaunchConfiguration.resolve(
             command: "/opt/quill/mcp",
             arguments: ["--json"],
-            workspaceRoot: root
+            workingDirectory: root
         )
         let relative = WorkspaceMCPProcessLaunchConfiguration.resolve(
             command: "bin/mcp",
             arguments: ["--root", "."],
-            workspaceRoot: root
+            workingDirectory: root
         )
         let pathLookup = WorkspaceMCPProcessLaunchConfiguration.resolve(
             command: "quill-mcp",
             arguments: ["--root", "."],
-            workspaceRoot: root
+            workingDirectory: root
         )
 
         XCTAssertEqual(absolute.executableURL.path, "/opt/quill/mcp")
@@ -68,6 +70,55 @@ final class WorkspaceMCPServerLauncherTests: XCTestCase {
         XCTAssertEqual(relative.arguments, ["--root", "."])
         XCTAssertEqual(pathLookup.executableURL.path, "/usr/bin/env")
         XCTAssertEqual(pathLookup.arguments, ["quill-mcp", "--root", "."])
+    }
+
+    func testPluginLaunchRequestResolvesPackageRootAndExpandsEnvironmentWithoutShell() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let packageRoot = root.appendingPathComponent(".quillcode/plugins/acme")
+        try FileManager.default.createDirectory(at: packageRoot, withIntermediateDirectories: true)
+        let manifest = ProjectExtensionManifest(
+            id: "mcp_server:acme.search",
+            kind: .mcpServer,
+            name: "Acme Search",
+            relativePath: ".quillcode/plugins/acme/.mcp.json#search",
+            transport: .stdio,
+            launchExecutable: "${CODEX_PLUGIN_ROOT}/bin/server",
+            launchCommand: "${CODEX_PLUGIN_ROOT}/bin/server --config ${CODEX_PLUGIN_ROOT}/config.json",
+            launchArguments: ["--config", "${CODEX_PLUGIN_ROOT}/config.json"],
+            packageRootRelativePath: ".quillcode/plugins/acme",
+            launchEnvironment: ["ACME_CONFIG": "${CODEX_PLUGIN_ROOT}/config.json"]
+        )
+
+        let request = try WorkspaceMCPLaunchRequest.make(manifest: manifest, workspaceRoot: root)
+
+        XCTAssertEqual(request.command, packageRoot.appendingPathComponent("bin/server").path)
+        XCTAssertEqual(request.arguments, [
+            "--config",
+            packageRoot.appendingPathComponent("config.json").path
+        ])
+        XCTAssertEqual(request.workingDirectory.standardizedFileURL.path, packageRoot.standardizedFileURL.path)
+        XCTAssertEqual(request.environment["CODEX_PLUGIN_ROOT"], packageRoot.path)
+        XCTAssertEqual(request.environment["ACME_CONFIG"], packageRoot.appendingPathComponent("config.json").path)
+    }
+
+    func testPluginLaunchRequestRejectsMissingOrEscapingPackageRoot() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let manifest = ProjectExtensionManifest(
+            id: "mcp_server:acme.search",
+            kind: .mcpServer,
+            name: "Acme Search",
+            relativePath: ".quillcode/plugins/acme/.mcp.json#search",
+            transport: .stdio,
+            launchExecutable: "server",
+            packageRootRelativePath: "../outside"
+        )
+
+        XCTAssertThrowsError(try WorkspaceMCPLaunchRequest.make(manifest: manifest, workspaceRoot: root)) {
+            XCTAssertEqual(
+                $0 as? WorkspaceMCPLaunchRequestError,
+                .invalidPackageRoot(name: "Acme Search")
+            )
+        }
     }
 
     func testExecutionOverrideUsesSessionProtocolWithBoundedTimeouts() async throws {

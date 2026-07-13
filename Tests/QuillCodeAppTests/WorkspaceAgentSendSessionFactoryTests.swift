@@ -78,6 +78,50 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         })
     }
 
+    func testFactoryWiresEnabledPluginSkillsIntoLiveRunner() throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let skillDirectory = workspaceRoot.appendingPathComponent(".quillcode/plugins/acme/skills/review")
+        try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+        try "# Review".write(
+            to: skillDirectory.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let project = ProjectRef(
+            name: "Plugin Project",
+            path: workspaceRoot.path,
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "plugin:acme",
+                    kind: .plugin,
+                    name: "Acme",
+                    relativePath: ".quillcode/plugins/acme/.codex-plugin/plugin.json",
+                    skillDirectoryRelativePaths: [".quillcode/plugins/acme/skills"]
+                )
+            ]
+        )
+        let session = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
+            selectedProject: project,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: workspaceRoot
+        ).makeSession(prompt: "Use review", thread: ChatThread(title: "Plugin"))
+
+        let resolved = try XCTUnwrap(session.runner.skillResolver).resolve(name: "review")
+        XCTAssertEqual(resolved.baseDirectory.standardizedFileURL.path, skillDirectory.standardizedFileURL.path)
+        XCTAssertTrue(
+            session.runner.baseToolDefinitions.first { $0.name == ToolDefinition.skillLoad.name }?
+                .description.contains("Available now: `review`.") == true
+        )
+    }
+
     func testFactoryUsesRemoteProjectToolDefinitionsAndRunHooks() {
         let hook = ProjectRunHook(
             id: "before:.quillcode/hooks/before-agent-run/01-prepare.sh",

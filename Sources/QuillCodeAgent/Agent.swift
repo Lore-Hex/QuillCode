@@ -16,6 +16,9 @@ public struct AgentRunner: Sendable {
     /// Converts trusted, managed tool artifacts into hidden model-feedback attachments. The app
     /// uses this for Computer Use screenshots; nil preserves text-only tool continuation.
     public var toolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider?
+    /// Optional per-run skill roots. The desktop uses this to insert enabled plugin skill roots
+    /// between direct project skills and global skills without changing the tool schema.
+    public var skillResolver: SkillResolver?
     /// Backend for `host.web.search`. Injected (with TrustedRouter credentials) by the live
     /// runtime; nil in mock/test runs, where the tool reports that search is unavailable. Kept as
     /// a first-class runner dependency — rather than folded into `toolExecutionOverride` — so both
@@ -48,6 +51,7 @@ public struct AgentRunner: Sendable {
         additionalToolDefinitions: [ToolDefinition] = [],
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
         toolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider? = nil,
+        skillResolver: SkillResolver? = nil,
         webSearch: (any WebSearchClient)? = nil,
         maxToolSteps: Int = AgentRunner.defaultMaxToolSteps,
         enablesImmediateActionPreflight: Bool = false,
@@ -62,6 +66,7 @@ public struct AgentRunner: Sendable {
         self.additionalToolDefinitions = additionalToolDefinitions
         self.toolExecutionOverride = toolExecutionOverride
         self.toolFeedbackAttachmentProvider = toolFeedbackAttachmentProvider
+        self.skillResolver = skillResolver
         self.webSearch = webSearch
         self.maxToolSteps = maxToolSteps
         self.enablesImmediateActionPreflight = enablesImmediateActionPreflight

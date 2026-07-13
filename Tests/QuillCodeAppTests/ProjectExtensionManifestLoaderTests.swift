@@ -229,4 +229,160 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         XCTAssertEqual(legacy.transport, .sse)
         XCTAssertEqual(legacy.serverURL, "https://mcp.example.com/sse")
     }
+
+    func testLoadsStandardCodexPluginSkillsAndMCPComponents() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let packageRoot = root.appendingPathComponent(".quillcode/plugins/acme-tools")
+        let manifestDirectory = packageRoot.appendingPathComponent(".codex-plugin")
+        let skillDirectory = packageRoot.appendingPathComponent("skills/review")
+        try FileManager.default.createDirectory(at: manifestDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+        try "# Review\nFind correctness defects first.".write(
+            to: skillDirectory.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"name":"acme-tools","version":"1.2.0","description":"Fallback summary.","homepage":"https://example.com/acme","skills":"./skills","mcpServers":"./.mcp.json","interface":{"displayName":"Acme Tools","shortDescription":"Review and search tools."}}"#.write(
+            to: manifestDirectory.appendingPathComponent("plugin.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"mcpServers":{"search":{"command":"./bin/search-mcp","args":["--stdio"],"env":{"ACME_MODE":"plugin"},"env_vars":["ACME_TOKEN"]}}}"#.write(
+            to: packageRoot.appendingPathComponent(".mcp.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let manifests = ProjectExtensionManifestLoader.load(from: root)
+
+        XCTAssertEqual(manifests.map(\.id), [
+            "plugin:acme-tools",
+            "skill:acme-tools.review",
+            "mcp_server:acme-tools.search"
+        ])
+        let plugin = try XCTUnwrap(manifests.first)
+        XCTAssertEqual(plugin.name, "Acme Tools")
+        XCTAssertEqual(plugin.summary, "Review and search tools.")
+        XCTAssertEqual(plugin.version, "1.2.0")
+        XCTAssertEqual(plugin.sourceURL, "https://example.com/acme")
+        XCTAssertEqual(plugin.packageRootRelativePath, ".quillcode/plugins/acme-tools")
+        XCTAssertEqual(plugin.skillDirectoryRelativePaths, [".quillcode/plugins/acme-tools/skills"])
+
+        let skill = manifests[1]
+        XCTAssertEqual(skill.name, "Acme Tools · Review")
+        XCTAssertEqual(skill.relativePath, ".quillcode/plugins/acme-tools/skills/review/SKILL.md")
+
+        let mcp = try XCTUnwrap(manifests.last)
+        XCTAssertEqual(mcp.name, "Acme Tools · Search")
+        XCTAssertEqual(mcp.relativePath, ".quillcode/plugins/acme-tools/.mcp.json#search")
+        XCTAssertEqual(mcp.transport, .stdio)
+        XCTAssertEqual(mcp.launchExecutable, "./bin/search-mcp")
+        XCTAssertEqual(mcp.launchArguments, ["--stdio"])
+        XCTAssertEqual(mcp.launchEnvironment, ["ACME_MODE": "plugin"])
+        XCTAssertEqual(mcp.inheritedEnvironmentVariableNames, ["ACME_TOKEN"])
+        XCTAssertEqual(mcp.packageRootRelativePath, ".quillcode/plugins/acme-tools")
+    }
+
+    func testStandardPluginRejectsEscapingComponentsAndShadowedPackages() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
+        let packageRoot = pluginDirectory.appendingPathComponent("acme-tools")
+        let manifestDirectory = packageRoot.appendingPathComponent(".codex-plugin")
+        try FileManager.default.createDirectory(at: manifestDirectory, withIntermediateDirectories: true)
+        try #"{"id":"acme-tools","name":"Direct Acme"}"#.write(
+            to: pluginDirectory.appendingPathComponent("acme.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"name":"acme-tools","skills":"../outside","mcpServers":"../outside.json"}"#.write(
+            to: manifestDirectory.appendingPathComponent("plugin.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let manifests = ProjectExtensionManifestLoader.load(from: root)
+
+        XCTAssertEqual(manifests.map(\.id), ["plugin:acme-tools"])
+        XCTAssertEqual(manifests.first?.name, "Direct Acme")
+        XCTAssertNil(manifests.first?.skillDirectoryRelativePaths)
+    }
+
+    func testStandardPluginSkipsSymlinkedPackageDirectory() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
+        let outside = try makeQuillCodeTestDirectory()
+        try FileManager.default.createDirectory(
+            at: outside.appendingPathComponent(".codex-plugin"),
+            withIntermediateDirectories: true
+        )
+        try #"{"name":"outside"}"#.write(
+            to: outside.appendingPathComponent(".codex-plugin/plugin.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try FileManager.default.createDirectory(at: pluginDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: pluginDirectory.appendingPathComponent("outside"),
+            withDestinationURL: outside
+        )
+
+        XCTAssertTrue(ProjectExtensionManifestLoader.load(from: root).isEmpty)
+    }
+
+    func testStandardPluginLimitCountsOnlyValidPackages() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
+        try FileManager.default.createDirectory(at: pluginDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: pluginDirectory.appendingPathComponent("00-invalid"),
+            withIntermediateDirectories: true
+        )
+        let manifestDirectory = pluginDirectory.appendingPathComponent("valid/.codex-plugin")
+        try FileManager.default.createDirectory(at: manifestDirectory, withIntermediateDirectories: true)
+        try #"{"name":"valid"}"#.write(
+            to: manifestDirectory.appendingPathComponent("plugin.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let packages = CodexPluginPackageLoader.load(
+            from: root,
+            pluginDirectory: ".quillcode/plugins",
+            maxPackages: 1,
+            maxManifestBytes: 64 * 1_024
+        )
+
+        XCTAssertEqual(packages.map(\.plugin.id), ["plugin:valid"])
+    }
+
+    func testStandardPluginBoundsBundledSkillComponents() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let packageRoot = root.appendingPathComponent(".quillcode/plugins/many-skills")
+        let manifestDirectory = packageRoot.appendingPathComponent(".codex-plugin")
+        try FileManager.default.createDirectory(at: manifestDirectory, withIntermediateDirectories: true)
+        try #"{"name":"many-skills","skills":"./skills"}"#.write(
+            to: manifestDirectory.appendingPathComponent("plugin.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        for index in 0 ..< CodexPluginPackageLoader.maxComponentsPerPackage + 5 {
+            let skillDirectory = packageRoot.appendingPathComponent("skills/skill-\(index)")
+            try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+            try "# Skill \(index)".write(
+                to: skillDirectory.appendingPathComponent("SKILL.md"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+
+        let package = try XCTUnwrap(CodexPluginPackageLoader.load(
+            from: root,
+            pluginDirectory: ".quillcode/plugins",
+            maxPackages: 1,
+            maxManifestBytes: 64 * 1_024
+        ).first)
+
+        XCTAssertEqual(package.components.count, CodexPluginPackageLoader.maxComponentsPerPackage)
+        XCTAssertTrue(package.components.allSatisfy { $0.kind == .skill })
+    }
 }

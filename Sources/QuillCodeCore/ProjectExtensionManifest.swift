@@ -42,6 +42,15 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
     public var launchExecutable: String?
     public var launchCommand: String?
     public var launchArguments: [String]?
+    /// Workspace-relative root of the package that contributed this extension.
+    /// Resolved and boundary-checked again immediately before use.
+    public var packageRootRelativePath: String?
+    /// Workspace-relative skill roots bundled by a plugin package.
+    public var skillDirectoryRelativePaths: [String]?
+    /// Explicit environment values for a bundled stdio MCP server.
+    public var launchEnvironment: [String: String]?
+    /// Parent-process environment names a bundled server explicitly requests.
+    public var inheritedEnvironmentVariableNames: [String]?
     public var installCommand: String?
     public var installTimeoutSeconds: Int?
     public var updateCommand: String?
@@ -63,6 +72,10 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         launchExecutable: String? = nil,
         launchCommand: String? = nil,
         launchArguments: [String]? = nil,
+        packageRootRelativePath: String? = nil,
+        skillDirectoryRelativePaths: [String]? = nil,
+        launchEnvironment: [String: String]? = nil,
+        inheritedEnvironmentVariableNames: [String]? = nil,
         installCommand: String? = nil,
         installTimeoutSeconds: Int? = nil,
         updateCommand: String? = nil,
@@ -83,6 +96,10 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         self.launchExecutable = launchExecutable
         self.launchCommand = launchCommand
         self.launchArguments = launchArguments
+        self.packageRootRelativePath = packageRootRelativePath
+        self.skillDirectoryRelativePaths = skillDirectoryRelativePaths
+        self.launchEnvironment = launchEnvironment
+        self.inheritedEnvironmentVariableNames = inheritedEnvironmentVariableNames
         self.installCommand = installCommand
         self.installTimeoutSeconds = installTimeoutSeconds
         self.updateCommand = updateCommand
