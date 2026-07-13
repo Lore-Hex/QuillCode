@@ -17,6 +17,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     var imageAttachmentStore: ImageAttachmentStore? = nil
     var threadID: UUID? = nil
     var globalMemoryDirectory: URL?
+    var skillResolver: SkillResolver? = nil
     var mcpToolDefinitions: [ToolDefinition]
     var mcpToolExecutionOverride: AgentToolExecutionOverride?
     var sshRemoteShellExecutor: SSHRemoteShellExecutor
@@ -36,6 +37,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         activeRunner.baseToolDefinitions = baseToolDefinitions
         activeRunner.additionalToolDefinitions = additionalToolDefinitions
         activeRunner.toolExecutionOverride = toolExecutionOverride
+        activeRunner.skillResolver = skillResolver
         if let computerUseToolFeedbackAttachmentProvider {
             activeRunner.toolFeedbackAttachmentProvider = computerUseToolFeedbackAttachmentProvider
         }
@@ -58,9 +60,19 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     var baseToolDefinitions: [ToolDefinition] {
-        selectedProject?.isRemote == true
-            ? WorkspaceRemoteProjectToolExecutor.toolDefinitions
-            : ToolRouter.definitions
+        guard selectedProject?.isRemote != true else {
+            return WorkspaceRemoteProjectToolExecutor.toolDefinitions
+        }
+        guard let names = skillResolver?.availableSkillNames(), !names.isEmpty else {
+            return ToolRouter.definitions
+        }
+        let available = names.prefix(64).map { "`\($0)`" }.joined(separator: ", ")
+        return ToolRouter.definitions.map { definition in
+            guard definition.name == ToolDefinition.skillLoad.name else { return definition }
+            var updated = definition
+            updated.description += " Available now: \(available)."
+            return updated
+        }
     }
 
     var additionalToolDefinitions: [ToolDefinition] {

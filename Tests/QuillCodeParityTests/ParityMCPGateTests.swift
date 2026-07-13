@@ -86,4 +86,24 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(proberText.contains("private static func toolResult"), "MCP prober should not own ToolResult conversion.")
         XCTAssertFalse(proberText.contains("private static func promptMessageContent"), "MCP prober should not own prompt content flattening.")
     }
+
+    func testStandardPluginPackagesWireSkillsAndMCPThroughFocusedBoundaries() throws {
+        let loaderText = try Self.appSourceText(named: "CodexPluginPackageLoader.swift")
+        let manifestLoaderText = try Self.appSourceText(named: "ProjectExtensionManifestLoader.swift")
+        let skillResolverText = try Self.appSourceText(named: "WorkspacePluginSkillResolver.swift")
+        let sessionFactoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
+        let launcherText = try Self.appSourceText(named: "WorkspaceMCPServerLauncher.swift")
+        let agentText = try Self.agentSourceText(named: "AgentToolStepRunner.swift")
+
+        XCTAssertTrue(loaderText.contains(".codex-plugin/plugin.json"))
+        XCTAssertTrue(loaderText.contains("CodexPluginMCPConfiguration"))
+        XCTAssertTrue(loaderText.contains("WorkspaceBoundary.isWithin"))
+        XCTAssertTrue(manifestLoaderText.contains("CodexPluginPackageLoader.load"))
+        XCTAssertTrue(skillResolverText.contains("SkillResolver.defaultRoots"))
+        XCTAssertTrue(sessionFactoryText.contains("WorkspacePluginSkillResolver.make"))
+        XCTAssertTrue(agentText.contains("skillResolver.map"))
+        XCTAssertTrue(launcherText.contains("${CODEX_PLUGIN_ROOT}"))
+        XCTAssertTrue(launcherText.contains("process.environment"))
+        XCTAssertFalse(loaderText.contains("Process()"), "Discovery must never execute plugin code.")
+    }
 }

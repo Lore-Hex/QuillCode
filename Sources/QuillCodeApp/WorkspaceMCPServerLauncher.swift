@@ -45,6 +45,8 @@ struct WorkspaceMCPLaunchRequest: Sendable, Hashable {
     var transport: Transport
     var command: String
     var arguments: [String]
+    var environment: [String: String]
+    var workingDirectory: URL
     var workspaceRoot: URL
 
     static func make(
@@ -82,6 +84,8 @@ struct WorkspaceMCPLaunchRequest: Sendable, Hashable {
                 ),
                 command: "",
                 arguments: [],
+                environment: [:],
+                workingDirectory: workspaceRoot,
                 workspaceRoot: workspaceRoot
             )
         case .stdio, .none:
@@ -90,14 +94,63 @@ struct WorkspaceMCPLaunchRequest: Sendable, Hashable {
             else {
                 throw WorkspaceMCPLaunchRequestError.missingCommand(name: manifest.name)
             }
+            let workingDirectory = try packageRoot(
+                manifest.packageRootRelativePath,
+                workspaceRoot: workspaceRoot,
+                extensionName: manifest.name
+            )
+            let pluginRoot = workingDirectory.path
+            let expand: (String) -> String = {
+                $0.replacingOccurrences(of: "${CODEX_PLUGIN_ROOT}", with: pluginRoot)
+            }
+            var environment = (manifest.launchEnvironment ?? [:]).mapValues(expand)
+            for name in manifest.inheritedEnvironmentVariableNames ?? [] {
+                if let value = ProcessInfo.processInfo.environment[name] {
+                    environment[name] = value
+                }
+            }
+            if manifest.packageRootRelativePath != nil {
+                environment["CODEX_PLUGIN_ROOT"] = pluginRoot
+            }
             return WorkspaceMCPLaunchRequest(
                 serverID: manifest.id,
                 transport: .stdio,
-                command: command,
-                arguments: manifest.launchArguments ?? [],
+                command: expand(command),
+                arguments: (manifest.launchArguments ?? []).map(expand),
+                environment: environment,
+                workingDirectory: workingDirectory,
                 workspaceRoot: workspaceRoot
             )
         }
+    }
+
+    private static func packageRoot(
+        _ relativePath: String?,
+        workspaceRoot: URL,
+        extensionName: String
+    ) throws -> URL {
+        let root = workspaceRoot.standardizedFileURL.resolvingSymlinksInPath()
+        guard let relativePath else { return root }
+        let components = relativePath
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: "/", omittingEmptySubsequences: false)
+            .map(String.init)
+        guard !components.isEmpty,
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })
+        else {
+            throw WorkspaceMCPLaunchRequestError.invalidPackageRoot(name: extensionName)
+        }
+        let candidate = components.reduce(root) { url, component in
+            url.appendingPathComponent(component, isDirectory: true)
+        }.standardizedFileURL.resolvingSymlinksInPath()
+        let values = try? candidate.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard WorkspaceBoundary.isWithin(candidate, root: root),
+              values?.isDirectory == true,
+              values?.isSymbolicLink != true
+        else {
+            throw WorkspaceMCPLaunchRequestError.invalidPackageRoot(name: extensionName)
+        }
+        return candidate
     }
 }
 
@@ -106,6 +159,7 @@ enum WorkspaceMCPLaunchRequestError: Error, LocalizedError, Equatable {
     case missingCommand(name: String)
     case missingURL(name: String)
     case invalidURL(name: String, url: String)
+    case invalidPackageRoot(name: String)
 
     var errorDescription: String? {
         switch self {
@@ -117,6 +171,8 @@ enum WorkspaceMCPLaunchRequestError: Error, LocalizedError, Equatable {
             return "\(name) does not define a server URL for its HTTP transport."
         case .invalidURL(let name, let url):
             return "\(name) has an invalid server URL: \(url)"
+        case .invalidPackageRoot(let name):
+            return "\(name) references a plugin package outside this workspace."
         }
     }
 }
@@ -136,25 +192,29 @@ protocol WorkspaceMCPServerLaunching: Sendable {
 struct WorkspaceMCPProcessLaunchConfiguration: Sendable, Hashable {
     var executableURL: URL
     var arguments: [String]
+    var environment: [String: String]
 
     static func resolve(
         command: String,
         arguments: [String],
-        workspaceRoot: URL
+        environment: [String: String] = [:],
+        workingDirectory: URL
     ) -> WorkspaceMCPProcessLaunchConfiguration {
         if command.contains("/") {
             let commandURL = command.hasPrefix("/")
                 ? URL(fileURLWithPath: command)
-                : workspaceRoot.appendingPathComponent(command)
+                : workingDirectory.appendingPathComponent(command)
             return WorkspaceMCPProcessLaunchConfiguration(
                 executableURL: commandURL,
-                arguments: arguments
+                arguments: arguments,
+                environment: environment
             )
         }
 
         return WorkspaceMCPProcessLaunchConfiguration(
             executableURL: URL(fileURLWithPath: "/usr/bin/env"),
-            arguments: [command] + arguments
+            arguments: [command] + arguments,
+            environment: environment
         )
     }
 }
@@ -197,15 +257,22 @@ struct DefaultWorkspaceMCPServerLauncher: WorkspaceMCPServerLaunching {
         onTermination: @escaping @MainActor @Sendable (_ id: String, _ terminationStatus: Int32) -> Void
     ) throws -> WorkspaceMCPLaunchedServer {
         let process = Process()
-        process.currentDirectoryURL = request.workspaceRoot
+        process.currentDirectoryURL = request.workingDirectory
 
         let launch = WorkspaceMCPProcessLaunchConfiguration.resolve(
             command: request.command,
             arguments: request.arguments,
-            workspaceRoot: request.workspaceRoot
+            environment: request.environment,
+            workingDirectory: request.workingDirectory
         )
         process.executableURL = launch.executableURL
         process.arguments = launch.arguments
+        if !launch.environment.isEmpty {
+            process.environment = ProcessInfo.processInfo.environment.merging(
+                launch.environment,
+                uniquingKeysWith: { _, pluginValue in pluginValue }
+            )
+        }
 
         let standardInput = Pipe()
         let standardOutput = Pipe()

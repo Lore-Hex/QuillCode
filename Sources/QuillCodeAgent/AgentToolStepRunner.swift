@@ -56,11 +56,7 @@ extension AgentRunner {
                 throw AgentApprovalResumeError.mismatchedHeldTool(pending.request.toolCall.name)
             }
 
-            let router = ToolRouter(
-                workspaceRoot: workspaceRoot,
-                editGuard: .session(for: next.id),
-                lsp: lsp
-            )
+            let router = toolRouter(workspaceRoot: workspaceRoot, threadID: next.id)
             let result = try await executeApprovedTool(
                 call,
                 router: router,
@@ -112,7 +108,7 @@ extension AgentRunner {
     ) async throws -> AgentToolStep {
         // The edit guard is scoped to THIS thread's model context: only files whose content
         // entered this thread (read or written here) may be overwritten/patched here.
-        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: .session(for: thread.id), lsp: lsp)
+        let router = toolRouter(workspaceRoot: workspaceRoot, threadID: thread.id)
         let definition = toolDefinitions.first { $0.name == call.name }
         await appendQueuedEvent(for: call, to: &thread, onProgress: onProgress)
 
@@ -224,6 +220,15 @@ extension AgentRunner {
         try Task.checkCancellation()
         await appendResultEvent(for: call, result: result, to: &thread, onProgress: onProgress)
         return result
+    }
+
+    private func toolRouter(workspaceRoot: URL, threadID: UUID) -> ToolRouter {
+        ToolRouter(
+            workspaceRoot: workspaceRoot,
+            editGuard: .session(for: threadID),
+            skill: skillResolver.map { SkillLoadToolExecutor(resolver: $0) },
+            lsp: lsp
+        )
     }
 
     /// Dispatch `host.web.search` to the injected TrustedRouter-backed client. Returns nil for

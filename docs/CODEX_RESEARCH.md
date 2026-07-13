@@ -12,6 +12,7 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Sandbox and Auto-review: enforce boundaries first, route eligible review requests through a reviewer model.
 - Remote connections: phone/host pairing, remote approvals, host-local files and tools.
 - Plugins, skills, MCP: reusable workflows and external tools; first expose project-local manifests clearly before enabling install/process lifecycle.
+- Standard Codex plugin packages use `.codex-plugin/plugin.json` as the required entry point and may reference package-relative `skills/` and `.mcp.json` components. QuillCode treats discovery as data-only, projects bundled components into its existing audited skill/MCP lanes, and resolves package paths again at use time. Source: current Codex manual, Build plugins and Model Context Protocol sections.
 - Memories and Chronicle: local recall layer, not a replacement for checked-in project rules. The first shippable slice should make loaded memory visible and auditable; explicit `/remember text` writes and explicit Forget actions are acceptable with clear transcript feedback and credential rejection before enabling autonomous writes.
 
 ## Product Translation

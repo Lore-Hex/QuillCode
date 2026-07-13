@@ -23,7 +23,7 @@ public enum ProjectExtensionManifestLoader {
     ) -> [ProjectExtensionManifest] {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
         let scanDirectories = directories.map(ManifestDirectoryRequest.init)
-        return loadManifests(
+        let directManifests = loadManifests(
             root: root,
             directories: scanDirectories,
             maxManifests: maxManifests,
@@ -37,6 +37,13 @@ public enum ProjectExtensionManifestLoader {
                 maxManifestBytes: maxManifestBytes
             )
         }
+        return appendingPluginPackages(
+            to: directManifests,
+            root: root,
+            directories: scanDirectories,
+            maxManifests: maxManifests,
+            maxManifestBytes: maxManifestBytes
+        )
     }
 
     public static func loadMarketplace(
@@ -100,6 +107,43 @@ public enum ProjectExtensionManifestLoader {
             }
         }
 
+        return manifests
+    }
+
+    private static func appendingPluginPackages(
+        to directManifests: [ProjectExtensionManifest],
+        root: URL,
+        directories: [ManifestDirectoryRequest],
+        maxManifests: Int,
+        maxManifestBytes: Int
+    ) -> [ProjectExtensionManifest] {
+        guard directManifests.count < maxManifests else { return directManifests }
+
+        var manifests = directManifests
+        var seenIDs = Set(manifests.map(\.id))
+        var scannedDirectories = Set<String>()
+        for directory in directories where directory.kind == .plugin {
+            guard manifests.count < maxManifests,
+                  scannedDirectories.insert(directory.relativePath).inserted
+            else { continue }
+
+            let packages = CodexPluginPackageLoader.load(
+                from: root,
+                pluginDirectory: directory.relativePath,
+                maxPackages: maxManifests - manifests.count,
+                maxManifestBytes: maxManifestBytes
+            )
+            for package in packages where manifests.count < maxManifests {
+                // A direct manifest is an explicit project override. If it already claims the
+                // plugin ID, do not activate hidden components from the shadowed package.
+                guard seenIDs.insert(package.plugin.id).inserted else { continue }
+                manifests.append(package.plugin)
+                for component in package.components where manifests.count < maxManifests {
+                    guard seenIDs.insert(component.id).inserted else { continue }
+                    manifests.append(component)
+                }
+            }
+        }
         return manifests
     }
 

@@ -17,6 +17,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let computerUseBackend: (any ComputerUseBackend)?
     private let imageAttachmentStore: ImageAttachmentStore?
     private let globalMemoryDirectory: URL?
+    private let skillResolver: SkillResolver
     private let mcpToolDefinitions: [ToolDefinition]
     private let mcpToolExecutionOverride: AgentToolExecutionOverride?
     private let sshRemoteShellExecutor: SSHRemoteShellExecutor
@@ -50,6 +51,10 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.computerUseBackend = computerUseBackend
         self.imageAttachmentStore = imageAttachmentStore
         self.globalMemoryDirectory = globalMemoryDirectory
+        self.skillResolver = WorkspacePluginSkillResolver.make(
+            workspaceRoot: workspaceRoot,
+            manifests: selectedProject?.extensionManifests ?? []
+        )
         self.mcpToolDefinitions = mcpToolDefinitions
         self.mcpToolExecutionOverride = mcpToolExecutionOverride
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
@@ -113,6 +118,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             imageAttachmentStore: imageAttachmentStore,
             threadID: threadID,
             globalMemoryDirectory: globalMemoryDirectory,
+            skillResolver: skillResolver,
             mcpToolDefinitions: mcpToolDefinitions,
             mcpToolExecutionOverride: mcpToolExecutionOverride,
             sshRemoteShellExecutor: sshRemoteShellExecutor,

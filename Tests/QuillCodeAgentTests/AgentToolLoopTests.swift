@@ -128,6 +128,41 @@ final class AgentToolLoopTests: XCTestCase {
         ])
     }
 
+    func testAgentLoadsSkillFromInjectedPluginResolver() async throws {
+        let root = try makeTempDirectory()
+        let skillDirectory = root.appendingPathComponent("plugin-skills/review")
+        try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+        try "# Review\nFind correctness defects first.".write(
+            to: skillDirectory.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let resolver = SkillResolver(roots: [
+            SkillRoot(kind: .user, url: root.appendingPathComponent("plugin-skills"))
+        ])
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(.init(
+                    name: ToolDefinition.skillLoad.name,
+                    argumentsJSON: ToolArguments.json(["name": "review"])
+                )),
+                .say("Loaded the review workflow.")
+            ]),
+            skillResolver: resolver
+        )
+
+        let result = try await runner.send(
+            "Use the review skill",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok)
+        XCTAssertTrue(result.toolResults[0].stdout.contains("Find correctness defects first."))
+        XCTAssertEqual(result.thread.messages.last?.content, "Loaded the review workflow.")
+    }
+
     func testScreenshotAttachmentReachesNextModelStepAsHiddenToolFeedback() async throws {
         let root = try makeTempDirectory()
         let store = ImageAttachmentStore(directory: root.appendingPathComponent("attachments"))
