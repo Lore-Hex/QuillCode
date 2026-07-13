@@ -82,6 +82,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var notificationPreferences: QuillCodeNotificationPreferences
     public var runSpendFuseUSD: Double?
     public var runSpendPeriodLimits: RunSpendPeriodLimits
+    public var managedWorktreeRoot: String?
+    public var managedWorktreeRetentionLimit: Int?
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -98,6 +100,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case notificationPreferences
         case runSpendFuseUSD
         case runSpendPeriodLimits
+        case managedWorktreeRoot
+        case managedWorktreeRetentionLimit
     }
 
     public init(
@@ -114,7 +118,9 @@ public struct AppConfig: Codable, Sendable, Hashable {
         browserBlockedDomains: [String] = [],
         notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
         runSpendFuseUSD: Double? = 1.0,
-        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits()
+        runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
+        managedWorktreeRoot: String? = nil,
+        managedWorktreeRetentionLimit: Int? = ManagedWorktreeDefaults.retentionLimit
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -136,6 +142,10 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.notificationPreferences = notificationPreferences
         self.runSpendFuseUSD = Self.normalizedRunSpendFuse(runSpendFuseUSD)
         self.runSpendPeriodLimits = runSpendPeriodLimits
+        self.managedWorktreeRoot = ManagedWorktreeDefaults.normalizedRoot(managedWorktreeRoot)
+        self.managedWorktreeRetentionLimit = ManagedWorktreeDefaults.normalizedRetentionLimit(
+            managedWorktreeRetentionLimit
+        )
     }
 
     public var browserDomainPolicy: BrowserDomainPolicy {
@@ -191,7 +201,11 @@ public struct AppConfig: Codable, Sendable, Hashable {
             runSpendPeriodLimits: try container.decodeIfPresent(
                 RunSpendPeriodLimits.self,
                 forKey: .runSpendPeriodLimits
-            ) ?? RunSpendPeriodLimits()
+            ) ?? RunSpendPeriodLimits(),
+            managedWorktreeRoot: try container.decodeIfPresent(String.self, forKey: .managedWorktreeRoot),
+            managedWorktreeRetentionLimit: container.contains(.managedWorktreeRetentionLimit)
+                ? try container.decodeIfPresent(Int.self, forKey: .managedWorktreeRetentionLimit)
+                : ManagedWorktreeDefaults.retentionLimit
         )
     }
 

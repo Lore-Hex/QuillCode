@@ -4,10 +4,37 @@ import QuillCodeTools
 
 @MainActor
 extension QuillCodeWorkspaceModel {
+    enum ManagedWorktreePreservationReason {
+        case archive
+        case retention
+
+        var successLabel: String {
+            switch self {
+            case .archive: "archive"
+            case .retention: "automatic cleanup"
+            }
+        }
+
+        var failureContext: String {
+            switch self {
+            case .archive: "The task was archived"
+            case .retention: "Automatic worktree cleanup stopped"
+            }
+        }
+    }
+
     /// Saves and removes only detached worktrees owned by QuillCode. Archive remains available when
     /// backup or cleanup fails; in that case the checkout is deliberately retained and the failure is
     /// surfaced instead of risking user work.
     func preserveDisposableWorktreeBeforeArchive(threadID: UUID) {
+        _ = preserveDisposableWorktree(threadID: threadID, reason: .archive)
+    }
+
+    @discardableResult
+    func preserveDisposableWorktree(
+        threadID: UUID,
+        reason: ManagedWorktreePreservationReason
+    ) -> Bool {
         guard let store = worktreeSnapshotStore,
               let threadIndex = root.threads.firstIndex(where: { $0.id == threadID }),
               !root.threads[threadIndex].isPinned,
@@ -16,7 +43,7 @@ extension QuillCodeWorkspaceModel {
               binding.isDisposableManagedWorktree,
               binding.isResolvable,
               let projectRoot = localProjectRoot(for: root.threads[threadIndex])
-        else { return }
+        else { return false }
 
         let previousReference = binding.snapshot
         do {
@@ -24,7 +51,7 @@ extension QuillCodeWorkspaceModel {
             var savedThread = root.threads[threadIndex]
             savedThread.worktree?.snapshot = reference
             WorkspaceThreadNoticeAppender.appendNotice(
-                "Managed worktree saved before archive: \(reference.fileCount) local file\(reference.fileCount == 1 ? "" : "s"), \(reference.byteCount) bytes.",
+                "Managed worktree saved before \(reason.successLabel): \(reference.fileCount) local file\(reference.fileCount == 1 ? "" : "s"), \(reference.byteCount) bytes.",
                 to: &savedThread
             )
             try threadPersistence.saveOrThrow(savedThread)
@@ -41,11 +68,13 @@ extension QuillCodeWorkspaceModel {
                 binding: capturedBinding,
                 projectRoot: projectRoot
             )
+            return true
         } catch {
             setLastError(
-                "The task was archived, but its worktree was kept because it could not be saved and removed safely: "
+                "\(reason.failureContext), but the worktree was kept because it could not be saved and removed safely: "
                     + error.localizedDescription
             )
+            return false
         }
     }
 

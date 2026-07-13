@@ -106,6 +106,7 @@ Drive the QuillCode test harness with mock LLM:
 - Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact and text preview, capture or mock a screenshot artifact and confirm the image preview renders, confirm raw successful-tool details can be opened, review diff, add an SSH Remote, run a noninteractive remote terminal `pwd` smoke, then run `cd` plus `export` and confirm the next remote terminal command inherits both.
 - Terminal toggle, Browser toggle, Memories toggle, Activity toggle, Add memory and Forget memory flows, Extensions toggle, settings, Keyboard Shortcuts, top bar widget, menu-bar command routes, quit/relaunch persistence.
 - Computer Use menu-bar status, System Settings setup affordance, and a permission-gated screenshot/input smoke pass on development machines with Screen Recording and Accessibility already granted.
+- Managed-worktree lifecycle coverage includes normalized/default/custom roots, private directory permissions, config migration and disabled-cleanup round trips, configured-root creation, Git-registered open/remove/handoff outside the repository parent, oldest-first retention, current/pinned/running/permanent/duplicate-path protection, snapshot-before-retention removal, exact restore, settings validation, and Playwright save/disable/reset interactions.
 
 ## Release Gates
 

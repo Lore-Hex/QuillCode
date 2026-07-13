@@ -36,7 +36,7 @@ public struct WorktreeSnapshotReference: Codable, Sendable, Hashable {
 ///
 /// `base` is the ref the worktree was forked off — the target a later land+prune merges back into.
 public struct WorktreeBinding: Codable, Sendable, Hashable {
-    /// Absolute path to the worktree directory (a sibling of the project root).
+    /// Absolute path to the worktree directory, normally beneath QuillCode's managed worktree root.
     public var path: String
     /// The branch checked out in the worktree, or an empty string for a detached managed task.
     public var branch: String

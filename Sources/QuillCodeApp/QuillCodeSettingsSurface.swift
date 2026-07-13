@@ -63,6 +63,11 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var runSpendPeriodLimits: RunSpendPeriodLimits
     public var runSpendLimitStatusLabel: String
     public var runSpendLimitSummary: String
+    public var managedWorktreeRoot: String?
+    public var managedWorktreeResolvedRoot: String
+    public var managedWorktreeRetentionLimit: Int?
+    public var managedWorktreeStatusLabel: String
+    public var managedWorktreeSummary: String
 
     public init(
         config: AppConfig,
@@ -70,7 +75,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         runtimeIssue: RuntimeIssueSurface? = nil,
         computerUseRuntime: ComputerUseSettingsRuntime = ComputerUseSettingsRuntime(),
         modelCatalogStatus: ModelCatalogStatus = .bundled,
-        modelProviderHealthSummary: ModelProviderHealthSummary = .summarize([])
+        modelProviderHealthSummary: ModelProviderHealthSummary = .summarize([]),
+        managedWorktreeDefaultRoot: String = "~/.quillcode/worktrees"
     ) {
         self.apiBaseURL = config.apiBaseURL
         self.authMode = config.authMode
@@ -123,6 +129,14 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.runSpendPeriodLimits = config.runSpendPeriodLimits
         self.runSpendLimitStatusLabel = RunSpendLimitSettingsProjection.statusLabel(config)
         self.runSpendLimitSummary = RunSpendLimitSettingsProjection.summary(config)
+        self.managedWorktreeRoot = config.managedWorktreeRoot
+        self.managedWorktreeResolvedRoot = config.managedWorktreeRoot ?? managedWorktreeDefaultRoot
+        self.managedWorktreeRetentionLimit = config.managedWorktreeRetentionLimit
+        self.managedWorktreeStatusLabel = ManagedWorktreeSettingsProjection.statusLabel(config)
+        self.managedWorktreeSummary = ManagedWorktreeSettingsProjection.summary(
+            config,
+            resolvedRoot: managedWorktreeResolvedRoot
+        )
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -179,6 +193,11 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case runSpendPeriodLimits
         case runSpendLimitStatusLabel
         case runSpendLimitSummary
+        case managedWorktreeRoot
+        case managedWorktreeResolvedRoot
+        case managedWorktreeRetentionLimit
+        case managedWorktreeStatusLabel
+        case managedWorktreeSummary
     }
 
     public init(from decoder: Decoder) throws {
@@ -310,6 +329,40 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             String.self,
             forKey: .runSpendLimitSummary
         ) ?? RunSpendLimitSettingsProjection.summary(spendConfig)
+        self.managedWorktreeRoot = try container.decodeIfPresent(String.self, forKey: .managedWorktreeRoot)
+        self.managedWorktreeResolvedRoot = try container.decodeIfPresent(
+            String.self,
+            forKey: .managedWorktreeResolvedRoot
+        ) ?? self.managedWorktreeRoot ?? "~/.quillcode/worktrees"
+        self.managedWorktreeRetentionLimit = container.contains(.managedWorktreeRetentionLimit)
+            ? try container.decodeIfPresent(Int.self, forKey: .managedWorktreeRetentionLimit)
+            : ManagedWorktreeDefaults.retentionLimit
+        let worktreeConfig = AppConfig(
+            managedWorktreeRoot: managedWorktreeRoot,
+            managedWorktreeRetentionLimit: managedWorktreeRetentionLimit
+        )
+        self.managedWorktreeStatusLabel = try container.decodeIfPresent(
+            String.self,
+            forKey: .managedWorktreeStatusLabel
+        ) ?? ManagedWorktreeSettingsProjection.statusLabel(worktreeConfig)
+        self.managedWorktreeSummary = try container.decodeIfPresent(
+            String.self,
+            forKey: .managedWorktreeSummary
+        ) ?? ManagedWorktreeSettingsProjection.summary(worktreeConfig, resolvedRoot: managedWorktreeResolvedRoot)
+    }
+}
+
+enum ManagedWorktreeSettingsProjection {
+    static func statusLabel(_ config: AppConfig) -> String {
+        guard let limit = config.managedWorktreeRetentionLimit else { return "Manual" }
+        return "Keep \(limit)"
+    }
+
+    static func summary(_ config: AppConfig, resolvedRoot: String) -> String {
+        let cleanup = config.managedWorktreeRetentionLimit.map {
+            "QuillCode snapshots and removes the oldest eligible worktree after \($0) are retained."
+        } ?? "Automatic cleanup is off; worktrees remain until you archive or remove them."
+        return "New managed worktrees live in \(resolvedRoot). \(cleanup) Pinned, running, current, and permanent worktrees are always protected."
     }
 }
 

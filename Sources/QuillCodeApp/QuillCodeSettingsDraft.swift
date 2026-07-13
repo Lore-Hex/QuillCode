@@ -19,6 +19,9 @@ struct QuillCodeSettingsDraft: Equatable {
     var runSpendDailyLimitUSDText: String = ""
     var runSpendWeeklyLimitUSDText: String = ""
     var runSpendMonthlyLimitUSDText: String = ""
+    var managedWorktreeRootText: String = ""
+    var automaticallyCleanManagedWorktrees: Bool = true
+    var managedWorktreeRetentionLimitText: String = String(ManagedWorktreeDefaults.retentionLimit)
 
     init() {}
 
@@ -41,10 +44,17 @@ struct QuillCodeSettingsDraft: Equatable {
         self.runSpendDailyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.dailyUSD)
         self.runSpendWeeklyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.weeklyUSD)
         self.runSpendMonthlyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.monthlyUSD)
+        self.managedWorktreeRootText = settings.managedWorktreeRoot ?? ""
+        self.automaticallyCleanManagedWorktrees = settings.managedWorktreeRetentionLimit != nil
+        self.managedWorktreeRetentionLimitText = String(
+            settings.managedWorktreeRetentionLimit ?? ManagedWorktreeDefaults.retentionLimit
+        )
     }
 
     var canSave: Bool {
         !apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && hasValidManagedWorktreeRoot
+            && hasValidManagedWorktreeRetentionLimit
     }
 
     var update: WorkspaceSettingsUpdate {
@@ -69,8 +79,16 @@ struct QuillCodeSettingsDraft: Equatable {
                 dailyUSD: Self.optionalCurrency(from: runSpendDailyLimitUSDText),
                 weeklyUSD: Self.optionalCurrency(from: runSpendWeeklyLimitUSDText),
                 monthlyUSD: Self.optionalCurrency(from: runSpendMonthlyLimitUSDText)
-            )
+            ),
+            managedWorktreeRoot: ManagedWorktreeDefaults.normalizedRoot(managedWorktreeRootText),
+            managedWorktreeRetentionLimit: automaticallyCleanManagedWorktrees
+                ? Int(managedWorktreeRetentionLimitText.trimmingCharacters(in: .whitespacesAndNewlines))
+                : nil
         )
+    }
+
+    mutating func resetManagedWorktreeRoot() {
+        managedWorktreeRootText = ""
     }
 
     mutating func clearComputerUseApprovals() {
@@ -140,5 +158,17 @@ struct QuillCodeSettingsDraft: Equatable {
             .replacingOccurrences(of: "$", with: "")
         guard !trimmed.isEmpty else { return nil }
         return Double(trimmed)
+    }
+
+    private var hasValidManagedWorktreeRoot: Bool {
+        let trimmed = managedWorktreeRootText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || ManagedWorktreeDefaults.normalizedRoot(trimmed) != nil
+    }
+
+    private var hasValidManagedWorktreeRetentionLimit: Bool {
+        guard automaticallyCleanManagedWorktrees else { return true }
+        guard let value = Int(managedWorktreeRetentionLimitText.trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return false }
+        return (1...ManagedWorktreeDefaults.maximumRetentionLimit).contains(value)
     }
 }

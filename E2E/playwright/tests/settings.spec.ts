@@ -1,6 +1,34 @@
 import { test, expect } from '@playwright/test';
 import { harnessURL, openSettings } from './harness-helpers';
 
+test('mock harness configures managed worktree root and retention', async ({ page }) => {
+  await page.goto(harnessURL());
+  await openSettings(page);
+  let settingsPanel = page.getByTestId('settings-panel');
+  const worktrees = settingsPanel.getByTestId('worktree-settings');
+
+  await expect(worktrees).toBeVisible();
+  await expect(worktrees.getByTestId('worktree-settings-status')).toHaveText('Keep 15');
+  await worktrees.getByTestId('worktree-root').fill('/tmp/quillcode-worktrees');
+  await worktrees.getByTestId('worktree-retention-limit').fill('24');
+  await settingsPanel.getByTestId('settings-save').click();
+
+  await openSettings(page);
+  settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('worktree-root')).toHaveValue('/tmp/quillcode-worktrees');
+  await expect(settingsPanel.getByTestId('worktree-retention-limit')).toHaveValue('24');
+  await expect(settingsPanel.getByTestId('worktree-settings-status')).toHaveText('Keep 24');
+
+  await settingsPanel.getByTestId('worktree-cleanup').uncheck();
+  await expect(settingsPanel.getByTestId('worktree-retention-limit')).toBeDisabled();
+  await settingsPanel.getByTestId('worktree-root-reset').click();
+  await expect(settingsPanel.getByTestId('worktree-root')).toHaveValue('');
+  await settingsPanel.getByTestId('settings-save').click();
+
+  await openSettings(page);
+  await expect(page.getByTestId('worktree-settings-status')).toHaveText('Manual');
+});
+
 test('mock harness shows actionable Computer Use setup in settings', async ({ page }) => {
   await page.goto(harnessURL());
 

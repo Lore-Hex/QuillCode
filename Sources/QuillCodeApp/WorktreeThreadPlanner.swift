@@ -7,10 +7,12 @@ struct WorktreeThreadPlan: Sendable, Hashable {
 }
 
 /// Plans a Codex-style managed worktree for a new Worktree thread. Managed task worktrees start
-/// detached, so a short unique path component provides isolation without creating repository branches.
+/// detached beneath the configured root, so a short unique path component provides isolation without
+/// creating repository branches.
 enum WorktreeThreadPlanner {
     static func plan(
         projectRoot: URL,
+        managedRoot: URL,
         baseBranch: String,
         name: String?,
         identifier: String = UUID().uuidString
@@ -22,7 +24,7 @@ enum WorktreeThreadPlanner {
             .prefix(8)
         let safeSuffix = suffix.isEmpty ? "managed" : String(suffix)
         let dirName = "\(projectRoot.lastPathComponent)-\(slug)-\(safeSuffix)"
-        let path = projectRoot.deletingLastPathComponent().appendingPathComponent(dirName).path
+        let path = managedRoot.standardizedFileURL.appendingPathComponent(dirName).path
         return WorktreeThreadPlan(
             request: WorkspaceWorktreeCreateRequest(
                 path: path,

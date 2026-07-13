@@ -51,6 +51,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.runSpendFuseUSD, 1.0)
         XCTAssertFalse(settings.runSpendPeriodLimits.hasAnyLimit)
         XCTAssertEqual(settings.runSpendLimitStatusLabel, "Fuse")
+        XCTAssertNil(settings.managedWorktreeRoot)
+        XCTAssertEqual(settings.managedWorktreeRetentionLimit, 15)
+        XCTAssertEqual(settings.managedWorktreeStatusLabel, "Keep 15")
         XCTAssertEqual(
             settings.computerUseApprovalSummary,
             "Computer Use may operate whichever app is in front. Add approvals to restrict control to named apps."
@@ -67,6 +70,24 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             settings.runSpendLimitSummary,
             "Local spend controls review each thread after $1.00. These do not replace TrustedRouter account limits."
         )
+    }
+
+    func testSettingsSurfaceShowsManagedWorktreeRootAndManualCleanup() {
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(
+                managedWorktreeRoot: "/tmp/quill-worktrees",
+                managedWorktreeRetentionLimit: nil
+            ),
+            hasStoredAPIKey: true,
+            managedWorktreeDefaultRoot: "/fallback/worktrees"
+        )
+
+        XCTAssertEqual(settings.managedWorktreeRoot, "/tmp/quill-worktrees")
+        XCTAssertEqual(settings.managedWorktreeResolvedRoot, "/tmp/quill-worktrees")
+        XCTAssertNil(settings.managedWorktreeRetentionLimit)
+        XCTAssertEqual(settings.managedWorktreeStatusLabel, "Manual")
+        XCTAssertTrue(settings.managedWorktreeSummary.contains("Automatic cleanup is off"))
+        XCTAssertTrue(settings.managedWorktreeSummary.contains("always protected"))
     }
 
     func testSettingsSurfaceShowsTrustedRouterAccount() {
@@ -263,6 +284,8 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.runSpendFuseUSD, 1.0)
         XCTAssertFalse(settings.runSpendPeriodLimits.hasAnyLimit)
         XCTAssertEqual(settings.runSpendLimitStatusLabel, "Fuse")
+        XCTAssertEqual(settings.managedWorktreeRetentionLimit, 15)
+        XCTAssertEqual(settings.managedWorktreeStatusLabel, "Keep 15")
     }
 
     func testSettingsSurfaceCarriesDetectedForegroundApplication() {

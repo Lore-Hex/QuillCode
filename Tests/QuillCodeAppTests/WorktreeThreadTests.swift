@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 @testable import QuillCodeApp
 
@@ -8,6 +9,7 @@ import QuillCodeTools
 
 final class WorktreeThreadPlannerTests: XCTestCase {
     private let root = URL(fileURLWithPath: "/work/MyRepo")
+    private let managedRoot = URL(fileURLWithPath: "/managed/worktrees")
 
     func testSlugifies() {
         XCTAssertEqual(WorktreeThreadPlanner.slug(from: "Add Login Flow!"), "add-login-flow")
@@ -16,9 +18,10 @@ final class WorktreeThreadPlannerTests: XCTestCase {
         XCTAssertNil(WorktreeThreadPlanner.slug(from: nil))
     }
 
-    func testManagedRequestAndUniqueSiblingPath() {
+    func testManagedRequestUsesConfiguredRoot() {
         let plan = WorktreeThreadPlanner.plan(
             projectRoot: root,
+            managedRoot: managedRoot,
             baseBranch: "main",
             name: "Try It",
             identifier: "ABCDEF12-3456"
@@ -26,28 +29,37 @@ final class WorktreeThreadPlannerTests: XCTestCase {
         XCTAssertEqual(plan.request.branch, "")
         XCTAssertEqual(plan.request.base, "main")
         XCTAssertTrue(plan.request.managed)
-        XCTAssertEqual(plan.request.path, "/work/MyRepo-try-it-abcdef12")
+        XCTAssertEqual(plan.request.path, "/managed/worktrees/MyRepo-try-it-abcdef12")
         XCTAssertEqual(plan.title, "Worktree: try-it")
     }
 
     func testDefaultNameWhenNil() {
         let plan = WorktreeThreadPlanner.plan(
             projectRoot: root,
+            managedRoot: managedRoot,
             baseBranch: "main",
             name: nil,
             identifier: "12345678"
         )
         XCTAssertEqual(plan.request.branch, "")
-        XCTAssertEqual(plan.request.path, "/work/MyRepo-work-12345678")
+        XCTAssertEqual(plan.request.path, "/managed/worktrees/MyRepo-work-12345678")
         XCTAssertEqual(plan.title, "Worktree: work")
     }
 
     func testIdentifiersKeepSameNamePlansDistinct() {
         let first = WorktreeThreadPlanner.plan(
-            projectRoot: root, baseBranch: "main", name: "work", identifier: "11111111"
+            projectRoot: root,
+            managedRoot: managedRoot,
+            baseBranch: "main",
+            name: "work",
+            identifier: "11111111"
         )
         let second = WorktreeThreadPlanner.plan(
-            projectRoot: root, baseBranch: "main", name: "work", identifier: "22222222"
+            projectRoot: root,
+            managedRoot: managedRoot,
+            baseBranch: "main",
+            name: "work",
+            identifier: "22222222"
         )
         XCTAssertNotEqual(first.request.path, second.request.path)
     }
@@ -57,6 +69,14 @@ final class WorktreeThreadPlannerTests: XCTestCase {
 
 @MainActor
 final class WorktreeThreadModelTests: XCTestCase {
+    private func makeModel() -> QuillCodeWorkspaceModel {
+        QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: FileManager.default.temporaryDirectory
+                .appendingPathComponent("quillcode-worktree-tests")
+                .appendingPathComponent(UUID().uuidString)
+        )
+    }
+
     private func makeGitRepo() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("wtthread-\(UUID().uuidString)")
@@ -77,7 +97,7 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testNewWorktreeThreadCreatesIsolatedBoundThreadInSameProject() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = makeModel()
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         let localThread = model.newChat(projectID: projectID)
@@ -126,13 +146,13 @@ final class WorktreeThreadModelTests: XCTestCase {
     }
 
     func testNewWorktreeThreadIsNilWithoutLocalProject() throws {
-        let model = QuillCodeWorkspaceModel()
+        let model = makeModel()
         XCTAssertNil(model.newWorktreeThread(name: "x"), "no selected project → nil")
     }
 
     func testSecondWorktreeThreadWithSameNameGetsDistinctManagedPath() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = makeModel()
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
 
@@ -153,9 +173,85 @@ final class WorktreeThreadModelTests: XCTestCase {
         XCTAssertNotEqual(firstPath, secondBinding?.path)
     }
 
+    func testRetentionSnapshotsOldestWorktreeAndKeepsItRestorable() throws {
+        let repo = try makeGitRepo()
+        let dataRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wt-retention-\(UUID().uuidString)")
+        let managedRoot = dataRoot.appendingPathComponent("worktrees")
+        let snapshotRoot = dataRoot.appendingPathComponent("snapshots")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                config: AppConfig(managedWorktreeRetentionLimit: 1)
+            ),
+            threadStore: JSONThreadStore(directory: dataRoot.appendingPathComponent("threads")),
+            worktreeSnapshotStore: ManagedWorktreeSnapshotStore(directory: snapshotRoot),
+            managedWorktreeDefaultRoot: managedRoot
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        let oldestID = try XCTUnwrap(model.newWorktreeThread(name: "oldest"))
+        let oldestPath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        try "recover me\n".write(
+            to: URL(fileURLWithPath: oldestPath).appendingPathComponent("recovery.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let newestID = try XCTUnwrap(model.newWorktreeThread(name: "newest"))
+        let newestPath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        defer {
+            for path in [oldestPath, newestPath] where FileManager.default.fileExists(atPath: path) {
+                _ = GitToolExecutor().removeWorktree(
+                    cwd: repo,
+                    path: path,
+                    force: true
+                )
+            }
+        }
+
+        XCTAssertNotEqual(oldestID, newestID)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: oldestPath))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: newestPath))
+        XCTAssertNotNil(model.root.threads.first(where: { $0.id == oldestID })?.worktree?.snapshot)
+
+        XCTAssertTrue(model.restoreManagedWorktree(threadID: oldestID))
+        XCTAssertEqual(
+            try String(contentsOf: URL(fileURLWithPath: oldestPath).appendingPathComponent("recovery.txt")),
+            "recover me\n"
+        )
+    }
+
+    func testCustomManagedRootOverridesDefaultRoot() throws {
+        let repo = try makeGitRepo()
+        let defaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wt-default-\(UUID().uuidString)")
+        let customRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wt-custom-\(UUID().uuidString)")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(config: AppConfig(managedWorktreeRoot: customRoot.path)),
+            managedWorktreeDefaultRoot: defaultRoot
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        _ = try XCTUnwrap(model.newWorktreeThread(name: "custom"))
+        let path = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        defer {
+            _ = GitToolExecutor().removeWorktree(
+                cwd: repo,
+                path: path,
+                force: true
+            )
+        }
+
+        XCTAssertTrue(URL(fileURLWithPath: path).standardizedFileURL.path.hasPrefix(customRoot.path + "/"))
+        XCTAssertFalse(path.hasPrefix(defaultRoot.path + "/"))
+    }
+
     func testManagedTaskHandsOffToLocalAndBackWithoutChangingItsThreadOrWorktree() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = makeModel()
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         try "task edit\n".write(
@@ -174,7 +270,7 @@ final class WorktreeThreadModelTests: XCTestCase {
         defer {
             _ = GitToolExecutor().removeWorktree(
                 cwd: repo,
-                path: worktree.lastPathComponent,
+                path: worktree.path,
                 force: true
             )
         }
@@ -210,13 +306,13 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testCreateBranchHereKeepsTaskInWorktreeAndPersistsOwnership() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = makeModel()
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         let threadID = try XCTUnwrap(model.newWorktreeThread(name: "owned"))
         let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
         let worktree = URL(fileURLWithPath: worktreePath)
-        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.path, force: true) }
 
         XCTAssertTrue(model.createBranchHere(.init(branch: "feature/owned-task")))
 
@@ -235,12 +331,12 @@ final class WorktreeThreadModelTests: XCTestCase {
 
     func testCreateBranchHereFailureDoesNotMutateDetachedBinding() throws {
         let repo = try makeGitRepo()
-        let model = QuillCodeWorkspaceModel()
+        let model = makeModel()
         let projectID = model.addProject(path: repo, name: "Repo")
         model.selectProject(projectID)
         _ = try XCTUnwrap(model.newWorktreeThread(name: "invalid"))
         let worktree = URL(fileURLWithPath: try XCTUnwrap(model.selectedThread?.worktree?.path))
-        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.path, force: true) }
 
         XCTAssertFalse(model.createBranchHere(.init(branch: "invalid branch; nope")))
 

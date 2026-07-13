@@ -49,6 +49,7 @@ struct QuillCodeDesktopSettingsCoordinator {
             config: result.config,
             trustedRouterAPIKeyConfigured: result.trustedRouterAPIKeyConfigured
         )
+        model.enforceManagedWorktreeRetention()
         model.applyRuntime(result.runtime)
         refresh()
         Task { @MainActor in
@@ -76,6 +77,8 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.notificationPreferences = update.notificationPreferences
         config.runSpendFuseUSD = update.runSpendFuseUSD
         config.runSpendPeriodLimits = update.runSpendPeriodLimits
+        config.managedWorktreeRoot = update.managedWorktreeRoot
+        config.managedWorktreeRetentionLimit = update.managedWorktreeRetentionLimit
 
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()

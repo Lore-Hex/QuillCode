@@ -30,6 +30,37 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(draft.runSpendDailyLimitUSDText, "")
         XCTAssertEqual(draft.runSpendWeeklyLimitUSDText, "")
         XCTAssertEqual(draft.runSpendMonthlyLimitUSDText, "")
+        XCTAssertEqual(draft.managedWorktreeRootText, "")
+        XCTAssertTrue(draft.automaticallyCleanManagedWorktrees)
+        XCTAssertEqual(draft.managedWorktreeRetentionLimitText, "15")
+    }
+
+    func testManagedWorktreeSettingsInitializeValidateAndUpdate() {
+        let surface = WorkspaceSettingsSurface(
+            config: AppConfig(
+                managedWorktreeRoot: "/tmp/quill-worktrees",
+                managedWorktreeRetentionLimit: 24
+            ),
+            hasStoredAPIKey: false
+        )
+        var draft = QuillCodeSettingsDraft(settings: surface)
+
+        XCTAssertEqual(draft.managedWorktreeRootText, "/tmp/quill-worktrees")
+        XCTAssertEqual(draft.managedWorktreeRetentionLimitText, "24")
+        XCTAssertTrue(draft.canSave)
+        XCTAssertEqual(draft.update.managedWorktreeRoot, "/tmp/quill-worktrees")
+        XCTAssertEqual(draft.update.managedWorktreeRetentionLimit, 24)
+
+        draft.managedWorktreeRootText = "relative/path"
+        XCTAssertFalse(draft.canSave)
+        draft.managedWorktreeRootText = ""
+        draft.managedWorktreeRetentionLimitText = "0"
+        XCTAssertFalse(draft.canSave)
+        draft.automaticallyCleanManagedWorktrees = false
+        XCTAssertTrue(draft.canSave)
+        XCTAssertNil(draft.update.managedWorktreeRetentionLimit)
+        draft.resetManagedWorktreeRoot()
+        XCTAssertNil(draft.update.managedWorktreeRoot)
     }
 
     func testUpdateTrimsBaseURLAndReplacementKey() {

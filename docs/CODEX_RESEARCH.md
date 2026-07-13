@@ -23,6 +23,7 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Memory context should be inspectable from the workspace chrome. Users should be able to tell what background notes the agent can see, and the agent must treat those notes as context rather than commands.
 - App-managed global memory needs reversible UX before autonomous memory is considered. Project memories are files and should stay under project ownership unless QuillCode is explicitly editing those files.
 - Browser preview should give immediate inspection context even before a full native WebView exists. A bounded metadata snapshot is useful for local HTML review and avoids pretending QuillCode has loaded a signed-in browser profile.
+- Codex-managed worktrees live under `$CODEX_HOME/worktrees`, retain the 15 most recent by default, allow users to change the root or disable/change cleanup in Settings, never automatically delete pinned/running/permanent worktrees, and snapshot before retention or archive deletion so reopening can restore them. QuillCode mirrors that lifecycle with its app home and snapshot store. Source: [Codex app worktrees](https://developers.openai.com/codex/app/worktrees).
 
 ## Claude CLI Design Review Notes
 

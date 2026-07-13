@@ -57,23 +57,54 @@ extension QuillCodeWorkspaceModel {
     public func newWorktreeThread(name: String? = nil) -> UUID? {
         guard let project = selectedProject, !project.isRemote else { return nil }
         let projectRoot = URL(fileURLWithPath: project.path)
+        let managedRoot: URL
+        do {
+            managedRoot = try ManagedWorktreeDirectory.prepare(resolvedManagedWorktreeRoot)
+        } catch {
+            setLastError("QuillCode could not prepare its managed worktree folder: \(error.localizedDescription)")
+            return nil
+        }
         let baseBranch = selectedProjectBranch(project)
             ?? currentLocalBranch(projectRoot: projectRoot)
             ?? "HEAD"
         let plan = WorktreeThreadPlanner.plan(
             projectRoot: projectRoot,
+            managedRoot: managedRoot,
             baseBranch: baseBranch,
             name: name
         )
-        let result = runToolCall(
-            WorkspaceWorktreeToolCallPlanner.create(plan.request),
-            workspaceRoot: projectRoot
-        )
+        let call = WorkspaceWorktreeToolCallPlanner.create(plan.request)
+        let result = runToolCall(call, workspaceRoot: projectRoot) {
+            GitToolExecutor().createManagedWorktree(
+                cwd: projectRoot,
+                path: plan.request.path,
+                base: plan.request.base,
+                allowedRoot: managedRoot
+            )
+        }
         guard result.ok, let worktreePath = result.artifacts.first else { return nil }
         let threadID = newChat(projectID: project.id)
         _ = renameThread(threadID, to: plan.title)
         bindSelectedThreadToWorktree(path: worktreePath, branch: "", base: baseBranch)
+        enforceManagedWorktreeRetention()
         return threadID
+    }
+
+    var resolvedManagedWorktreeRoot: URL {
+        root.config.managedWorktreeRoot
+            .map { URL(fileURLWithPath: $0).standardizedFileURL }
+            ?? managedWorktreeDefaultRoot
+    }
+
+    @discardableResult
+    public func enforceManagedWorktreeRetention() -> [UUID] {
+        let candidates = ManagedWorktreeRetentionPolicy.removalCandidates(
+            threads: root.threads,
+            runningThreadIDs: activeAgentRunThreadIDs,
+            selectedThreadID: root.selectedThreadID,
+            retentionLimit: root.config.managedWorktreeRetentionLimit
+        )
+        return candidates.filter { preserveDisposableWorktree(threadID: $0, reason: .retention) }
     }
 
     private func selectedProjectBranch(_ project: ProjectRef) -> String? {

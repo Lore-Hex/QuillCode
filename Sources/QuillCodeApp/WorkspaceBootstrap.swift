@@ -69,6 +69,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             globalMemoryDirectory: paths.memoriesDirectory,
             imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),
             worktreeSnapshotStore: ManagedWorktreeSnapshotStore(directory: paths.worktreeSnapshotsDirectory),
+            managedWorktreeDefaultRoot: paths.managedWorktreesDirectory,
             mcpSecretStore: MCPSecretStoreAdapter(
                 backing: FileSecretStore(directory: paths.secretsDirectory)
             )

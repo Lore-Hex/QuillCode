@@ -1000,6 +1000,8 @@
     .permission-status-pill { flex: none; max-width: 180px; padding: 5px 10px; border-radius: 999px; color: var(--yellow); background: rgba(255,184,77,.14); font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .permission-status-pill[data-available="true"] { color: var(--green); background: rgba(67,212,120,.14); }
     .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
+    .worktree-settings-controls { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 12px; align-items: end; }
+    [data-testid="worktree-settings-status"], [data-testid="worktree-retention-limit"] { font-variant-numeric: tabular-nums; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr); gap: 16px; padding: 14px 18px 18px 0; }
     .workspace-grid.with-activity { grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) 320px; }
     .workspace-grid.sidebar-hidden { grid-template-columns: minmax(0, 1fr); padding-left: 18px; }
@@ -4529,6 +4531,9 @@
         },
         computerUseApprovedBundleIdentifiers: [],
         computerUseApprovedAppNames: [],
+        managedWorktreeRoot: '',
+        managedWorktreeResolvedRoot: '~/.quillcode/worktrees',
+        managedWorktreeRetentionLimit: 15,
         computerUseRequirements: [
           {
             id: 'screen-recording',
@@ -9403,6 +9408,14 @@
         }
         render();
       });
+      document.querySelector('[data-testid="worktree-root-reset"]')?.addEventListener('click', () => {
+        const input = document.querySelector('[data-testid="worktree-root"]');
+        if (input) input.value = '';
+      });
+      document.querySelector('[data-testid="worktree-cleanup"]')?.addEventListener('change', event => {
+        const limit = document.querySelector('[data-testid="worktree-retention-limit"]');
+        if (limit) limit.disabled = !event.currentTarget.checked;
+      });
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -9415,6 +9428,15 @@
         state.settings.computerUseApprovedAppNames = normalizedApprovalValues(
           form.elements.namedItem('computerUseApprovedAppNames')?.value || ''
         );
+        state.settings.managedWorktreeRoot = form.elements.namedItem('managedWorktreeRoot')?.value.trim() || '';
+        const cleanupEnabled = form.elements.namedItem('managedWorktreeCleanup')?.checked ?? true;
+        const retentionLimit = Number.parseInt(
+          form.elements.namedItem('managedWorktreeRetentionLimit')?.value || '15',
+          10
+        );
+        state.settings.managedWorktreeRetentionLimit = cleanupEnabled
+          ? Math.max(1, Math.min(1000, Number.isFinite(retentionLimit) ? retentionLimit : 15))
+          : null;
         const replacementAPIKey = form.elements.namedItem('replacementAPIKey')?.value.trim() || '';
         if (replacementAPIKey) {
           state.settings.hasStoredAPIKey = true;
@@ -10205,6 +10227,7 @@
             <p data-testid="settings-model-catalog-status" title="${escapeHTML(state.settings.modelCatalogStatusDetail || state.settings.modelCatalogStatusLabel)}">${escapeHTML(state.settings.modelCatalogStatusLabel)}</p>
             ${state.settings.modelProviderHealthLabel ? `<p data-testid="settings-provider-health" title="${escapeHTML(state.settings.modelProviderHealthDetail || state.settings.modelProviderHealthLabel)}">${escapeHTML(state.settings.modelProviderHealthLabel)}</p>` : ''}
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
+            ${renderManagedWorktreeSettingsCard()}
             ${renderComputerUseSettingsCard()}
             ${renderComputerUseApprovalSettingsCard()}
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
@@ -10236,6 +10259,38 @@
             </div>
           </form>
         </div>`;
+    }
+
+    function renderManagedWorktreeSettingsCard() {
+      const cleanupEnabled = state.settings.managedWorktreeRetentionLimit !== null;
+      const retained = state.settings.managedWorktreeRetentionLimit || 15;
+      return `
+        <section class="permission-card" data-testid="worktree-settings">
+          <header>
+            <div>
+              <h3>Managed worktrees</h3>
+              <p>Keep coding tasks isolated while QuillCode safely manages older checkouts.</p>
+            </div>
+            <span class="permission-status-pill" data-testid="worktree-settings-status" data-available="${cleanupEnabled}">${cleanupEnabled ? `Keep ${retained}` : 'Manual'}</span>
+          </header>
+          <label>
+            Worktree root
+            <input class="hit-target-text-entry" name="managedWorktreeRoot" data-testid="worktree-root" aria-label="Worktree root" placeholder="${escapeHTML(state.settings.managedWorktreeResolvedRoot)}" value="${escapeHTML(state.settings.managedWorktreeRoot)}">
+          </label>
+          <div class="worktree-settings-controls">
+            <label class="hit-target-switch-row" data-hit-target-kind="switch-row" data-hit-target-action="press" data-hit-target-source="explicit">
+              <span><input type="checkbox" class="hit-target-adjustable" name="managedWorktreeCleanup" data-testid="worktree-cleanup" ${cleanupEnabled ? 'checked' : ''}> Automatically remove old worktrees</span>
+            </label>
+            <label>
+              Keep most recent
+              <input class="hit-target-text-entry" name="managedWorktreeRetentionLimit" data-testid="worktree-retention-limit" aria-label="Managed worktree retention limit" inputmode="numeric" value="${retained}" ${cleanupEnabled ? '' : 'disabled'}>
+            </label>
+          </div>
+          <p class="permission-footnote">Pinned, running, current, and permanent worktrees are always protected. Removed worktrees are snapshotted for recovery.</p>
+          <div class="permission-actions">
+            <button class="hit-target-text" type="button" data-testid="worktree-root-reset">Use default root</button>
+          </div>
+        </section>`;
     }
 
     function renderComputerUseSettingsCard() {

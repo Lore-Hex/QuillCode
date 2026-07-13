@@ -11,6 +11,7 @@ public struct QuillCodePaths: Sendable, Hashable {
     public var attachmentsDirectory: URL { home.appendingPathComponent("attachments") }
     public var memoriesDirectory: URL { home.appendingPathComponent("memories") }
     public var worktreeSnapshotsDirectory: URL { home.appendingPathComponent("worktree-snapshots") }
+    public var managedWorktreesDirectory: URL { home.appendingPathComponent("worktrees") }
     public var secretsDirectory: URL { home.appendingPathComponent("secrets") }
     public var permissionsDirectory: URL { home.appendingPathComponent("permissions") }
 
@@ -19,11 +20,27 @@ public struct QuillCodePaths: Sendable, Hashable {
     }
 
     public func ensure() throws {
-        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: threadsDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: memoriesDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: worktreeSnapshotsDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: secretsDirectory, withIntermediateDirectories: true)
+        for directory in [
+            home,
+            threadsDirectory,
+            attachmentsDirectory,
+            memoriesDirectory,
+            worktreeSnapshotsDirectory,
+            managedWorktreesDirectory,
+            secretsDirectory,
+            permissionsDirectory
+        ] {
+            try Self.ensurePrivateDirectory(directory)
+        }
+    }
+
+    private static func ensurePrivateDirectory(_ directory: URL) throws {
+        let permissions = NSNumber(value: Int16(0o700))
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: permissions]
+        )
+        try FileManager.default.setAttributes([.posixPermissions: permissions], ofItemAtPath: directory.path)
     }
 }

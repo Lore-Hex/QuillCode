@@ -90,6 +90,12 @@ public struct ConfigStore: Sendable {
                 runSpendPeriodLimits.weeklyUSD = RunSpendPeriodLimits.normalizedLimit(Self.doubleValue(value))
             case "run_spend_monthly_limit_usd":
                 runSpendPeriodLimits.monthlyUSD = RunSpendPeriodLimits.normalizedLimit(Self.doubleValue(value))
+            case "managed_worktree_root":
+                config.managedWorktreeRoot = ManagedWorktreeDefaults.normalizedRoot(value)
+            case "managed_worktree_retention_limit":
+                if let limit = Self.intValue(value) {
+                    config.managedWorktreeRetentionLimit = ManagedWorktreeDefaults.normalizedRetentionLimit(limit)
+                }
             default:
                 continue
             }
@@ -136,8 +142,12 @@ public struct ConfigStore: Sendable {
             "mode = \(Self.quote(config.mode.rawValue))",
             "api_base_url = \(Self.quote(config.apiBaseURL))",
             "auth_mode = \(Self.quote(config.authMode.rawValue))",
-            "developer_override_enabled = \(Self.boolString(config.developerOverrideEnabled))"
+            "developer_override_enabled = \(Self.boolString(config.developerOverrideEnabled))",
+            "managed_worktree_retention_limit = \(config.managedWorktreeRetentionLimit ?? 0)"
         ]
+        if let root = config.managedWorktreeRoot {
+            lines.append("managed_worktree_root = \(Self.quote(root))")
+        }
         Self.appendNotificationPreferences(config.notificationPreferences, to: &lines)
         Self.appendOptionalDouble(config.runSpendFuseUSD, key: "run_spend_fuse_usd", to: &lines)
         Self.appendOptionalDouble(
@@ -239,6 +249,10 @@ public struct ConfigStore: Sendable {
 
     private static func doubleValue(_ value: String) -> Double? {
         Double(value.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private static func intValue(_ value: String) -> Int? {
+        Int(value.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     private static func quote(_ value: String) -> String {

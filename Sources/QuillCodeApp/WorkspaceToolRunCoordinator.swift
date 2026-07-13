@@ -9,6 +9,17 @@ struct WorkspaceToolRunCoordinator {
 
     @discardableResult
     func run(_ call: ToolCall) -> ToolResult {
+        runPrepared(call, primaryExecution: nil)
+    }
+
+    func run(_ call: ToolCall, primaryExecution: @escaping () -> ToolResult) -> ToolResult {
+        runPrepared(call, primaryExecution: primaryExecution)
+    }
+
+    private func runPrepared(
+        _ call: ToolCall,
+        primaryExecution: (() -> ToolResult)?
+    ) -> ToolResult {
         if model.selectedThread == nil {
             _ = model.newChat()
         }
@@ -29,10 +40,18 @@ struct WorkspaceToolRunCoordinator {
 
         // App/UI-initiated tool runs use the model's UI edit session — never a chat thread's —
         // so a UI read grants no model thread write rights (and vice versa).
-        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: model.uiEditSessionGuard)
-        let executor = WorkspaceToolCallExecutorFactory.executor(model: model, router: router)
-        let execution = model.mutateBrowserState { browser, lastError in
-            executor.execute(call, browser: &browser, lastError: &lastError)
+        let execution: WorkspaceToolCallExecution
+        if let primaryExecution {
+            execution = WorkspaceToolCallExecution(
+                primary: WorkspaceRecordedToolResult(call: call, result: primaryExecution()),
+                followUps: []
+            )
+        } else {
+            let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: model.uiEditSessionGuard)
+            let executor = WorkspaceToolCallExecutorFactory.executor(model: model, router: router)
+            execution = model.mutateBrowserState { browser, lastError in
+                executor.execute(call, browser: &browser, lastError: &lastError)
+            }
         }
         let finishPlan = WorkspaceToolRunLifecyclePlanner.finished(execution: execution)
         recordToolRun(execution)

@@ -27,7 +27,12 @@ public struct GitWorktreeToolExecutor: Sendable {
             guard GitInputValidator.trimmedNonEmpty(branch) == nil else {
                 return ToolResult(ok: false, error: "Managed worktrees start detached and cannot create a branch.")
             }
-            return managedMaterializer.create(cwd: cwd, path: path, base: base)
+            return managedMaterializer.create(
+                cwd: cwd,
+                path: path,
+                base: base,
+                allowedRoot: cwd.deletingLastPathComponent()
+            )
         }
         do {
             var arguments = ["worktree", "add"]
@@ -54,6 +59,12 @@ public struct GitWorktreeToolExecutor: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    /// Trusted app entry point for managed worktrees under the root selected in Settings. The model's
+    /// generic worktree tool does not expose `allowedRoot`, so it retains the repository-parent gate.
+    public func createManaged(cwd: URL, path: String, base: String?, allowedRoot: URL) -> ToolResult {
+        managedMaterializer.create(cwd: cwd, path: path, base: base, allowedRoot: allowedRoot)
     }
 
     public func createBranchHere(cwd: URL, branch: String) -> ToolResult {
@@ -106,11 +117,11 @@ public struct GitWorktreeToolExecutor: Sendable {
 
     public func open(cwd: URL, path: String) -> ToolResult {
         do {
-            let worktreePath = try Self.safePath(path, cwd: cwd)
             let registered = registeredPaths(cwd: cwd)
             if let failure = registered.failure {
                 return failure
             }
+            let worktreePath = try Self.safeRegisteredPath(path, cwd: cwd, registered: registered.paths)
             guard registered.paths.contains(worktreePath) else {
                 throw GitToolError.unregisteredWorktree(worktreePath)
             }
@@ -131,11 +142,11 @@ public struct GitWorktreeToolExecutor: Sendable {
 
     public func remove(cwd: URL, path: String, force: Bool = false) -> ToolResult {
         do {
-            let worktreePath = try Self.safePath(path, cwd: cwd)
             let registered = registeredPaths(cwd: cwd)
             if let failure = registered.failure {
                 return failure
             }
+            let worktreePath = try Self.safeRegisteredPath(path, cwd: cwd, registered: registered.paths)
             guard registered.paths.contains(worktreePath) else {
                 throw GitToolError.unregisteredWorktree(worktreePath)
             }
@@ -185,6 +196,38 @@ public struct GitWorktreeToolExecutor: Sendable {
             throw GitToolError.mainWorkspaceWorktreePath
         }
         return standardized.path
+    }
+
+    static func safeManagedPath(_ path: String, allowedRoot: URL) throws -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw GitToolError.emptyPath }
+        let root = allowedRoot.standardizedFileURL
+        let candidate = trimmed.hasPrefix("/")
+            ? URL(fileURLWithPath: trimmed)
+            : root.appendingPathComponent(trimmed)
+        let standardized = candidate.standardizedFileURL
+        guard WorkspaceBoundary.isWithin(standardized, root: root), standardized.path != root.path else {
+            throw GitToolError.outsideWorkspace(path)
+        }
+        return standardized.path
+    }
+
+    private static func safeRegisteredPath(
+        _ path: String,
+        cwd: URL,
+        registered: Set<String>
+    ) throws -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw GitToolError.emptyPath }
+        let candidate = trimmed.hasPrefix("/")
+            ? URL(fileURLWithPath: trimmed)
+            : cwd.deletingLastPathComponent().appendingPathComponent(trimmed)
+        let normalized = candidate.resolvingSymlinksInPath().standardizedFileURL.path
+        guard normalized != cwd.resolvingSymlinksInPath().standardizedFileURL.path else {
+            throw GitToolError.mainWorkspaceWorktreePath
+        }
+        guard registered.contains(normalized) else { throw GitToolError.unregisteredWorktree(normalized) }
+        return normalized
     }
 
     private func registeredPaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {

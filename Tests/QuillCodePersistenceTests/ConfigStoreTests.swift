@@ -193,6 +193,35 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertTrue(stored.contains("run_spend_monthly_limit_usd = 30.000000"))
     }
 
+    func testConfigRoundTripsManagedWorktreeSettingsAndDisabledCleanup() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(
+            managedWorktreeRoot: "/tmp/quillcode-worktrees",
+            managedWorktreeRetentionLimit: nil
+        )
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.managedWorktreeRoot, "/tmp/quillcode-worktrees")
+        XCTAssertNil(loaded.managedWorktreeRetentionLimit)
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"managed_worktree_root = "/tmp/quillcode-worktrees""#))
+        XCTAssertTrue(stored.contains("managed_worktree_retention_limit = 0"))
+    }
+
+    func testConfigWithoutWorktreeKeysUsesSafeDefaults() throws {
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        try """
+        default_model = "/nike"
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let loaded = try ConfigStore(fileURL: fileURL).load()
+
+        XCTAssertNil(loaded.managedWorktreeRoot)
+        XCTAssertEqual(loaded.managedWorktreeRetentionLimit, ManagedWorktreeDefaults.retentionLimit)
+    }
+
     func testConfigIgnoresInvalidRunSpendLimits() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """

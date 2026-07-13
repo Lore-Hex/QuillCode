@@ -16,10 +16,27 @@ final class AppConfigCompatibilityTests: XCTestCase {
 
         XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.prometheusModel)
         XCTAssertEqual(config.favoriteModels, [])
+        XCTAssertEqual(config.managedWorktreeRetentionLimit, ManagedWorktreeDefaults.retentionLimit)
         XCTAssertEqual(config.browserAllowedDomains, [])
         XCTAssertEqual(config.browserBlockedDomains, [])
         XCTAssertEqual(config.notificationPreferences, QuillCodeNotificationPreferences())
         XCTAssertEqual(config.runSpendFuseUSD, 1.0)
+    }
+
+    func testManagedWorktreeSettingsNormalizeAndDecodeDisabledCleanup() throws {
+        let config = AppConfig(
+            managedWorktreeRoot: " /tmp/quill/../quill-worktrees ",
+            managedWorktreeRetentionLimit: 2_000
+        )
+
+        XCTAssertEqual(config.managedWorktreeRoot, "/tmp/quill-worktrees")
+        XCTAssertEqual(config.managedWorktreeRetentionLimit, ManagedWorktreeDefaults.maximumRetentionLimit)
+        XCTAssertNil(AppConfig(managedWorktreeRoot: "relative/path").managedWorktreeRoot)
+
+        let disabled = try JSONHelpers.decode(AppConfig.self, from: """
+        {"managedWorktreeRetentionLimit": null}
+        """)
+        XCTAssertNil(disabled.managedWorktreeRetentionLimit)
     }
 
     func testAppConfigDecodesAndNormalizesRunSpendFuse() throws {

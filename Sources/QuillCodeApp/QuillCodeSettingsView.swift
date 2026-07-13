@@ -20,6 +20,7 @@ struct QuillCodeSettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    QuillCodeWorktreeSettingsCard(settings: settings, draft: $draft)
                     QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
                     QuillCodeSpendLimitSettingsCard(settings: settings, draft: $draft)
                     QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
