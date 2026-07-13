@@ -4,6 +4,39 @@ import QuillCodeCore
 
 @MainActor
 final class WorkspaceSurfaceTests: XCTestCase {
+    func testSurfaceExposesNamedWorktreeEnvironmentsForSelectedLocalProject() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let directory = root.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try """
+        [worktree_setup]
+        default_environment = "development"
+
+        [local_environments.development]
+        title = "Development"
+        description = "Install app dependencies."
+        """.write(
+            to: directory.appendingPathComponent("config.toml"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Repo")
+        model.selectProject(projectID)
+
+        let environments = model.surface().worktreeEnvironments
+
+        XCTAssertEqual(environments.automaticDetail, "Use the project's default environment, Development.")
+        XCTAssertEqual(environments.options, [
+            WorkspaceWorktreeEnvironmentOption(
+                id: "development",
+                title: "Development",
+                description: "Install app dependencies.",
+                isDefault: true
+            )
+        ])
+    }
+
     func testSurfaceIncludesTopBarSidebarComposerAndCommands() {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         let thread = ChatThread(title: "Run whoami", messages: [

@@ -18,6 +18,21 @@ async function openWorktreeCommand(page: Page, query: string, commandID: string)
   await clickCommandPaletteCommand(page, query, commandID);
 }
 
+async function createNewWorktreeTask(
+  page: Page,
+  environment: 'Automatic' | 'No setup' | 'Development' | 'CI' = 'Automatic',
+  name = ''
+) {
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');
+  await expect(page.getByTestId('worktree-new-task-panel')).toBeVisible();
+  await expect(page.getByLabel('Task name')).toBeFocused();
+  if (name) await page.getByLabel('Task name').fill(name);
+  await page.getByRole('radio', { name: new RegExp(`^${environment}`) }).check();
+  await page.getByTestId('worktree-new-task-submit').click();
+  await expect(page.getByTestId('worktree-new-task-panel')).toHaveCount(0);
+}
+
 test('mock harness lists worktrees from the command palette', async ({ page }) => {
   await openCommandPalette(page);
   await fillCommandPalette(page, '>worktree');
@@ -33,8 +48,7 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
 });
 
 test('detached worktree task can create and own a branch in place', async ({ page }) => {
-  await openCommandPalette(page);
-  await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');
+  await createNewWorktreeTask(page);
 
   await expect(page.getByTestId('top-bar-create-branch-button')).toBeVisible();
   await expect(page.getByTestId('top-bar-handoff-button')).toBeVisible();
@@ -58,20 +72,32 @@ test('detached worktree task can create and own a branch in place', async ({ pag
 });
 
 test('new managed worktree shows automatic environment setup in the transcript', async ({ page }) => {
-  await openCommandPalette(page);
-  await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');
+  await createNewWorktreeTask(page, 'Automatic');
 
   const setupCard = page.getByTestId('tool-card').last();
   await expect(setupCard.getByTestId('tool-card-title')).toHaveText('host.shell.run');
-  await expect(setupCard.getByTestId('tool-card-input')).toContainText('.quillcode/setup.sh');
+  await expect(setupCard.getByTestId('tool-card-input')).toContainText(
+    '.quillcode/environments/development/setup.sh'
+  );
   await expect(setupCard).toHaveAttribute('data-status', 'done');
   await setupCard.click();
-  await expect(setupCard.getByTestId('tool-card-output')).toContainText('Worktree environment ready.');
+  await expect(setupCard.getByTestId('tool-card-output')).toContainText('development environment ready.');
+});
+
+test('new worktree task can choose a named environment or skip setup', async ({ page }) => {
+  await createNewWorktreeTask(page, 'CI', 'CI investigation');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText(
+    '.quillcode/environments/ci/setup.sh'
+  );
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: CI investigation');
+
+  await createNewWorktreeTask(page, 'No setup', 'Docs only');
+  await expect(page.getByTestId('tool-card')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: Docs only');
 });
 
 test('archived managed worktree can be restored with its saved task state', async ({ page }) => {
-  await openCommandPalette(page);
-  await clickCommandPaletteCommand(page, '>new worktree', 'thread-new-worktree');
+  await createNewWorktreeTask(page);
   await expect(page.getByTestId('top-bar-worktree')).toHaveText('Worktree');
 
   await openCommandPalette(page);

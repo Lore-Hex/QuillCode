@@ -25,6 +25,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var changedFilePaths: Set<String>
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
+    public var worktreeEnvironments: WorkspaceWorktreeEnvironmentSurface
     public var runtimeIssue: RuntimeIssueSurface?
     public var lastError: String?
     /// The morning-triage return digest card (issue #877), present when the user has opened a thread's
@@ -50,6 +51,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         changedFilePaths: Set<String> = [],
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
+        worktreeEnvironments: WorkspaceWorktreeEnvironmentSurface = WorkspaceWorktreeEnvironmentSurface(),
         runtimeIssue: RuntimeIssueSurface? = nil,
         lastError: String? = nil,
         attentionDigest: AttentionDigestSurface? = nil
@@ -72,6 +74,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.changedFilePaths = changedFilePaths
         self.commands = commands
         self.settings = settings
+        self.worktreeEnvironments = worktreeEnvironments
         self.runtimeIssue = runtimeIssue
         self.lastError = lastError
         self.attentionDigest = attentionDigest
@@ -220,6 +223,12 @@ public extension QuillCodeWorkspaceModel {
                 modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog),
                 managedWorktreeDefaultRoot: managedWorktreeDefaultRoot
             ),
+            worktreeEnvironments: selectedProject.flatMap { project in
+                guard !project.isRemote else { return nil }
+                return WorkspaceProjectConfigurationLoader
+                    .load(from: URL(fileURLWithPath: project.path))
+                    .worktreeEnvironmentSurface
+            } ?? WorkspaceWorktreeEnvironmentSurface(),
             runtimeIssue: runtimeIssue,
             lastError: lastError,
             attentionDigest: attentionDigestSurface()

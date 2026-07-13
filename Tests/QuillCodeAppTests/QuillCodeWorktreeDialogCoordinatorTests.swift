@@ -3,6 +3,26 @@ import XCTest
 
 @MainActor
 final class QuillCodeWorktreeDialogCoordinatorTests: XCTestCase {
+    func testPresentNewTaskResetsDraftAndPreservesEnvironmentOptions() {
+        let coordinator = QuillCodeWorktreeDialogCoordinator()
+        coordinator.newTaskDraft.name = "stale"
+        let environments = WorkspaceWorktreeEnvironmentSurface(
+            options: [.init(id: "development", title: "Development", isDefault: true)],
+            automaticDetail: "Use Development."
+        )
+
+        coordinator.presentNewTask(environments: environments)
+
+        XCTAssertEqual(coordinator.sheet, .newTask)
+        XCTAssertEqual(coordinator.newTaskDraft.name, "")
+        XCTAssertEqual(coordinator.newTaskDraft.setupChoice, .automatic)
+        XCTAssertEqual(coordinator.newTaskDraft.environments, environments)
+        coordinator.newTaskDraft.name = " API cleanup "
+        coordinator.newTaskDraft.setupChoice = .named("development")
+        XCTAssertEqual(coordinator.newTaskDraft.request.name, "API cleanup")
+        XCTAssertEqual(coordinator.newTaskDraft.request.setupSelection, .named("development"))
+    }
+
     func testPresentCreateBranchResetsDraftAndBuildsTrimmedRequest() {
         let coordinator = QuillCodeWorktreeDialogCoordinator()
         coordinator.createBranchDraft.branch = "stale"

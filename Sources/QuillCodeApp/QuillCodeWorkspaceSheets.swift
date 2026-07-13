@@ -11,6 +11,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var settingsDraft: QuillCodeSettingsDraft
     @Binding var isKeyboardShortcutsPresented: Bool
     @Binding var worktreeSheet: QuillCodeWorktreeSheet?
+    @Binding var newWorktreeTaskDraft: QuillCodeNewWorktreeTaskDraft
     @Binding var createWorktreeDraft: QuillCodeWorktreeCreateDraft
     @Binding var createWorktreeBranchDraft: QuillCodeWorktreeCreateBranchDraft
     @Binding var openWorktreeDraft: QuillCodeWorktreeOpenDraft
@@ -23,6 +24,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     var onStartTrustedRouterSignIn: () -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
+    var onCreateWorktreeThread: (WorkspaceNewWorktreeThreadRequest) -> Void
     var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     var onCreateWorktreeBranch: (WorkspaceWorktreeCreateBranchRequest) -> Void
     var onRetryWorktreeChoices: (QuillCodeWorktreeSheet) -> Void
@@ -161,6 +163,12 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @ViewBuilder
     private func worktreeDialog(for sheet: QuillCodeWorktreeSheet) -> some View {
         switch sheet {
+        case .newTask:
+            QuillCodeNewWorktreeTaskView(
+                draft: $newWorktreeTaskDraft,
+                onCancel: dismissWorktreeSheet,
+                onCreate: createWorktreeThread
+            )
         case .create:
             QuillCodeWorktreeCreateView(
                 draft: $createWorktreeDraft,
@@ -237,6 +245,11 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         worktreeSheet = nil
     }
 
+    private func createWorktreeThread() {
+        onCreateWorktreeThread(newWorktreeTaskDraft.request)
+        worktreeSheet = nil
+    }
+
     private func createWorktreeBranch() {
         onCreateWorktreeBranch(createWorktreeBranchDraft.request)
         worktreeSheet = nil
@@ -304,6 +317,7 @@ extension View {
         settingsDraft: Binding<QuillCodeSettingsDraft>,
         isKeyboardShortcutsPresented: Binding<Bool>,
         worktreeSheet: Binding<QuillCodeWorktreeSheet?>,
+        newWorktreeTaskDraft: Binding<QuillCodeNewWorktreeTaskDraft>,
         createWorktreeDraft: Binding<QuillCodeWorktreeCreateDraft>,
         createWorktreeBranchDraft: Binding<QuillCodeWorktreeCreateBranchDraft>,
         openWorktreeDraft: Binding<QuillCodeWorktreeOpenDraft>,
@@ -316,6 +330,7 @@ extension View {
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void,
+        onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> Void,
         onRetryWorktreeChoices: @escaping (QuillCodeWorktreeSheet) -> Void,
@@ -337,6 +352,7 @@ extension View {
             settingsDraft: settingsDraft,
             isKeyboardShortcutsPresented: isKeyboardShortcutsPresented,
             worktreeSheet: worktreeSheet,
+            newWorktreeTaskDraft: newWorktreeTaskDraft,
             createWorktreeDraft: createWorktreeDraft,
             createWorktreeBranchDraft: createWorktreeBranchDraft,
             openWorktreeDraft: openWorktreeDraft,
@@ -349,6 +365,7 @@ extension View {
             onSaveSettings: onSaveSettings,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             onCommand: onCommand,
+            onCreateWorktreeThread: onCreateWorktreeThread,
             onCreateWorktree: onCreateWorktree,
             onCreateWorktreeBranch: onCreateWorktreeBranch,
             onRetryWorktreeChoices: onRetryWorktreeChoices,

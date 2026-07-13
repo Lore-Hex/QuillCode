@@ -5,6 +5,48 @@ public enum WorktreeExecutionLocation: String, Codable, Sendable, Hashable {
     case worktree
 }
 
+public enum WorktreeSetupSelection: Codable, Sendable, Hashable {
+    case automatic
+    case none
+    case named(String)
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case environmentID
+    }
+
+    private enum Kind: String, Codable {
+        case automatic
+        case none
+        case named
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .automatic:
+            self = .automatic
+        case .none:
+            self = .none
+        case .named:
+            self = .named(try container.decode(String.self, forKey: .environmentID))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .automatic:
+            try container.encode(Kind.automatic, forKey: .kind)
+        case .none:
+            try container.encode(Kind.none, forKey: .kind)
+        case .named(let environmentID):
+            try container.encode(Kind.named, forKey: .kind)
+            try container.encode(environmentID, forKey: .environmentID)
+        }
+    }
+}
+
 /// Durable metadata for a managed worktree snapshot saved before its disposable checkout is removed.
 /// The snapshot payload lives outside the thread JSON; this small reference is enough to present and
 /// validate restoration without loading patches or copied files into workspace state.
@@ -48,6 +90,8 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
     public var managedRoot: String?
     /// Saved state for a removed managed worktree. nil for active, permanent, and legacy bindings.
     public var snapshot: WorktreeSnapshotReference?
+    /// The project setup environment chosen when this task was created.
+    public var setupSelection: WorktreeSetupSelection
 
     public init(
         path: String,
@@ -55,7 +99,8 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         base: String? = nil,
         location: WorktreeExecutionLocation = .worktree,
         managedRoot: String? = nil,
-        snapshot: WorktreeSnapshotReference? = nil
+        snapshot: WorktreeSnapshotReference? = nil,
+        setupSelection: WorktreeSetupSelection = .automatic
     ) {
         self.path = path
         self.branch = branch
@@ -63,6 +108,7 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         self.location = location
         self.managedRoot = managedRoot
         self.snapshot = snapshot
+        self.setupSelection = setupSelection
     }
 
     /// A binding is only usable if it names a real directory; a dangling path means the worktree was
@@ -93,6 +139,7 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         case location
         case managedRoot
         case snapshot
+        case setupSelection
     }
 
     public init(from decoder: Decoder) throws {
@@ -104,6 +151,8 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
             ?? .worktree
         self.managedRoot = try container.decodeIfPresent(String.self, forKey: .managedRoot)
         self.snapshot = try container.decodeIfPresent(WorktreeSnapshotReference.self, forKey: .snapshot)
+        self.setupSelection = try container.decodeIfPresent(WorktreeSetupSelection.self, forKey: .setupSelection)
+            ?? .automatic
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -114,5 +163,6 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         try container.encode(location, forKey: .location)
         try container.encodeIfPresent(managedRoot, forKey: .managedRoot)
         try container.encodeIfPresent(snapshot, forKey: .snapshot)
+        try container.encode(setupSelection, forKey: .setupSelection)
     }
 }

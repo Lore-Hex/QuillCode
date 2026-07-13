@@ -84,7 +84,7 @@ test('mock harness ranks and navigates command palette with keyboard', async ({ 
   await expect(page.getByTestId('command-palette-group')).toHaveCount(2);
   await expect(page.getByTestId('command-palette-group').first()).toContainText('Thread');
   await expect(page.getByTestId('command-palette-group').nth(1)).toContainText('Git');
-  await expectSelectedCommandPaletteResult(page, 'New worktree chat');
+  await expectSelectedCommandPaletteResult(page, 'New worktree task');
 
   await down(page);
   await expectSelectedCommandPaletteResult(page, 'List worktrees');

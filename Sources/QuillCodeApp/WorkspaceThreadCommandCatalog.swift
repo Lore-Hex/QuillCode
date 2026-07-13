@@ -41,7 +41,7 @@ enum WorkspaceThreadCommandCatalog {
             ),
             WorkspaceCommandSurface(
                 id: "thread-new-worktree",
-                title: "New worktree chat",
+                title: "New worktree task",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "worktree", "branch", "isolated", "fork", "parallel"]
             ),
