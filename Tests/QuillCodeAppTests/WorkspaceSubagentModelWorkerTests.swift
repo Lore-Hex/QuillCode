@@ -56,6 +56,34 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "hello from subagent\n")
     }
 
+    func testRunBuildsBoundedRedactedTranscriptWithoutRepeatingPrompt() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let secret = "sk-SYNTHETIC_SUBAGENT_SECRET_123456"
+        let worker = makeWorker(
+            root: root,
+            actions: [
+                .tool(ToolCall(
+                    name: ToolDefinition.shellRun.name,
+                    argumentsJSON: ToolArguments.json(["cmd": "printf '\(secret)' >/dev/null"])
+                )),
+                .say("Verified the worker command completed.")
+            ]
+        )
+
+        let result = try await worker.runWithTranscript(
+            WorkspaceSubagentJob(name: "Verifier", role: "run a check", objective: "private objective")
+        )
+
+        XCTAssertEqual(result.summary, "Verified the worker command completed.")
+        XCTAssertEqual(result.transcript.map(\.kind), [.tool, .assistant])
+        XCTAssertEqual(result.transcript.first?.title, "Shell command")
+        XCTAssertEqual(result.transcript.first?.statusLabel, "Done")
+        XCTAssertTrue(result.transcript.first?.detail.contains("[redacted]") == true)
+        XCTAssertTrue(result.transcript.last?.detail.contains("Verified the worker") == true)
+        XCTAssertFalse(result.transcript.map(\.detail).joined().contains(secret))
+        XCTAssertFalse(result.transcript.map(\.detail).joined().contains("private objective"))
+    }
+
     func testRunSurfacesSafetyBlockInsteadOfBypassingParentMode() async throws {
         let root = try makeQuillCodeTestDirectory()
         let parent = ChatThread(mode: .review)

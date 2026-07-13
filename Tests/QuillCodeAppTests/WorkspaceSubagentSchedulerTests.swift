@@ -3,6 +3,30 @@ import QuillCodeCore
 @testable import QuillCodeApp
 
 final class WorkspaceSubagentSchedulerTests: XCTestCase {
+    func testSchedulerPublishesWorkerTranscriptWithCompletedProgress() async {
+        let transcript = [
+            SubagentTranscriptEntry(
+                id: "tool-check",
+                kind: .tool,
+                title: "Shell command",
+                detail: "Completed - swift test",
+                statusLabel: "Done"
+            )
+        ]
+        let scheduler = WorkspaceSubagentScheduler(worker: { _ in
+            WorkspaceSubagentWorkerResult(summary: "checks passed", transcript: transcript)
+        })
+        let request = WorkspaceSubagentRunRequest(
+            objective: "verify release",
+            workers: [.init(name: "Verifier", role: "run checks")]
+        )
+
+        let result = await scheduler.run(request: request)
+
+        XCTAssertEqual(result.update.subagents.first?.summary, "checks passed")
+        XCTAssertEqual(result.update.subagents.first?.transcript, transcript)
+    }
+
     func testSchedulerRunsWorkersConcurrentlyAndPublishesProgress() async throws {
         let probe = ConcurrencyProbe()
         let scheduler = WorkspaceSubagentScheduler { job in

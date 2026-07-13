@@ -88,15 +88,41 @@ enum WorkspaceHTMLActivityPaneRenderer {
     private static func renderActivityItem(section: ActivitySectionSurface) -> (ActivityItemSurface) -> String {
         { item in
             let actions = renderActivityItemActions(item)
+            let transcript = renderActivityItemTranscript(item)
             return """
             <article class="activity-item" data-testid="\(escape(section.itemTestID))" data-kind="\(escape(item.kind))">
               <strong>\(escape(item.title))</strong>
               \(item.statusLabel.isEmpty ? "" : #"<span>\#(escape(item.statusLabel))</span>"#)
               \(item.detail.isEmpty ? "" : #"<p>\#(escape(item.detail))</p>"#)
               \(actions)
+              \(transcript)
             </article>
             """
         }
+    }
+
+    private static func renderActivityItemTranscript(_ item: ActivityItemSurface) -> String {
+        guard !item.transcript.isEmpty else { return "" }
+        let entries = item.transcript.map { entry in
+            """
+            <article class="activity-transcript-entry" data-testid="activity-subagent-transcript-entry" data-kind="\(entry.kind.rawValue)">
+              <strong>\(escape(entry.title))</strong>
+              \(entry.statusLabel.isEmpty ? "" : #"<em>\#(escape(entry.statusLabel))</em>"#)
+              \(entry.detail.isEmpty ? "" : #"<p>\#(escape(entry.detail))</p>"#)
+            </article>
+            """
+        }.joined(separator: "\n")
+        let count = item.transcript.count
+        return """
+        <details class="activity-subagent-transcript" data-testid="activity-subagent-transcript">
+          \(WorkspaceHTMLPrimitives.summaryContent(
+              trustedHTML: "Transcript <small>\(count) step\(count == 1 ? "" : "s")</small>",
+              testID: "activity-subagent-transcript-toggle",
+              hitTargetKind: .row
+          ))
+          <div>\(entries)</div>
+        </details>
+        """
     }
 
     private static func renderActivityItemActions(_ item: ActivityItemSurface) -> String {

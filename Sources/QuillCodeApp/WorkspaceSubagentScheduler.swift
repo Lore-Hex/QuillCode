@@ -47,14 +47,25 @@ struct WorkspaceSubagentRunResult: Sendable, Hashable {
     var summary: String
 }
 
+struct WorkspaceSubagentWorkerResult: Sendable, Hashable {
+    var summary: String
+    var transcript: [SubagentTranscriptEntry]
+
+    init(summary: String, transcript: [SubagentTranscriptEntry] = []) {
+        self.summary = summary
+        self.transcript = transcript
+    }
+}
+
 private enum WorkspaceSubagentWorkerOutcome: Sendable, Hashable {
-    case completed(String)
+    case completed(WorkspaceSubagentWorkerResult)
     case cancelled
     case failed(String)
 }
 
 struct WorkspaceSubagentScheduler {
-    typealias Worker = @Sendable (WorkspaceSubagentJob) async throws -> String
+    typealias Worker = @Sendable (WorkspaceSubagentJob) async throws -> WorkspaceSubagentWorkerResult
+    typealias SummaryWorker = @Sendable (WorkspaceSubagentJob) async throws -> String
     /// Called after a worker completes with its job and result summary; returns child workers to
     /// delegate to. Returning `[]` (or passing no spawner) keeps the flat, fixed-graph behavior.
     typealias Spawner = @Sendable (WorkspaceSubagentJob, String) async -> [WorkspaceSubagentWorkerRequest]
@@ -80,6 +91,16 @@ struct WorkspaceSubagentScheduler {
         self.worker = worker
         self.maxDepth = max(0, maxDepth)
         self.maxTotalJobs = max(1, maxTotalJobs)
+    }
+
+    init(
+        maxDepth: Int = Self.defaultMaxDepth,
+        maxTotalJobs: Int = Self.defaultMaxTotalJobs,
+        summaryWorker: @escaping SummaryWorker
+    ) {
+        self.init(maxDepth: maxDepth, maxTotalJobs: maxTotalJobs) { job in
+            WorkspaceSubagentWorkerResult(summary: try await summaryWorker(job))
+        }
     }
 
     func run(
@@ -178,9 +199,9 @@ struct WorkspaceSubagentScheduler {
                     group.addTask {
                         do {
                             try Task.checkCancellation()
-                            let summary = try await worker(job)
+                            let result = try await worker(job)
                             try Task.checkCancellation()
-                            return (index, .completed(summary))
+                            return (index, .completed(result))
                         } catch is CancellationError {
                             return (index, .cancelled)
                         } catch {
@@ -199,11 +220,12 @@ struct WorkspaceSubagentScheduler {
                     // its concurrency saturated.
                     startNextWorker()
                     switch outcome {
-                    case .completed(let summary):
+                    case .completed(let result):
                         items[index].status = .completed
-                        items[index].summary = Self.boundedSummary(summary)
+                        items[index].summary = Self.boundedSummary(result.summary)
+                        items[index].transcript = result.transcript
                         if let spawn {
-                            for child in await spawn(jobs[index], summary) {
+                            for child in await spawn(jobs[index], result.summary) {
                                 spawnedThisWave.append((parentIndex: index, request: child))
                             }
                         }
@@ -309,9 +331,9 @@ struct WorkspaceSubagentScheduler {
         return candidate
     }
 
-    private static func defaultWorker(_ job: WorkspaceSubagentJob) async throws -> String {
+    private static func defaultWorker(_ job: WorkspaceSubagentJob) async throws -> WorkspaceSubagentWorkerResult {
         await Task.yield()
-        return "Completed \(job.role)"
+        return WorkspaceSubagentWorkerResult(summary: "Completed \(job.role)")
     }
 
     private static func finalSummary(objective: String, items: [SubagentProgressItem]) -> String {

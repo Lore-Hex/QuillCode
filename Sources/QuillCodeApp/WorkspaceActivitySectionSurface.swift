@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterable {
     case plan
@@ -199,6 +200,7 @@ public struct ActivityItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var kind: String
     public var statusLabel: String
     public var actions: [ActivityItemActionSurface]
+    public var transcript: [SubagentTranscriptEntry]
 
     public init(
         id: String,
@@ -206,7 +208,8 @@ public struct ActivityItemSurface: Codable, Sendable, Hashable, Identifiable {
         detail: String,
         kind: String,
         statusLabel: String = "",
-        actions: [ActivityItemActionSurface] = []
+        actions: [ActivityItemActionSurface] = [],
+        transcript: [SubagentTranscriptEntry] = []
     ) {
         self.id = id
         self.title = title
@@ -214,6 +217,7 @@ public struct ActivityItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.kind = kind
         self.statusLabel = statusLabel
         self.actions = actions
+        self.transcript = transcript
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -223,6 +227,7 @@ public struct ActivityItemSurface: Codable, Sendable, Hashable, Identifiable {
         case kind
         case statusLabel
         case actions
+        case transcript
     }
 
     public init(from decoder: Decoder) throws {
@@ -233,6 +238,7 @@ public struct ActivityItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.kind = try container.decodeIfPresent(String.self, forKey: .kind) ?? ""
         self.statusLabel = try container.decodeIfPresent(String.self, forKey: .statusLabel) ?? ""
         self.actions = try container.decodeIfPresent([ActivityItemActionSurface].self, forKey: .actions) ?? []
+        self.transcript = try container.decodeIfPresent([SubagentTranscriptEntry].self, forKey: .transcript) ?? []
     }
 }
 

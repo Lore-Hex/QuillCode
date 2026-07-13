@@ -98,6 +98,13 @@ test('mock harness shows model-authored subagent progress in Activity', async ({
   await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Verifier');
   await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Running');
   await expect(page.getByTestId('activity-subagent-section')).toContainText('2 items');
+
+  const explorerTranscript = page.getByTestId('activity-subagent').nth(0)
+    .getByTestId('activity-subagent-transcript');
+  await explorerTranscript.getByText('Transcript').click();
+  await expect(explorerTranscript.getByTestId('activity-subagent-transcript-entry')).toHaveCount(2);
+  await expect(explorerTranscript).toContainText('Search files');
+  await expect(explorerTranscript).toContainText('Found the Activity surface and tool routing seams.');
 });
 
 test('mock harness parses slash subagents into named activity rows', async ({ page }) => {
