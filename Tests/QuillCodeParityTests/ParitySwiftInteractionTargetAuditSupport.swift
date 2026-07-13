@@ -364,11 +364,26 @@ struct SwiftSourceInteractionTargetAudit {
         startingAt index: Int,
         declarationScope: String
     ) -> String {
-        let scopeLines = declarationScope.components(separatedBy: .newlines)
-        guard let labelLine = scopeLines.firstIndex(where: { $0.contains("label:") }) else {
+        let range = controlRange(in: lines, startingAt: index)
+        guard let labelIndex = menuLabelIndex(in: lines, range: range) else {
             return declarationScope
         }
-        return scopeLines[labelLine...].joined(separator: "\n")
+        return window(in: lines, from: labelIndex, to: range.upperBound)
+    }
+
+    private func menuLabelIndex(in lines: [String], range: Range<Int>) -> Int? {
+        var depth = 0
+        for index in range {
+            let line = lines[index]
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            if index > range.lowerBound,
+               depth == 1,
+               trimmedLine.hasPrefix("} label:") {
+                return index
+            }
+            depth += delimiterBalance(in: line).delta
+        }
+        return nil
     }
 
     private func triggerScopeForDisclosure(
@@ -609,11 +624,10 @@ struct SwiftSourceInteractionTargetAudit {
                     lineIndex -= 1
                     continue
                 }
-                let scopeLines = Array(lines[range])
-                guard let labelOffset = scopeLines.firstIndex(where: { $0.contains("label:") }) else {
+                guard let labelIndex = menuLabelIndex(in: lines, range: range) else {
                     return true
                 }
-                return index < range.lowerBound + labelOffset
+                return index < labelIndex
             }
             if lineIndex < index, isControlDeclaration(lines[lineIndex]) {
                 let range = controlRange(in: lines, startingAt: lineIndex)

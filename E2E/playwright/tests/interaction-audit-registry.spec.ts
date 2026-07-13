@@ -66,6 +66,7 @@ test('critical click-target registry covers primary workspace surfaces', async (
       label: 'menu rows',
       requiredKinds: ['row'],
       probes: [
+        { label: 'project action', locator: page.getByTestId('top-bar-project-action').first(), expectedKind: 'row' },
         { label: 'search', locator: page.getByTestId('top-bar-overflow-search'), expectedKind: 'row' },
         { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette'), expectedKind: 'row' },
         { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts'), expectedKind: 'row' },

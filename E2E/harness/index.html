@@ -644,6 +644,22 @@
       background: transparent;
       border-color: transparent;
     }
+    .topbar-overflow-section {
+      display: grid;
+      gap: 4px;
+      margin: 0 0 2px;
+      padding: 0 0 7px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+    }
+    .topbar-overflow-section-title {
+      margin: 0;
+      padding: 5px 10px 1px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
     .model-picker-wrap { display: inline-flex; position: relative; }
     .model-panel {
       position: absolute;
@@ -5084,6 +5100,23 @@
         >${escapeHTML(command.title)}</button>`;
     }
 
+    function renderTopBarProjectActions(commands) {
+      if (!commands.length) return '';
+      return `
+        <section class="topbar-overflow-section" data-testid="top-bar-project-actions" role="group" aria-label="Project actions">
+          <p class="topbar-overflow-section-title">Actions</p>
+          ${commands.map(command => `
+            <button
+              type="button"
+              class="hit-target-row"
+              role="menuitem"
+              data-testid="top-bar-project-action"
+              data-command-id="${escapeHTML(command.id)}"
+              title="${escapeHTML(command.title)}"
+            >${escapeHTML(command.title)}</button>`).join('')}
+        </section>`;
+    }
+
     function workspaceGridClassName() {
       return [
         'workspace-grid',
@@ -8583,6 +8616,11 @@
       const topBarOverflowCommands = topBarOverflowCommandIDs
         .map(commandByID)
         .filter(command => command && (command.id !== 'disconnect-all' || command.isEnabled));
+      const topBarProjectActionCommands = state.commands.filter(command =>
+        command.isEnabled
+          && command.category === 'Environment'
+          && command.id.startsWith('local-env:')
+      );
       const topBarStopCommand = commandByID('stop-all');
       const topBarStopButton = topBarStopCommand?.isEnabled
         ? `<button type="button" class="topbar-stop-button hit-target-text" data-testid="top-bar-stop-button" data-command-id="stop-all" title="Stop all (${escapeHTML(topBarStopCommand.shortcut || 'Esc')})" aria-label="Stop active work">Stop</button>`
@@ -8648,7 +8686,8 @@
                 ${topBarStopButton}
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
                   <summary class="hit-target-icon" data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
-                  <div class="topbar-overflow-popover">
+                  <div class="topbar-overflow-popover" role="menu">
+                    ${renderTopBarProjectActions(topBarProjectActionCommands)}
                     ${topBarOverflowCommands.map(renderTopBarOverflowCommand).join('')}
                   </div>
                 </details>

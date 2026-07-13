@@ -158,7 +158,7 @@ enum WorkspaceHTMLTopBarRenderer {
                 ariaLabel: "More",
                 title: "More"
             ))
-            <div class="topbar-overflow-popover">
+            <div class="topbar-overflow-popover" role="menu">
               \(renderOverflow(commands: commands, showsComputerUseSetup: topBar.showsComputerUseSetup))
             </div>
           </details>
@@ -272,12 +272,37 @@ enum WorkspaceHTMLTopBarRenderer {
         commands: [WorkspaceCommandSurface],
         showsComputerUseSetup: Bool
     ) -> String {
-        TopBarOverflowCommandCatalog.commands(
+        let projectActions = TopBarProjectActionCatalog.commands(from: commands)
+        let utilityCommands = TopBarOverflowCommandCatalog.commands(
             from: commands,
             showsComputerUseSetup: showsComputerUseSetup
         )
-        .map(renderOverflowButton)
+        return [
+            renderProjectActions(projectActions),
+            utilityCommands.map(renderOverflowButton).joined(separator: "\n")
+        ]
+        .filter { !$0.isEmpty }
         .joined(separator: "\n")
+    }
+
+    private static func renderProjectActions(_ commands: [WorkspaceCommandSurface]) -> String {
+        guard !commands.isEmpty else { return "" }
+        let buttons = commands.map { command in
+            WorkspaceHTMLPrimitives.commandButton(
+                command.title,
+                testID: TopBarProjectActionCatalog.testID,
+                commandID: command.id,
+                hitTargetKind: .row,
+                title: command.title,
+                role: "menuitem"
+            )
+        }.joined(separator: "\n")
+        return """
+        <section class="topbar-overflow-section" data-testid="top-bar-project-actions" role="group" aria-label="Project actions">
+          <p class="topbar-overflow-section-title">Actions</p>
+          \(buttons)
+        </section>
+        """
     }
 
     private static func renderOverflowButton(_ command: WorkspaceCommandSurface) -> String {

@@ -21,6 +21,7 @@ final class ParityWorkspacePlaywrightChromeSpecGateTests: QuillCodeParityTestCas
         )
         let chromeFlowNames = [
             "opens utilities from the top-bar overflow",
+            "runs project Actions from the top-bar overflow",
             "opens Computer Use setup from the top-bar overflow",
             "disconnects remote project connections from the top-bar overflow"
         ]

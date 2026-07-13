@@ -34,6 +34,10 @@ struct QuillCodeTopBarActionClusterView: View {
         )
     }
 
+    private var projectActionCommands: [WorkspaceCommandSurface] {
+        TopBarProjectActionCatalog.commands(from: commands)
+    }
+
     private var activeStopCommand: WorkspaceCommandSurface? {
         commands.first { $0.id == "stop-all" && $0.isEnabled }
     }
@@ -143,6 +147,23 @@ struct QuillCodeTopBarActionClusterView: View {
 
     private var commandMenu: some View {
         Menu {
+            if !projectActionCommands.isEmpty {
+                Section("Actions") {
+                    ForEach(projectActionCommands) { command in
+                        Button {
+                            onCommand(command)
+                        } label: {
+                            Label(
+                                command.title,
+                                systemImage: QuillCodeCommandIconCatalog.systemImage(for: command.id)
+                            )
+                        }
+                        .quillCodePlatformMenuItemTarget(reason: Self.menuItemTargetReason)
+                        .accessibilityIdentifier("quillcode-top-bar-project-action-\(command.id)")
+                    }
+                }
+                Divider()
+            }
             ForEach(overflowCommands) { command in
                 Button {
                     onCommand(command)
