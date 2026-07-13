@@ -16,9 +16,7 @@ public struct PermissionRuleFileStore: Sendable {
     }
 
     public func fileURL(forWorkspaceRoot root: URL) -> URL {
-        let canonicalPath = WorkspaceBoundary.symlinkResolvedPath(root.standardizedFileURL)
-        let name = Self.sanitizedComponent(URL(fileURLWithPath: canonicalPath).lastPathComponent)
-        return directory.appendingPathComponent("\(name)-\(Self.fnv1a64Hex(canonicalPath)).json")
+        WorkspaceScopedStoreFileLocator.fileURL(directory: directory, workspaceRoot: root)
     }
 
     /// Loads the workspace's rule table. Missing file → empty table, no diagnostics. Corrupt or
@@ -284,27 +282,6 @@ public struct PermissionRuleFileStore: Sendable {
             .appendingPathExtension("corrupt-\(stamp).json")
     }
 
-    // MARK: - Workspace keying
-
-    private static func sanitizedComponent(_ component: String) -> String {
-        let allowed = component.unicodeScalars.map { scalar -> Character in
-            if CharacterSet.alphanumerics.contains(scalar) || scalar == "-" || scalar == "_" {
-                return Character(scalar)
-            }
-            return "_"
-        }
-        let name = String(allowed.prefix(40))
-        return name.isEmpty ? "project" : name
-    }
-
-    private static func fnv1a64Hex(_ text: String) -> String {
-        var hash: UInt64 = 0xcbf29ce484222325
-        for byte in text.utf8 {
-            hash ^= UInt64(byte)
-            hash = hash &* 0x100000001b3
-        }
-        return String(format: "%016llx", hash)
-    }
 }
 
 extension PermissionRuleFileStore: PermissionRulesProviding {

@@ -50,6 +50,7 @@ public final class QuillCodeWorkspaceModel {
     /// this same store per review, so a rule saved here applies to the very next tool call. Nil
     /// (tests/CLI without persistence) disables saving; approval flows still work as before.
     let permissionRuleStore: PermissionRuleFileStore?
+    let projectHookTrustStore: ProjectHookTrustFileStore?
     let subagentSessionStore: WorkspaceSubagentSessionStore?
     let globalMemoryDirectory: URL?
     let imageAttachmentStore: ImageAttachmentStore?
@@ -122,6 +123,7 @@ public final class QuillCodeWorkspaceModel {
         automationStore: JSONAutomationStore? = nil,
         sidebarSavedSearchStore: JSONSidebarSavedSearchStore? = nil,
         permissionRuleStore: PermissionRuleFileStore? = nil,
+        projectHookTrustStore: ProjectHookTrustFileStore? = nil,
         subagentSessionStoreDirectory: URL? = nil,
         globalMemoryDirectory: URL? = nil,
         imageAttachmentStore: ImageAttachmentStore? = nil,
@@ -160,6 +162,7 @@ public final class QuillCodeWorkspaceModel {
         self.automationStore = automationStore
         self.sidebarSavedSearchStore = sidebarSavedSearchStore
         self.permissionRuleStore = permissionRuleStore
+        self.projectHookTrustStore = projectHookTrustStore
         self.subagentSessionStore = subagentSessionStoreDirectory.map(WorkspaceSubagentSessionStore.init)
         self.globalMemoryDirectory = globalMemoryDirectory
         self.imageAttachmentStore = imageAttachmentStore
@@ -260,7 +263,8 @@ public final class QuillCodeWorkspaceModel {
         let previousResolutions = instructionDiagnosticResolutions(for: id)
         WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
             projectID: id,
-            projects: &root.projects
+            projects: &root.projects,
+            hookTrustStore: projectHookTrustStore
         )
         let currentResolutions = instructionDiagnosticResolutions(for: id)
         if currentResolutions != previousResolutions {

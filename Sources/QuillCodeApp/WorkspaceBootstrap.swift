@@ -76,6 +76,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             automationStore: automationStore,
             sidebarSavedSearchStore: sidebarSavedSearchStore,
             permissionRuleStore: PermissionRuleFileStore(directory: paths.permissionsDirectory),
+            projectHookTrustStore: ProjectHookTrustFileStore(directory: paths.hookTrustDirectory),
             subagentSessionStoreDirectory: paths.subagentSessionsDirectory,
             globalMemoryDirectory: paths.memoriesDirectory,
             imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),

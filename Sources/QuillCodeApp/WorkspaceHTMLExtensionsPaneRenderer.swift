@@ -23,7 +23,7 @@ enum WorkspaceHTMLExtensionsPaneRenderer {
     }
 
     private static func renderContent(_ extensions: WorkspaceExtensionsSurface) -> String {
-        guard !extensions.items.isEmpty else {
+        guard !extensions.items.isEmpty || !extensions.hookItems.isEmpty else {
             return """
             <div class="extensions-empty" data-testid="extensions-empty">
               <strong>\(escape(extensions.emptyTitle))</strong>
@@ -33,7 +33,7 @@ enum WorkspaceHTMLExtensionsPaneRenderer {
         }
         return """
         <div class="extensions-grid" data-testid="extensions-grid">
-          \(extensions.items.map(renderExtensionItem).joined(separator: "\n"))
+          \((extensions.items.map(renderExtensionItem) + extensions.hookItems.map(renderHookItem)).joined(separator: "\n"))
         </div>
         """
     }
@@ -42,7 +42,8 @@ enum WorkspaceHTMLExtensionsPaneRenderer {
         var counts = [
             countChip(extensions.pluginCount, singular: "plugin"),
             countChip(extensions.skillCount, singular: "skill"),
-            countChip(extensions.mcpServerCount, singular: "MCP server")
+            countChip(extensions.mcpServerCount, singular: "MCP server"),
+            countChip(extensions.hookCount, singular: "plugin hook")
         ]
         if extensions.availableCount > 0 {
             counts.append(countChip(extensions.availableCount, singular: "available extension"))
@@ -80,6 +81,38 @@ enum WorkspaceHTMLExtensionsPaneRenderer {
           \(mcpDetails)
           \(item.probeError.map { #"<p data-testid="extension-mcp-error">\#(escape($0))</p>"# } ?? "")
           \(renderExtensionActions(item))
+        </article>
+        """
+    }
+
+    private static func renderHookItem(_ hook: ProjectPluginHookSurface) -> String {
+        let action = if let title = hook.actionTitle, let commandID = hook.actionCommandID {
+            extensionActionButton(
+                title,
+                testID: title == "Disable" ? "hook-disable" : "hook-trust",
+                commandID: commandID
+            )
+        } else {
+            ""
+        }
+        return """
+        <article
+          class="extension-card hook-card"
+          data-testid="hook-item"
+          data-kind="hook"
+          data-status="\(escape(hook.statusLabel))"
+        >
+          <header>
+            <span data-testid="extension-kind">Hook</span>
+            <span data-testid="hook-status">\(escape(hook.statusLabel))</span>
+          </header>
+          <strong data-testid="hook-name">\(escape(hook.name))</strong>
+          <p data-testid="hook-source">\(escape(hook.pluginName)) · \(escape(hook.event))</p>
+          \(hook.matcher.map { #"<code data-testid="hook-matcher">Matcher: \#(escape($0))</code>"# } ?? "")
+          \(hook.command.map { #"<code data-testid="hook-command">\#(escape($0))</code>"# } ?? "")
+          <code data-testid="hook-path">\(escape(hook.relativePath))</code>
+          \(hook.supportDetail.map { #"<p data-testid="hook-support">\#(escape($0))</p>"# } ?? "")
+          \(action)
         </article>
         """
     }

@@ -11,7 +11,10 @@ extension QuillCodeWorkspaceModel {
         let result = WorkspaceProjectEngine.upsertLocalProject(
             path: standardized,
             name: name,
-            metadata: WorkspaceProjectMetadataLoader.loadLocal(from: standardized),
+            metadata: WorkspaceProjectMetadataLoader.loadLocal(
+                from: standardized,
+                hookTrustStore: projectHookTrustStore
+            ),
             projects: &root.projects
         )
         root.selectedProjectID = result.projectID
@@ -177,6 +180,41 @@ extension QuillCodeWorkspaceModel {
             successNotice: { "Installed extension \($0.name)" },
             failureNotice: { "Extension install failed for \($0.name)" }
         )
+    }
+
+    @discardableResult
+    public func setProjectHookTrust(
+        id: String,
+        decision: ProjectHookTrustDecision
+    ) -> Bool {
+        guard let project = selectedProject,
+              !project.isRemote,
+              let projectHookTrustStore
+        else { return false }
+
+        refreshProjectMetadata(project.id)
+        guard let hook = selectedProject?.pluginHooks.first(where: { $0.id == id }),
+              decision != .trusted || hook.supportStatus.isSupported
+        else { return false }
+
+        do {
+            try projectHookTrustStore.setDecision(
+                decision,
+                for: hook,
+                workspaceRoot: URL(fileURLWithPath: project.path)
+            )
+            refreshProjectMetadata(project.id)
+            saveProjects()
+            appendNotice(
+                decision == .trusted
+                    ? "Trusted plugin hook: \(hook.statusMessage ?? hook.event)"
+                    : "Disabled plugin hook: \(hook.statusMessage ?? hook.event)"
+            )
+            return true
+        } catch {
+            setLastError("Could not save plugin hook trust: \(error.localizedDescription)")
+            return false
+        }
     }
 
     @discardableResult

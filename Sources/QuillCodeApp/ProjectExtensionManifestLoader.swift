@@ -1,6 +1,11 @@
 import Foundation
 import QuillCodeCore
 
+struct ProjectExtensionDiscovery: Sendable, Hashable {
+    var manifests: [ProjectExtensionManifest]
+    var pluginHooks: [ProjectPluginHook]
+}
+
 public enum ProjectExtensionManifestLoader {
     public static let defaultDirectories: [(relativePath: String, kind: ProjectExtensionKind)] = [
         (".quillcode/plugins", .plugin),
@@ -21,6 +26,20 @@ public enum ProjectExtensionManifestLoader {
         maxManifests: Int = maxManifests,
         maxManifestBytes: Int = maxManifestBytes
     ) -> [ProjectExtensionManifest] {
+        discover(
+            from: projectRoot,
+            directories: directories,
+            maxManifests: maxManifests,
+            maxManifestBytes: maxManifestBytes
+        ).manifests
+    }
+
+    static func discover(
+        from projectRoot: URL,
+        directories: [(relativePath: String, kind: ProjectExtensionKind)] = defaultDirectories,
+        maxManifests: Int = maxManifests,
+        maxManifestBytes: Int = maxManifestBytes
+    ) -> ProjectExtensionDiscovery {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
         let scanDirectories = directories.map(ManifestDirectoryRequest.init)
         let directManifests = loadManifests(
@@ -116,11 +135,15 @@ public enum ProjectExtensionManifestLoader {
         directories: [ManifestDirectoryRequest],
         maxManifests: Int,
         maxManifestBytes: Int
-    ) -> [ProjectExtensionManifest] {
-        guard directManifests.count < maxManifests else { return directManifests }
+    ) -> ProjectExtensionDiscovery {
+        guard directManifests.count < maxManifests else {
+            return ProjectExtensionDiscovery(manifests: directManifests, pluginHooks: [])
+        }
 
         var manifests = directManifests
         var seenIDs = Set(manifests.map(\.id))
+        var pluginHooks: [ProjectPluginHook] = []
+        var seenHookIDs = Set<String>()
         var scannedDirectories = Set<String>()
         for directory in directories where directory.kind == .plugin {
             guard manifests.count < maxManifests,
@@ -142,9 +165,13 @@ public enum ProjectExtensionManifestLoader {
                     guard seenIDs.insert(component.id).inserted else { continue }
                     manifests.append(component)
                 }
+                for hook in package.hooks where pluginHooks.count < maxManifests {
+                    guard seenHookIDs.insert(hook.id).inserted else { continue }
+                    pluginHooks.append(hook)
+                }
             }
         }
-        return manifests
+        return ProjectExtensionDiscovery(manifests: manifests, pluginHooks: pluginHooks)
     }
 
     private static func manifestFiles(in directoryURL: URL) -> [URL] {

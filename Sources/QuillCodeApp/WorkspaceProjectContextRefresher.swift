@@ -1,11 +1,13 @@
 import Foundation
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 
 enum WorkspaceProjectContextRefresher {
     static func refreshLocalProjectMetadata(
         projectID: UUID?,
-        projects: inout [ProjectRef]
+        projects: inout [ProjectRef],
+        hookTrustStore: ProjectHookTrustFileStore? = nil
     ) {
         guard let projectID,
               let index = projects.firstIndex(where: { $0.id == projectID }),
@@ -16,7 +18,10 @@ enum WorkspaceProjectContextRefresher {
 
         let rootURL = URL(fileURLWithPath: projects[index].path)
         applyMetadata(
-            WorkspaceProjectMetadataLoader.loadLocal(from: rootURL),
+            WorkspaceProjectMetadataLoader.loadLocal(
+                from: rootURL,
+                hookTrustStore: hookTrustStore
+            ),
             to: projectID,
             projects: &projects,
             source: .local

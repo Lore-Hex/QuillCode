@@ -77,6 +77,8 @@ enum QuillCodeCommandIconCatalog {
             return "puzzlepiece.extension"
         case "show-skills":
             return "graduationcap"
+        case "show-hooks":
+            return "link"
         case "git-fetch":
             return "arrow.down.circle"
         case "git-pull":

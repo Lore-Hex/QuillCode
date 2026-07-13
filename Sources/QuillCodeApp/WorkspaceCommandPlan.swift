@@ -19,6 +19,7 @@ enum WorkspaceCommandPlan: Equatable {
     case getMCPPrompt(serverID: String, index: Int)
     case installExtension(id: String)
     case updateExtension(id: String)
+    case setHookTrust(id: String, decision: ProjectHookTrustDecision)
     case toggleThreadSelection(id: UUID)
     case setSidebarFilter(SidebarSavedFilterKind)
     case setSidebarSavedSearch(UUID)
@@ -153,6 +154,12 @@ enum WorkspaceCommandPlan: Equatable {
         if let id = commandID.value(after: "extension-update:") {
             return .updateExtension(id: id)
         }
+        if let id = commandID.value(after: "hook-trust:") {
+            return .setHookTrust(id: id, decision: .trusted)
+        }
+        if let id = commandID.value(after: "hook-disable:") {
+            return .setHookTrust(id: id, decision: .disabled)
+        }
         if let id = commandID.uuidValue(after: "thread-selection-toggle:") {
             return .toggleThreadSelection(id: id)
         }
@@ -238,6 +245,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case browserReload = "browser-reload"
     case toggleExtensions = "toggle-extensions"
     case showSkills = "show-skills"
+    case showHooks = "show-hooks"
     case toggleMemories = "toggle-memories"
     case toggleActivity = "toggle-activity"
     case toggleAutomations = "toggle-automations"

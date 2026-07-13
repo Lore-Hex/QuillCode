@@ -16,6 +16,7 @@ public struct QuillCodePaths: Sendable, Hashable {
     public var worktreesDirectory: URL { home.appendingPathComponent("worktrees") }
     public var secretsDirectory: URL { home.appendingPathComponent("secrets") }
     public var permissionsDirectory: URL { home.appendingPathComponent("permissions") }
+    public var hookTrustDirectory: URL { home.appendingPathComponent("hook-trust") }
     public var subagentSessionsDirectory: URL { home.appendingPathComponent("subagent-sessions") }
 
     public init(home: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".quillcode")) {
