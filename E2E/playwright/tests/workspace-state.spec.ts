@@ -81,23 +81,35 @@ test('mock harness shows model-authored handoff summary in Activity', async ({ p
   await expect(page.getByTestId('activity-handoff-section')).toContainText('1 summary');
 });
 
-test('mock harness shows model-authored subagent progress in Activity', async ({ page }) => {
+test('model-authored delegation runs durable workers and consolidates their result', async ({ page }) => {
   await page.goto(harnessURL());
 
-  await page.getByLabel('Message').fill('show subagent progress for parallel validation');
+  await page.getByLabel('Message').fill('use two subagents for parallel validation');
   await page.getByRole('button', { name: 'Send' }).click();
 
-  await expect(page.getByTestId('tool-card-title')).toHaveText('host.subagents.update');
-  await expect(page.getByText('Updated subagent progress.')).toBeVisible();
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.subagents.run');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'running');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"workers"');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('"subagents"');
+  await expect(page.getByTestId('agent-status')).toHaveText('Running');
 
   await clickSidebarTool(page, 'activity-button');
   await expect(page.getByTestId('activity-pane')).toBeVisible();
   await expect(page.getByTestId('activity-subagent')).toHaveCount(2);
   await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Explorer');
-  await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Done');
+  await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Running');
   await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Verifier');
-  await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Running');
+  await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Queued');
   await expect(page.getByTestId('activity-subagent-section')).toContainText('2 items');
+
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(
+    page.getByTestId('timeline').getByText('The parallel review is complete.')
+  ).toBeVisible();
+  await expect(page.getByTestId('agent-status')).toHaveText('Idle');
+  await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Done');
+  await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Done');
+  await expect(page.getByTestId('tool-card-output')).toContainText('Focused checks passed.');
 
   const explorerTranscript = page.getByTestId('activity-subagent').nth(0)
     .getByTestId('activity-subagent-transcript');

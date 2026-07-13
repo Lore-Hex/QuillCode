@@ -65,7 +65,11 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
         let schedulerTests = try Self.appTestSourceText(named: "WorkspaceSubagentSchedulerTests.swift")
         let composerTests = try Self.appTestSourceText(named: "WorkspaceComposerIntegrationTests.swift")
         let integrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
+        let modelRunTests = try Self.appTestSourceText(named: "WorkspaceSubagentRunToolIntegrationTests.swift")
         let workerText = try Self.appSourceText(named: "WorkspaceSubagentModelWorker.swift")
+        let modelRunText = try Self.appSourceText(named: "WorkspaceSubagentRunToolExecutor.swift")
+        let sendFactoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
+        let runContextText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
 
         Self.assertSource(schedulerText, containsAll: [
             "ProgressSink",
@@ -91,6 +95,20 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
             "inheriting: parentThread"
         ])
         Self.assertSource(workerText, excludes: "tools: []")
+        Self.assertSource(workerText, contains: "allowsSubagents: false")
+        Self.assertSource(modelRunText, containsAll: [
+            "struct WorkspaceSubagentRunToolExecutor",
+            "WorkspaceSubagentRunToolRequestDecoder.decode",
+            "WorkspaceSubagentScheduler(",
+            "recordSink?(record, parentThread.id)",
+            "await onProgress?(snapshot)"
+        ])
+        Self.assertSource(sendFactoryText, containsAll: [
+            "subagentRunRecordSink",
+            "threadToolExecutionOverride",
+            "allowsSubagents"
+        ])
+        Self.assertSource(runContextText, contains: "ToolDefinition.subagentsRun")
         Self.assertSource(slashText, contains: "Task.isCancelled")
         Self.assertSource(slashParserText, contains: "enum SlashSubagentCommandParser")
         Self.assertSource(actionExecutorText, contains: "case .subagents(let request, let userText):")
@@ -100,6 +118,12 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
         ])
         Self.assertSource(composerTests, contains: "testCancellingSubagentSlashCommandPublishesCancelledProgressWithoutFinalSummary")
         Self.assertSource(integrationTests, contains: "testSlashSubagentsRunsSchedulerAndRecordsActivityProgress")
+        Self.assertSource(modelRunTests, containsAll: [
+            "testModelAuthoredDelegationRunsWorkersAndReturnsToParentInOneTurn",
+            "testModelAuthoredRunPersistsManifestWhileWorkersAreStillRunning",
+            "testToolOutputExposesSummariesWithoutPrivateChildTranscript",
+            "testChildSessionCannotStartAnIndependentSubagentTree"
+        ])
     }
 
 }

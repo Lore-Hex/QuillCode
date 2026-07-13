@@ -103,7 +103,13 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             for: job,
             inheriting: parentThread
         )
-        let session = sessionFactory.makeSession(prompt: prompt, thread: thread)
+        // Recursive delegation stays under the scheduler's bounded spawn protocol. A child model
+        // cannot start an independent scheduler tree that would bypass this run's depth/job limits.
+        let session = sessionFactory.makeSession(
+            prompt: prompt,
+            thread: thread,
+            allowsSubagents: false
+        )
         let result = try await AgentRunRetryScope.$threadID.withValue(thread.id) {
             try await session.run(onProgress: onProgress)
         }
@@ -152,7 +158,8 @@ struct AgentWorkspaceSubagentWorker: Sendable {
                 pause.pendingApproval,
                 prompt: pause.prompt,
                 thread: pause.thread,
-                onProgress: onProgress
+                onProgress: onProgress,
+                allowsSubagents: false
             )
         }
         if let pendingApproval = result.pendingApproval {

@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 struct WorkspaceSubagentWorkerRequest: Codable, Equatable, Sendable, Hashable {
     var name: String
@@ -11,6 +12,14 @@ struct WorkspaceSubagentWorkerRequest: Codable, Equatable, Sendable, Hashable {
         self.role = role
         self.dependsOn = dependsOn
         self.groupPath = groupPath
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        role = try container.decode(String.self, forKey: .role)
+        dependsOn = try container.decodeIfPresent([String].self, forKey: .dependsOn) ?? []
+        groupPath = try container.decodeIfPresent([String].self, forKey: .groupPath) ?? []
     }
 }
 
@@ -29,6 +38,174 @@ struct WorkspaceSubagentRunRequest: Codable, Equatable, Sendable, Hashable {
         self.objective = objective
         self.workers = workers
         self.maxConcurrentWorkers = maxConcurrentWorkers
+    }
+}
+
+enum WorkspaceSubagentRunToolRequestDecoder {
+    private static let maxObjectiveCharacters = 220
+    private static let maxWorkerCount = 6
+    private static let maxWorkerNameCharacters = 72
+    private static let maxRoleCharacters = 140
+    private static let maxDependencyCharacters = 72
+    private static let maxGroupDepth = 4
+    private static let maxGroupComponentCharacters = 32
+
+    static func decode(_ call: ToolCall) throws -> WorkspaceSubagentRunRequest {
+        guard call.name == ToolDefinition.subagentsRun.name else {
+            throw WorkspaceSubagentRunToolRequestError.unknownTool(call.name)
+        }
+        let decoded: WorkspaceSubagentRunRequest
+        do {
+            decoded = try JSONHelpers.decode(WorkspaceSubagentRunRequest.self, from: call.argumentsJSON)
+        } catch {
+            throw WorkspaceSubagentRunToolRequestError.invalidJSON
+        }
+
+        let objective = boundedLine(decoded.objective, limit: maxObjectiveCharacters)
+        guard !objective.isEmpty else {
+            throw WorkspaceSubagentRunToolRequestError.emptyObjective
+        }
+        guard !decoded.workers.isEmpty else {
+            throw WorkspaceSubagentRunToolRequestError.emptyWorkers
+        }
+        guard decoded.workers.count <= maxWorkerCount else {
+            throw WorkspaceSubagentRunToolRequestError.tooManyWorkers(
+                decoded.workers.count,
+                maxWorkerCount
+            )
+        }
+        if let limit = decoded.maxConcurrentWorkers,
+           !(1...maxWorkerCount).contains(limit) {
+            throw WorkspaceSubagentRunToolRequestError.invalidConcurrency(limit)
+        }
+
+        let workers = try decoded.workers.map(normalizedWorker)
+        let names = workers.map { $0.name.lowercased() }
+        guard Set(names).count == names.count else {
+            throw WorkspaceSubagentRunToolRequestError.duplicateWorkerName
+        }
+        let availableNames = Set(names)
+        for worker in workers {
+            let workerName = worker.name.lowercased()
+            for dependency in worker.dependsOn {
+                let dependencyName = dependency.lowercased()
+                guard dependencyName != workerName else {
+                    throw WorkspaceSubagentRunToolRequestError.selfDependency(worker.name)
+                }
+                guard availableNames.contains(dependencyName) else {
+                    throw WorkspaceSubagentRunToolRequestError.unknownDependency(
+                        worker: worker.name,
+                        dependency: dependency
+                    )
+                }
+            }
+        }
+
+        return WorkspaceSubagentRunRequest(
+            objective: objective,
+            workers: workers,
+            maxConcurrentWorkers: decoded.maxConcurrentWorkers
+        )
+    }
+
+    private static func normalizedWorker(
+        _ worker: WorkspaceSubagentWorkerRequest
+    ) throws -> WorkspaceSubagentWorkerRequest {
+        let name = boundedLine(worker.name, limit: maxWorkerNameCharacters)
+        let role = boundedLine(worker.role, limit: maxRoleCharacters)
+        guard !name.isEmpty else {
+            throw WorkspaceSubagentRunToolRequestError.emptyWorkerName
+        }
+        guard !role.isEmpty else {
+            throw WorkspaceSubagentRunToolRequestError.emptyWorkerRole(name)
+        }
+        guard worker.dependsOn.count <= maxWorkerCount else {
+            throw WorkspaceSubagentRunToolRequestError.tooManyDependencies(
+                worker: name,
+                count: worker.dependsOn.count,
+                limit: maxWorkerCount
+            )
+        }
+        guard worker.groupPath.count <= maxGroupDepth else {
+            throw WorkspaceSubagentRunToolRequestError.groupPathTooDeep(
+                worker: name,
+                count: worker.groupPath.count,
+                limit: maxGroupDepth
+            )
+        }
+        let dependencies = worker.dependsOn
+            .map { boundedLine($0, limit: maxDependencyCharacters) }
+            .filter { !$0.isEmpty }
+        let groupPath = worker.groupPath
+            .map { boundedLine($0, limit: maxGroupComponentCharacters) }
+            .filter { !$0.isEmpty }
+        return WorkspaceSubagentWorkerRequest(
+            name: name,
+            role: role,
+            dependsOn: stableUnique(dependencies),
+            groupPath: groupPath
+        )
+    }
+
+    private static func stableUnique(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0.lowercased()).inserted }
+    }
+
+    private static func boundedLine(_ text: String, limit: Int) -> String {
+        let normalized = text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard normalized.count > limit else { return normalized }
+        return String(normalized.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private enum WorkspaceSubagentRunToolRequestError: LocalizedError {
+    case unknownTool(String)
+    case invalidJSON
+    case emptyObjective
+    case emptyWorkers
+    case tooManyWorkers(Int, Int)
+    case invalidConcurrency(Int)
+    case emptyWorkerName
+    case emptyWorkerRole(String)
+    case tooManyDependencies(worker: String, count: Int, limit: Int)
+    case groupPathTooDeep(worker: String, count: Int, limit: Int)
+    case duplicateWorkerName
+    case selfDependency(String)
+    case unknownDependency(worker: String, dependency: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unknownTool(let name):
+            return "Unknown tool: \(name)"
+        case .invalidJSON:
+            return "Run Subagents needs objective, workers, and optional maxConcurrentWorkers JSON."
+        case .emptyObjective:
+            return "Run Subagents needs a non-empty shared objective."
+        case .emptyWorkers:
+            return "Run Subagents needs at least one worker."
+        case .tooManyWorkers(let count, let limit):
+            return "Run Subagents received \(count) workers; keep it to \(limit) or fewer."
+        case .invalidConcurrency(let value):
+            return "Run Subagents concurrency must be between 1 and 6, not \(value)."
+        case .emptyWorkerName:
+            return "Every delegated worker needs a short name."
+        case .emptyWorkerRole(let name):
+            return "Delegated worker \(name) needs a precise role."
+        case .tooManyDependencies(let worker, let count, let limit):
+            return "Delegated worker \(worker) has \(count) dependencies; keep it to \(limit) or fewer."
+        case .groupPathTooDeep(let worker, let count, let limit):
+            return "Delegated worker \(worker) has a \(count)-level group path; keep it to \(limit) levels or fewer."
+        case .duplicateWorkerName:
+            return "Delegated worker names must be unique."
+        case .selfDependency(let name):
+            return "Delegated worker \(name) cannot depend on itself."
+        case .unknownDependency(let worker, let dependency):
+            return "Delegated worker \(worker) depends on unknown worker \(dependency)."
+        }
     }
 }
 

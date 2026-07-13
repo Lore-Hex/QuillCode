@@ -181,7 +181,15 @@ extension AgentRunner {
         await appendRunningEvent(for: call, to: &thread, onProgress: onProgress)
         try Task.checkCancellation()
         let result: ToolResult
-        if let searchResult = await webSearchResult(for: call) {
+        if let execution = await threadToolExecutionOverride?(
+            call,
+            workspaceRoot,
+            thread,
+            onProgress
+        ) {
+            thread = execution.thread
+            result = execution.result
+        } else if let searchResult = await webSearchResult(for: call) {
             result = searchResult
         } else if let overrideResult = await toolExecutionOverride?(call, workspaceRoot) {
             result = overrideResult

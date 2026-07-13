@@ -136,6 +136,26 @@ public struct AgentToolFeedback: Codable, Sendable, Hashable {
 
 public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
 public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) async -> ToolResult?
+
+/// Result of a tool that owns durable thread state in addition to ordinary tool output. Delegated
+/// runs use this boundary to attach child manifests to the parent thread while workers are running,
+/// without teaching the generic agent loop about the scheduler's persistence model.
+public struct AgentThreadToolExecution: Sendable {
+    public var thread: ChatThread
+    public var result: ToolResult
+
+    public init(thread: ChatThread, result: ToolResult) {
+        self.thread = thread
+        self.result = result
+    }
+}
+
+public typealias AgentThreadToolExecutionOverride = @Sendable (
+    ToolCall,
+    URL,
+    ChatThread,
+    AgentRunProgressHandler?
+) async -> AgentThreadToolExecution?
 public typealias AgentToolFeedbackAttachmentProvider = @Sendable (
     ToolCall,
     ToolResult

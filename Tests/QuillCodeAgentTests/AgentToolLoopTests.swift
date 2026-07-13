@@ -58,31 +58,90 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(update.nextSteps, ["Review the latest tool output", "Continue from the Activity pane"])
     }
 
-    func testAgentUsesSubagentProgressToolWhenAvailable() async throws {
+    func testAgentRunsRequestedSubagentsAndSummarizesTheirResult() async throws {
         let root = try makeTempDirectory()
+        let capture = ToolCallCapture()
         let runner = AgentRunner(
-            additionalToolDefinitions: [ToolDefinition.subagentsUpdate],
-            toolExecutionOverride: { call, _ in
-                guard call.name == ToolDefinition.subagentsUpdate.name else { return nil }
-                return ToolResult(ok: true, stdout: call.argumentsJSON)
+            additionalToolDefinitions: [ToolDefinition.subagentsRun],
+            threadToolExecutionOverride: { call, _, thread, _ in
+                guard call.name == ToolDefinition.subagentsRun.name else { return nil }
+                await capture.record(call)
+                return AgentThreadToolExecution(
+                    thread: thread,
+                    result: ToolResult(ok: true, stdout: """
+                    {
+                      "runID": "D34DB33F-0000-4000-8000-000000000001",
+                      "summary": "Subagents completed 2 workers for: Coordinate parallel review of the current task.",
+                      "workers": [],
+                      "awaitingApproval": false
+                    }
+                    """)
+                )
             }
         )
 
         let result = try await runner.send(
-            "show subagent progress for parallel agent validation",
+            "Use two subagents for parallel validation.",
             in: ChatThread(mode: .auto),
             workspaceRoot: root
         )
 
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertTrue(result.toolResults[0].ok)
-        XCTAssertEqual(result.thread.messages.last?.content, "Updated subagent progress.")
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Subagents completed 2 workers for: Coordinate parallel review of the current task."
+        )
         XCTAssertTrue(result.thread.events.contains {
-            $0.kind == .toolCompleted && $0.summary == "\(ToolDefinition.subagentsUpdate.name) completed"
+            $0.kind == .toolCompleted && $0.summary == "\(ToolDefinition.subagentsRun.name) completed"
         })
-        let update = try JSONHelpers.decode(SubagentProgressUpdate.self, from: result.toolResults[0].stdout)
-        XCTAssertEqual(update.subagents.map(\.name), ["Explorer", "Verifier"])
-        XCTAssertEqual(update.subagents.map(\.status), [.completed, .running])
+        let recordedCall = await capture.call
+        let capturedCall = try XCTUnwrap(recordedCall)
+        let request = try JSONHelpers.decode(
+            SubagentRunToolRequest.self,
+            from: capturedCall.argumentsJSON
+        )
+        XCTAssertEqual(request.workers.map { $0.name }, ["Explorer", "Verifier"])
+    }
+
+    func testThreadOwningToolMergesStateBeforeTheAgentContinues() async throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            name: ToolDefinition.handoffUpdate.name,
+            argumentsJSON: ToolArguments.json(["summary": "Delegated state"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(call),
+                .say("Continued with the durable state.")
+            ]),
+            additionalToolDefinitions: [ToolDefinition.handoffUpdate],
+            toolExecutionOverride: { _, _ in
+                ToolResult(ok: false, error: "Stateless override should not run.")
+            },
+            threadToolExecutionOverride: { receivedCall, _, thread, _ in
+                guard receivedCall.id == call.id else { return nil }
+                var updatedThread = thread
+                updatedThread.title = "Thread-owned state"
+                return AgentThreadToolExecution(
+                    thread: updatedThread,
+                    result: ToolResult(ok: true, stdout: "durable result")
+                )
+            }
+        )
+
+        let result = try await runner.send(
+            "Run a thread-owning workflow.",
+            in: ChatThread(title: "Original"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.thread.title, "Thread-owned state")
+        XCTAssertEqual(result.toolResults.first?.stdout, "durable result")
+        XCTAssertEqual(result.thread.messages.last?.content, "Continued with the durable state.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .toolCompleted && $0.summary == "\(ToolDefinition.handoffUpdate.name) completed"
+        })
     }
 
     func testAgentContinuesAcrossMultipleToolCallsInOneTurn() async throws {
@@ -614,6 +673,22 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.diff") }.count, 3)
         XCTAssertTrue(result.toolResults[1].stdout.contains("+new"), result.toolResults[1].stdout)
         XCTAssertEqual(result.thread.messages.last?.content, "Patch applied. Review the resulting diff below.")
+    }
+}
+
+private struct SubagentRunToolRequest: Decodable {
+    struct Worker: Decodable {
+        var name: String
+    }
+
+    var workers: [Worker]
+}
+
+private actor ToolCallCapture {
+    private(set) var call: ToolCall?
+
+    func record(_ call: ToolCall) {
+        self.call = call
     }
 }
 

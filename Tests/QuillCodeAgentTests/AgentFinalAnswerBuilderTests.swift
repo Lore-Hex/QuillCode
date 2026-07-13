@@ -43,6 +43,27 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertEqual(answer, "openclaw is not installed or is not on PATH.")
     }
 
+    func testSubagentRunAwaitingApprovalNamesTheActivitySurface() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(name: ToolDefinition.subagentsRun.name, argumentsJSON: "{}"),
+            result: ToolResult(ok: true, stdout: """
+            {
+              "summary": "Verifier is waiting before running the release command.",
+              "awaitingApproval": true
+            }
+            """)
+        )
+
+        XCTAssertEqual(
+            answer,
+            """
+            Delegated work is waiting for approval in Activity.
+
+            Verifier is waiting before running the release command.
+            """
+        )
+    }
+
     func testFileListFinalAnswerSummarizesEntries() throws {
         let output = FileListToolOutput(
             path: ".",

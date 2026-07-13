@@ -65,6 +65,7 @@ enum WorkspaceToolDisplayNameBuilder {
         ToolDefinition.memoryRemember.name,
         ToolDefinition.planUpdate.name,
         ToolDefinition.handoffUpdate.name,
+        ToolDefinition.subagentsRun.name,
         ToolDefinition.subagentsUpdate.name
     ]
 
@@ -186,6 +187,8 @@ enum WorkspaceToolDisplayNameBuilder {
             return "Update plan"
         case ToolDefinition.handoffUpdate.name:
             return "Update handoff"
+        case ToolDefinition.subagentsRun.name:
+            return "Run subagents"
         case ToolDefinition.subagentsUpdate.name:
             return "Update subagents"
         default:
