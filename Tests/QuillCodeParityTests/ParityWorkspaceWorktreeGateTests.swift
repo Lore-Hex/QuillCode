@@ -156,14 +156,25 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
 
         Self.assertSource(configuration, contains: "struct WorktreeSetupConfiguration")
         Self.assertSource(configuration, contains: "(\"worktree_setup\", \"script\")")
+        Self.assertSource(configuration, contains: "isExplicitlyConfigured")
+        Self.assertSource(configuration, contains: "isValid")
         Self.assertSource(loader, contains: "HostOperatingSystem")
         Self.assertSource(loader, contains: "resolvingSymlinksInPath")
         Self.assertSource(loader, contains: "ProjectScriptMetadataLoader.load")
         Self.assertSource(model, contains: "runManagedWorktreeSetupIfPresent")
+        Self.assertSource(model, contains: "recordWorktreeSetupFailure")
         Self.assertSource(model, contains: "workspaceRoot: worktreeRoot")
         Self.assertSource(planner, contains: "worktreeSetupScript")
         Self.assertSource(modelTests, contains: "testNewManagedWorktreeRunsSetupInsideIsolatedCheckout")
         Self.assertSource(modelTests, contains: "testFailedManagedWorktreeSetupStaysVisibleAndKeepsCheckout")
+        Self.assertSource(
+            modelTests,
+            contains: "testMissingExplicitWorktreeSetupKeepsCheckoutAndExplainsRepair"
+        )
+        Self.assertSource(
+            loaderTests,
+            contains: "testInvalidExplicitConfigurationNeverFallsBackToDefaultScript"
+        )
         Self.assertSource(loaderTests, contains: "testSymlinkOutsideWorktreeIsRejected")
         Self.assertSource(playwright, contains: "shows automatic environment setup in the transcript")
     }

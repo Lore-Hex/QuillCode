@@ -20,6 +20,7 @@ linux = "scripts/setup/linux.sh"
 ```
 
 Paths must be relative `.sh` files inside the worktree. Absolute paths, parent traversal, and symlink escapes are ignored.
+When `[worktree_setup]` is present, an invalid or missing script path is reported in the new task with repair guidance instead of silently falling back to another script. Without explicit configuration, projects that do not contain one of the conventional setup scripts remain a quiet no-op.
 
 ## Metadata
 

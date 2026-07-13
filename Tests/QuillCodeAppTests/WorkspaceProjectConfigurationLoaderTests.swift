@@ -91,8 +91,10 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
         XCTAssertEqual(configuration.worktreeSetup, WorktreeSetupConfiguration(
             scriptPath: "tools/setup/default.sh",
             macOSScriptPath: "tools/setup/apple.sh",
-            linuxScriptPath: "tools/setup/linux.sh"
+            linuxScriptPath: "tools/setup/linux.sh",
+            isExplicitlyConfigured: true
         ))
+        XCTAssertTrue(configuration.worktreeSetup.isValid)
     }
 
     func testParseRejectsUnsafeWorktreeSetupScriptOverrides() {
@@ -105,7 +107,20 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
             """
         )
 
-        XCTAssertEqual(configuration.worktreeSetup, WorktreeSetupConfiguration())
+        XCTAssertTrue(configuration.worktreeSetup.isExplicitlyConfigured)
+        XCTAssertFalse(configuration.worktreeSetup.isValid)
+    }
+
+    func testParseRejectsMalformedExplicitWorktreeSetupValue() {
+        let configuration = WorkspaceProjectConfigurationLoader.parse(
+            """
+            [worktree_setup]
+            script = scripts/setup.sh
+            """
+        )
+
+        XCTAssertTrue(configuration.worktreeSetup.isExplicitlyConfigured)
+        XCTAssertFalse(configuration.worktreeSetup.isValid)
     }
 
     func testLoadBoundsConfigFileToProject() throws {
@@ -130,5 +145,7 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
             "scripts/actions"
         ])
         XCTAssertEqual(configuration.maxLocalActions, 2)
+        XCTAssertFalse(configuration.worktreeSetup.isExplicitlyConfigured)
+        XCTAssertTrue(configuration.worktreeSetup.isValid)
     }
 }

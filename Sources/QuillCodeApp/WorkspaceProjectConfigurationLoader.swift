@@ -8,15 +8,25 @@ struct WorktreeSetupConfiguration: Equatable {
     var scriptPath: String
     var macOSScriptPath: String
     var linuxScriptPath: String
+    var isExplicitlyConfigured: Bool
+    var isValid: Bool
 
     init(
         scriptPath: String = defaultScriptPath,
         macOSScriptPath: String = defaultMacOSScriptPath,
-        linuxScriptPath: String = defaultLinuxScriptPath
+        linuxScriptPath: String = defaultLinuxScriptPath,
+        isExplicitlyConfigured: Bool = false
     ) {
-        self.scriptPath = Self.normalizedScriptPath(scriptPath) ?? Self.defaultScriptPath
-        self.macOSScriptPath = Self.normalizedScriptPath(macOSScriptPath) ?? Self.defaultMacOSScriptPath
-        self.linuxScriptPath = Self.normalizedScriptPath(linuxScriptPath) ?? Self.defaultLinuxScriptPath
+        let normalizedScriptPath = Self.normalizedScriptPath(scriptPath)
+        let normalizedMacOSScriptPath = Self.normalizedScriptPath(macOSScriptPath)
+        let normalizedLinuxScriptPath = Self.normalizedScriptPath(linuxScriptPath)
+        self.scriptPath = normalizedScriptPath ?? Self.defaultScriptPath
+        self.macOSScriptPath = normalizedMacOSScriptPath ?? Self.defaultMacOSScriptPath
+        self.linuxScriptPath = normalizedLinuxScriptPath ?? Self.defaultLinuxScriptPath
+        self.isExplicitlyConfigured = isExplicitlyConfigured
+        self.isValid = normalizedScriptPath != nil
+            && normalizedMacOSScriptPath != nil
+            && normalizedLinuxScriptPath != nil
     }
 
     private static func normalizedScriptPath(_ value: String) -> String? {
@@ -202,6 +212,7 @@ enum WorkspaceProjectConfigurationLoader {
         var worktreeSetupScript = WorktreeSetupConfiguration.defaultScriptPath
         var worktreeSetupMacOSScript = WorktreeSetupConfiguration.defaultMacOSScriptPath
         var worktreeSetupLinuxScript = WorktreeSetupConfiguration.defaultLinuxScriptPath
+        var hasWorktreeSetupConfiguration = false
 
         for rawLine in text.components(separatedBy: .newlines) {
             let line = stripComment(rawLine).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -241,11 +252,14 @@ enum WorkspaceProjectConfigurationLoader {
             case ("hooks", "max"):
                 maxRunHooks = Int(assignment.value.trimmingCharacters(in: .whitespaces))
             case ("worktree_setup", "script"):
-                worktreeSetupScript = parseString(assignment.value) ?? worktreeSetupScript
+                hasWorktreeSetupConfiguration = true
+                worktreeSetupScript = parseString(assignment.value) ?? ""
             case ("worktree_setup", "macos"):
-                worktreeSetupMacOSScript = parseString(assignment.value) ?? worktreeSetupMacOSScript
+                hasWorktreeSetupConfiguration = true
+                worktreeSetupMacOSScript = parseString(assignment.value) ?? ""
             case ("worktree_setup", "linux"):
-                worktreeSetupLinuxScript = parseString(assignment.value) ?? worktreeSetupLinuxScript
+                hasWorktreeSetupConfiguration = true
+                worktreeSetupLinuxScript = parseString(assignment.value) ?? ""
             default:
                 continue
             }
@@ -260,7 +274,8 @@ enum WorkspaceProjectConfigurationLoader {
             worktreeSetup: WorktreeSetupConfiguration(
                 scriptPath: worktreeSetupScript,
                 macOSScriptPath: worktreeSetupMacOSScript,
-                linuxScriptPath: worktreeSetupLinuxScript
+                linuxScriptPath: worktreeSetupLinuxScript,
+                isExplicitlyConfigured: hasWorktreeSetupConfiguration
             )
         )
     }
