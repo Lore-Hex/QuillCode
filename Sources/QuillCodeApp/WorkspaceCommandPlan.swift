@@ -33,6 +33,7 @@ enum WorkspaceCommandPlan: Equatable {
     case applyInstructionDiagnostic(id: String, selectedReferenceIndex: Int)
     case resolveInstructionDiagnostic(id: String)
     case dismissInstructionDiagnostic(id: String)
+    case resolveSubagentApproval(WorkspaceSubagentApprovalCommand)
     case setDraft(String)
     case runTool(name: String)
     case runToolCall(ToolCall)
@@ -94,6 +95,9 @@ enum WorkspaceCommandPlan: Equatable {
     ].merging(WorkspacePullRequestCommandCatalog.draftByCommandID) { local, _ in local }
 
     private static func prefixPlan(_ commandID: String) -> WorkspaceCommandPlan? {
+        if let command = WorkspaceSubagentApprovalCommand(commandID: commandID) {
+            return .resolveSubagentApproval(command)
+        }
         if commandID.value(after: "local-env:") != nil {
             return .localEnvironmentAction(commandID)
         }

@@ -155,8 +155,11 @@ final class ToolSchemaCoreTests: XCTestCase {
         XCTAssertEqual(ToolDefinition.subagentsUpdate.risk, .read)
         XCTAssertEqual(SubagentStatus.completed.label, "Done")
         XCTAssertEqual(SubagentStatus.cancelled.label, "Cancelled")
+        XCTAssertEqual(SubagentStatus.awaitingApproval.label, "Needs approval")
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""subagents""#))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""groupPath""#))
+        XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""approvalGate""#))
+        XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("awaitingApproval"))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("blocked"))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("cancelled"))
     }
@@ -167,6 +170,7 @@ final class ToolSchemaCoreTests: XCTestCase {
         let decoded = try JSONHelpers.decode(SubagentProgressItem.self, from: legacyJSON)
 
         XCTAssertTrue(decoded.transcript.isEmpty)
+        XCTAssertNil(decoded.approvalGate)
     }
 
     func testCoreToolDefinitionSchemasAreValidJSONObjects() throws {

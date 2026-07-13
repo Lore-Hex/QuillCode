@@ -6,6 +6,17 @@ import QuillCodeTools
 struct WorkspaceAgentSendSessionResult: Sendable {
     var thread: ChatThread
     var savedMemory: Bool
+    var pendingApproval: AgentPendingApproval?
+
+    init(
+        thread: ChatThread,
+        savedMemory: Bool,
+        pendingApproval: AgentPendingApproval? = nil
+    ) {
+        self.thread = thread
+        self.savedMemory = savedMemory
+        self.pendingApproval = pendingApproval
+    }
 }
 
 struct WorkspaceAgentSendSession: Sendable {
@@ -74,6 +85,44 @@ struct WorkspaceAgentSendSession: Sendable {
         )
         try Task.checkCancellation()
         activeThread = result.thread
+
+        if let pendingApproval = result.pendingApproval {
+            return WorkspaceAgentSendSessionResult(
+                thread: activeThread,
+                savedMemory: false,
+                pendingApproval: pendingApproval
+            )
+        }
+
+        return try await runAfterHooks(thread: activeThread, onProgress: onProgress)
+    }
+
+    func resumeApproved(
+        _ pendingApproval: AgentPendingApproval,
+        onProgress: AgentRunProgressHandler? = nil
+    ) async throws -> WorkspaceAgentSendSessionResult {
+        let result = try await runner.resumeApproved(
+            pendingApproval,
+            in: thread,
+            workspaceRoot: workspaceRoot,
+            userMessage: prompt,
+            onProgress: onProgress
+        )
+        if let nextApproval = result.pendingApproval {
+            return WorkspaceAgentSendSessionResult(
+                thread: result.thread,
+                savedMemory: false,
+                pendingApproval: nextApproval
+            )
+        }
+        return try await runAfterHooks(thread: result.thread, onProgress: onProgress)
+    }
+
+    private func runAfterHooks(
+        thread: ChatThread,
+        onProgress: AgentRunProgressHandler?
+    ) async throws -> WorkspaceAgentSendSessionResult {
+        var activeThread = thread
 
         if let failure = try await ProjectRunHookExecutor.run(
             timing: .afterAgentRun,

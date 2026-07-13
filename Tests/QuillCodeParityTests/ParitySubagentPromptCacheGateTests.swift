@@ -16,7 +16,8 @@ final class ParitySubagentPromptCacheGateTests: QuillCodeParityTestCase {
         Self.assertSource(workerSource, containsAll: [
             "sessionFactory.makeSession",
             "try await session.run()",
-            "WorkspaceApprovalActionPlanner.undecidedRequests"
+            "result.pendingApproval",
+            "sessionFactory.resumeApproved("
         ])
         Self.assertSource(workerSource, excludesAll: [
             "llm.nextAction(",

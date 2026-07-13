@@ -1,6 +1,6 @@
 import Foundation
 
-struct WorkspaceSubagentWorkerRequest: Equatable, Sendable, Hashable {
+struct WorkspaceSubagentWorkerRequest: Codable, Equatable, Sendable, Hashable {
     var name: String
     var role: String
     var dependsOn: [String]
@@ -14,7 +14,7 @@ struct WorkspaceSubagentWorkerRequest: Equatable, Sendable, Hashable {
     }
 }
 
-struct WorkspaceSubagentRunRequest: Equatable, Sendable, Hashable {
+struct WorkspaceSubagentRunRequest: Codable, Equatable, Sendable, Hashable {
     var objective: String
     var workers: [WorkspaceSubagentWorkerRequest]
     /// Optional cap on how many workers run at once within a dependency wave.

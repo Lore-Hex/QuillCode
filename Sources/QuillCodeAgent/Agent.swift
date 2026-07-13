@@ -111,7 +111,8 @@ public struct AgentRunner: Sendable {
                     return AgentRunResult(
                         thread: next,
                         toolResults: runLoop.toolResults,
-                        stopReason: paused
+                        stopReason: paused.stopReason,
+                        pendingApproval: paused.pendingApproval
                     )
                 }
                 let resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
@@ -152,8 +153,13 @@ public struct AgentRunner: Sendable {
                         onProgress: onProgress
                     )
                     switch step {
-                    case .blocked:
-                        return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
+                    case .blocked(let pendingApproval):
+                        return AgentRunResult(
+                            thread: next,
+                            toolResults: runLoop.toolResults,
+                            stopReason: .approvalRequired(requestID: pendingApproval.request.id),
+                            pendingApproval: pendingApproval
+                        )
                     case .completed(let completion):
                         appendToolFeedback(completion, to: &next)
                         let verdict = runLoop.recordCompletedStep(
@@ -250,7 +256,7 @@ public struct AgentRunner: Sendable {
     private func pauseIfSpendFuseRequiresApproval(
         thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?
-    ) async -> AgentRunStopReason? {
+    ) async -> (stopReason: AgentRunStopReason, pendingApproval: AgentPendingApproval?)? {
         guard let runSpendFusePolicy else { return nil }
         switch runSpendFusePolicy.approvalState(for: thread) {
         case .allowed:
@@ -263,7 +269,13 @@ public struct AgentRunner: Sendable {
             thread.updatedAt = Date()
             await onProgress?(thread)
             let summary = runSpendFusePolicy.spendSummary(for: thread)
-            return .spendFuseApprovalRequired(totalUSD: summary.totalUSD, fuseUSD: runSpendFusePolicy.fuseUSD ?? 0)
+            return (
+                .spendFuseApprovalRequired(
+                    totalUSD: summary.totalUSD,
+                    fuseUSD: runSpendFusePolicy.fuseUSD ?? 0
+                ),
+                pendingApproval(in: thread, requestID: existingRequestID)
+            )
         case .request(let request):
             let payload = try? JSONHelpers.decode(
                 RunSpendFuseApprovalPayload.self,
@@ -284,11 +296,24 @@ public struct AgentRunner: Sendable {
             thread.events.append(.init(kind: .message, summary: text))
             thread.updatedAt = Date()
             await onProgress?(thread)
-            return .spendFuseApprovalRequired(
-                totalUSD: payload?.totalUSD ?? 0,
-                fuseUSD: payload?.fuseUSD ?? runSpendFusePolicy.fuseUSD ?? 0
+            return (
+                .spendFuseApprovalRequired(
+                    totalUSD: payload?.totalUSD ?? 0,
+                    fuseUSD: payload?.fuseUSD ?? runSpendFusePolicy.fuseUSD ?? 0
+                ),
+                AgentPendingApproval(request: request)
             )
         }
+    }
+
+    private func pendingApproval(in thread: ChatThread, requestID: String) -> AgentPendingApproval? {
+        for event in thread.events.reversed() where event.kind == .approvalRequested {
+            guard let payloadJSON = event.payloadJSON,
+                  let request = try? JSONHelpers.decode(ApprovalRequest.self, from: payloadJSON),
+                  request.id == requestID else { continue }
+            return AgentPendingApproval(request: request)
+        }
+        return nil
     }
 
     private static func mergedToolDefinitions(

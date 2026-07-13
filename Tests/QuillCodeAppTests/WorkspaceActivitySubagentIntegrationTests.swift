@@ -98,4 +98,86 @@ final class WorkspaceActivitySubagentIntegrationTests: XCTestCase {
         XCTAssertEqual(result.error, "Subagent progress requires at least one subagent with a name and role.")
         XCTAssertEqual(model.root.topBar.agentStatus, "Failed")
     }
+
+    func testApprovalGateRendersFocusedApproveAndSkipActionsWithoutToolArguments() throws {
+        let runID = UUID().uuidString
+        let gate = SubagentApprovalGate(
+            runID: runID,
+            requestID: "approval-123",
+            toolName: "host.file.write",
+            reason: "Confirm this workspace write."
+        )
+        let update = SubagentProgressUpdate(subagents: [
+            SubagentProgressItem(
+                name: "Builder",
+                role: "Build the feature",
+                status: .awaitingApproval,
+                summary: "Waiting for approval",
+                approvalGate: gate
+            )
+        ])
+        let call = ToolCall(
+            name: ToolDefinition.subagentsUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(update)
+        )
+        let result = SubagentProgressToolExecutor.execute(call)
+        let normalized = try JSONHelpers.decode(SubagentProgressUpdate.self, from: result.stdout)
+        let thread = ChatThread(events: [ThreadEvent(
+            kind: .toolCompleted,
+            summary: "\(ToolDefinition.subagentsUpdate.name) completed",
+            payloadJSON: try JSONHelpers.encodePretty(result)
+        )])
+
+        let item = try XCTUnwrap(SubagentProgressToolExecutor.activityItems(for: thread).first)
+
+        XCTAssertEqual(normalized.subagents.first?.status, .awaitingApproval)
+        XCTAssertEqual(item.statusLabel, "Needs approval")
+        XCTAssertEqual(item.actions.map(\.title), ["Approve", "Skip"])
+        XCTAssertEqual(
+            WorkspaceSubagentApprovalCommand(commandID: item.actions[0].commandID)?.action,
+            .approve
+        )
+        XCTAssertEqual(
+            WorkspaceSubagentApprovalCommand(commandID: item.actions[1].commandID)?.action,
+            .reject
+        )
+        let html = WorkspaceHTMLActivityPaneRenderer.render(WorkspaceActivitySurface(
+            isVisible: true,
+            subagents: [item]
+        ))
+        XCTAssertTrue(html.contains("Approve"))
+        XCTAssertTrue(html.contains("Skip"))
+        XCTAssertFalse(html.contains("argumentsJSON"))
+    }
+
+    func testMalformedOrDetachedApprovalGateCannotCreateAnAction() throws {
+        let update = SubagentProgressUpdate(subagents: [
+            SubagentProgressItem(
+                name: "Builder",
+                role: "Build the feature",
+                status: .awaitingApproval,
+                approvalGate: SubagentApprovalGate(
+                    runID: "../../not-a-run",
+                    requestID: "approval:with:separators",
+                    toolName: "host.file.write",
+                    reason: "Confirm this workspace write."
+                )
+            )
+        ])
+        let result = SubagentProgressToolExecutor.execute(ToolCall(
+            name: ToolDefinition.subagentsUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(update)
+        ))
+        let normalized = try JSONHelpers.decode(SubagentProgressUpdate.self, from: result.stdout)
+
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(normalized.subagents.first?.status, .blocked)
+        XCTAssertNil(normalized.subagents.first?.approvalGate)
+        let thread = ChatThread(events: [ThreadEvent(
+            kind: .toolCompleted,
+            summary: "\(ToolDefinition.subagentsUpdate.name) completed",
+            payloadJSON: try JSONHelpers.encodePretty(result)
+        )])
+        XCTAssertTrue(SubagentProgressToolExecutor.activityItems(for: thread)[0].actions.isEmpty)
+    }
 }

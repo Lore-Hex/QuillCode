@@ -88,6 +88,9 @@ extension QuillCodeWorkspaceModel {
             return prepareResolveInstructionDiagnostic(id: id)
         case .dismissInstructionDiagnostic(let id):
             return dismissInstructionDiagnostic(id: id)
+        case .resolveSubagentApproval(let command):
+            Task { await resolveSubagentApproval(command, workspaceRoot: workspaceRoot) }
+            return true
         case .setDraft(let draft):
             setDraft(draft)
             return true

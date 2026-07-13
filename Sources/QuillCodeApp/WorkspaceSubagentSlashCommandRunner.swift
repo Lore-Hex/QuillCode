@@ -49,14 +49,10 @@ extension QuillCodeWorkspaceModel {
             return
         }
 
-        mutateThread(threadID) { thread in
-            thread.messages.append(ChatMessage(role: .assistant, content: result.summary))
-            thread.events.append(ThreadEvent(kind: .message, summary: result.summary))
-        }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        finishSubagentSchedulerResult(result, parentThreadID: threadID)
     }
 
-    private func recordSubagentProgress(_ update: SubagentProgressUpdate, threadID: UUID) {
+    func recordSubagentProgress(_ update: SubagentProgressUpdate, threadID: UUID) {
         let argumentsJSON = (try? JSONHelpers.encodePretty(update))
             ?? #"{"subagents":[]}"#
         let call = ToolCall(name: ToolDefinition.subagentsUpdate.name, argumentsJSON: argumentsJSON)
@@ -64,5 +60,53 @@ extension QuillCodeWorkspaceModel {
         mutateThread(threadID) { thread in
             WorkspaceToolEventRecorder.append(call: call, result: result, to: &thread)
         }
+    }
+
+    func finishSubagentSchedulerResult(
+        _ result: WorkspaceSubagentRunResult,
+        parentThreadID: UUID
+    ) {
+        if result.isPaused {
+            guard let subagentSessionStore else {
+                failSubagentRun(
+                    parentThreadID: parentThreadID,
+                    message: "Delegated work paused, but its private continuation store is unavailable."
+                )
+                return
+            }
+            do {
+                let existing = try? subagentSessionStore.load(result.state.id)
+                try subagentSessionStore.save(WorkspaceSubagentSessionRecord(
+                    parentThreadID: parentThreadID,
+                    state: result.state,
+                    createdAt: existing?.createdAt ?? Date(),
+                    updatedAt: Date()
+                ))
+                recordSubagentProgress(result.update, threadID: parentThreadID)
+                refreshTopBar(agentStatus: TopBarAgentStatusLabel.review)
+            } catch {
+                failSubagentRun(
+                    parentThreadID: parentThreadID,
+                    message: "Could not save delegated approval state: \(error.localizedDescription)"
+                )
+            }
+            return
+        }
+
+        try? subagentSessionStore?.delete(result.state.id)
+        recordSubagentProgress(result.update, threadID: parentThreadID)
+        mutateThread(parentThreadID) { thread in
+            thread.messages.append(ChatMessage(role: .assistant, content: result.summary))
+            thread.events.append(ThreadEvent(kind: .message, summary: result.summary))
+        }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+    }
+
+    private func failSubagentRun(parentThreadID: UUID, message: String) {
+        mutateThread(parentThreadID) { thread in
+            thread.messages.append(ChatMessage(role: .assistant, content: message))
+            thread.events.append(ThreadEvent(kind: .message, summary: message))
+        }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
     }
 }

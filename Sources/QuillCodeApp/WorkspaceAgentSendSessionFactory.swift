@@ -81,6 +81,19 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         )
     }
 
+    func resumeApproved(
+        _ pendingApproval: AgentPendingApproval,
+        prompt: String,
+        thread: ChatThread,
+        onProgress: AgentRunProgressHandler? = nil
+    ) async throws -> WorkspaceAgentSendSessionResult {
+        try await makeSession(
+            prompt: prompt,
+            thread: thread,
+            recordsUserMessage: false
+        ).resumeApproved(pendingApproval, onProgress: onProgress)
+    }
+
     /// Builds the per-send runner, retargeting its LLM client at `modelID` (the thread's model).
     /// Internal (not private) so tests can assert the run path actually points at the selected
     /// model — the run-path is the load-bearing part of `/model`, not the persisted field alone.

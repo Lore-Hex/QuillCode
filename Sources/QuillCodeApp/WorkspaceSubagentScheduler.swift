@@ -1,64 +1,9 @@
 import Foundation
 import QuillCodeCore
 
-struct WorkspaceSubagentPriorResult: Sendable, Hashable {
-    var name: String
-    var summary: String
-
-    init(name: String, summary: String) {
-        self.name = name
-        self.summary = summary
-    }
-}
-
-struct WorkspaceSubagentJob: Sendable, Hashable, Identifiable {
-    var id: String { name }
-    var name: String
-    var role: String
-    var objective: String
-    var dependsOn: [String]
-    var groupPath: [String]
-    var priorResults: [WorkspaceSubagentPriorResult]
-    /// Delegation depth: top-level workers are 0; a child spawned by a worker is its parent's
-    /// depth + 1. The scheduler refuses to spawn past `maxDepth`, which guarantees termination.
-    var depth: Int
-
-    init(
-        name: String,
-        role: String,
-        objective: String = "",
-        dependsOn: [String] = [],
-        groupPath: [String] = [],
-        priorResults: [WorkspaceSubagentPriorResult] = [],
-        depth: Int = 0
-    ) {
-        self.name = name
-        self.role = role
-        self.objective = objective
-        self.dependsOn = dependsOn
-        self.groupPath = groupPath
-        self.priorResults = priorResults
-        self.depth = depth
-    }
-}
-
-struct WorkspaceSubagentRunResult: Sendable, Hashable {
-    var update: SubagentProgressUpdate
-    var summary: String
-}
-
-struct WorkspaceSubagentWorkerResult: Sendable, Hashable {
-    var summary: String
-    var transcript: [SubagentTranscriptEntry]
-
-    init(summary: String, transcript: [SubagentTranscriptEntry] = []) {
-        self.summary = summary
-        self.transcript = transcript
-    }
-}
-
 private enum WorkspaceSubagentWorkerOutcome: Sendable, Hashable {
     case completed(WorkspaceSubagentWorkerResult)
+    case paused(WorkspaceSubagentApprovalPause)
     case cancelled
     case failed(String)
 }
@@ -108,7 +53,7 @@ struct WorkspaceSubagentScheduler {
         progress: ProgressSink? = nil,
         spawn: Spawner? = nil
     ) async -> WorkspaceSubagentRunResult {
-        var jobs = request.workers.map {
+        let jobs = request.workers.map {
             WorkspaceSubagentJob(
                 name: $0.name,
                 role: $0.role,
@@ -117,10 +62,48 @@ struct WorkspaceSubagentScheduler {
                 groupPath: $0.groupPath
             )
         }
-        var items = jobs.map {
+        let items = jobs.map {
             SubagentProgressItem(name: $0.name, role: $0.role, status: .queued, groupPath: $0.groupPath)
         }
         await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
+        return await run(
+            state: WorkspaceSubagentRunState(
+                objective: request.objective,
+                maxConcurrentWorkers: request.maxConcurrentWorkers,
+                jobs: jobs,
+                items: items
+            ),
+            progress: progress,
+            spawn: spawn
+        )
+    }
+
+    func run(
+        state initialState: WorkspaceSubagentRunState,
+        progress: ProgressSink? = nil,
+        spawn: Spawner? = nil
+    ) async -> WorkspaceSubagentRunResult {
+        var state = initialState
+        var jobs = state.jobs
+        var items = state.items
+        var pausedWorkers = state.pausedWorkers
+        let objective = state.objective
+
+        if !pausedWorkers.isEmpty {
+            return Self.result(
+                state: state,
+                jobs: jobs,
+                items: items,
+                pausedWorkers: pausedWorkers
+            )
+        }
+
+        // A persisted state is only written after a wave drains, but normalize any stale in-flight
+        // status defensively so a recovered run never strands a worker as permanently running.
+        for index in items.indices where items[index].status == .running {
+            items[index].status = .queued
+            items[index].summary = nil
+        }
 
         // Indices into `jobs`/`items` align with `dependencies`. Recursive spawning appends to all
         // three in lockstep (children resolve to no dependencies — their parent has already
@@ -145,7 +128,7 @@ struct WorkspaceSubagentScheduler {
                 }
             }
             if skipped {
-                await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
+                await progress?(SubagentProgressUpdate(objective: objective, subagents: items))
             }
 
             let pending = items.indices.filter { !Self.isTerminal(items[$0].status) }
@@ -173,12 +156,12 @@ struct WorkspaceSubagentScheduler {
                         : "Waiting on \(waiting.joined(separator: ", "))"
                 }
             }
-            await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
+            await progress?(SubagentProgressUpdate(objective: objective, subagents: items))
 
             // Cap how many ready workers run at once. `nil` (the default) keeps the original
             // behavior of fanning every runnable worker out together; a bound seeds that many
             // tasks and starts one more each time a worker finishes.
-            let waveLimit = max(1, request.maxConcurrentWorkers ?? runnable.count)
+            let waveLimit = max(1, state.maxConcurrentWorkers ?? runnable.count)
             // Children requested by workers that completed this wave; applied after the wave so we
             // never mutate `jobs`/`items` while the task group is still reading them.
             var spawnedThisWave: [(parentIndex: Int, request: WorkspaceSubagentWorkerRequest)] = []
@@ -204,6 +187,8 @@ struct WorkspaceSubagentScheduler {
                             return (index, .completed(result))
                         } catch is CancellationError {
                             return (index, .cancelled)
+                        } catch let pause as WorkspaceSubagentApprovalPause {
+                            return (index, .paused(pause))
                         } catch {
                             return (index, .failed(error.localizedDescription))
                         }
@@ -229,6 +214,24 @@ struct WorkspaceSubagentScheduler {
                                 spawnedThisWave.append((parentIndex: index, request: child))
                             }
                         }
+                    case .paused(let pause):
+                        let request = pause.pendingApproval.request
+                        items[index].status = .awaitingApproval
+                        items[index].summary = Self.boundedSummary(
+                            "Approval needed for \(request.toolCall.name): \(request.reason)"
+                        )
+                        items[index].transcript = WorkspaceSubagentTranscriptBuilder.entries(from: pause.thread)
+                        items[index].approvalGate = SubagentApprovalGate(
+                            runID: state.id,
+                            requestID: request.id,
+                            toolName: request.toolCall.name,
+                            reason: request.reason
+                        )
+                        let pauseKey = WorkspaceSubagentPauseKey.unique(
+                            workerName: jobs[index].name,
+                            existing: pausedWorkers
+                        )
+                        pausedWorkers[pauseKey] = pause
                     case .cancelled:
                         items[index].status = .cancelled
                         items[index].summary = "Cancelled"
@@ -236,7 +239,9 @@ struct WorkspaceSubagentScheduler {
                         items[index].status = .failed
                         items[index].summary = Self.boundedSummary(summary)
                     }
-                    await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
+                    if pausedWorkers.isEmpty {
+                        await progress?(SubagentProgressUpdate(objective: objective, subagents: items))
+                    }
                 }
             }
 
@@ -255,7 +260,7 @@ struct WorkspaceSubagentScheduler {
                     let childJob = WorkspaceSubagentJob(
                         name: childName,
                         role: child.role,
-                        objective: request.objective,
+                        objective: objective,
                         dependsOn: [parentName],
                         groupPath: jobs[parentIndex].groupPath + [parentName],
                         depth: parentDepth + 1
@@ -272,19 +277,48 @@ struct WorkspaceSubagentScheduler {
                     enqueuedAny = true
                 }
                 if enqueuedAny {
-                    await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
+                    await progress?(SubagentProgressUpdate(objective: objective, subagents: items))
                 }
+            }
+
+            if !pausedWorkers.isEmpty {
+                state.jobs = jobs
+                state.items = items
+                state.pausedWorkers = pausedWorkers
+                return Self.result(
+                    state: state,
+                    jobs: jobs,
+                    items: items,
+                    pausedWorkers: pausedWorkers
+                )
             }
         }
 
-        return WorkspaceSubagentRunResult(
-            update: SubagentProgressUpdate(objective: request.objective, subagents: items),
-            summary: Self.finalSummary(objective: request.objective, items: items)
-        )
+        state.jobs = jobs
+        state.items = items
+        state.pausedWorkers = pausedWorkers
+        return Self.result(state: state, jobs: jobs, items: items, pausedWorkers: pausedWorkers)
     }
 
     private static func isTerminal(_ status: SubagentStatus) -> Bool {
         status == .completed || status == .failed || status == .cancelled
+    }
+
+    private static func result(
+        state initialState: WorkspaceSubagentRunState,
+        jobs: [WorkspaceSubagentJob],
+        items: [SubagentProgressItem],
+        pausedWorkers: [String: WorkspaceSubagentApprovalPause]
+    ) -> WorkspaceSubagentRunResult {
+        var state = initialState
+        state.jobs = jobs
+        state.items = items
+        state.pausedWorkers = pausedWorkers
+        return WorkspaceSubagentRunResult(
+            update: SubagentProgressUpdate(objective: state.objective, subagents: items),
+            summary: finalSummary(objective: state.objective, items: items),
+            state: state
+        )
     }
 
     /// Maps each job's declared dependency names to job indices, dropping unknown names, duplicates,
