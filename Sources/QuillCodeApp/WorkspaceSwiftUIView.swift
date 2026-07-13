@@ -24,6 +24,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var sidebarSavedSearchDraft: QuillCodeSidebarSavedSearchDraft?
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
+    @State private var subagentTranscript: WorkspaceSubagentTranscriptSurface?
     @StateObject private var worktreeDialogs = QuillCodeWorktreeDialogCoordinator()
     @FocusState private var isComposerFocused: Bool
 
@@ -89,6 +90,7 @@ public struct QuillCodeWorkspaceView: View {
         onSaveSidebarSavedSearch: @escaping (String, String) -> Void = { _, _ in },
         onOpenAttentionDigest: @escaping (UUID) -> Void = { _ in },
         onCloseAttentionDigest: @escaping () -> Void = {},
+        onLoadSubagentTranscript: @escaping (UUID, UUID, String) -> WorkspaceSubagentTranscriptSurface? = { _, _, _ in nil },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -151,6 +153,7 @@ public struct QuillCodeWorkspaceView: View {
             onSaveSidebarSavedSearch: onSaveSidebarSavedSearch,
             onOpenAttentionDigest: onOpenAttentionDigest,
             onCloseAttentionDigest: onCloseAttentionDigest,
+            onLoadSubagentTranscript: onLoadSubagentTranscript,
             onCommand: onCommand
         )
     }
@@ -257,6 +260,7 @@ public struct QuillCodeWorkspaceView: View {
             renameThreadDraft: $renameThreadDraft,
             renameProjectDraft: $renameProjectDraft,
             sidebarSavedSearchDraft: $sidebarSavedSearchDraft,
+            subagentTranscript: $subagentTranscript,
             onSelectThread: actions.onSelectThread,
             onSaveSettings: actions.onSaveSettings,
             onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
@@ -271,7 +275,9 @@ public struct QuillCodeWorkspaceView: View {
             onPruneWorktrees: actions.onPruneWorktrees,
             onRenameThread: actions.onRenameThread,
             onRenameProject: actions.onRenameProject,
-            onSaveSidebarSavedSearch: actions.onSaveSidebarSavedSearch
+            onSaveSidebarSavedSearch: actions.onSaveSidebarSavedSearch,
+            onToolCardAction: actions.onToolCardAction,
+            onCopyTranscriptItem: actions.onCopyTranscriptItem
         )
     }
 
@@ -382,6 +388,8 @@ public struct QuillCodeWorkspaceView: View {
             if let markdown = TranscriptMarkdownExporter.exportableMarkdown(for: surface.transcript) {
                 actions.onExportConversationMarkdown(surface.topBar.primaryTitle, markdown)
             }
+        case let .presentSubagentTranscript(parentThreadID, runID, workerID):
+            subagentTranscript = actions.onLoadSubagentTranscript(parentThreadID, runID, workerID)
         case let .dispatch(command, focusesComposer):
             actions.onCommand(command)
             if focusesComposer {

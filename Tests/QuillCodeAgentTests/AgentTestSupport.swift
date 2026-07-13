@@ -58,6 +58,16 @@ struct AlwaysApprovingSafetyReviewer: SafetyReviewer {
     }
 }
 
+struct AlwaysAskingSafetyReviewer: SafetyReviewer {
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        SafetyReview(
+            verdict: .clarify,
+            rationale: "Explicit approval required in the focused test.",
+            userIntentMatched: true
+        )
+    }
+}
+
 actor SequenceLLMState {
     private var actions: [AgentAction]
 

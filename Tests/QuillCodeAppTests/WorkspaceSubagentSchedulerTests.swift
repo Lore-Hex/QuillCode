@@ -14,7 +14,7 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
                 statusLabel: "Done"
             )
         ]
-        let scheduler = WorkspaceSubagentScheduler(worker: { _ in
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
             WorkspaceSubagentWorkerResult(summary: "checks passed", transcript: transcript)
         })
         let request = WorkspaceSubagentRunRequest(
@@ -266,6 +266,122 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed])
     }
 
+    func testApprovalPauseDoesNotMasqueradeAsCycleOrRunDependents() async {
+        let capture = JobCapture()
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { job in
+            await capture.record(job)
+            if job.name == "Builder" {
+                return WorkspaceSubagentWorkerResult(
+                    status: .awaitingApproval,
+                    summary: "Needs permission",
+                    pendingApproval: SubagentPendingApproval(requestID: "approval-1")
+                )
+            }
+            return WorkspaceSubagentWorkerResult(summary: "unexpected")
+        })
+        let request = WorkspaceSubagentRunRequest(
+            objective: "ship safely",
+            workers: [
+                .init(name: "Builder", role: "write files"),
+                .init(name: "Verifier", role: "run checks", dependsOn: ["Builder"]),
+                .init(name: "Reporter", role: "summarize", dependsOn: ["Verifier"])
+            ]
+        )
+
+        let result = await scheduler.run(request: request)
+        let builder = await capture.job(named: "Builder")
+        let verifier = await capture.job(named: "Verifier")
+        let reporter = await capture.job(named: "Reporter")
+
+        XCTAssertEqual(result.update.subagents.map(\.status), [.awaitingApproval, .blocked, .blocked])
+        XCTAssertNotNil(builder)
+        XCTAssertNil(verifier)
+        XCTAssertNil(reporter)
+        XCTAssertNil(result.record.finishedAt)
+    }
+
+    func testResumePreservesWorkerAndChildIdentitiesAndRunsOnlyReleasedDependents() async {
+        let capture = JobCapture()
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { job in
+            await capture.record(job)
+            return WorkspaceSubagentWorkerResult(summary: "finished \(job.name)")
+        })
+        let builderID = "builder-id"
+        let verifierID = "verifier-id"
+        let builderThreadID = UUID()
+        let verifierThreadID = UUID()
+        let record = SubagentRunRecord(
+            objective: "resume graph",
+            maxConcurrentWorkers: 1,
+            workers: [
+                SubagentWorkerRecord(
+                    id: builderID,
+                    childThreadID: builderThreadID,
+                    name: "Builder",
+                    role: "write files",
+                    status: .completed,
+                    summary: "files written"
+                ),
+                SubagentWorkerRecord(
+                    id: verifierID,
+                    childThreadID: verifierThreadID,
+                    dependencyIDs: [builderID],
+                    name: "Verifier",
+                    role: "run checks",
+                    status: .blocked,
+                    summary: "Waiting on Builder"
+                )
+            ]
+        )
+
+        let result = await scheduler.resume(record: record)
+        let builder = await capture.job(named: "Builder")
+
+        XCTAssertNil(builder)
+        let verifier = await capture.job(named: "Verifier")
+        XCTAssertEqual(verifier?.id, verifierID)
+        XCTAssertEqual(verifier?.childThreadID, verifierThreadID)
+        XCTAssertEqual(verifier?.dependencyIDs, [builderID])
+        XCTAssertEqual(result.record.workers.map(\.id), [builderID, verifierID])
+        XCTAssertEqual(result.record.workers.map(\.childThreadID), [builderThreadID, verifierThreadID])
+        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed])
+    }
+
+    func testResumeNeverReplaysWorkerThatWasRunningAtCrash() async {
+        let capture = JobCapture()
+        let scheduler = WorkspaceSubagentScheduler { job in
+            await capture.record(job)
+            return "unexpected"
+        }
+        let workerID = "worker-id"
+        let record = SubagentRunRecord(
+            objective: "recover",
+            workers: [
+                SubagentWorkerRecord(
+                    id: workerID,
+                    name: "Writer",
+                    role: "mutate workspace",
+                    status: .running
+                ),
+                SubagentWorkerRecord(
+                    id: "dependent-id",
+                    dependencyIDs: [workerID],
+                    name: "Verifier",
+                    role: "verify",
+                    status: .blocked
+                )
+            ]
+        )
+
+        let result = await scheduler.resume(record: record)
+        let writer = await capture.job(named: "Writer")
+        let verifier = await capture.job(named: "Verifier")
+
+        XCTAssertEqual(result.update.subagents.map(\.status), [.interrupted, .blocked])
+        XCTAssertNil(writer)
+        XCTAssertNil(verifier)
+    }
+
     // MARK: - Recursive delegation
 
     func testWorkerCanSpawnAChildThatRunsToCompletion() async {
@@ -398,7 +514,7 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
             thread: childThread,
             pendingApproval: AgentPendingApproval(request: request, heldToolCall: exactCall)
         )
-        let scheduler = WorkspaceSubagentScheduler(worker: { job in
+        let scheduler = WorkspaceSubagentScheduler(legacyWorker: { job in
             if job.name == "Builder" { throw pause }
             return WorkspaceSubagentWorkerResult(summary: "verified")
         })
@@ -425,7 +541,7 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         restored.items[0].summary = "built"
         restored.items[0].approvalGate = nil
 
-        let completed = await WorkspaceSubagentScheduler(worker: { _ in
+        let completed = await WorkspaceSubagentScheduler(legacyWorker: { _ in
             WorkspaceSubagentWorkerResult(summary: "verified")
         }).run(state: restored)
 
@@ -459,7 +575,7 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         }
 
         let pauses = ApprovalPauseQueue([try pause("one"), try pause("two")])
-        let scheduler = WorkspaceSubagentScheduler(worker: { _ in
+        let scheduler = WorkspaceSubagentScheduler(legacyWorker: { _ in
             let pause = try await pauses.next()
             throw pause
         })

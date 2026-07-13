@@ -146,6 +146,7 @@ struct QuillCodeDesktopRootView: View {
             onSaveSidebarSavedSearch: controller.saveSidebarSavedSearch,
             onOpenAttentionDigest: controller.openAttentionDigest,
             onCloseAttentionDigest: controller.closeAttentionDigest,
+            onLoadSubagentTranscript: controller.loadSubagentTranscript,
             onCommand: controller.runCommand
         )
     }

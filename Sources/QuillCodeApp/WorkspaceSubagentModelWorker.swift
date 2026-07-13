@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodePersistence
 
 /// Executes a delegated job through the same configured agent path as a normal chat turn. Each
 /// worker owns a fresh, ephemeral transcript while inheriting the parent chat's project, worktree,
@@ -8,11 +9,42 @@ import QuillCodeCore
 struct AgentWorkspaceSubagentWorker: Sendable {
     let sessionFactory: WorkspaceAgentSendSessionFactory
     let parentThread: ChatThread
+    let threadStore: SubagentThreadStore?
+    let approvalPayloadStore: SubagentApprovalPayloadStore?
+
+    init(
+        sessionFactory: WorkspaceAgentSendSessionFactory,
+        parentThread: ChatThread,
+        threadStore: SubagentThreadStore? = nil,
+        approvalPayloadStore: SubagentApprovalPayloadStore? = nil
+    ) {
+        self.sessionFactory = sessionFactory
+        self.parentThread = parentThread
+        self.threadStore = threadStore
+        self.approvalPayloadStore = approvalPayloadStore
+    }
 
     static func scheduledWorker(
         sessionFactory: WorkspaceAgentSendSessionFactory,
+        parentThread: ChatThread,
+        threadStore: SubagentThreadStore? = nil,
+        approvalPayloadStore: SubagentApprovalPayloadStore? = nil
+    ) -> WorkspaceSubagentScheduler.DetailedWorker {
+        let worker = AgentWorkspaceSubagentWorker(
+            sessionFactory: sessionFactory,
+            parentThread: parentThread,
+            threadStore: threadStore,
+            approvalPayloadStore: approvalPayloadStore
+        )
+        return { job in await worker.runScheduled(job) }
+    }
+
+    /// Migration-only worker for whole-session records. It deliberately lets an approval pause
+    /// escape so the legacy adapter can journal the exact continuation in its protected store.
+    static func legacyScheduledWorker(
+        sessionFactory: WorkspaceAgentSendSessionFactory,
         parentThread: ChatThread
-    ) -> WorkspaceSubagentScheduler.Worker {
+    ) -> WorkspaceSubagentScheduler.DetailedWorker {
         let worker = AgentWorkspaceSubagentWorker(
             sessionFactory: sessionFactory,
             parentThread: parentThread
@@ -21,10 +53,51 @@ struct AgentWorkspaceSubagentWorker: Sendable {
     }
 
     func run(_ job: WorkspaceSubagentJob) async throws -> String {
-        try await runWithTranscript(job).summary
+        let result = try await execute(job)
+        if result.status == .awaitingApproval {
+            throw WorkspaceSubagentWorkerError.safetyBlocked(result.summary)
+        }
+        return result.summary
     }
 
     func runWithTranscript(_ job: WorkspaceSubagentJob) async throws -> WorkspaceSubagentWorkerResult {
+        try await execute(job)
+    }
+
+    /// Production scheduler entry point. Unlike the direct test-facing `run`, this converts a
+    /// stopped worker into a terminal result with its latest captured transcript, so failures and
+    /// cancellations remain inspectable instead of disappearing with the task.
+    private func runScheduled(_ job: WorkspaceSubagentJob) async -> WorkspaceSubagentWorkerResult {
+        let initialThread = WorkspaceSubagentThreadBuilder.thread(for: job, inheriting: parentThread)
+        let capture = WorkspaceSubagentTranscriptCapture(initialThread)
+        do {
+            return try await execute(job) { thread in
+                await capture.update(thread)
+                try? threadStore?.save(thread)
+            }
+        } catch is CancellationError {
+            let thread = await capture.latest()
+            try? threadStore?.save(thread)
+            return result(
+                status: .cancelled,
+                summary: "Cancelled",
+                transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
+            )
+        } catch {
+            let thread = await capture.latest()
+            try? threadStore?.save(thread)
+            return result(
+                status: .failed,
+                summary: WorkspaceContextSummarySanitizer.diagnostic(from: error.localizedDescription),
+                transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
+            )
+        }
+    }
+
+    private func execute(
+        _ job: WorkspaceSubagentJob,
+        onProgress: AgentRunProgressHandler? = nil
+    ) async throws -> WorkspaceSubagentWorkerResult {
         let prompt = WorkspaceSubagentPromptBuilder.prompt(objective: job.objective, job: job)
         let thread = WorkspaceSubagentThreadBuilder.thread(
             for: job,
@@ -32,14 +105,37 @@ struct AgentWorkspaceSubagentWorker: Sendable {
         )
         let session = sessionFactory.makeSession(prompt: prompt, thread: thread)
         let result = try await AgentRunRetryScope.$threadID.withValue(thread.id) {
-            try await session.run()
+            try await session.run(onProgress: onProgress)
         }
+        try threadStore?.save(result.thread)
 
         if let pendingApproval = result.pendingApproval {
-            throw WorkspaceSubagentApprovalPause(
-                prompt: prompt,
-                thread: result.thread,
-                pendingApproval: pendingApproval
+            guard let approvalPayloadStore else {
+                throw WorkspaceSubagentApprovalPause(
+                    prompt: prompt,
+                    thread: result.thread,
+                    pendingApproval: pendingApproval
+                )
+            }
+            let approval = pendingApproval.request
+            let reason = WorkspaceContextSummarySanitizer.diagnostic(from: approval.reason)
+            let payloadKey = UUID()
+            let payload = try WorkspaceSubagentApprovalPayloadResolver.payload(
+                for: approval,
+                heldToolCall: pendingApproval.heldToolCall
+            )
+            try approvalPayloadStore.save(payload, key: payloadKey)
+            return self.result(
+                status: .awaitingApproval,
+                summary: reason,
+                pendingApproval: SubagentPendingApproval(
+                    requestID: approval.id,
+                    generation: 1,
+                    payloadKey: payloadKey,
+                    createdAt: Date(),
+                    phase: .pending
+                ),
+                transcript: WorkspaceSubagentTranscriptBuilder.entries(from: result.thread)
             )
         }
 
@@ -78,15 +174,47 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
         let finalSummary = summary.flatMap { $0.isEmpty ? nil : $0 } ?? "Completed \(fallbackRole)"
         return WorkspaceSubagentWorkerResult(
+            status: .completed,
             summary: finalSummary,
             transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
         )
+    }
+
+    private func result(
+        status: SubagentStatus,
+        summary: String,
+        pendingApproval: SubagentPendingApproval? = nil,
+        transcript: [SubagentTranscriptEntry] = []
+    ) -> WorkspaceSubagentWorkerResult {
+        WorkspaceSubagentWorkerResult(
+            status: status,
+            summary: summary,
+            pendingApproval: pendingApproval,
+            transcript: transcript
+        )
+    }
+}
+
+private actor WorkspaceSubagentTranscriptCapture {
+    private var thread: ChatThread
+
+    init(_ thread: ChatThread) {
+        self.thread = thread
+    }
+
+    func update(_ thread: ChatThread) {
+        self.thread = thread
+    }
+
+    func latest() -> ChatThread {
+        thread
     }
 }
 
 private enum WorkspaceSubagentThreadBuilder {
     static func thread(for job: WorkspaceSubagentJob, inheriting parent: ChatThread) -> ChatThread {
         ChatThread(
+            id: job.childThreadID,
             title: "Subagent: \(job.name)",
             projectID: parent.projectID,
             mode: parent.mode,
@@ -96,6 +224,17 @@ private enum WorkspaceSubagentThreadBuilder {
             memories: parent.memories,
             worktree: parent.worktree
         )
+    }
+}
+
+private enum WorkspaceSubagentWorkerError: LocalizedError {
+    case safetyBlocked(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .safetyBlocked(let reason):
+            return "Safety review blocked delegated work: \(reason)"
+        }
     }
 }
 

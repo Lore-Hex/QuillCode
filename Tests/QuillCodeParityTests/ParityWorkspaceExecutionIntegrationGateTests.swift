@@ -56,6 +56,7 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
 
     func testSubagentExecutionIsRealSchedulerNotDisplayOnly() throws {
         let schedulerText = try Self.appSourceText(named: "WorkspaceSubagentScheduler.swift")
+        let executionText = try Self.appSourceText(named: "WorkspaceSubagentSchedulerExecution.swift")
         let runnerText = try Self.appSourceText(named: "WorkspaceSubagentSlashCommandRunner.swift")
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let slashText = try Self.appSourceText(named: "WorkspaceModelSlashCommands.swift")
@@ -67,8 +68,12 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
         let workerText = try Self.appSourceText(named: "WorkspaceSubagentModelWorker.swift")
 
         Self.assertSource(schedulerText, containsAll: [
-            "withTaskGroup",
             "ProgressSink",
+            "StateSink",
+            "func resume("
+        ])
+        Self.assertSource(executionText, containsAll: [
+            "withTaskGroup",
             "catch is CancellationError"
         ])
         Self.assertSource(modelText, contains: "var subagentSchedulerOverride: WorkspaceSubagentScheduler?")
@@ -76,12 +81,13 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
             "AgentWorkspaceSubagentWorker.scheduledWorker",
             "agentSendSessionFactory(",
             "guard !Task.isCancelled",
-            "SubagentProgressToolExecutor.execute",
-            "WorkspaceToolEventRecorder.append"
+            "recordSubagentRun",
+            "publishSubagentRunSummary"
         ])
         Self.assertSource(workerText, containsAll: [
             "sessionFactory.makeSession",
-            "try await session.run()",
+            "try await session.run(onProgress: onProgress)",
+            "threadStore?.save",
             "inheriting: parentThread"
         ])
         Self.assertSource(workerText, excludes: "tools: []")

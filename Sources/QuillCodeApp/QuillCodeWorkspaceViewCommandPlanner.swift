@@ -19,6 +19,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case openBrowserSession
     case copyConversation
     case exportConversationMarkdown
+    case presentSubagentTranscript(parentThreadID: UUID, runID: UUID, workerID: String)
     case dispatch(command: WorkspaceCommandSurface, focusesComposer: Bool)
 }
 
@@ -27,6 +28,14 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
     var projects: ProjectListSurface
 
     func action(for command: WorkspaceCommandSurface) -> WorkspaceViewCommandAction? {
+        if let transcriptCommand = WorkspaceSubagentTranscriptCommand(commandID: command.id) {
+            return .presentSubagentTranscript(
+                parentThreadID: transcriptCommand.parentThreadID,
+                runID: transcriptCommand.runID,
+                workerID: transcriptCommand.workerID
+            )
+        }
+
         switch command.id {
         case "settings", "computer-use-setup":
             return .presentSettings

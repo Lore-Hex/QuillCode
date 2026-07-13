@@ -177,6 +177,10 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
             events: [
                 .init(kind: .toolCompleted, summary: "Ran shell")
             ],
+            subagentRuns: [SubagentRunRecord(
+                objective: "check release",
+                workers: [SubagentWorkerRecord(name: "Verifier", role: "run tests")]
+            )],
             createdAt: createdAt,
             instructions: [instruction],
             memories: [memory],
@@ -204,6 +208,7 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
         XCTAssertTrue(result.changedThread.isPinned)
         XCTAssertTrue(result.changedThread.messages.isEmpty)
         XCTAssertTrue(result.changedThread.events.isEmpty)
+        XCTAssertTrue(result.changedThread.subagentRuns.isEmpty)
         XCTAssertTrue(result.changedThread.followUpQueue.isEmpty)
     }
 

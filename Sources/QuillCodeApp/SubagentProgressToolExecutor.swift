@@ -31,14 +31,48 @@ enum SubagentProgressToolExecutor {
     }
 
     static func latestUpdate(in thread: ChatThread) -> SubagentProgressUpdate? {
-        thread.events.reversed().compactMap(subagentUpdate).first
+        if let run = latestRun(in: thread) {
+            return SubagentProgressUpdate(
+                objective: run.objective,
+                subagents: run.workers.map { progressItem(for: $0) }
+            )
+        }
+        return thread.events.reversed().compactMap(subagentUpdate).first
     }
 
     static func activityItems(for thread: ChatThread) -> [ActivityItemSurface] {
+        let durableItems = thread.subagentRuns
+            .filter { !$0.workers.isEmpty }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .flatMap { run in
+                run.workers.map { worker in
+                    let item = progressItem(for: worker)
+                    return ActivityItemSurface(
+                        id: "subagent-\(run.id)-\(worker.id)",
+                        title: displayTitle(for: item),
+                        detail: detail(for: item, objective: run.objective),
+                        kind: "subagent",
+                        statusLabel: worker.status.label,
+                        actions: [ActivityItemActionSurface(
+                            title: "View",
+                            commandID: WorkspaceSubagentTranscriptCommand.openCommandID(
+                                parentThreadID: thread.id,
+                                runID: run.id,
+                                workerID: worker.id
+                            ),
+                            kind: "open-subagent-transcript"
+                        )]
+                    )
+                }
+            }
+        if !durableItems.isEmpty {
+            return durableItems
+        }
+
         guard let update = latestUpdate(in: thread) else { return [] }
         return update.subagents.enumerated().map { index, item in
-            ActivityItemSurface(
-                id: "subagent-\(index)-\(item.name)",
+            return ActivityItemSurface(
+                id: item.workerID.map { "subagent-\($0)" } ?? "subagent-\(index)-\(item.name)",
                 title: displayTitle(for: item),
                 detail: detail(for: item, objective: update.objective),
                 kind: "subagent",
@@ -47,6 +81,23 @@ enum SubagentProgressToolExecutor {
                 transcript: item.transcript
             )
         }
+    }
+
+    private static func latestRun(in thread: ChatThread) -> SubagentRunRecord? {
+        thread.subagentRuns
+            .filter { !$0.workers.isEmpty }
+            .max { $0.updatedAt < $1.updatedAt }
+    }
+
+    private static func progressItem(for worker: SubagentWorkerRecord) -> SubagentProgressItem {
+        SubagentProgressItem(
+            workerID: worker.id,
+            name: worker.name,
+            role: worker.role,
+            status: worker.status,
+            summary: worker.summary,
+            groupPath: worker.groupPath
+        )
     }
 
     private static func subagentUpdate(from event: ThreadEvent) -> SubagentProgressUpdate? {
@@ -88,6 +139,7 @@ enum SubagentProgressToolExecutor {
             ? .blocked
             : item.status
         return SubagentProgressItem(
+            workerID: boundedOptionalText(item.workerID, limit: 80),
             name: name,
             role: boundedLine(item.role, limit: maxRoleCharacters),
             status: status,

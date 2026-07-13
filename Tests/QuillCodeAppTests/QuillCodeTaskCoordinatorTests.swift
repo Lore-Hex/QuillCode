@@ -80,6 +80,34 @@ final class QuillCodeTaskCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.isRunning(.send))
     }
 
+    func testEnqueueSerializesWorkBehindTheCurrentSlotOwner() async {
+        let coordinator = QuillCodeTaskCoordinator<TestSlot>()
+        let release = CoordinatorTestRelease()
+        let firstStarted = expectation(description: "first operation started")
+        let secondFinished = expectation(description: "queued operation finished")
+        var order: [String] = []
+
+        XCTAssertTrue(coordinator.startIfIdle(.send) {
+            order.append("first-started")
+            firstStarted.fulfill()
+            await release.wait()
+            order.append("first-finished")
+        })
+        coordinator.enqueue(.send) {
+            order.append("second-started")
+        } onFinish: {
+            secondFinished.fulfill()
+        }
+
+        await fulfillment(of: [firstStarted], timeout: 1)
+        XCTAssertEqual(order, ["first-started"])
+        await release.open()
+        await fulfillment(of: [secondFinished], timeout: 1)
+
+        XCTAssertEqual(order, ["first-started", "first-finished", "second-started"])
+        XCTAssertFalse(coordinator.isRunning(.send))
+    }
+
     func testCancelAllStopsEverySlotWithoutFinishCallbacks() async {
         let coordinator = QuillCodeTaskCoordinator<TestSlot>()
         let sendStarted = expectation(description: "send started")
@@ -118,6 +146,19 @@ final class QuillCodeTaskCoordinatorTests: XCTestCase {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 1_000_000)
         }
+    }
+}
+
+private actor CoordinatorTestRelease {
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func open() {
+        continuation?.resume()
+        continuation = nil
     }
 }
 

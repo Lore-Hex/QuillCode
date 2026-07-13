@@ -16,88 +16,6 @@ struct AgentToolStepCompletion: Sendable {
 }
 
 extension AgentRunner {
-    /// Continues the exact run that paused at `pending`, after an explicit user approval.
-    ///
-    /// The decision is recorded before execution, the original unredacted call is executed once,
-    /// its normal tool feedback is appended, and the same thread resumes without another user
-    /// message. Callers should persist each `onProgress` snapshot so a relaunch never falls back to
-    /// the redacted presentation payload.
-    public func resumeApproved(
-        _ pending: AgentPendingApproval,
-        in thread: ChatThread,
-        workspaceRoot: URL,
-        userMessage: String,
-        onProgress: AgentRunProgressHandler? = nil
-    ) async throws -> AgentRunResult {
-        try validatePendingApproval(pending, in: thread)
-
-        var next = thread
-        let decision = ApprovalDecision(
-            requestID: pending.request.id,
-            verdict: .approve,
-            rationale: "Approved delegated worker action.",
-            reviewTelemetry: pending.request.reviewTelemetry
-        )
-        next.events.append(.init(
-            kind: .approvalDecided,
-            summary: "approve: \(decision.rationale)",
-            payloadJSON: try? JSONHelpers.encodePretty(decision)
-        ))
-        next.updatedAt = Date()
-        await onProgress?(next)
-
-        var resumedToolResults: [ToolResult] = []
-        if pending.request.scope == .tool {
-            guard let call = pending.heldToolCall else {
-                throw AgentApprovalResumeError.missingHeldTool(pending.request.toolCall.name)
-            }
-            guard call.id == pending.request.toolCall.id,
-                  call.name == pending.request.toolCall.name else {
-                throw AgentApprovalResumeError.mismatchedHeldTool(pending.request.toolCall.name)
-            }
-
-            let router = toolRouter(workspaceRoot: workspaceRoot, threadID: next.id)
-            let result = try await executeApprovedTool(
-                call,
-                router: router,
-                workspaceRoot: workspaceRoot,
-                thread: &next,
-                onProgress: onProgress
-            )
-            let followUpReviewResult = try await runFollowUpReviewIfNeeded(
-                after: call,
-                result: result,
-                router: router,
-                workspaceRoot: workspaceRoot,
-                thread: &next,
-                onProgress: onProgress
-            )
-            let completion = AgentToolStepCompletion(
-                call: call,
-                result: result,
-                followUpReviewResult: followUpReviewResult,
-                toolResults: followUpReviewResult.map { [result, $0] } ?? [result]
-            )
-            appendToolFeedback(completion, to: &next)
-            resumedToolResults = completion.toolResults
-            await onProgress?(next)
-        }
-
-        let continuation = try await send(
-            userMessage,
-            in: next,
-            workspaceRoot: workspaceRoot,
-            recordUserMessage: false,
-            onProgress: onProgress
-        )
-        return AgentRunResult(
-            thread: continuation.thread,
-            toolResults: resumedToolResults + continuation.toolResults,
-            stopReason: continuation.stopReason,
-            pendingApproval: continuation.pendingApproval
-        )
-    }
-
     func runToolStep(
         _ call: ToolCall,
         userMessage: String,
@@ -198,6 +116,59 @@ extension AgentRunner {
             attachments: attachments
         ))
         thread.updatedAt = Date()
+    }
+
+    /// Executes the exact call released by a durable approval gate. The caller must first validate
+    /// and persist the matching approval decision. No queued event is added because the original
+    /// blocked step already recorded it; running/result events and model-facing tool feedback use
+    /// the same path as an uninterrupted agent run.
+    public func executeApprovedToolCall(
+        _ call: ToolCall,
+        in thread: ChatThread,
+        workspaceRoot: URL,
+        onProgress: AgentRunProgressHandler? = nil
+    ) async throws -> AgentApprovedToolExecution {
+        var next = thread
+        let definitions = Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
+        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: .session(for: next.id), lsp: lsp)
+
+        guard definitions.contains(where: { $0.name == call.name }) else {
+            let result = ToolResult(ok: false, error: "Tool is not available in this workspace: \(call.name)")
+            await appendResultEvent(
+                for: call,
+                result: result,
+                unavailable: true,
+                publishProgress: true,
+                to: &next,
+                onProgress: onProgress
+            )
+            return AgentApprovedToolExecution(thread: next, toolResults: [result])
+        }
+
+        let result = try await executeApprovedTool(
+            call,
+            router: router,
+            workspaceRoot: workspaceRoot,
+            thread: &next,
+            onProgress: onProgress
+        )
+        let followUp = try await runFollowUpReviewIfNeeded(
+            after: call,
+            result: result,
+            router: router,
+            workspaceRoot: workspaceRoot,
+            thread: &next,
+            onProgress: onProgress
+        )
+        let completion = AgentToolStepCompletion(
+            call: call,
+            result: result,
+            followUpReviewResult: followUp,
+            toolResults: followUp.map { [result, $0] } ?? [result]
+        )
+        appendToolFeedback(completion, to: &next)
+        await onProgress?(next)
+        return AgentApprovedToolExecution(thread: next, toolResults: completion.toolResults)
     }
 
     private func executeApprovedTool(
@@ -363,26 +334,4 @@ extension AgentRunner {
         return result.ok ? "\(call.name) completed" : "\(call.name) failed"
     }
 
-    private func validatePendingApproval(
-        _ pending: AgentPendingApproval,
-        in thread: ChatThread
-    ) throws {
-        let hasRequest = thread.events.contains { event in
-            guard event.kind == .approvalRequested,
-                  let payloadJSON = event.payloadJSON,
-                  let request = try? JSONHelpers.decode(ApprovalRequest.self, from: payloadJSON)
-            else { return false }
-            return request == pending.request
-        }
-        let hasDecision = thread.events.contains { event in
-            guard event.kind == .approvalDecided,
-                  let payloadJSON = event.payloadJSON,
-                  let decision = try? JSONHelpers.decode(ApprovalDecision.self, from: payloadJSON)
-            else { return false }
-            return decision.requestID == pending.request.id
-        }
-        guard hasRequest, !hasDecision else {
-            throw AgentApprovalResumeError.requestNotPending(pending.request.id)
-        }
-    }
 }

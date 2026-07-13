@@ -22,23 +22,42 @@ extension QuillCodeWorkspaceModel {
         guard let parentThread = root.threads.first(where: { $0.id == threadID }) else { return }
 
         let runProject = parentThread.projectID.flatMap(project(id:))
-        let scheduler = subagentSchedulerOverride ?? WorkspaceSubagentScheduler(
-            worker: AgentWorkspaceSubagentWorker.scheduledWorker(
-                sessionFactory: agentSendSessionFactory(
-                    workspaceRoot: workspaceRoot,
-                    runProject: runProject
-                ),
-                parentThread: parentThread
-            )
+        let runID = UUID()
+        let sessionFactory = agentSendSessionFactory(
+            workspaceRoot: workspaceRoot,
+            runProject: runProject
         )
+        let usesLegacyStorage = subagentSchedulerOverride == nil
+            && (subagentThreadStore == nil || subagentApprovalPayloadStore == nil)
+        let scheduler: WorkspaceSubagentScheduler
+        if let subagentSchedulerOverride {
+            scheduler = subagentSchedulerOverride
+        } else if usesLegacyStorage {
+            scheduler = WorkspaceSubagentScheduler(
+                legacyWorker: AgentWorkspaceSubagentWorker.legacyScheduledWorker(
+                    sessionFactory: sessionFactory,
+                    parentThread: parentThread
+                )
+            )
+        } else {
+            scheduler = WorkspaceSubagentScheduler(
+                detailedWorker: AgentWorkspaceSubagentWorker.scheduledWorker(
+                    sessionFactory: sessionFactory,
+                    parentThread: parentThread,
+                    threadStore: subagentThreadStore,
+                    approvalPayloadStore: subagentApprovalPayloadStore
+                )
+            )
+        }
 
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
         // A worker may delegate sub-tasks by emitting `[[DELEGATE: name | role]]` markers; the parser
         // turns them into bounded child workers and the scheduler enforces depth/total-job limits.
         let result = await scheduler.run(
             request: request,
-            progress: { [weak self] update in
-                await self?.recordSubagentProgress(update, threadID: threadID)
+            runID: runID,
+            state: { [weak self] record in
+                await self?.recordSubagentRun(record, threadID: threadID)
             },
             spawn: { _, summary in
                 WorkspaceSubagentSpawnDirectiveParser.parse(summary)
@@ -49,9 +68,19 @@ extension QuillCodeWorkspaceModel {
             return
         }
 
-        finishSubagentSchedulerResult(result, parentThreadID: threadID)
+        if usesLegacyStorage {
+            finishSubagentSchedulerResult(result, parentThreadID: threadID)
+            return
+        }
+
+        publishSubagentRunSummary(result.summary, runID: runID, threadID: threadID)
+        let status = result.record.workers.contains(where: { $0.status == .awaitingApproval })
+            ? TopBarAgentStatusLabel.review
+            : TopBarAgentStatusLabel.idle
+        refreshTopBar(agentStatus: status)
     }
 
+    /// Compatibility projection for whole-session subagent records created by the previous build.
     func recordSubagentProgress(_ update: SubagentProgressUpdate, threadID: UUID) {
         let argumentsJSON = (try? JSONHelpers.encodePretty(update))
             ?? #"{"subagents":[]}"#

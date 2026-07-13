@@ -46,6 +46,20 @@ public enum ToolCardActionStyle: String, Codable, Sendable, Hashable {
     case destructive
 }
 
+public struct WorkspaceSubagentApprovalTarget: Codable, Sendable, Hashable {
+    public var parentThreadID: UUID
+    public var runID: UUID
+    public var workerID: String
+    public var generation: Int
+
+    public init(parentThreadID: UUID, runID: UUID, workerID: String, generation: Int) {
+        self.parentThreadID = parentThreadID
+        self.runID = runID
+        self.workerID = workerID
+        self.generation = generation
+    }
+}
+
 public struct ToolCardActionSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var title: String
@@ -53,6 +67,9 @@ public struct ToolCardActionSurface: Codable, Sendable, Hashable, Identifiable {
     public var requestID: String
     public var style: ToolCardActionStyle
     public var systemImage: String?
+    /// Fully pins a private delegated approval to its parent/run/worker generation. Nil preserves
+    /// the ordinary selected-thread approval path.
+    public var subagentTarget: WorkspaceSubagentApprovalTarget?
 
     public init(
         id: String? = nil,
@@ -60,14 +77,18 @@ public struct ToolCardActionSurface: Codable, Sendable, Hashable, Identifiable {
         kind: ToolCardActionKind,
         requestID: String,
         style: ToolCardActionStyle,
-        systemImage: String? = nil
+        systemImage: String? = nil,
+        subagentTarget: WorkspaceSubagentApprovalTarget? = nil
     ) {
-        self.id = id ?? "tool-card-action-\(kind.rawValue)-\(requestID)"
+        self.id = id ?? ["tool-card-action", kind.rawValue, requestID, subagentTarget?.workerID]
+            .compactMap { $0 }
+            .joined(separator: "-")
         self.title = title
         self.kind = kind
         self.requestID = requestID
         self.style = style
         self.systemImage = systemImage
+        self.subagentTarget = subagentTarget
     }
 }
 

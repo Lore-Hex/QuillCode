@@ -20,6 +20,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var renameThreadDraft: QuillCodeThreadRenameDraft?
     @Binding var renameProjectDraft: QuillCodeProjectRenameDraft?
     @Binding var sidebarSavedSearchDraft: QuillCodeSidebarSavedSearchDraft?
+    @Binding var subagentTranscript: WorkspaceSubagentTranscriptSurface?
     var onSelectThread: (UUID) -> Void
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     var onStartTrustedRouterSignIn: () -> Void
@@ -35,6 +36,8 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onRenameThread: (UUID, String) -> Void
     var onRenameProject: (UUID, String) -> Void
     var onSaveSidebarSavedSearch: (String, String) -> Void
+    var onToolCardAction: (ToolCardActionSurface) -> Void
+    var onCopyTranscriptItem: (String, String) -> Void
 
     func body(content: Content) -> some View {
         content
@@ -129,10 +132,22 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                 }
                 .zIndex(80)
             }
+            if let transcript = subagentTranscript {
+                dismissibleModal(accessibilityLabel: "Dismiss delegated transcript", onDismiss: dismissSubagentTranscript) {
+                    QuillCodeSubagentTranscriptSheet(
+                        surface: transcript,
+                        onClose: dismissSubagentTranscript,
+                        onToolCardAction: runSubagentToolCardAction,
+                        onCopyTranscriptItem: onCopyTranscriptItem
+                    )
+                }
+                .zIndex(90)
+            }
         }
         .animation(.easeOut(duration: 0.16), value: isSettingsPresented)
         .animation(.easeOut(duration: 0.16), value: isSearchPresented)
         .animation(.easeOut(duration: 0.16), value: isCommandPalettePresented)
+        .animation(.easeOut(duration: 0.16), value: subagentTranscript?.id)
     }
 
     private func dismissibleModal<Dialog: View>(
@@ -304,6 +319,15 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         onSaveSidebarSavedSearch(title, query)
         sidebarSavedSearchDraft = nil
     }
+
+    private func dismissSubagentTranscript() {
+        subagentTranscript = nil
+    }
+
+    private func runSubagentToolCardAction(_ action: ToolCardActionSurface) {
+        subagentTranscript = nil
+        onToolCardAction(action)
+    }
 }
 
 extension View {
@@ -326,6 +350,7 @@ extension View {
         renameThreadDraft: Binding<QuillCodeThreadRenameDraft?>,
         renameProjectDraft: Binding<QuillCodeProjectRenameDraft?>,
         sidebarSavedSearchDraft: Binding<QuillCodeSidebarSavedSearchDraft?>,
+        subagentTranscript: Binding<WorkspaceSubagentTranscriptSurface?>,
         onSelectThread: @escaping (UUID) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
@@ -340,7 +365,9 @@ extension View {
         onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
         onRenameProject: @escaping (UUID, String) -> Void,
-        onSaveSidebarSavedSearch: @escaping (String, String) -> Void
+        onSaveSidebarSavedSearch: @escaping (String, String) -> Void,
+        onToolCardAction: @escaping (ToolCardActionSurface) -> Void,
+        onCopyTranscriptItem: @escaping (String, String) -> Void
     ) -> some View {
         modifier(QuillCodeWorkspaceSheetsModifier(
             surface: surface,
@@ -361,6 +388,7 @@ extension View {
             renameThreadDraft: renameThreadDraft,
             renameProjectDraft: renameProjectDraft,
             sidebarSavedSearchDraft: sidebarSavedSearchDraft,
+            subagentTranscript: subagentTranscript,
             onSelectThread: onSelectThread,
             onSaveSettings: onSaveSettings,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
@@ -375,7 +403,9 @@ extension View {
             onPruneWorktrees: onPruneWorktrees,
             onRenameThread: onRenameThread,
             onRenameProject: onRenameProject,
-            onSaveSidebarSavedSearch: onSaveSidebarSavedSearch
+            onSaveSidebarSavedSearch: onSaveSidebarSavedSearch,
+            onToolCardAction: onToolCardAction,
+            onCopyTranscriptItem: onCopyTranscriptItem
         ))
     }
 }

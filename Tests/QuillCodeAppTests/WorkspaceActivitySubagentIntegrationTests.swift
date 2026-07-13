@@ -180,4 +180,45 @@ final class WorkspaceActivitySubagentIntegrationTests: XCTestCase {
         )])
         XCTAssertTrue(SubagentProgressToolExecutor.activityItems(for: thread)[0].actions.isEmpty)
     }
+
+    func testActivityKeepsEveryDurableRunAvailableForTranscriptDrilldown() {
+        let threadID = UUID()
+        let oldRun = SubagentRunRecord(
+            id: UUID(),
+            objective: "Older investigation",
+            workers: [SubagentWorkerRecord(
+                id: "old-worker",
+                name: "Archivist",
+                role: "inspect earlier behavior",
+                status: .completed
+            )],
+            updatedAt: Date(timeIntervalSince1970: 10)
+        )
+        let newRun = SubagentRunRecord(
+            id: UUID(),
+            objective: "Current investigation",
+            workers: [SubagentWorkerRecord(
+                id: "new-worker",
+                name: "Verifier",
+                role: "verify current behavior",
+                status: .running
+            )],
+            updatedAt: Date(timeIntervalSince1970: 20)
+        )
+        let thread = ChatThread(id: threadID, subagentRuns: [oldRun, newRun])
+        let items = SubagentProgressToolExecutor.activityItems(for: thread)
+
+        XCTAssertEqual(items.map(\.title), ["Verifier", "Archivist"])
+        XCTAssertEqual(items.compactMap { $0.actions.first?.title }, ["View", "View"])
+        XCTAssertEqual(
+            items.compactMap { $0.actions.first?.commandID },
+            [newRun, oldRun].map { run in
+                WorkspaceSubagentTranscriptCommand.openCommandID(
+                    parentThreadID: threadID,
+                    runID: run.id,
+                    workerID: run.workers[0].id
+                )
+            }
+        )
+    }
 }

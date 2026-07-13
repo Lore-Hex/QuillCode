@@ -30,7 +30,17 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
         let projects = try projectStore.load()
-        let threads = try threadStore.list()
+        let childStore = SubagentThreadStore(directory: paths.subagentThreadsDirectory)
+        let payloadStore = SubagentApprovalPayloadStore(directory: paths.subagentApprovalPayloadsDirectory)
+        let reconciliation = WorkspaceSubagentRelaunchReconciler.reconcile(
+            try threadStore.list(),
+            childStore: childStore,
+            payloadStore: payloadStore
+        )
+        let threads = reconciliation.threads
+        for thread in threads where reconciliation.changedThreadIDs.contains(thread.id) {
+            try threadStore.save(thread)
+        }
         let automations = try automationStore.load()
         let sidebarSavedSearches = try sidebarSavedSearchStore.load()
         let selectedThreadID = threads.first(where: { !$0.isArchived })?.id
@@ -70,6 +80,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             globalMemoryDirectory: paths.memoriesDirectory,
             imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),
             worktreeSnapshotStore: ManagedWorktreeSnapshotStore(directory: paths.worktreeSnapshotsDirectory),
+            subagentThreadStore: childStore,
+            subagentApprovalPayloadStore: payloadStore,
             managedWorktreeDefaultRoot: paths.worktreesDirectory,
             mcpSecretStore: MCPSecretStoreAdapter(
                 backing: FileSecretStore(directory: paths.secretsDirectory)

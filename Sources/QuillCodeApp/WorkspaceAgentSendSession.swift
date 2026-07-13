@@ -8,6 +8,8 @@ struct WorkspaceAgentSendSessionResult: Sendable {
     var savedMemory: Bool
     var pendingApproval: AgentPendingApproval?
 
+    var pendingApprovalToolCall: ToolCall? { pendingApproval?.heldToolCall }
+
     init(
         thread: ChatThread,
         savedMemory: Bool,
@@ -73,7 +75,10 @@ struct WorkspaceAgentSendSession: Sendable {
                 to: &activeThread
             )
             await onProgress?(activeThread)
-            return WorkspaceAgentSendSessionResult(thread: activeThread, savedMemory: false)
+            return WorkspaceAgentSendSessionResult(
+                thread: activeThread,
+                savedMemory: false
+            )
         }
 
         let result = try await runner.send(
