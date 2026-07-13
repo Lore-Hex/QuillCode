@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 final class WorkspaceSubagentSpawnDirectiveParserTests: XCTestCase {
@@ -56,12 +57,29 @@ final class WorkspaceSubagentSpawnDirectiveParserTests: XCTestCase {
         XCTAssertEqual(WorkspaceSubagentSpawnDirectiveParser.parse("A normal result with no delegation."), [])
     }
 
-    /// The directive must survive `LLMWorkspaceSubagentWorker.run`'s whitespace collapse — that is the
+    /// The directive must survive the agent worker's whitespace collapse — that is the
     /// whole reason the marker is bracketed rather than line-based. Drive the real worker with a stub
     /// client and confirm the collapsed result still parses to the delegated child.
     func testDirectiveSurvivesTheModelWorkerWhitespaceCollapse() async throws {
         let llm = StubDelegatingLLMClient(reply: "Did the analysis.\n\n[[DELEGATE: Compile | compile the project]]")
-        let worker = LLMWorkspaceSubagentWorker(llm: llm)
+        let root = try makeQuillCodeTestDirectory()
+        let factory = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(llm: llm),
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: root
+        )
+        let worker = AgentWorkspaceSubagentWorker(
+            sessionFactory: factory,
+            parentThread: ChatThread()
+        )
         let summary = try await worker.run(WorkspaceSubagentJob(name: "Root", role: "plan"))
 
         // Whitespace is collapsed (no newline), but the bracketed directive is intact.

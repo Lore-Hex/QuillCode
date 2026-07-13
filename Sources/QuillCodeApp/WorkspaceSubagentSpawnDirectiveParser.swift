@@ -4,15 +4,15 @@ import Foundation
 /// into child worker requests for the scheduler's recursive `spawn` path. A worker delegates by
 /// including one or more `[[DELEGATE: <name> | <role>]]` markers anywhere in its result.
 ///
-/// The marker is bracket-delimited (not line-based) on purpose: `LLMWorkspaceSubagentWorker.run`
+/// The marker is bracket-delimited (not line-based) on purpose: `AgentWorkspaceSubagentWorker.run`
 /// collapses whitespace in the model's reply, which would destroy line structure — but `[[DELEGATE:
 /// ... ]]` survives whitespace collapse intact. Parsing is bounded (children per worker, name/role
 /// lengths) and de-duplicated by name; the scheduler additionally caps recursion depth and total jobs.
 ///
 /// A marker is honored wherever it appears in a worker's result, including text the worker echoed from
-/// its input — this is acceptable because a spawned child's role is only ever used as another (tool-
-/// free) subagent prompt, never executed, and the scheduler's depth/total-job caps bound any
-/// echo-triggered fan-out to a small, terminating set of wasted turns.
+/// its input. Spawned children still run through the same workspace boundary and safety reviewer as
+/// their parent, while the parser and scheduler cap children, recursion depth, and total jobs. Those
+/// bounds keep an echoed or malformed directive from creating unbounded work.
 enum WorkspaceSubagentSpawnDirectiveParser {
     static let openMarker = "[[DELEGATE:"
     static let closeMarker = "]]"

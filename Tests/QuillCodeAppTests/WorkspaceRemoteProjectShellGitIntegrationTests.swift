@@ -6,6 +6,59 @@ import QuillCodeTools
 
 @MainActor
 final class WorkspaceRemoteProjectShellGitIntegrationTests: XCTestCase {
+    func testRemoteProjectSubagentRunsShellThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-subagent-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let thread = ChatThread(projectID: project.id)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "pwd"])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("/subagents inspect remote | Explorer: run pwd on the remote project")
+        await model.submitComposer(workspaceRoot: root)
+
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "-T",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=4",
+            "-p",
+            "2222",
+            "--",
+            "quill@feather.local",
+            "cd '/srv/quill' && pwd"
+        ])
+        let completedThread = try XCTUnwrap(model.selectedThread)
+        let update = try XCTUnwrap(SubagentProgressToolExecutor.latestUpdate(in: completedThread))
+        XCTAssertEqual(update.subagents.map(\.status), [.completed])
+        XCTAssertTrue(update.subagents.first?.summary?.contains("remote-terminal") == true)
+    }
+
     func testRemoteProjectAgentRunsShellThroughSSH() async throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")

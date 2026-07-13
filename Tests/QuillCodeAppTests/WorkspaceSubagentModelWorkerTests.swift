@@ -1,12 +1,16 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeSafety
+import QuillCodeTools
 @testable import QuillCodeApp
 
 final class WorkspaceSubagentModelWorkerTests: XCTestCase {
-    func testRunReturnsCollapsedModelSayText() async throws {
-        let worker = LLMWorkspaceSubagentWorker(
-            llm: SubagentStubSayLLMClient(text: "  Inspected the parser\n  and found two edge cases.  ")
+    func testRunReturnsCollapsedAgentSummary() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let worker = makeWorker(
+            root: root,
+            actions: [.say("  Inspected the parser\n  and found two edge cases.  ")]
         )
 
         let summary = try await worker.run(
@@ -16,8 +20,9 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertEqual(summary, "Inspected the parser and found two edge cases.")
     }
 
-    func testRunFallsBackToRoleForEmptySay() async throws {
-        let worker = LLMWorkspaceSubagentWorker(llm: SubagentStubSayLLMClient(text: "   \n  "))
+    func testRunFallsBackToRoleForEmptyAgentSummary() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let worker = makeWorker(root: root, actions: [.say("   \n  ")])
 
         let summary = try await worker.run(
             WorkspaceSubagentJob(name: "Verifier", role: "run focused tests", objective: "ship the release")
@@ -26,17 +31,103 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertEqual(summary, "Completed run focused tests")
     }
 
-    func testRunSummarizesToolAction() async throws {
-        let worker = LLMWorkspaceSubagentWorker(llm: SubagentStubToolLLMClient(toolName: "host.shell.run"))
-
-        let summary = try await worker.run(
-            WorkspaceSubagentJob(name: "Runner", role: "execute checks", objective: "build and verify")
+    func testRunExecutesToolsAndContinuesToFinalAnswer() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let marker = root.appendingPathComponent("subagent.txt")
+        let worker = makeWorker(
+            root: root,
+            actions: [
+                .tool(ToolCall(
+                    name: ToolDefinition.fileWrite.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "subagent.txt",
+                        "content": "hello from subagent\n"
+                    ])
+                )),
+                .say("Created subagent.txt and verified the write.")
+            ]
         )
 
-        XCTAssertEqual(summary, "Proposed host.shell.run")
+        let summary = try await worker.run(
+            WorkspaceSubagentJob(name: "Builder", role: "create the marker", objective: "prepare fixture")
+        )
+
+        XCTAssertEqual(summary, "Created subagent.txt and verified the write.")
+        XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "hello from subagent\n")
     }
 
-    func testPromptIncludesObjectiveRoleAndSayContract() {
+    func testRunSurfacesSafetyBlockInsteadOfBypassingParentMode() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let parent = ChatThread(mode: .review)
+        let worker = makeWorker(
+            root: root,
+            actions: [.tool(ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json(["path": "blocked.txt", "content": "no"])
+            ))],
+            safety: StaticSafetyReviewer(),
+            parentThread: parent
+        )
+
+        do {
+            _ = try await worker.run(
+                WorkspaceSubagentJob(name: "Builder", role: "write a file", objective: "test review mode")
+            )
+            XCTFail("Expected review mode to block an unapproved delegated write")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("Safety review blocked delegated work"))
+            XCTAssertTrue(error.localizedDescription.contains("explicit approval"))
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))
+    }
+
+    func testRunInheritsParentProjectContext() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let projectID = UUID()
+        let instruction = ProjectInstruction(
+            path: "AGENTS.md",
+            title: "Project instructions",
+            content: "Follow project rules.",
+            byteCount: 21
+        )
+        let memory = MemoryNote(
+            id: "memory-1",
+            scope: .project,
+            title: "Parser",
+            content: "Use the existing parser.",
+            relativePath: "parser.md",
+            byteCount: 24
+        )
+        let parent = ChatThread(
+            projectID: projectID,
+            mode: .readOnly,
+            model: "acme/model",
+            instructions: [instruction],
+            memories: [memory]
+        )
+        let recorder = SubagentRecordingActionQueue(actions: [.say("done")])
+        let worker = makeWorker(
+            root: root,
+            llm: SubagentRecordingLLMClient(state: recorder),
+            parentThread: parent
+        )
+
+        _ = try await worker.run(
+            WorkspaceSubagentJob(name: "Explorer", role: "inspect", objective: "audit")
+        )
+
+        let recordedThread = await recorder.latestThread()
+        let observed = try XCTUnwrap(recordedThread)
+        XCTAssertEqual(observed.projectID, projectID)
+        XCTAssertEqual(observed.mode, .readOnly)
+        XCTAssertEqual(observed.model, "acme/model")
+        XCTAssertEqual(observed.instructions, [instruction])
+        XCTAssertEqual(observed.memories, [memory])
+        let tools = await recorder.latestTools()
+        XCTAssertTrue(tools.contains { $0.name == ToolDefinition.fileRead.name })
+    }
+
+    func testPromptIncludesObjectiveRoleAndAutonomousToolGuidance() {
         let prompt = WorkspaceSubagentPromptBuilder.prompt(
             objective: "validate release",
             job: WorkspaceSubagentJob(name: "Explorer", role: "inspect code")
@@ -45,7 +136,9 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains("validate release"))
         XCTAssertTrue(prompt.contains("inspect code"))
         XCTAssertTrue(prompt.contains("Explorer"))
-        XCTAssertTrue(prompt.contains(#"{"type":"say","text":"..."}"#))
+        XCTAssertTrue(prompt.contains("Work autonomously with the available tools"))
+        XCTAssertTrue(prompt.contains("Do not merely announce what you intend to do"))
+        XCTAssertFalse(prompt.contains(#"{"type":"say""#))
     }
 
     func testPromptOffersOptionalDelegationViaTheParsedMarker() {
@@ -54,14 +147,12 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             job: WorkspaceSubagentJob(name: "Builder", role: "build")
         )
 
-        // The marker the prompt advertises must be exactly the one the parser recognizes, and the
-        // guidance must stay opt-in ("only if") so workers do not over-delegate.
         XCTAssertTrue(prompt.contains(WorkspaceSubagentSpawnDirectiveParser.openMarker))
         XCTAssertTrue(prompt.contains("only if"))
         XCTAssertTrue(prompt.contains("sparingly"))
-        // The advertised marker is actually parseable into a child request with the expected name/role
-        // (not just a non-zero count), so prompt wording and parser semantics cannot drift apart.
-        let parsed = WorkspaceSubagentSpawnDirectiveParser.parse("[[DELEGATE: short name | what that subagent should do]]")
+        let parsed = WorkspaceSubagentSpawnDirectiveParser.parse(
+            "[[DELEGATE: short name | what that subagent should do]]"
+        )
         XCTAssertEqual(parsed.count, 1)
         XCTAssertEqual(parsed.first?.name, "short name")
         XCTAssertEqual(parsed.first?.role, "what that subagent should do")
@@ -74,7 +165,10 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
                 name: "Verifier",
                 role: "run tests",
                 dependsOn: ["Builder"],
-                priorResults: [WorkspaceSubagentPriorResult(name: "Builder", summary: "compiled the app cleanly")]
+                priorResults: [WorkspaceSubagentPriorResult(
+                    name: "Builder",
+                    summary: "compiled the app cleanly"
+                )]
             )
         )
 
@@ -105,8 +199,9 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertFalse(prompt.contains("Results from the prerequisite subagents"))
     }
 
-    func testRunPropagatesClientErrors() async {
-        let worker = LLMWorkspaceSubagentWorker(llm: SubagentStubThrowingLLMClient())
+    func testRunPropagatesClientErrors() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let worker = makeWorker(root: root, llm: SubagentThrowingLLMClient())
 
         do {
             _ = try await worker.run(
@@ -114,50 +209,107 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             )
             XCTFail("Expected the worker to propagate the client error")
         } catch {
-            // Expected: scheduler turns a thrown worker error into a failed subagent.
+            XCTAssertTrue(error is SubagentThrowingLLMClient.Failure)
         }
     }
 
-    // MARK: - Prompt caching opt-out (one-shot aux class)
+    private func makeWorker(
+        root: URL,
+        actions: [AgentAction],
+        safety: any SafetyReviewer = SubagentAlwaysApprovingSafetyReviewer(),
+        parentThread: ChatThread = ChatThread()
+    ) -> AgentWorkspaceSubagentWorker {
+        makeWorker(
+            root: root,
+            llm: SubagentRecordingLLMClient(state: SubagentRecordingActionQueue(actions: actions)),
+            safety: safety,
+            parentThread: parentThread
+        )
+    }
 
-    /// The opt-out the WorkspaceModel applies to the subagent worker: it disables caching on a
-    /// caching-capable client (threading through the production retry-wrapped TrustedRouter shape)
-    /// and returns a non-caching client (the mock) unchanged. A subagent worker issues a single
-    /// tool-free nextAction on a FRESH, unique-prompt thread that is never re-sent, so a
-    /// breakpoint there could only ever be a cache write with no read — this opt-out prevents it.
-    /// Fails on revert of disablingPromptCachingIfSupported / its conformances.
-    func testDisablingPromptCachingIfSupportedActsOnCachingClientsOnly() throws {
-        let retryWrapped = RetryingLLMClient(base: TrustedRouterLLMClient(promptCachingPolicy: .automatic))
-        let disabled = disablingPromptCachingIfSupported(retryWrapped)
-        let disabledClient = try XCTUnwrap(disabled as? RetryingLLMClient<TrustedRouterLLMClient>)
-        XCTAssertEqual(disabledClient.base.promptCachingPolicy, .disabled)
-
-        // A client that does not support the control is returned unchanged (not wrapped/altered).
-        let mock = SubagentStubSayLLMClient(text: "ok")
-        XCTAssertTrue(disablingPromptCachingIfSupported(mock) is SubagentStubSayLLMClient)
+    private func makeWorker(
+        root: URL,
+        llm: any LLMClient,
+        safety: any SafetyReviewer = SubagentAlwaysApprovingSafetyReviewer(),
+        parentThread: ChatThread = ChatThread()
+    ) -> AgentWorkspaceSubagentWorker {
+        let factory = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(llm: llm, safety: safety),
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: root
+        )
+        return AgentWorkspaceSubagentWorker(
+            sessionFactory: factory,
+            parentThread: parentThread
+        )
     }
 }
 
-private struct SubagentStubSayLLMClient: LLMClient {
-    var text: String
+private actor SubagentRecordingActionQueue {
+    private var actions: [AgentAction]
+    private var thread: ChatThread?
+    private var tools: [ToolDefinition] = []
 
-    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
-        .say(text)
+    init(actions: [AgentAction]) {
+        self.actions = actions
+    }
+
+    func next(thread: ChatThread, tools: [ToolDefinition]) throws -> AgentAction {
+        self.thread = thread
+        self.tools = tools
+        guard !actions.isEmpty else {
+            throw SubagentThrowingLLMClient.Failure()
+        }
+        return actions.removeFirst()
+    }
+
+    func latestThread() -> ChatThread? {
+        thread
+    }
+
+    func latestTools() -> [ToolDefinition] {
+        tools
     }
 }
 
-private struct SubagentStubToolLLMClient: LLMClient {
-    var toolName: String
+private struct SubagentRecordingLLMClient: LLMClient {
+    var state: SubagentRecordingActionQueue
 
-    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
-        .tool(ToolCall(name: toolName, argumentsJSON: "{}"))
+    func nextAction(
+        thread: ChatThread,
+        userMessage _: String,
+        tools: [ToolDefinition]
+    ) async throws -> AgentAction {
+        try await state.next(thread: thread, tools: tools)
     }
 }
 
-private struct SubagentStubThrowingLLMClient: LLMClient {
+private struct SubagentAlwaysApprovingSafetyReviewer: SafetyReviewer {
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        SafetyReview(
+            verdict: .approve,
+            rationale: "Approved in the focused subagent test.",
+            userIntentMatched: true
+        )
+    }
+}
+
+private struct SubagentThrowingLLMClient: LLMClient {
     struct Failure: Error {}
 
-    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
+    func nextAction(
+        thread _: ChatThread,
+        userMessage _: String,
+        tools _: [ToolDefinition]
+    ) async throws -> AgentAction {
         throw Failure()
     }
 }

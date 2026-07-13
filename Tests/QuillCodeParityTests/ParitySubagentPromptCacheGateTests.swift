@@ -1,26 +1,27 @@
 import XCTest
 
-/// Locks the construction-site invariant: the subagent worker — a one-shot auxiliary call whose
-/// unique prompt is never re-sent — must be wired to a prompt-caching-DISABLED client, the same
-/// class RuntimeFactory disables for context summaries. A breakpoint there could only ever be a
-/// cache write with no read. This gate fails if a future edit reverts the WorkspaceModel wiring
-/// back to the raw run-loop client.
+/// Locks the runtime invariant that delegated work goes through the normal configured agent session,
+/// not a one-shot model call with an empty tool catalog. Multi-step subagent turns can benefit from
+/// prompt caching in the same way as main-agent turns, so this intentionally replaces the former
+/// one-shot prompt-cache opt-out gate.
 final class ParitySubagentPromptCacheGateTests: QuillCodeParityTestCase {
-    func testSubagentWorkerIsWiredToACachingDisabledClient() throws {
-        let source = try Self.appSourceText(named: "WorkspaceModel.swift")
+    func testSubagentWorkerUsesConfiguredMultiStepAgentSession() throws {
+        let runnerSource = try Self.appSourceText(named: "WorkspaceSubagentSlashCommandRunner.swift")
+        let workerSource = try Self.appSourceText(named: "WorkspaceSubagentModelWorker.swift")
 
-        XCTAssertTrue(
-            source.contains("LLMWorkspaceSubagentWorker.scheduledWorker"),
-            "expected the subagent scheduler to be built from LLMWorkspaceSubagentWorker.scheduledWorker"
-        )
-        XCTAssertTrue(
-            source.contains("scheduledWorker(\n                llm: disablingPromptCachingIfSupported(runner.llm)")
-                || source.contains("disablingPromptCachingIfSupported(runner.llm)"),
-            "the subagent worker's llm must be routed through disablingPromptCachingIfSupported(runner.llm)"
-        )
-        XCTAssertFalse(
-            source.contains("scheduledWorker(llm: runner.llm)"),
-            "the subagent worker must NOT be wired to the raw run-loop client (that one keeps caching on)"
-        )
+        Self.assertSource(runnerSource, containsAll: [
+            "AgentWorkspaceSubagentWorker.scheduledWorker",
+            "agentSendSessionFactory("
+        ])
+        Self.assertSource(workerSource, containsAll: [
+            "sessionFactory.makeSession",
+            "try await session.run()",
+            "WorkspaceApprovalActionPlanner.undecidedRequests"
+        ])
+        Self.assertSource(workerSource, excludesAll: [
+            "llm.nextAction(",
+            "tools: []",
+            "disablingPromptCachingIfSupported"
+        ])
     }
 }

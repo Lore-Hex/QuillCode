@@ -211,6 +211,9 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertEqual(thread.title, "Subagents")
         XCTAssertEqual(thread.messages.map(\.role), [.user, .assistant])
         XCTAssertTrue(thread.messages.last?.content.contains("Subagents completed 2 workers") == true)
+        let messageEvents = thread.events.filter { $0.kind == .message }
+        XCTAssertEqual(messageEvents.first?.summary, "/subagents validate release | Explorer: inspect code | Verifier: run focused tests")
+        XCTAssertTrue(messageEvents.last?.summary.contains("Subagents completed 2 workers") == true)
         let latestUpdate = try XCTUnwrap(SubagentProgressToolExecutor.latestUpdate(in: thread))
         XCTAssertEqual(latestUpdate.objective, "validate release")
         XCTAssertEqual(latestUpdate.subagents.map(\.name), ["Explorer", "Verifier"])
@@ -223,7 +226,7 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
     func testSlashSubagentsRunsDelegatedChildrenAndRecordsActivityPath() async throws {
         let root = try makeQuillCodeTestDirectory()
         let model = QuillCodeWorkspaceModel()
-        model.subagentScheduler = WorkspaceSubagentScheduler { job in
+        model.subagentSchedulerOverride = WorkspaceSubagentScheduler { job in
             job.depth == 0
                 ? "Planned the split. [[DELEGATE: Compile | compile the app]]"
                 : "did \(job.role)"

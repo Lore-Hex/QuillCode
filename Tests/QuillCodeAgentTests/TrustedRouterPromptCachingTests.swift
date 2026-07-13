@@ -405,15 +405,15 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
         )
     }
 
-    /// A one-shot auxiliary call (subagent worker / context summary) sends a tool-free request on
+    /// A one-shot auxiliary call (for example, context summary generation) sends a tool-free request on
     /// a FRESH thread — so the (empty) history prefix is trivially stable and an .automatic
     /// Anthropic-route client WOULD annotate it, even though the unique prompt is never re-sent
     /// (a cache write with no possible read). The `.disabled` policy those call sites use must
     /// suppress the breakpoint. Fails on revert of the aux-disable wiring's effect.
     func testFreshThreadOneShotRequestIsAnnotatedOnlyWhenCachingEnabled() throws {
         let assembled = TrustedRouterPromptBuilder().assembled(
-            thread: ChatThread(title: "Subagent: Explorer"),
-            userMessage: "You are the Explorer subagent. Investigate and report.",
+            thread: ChatThread(title: "Context summary"),
+            userMessage: "Summarize the supplied context.",
             tools: []
         )
         XCTAssertTrue(assembled.historyPrefixStable, "a fresh thread's prefix is trivially stable")

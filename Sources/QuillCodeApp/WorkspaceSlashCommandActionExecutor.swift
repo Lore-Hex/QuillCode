@@ -56,7 +56,7 @@ extension QuillCodeWorkspaceModel {
         case .monitor(let request, let userText):
             runMonitorSlashCommand(request, originalPrompt: userText)
         case .subagents(let request, let userText):
-            await runSubagentSlashCommand(request, originalPrompt: userText)
+            await runSubagentSlashCommand(request, originalPrompt: userText, workspaceRoot: workspaceRoot)
         case .browserOpen(let target, let userText):
             runBrowserOpenSlashCommand(target, originalPrompt: userText, workspaceRoot: workspaceRoot)
         case .browserSession(let target, let userText):
