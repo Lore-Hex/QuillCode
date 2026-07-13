@@ -87,16 +87,40 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     func runManagedWorktreeSetupIfPresent(worktreeRoot: URL) -> ToolResult? {
         let configuration = WorkspaceProjectConfigurationLoader.load(from: worktreeRoot)
+        guard configuration.worktreeSetup.isValid else {
+            return recordWorktreeSetupFailure(
+                "Worktree setup configuration is invalid. "
+                    + "Paths must be relative .sh files inside the project."
+            )
+        }
         guard let script = WorktreeSetupScriptLoader.load(
             from: worktreeRoot,
             configuration: configuration.worktreeSetup
         ) else {
+            if configuration.worktreeSetup.isExplicitlyConfigured {
+                return recordWorktreeSetupFailure(
+                    "The configured worktree setup script was not found for this platform. "
+                        + "Check [worktree_setup] in .quillcode/config.toml."
+                )
+            }
             return nil
         }
-        return runToolCall(
+        let result = runToolCall(
             WorkspaceShellToolCallPlanner.worktreeSetupScript(script),
             workspaceRoot: worktreeRoot
         )
+        if !result.ok {
+            let message = "Worktree setup failed. Review the failed shell card, fix the script, and rerun it."
+            appendNotice(message)
+            setLastError(message)
+        }
+        return result
+    }
+
+    private func recordWorktreeSetupFailure(_ message: String) -> ToolResult {
+        appendNotice(message)
+        setLastError(message)
+        return ToolResult(ok: false, error: message)
     }
 
     private func selectedProjectBranch(_ project: ProjectRef) -> String? {

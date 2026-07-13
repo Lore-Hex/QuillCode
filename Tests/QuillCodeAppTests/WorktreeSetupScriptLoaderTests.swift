@@ -101,4 +101,26 @@ final class WorktreeSetupScriptLoaderTests: XCTestCase {
             operatingSystem: .other
         ))
     }
+
+    func testInvalidExplicitConfigurationNeverFallsBackToDefaultScript() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let directory = root.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "printf should-not-run".write(
+            to: directory.appendingPathComponent("setup.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let configuration = WorktreeSetupConfiguration(
+            scriptPath: "../escape.sh",
+            isExplicitlyConfigured: true
+        )
+
+        XCTAssertFalse(configuration.isValid)
+        XCTAssertNil(WorktreeSetupScriptLoader.load(
+            from: root,
+            configuration: configuration,
+            operatingSystem: .other
+        ))
+    }
 }

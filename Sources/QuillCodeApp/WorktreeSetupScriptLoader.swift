@@ -16,6 +16,7 @@ enum WorktreeSetupScriptLoader {
         configuration: WorktreeSetupConfiguration,
         operatingSystem: HostOperatingSystem = .current
     ) -> WorktreeSetupScript? {
+        guard configuration.isValid else { return nil }
         let root = worktreeRoot.standardizedFileURL.resolvingSymlinksInPath()
         for relativePath in candidatePaths(configuration: configuration, operatingSystem: operatingSystem) {
             let scriptURL = root

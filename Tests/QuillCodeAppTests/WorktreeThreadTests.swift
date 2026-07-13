@@ -233,6 +233,47 @@ final class WorktreeThreadModelTests: XCTestCase {
         let result = try shellResult(from: card)
         XCTAssertFalse(result.ok)
         XCTAssertEqual(result.stderr, "setup-failed")
+        XCTAssertEqual(
+            model.lastError,
+            "Worktree setup failed. Review the failed shell card, fix the script, and rerun it."
+        )
+        XCTAssertTrue(model.selectedThread?.events.contains {
+            $0.kind == .notice && $0.summary.contains("Worktree setup failed")
+        } == true)
+    }
+
+    func testMissingExplicitWorktreeSetupKeepsCheckoutAndExplainsRepair() throws {
+        let repo = try makeGitRepo()
+        let setupDirectory = repo.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: setupDirectory, withIntermediateDirectories: true)
+        try """
+        [worktree_setup]
+        script = "tools/missing.sh"
+        macos = "tools/missing.macos.sh"
+        linux = "tools/missing.linux.sh"
+        """.write(
+            to: setupDirectory.appendingPathComponent("config.toml"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", ".quillcode/config.toml"], cwd: repo)
+        _ = try runGit(["commit", "-m", "Configure worktree setup"], cwd: repo)
+
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+
+        XCTAssertNotNil(model.newWorktreeThread(name: "missing setup"))
+        let worktree = URL(fileURLWithPath: try XCTUnwrap(model.selectedThread?.worktree?.path))
+        defer { _ = GitToolExecutor().removeWorktree(cwd: repo, path: worktree.lastPathComponent, force: true) }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
+        XCTAssertTrue(model.lastError?.contains("was not found") == true)
+        XCTAssertTrue(model.selectedThread?.events.contains {
+            $0.kind == .notice && $0.summary.contains("[worktree_setup]")
+        } == true)
     }
 
     private func shellResult(from card: ToolCardState) throws -> ToolResult {
