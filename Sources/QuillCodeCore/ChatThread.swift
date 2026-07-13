@@ -35,6 +35,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var forkParentThreadID: UUID?
     /// The turn (a `TurnRevertPlan.turnMessageID`) a decision-point fork branched at. nil otherwise.
     public var forkAnchorTurnMessageID: UUID?
+    /// Session-only behavior such as a transient side conversation. This field is deliberately
+    /// omitted from Codable; decoded threads are always standard durable conversations.
+    public var runtimeContext: ThreadRuntimeContext
 
     public init(
         id: UUID = UUID(),
@@ -56,7 +59,8 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         followUpQueue: [FollowUpItem] = [],
         worktree: WorktreeBinding? = nil,
         forkParentThreadID: UUID? = nil,
-        forkAnchorTurnMessageID: UUID? = nil
+        forkAnchorTurnMessageID: UUID? = nil,
+        runtimeContext: ThreadRuntimeContext = .standard
     ) {
         self.id = id
         self.title = title
@@ -78,6 +82,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.worktree = worktree
         self.forkParentThreadID = forkParentThreadID
         self.forkAnchorTurnMessageID = forkAnchorTurnMessageID
+        self.runtimeContext = runtimeContext
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -130,6 +135,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.worktree = try container.decodeIfPresent(WorktreeBinding.self, forKey: .worktree)
         self.forkParentThreadID = try container.decodeIfPresent(UUID.self, forKey: .forkParentThreadID)
         self.forkAnchorTurnMessageID = try container.decodeIfPresent(UUID.self, forKey: .forkAnchorTurnMessageID)
+        self.runtimeContext = .standard
     }
 
     public func encode(to encoder: Encoder) throws {

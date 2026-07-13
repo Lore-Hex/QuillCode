@@ -9,6 +9,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var sidebar: SidebarSurface
     public var transcript: TranscriptSurface
     public var contextBanner: ContextBannerSurface?
+    public var sideConversation: SideConversationSurface?
     public var review: WorkspaceReviewSurface
     public var terminal: TerminalSurface
     public var browser: BrowserSurface
@@ -39,6 +40,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         sidebar: SidebarSurface,
         transcript: TranscriptSurface,
         contextBanner: ContextBannerSurface? = nil,
+        sideConversation: SideConversationSurface? = nil,
         review: WorkspaceReviewSurface,
         terminal: TerminalSurface,
         browser: BrowserSurface,
@@ -62,6 +64,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.sidebar = sidebar
         self.transcript = transcript
         self.contextBanner = contextBanner
+        self.sideConversation = sideConversation
         self.review = review
         self.terminal = terminal
         self.browser = browser
@@ -165,6 +168,7 @@ public extension QuillCodeWorkspaceModel {
                 ).surface()
             ),
             contextBanner: WorkspaceContextBannerBuilder(thread: thread).banner(),
+            sideConversation: sideConversationSurface(),
             review: review,
             terminal: TerminalSurface(
                 terminal: terminal,

@@ -279,6 +279,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case forkFullContext = "fork-full-context"
     case compactContext = "compact-context"
     case disconnectAll = "disconnect-all"
+    case sideConversationReturn = "side-conversation-return"
     // Morning-triage inbox keyboard triage (issue #877): j / k / Enter / a / d.
     case attentionNext = "attention-next"
     case attentionPrevious = "attention-previous"

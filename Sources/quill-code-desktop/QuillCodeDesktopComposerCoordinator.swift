@@ -43,6 +43,31 @@ struct QuillCodeDesktopComposerCoordinator {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty || !model.composer.attachments.isEmpty else { return }
 
+        // `/side` is intentionally available while the parent chat is running. Intercept it before
+        // the normal busy-thread follow-up queue so the parent keeps working and the question runs
+        // in its own ephemeral task slot.
+        if model.composer.attachments.isEmpty,
+           let sideSlash = WorkspaceSideConversationSlash.parse(prompt) {
+            draft = ""
+            guard let sideThreadID = model.startSideConversation(prompt: sideSlash.prompt) else {
+                refresh()
+                return
+            }
+            guard sideSlash.prompt != nil else {
+                refresh()
+                return
+            }
+            submitPreparedComposer(
+                model: model,
+                threadID: sideThreadID,
+                fallbackWorkspaceRoot: fallbackWorkspaceRoot,
+                tasks: tasks,
+                refresh: refresh,
+                onSlotFree: onSlotFree
+            )
+            return
+        }
+
         // Never lock the composer: a submit arriving DURING a live run enqueues as a follow-up
         // chip (drained at the next turn boundary by the run's own drain loop) instead of being
         // silently rejected. When idle, it sends immediately as before.

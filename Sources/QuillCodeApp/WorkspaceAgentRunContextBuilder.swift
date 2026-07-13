@@ -23,6 +23,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     /// Per-project persisted permission rules. When present, the run's safety reviewer is wrapped
     /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
     var permissionRules: (any PermissionRulesProviding)? = nil
+    var allowsSubagents: Bool = true
 
     /// Configures a per-send runner. `modelID` pins THIS run's LLM client to the selected model —
     /// the thread's model — so `/model`, the top-bar picker, and the `/model` popup all take effect
@@ -63,10 +64,14 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     var additionalToolDefinitions: [ToolDefinition] {
-        [
+        var definitions = [
             ToolDefinition.planUpdate,
-            ToolDefinition.handoffUpdate,
-            ToolDefinition.subagentsUpdate,
+            ToolDefinition.handoffUpdate
+        ]
+        if allowsSubagents {
+            definitions.append(ToolDefinition.subagentsUpdate)
+        }
+        return definitions + [
             ToolDefinition.browserInspect,
             ToolDefinition.browserOpen,
             ToolDefinition.browserClick,

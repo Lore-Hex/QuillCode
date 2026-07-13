@@ -99,6 +99,23 @@ extension QuillCodeWorkspaceModel {
         switch submissionPlan {
         case .ignore:
             return nil
+        case .slash(.sideConversation(let sidePrompt), _):
+            composer.draft = ""
+            clearComposerDraft(for: draftThreadID)
+            setLastError(nil)
+            guard let sideThreadID = startSideConversation(prompt: sidePrompt),
+                  let sidePrompt
+            else {
+                return nil
+            }
+            return await runAgentTurn(
+                prompt: sidePrompt,
+                threadID: sideThreadID,
+                clearingDraftFor: sideThreadID,
+                workspaceRoot: workspaceRoot,
+                onStarted: onStarted,
+                onProgressUpdated: onProgressUpdated
+            )
         case .slash(let command, let originalPrompt):
             composer.draft = ""
             clearComposerDraft(for: draftThreadID)

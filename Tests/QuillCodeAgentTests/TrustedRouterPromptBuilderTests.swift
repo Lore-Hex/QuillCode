@@ -425,6 +425,35 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         })
     }
 
+    func testSideConversationBoundaryFollowsInheritedHistoryAndPrecedesCurrentPrompt() {
+        let parentID = UUID()
+        let thread = ChatThread(
+            messages: [
+                .init(role: .user, content: "Inherited main request"),
+                .init(role: .assistant, content: "Inherited main response")
+            ],
+            runtimeContext: .sideConversation(parentThreadID: parentID)
+        )
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Explain one detail",
+            tools: [.shellRun]
+        )
+        let contents = messages.compactMap { $0["content"] as? String }
+        let inheritedIndex = contents.firstIndex(of: "Inherited main response")
+        let boundaryIndex = contents.firstIndex { $0.contains("You are in a side conversation") }
+        let currentIndex = contents.firstIndex(of: "Explain one detail")
+
+        XCTAssertNotNil(inheritedIndex)
+        XCTAssertNotNil(boundaryIndex)
+        XCTAssertNotNil(currentIndex)
+        XCTAssertLessThan(try XCTUnwrap(inheritedIndex), try XCTUnwrap(boundaryIndex))
+        XCTAssertLessThan(try XCTUnwrap(boundaryIndex), try XCTUnwrap(currentIndex))
+        XCTAssertTrue(contents[try XCTUnwrap(boundaryIndex)].contains("Do not use subagents"))
+        XCTAssertTrue(contents[try XCTUnwrap(boundaryIndex)].contains("reference-only"))
+    }
+
     func testPromptBuilderAppliesExplicitHistoryLimit() {
         let thread = ChatThread(messages: [
             .init(role: .user, content: "first"),

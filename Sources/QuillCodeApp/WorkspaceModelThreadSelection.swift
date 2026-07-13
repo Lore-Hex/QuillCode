@@ -16,6 +16,9 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func selectThread(_ id: UUID, recordsNavigation: Bool = true) {
+        if id != root.selectedThreadID {
+            _ = returnFromSideConversation()
+        }
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         let previousLocation = currentNavigationLocation
         // The user is leaving the current thread: persist its morning-triage return watermark to its
@@ -36,7 +39,8 @@ extension QuillCodeWorkspaceModel {
     func insertCreatedThread(
         _ thread: ChatThread,
         selectedProjectID: UUID?,
-        saveThread: Bool
+        saveThread: Bool,
+        recordsNavigation: Bool = true
     ) -> UUID {
         let previousLocation = currentNavigationLocation
         // Leaving the current thread for a newly created one (New Chat / fork / compact): persist its
@@ -51,7 +55,9 @@ extension QuillCodeWorkspaceModel {
         if saveThread {
             threadPersistence.save(thread)
         }
-        recordNavigationTransition(from: previousLocation)
+        if recordsNavigation {
+            recordNavigationTransition(from: previousLocation)
+        }
         enforceManagedWorktreeRetention()
         return thread.id
     }

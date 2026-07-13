@@ -9,6 +9,8 @@ extension QuillCodeWorkspaceModel {
             runGoalSlashCommand(request, originalPrompt: userText)
         case .newChat:
             _ = newChat()
+        case .sideConversation(let prompt):
+            _ = startSideConversation(prompt: prompt)
         case .setMode(let mode, let userText):
             setMode(mode)
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.mode(

@@ -48,6 +48,36 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         ])
     }
 
+    func testSideConversationDoesNotAdvertiseSubagentTool() throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let parentID = UUID()
+        let thread = ChatThread(
+            title: "Side",
+            runtimeContext: .sideConversation(parentThreadID: parentID)
+        )
+
+        let session = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: workspaceRoot
+        ).makeSession(prompt: "Explain this", thread: thread)
+
+        XCTAssertFalse(session.runner.additionalToolDefinitions.contains {
+            $0.name == ToolDefinition.subagentsUpdate.name
+        })
+        XCTAssertTrue(session.runner.additionalToolDefinitions.contains {
+            $0.name == ToolDefinition.planUpdate.name
+        })
+    }
+
     func testFactoryUsesRemoteProjectToolDefinitionsAndRunHooks() {
         let hook = ProjectRunHook(
             id: "before:.quillcode/hooks/before-agent-run/01-prepare.sh",

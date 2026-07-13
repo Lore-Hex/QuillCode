@@ -47,6 +47,9 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
         // Push the live draft so thread-changing commands (new chat / duplicate /
         // fork / compact) stash it instead of reading a stale model draft.
         model.setDraft(draft)
+        if commandID == "side-conversation-return" || commandID == "new-chat" {
+            cancelSelectedSideConversationTask()
+        }
         guard workspaceActionCoordinator.runWorkspaceCommand(
             commandID,
             model: model,

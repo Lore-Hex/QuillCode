@@ -5,6 +5,7 @@ import QuillCodeCore
 extension QuillCodeWorkspaceModel {
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
+        _ = returnFromSideConversation()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         refreshProjectMetadata(effectiveProjectID)
         let context = WorkspaceProjectContextRefresher.threadCreationContext(

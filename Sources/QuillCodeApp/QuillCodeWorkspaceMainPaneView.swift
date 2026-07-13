@@ -46,6 +46,12 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
+                if let sideConversation = surface.sideConversation {
+                    QuillCodeSideConversationView(
+                        sideConversation: sideConversation,
+                        onCommand: onCommand
+                    )
+                }
                 if surface.automations.isVisible {
                     QuillCodeAutomationsPaneView(
                         automations: surface.automations,

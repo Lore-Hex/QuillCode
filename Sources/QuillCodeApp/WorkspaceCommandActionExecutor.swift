@@ -119,6 +119,8 @@ extension QuillCodeWorkspaceModel {
             return startCompactContext()
         case .disconnectAll:
             return disconnectAll()
+        case .sideConversationReturn:
+            return returnFromSideConversation()
         case .attentionNext:
             attentionMoveDown()
             return true

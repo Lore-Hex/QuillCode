@@ -128,13 +128,14 @@ public struct QuillCodeRootState: Sendable, Hashable {
 
     public var sidebarItems: [SidebarItem] {
         threads
-            .filter { !$0.isArchived }
+            .filter { !$0.isArchived && !$0.runtimeContext.isEphemeral }
             .sorted(by: Self.sidebarSort)
             .map(SidebarItem.init)
     }
 
     public var allSidebarItems: [SidebarItem] {
         threads
+            .filter { !$0.runtimeContext.isEphemeral }
             .sorted {
                 if $0.isArchived != $1.isArchived { return !$0.isArchived && $1.isArchived }
                 return Self.sidebarSort($0, $1)

@@ -71,6 +71,66 @@ final class QuillCodeDesktopConcurrentChatTests: XCTestCase {
         XCTAssertEqual(second.messages.last?.content, "Finished beta desktop task")
     }
 
+    func testSideConversationRunsWhileParentChatContinues() async throws {
+        let workspaceRoot = try makeTempDirectory()
+        let gate = DesktopConcurrentPromptGate()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: DesktopConcurrentPromptGateLLMClient(gate: gate))
+        )
+        let coordinator = QuillCodeDesktopComposerCoordinator()
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        let parentThreadID = model.newChat()
+        var parentDraft = "long parent task"
+        coordinator.send(
+            draft: &parentDraft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: {}
+        )
+        try await waitUntil(timeoutSeconds: 1) {
+            tasks.isSendRunning(threadID: parentThreadID)
+                && model.isAgentRunActive(for: parentThreadID)
+        }
+
+        var sideDraft = "/side explain one detail"
+        coordinator.send(
+            draft: &sideDraft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: {}
+        )
+        let sideThreadID = try XCTUnwrap(model.selectedThread?.id)
+        XCTAssertNotEqual(sideThreadID, parentThreadID)
+        XCTAssertEqual(model.activeSideConversationParentThreadID, parentThreadID)
+        try await waitUntilAsync(timeoutSeconds: 1) {
+            let parentStarted = await gate.hasStarted("long parent task")
+            let sideStarted = await gate.hasStarted("explain one detail")
+            return parentStarted && sideStarted
+        }
+        XCTAssertEqual(tasks.runningSendThreadIDs, [parentThreadID, sideThreadID])
+        XCTAssertTrue(model.isAgentRunActive(for: parentThreadID))
+        XCTAssertTrue(model.isAgentRunActive(for: sideThreadID))
+
+        await gate.release("explain one detail")
+        try await waitUntil(timeoutSeconds: 1) {
+            !tasks.isSendRunning(threadID: sideThreadID)
+                && tasks.isSendRunning(threadID: parentThreadID)
+        }
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Finished explain one detail")
+        XCTAssertTrue(model.returnFromSideConversation())
+        XCTAssertEqual(model.selectedThread?.id, parentThreadID)
+        XCTAssertTrue(model.isAgentRunActive(for: parentThreadID))
+
+        await gate.release("long parent task")
+        try await waitUntil(timeoutSeconds: 1) {
+            tasks.runningSendThreadIDs.isEmpty && model.activeAgentRunThreadIDs.isEmpty
+        }
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Finished long parent task")
+        XCTAssertFalse(model.root.threads.contains { $0.id == sideThreadID })
+    }
+
     func testDesktopStopAllCancelsEveryRunningChat() async throws {
         let workspaceRoot = try makeTempDirectory()
         let gate = DesktopConcurrentPromptGate()
