@@ -141,6 +141,33 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         Self.assertSource(playwright, contains: "configures managed worktree root and recent-task retention")
     }
 
+    func testManagedWorktreeSetupStaysBoundedVisibleAndCrossPlatform() throws {
+        let configuration = try Self.appSourceText(named: "WorkspaceProjectConfigurationLoader.swift")
+        let loader = try Self.appSourceText(named: "WorktreeSetupScriptLoader.swift")
+        let model = try Self.appSourceText(named: "WorkspaceModelWorktrees.swift")
+        let planner = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
+        let modelTests = try Self.appTestSourceText(named: "WorktreeThreadTests.swift")
+        let loaderTests = try Self.appTestSourceText(named: "WorktreeSetupScriptLoaderTests.swift")
+        let playwright = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/playwright/tests/command-palette-worktrees.spec.ts"),
+            encoding: .utf8
+        )
+
+        Self.assertSource(configuration, contains: "struct WorktreeSetupConfiguration")
+        Self.assertSource(configuration, contains: "(\"worktree_setup\", \"script\")")
+        Self.assertSource(loader, contains: "HostOperatingSystem")
+        Self.assertSource(loader, contains: "resolvingSymlinksInPath")
+        Self.assertSource(loader, contains: "ProjectScriptMetadataLoader.load")
+        Self.assertSource(model, contains: "runManagedWorktreeSetupIfPresent")
+        Self.assertSource(model, contains: "workspaceRoot: worktreeRoot")
+        Self.assertSource(planner, contains: "worktreeSetupScript")
+        Self.assertSource(modelTests, contains: "testNewManagedWorktreeRunsSetupInsideIsolatedCheckout")
+        Self.assertSource(modelTests, contains: "testFailedManagedWorktreeSetupStaysVisibleAndKeepsCheckout")
+        Self.assertSource(loaderTests, contains: "testSymlinkOutsideWorktreeIsRejected")
+        Self.assertSource(playwright, contains: "shows automatic environment setup in the transcript")
+    }
+
     private func assertWorktreeRequestAndEngineContracts(
         _ requestsText: String,
         _ engineText: String,

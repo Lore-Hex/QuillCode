@@ -19,6 +19,14 @@ enum WorkspaceShellToolCallPlanner {
         )
     }
 
+    static func worktreeSetupScript(_ script: WorktreeSetupScript) -> ToolCall {
+        shellRunToolCall(
+            command: script.command,
+            environment: script.environment,
+            timeoutSeconds: script.timeoutSeconds
+        )
+    }
+
     static func projectExtensionUpdate(_ manifest: ProjectExtensionManifest) -> ToolCall? {
         projectExtensionCommand(
             manifest.updateCommand,

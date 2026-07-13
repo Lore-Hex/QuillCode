@@ -1,5 +1,47 @@
 import Foundation
 
+struct WorktreeSetupConfiguration: Equatable {
+    static let defaultScriptPath = ".quillcode/setup.sh"
+    static let defaultMacOSScriptPath = ".quillcode/setup.macos.sh"
+    static let defaultLinuxScriptPath = ".quillcode/setup.linux.sh"
+
+    var scriptPath: String
+    var macOSScriptPath: String
+    var linuxScriptPath: String
+
+    init(
+        scriptPath: String = defaultScriptPath,
+        macOSScriptPath: String = defaultMacOSScriptPath,
+        linuxScriptPath: String = defaultLinuxScriptPath
+    ) {
+        self.scriptPath = Self.normalizedScriptPath(scriptPath) ?? Self.defaultScriptPath
+        self.macOSScriptPath = Self.normalizedScriptPath(macOSScriptPath) ?? Self.defaultMacOSScriptPath
+        self.linuxScriptPath = Self.normalizedScriptPath(linuxScriptPath) ?? Self.defaultLinuxScriptPath
+    }
+
+    private static func normalizedScriptPath(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= 240,
+              !trimmed.hasPrefix("/"),
+              !trimmed.contains("\0"),
+              trimmed.rangeOfCharacter(from: .newlines) == nil,
+              URL(fileURLWithPath: trimmed).pathExtension == "sh"
+        else {
+            return nil
+        }
+        let components = trimmed
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+        guard !components.isEmpty,
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })
+        else {
+            return nil
+        }
+        return components.joined(separator: "/")
+    }
+}
+
 struct WorkspaceProjectConfiguration: Equatable {
     static let defaultLocalActionDirectories = LocalEnvironmentActionLoader.defaultDirectories
     static let defaultMaxLocalActions = LocalEnvironmentActionLoader.maxActions
@@ -15,13 +57,15 @@ struct WorkspaceProjectConfiguration: Equatable {
     var beforeAgentRunHookDirectories: [String]
     var afterAgentRunHookDirectories: [String]
     var maxRunHooks: Int
+    var worktreeSetup: WorktreeSetupConfiguration
 
     init(
         localActionDirectories: [String] = defaultLocalActionDirectories,
         maxLocalActions: Int = defaultMaxLocalActions,
         beforeAgentRunHookDirectories: [String] = defaultBeforeAgentRunHookDirectories,
         afterAgentRunHookDirectories: [String] = defaultAfterAgentRunHookDirectories,
-        maxRunHooks: Int = ProjectRunHookLoader.maxHooks
+        maxRunHooks: Int = ProjectRunHookLoader.maxHooks,
+        worktreeSetup: WorktreeSetupConfiguration = WorktreeSetupConfiguration()
     ) {
         self.localActionDirectories = Self.normalizedDirectories(localActionDirectories)
         self.maxLocalActions = Self.normalizedMaxLocalActions(maxLocalActions)
@@ -34,6 +78,7 @@ struct WorkspaceProjectConfiguration: Equatable {
             defaults: Self.defaultAfterAgentRunHookDirectories
         )
         self.maxRunHooks = Self.normalizedMaxRunHooks(maxRunHooks)
+        self.worktreeSetup = worktreeSetup
     }
 
     init(
@@ -41,7 +86,8 @@ struct WorkspaceProjectConfiguration: Equatable {
         maxLocalActions: Int?,
         additionalBeforeAgentRunHookDirectories: [String] = [],
         additionalAfterAgentRunHookDirectories: [String] = [],
-        maxRunHooks: Int? = nil
+        maxRunHooks: Int? = nil,
+        worktreeSetup: WorktreeSetupConfiguration = WorktreeSetupConfiguration()
     ) {
         self.init(
             localActionDirectories: Self.defaultLocalActionDirectories + additionalLocalActionDirectories,
@@ -50,7 +96,8 @@ struct WorkspaceProjectConfiguration: Equatable {
                 + additionalBeforeAgentRunHookDirectories,
             afterAgentRunHookDirectories: Self.defaultAfterAgentRunHookDirectories
                 + additionalAfterAgentRunHookDirectories,
-            maxRunHooks: maxRunHooks ?? ProjectRunHookLoader.maxHooks
+            maxRunHooks: maxRunHooks ?? ProjectRunHookLoader.maxHooks,
+            worktreeSetup: worktreeSetup
         )
     }
 
@@ -152,6 +199,9 @@ enum WorkspaceProjectConfigurationLoader {
         var additionalBeforeHookDirectories: [String] = []
         var additionalAfterHookDirectories: [String] = []
         var maxRunHooks: Int?
+        var worktreeSetupScript = WorktreeSetupConfiguration.defaultScriptPath
+        var worktreeSetupMacOSScript = WorktreeSetupConfiguration.defaultMacOSScriptPath
+        var worktreeSetupLinuxScript = WorktreeSetupConfiguration.defaultLinuxScriptPath
 
         for rawLine in text.components(separatedBy: .newlines) {
             let line = stripComment(rawLine).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -190,6 +240,12 @@ enum WorkspaceProjectConfigurationLoader {
                 additionalAfterHookDirectories.append(contentsOf: parseStringArray(assignment.value))
             case ("hooks", "max"):
                 maxRunHooks = Int(assignment.value.trimmingCharacters(in: .whitespaces))
+            case ("worktree_setup", "script"):
+                worktreeSetupScript = parseString(assignment.value) ?? worktreeSetupScript
+            case ("worktree_setup", "macos"):
+                worktreeSetupMacOSScript = parseString(assignment.value) ?? worktreeSetupMacOSScript
+            case ("worktree_setup", "linux"):
+                worktreeSetupLinuxScript = parseString(assignment.value) ?? worktreeSetupLinuxScript
             default:
                 continue
             }
@@ -200,7 +256,12 @@ enum WorkspaceProjectConfigurationLoader {
             maxLocalActions: maxLocalActions,
             additionalBeforeAgentRunHookDirectories: additionalBeforeHookDirectories,
             additionalAfterAgentRunHookDirectories: additionalAfterHookDirectories,
-            maxRunHooks: maxRunHooks
+            maxRunHooks: maxRunHooks,
+            worktreeSetup: WorktreeSetupConfiguration(
+                scriptPath: worktreeSetupScript,
+                macOSScriptPath: worktreeSetupMacOSScript,
+                linuxScriptPath: worktreeSetupLinuxScript
+            )
         )
     }
 

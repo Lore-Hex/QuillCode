@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-07-12 Managed Worktree Environment Setup Slice
+
+Overall grade after this slice: **A+ execution reuse, A+ path safety, A worktree setup parity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Architecture | A+ | Platform detection stays in `QuillCodeTools`; project config, script resolution, tool-call planning, and worktree lifecycle each have one focused owner. |
+| Security | A+ | Setup accepts only normalized relative `.sh` paths, resolves symlinks against the new checkout, and reuses bounded environment/working-directory/timeout metadata policy. |
+| UX and recovery | A | Setup runs before control returns and records normal shell tool cards with output, failure, bounded timeout, redaction, and rerun behavior. Failure keeps the isolated checkout for diagnosis. A richer named-environment selector remains a later milestone. |
+| DRY and idioms | A+ | Setup uses the existing metadata loader, shell planner, tool coordinator, transcript persistence, and cross-platform adapter instead of introducing parallel execution code. |
+| Tests | A+ | Loader tests cover platform precedence, fallback, custom paths, metadata, and symlink escape; real Git tests prove checkout isolation and durable failure; Playwright proves visible setup evidence. |
+
+Validation:
+
+- Focused Swift setup/config/real-worktree tests passed (17 tests).
+- Full Swift suite passed (3,620 tests, 2 skipped, 0 failures).
+- Full Playwright suite passed (215 tests), including visible automatic setup evidence.
+- CLI, packaged macOS direct/Launch Services/live-window, and Playwright smoke passed.
+- `python3 scripts/grade-code-quality.py --root .` reports every affected module A+.
+- `git diff --check` passed.
+
 ## 2026-07-12 Committed-History Handoff Slice
 
 Overall grade after this slice: **A+ transactional Git architecture, A worktree parity**.

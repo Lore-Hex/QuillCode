@@ -78,6 +78,36 @@ final class WorkspaceProjectConfigurationLoaderTests: XCTestCase {
         XCTAssertEqual(configuration.maxRunHooks, ProjectRunHookLoader.maxHooks)
     }
 
+    func testParseLoadsWorktreeSetupScriptOverrides() {
+        let configuration = WorkspaceProjectConfigurationLoader.parse(
+            """
+            [worktree_setup]
+            script = "tools/setup/default.sh"
+            macos = "tools/setup/apple.sh"
+            linux = "tools/setup/linux.sh"
+            """
+        )
+
+        XCTAssertEqual(configuration.worktreeSetup, WorktreeSetupConfiguration(
+            scriptPath: "tools/setup/default.sh",
+            macOSScriptPath: "tools/setup/apple.sh",
+            linuxScriptPath: "tools/setup/linux.sh"
+        ))
+    }
+
+    func testParseRejectsUnsafeWorktreeSetupScriptOverrides() {
+        let configuration = WorkspaceProjectConfigurationLoader.parse(
+            """
+            [worktree_setup]
+            script = "../escape.sh"
+            macos = "/tmp/setup.sh"
+            linux = "tools/setup.txt"
+            """
+        )
+
+        XCTAssertEqual(configuration.worktreeSetup, WorktreeSetupConfiguration())
+    }
+
     func testLoadBoundsConfigFileToProject() throws {
         let root = try makeQuillCodeTestDirectory()
         let quillDirectory = root.appendingPathComponent(".quillcode")

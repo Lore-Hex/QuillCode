@@ -14230,6 +14230,13 @@
         state.topBar.worktreeStatusLabel = 'Worktree';
         state.topBar.worktreeStatusDetail = 'Runs for this task use /mock/quillcode-worktree-experiment.';
         state.topBar.worktreeStatusIsWarning = false;
+        addToolCard({
+          title: 'host.shell.run',
+          subtitle: 'Completed · sh .quillcode/setup.sh',
+          status: 'done',
+          inputJSON: JSON.stringify({ cmd: "sh '.quillcode/setup.sh'" }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: 'Worktree environment ready.\n', stderr: '', exitCode: 0 }, null, 2)
+        });
         addMessage('assistant', 'Started a detached worktree chat with the current local changes.');
         render();
         return;

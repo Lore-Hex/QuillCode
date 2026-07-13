@@ -84,5 +84,6 @@ swift run quill-code auth clear
 - [Parity Matrix](docs/CODEX_PARITY_MATRIX.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Test Plan](docs/TEST_PLAN.md)
+- [Worktree Setup](docs/WORKTREE_SETUP.md)
 - [Merge Train](docs/MERGE_TRAIN.md)
 - [Downloadable Builds](docs/DOWNLOADS.md)
