@@ -59,7 +59,7 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    private func agentSendSessionFactory(
+    func agentSendSessionFactory(
         workspaceRoot: URL,
         runProject: ProjectRef?
     ) -> WorkspaceAgentSendSessionFactory {

@@ -369,7 +369,7 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
     func testCancellingSubagentSlashCommandPublishesCancelledProgressWithoutFinalSummary() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
-        model.subagentScheduler = WorkspaceSubagentScheduler { _ in
+        model.subagentSchedulerOverride = WorkspaceSubagentScheduler { _ in
             try await Task.sleep(nanoseconds: 2_000_000_000)
             return "unexpected completion"
         }
@@ -391,6 +391,63 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertEqual(thread.messages.map(\.role), [.user])
         let update = try XCTUnwrap(SubagentProgressToolExecutor.latestUpdate(in: thread))
         XCTAssertEqual(update.subagents.map(\.status), [.cancelled])
+    }
+
+    func testSubagentSlashCommandExecutesWorkspaceToolsEndToEnd() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(
+                llm: FixedToolLLMClient(call: ToolCall(
+                    name: ToolDefinition.fileWrite.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "delegated.txt",
+                        "content": "delegated work\n"
+                    ])
+                )),
+                safety: ImmediateApprovingSafetyReviewer()
+            )
+        )
+
+        model.setDraft("/subagents create fixture | Builder: create delegated.txt containing delegated work")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("delegated.txt"), encoding: .utf8),
+            "delegated work\n"
+        )
+        let thread = try XCTUnwrap(model.selectedThread)
+        let update = try XCTUnwrap(SubagentProgressToolExecutor.latestUpdate(in: thread))
+        XCTAssertEqual(update.subagents.map(\.status), [.completed])
+        XCTAssertFalse(try XCTUnwrap(update.subagents.first?.summary).isEmpty)
+    }
+
+    func testCompletedSubagentRunStaysPinnedToOriginatingThreadAfterSelectionChanges() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.subagentSchedulerOverride = WorkspaceSubagentScheduler { _ in
+            try await Task.sleep(nanoseconds: 200_000_000)
+            return "finished on the original chat"
+        }
+        let originalThreadID = model.newChat()
+
+        model.setDraft("/subagents audit release | Worker: inspect the project")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.root.topBar.agentStatus == TopBarAgentStatusLabel.running
+        }
+        let otherThreadID = model.newChat()
+        await task.value
+
+        XCTAssertEqual(model.root.selectedThreadID, otherThreadID)
+        let original = try XCTUnwrap(model.root.threads.first { $0.id == originalThreadID })
+        let other = try XCTUnwrap(model.root.threads.first { $0.id == otherThreadID })
+        XCTAssertEqual(original.messages.map(\.role), [.user, .assistant])
+        XCTAssertTrue(original.messages.last?.content.contains("Subagents completed 1 worker") == true)
+        XCTAssertNotNil(SubagentProgressToolExecutor.latestUpdate(in: original))
+        XCTAssertTrue(other.messages.isEmpty)
+        XCTAssertNil(SubagentProgressToolExecutor.latestUpdate(in: other))
     }
 
     func testCompletedComposerRunDoesNotStealSelectionAfterUserSwitchesThreads() async throws {
@@ -643,6 +700,17 @@ private struct SlowApprovingSafetyReviewer: SafetyReviewer {
         return SafetyReview(
             verdict: .approve,
             rationale: "The tool call is bounded and matches the current user request.",
+            userIntentMatched: true
+        )
+    }
+}
+
+private struct ImmediateApprovingSafetyReviewer: SafetyReviewer {
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        _ = context
+        return SafetyReview(
+            verdict: .approve,
+            rationale: "Approved in the workspace integration test.",
             userIntentMatched: true
         )
     }

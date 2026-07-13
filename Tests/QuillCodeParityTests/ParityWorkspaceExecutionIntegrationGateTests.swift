@@ -64,18 +64,27 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
         let schedulerTests = try Self.appTestSourceText(named: "WorkspaceSubagentSchedulerTests.swift")
         let composerTests = try Self.appTestSourceText(named: "WorkspaceComposerIntegrationTests.swift")
         let integrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
+        let workerText = try Self.appSourceText(named: "WorkspaceSubagentModelWorker.swift")
 
         Self.assertSource(schedulerText, containsAll: [
             "withTaskGroup",
             "ProgressSink",
             "catch is CancellationError"
         ])
-        Self.assertSource(modelText, contains: "var subagentScheduler = WorkspaceSubagentScheduler()")
+        Self.assertSource(modelText, contains: "var subagentSchedulerOverride: WorkspaceSubagentScheduler?")
         Self.assertSource(runnerText, containsAll: [
+            "AgentWorkspaceSubagentWorker.scheduledWorker",
+            "agentSendSessionFactory(",
             "guard !Task.isCancelled",
             "SubagentProgressToolExecutor.execute",
             "WorkspaceToolEventRecorder.append"
         ])
+        Self.assertSource(workerText, containsAll: [
+            "sessionFactory.makeSession",
+            "try await session.run()",
+            "inheriting: parentThread"
+        ])
+        Self.assertSource(workerText, excludes: "tools: []")
         Self.assertSource(slashText, contains: "Task.isCancelled")
         Self.assertSource(slashParserText, contains: "enum SlashSubagentCommandParser")
         Self.assertSource(actionExecutorText, contains: "case .subagents(let request, let userText):")

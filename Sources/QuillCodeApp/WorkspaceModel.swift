@@ -58,7 +58,11 @@ public final class QuillCodeWorkspaceModel {
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
     var activeTerminalSession: (any ShellInteractiveSession)?
-    var subagentScheduler = WorkspaceSubagentScheduler()
+    /// Test seam for deterministic scheduler behavior. Production builds leave this nil and create
+    /// a scheduler from the originating chat's fully configured agent session at dispatch time.
+    /// Building it per run is essential: project, worktree, model, permissions, MCP, and SSH routing
+    /// can all differ from one chat to another.
+    var subagentSchedulerOverride: WorkspaceSubagentScheduler?
     /// The edit session for app/UI-initiated tool runs (`runToolCall`): review-pane opens,
     /// slash commands, diagnostic applies. Deliberately SEPARATE from every chat thread's
     /// `FileEditSessionGuard.session(for:)`, so a file the user merely opened in the UI never
@@ -142,17 +146,7 @@ public final class QuillCodeWorkspaceModel {
         self.sidebarSelection = sidebarSelection
         self.agentRuns = agentRuns
         self.runner = runner
-        // Subagent-worker calls are one-shot auxiliary housekeeping: LLMWorkspaceSubagentWorker.run
-        // issues a single tool-free nextAction on a fresh, unique-prompt ChatThread that is never
-        // re-sent, so a prompt-cache breakpoint on it could only ever be a cache WRITE with no read
-        // (a pure cost premium) — the same class as the context-summary path RuntimeFactory
-        // disables. Opt this path out too; a non-caching client (e.g. the mock) is passed through
-        // untouched.
-        self.subagentScheduler = WorkspaceSubagentScheduler(
-            worker: LLMWorkspaceSubagentWorker.scheduledWorker(
-                llm: disablingPromptCachingIfSupported(runner.llm)
-            )
-        )
+        self.subagentSchedulerOverride = nil
         self.contextSummaryGenerator = contextSummaryGenerator
         self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)
         self.projectStore = projectStore

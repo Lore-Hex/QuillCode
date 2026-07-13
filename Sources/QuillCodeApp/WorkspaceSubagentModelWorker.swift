@@ -2,49 +2,74 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 
-/// Runs a single subagent job as a focused, tool-free model turn and returns
-/// the model's concise result text. This plugs into
-/// `WorkspaceSubagentScheduler`'s worker closure so explicit subagent
-/// workflows can be model-backed instead of producing deterministic
-/// placeholder summaries.
-///
-/// The worker only holds the `Sendable` `LLMClient`, so it can run inside the
-/// scheduler's task group without capturing the `@MainActor` workspace model.
-struct LLMWorkspaceSubagentWorker: Sendable {
-    var llm: any LLMClient
+/// Executes a delegated job through the same configured agent path as a normal chat turn. Each
+/// worker owns a fresh, ephemeral transcript while inheriting the parent chat's project, worktree,
+/// model, mode, instructions, memories, goal, tools, and remote routing.
+struct AgentWorkspaceSubagentWorker: Sendable {
+    let sessionFactory: WorkspaceAgentSendSessionFactory
+    let parentThread: ChatThread
 
-    init(llm: any LLMClient) {
-        self.llm = llm
-    }
-
-    /// Builds a `WorkspaceSubagentScheduler` worker closure backed by `llm`.
-    /// The closure only captures the `Sendable` client, so it is safe to run
-    /// inside the scheduler's task group.
-    static func scheduledWorker(llm: any LLMClient) -> WorkspaceSubagentScheduler.Worker {
-        { job in try await LLMWorkspaceSubagentWorker(llm: llm).run(job) }
+    static func scheduledWorker(
+        sessionFactory: WorkspaceAgentSendSessionFactory,
+        parentThread: ChatThread
+    ) -> WorkspaceSubagentScheduler.Worker {
+        let worker = AgentWorkspaceSubagentWorker(
+            sessionFactory: sessionFactory,
+            parentThread: parentThread
+        )
+        return { job in try await worker.run(job) }
     }
 
     func run(_ job: WorkspaceSubagentJob) async throws -> String {
         let prompt = WorkspaceSubagentPromptBuilder.prompt(objective: job.objective, job: job)
-        let action = try await llm.nextAction(
-            thread: ChatThread(title: "Subagent: \(job.name)"),
-            userMessage: prompt,
-            tools: []
+        let thread = WorkspaceSubagentThreadBuilder.thread(
+            for: job,
+            inheriting: parentThread
         )
-        switch action {
-        case .say(let text):
-            let summary = Self.collapsedWhitespace(text)
-            return summary.isEmpty ? "Completed \(job.role)" : summary
-        case .tool(let call):
-            return "Proposed \(call.name)"
+        let session = sessionFactory.makeSession(prompt: prompt, thread: thread)
+        let result = try await AgentRunRetryScope.$threadID.withValue(thread.id) {
+            try await session.run()
         }
-    }
 
-    private static func collapsedWhitespace(_ text: String) -> String {
-        text
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
+        if let approval = WorkspaceApprovalActionPlanner.undecidedRequests(in: result.thread).last {
+            throw WorkspaceSubagentWorkerError.safetyBlocked(
+                WorkspaceContextSummarySanitizer.diagnostic(from: approval.reason)
+            )
+        }
+
+        let assistantText = result.thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
+        let summary = WorkspaceContextSummarySanitizer.summary(from: assistantText)
+            .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
+        guard let summary, !summary.isEmpty else {
+            return "Completed \(job.role)"
+        }
+        return summary
+    }
+}
+
+private enum WorkspaceSubagentThreadBuilder {
+    static func thread(for job: WorkspaceSubagentJob, inheriting parent: ChatThread) -> ChatThread {
+        ChatThread(
+            title: "Subagent: \(job.name)",
+            projectID: parent.projectID,
+            mode: parent.mode,
+            model: parent.model,
+            goal: parent.goal,
+            instructions: parent.instructions,
+            memories: parent.memories,
+            worktree: parent.worktree
+        )
+    }
+}
+
+private enum WorkspaceSubagentWorkerError: LocalizedError {
+    case safetyBlocked(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .safetyBlocked(let reason):
+            return "Safety review blocked delegated work: \(reason)"
+        }
     }
 }
 
@@ -57,13 +82,15 @@ enum WorkspaceSubagentPromptBuilder {
         Your role: \(job.role)
         \(groupPathSection(for: job))
         \(priorResultsSection(job.priorResults))
-        Return exactly one QuillCode action JSON object and no markdown:
-        {"type":"say","text":"..."}
+        Work autonomously with the available tools. Inspect the real workspace,
+        perform the role's requested actions, and verify the result before you
+        finish. Do not merely announce what you intend to do. Respect the
+        workspace boundary and the active safety mode.
 
-        The text must be a concise result of your role's work toward the
-        objective: what you inspected or produced, key findings, and any next
-        steps. Keep it to a few sentences. Do not include credentials, tokens,
-        private keys, or other secrets.
+        Finish with a concise result: what you inspected or produced, key
+        findings, verification, and any remaining next steps. Keep it to a few
+        sentences. Do not include credentials, tokens, private keys, or other
+        secrets.
 
         If — and only if — your work genuinely splits into independent sub-tasks
         that a separate subagent should own, you may delegate by adding one or
