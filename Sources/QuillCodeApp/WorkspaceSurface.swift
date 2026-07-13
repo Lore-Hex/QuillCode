@@ -179,6 +179,7 @@ public extension QuillCodeWorkspaceModel {
                 isVisible: extensions.isVisible,
                 focusedKind: extensions.focusedKind,
                 manifests: selectedProject?.extensionManifests ?? [],
+                hooks: selectedProject?.pluginHooks ?? [],
                 mcpServerStatuses: extensions.mcpServerStatuses,
                 mcpServerProbeSummaries: extensions.mcpServerProbeSummaries
             ),

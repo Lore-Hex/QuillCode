@@ -82,6 +82,10 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             manifests: selectedProject?.extensionManifests ?? [],
             hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
         )
+        + WorkspaceProjectCommandCatalog.pluginHookCommands(
+            hooks: selectedProject?.pluginHooks ?? [],
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+        )
         + WorkspaceCommandStaticCatalog.controlAndSettingsCommands(
             composerIsSending: composerIsSending,
             terminalIsRunning: terminalIsRunning,

@@ -44,6 +44,8 @@ extension QuillCodeWorkspaceModel {
             return runProjectExtensionInstall(id: id, workspaceRoot: workspaceRoot)
         case .updateExtension(let id):
             return runProjectExtensionUpdate(id: id, workspaceRoot: workspaceRoot)
+        case .setHookTrust(let id, let decision):
+            return setProjectHookTrust(id: id, decision: decision)
         case .toggleThreadSelection(let id):
             toggleSidebarThreadSelection(id)
             return true

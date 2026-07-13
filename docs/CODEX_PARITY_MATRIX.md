@@ -91,3 +91,12 @@
   after-hook failures without hiding the agent's completed answer. SSH Remote
   projects discover bounded default hook scripts during context refresh and
   route hook execution over SSH through the same tool-card boundary.
+- Standard plugin `hooks/hooks.json` files and explicit manifest `hooks`
+  references are discovered as bounded data and shown in the focused Hooks
+  pane and `/hooks` command. Trust and disable decisions are workspace-local
+  and bind to the exact normalized definition hash, so any command or metadata
+  change returns the hook to Review required. Trusted synchronous command
+  handlers for matcherless/`*` `UserPromptSubmit` and `Stop` events reuse the
+  visible before/after `host.shell.run` pipeline. Other standard events,
+  matchers, prompt/agent handlers, and asynchronous handlers are parsed and
+  labeled Unsupported rather than silently executed.

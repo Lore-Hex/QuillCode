@@ -9,6 +9,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution]
     public var localActions: [LocalEnvironmentAction]
     public var runHooks: [ProjectRunHook]
+    public var pluginHooks: [ProjectPluginHook]
     public var extensionManifests: [ProjectExtensionManifest]
     public var memories: [MemoryNote]
     public var lastOpenedAt: Date
@@ -23,6 +24,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         instructionDiagnosticResolutions: [ProjectInstructionDiagnosticResolution] = [],
         localActions: [LocalEnvironmentAction] = [],
         runHooks: [ProjectRunHook],
+        pluginHooks: [ProjectPluginHook] = [],
         extensionManifests: [ProjectExtensionManifest] = [],
         memories: [MemoryNote] = []
     ) {
@@ -36,6 +38,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         )
         self.localActions = localActions
         self.runHooks = runHooks
+        self.pluginHooks = pluginHooks
         self.extensionManifests = extensionManifests
         self.memories = memories
         self.lastOpenedAt = lastOpenedAt
@@ -63,6 +66,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
             instructionDiagnosticResolutions: instructionDiagnosticResolutions,
             localActions: localActions,
             runHooks: [],
+            pluginHooks: [],
             extensionManifests: extensionManifests,
             memories: memories
         )
@@ -77,6 +81,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         case instructionDiagnosticResolutions
         case localActions
         case runHooks
+        case pluginHooks
         case extensionManifests
         case memories
         case lastOpenedAt
@@ -100,6 +105,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         )
         self.localActions = try container.decodeIfPresent([LocalEnvironmentAction].self, forKey: .localActions) ?? []
         self.runHooks = try container.decodeIfPresent([ProjectRunHook].self, forKey: .runHooks) ?? []
+        self.pluginHooks = try container.decodeIfPresent([ProjectPluginHook].self, forKey: .pluginHooks) ?? []
         self.extensionManifests = try container.decodeIfPresent(
             [ProjectExtensionManifest].self,
             forKey: .extensionManifests
@@ -118,6 +124,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         try container.encode(instructionDiagnosticResolutions, forKey: .instructionDiagnosticResolutions)
         try container.encode(localActions, forKey: .localActions)
         try container.encode(runHooks, forKey: .runHooks)
+        try container.encode(pluginHooks, forKey: .pluginHooks)
         try container.encode(extensionManifests, forKey: .extensionManifests)
         try container.encode(memories, forKey: .memories)
         try container.encode(lastOpenedAt, forKey: .lastOpenedAt)

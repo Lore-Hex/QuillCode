@@ -260,6 +260,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: Category.extensions,
                 keywords: ["skills", "installed skills", "available skills", "manifest"],
                 isEnabled: hasActiveWorkspaceRoot
+            ),
+            shortcut(
+                "show-hooks",
+                "Hooks",
+                category: Category.extensions,
+                keywords: ["hooks", "plugin hooks", "review hooks", "trust hooks"],
+                isEnabled: hasActiveWorkspaceRoot
             )
         ]
     }

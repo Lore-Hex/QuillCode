@@ -5,13 +5,31 @@ struct WorkspaceProjectMetadata: Equatable, Sendable {
     var instructions: [ProjectInstruction]
     var localActions: [LocalEnvironmentAction]
     var runHooks: [ProjectRunHook]
+    var pluginHooks: [ProjectPluginHook]
     var extensionManifests: [ProjectExtensionManifest]
     var memories: [MemoryNote]
+
+    init(
+        instructions: [ProjectInstruction],
+        localActions: [LocalEnvironmentAction],
+        runHooks: [ProjectRunHook],
+        pluginHooks: [ProjectPluginHook] = [],
+        extensionManifests: [ProjectExtensionManifest],
+        memories: [MemoryNote]
+    ) {
+        self.instructions = instructions
+        self.localActions = localActions
+        self.runHooks = runHooks
+        self.pluginHooks = pluginHooks
+        self.extensionManifests = extensionManifests
+        self.memories = memories
+    }
 
     static let empty = WorkspaceProjectMetadata(
         instructions: [],
         localActions: [],
         runHooks: [],
+        pluginHooks: [],
         extensionManifests: [],
         memories: []
     )
@@ -71,6 +89,7 @@ enum WorkspaceProjectEngine {
             applyInstructionMetadata(metadata.instructions, to: &projects[index], now: now)
             projects[index].localActions = metadata.localActions
             projects[index].runHooks = metadata.runHooks
+            projects[index].pluginHooks = metadata.pluginHooks
             projects[index].extensionManifests = metadata.extensionManifests
             projects[index].memories = metadata.memories
             projects[index].lastOpenedAt = now
@@ -84,6 +103,7 @@ enum WorkspaceProjectEngine {
             instructions: metadata.instructions,
             localActions: metadata.localActions,
             runHooks: metadata.runHooks,
+            pluginHooks: metadata.pluginHooks,
             extensionManifests: metadata.extensionManifests,
             memories: metadata.memories
         )
@@ -299,10 +319,12 @@ enum WorkspaceProjectEngine {
         if includeLocalExtensions {
             projects[index].localActions = metadata.localActions
             projects[index].runHooks = metadata.runHooks
+            projects[index].pluginHooks = metadata.pluginHooks
             projects[index].extensionManifests = metadata.extensionManifests
         } else {
             projects[index].localActions = []
             projects[index].runHooks = []
+            projects[index].pluginHooks = []
             projects[index].extensionManifests = []
         }
         return true

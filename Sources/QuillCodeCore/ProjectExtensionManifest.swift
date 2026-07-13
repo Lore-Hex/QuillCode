@@ -4,6 +4,7 @@ public enum ProjectExtensionKind: String, Codable, Sendable, Hashable, CaseItera
     case plugin
     case skill
     case mcpServer = "mcp_server"
+    case hook
 
     public var title: String {
         switch self {
@@ -13,6 +14,8 @@ public enum ProjectExtensionKind: String, Codable, Sendable, Hashable, CaseItera
             return "Skill"
         case .mcpServer:
             return "MCP"
+        case .hook:
+            return "Hook"
         }
     }
 }

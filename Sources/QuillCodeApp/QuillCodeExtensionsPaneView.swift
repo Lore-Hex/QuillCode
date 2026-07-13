@@ -9,7 +9,7 @@ struct QuillCodeExtensionsPaneView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            if extensions.items.isEmpty {
+            if extensions.items.isEmpty && extensions.hookItems.isEmpty {
                 QuillCodePaneEmptyStateView(
                     title: extensions.emptyTitle,
                     subtitle: extensions.emptySubtitle
@@ -19,7 +19,7 @@ struct QuillCodeExtensionsPaneView: View {
             }
         }
         .padding(14)
-        .frame(height: extensions.items.isEmpty ? 170 : 280)
+        .frame(height: extensions.items.isEmpty && extensions.hookItems.isEmpty ? 170 : 292)
         .background(QuillCodePalette.panel)
     }
 
@@ -39,6 +39,7 @@ struct QuillCodeExtensionsPaneView: View {
                 QuillCodePaneCountPill(label: "Plugins", count: extensions.pluginCount)
                 QuillCodePaneCountPill(label: "Skills", count: extensions.skillCount)
                 QuillCodePaneCountPill(label: "MCP", count: extensions.mcpServerCount)
+                QuillCodePaneCountPill(label: "Hooks", count: extensions.hookCount)
                 if extensions.availableCount > 0 {
                     QuillCodePaneCountPill(label: "Available", count: extensions.availableCount)
                 }

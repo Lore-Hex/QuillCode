@@ -5,6 +5,7 @@ import QuillCodeTools
 struct CodexPluginPackage: Sendable, Hashable {
     var plugin: ProjectExtensionManifest
     var components: [ProjectExtensionManifest]
+    var hooks: [ProjectPluginHook]
 }
 
 /// Loads the standard Codex plugin package shape without executing package code.
@@ -13,6 +14,10 @@ enum CodexPluginPackageLoader {
     static let manifestRelativePath = ".codex-plugin/plugin.json"
     static let maxCollectionEntries = 64
     static let maxComponentsPerPackage = 48
+    static let maxHooksPerPackage = 48
+    static let defaultHooksRelativePath = "hooks/hooks.json"
+    static let defaultHookTimeoutSeconds = 600
+    static let maxHookTimeoutSeconds = 3_600
 
     static func load(
         from projectRoot: URL,
@@ -125,8 +130,131 @@ enum CodexPluginPackageLoader {
         )
         return CodexPluginPackage(
             plugin: plugin,
-            components: Array(components.prefix(maxComponentsPerPackage))
+            components: Array(components.prefix(maxComponentsPerPackage)),
+            hooks: hookDefinitions(
+                payload: payload,
+                pluginID: pluginID,
+                pluginName: displayName,
+                packageRoot: root,
+                projectRoot: projectRoot,
+                maxManifestBytes: maxManifestBytes
+            )
         )
+    }
+
+    private static func hookDefinitions(
+        payload: CodexPluginPayload,
+        pluginID: String,
+        pluginName: String,
+        packageRoot: URL,
+        projectRoot: URL,
+        maxManifestBytes: Int
+    ) -> [ProjectPluginHook] {
+        let reference = payload.hooks ?? defaultHooksRelativePath
+        guard let configURL = resolveFile(reference, inside: packageRoot, maxBytes: maxManifestBytes),
+              let data = try? Data(contentsOf: configURL),
+              let configuration = try? JSONDecoder().decode(CodexPluginHookConfiguration.self, from: data)
+        else { return [] }
+
+        let configPath = relativePath(of: configURL, inside: projectRoot)
+        var definitions: [ProjectPluginHook] = []
+        for event in configuration.hooks.keys.sorted() {
+            guard let eventID = normalizedIdentifier(event),
+                  let groups = configuration.hooks[event]
+            else { continue }
+            for (groupIndex, group) in groups.enumerated() {
+                let matcher = normalizedOptionalText(group.matcher, maxLength: 1_000)
+                for (handlerIndex, handler) in group.hooks.enumerated() {
+                    guard definitions.count < maxHooksPerPackage,
+                          let handlerType = normalizedOptionalText(handler.type, maxLength: 80)?.lowercased()
+                    else { continue }
+                    let command = normalizedOptionalText(handler.command, maxLength: 8_000)
+                    let commandWindows = normalizedOptionalText(handler.commandWindows, maxLength: 8_000)
+                    let statusMessage = normalizedOptionalText(handler.statusMessage, maxLength: 240)
+                    let timeoutSeconds = normalizedHookTimeout(handler.timeout)
+                    let isAsync = handler.isAsync ?? false
+                    let definitionHash = hookDefinitionHash(
+                        event: event,
+                        matcher: matcher,
+                        handlerType: handlerType,
+                        command: command,
+                        commandWindows: commandWindows,
+                        statusMessage: statusMessage,
+                        timeoutSeconds: timeoutSeconds,
+                        isAsync: isAsync
+                    )
+                    definitions.append(ProjectPluginHook(
+                        id: "plugin_hook:\(pluginID).\(eventID).\(groupIndex).\(handlerIndex)",
+                        pluginID: "plugin:\(pluginID)",
+                        pluginName: pluginName,
+                        event: event,
+                        matcher: matcher,
+                        handlerType: handlerType,
+                        command: command,
+                        commandWindows: commandWindows,
+                        statusMessage: statusMessage,
+                        timeoutSeconds: timeoutSeconds,
+                        isAsync: isAsync,
+                        relativePath: "\(configPath)#\(event)/\(groupIndex)/\(handlerIndex)",
+                        definitionHash: definitionHash,
+                        supportStatus: hookSupportStatus(
+                            event: event,
+                            matcher: matcher,
+                            handlerType: handlerType,
+                            command: command,
+                            isAsync: isAsync
+                        )
+                    ))
+                }
+                if definitions.count == maxHooksPerPackage { break }
+            }
+            if definitions.count == maxHooksPerPackage { break }
+        }
+        return definitions
+    }
+
+    private static func hookSupportStatus(
+        event: String,
+        matcher: String?,
+        handlerType: String,
+        command: String?,
+        isAsync: Bool
+    ) -> ProjectHookSupportStatus {
+        if isAsync { return .asynchronousHandler }
+        if handlerType != "command" { return .unsupportedHandler }
+        if command == nil { return .missingCommand }
+        if event != "UserPromptSubmit" && event != "Stop" { return .unsupportedEvent }
+        if let matcher, matcher != "*" { return .unsupportedMatcher }
+        return .supported
+    }
+
+    private static func hookDefinitionHash(
+        event: String,
+        matcher: String?,
+        handlerType: String,
+        command: String?,
+        commandWindows: String?,
+        statusMessage: String?,
+        timeoutSeconds: Int,
+        isAsync: Bool
+    ) -> String {
+        let canonical = [
+            event,
+            matcher ?? "",
+            handlerType,
+            command ?? "",
+            commandWindows ?? "",
+            statusMessage ?? "",
+            String(timeoutSeconds),
+            isAsync ? "true" : "false"
+        ].joined(separator: "\u{1F}")
+        return MCPCrypto.sha256(Array(canonical.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private static func normalizedHookTimeout(_ value: Int?) -> Int {
+        min(max(value ?? defaultHookTimeoutSeconds, 1), maxHookTimeoutSeconds)
     }
 
     private static func skillComponents(
@@ -285,6 +413,13 @@ enum CodexPluginPackageLoader {
         return result
     }
 
+    private static func normalizedOptionalText(_ value: String?, maxLength: Int) -> String? {
+        guard let result = normalizedText(value, maxLength: maxLength),
+              !result.contains("\0")
+        else { return nil }
+        return result
+    }
+
     private static func normalizedArguments(_ arguments: [String]?) -> [String] {
         Array((arguments ?? []).lazy.compactMap {
             normalizedText($0, maxLength: 4_000)
@@ -345,6 +480,7 @@ private struct CodexPluginPayload: Decodable {
     var repository: String?
     var skills: String?
     var mcpServers: String?
+    var hooks: String?
     var interface: CodexPluginInterfacePayload?
 }
 
@@ -383,4 +519,31 @@ private struct CodexPluginMCPServerPayload: Decodable {
         }
     }
 
+}
+
+private struct CodexPluginHookConfiguration: Decodable {
+    var hooks: [String: [CodexPluginHookGroupPayload]]
+}
+
+private struct CodexPluginHookGroupPayload: Decodable {
+    var matcher: String?
+    var hooks: [CodexPluginHookHandlerPayload]
+}
+
+private struct CodexPluginHookHandlerPayload: Decodable {
+    var type: String?
+    var command: String?
+    var commandWindows: String?
+    var statusMessage: String?
+    var timeout: Int?
+    var isAsync: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case command
+        case commandWindows
+        case statusMessage
+        case timeout
+        case isAsync = "async"
+    }
 }

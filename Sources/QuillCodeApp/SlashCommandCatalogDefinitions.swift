@@ -333,6 +333,12 @@ extension SlashCommandCatalog {
             aliases: ["skill list", "installed skills", "available skills"]
         ),
         slashDefinition(
+            "/hooks",
+            "Review hooks",
+            "Inspect plugin hooks, review changed definitions, and manage trust.",
+            aliases: ["plugin hooks", "review hooks"]
+        ),
+        slashDefinition(
             "/automations",
             "Toggle automations",
             "Show or hide scheduled follow-ups, workspace checks, and automation history."

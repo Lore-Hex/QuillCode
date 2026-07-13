@@ -9,18 +9,22 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
     public var subtitle: String
     public var items: [ProjectExtensionManifestSurface]
     public var totalItems: [ProjectExtensionManifestSurface]
+    public var hookItems: [ProjectPluginHookSurface]
+    public var totalHookItems: [ProjectPluginHookSurface]
     public var emptyTitle: String
     public var emptySubtitle: String
 
     public var pluginCount: Int { totalItems.filter { $0.kind == .plugin }.count }
     public var skillCount: Int { totalItems.filter { $0.kind == .skill }.count }
     public var mcpServerCount: Int { totalItems.filter { $0.kind == .mcpServer }.count }
+    public var hookCount: Int { totalHookItems.count }
     public var availableCount: Int { totalItems.filter { $0.statusLabel == "Available" }.count }
 
     public init(
         isVisible: Bool = false,
         focusedKind: ProjectExtensionKind? = nil,
         manifests: [ProjectExtensionManifest] = [],
+        hooks: [ProjectPluginHook] = [],
         mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
         mcpServerProbeSummaries: [String: MCPServerProbeSummary] = [:],
         emptyTitle: String = "No extension manifests found",
@@ -33,13 +37,17 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
                 probeSummary: mcpServerProbeSummaries[$0.id]
             )
         }
+        let projectedHooks = hooks.map(ProjectPluginHookSurface.init)
         let visibleItems = focusedKind.map { kind in
-            projectedItems.filter { $0.kind == kind }
+            kind == .hook ? [] : projectedItems.filter { $0.kind == kind }
         } ?? projectedItems
+        let visibleHooks = focusedKind == nil || focusedKind == .hook ? projectedHooks : []
         self.isVisible = isVisible
         self.focusedKind = focusedKind
         self.items = visibleItems
         self.totalItems = projectedItems
+        self.hookItems = visibleHooks
+        self.totalHookItems = projectedHooks
         self.emptyTitle = Self.emptyTitle(focusedKind: focusedKind, fallback: emptyTitle)
         self.emptySubtitle = Self.emptySubtitle(focusedKind: focusedKind, fallback: emptySubtitle)
         self.title = Self.title(focusedKind: focusedKind)
@@ -47,7 +55,8 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
             for: visibleItems,
             allItems: projectedItems,
             focusedKind: focusedKind,
-            manifestCount: manifests.count
+            manifestCount: manifests.count,
+            hookCount: hooks.count
         )
     }
 
@@ -55,12 +64,16 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
         for items: [ProjectExtensionManifestSurface],
         allItems: [ProjectExtensionManifestSurface],
         focusedKind: ProjectExtensionKind?,
-        manifestCount: Int
+        manifestCount: Int,
+        hookCount: Int
     ) -> String {
-        guard manifestCount > 0 else {
-            return "No project-local plugins, skills, or MCP servers discovered"
+        guard manifestCount > 0 || hookCount > 0 else {
+            return "No project-local plugins, skills, MCP servers, or hooks discovered"
         }
         if let focusedKind {
+            if focusedKind == .hook {
+                return WorkspacePaneSummaryFormatter.count(hookCount, singular: "plugin hook")
+            }
             let singular = focusedKind.singularSummaryName
             let availability = WorkspacePaneSummaryFormatter.optionalCount(
                 items.filter { $0.statusLabel == "Available" }.count,
@@ -69,11 +82,15 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
             return ([WorkspacePaneSummaryFormatter.count(items.count, singular: singular)] + availability)
                 .joined(separator: " · ")
         }
-        let counts = WorkspacePaneSummaryFormatter.joinedCounts([
+        var summaryCounts: [(count: Int, singular: String, plural: String?)] = [
             (allItems.filter { $0.kind == .plugin }.count, "plugin", nil),
             (allItems.filter { $0.kind == .skill }.count, "skill", nil),
             (allItems.filter { $0.kind == .mcpServer }.count, "MCP server", nil)
-        ])
+        ]
+        if hookCount > 0 {
+            summaryCounts.append((hookCount, "plugin hook", nil))
+        }
+        let counts = WorkspacePaneSummaryFormatter.joinedCounts(summaryCounts)
         let availability = WorkspacePaneSummaryFormatter.optionalCount(
             allItems.filter { $0.statusLabel == "Available" }.count,
             singular: "available extension"
@@ -89,6 +106,8 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
             return "Skills"
         case .mcpServer:
             return "MCP Servers"
+        case .hook:
+            return "Hooks"
         case nil:
             return "Extensions"
         }
@@ -101,6 +120,9 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
 
     private static func emptySubtitle(focusedKind: ProjectExtensionKind?, fallback: String) -> String {
         guard let focusedKind else { return fallback }
+        if focusedKind == .hook {
+            return "Install a plugin that provides hooks/hooks.json."
+        }
         return "Add \(focusedKind.singularSummaryName) manifests under \(focusedKind.defaultManifestDirectory)."
     }
 }
@@ -114,6 +136,8 @@ private extension ProjectExtensionKind {
             return "skill"
         case .mcpServer:
             return "MCP server"
+        case .hook:
+            return "plugin hook"
         }
     }
 
@@ -125,6 +149,8 @@ private extension ProjectExtensionKind {
             return ".quillcode/skills"
         case .mcpServer:
             return ".quillcode/mcp"
+        case .hook:
+            return "hooks/hooks.json"
         }
     }
 }

@@ -99,6 +99,50 @@ enum WorkspaceProjectCommandCatalog {
         )
     }
 
+    static func pluginHookCommands(
+        hooks: [ProjectPluginHook],
+        hasActiveWorkspaceRoot: Bool
+    ) -> [WorkspaceCommandSurface] {
+        hooks.flatMap { hook -> [WorkspaceCommandSurface] in
+            let baseKeywords = [
+                "hook",
+                "plugin hook",
+                hook.pluginName,
+                hook.event,
+                hook.matcher ?? "",
+                hook.command ?? ""
+            ].filter { !$0.isEmpty }
+            switch (hook.supportStatus.isSupported, hook.trustStatus) {
+            case (true, .reviewRequired):
+                return [WorkspaceCommandSurface(
+                    id: "hook-trust:\(hook.id)",
+                    title: "Trust \(hook.statusMessage ?? hook.event)",
+                    category: WorkspaceCommandPalette.extensionsCategory,
+                    keywords: baseKeywords + ["review", "trust"],
+                    isEnabled: hasActiveWorkspaceRoot
+                )]
+            case (true, .trusted):
+                return [WorkspaceCommandSurface(
+                    id: "hook-disable:\(hook.id)",
+                    title: "Disable \(hook.statusMessage ?? hook.event)",
+                    category: WorkspaceCommandPalette.extensionsCategory,
+                    keywords: baseKeywords + ["disable"],
+                    isEnabled: hasActiveWorkspaceRoot
+                )]
+            case (true, .disabled):
+                return [WorkspaceCommandSurface(
+                    id: "hook-trust:\(hook.id)",
+                    title: "Enable \(hook.statusMessage ?? hook.event)",
+                    category: WorkspaceCommandPalette.extensionsCategory,
+                    keywords: baseKeywords + ["enable", "trust"],
+                    isEnabled: hasActiveWorkspaceRoot
+                )]
+            case (false, _):
+                return []
+            }
+        }
+    }
+
     private static func keywords(for action: LocalEnvironmentAction) -> [String] {
         let baseKeywords = [
             "local environment",

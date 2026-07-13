@@ -31,6 +31,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("project-move-down", in: commands).isEnabled, false)
         XCTAssertEqual(try command("project-move-to-bottom", in: commands).isEnabled, false)
         XCTAssertEqual(try command("show-skills", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("show-hooks", in: commands).isEnabled, false)
         XCTAssertEqual(try command("git-status", in: commands).isEnabled, false)
         XCTAssertEqual(try command("git-fetch", in: commands).isEnabled, false)
         XCTAssertEqual(try command("git-pull", in: commands).isEnabled, false)

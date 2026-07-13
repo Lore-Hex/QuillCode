@@ -7,8 +7,66 @@ extension QuillCodeExtensionsPaneView {
                 ForEach(extensions.items) { item in
                     extensionCard(item)
                 }
+                ForEach(extensions.hookItems) { hook in
+                    hookCard(hook)
+                }
             }
         }
+    }
+
+    private func hookCard(_ hook: ProjectPluginHookSurface) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Text("HOOK")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                Text(hook.statusLabel)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(statusColor(for: hook.statusLabel))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(statusColor(for: hook.statusLabel).opacity(0.14))
+                    .clipShape(Capsule())
+                Spacer()
+            }
+            Text(hook.name)
+                .font(.callout.weight(.semibold))
+                .lineLimit(1)
+            Text("\(hook.pluginName) · \(hook.event)")
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+            if let matcher = hook.matcher {
+                extensionMetadataLine("Matcher: \(matcher)")
+            }
+            if let command = hook.command {
+                extensionMetadataLine(command)
+            }
+            extensionMetadataLine(hook.relativePath)
+            if let supportDetail = hook.supportDetail {
+                Text(supportDetail)
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+            HStack {
+                Spacer()
+                if let title = hook.actionTitle,
+                   let commandID = hook.actionCommandID {
+                    extensionActionButton(
+                        title: title,
+                        commandID: commandID,
+                        itemName: hook.name,
+                        role: title == "Disable" ? .destructive : .primary
+                    )
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 280, alignment: .topLeading)
+        .background(QuillCodePalette.background.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func extensionCard(_ item: ProjectExtensionManifestSurface) -> some View {
@@ -169,9 +227,9 @@ extension QuillCodeExtensionsPaneView {
 
     func statusColor(for status: String) -> Color {
         switch status {
-        case "Discovered", "Running", "Ready":
+        case "Discovered", "Running", "Ready", "Trusted":
             return QuillCodePalette.green
-        case "Available", "Probing":
+        case "Available", "Probing", "Review required":
             return QuillCodePalette.blue
         case "Failed", "Missing command":
             return QuillCodePalette.red
