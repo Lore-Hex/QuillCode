@@ -73,7 +73,7 @@ final class WorkspaceShellToolCallPlannerTests: XCTestCase {
             updateTimeoutSeconds: 300
         )
 
-        let call = try XCTUnwrap(WorkspaceShellToolCallPlanner.projectExtensionUpdate(manifest))
+        let call = try XCTUnwrap(WorkspaceExtensionToolCallPlanner.update(manifest))
         let arguments = try ToolArguments(call.argumentsJSON)
 
         XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
@@ -95,7 +95,7 @@ final class WorkspaceShellToolCallPlannerTests: XCTestCase {
             installTimeoutSeconds: 600
         )
 
-        let call = try XCTUnwrap(WorkspaceShellToolCallPlanner.projectExtensionInstall(manifest))
+        let call = try XCTUnwrap(WorkspaceExtensionToolCallPlanner.install(manifest))
         let arguments = try ToolArguments(call.argumentsJSON)
 
         XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
@@ -105,6 +105,25 @@ final class WorkspaceShellToolCallPlannerTests: XCTestCase {
         )
         XCTAssertEqual(try arguments.requiredInt("timeoutSeconds"), 600)
         XCTAssertNil(arguments.stringDictionary("environment"))
+    }
+
+    func testProjectExtensionInstallPrefersTypedLocalPackageTool() throws {
+        let manifest = ProjectExtensionManifest(
+            id: "plugin:review-kit",
+            kind: .plugin,
+            name: "Review Kit",
+            relativePath: ".agents/plugins/marketplace.json#review-kit",
+            localInstallSourceRelativePath: "./catalog/review-kit",
+            installCommand: "echo must-not-run"
+        )
+
+        let call = try XCTUnwrap(WorkspaceExtensionToolCallPlanner.install(manifest))
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.localPluginInstall.name)
+        XCTAssertEqual(try arguments.requiredString("source"), "./catalog/review-kit")
+        XCTAssertEqual(try arguments.requiredString("pluginName"), "review-kit")
+        XCTAssertNil(arguments.string("cmd"))
     }
 
     func testProjectExtensionInstallRejectsBlankCommand() {
@@ -117,7 +136,7 @@ final class WorkspaceShellToolCallPlannerTests: XCTestCase {
             installTimeoutSeconds: 300
         )
 
-        XCTAssertNil(WorkspaceShellToolCallPlanner.projectExtensionInstall(manifest))
+        XCTAssertNil(WorkspaceExtensionToolCallPlanner.install(manifest))
     }
 
     func testProjectExtensionUpdateRejectsBlankCommand() {
@@ -130,6 +149,6 @@ final class WorkspaceShellToolCallPlannerTests: XCTestCase {
             updateTimeoutSeconds: 300
         )
 
-        XCTAssertNil(WorkspaceShellToolCallPlanner.projectExtensionUpdate(manifest))
+        XCTAssertNil(WorkspaceExtensionToolCallPlanner.update(manifest))
     }
 }

@@ -72,26 +72,33 @@ final class ParityWorkspaceRuntimeToolGateTests: QuillCodeParityTestCase {
         let environmentText = try Self.appSourceText(named: "WorkspaceModelLocalEnvironment.swift")
         let projectText = try Self.appSourceText(named: "WorkspaceModelProjects.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
+        let extensionPlannerText = try Self.appSourceText(named: "WorkspaceExtensionToolCallPlanner.swift")
 
         [
             "enum WorkspaceShellToolCallPlanner",
             "static func localEnvironmentAction",
-            "static func projectExtensionInstall",
-            "static func projectExtensionUpdate",
             "ToolDefinition.shellRun.name",
             "ToolArguments.json(arguments)"
         ].forEach { Self.assertSource(plannerText, contains: $0) }
 
+        [
+            "enum WorkspaceExtensionToolCallPlanner",
+            "static func install",
+            "static func update",
+            "ToolDefinition.localPluginInstall.name",
+            "WorkspaceShellToolCallPlanner.command"
+        ].forEach { Self.assertSource(extensionPlannerText, contains: $0) }
+
         Self.assertSource(environmentText, contains: "WorkspaceShellToolCallPlanner.localEnvironmentAction")
-        Self.assertSource(projectText, contains: "WorkspaceShellToolCallPlanner.projectExtensionInstall")
-        Self.assertSource(projectText, contains: "WorkspaceShellToolCallPlanner.projectExtensionUpdate")
+        Self.assertSource(projectText, contains: "WorkspaceExtensionToolCallPlanner.install")
+        Self.assertSource(projectText, contains: "WorkspaceExtensionToolCallPlanner.update")
 
         [
             "arguments[\"environment\"] = environment",
             "arguments[\"timeoutSeconds\"] = timeoutSeconds",
             "WorkspaceShellToolCallPlanner.localEnvironmentAction",
-            "WorkspaceShellToolCallPlanner.projectExtensionInstall",
-            "WorkspaceShellToolCallPlanner.projectExtensionUpdate",
+            "WorkspaceExtensionToolCallPlanner.install",
+            "WorkspaceExtensionToolCallPlanner.update",
             "let command = manifest.installCommand",
             "let command = manifest.updateCommand"
         ].forEach { Self.assertSource(modelText, excludes: $0) }

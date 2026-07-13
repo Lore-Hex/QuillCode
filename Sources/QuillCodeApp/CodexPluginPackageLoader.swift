@@ -47,6 +47,23 @@ enum CodexPluginPackageLoader {
         return packages
     }
 
+    static func loadPackage(
+        at relativePath: String,
+        in projectRoot: URL,
+        maxManifestBytes: Int
+    ) -> CodexPluginPackage? {
+        guard let candidate = resolveDirectory(
+            relativePath,
+            inside: projectRoot,
+            requireExistingDirectory: true
+        ) else { return nil }
+        return package(
+            at: candidate,
+            projectRoot: projectRoot,
+            maxManifestBytes: maxManifestBytes
+        )
+    }
+
     private static func package(
         at candidate: URL,
         projectRoot: URL,

@@ -27,21 +27,7 @@ enum WorkspaceShellToolCallPlanner {
         )
     }
 
-    static func projectExtensionUpdate(_ manifest: ProjectExtensionManifest) -> ToolCall? {
-        projectExtensionCommand(
-            manifest.updateCommand,
-            timeoutSeconds: manifest.updateTimeoutSeconds
-        )
-    }
-
-    static func projectExtensionInstall(_ manifest: ProjectExtensionManifest) -> ToolCall? {
-        projectExtensionCommand(
-            manifest.installCommand,
-            timeoutSeconds: manifest.installTimeoutSeconds
-        )
-    }
-
-    private static func projectExtensionCommand(
+    static func command(
         _ rawCommand: String?,
         timeoutSeconds: Int?
     ) -> ToolCall? {

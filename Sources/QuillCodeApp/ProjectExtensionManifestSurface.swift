@@ -129,7 +129,7 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
             && !mcpServerStatus.isActive
         self.canStop = manifest.kind == .mcpServer && mcpServerStatus.isActive
         self.installCommand = manifest.installCommand
-        self.canInstall = manifest.installCommand != nil
+        self.canInstall = manifest.installCommand != nil || manifest.localInstallSourceRelativePath != nil
         self.canUpdate = manifest.updateCommand != nil
         self.startCommandID = canStart ? "mcp-start:\(manifest.id)" : nil
         self.stopCommandID = canStop ? "mcp-stop:\(manifest.id)" : nil
@@ -217,5 +217,6 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
 private extension ProjectExtensionManifest {
     var isMarketplaceEntry: Bool {
         relativePath.hasPrefix(".quillcode/marketplace/")
+            || localInstallSourceRelativePath != nil
     }
 }

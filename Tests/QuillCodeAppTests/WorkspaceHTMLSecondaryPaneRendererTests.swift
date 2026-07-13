@@ -137,6 +137,37 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         )
     }
 
+    func testHTMLRendererShowsTypedLocalMarketplaceInstallWithoutShellCommand() throws {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "plugin:review-kit",
+                    kind: .plugin,
+                    name: "Review Kit",
+                    relativePath: ".agents/plugins/marketplace.json#review-kit",
+                    localInstallSourceRelativePath: "./plugins/review-kit"
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            extensions: ExtensionsState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-status="Available""#))
+        XCTAssertFalse(html.contains(#"data-testid="extension-install-command""#))
+        assertContainsAction(
+            html,
+            testID: "extension-install",
+            commandID: "extension-install:plugin:review-kit",
+            title: "Install"
+        )
+    }
+
     func testHTMLRendererIncludesVisibleMemoriesPane() throws {
         let project = ProjectRef(
             name: "QuillCode",
