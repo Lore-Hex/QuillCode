@@ -29,6 +29,7 @@ extension QuillCodeWorkspaceModel {
         if recordsNavigation {
             recordNavigationTransition(from: previousLocation)
         }
+        enforceManagedWorktreeRetention()
     }
 
     @discardableResult
@@ -51,6 +52,7 @@ extension QuillCodeWorkspaceModel {
             threadPersistence.save(thread)
         }
         recordNavigationTransition(from: previousLocation)
+        enforceManagedWorktreeRetention()
         return thread.id
     }
 

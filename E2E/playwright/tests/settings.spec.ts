@@ -55,6 +55,35 @@ test('mock harness edits Computer Use approved apps in settings', async ({ page 
   await expect(settingsPanel.getByTestId('computer-use-approved-app-names')).toHaveValue('');
 });
 
+test('mock harness configures managed worktree root and recent-task retention', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await openSettings(page);
+  let settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('managed-worktree-status')).toHaveText('Keep 15');
+  await expect(settingsPanel.getByTestId('worktree-settings-root')).toHaveValue(
+    '/Users/quill/.quillcode/worktrees'
+  );
+
+  await settingsPanel.getByTestId('worktree-settings-root').fill('/Volumes/Fast/QuillCode');
+  await settingsPanel.getByTestId('worktree-settings-retention').fill('24');
+  await settingsPanel.getByTestId('settings-save').click();
+
+  await openSettings(page);
+  settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('managed-worktree-status')).toHaveText('Keep 24');
+  await expect(settingsPanel.getByTestId('worktree-settings-root')).toHaveValue('/Volumes/Fast/QuillCode');
+  await expect(settingsPanel.getByTestId('managed-worktree-summary')).toContainText('newest 24');
+
+  await settingsPanel.getByTestId('worktree-settings-cleanup').uncheck();
+  await expect(settingsPanel.getByTestId('managed-worktree-status')).toHaveText('Manual cleanup');
+  await expect(settingsPanel.getByTestId('worktree-settings-retention')).toBeDisabled();
+  await settingsPanel.getByTestId('worktree-settings-use-default').click();
+  await expect(settingsPanel.getByTestId('worktree-settings-root')).toHaveValue(
+    '/Users/quill/.quillcode/worktrees'
+  );
+});
+
 test('mock harness quick-adds the current Computer Use app in settings', async ({ page }) => {
   await page.goto(harnessURL());
 

@@ -5,7 +5,7 @@ import QuillCodeCore
 /// Snapshots are repository-bound and restored at the captured commit, so archive cleanup cannot
 /// silently move a task onto newer code or into a different checkout.
 public struct ManagedWorktreeSnapshotStore: Sendable {
-    private static let manifestVersion = 1
+    private static let manifestVersion = 2
 
     let directory: URL
     let runner: GitProcessRunner
@@ -19,7 +19,8 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
 
     public func capture(
         threadID: UUID,
-        binding: WorktreeBinding
+        binding: WorktreeBinding,
+        managedRoot: URL? = nil
     ) throws -> WorktreeSnapshotReference {
         guard binding.isDisposableManagedWorktree, binding.isResolvable else {
             throw ManagedWorktreeSnapshotError.invalidBinding(binding.path)
@@ -33,6 +34,13 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
               records[recordIndex].isDetached else {
             throw ManagedWorktreeSnapshotError.unregisteredWorktree(binding.path)
         }
+        let mainRoot = URL(fileURLWithPath: records[records.startIndex].path).standardizedFileURL
+        let authorizedRoot = try authorizedManagedRoot(
+            binding: binding,
+            configuredRoot: managedRoot,
+            sourceRoot: sourceRoot,
+            mainRoot: mainRoot
+        )
 
         let headCommit = try requiredGitOutput(
             ["rev-parse", "--verify", "HEAD"],
@@ -68,6 +76,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
                 reference: reference,
                 originalPath: sourcePath,
                 repositoryCommonDirectory: commonDirectory,
+                managedRoot: normalizedPath(authorizedRoot),
                 branch: binding.branch,
                 base: binding.base,
                 filePaths: transfer.files.map(\.relativePath),
@@ -114,7 +123,13 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         }
         let targetPath: String
         do {
-            targetPath = try GitWorktreeToolExecutor.safePath(binding.path, cwd: root)
+            let authorizedRoot = manifest.managedRoot.map(URL.init(fileURLWithPath:))
+                ?? root.deletingLastPathComponent()
+            targetPath = try GitWorktreeToolExecutor.safeManagedPath(
+                binding.path,
+                cwd: root,
+                managedRoot: authorizedRoot
+            )
         } catch {
             throw ManagedWorktreeSnapshotError.invalidBinding(error.localizedDescription)
         }
@@ -187,7 +202,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         reference: WorktreeSnapshotReference,
         binding: WorktreeBinding
     ) throws {
-        guard manifest.version == Self.manifestVersion else {
+        guard (1...Self.manifestVersion).contains(manifest.version) else {
             throw ManagedWorktreeSnapshotError.snapshotCorrupt("unsupported manifest version")
         }
         guard manifest.reference == reference else {
@@ -206,6 +221,11 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         }
         guard normalizedPath(manifest.originalPath) == normalizedPath(binding.path) else {
             throw ManagedWorktreeSnapshotError.snapshotCorrupt("original worktree path changed")
+        }
+        if let bindingRoot = binding.managedRoot, let manifestRoot = manifest.managedRoot {
+            guard normalizedPath(bindingRoot) == normalizedPath(manifestRoot) else {
+                throw ManagedWorktreeSnapshotError.snapshotCorrupt("managed worktree root changed")
+            }
         }
     }
 
@@ -254,6 +274,30 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
             throw gitError("listing worktrees", result: result)
         }
         return GitWorktreePorcelainParser.parse(result.stdout)
+    }
+
+    private func authorizedManagedRoot(
+        binding: WorktreeBinding,
+        configuredRoot: URL?,
+        sourceRoot: URL,
+        mainRoot: URL
+    ) throws -> URL {
+        let roots = [
+            binding.managedRoot.map(URL.init(fileURLWithPath:)),
+            configuredRoot,
+            mainRoot.deletingLastPathComponent()
+        ].compactMap { $0 }
+        for root in roots {
+            guard let validated = try? GitWorktreeToolExecutor.safeManagedPath(
+                sourceRoot.path,
+                cwd: mainRoot,
+                managedRoot: root
+            ) else { continue }
+            if normalizedPath(validated) == normalizedPath(sourceRoot) {
+                return root.standardizedFileURL
+            }
+        }
+        throw ManagedWorktreeSnapshotError.invalidBinding("managed root does not own \(binding.path)")
     }
 
     func repositoryCommonDirectory(cwd: URL) throws -> String {
@@ -363,6 +407,7 @@ public struct ManagedWorktreeSnapshotStore: Sendable {
         var reference: WorktreeSnapshotReference
         var originalPath: String
         var repositoryCommonDirectory: String
+        var managedRoot: String?
         var branch: String
         var base: String?
         var filePaths: [String]

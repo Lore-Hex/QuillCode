@@ -22,6 +22,7 @@ struct QuillCodeSettingsView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
                     QuillCodeSpendLimitSettingsCard(settings: settings, draft: $draft)
+                    QuillCodeManagedWorktreeSettingsCard(settings: settings, draft: $draft)
                     QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
                     QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
                     QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)

@@ -35,6 +35,7 @@ public struct ConfigStore: Sendable {
         var browserBlockedDomains: [String] = []
         var notificationPreferences = QuillCodeNotificationPreferences()
         var runSpendPeriodLimits = RunSpendPeriodLimits()
+        var managedWorktrees = ManagedWorktreeSettings()
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -90,6 +91,15 @@ public struct ConfigStore: Sendable {
                 runSpendPeriodLimits.weeklyUSD = RunSpendPeriodLimits.normalizedLimit(Self.doubleValue(value))
             case "run_spend_monthly_limit_usd":
                 runSpendPeriodLimits.monthlyUSD = RunSpendPeriodLimits.normalizedLimit(Self.doubleValue(value))
+            case "managed_worktree_root":
+                managedWorktrees.rootPath = ManagedWorktreeSettings.normalizedRootPath(value)
+            case "managed_worktree_automatic_cleanup_enabled":
+                managedWorktrees.automaticCleanupEnabled = Self.boolValue(value)
+                    ?? managedWorktrees.automaticCleanupEnabled
+            case "managed_worktree_retention_limit":
+                if let limit = Self.intValue(value) {
+                    managedWorktrees.retentionLimit = ManagedWorktreeSettings.normalizedRetentionLimit(limit)
+                }
             default:
                 continue
             }
@@ -123,6 +133,7 @@ public struct ConfigStore: Sendable {
         config.browserBlockedDomains = browserPolicy.blockedDomains
         config.notificationPreferences = notificationPreferences
         config.runSpendPeriodLimits = runSpendPeriodLimits
+        config.managedWorktrees = managedWorktrees
         return config
     }
 
@@ -155,6 +166,15 @@ public struct ConfigStore: Sendable {
             key: "run_spend_monthly_limit_usd",
             to: &lines
         )
+        if let rootPath = config.managedWorktrees.rootPath {
+            lines.append("managed_worktree_root = \(Self.quote(rootPath))")
+        }
+        Self.appendBoolean(
+            config.managedWorktrees.automaticCleanupEnabled,
+            key: "managed_worktree_automatic_cleanup_enabled",
+            to: &lines
+        )
+        lines.append("managed_worktree_retention_limit = \(config.managedWorktrees.retentionLimit)")
         Self.appendRepeatedValues(config.favoriteModels, key: "favorite_model", to: &lines)
         Self.appendRepeatedValues(
             config.computerUseApprovedBundleIdentifiers,
@@ -239,6 +259,10 @@ public struct ConfigStore: Sendable {
 
     private static func doubleValue(_ value: String) -> Double? {
         Double(value.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private static func intValue(_ value: String) -> Int? {
+        Int(value.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     private static func quote(_ value: String) -> String {

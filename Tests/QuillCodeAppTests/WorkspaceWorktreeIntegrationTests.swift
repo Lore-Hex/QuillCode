@@ -219,7 +219,9 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
 
     func testCreateBranchHerePromotesManagedThreadAndUpdatesCommandAvailability() throws {
         let root = try makeTempGitRepoWithInitialCommit()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: root.deletingLastPathComponent()
+        )
         let projectID = model.addProject(path: root, name: "Worktree Project")
         model.selectProject(projectID)
         let threadID = try XCTUnwrap(model.newWorktreeThread(name: "branch promotion"))
@@ -251,7 +253,9 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
 
     func testAgentBranchCreationReconcilesManagedThreadBinding() throws {
         let root = try makeTempGitRepoWithInitialCommit()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: root.deletingLastPathComponent()
+        )
         let projectID = model.addProject(path: root, name: "Worktree Project")
         model.selectProject(projectID)
         _ = try XCTUnwrap(model.newWorktreeThread(name: "agent branch promotion"))

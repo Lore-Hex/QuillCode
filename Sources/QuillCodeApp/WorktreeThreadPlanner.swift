@@ -4,6 +4,7 @@ import QuillCodeCore
 struct WorktreeThreadPlan: Sendable, Hashable {
     var request: WorkspaceWorktreeCreateRequest
     var title: String
+    var managedRoot: URL
 }
 
 /// Plans a Codex-style managed worktree for a new Worktree thread. Managed task worktrees start
@@ -13,6 +14,7 @@ enum WorktreeThreadPlanner {
         projectRoot: URL,
         baseBranch: String,
         name: String?,
+        managedRoot: URL? = nil,
         identifier: String = UUID().uuidString
     ) -> WorktreeThreadPlan {
         let slug = slug(from: name) ?? "work"
@@ -22,14 +24,16 @@ enum WorktreeThreadPlanner {
             .prefix(8)
         let safeSuffix = suffix.isEmpty ? "managed" : String(suffix)
         let dirName = "\(projectRoot.lastPathComponent)-\(slug)-\(safeSuffix)"
-        let path = projectRoot.deletingLastPathComponent().appendingPathComponent(dirName).path
+        let root = (managedRoot ?? projectRoot.deletingLastPathComponent()).standardizedFileURL
+        let path = root.appendingPathComponent(dirName).path
         return WorktreeThreadPlan(
             request: WorkspaceWorktreeCreateRequest(
                 path: path,
                 base: baseBranch,
                 managed: true
             ),
-            title: "Worktree: \(slug)"
+            title: "Worktree: \(slug)",
+            managedRoot: root
         )
     }
 

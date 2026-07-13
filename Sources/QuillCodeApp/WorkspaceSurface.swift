@@ -217,7 +217,8 @@ public extension QuillCodeWorkspaceModel {
                 runtimeIssue: runtimeIssue,
                 computerUseRuntime: ComputerUseSettingsRuntime(topBarState: topBarState),
                 modelCatalogStatus: root.modelCatalogStatus,
-                modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog)
+                modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog),
+                managedWorktreeDefaultRoot: managedWorktreeDefaultRoot
             ),
             runtimeIssue: runtimeIssue,
             lastError: lastError,

@@ -63,6 +63,12 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var runSpendPeriodLimits: RunSpendPeriodLimits
     public var runSpendLimitStatusLabel: String
     public var runSpendLimitSummary: String
+    public var managedWorktreeRootPath: String
+    public var managedWorktreeDefaultRootPath: String
+    public var managedWorktreeAutomaticCleanupEnabled: Bool
+    public var managedWorktreeRetentionLimit: Int
+    public var managedWorktreeStatusLabel: String
+    public var managedWorktreeSummary: String
 
     public init(
         config: AppConfig,
@@ -70,7 +76,9 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         runtimeIssue: RuntimeIssueSurface? = nil,
         computerUseRuntime: ComputerUseSettingsRuntime = ComputerUseSettingsRuntime(),
         modelCatalogStatus: ModelCatalogStatus = .bundled,
-        modelProviderHealthSummary: ModelProviderHealthSummary = .summarize([])
+        modelProviderHealthSummary: ModelProviderHealthSummary = .summarize([]),
+        managedWorktreeDefaultRoot: URL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".quillcode/worktrees")
     ) {
         self.apiBaseURL = config.apiBaseURL
         self.authMode = config.authMode
@@ -123,6 +131,19 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.runSpendPeriodLimits = config.runSpendPeriodLimits
         self.runSpendLimitStatusLabel = RunSpendLimitSettingsProjection.statusLabel(config)
         self.runSpendLimitSummary = RunSpendLimitSettingsProjection.summary(config)
+        let resolvedWorktreeRoot = config.managedWorktrees.resolvedRoot(
+            defaultRoot: managedWorktreeDefaultRoot,
+            homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+        )
+        self.managedWorktreeRootPath = resolvedWorktreeRoot.path
+        self.managedWorktreeDefaultRootPath = managedWorktreeDefaultRoot.standardizedFileURL.path
+        self.managedWorktreeAutomaticCleanupEnabled = config.managedWorktrees.automaticCleanupEnabled
+        self.managedWorktreeRetentionLimit = config.managedWorktrees.retentionLimit
+        self.managedWorktreeStatusLabel = ManagedWorktreeSettingsProjection.statusLabel(config.managedWorktrees)
+        self.managedWorktreeSummary = ManagedWorktreeSettingsProjection.summary(
+            config.managedWorktrees,
+            resolvedRoot: resolvedWorktreeRoot
+        )
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -179,6 +200,12 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case runSpendPeriodLimits
         case runSpendLimitStatusLabel
         case runSpendLimitSummary
+        case managedWorktreeRootPath
+        case managedWorktreeDefaultRootPath
+        case managedWorktreeAutomaticCleanupEnabled
+        case managedWorktreeRetentionLimit
+        case managedWorktreeStatusLabel
+        case managedWorktreeSummary
     }
 
     public init(from decoder: Decoder) throws {
@@ -310,6 +337,54 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             String.self,
             forKey: .runSpendLimitSummary
         ) ?? RunSpendLimitSettingsProjection.summary(spendConfig)
+        let fallbackRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".quillcode/worktrees")
+            .standardizedFileURL.path
+        self.managedWorktreeRootPath = try container.decodeIfPresent(
+            String.self,
+            forKey: .managedWorktreeRootPath
+        ) ?? fallbackRoot
+        self.managedWorktreeDefaultRootPath = try container.decodeIfPresent(
+            String.self,
+            forKey: .managedWorktreeDefaultRootPath
+        ) ?? fallbackRoot
+        self.managedWorktreeAutomaticCleanupEnabled = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .managedWorktreeAutomaticCleanupEnabled
+        ) ?? true
+        self.managedWorktreeRetentionLimit = ManagedWorktreeSettings.normalizedRetentionLimit(
+            try container.decodeIfPresent(Int.self, forKey: .managedWorktreeRetentionLimit)
+                ?? ManagedWorktreeSettings.defaultRetentionLimit
+        )
+        let worktreeSettings = ManagedWorktreeSettings(
+            rootPath: managedWorktreeRootPath,
+            automaticCleanupEnabled: managedWorktreeAutomaticCleanupEnabled,
+            retentionLimit: managedWorktreeRetentionLimit
+        )
+        self.managedWorktreeStatusLabel = try container.decodeIfPresent(
+            String.self,
+            forKey: .managedWorktreeStatusLabel
+        ) ?? ManagedWorktreeSettingsProjection.statusLabel(worktreeSettings)
+        self.managedWorktreeSummary = try container.decodeIfPresent(
+            String.self,
+            forKey: .managedWorktreeSummary
+        ) ?? ManagedWorktreeSettingsProjection.summary(
+            worktreeSettings,
+            resolvedRoot: URL(fileURLWithPath: managedWorktreeRootPath)
+        )
+    }
+}
+
+enum ManagedWorktreeSettingsProjection {
+    static func statusLabel(_ settings: ManagedWorktreeSettings) -> String {
+        settings.automaticCleanupEnabled ? "Keep \(settings.retentionLimit)" : "Manual cleanup"
+    }
+
+    static func summary(_ settings: ManagedWorktreeSettings, resolvedRoot: URL) -> String {
+        if settings.automaticCleanupEnabled {
+            return "New task worktrees use \(resolvedRoot.path). QuillCode snapshots and removes the oldest eligible worktrees after the newest \(settings.retentionLimit)."
+        }
+        return "New task worktrees use \(resolvedRoot.path). Automatic deletion is off; archive cleanup still saves work before removing disposable worktrees."
     }
 }
 

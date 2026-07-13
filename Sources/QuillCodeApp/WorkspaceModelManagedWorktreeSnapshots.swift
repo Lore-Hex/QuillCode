@@ -8,6 +8,40 @@ extension QuillCodeWorkspaceModel {
     /// backup or cleanup fails; in that case the checkout is deliberately retained and the failure is
     /// surfaced instead of risking user work.
     func preserveDisposableWorktreeBeforeArchive(threadID: UUID) {
+        _ = preserveAndRemoveDisposableWorktree(threadID: threadID, reason: .archive)
+    }
+
+    @discardableResult
+    public func enforceManagedWorktreeRetention() -> Int {
+        guard worktreeSnapshotStore != nil, root.config.managedWorktrees.automaticCleanupEnabled else {
+            return 0
+        }
+        let runningThreadIDs = Set(root.threads.lazy.filter { self.agentRuns.isRunning($0.id) }.map(\.id))
+        let plan = ManagedWorktreeRetentionPlanner.plan(
+            threads: root.threads,
+            selectedThreadID: root.selectedThreadID,
+            runningThreadIDs: runningThreadIDs,
+            settings: root.config.managedWorktrees
+        )
+        guard plan.targetRemovalCount > 0 else { return 0 }
+
+        var removed = 0
+        for threadID in plan.candidateThreadIDs where removed < plan.targetRemovalCount {
+            if preserveAndRemoveDisposableWorktree(threadID: threadID, reason: .retention) {
+                removed += 1
+            }
+        }
+        if removed > 0 {
+            refreshTopBar(agentStatus: root.topBar.agentStatus)
+        }
+        return removed
+    }
+
+    @discardableResult
+    private func preserveAndRemoveDisposableWorktree(
+        threadID: UUID,
+        reason: ManagedWorktreeRemovalReason
+    ) -> Bool {
         guard let store = worktreeSnapshotStore,
               let threadIndex = root.threads.firstIndex(where: { $0.id == threadID }),
               !root.threads[threadIndex].isPinned,
@@ -16,15 +50,21 @@ extension QuillCodeWorkspaceModel {
               binding.isDisposableManagedWorktree,
               binding.isResolvable,
               let projectRoot = localProjectRoot(for: root.threads[threadIndex])
-        else { return }
+        else { return false }
 
         let previousReference = binding.snapshot
         do {
-            let reference = try store.capture(threadID: threadID, binding: binding)
+            let authorizedRoot = binding.managedRoot.map(URL.init(fileURLWithPath:))
+                ?? managedWorktreeRoot
+            let reference = try store.capture(
+                threadID: threadID,
+                binding: binding,
+                managedRoot: authorizedRoot
+            )
             var savedThread = root.threads[threadIndex]
             savedThread.worktree?.snapshot = reference
             WorkspaceThreadNoticeAppender.appendNotice(
-                "Managed worktree saved before archive: \(reference.fileCount) local file\(reference.fileCount == 1 ? "" : "s"), \(reference.byteCount) bytes.",
+                reason.savedNotice(reference),
                 to: &savedThread
             )
             try threadPersistence.saveOrThrow(savedThread)
@@ -41,11 +81,13 @@ extension QuillCodeWorkspaceModel {
                 binding: capturedBinding,
                 projectRoot: projectRoot
             )
+            return true
         } catch {
             setLastError(
-                "The task was archived, but its worktree was kept because it could not be saved and removed safely: "
+                reason.preservationFailurePrefix
                     + error.localizedDescription
             )
+            return false
         }
     }
 
@@ -114,5 +156,29 @@ extension QuillCodeWorkspaceModel {
             return nil
         }
         return URL(fileURLWithPath: project.connection.path).standardizedFileURL
+    }
+}
+
+private enum ManagedWorktreeRemovalReason {
+    case archive
+    case retention
+
+    func savedNotice(_ reference: WorktreeSnapshotReference) -> String {
+        let files = "\(reference.fileCount) local file\(reference.fileCount == 1 ? "" : "s")"
+        switch self {
+        case .archive:
+            return "Managed worktree saved before archive: \(files), \(reference.byteCount) bytes."
+        case .retention:
+            return "Managed worktree saved by automatic cleanup: \(files), \(reference.byteCount) bytes."
+        }
+    }
+
+    var preservationFailurePrefix: String {
+        switch self {
+        case .archive:
+            return "The task was archived, but its worktree was kept because it could not be saved and removed safely: "
+        case .retention:
+            return "Automatic cleanup kept a managed worktree because it could not be saved and removed safely: "
+        }
     }
 }

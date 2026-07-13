@@ -110,6 +110,37 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         Self.assertSource(appTests, contains: "testNamedBranchTaskArchivesWithoutRemovingPermanentWorktree")
     }
 
+    func testManagedWorktreeRootAndRetentionStayEndToEndAndCodexCompatible() throws {
+        let config = try Self.coreSourceText(named: "AppConfig.swift")
+        let binding = try Self.coreSourceText(named: "WorktreeBinding.swift")
+        let planner = try Self.appSourceText(named: "ManagedWorktreeRetentionPlanner.swift")
+        let lifecycle = try Self.appSourceText(named: "WorkspaceModelManagedWorktreeSnapshots.swift")
+        let settings = try Self.appSourceText(named: "QuillCodeManagedWorktreeSettingsCard.swift")
+        let integration = try Self.appTestSourceText(
+            named: "WorkspaceManagedWorktreeRetentionIntegrationTests.swift"
+        )
+        let playwright = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("E2E/playwright/tests/settings.spec.ts"),
+            encoding: .utf8
+        )
+
+        Self.assertSource(config, contains: "defaultRetentionLimit = 15")
+        Self.assertSource(config, contains: "automaticCleanupEnabled")
+        Self.assertSource(binding, contains: "managedRoot")
+        Self.assertSource(planner, contains: "!thread.isPinned")
+        Self.assertSource(planner, contains: "!runningThreadIDs.contains(thread.id)")
+        Self.assertSource(planner, contains: "thread.worktree?.snapshot == nil")
+        Self.assertSource(lifecycle, contains: "try store.capture")
+        Self.assertSource(lifecycle, contains: "try store.removeIfUnchanged")
+        Self.assertSource(lifecycle, contains: "enforceManagedWorktreeRetention")
+        Self.assertSource(settings, contains: "Automatically clean up old managed worktrees")
+        Self.assertSource(
+            integration,
+            contains: "testEnforcementSnapshotsAndRemovesOldestExcessWorktrees"
+        )
+        Self.assertSource(playwright, contains: "configures managed worktree root and recent-task retention")
+    }
+
     private func assertWorktreeRequestAndEngineContracts(
         _ requestsText: String,
         _ engineText: String,

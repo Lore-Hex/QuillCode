@@ -77,6 +77,55 @@ final class ManagedWorktreeSnapshotStoreTests: XCTestCase {
         ))
     }
 
+    func testCaptureRemoveAndRestoreWorksInConfiguredManagedRoot() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let managedRoot = try makeTempDirectory().appendingPathComponent("managed-worktrees")
+        let worktree = managedRoot.appendingPathComponent("snapshot-task")
+        let git = GitToolExecutor(managedWorktreeRoot: managedRoot)
+        let create = git.createWorktree(cwd: root, path: worktree.path, managed: true)
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        try "managed root note\n".write(
+            to: worktree.appendingPathComponent("note.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let snapshotDirectory = try makeTempDirectory().appendingPathComponent("snapshots")
+        let store = ManagedWorktreeSnapshotStore(directory: snapshotDirectory)
+        let threadID = UUID()
+        var binding = WorktreeBinding(
+            path: worktree.path,
+            branch: "",
+            base: "main",
+            managedRoot: managedRoot.path
+        )
+
+        let reference = try store.capture(
+            threadID: threadID,
+            binding: binding,
+            managedRoot: managedRoot
+        )
+        binding.snapshot = reference
+        try store.removeIfUnchanged(
+            threadID: threadID,
+            reference: reference,
+            binding: binding,
+            projectRoot: root
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
+
+        _ = try store.restore(
+            threadID: threadID,
+            reference: reference,
+            binding: binding,
+            projectRoot: root
+        )
+
+        XCTAssertEqual(
+            try String(contentsOf: worktree.appendingPathComponent("note.txt"), encoding: .utf8),
+            "managed root note\n"
+        )
+    }
+
     func testRestoreRejectsDifferentRepository() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.container) }

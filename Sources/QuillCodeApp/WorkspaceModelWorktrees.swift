@@ -63,7 +63,8 @@ extension QuillCodeWorkspaceModel {
         let plan = WorktreeThreadPlanner.plan(
             projectRoot: projectRoot,
             baseBranch: baseBranch,
-            name: name
+            name: name,
+            managedRoot: managedWorktreeRoot
         )
         let result = runToolCall(
             WorkspaceWorktreeToolCallPlanner.create(plan.request),
@@ -72,7 +73,13 @@ extension QuillCodeWorkspaceModel {
         guard result.ok, let worktreePath = result.artifacts.first else { return nil }
         let threadID = newChat(projectID: project.id)
         _ = renameThread(threadID, to: plan.title)
-        bindSelectedThreadToWorktree(path: worktreePath, branch: "", base: baseBranch)
+        bindSelectedThreadToWorktree(
+            path: worktreePath,
+            branch: "",
+            base: baseBranch,
+            managedRoot: plan.managedRoot.path
+        )
+        enforceManagedWorktreeRetention()
         return threadID
     }
 
@@ -84,6 +91,13 @@ extension QuillCodeWorkspaceModel {
             return nil
         }
         return branch
+    }
+
+    var managedWorktreeRoot: URL {
+        root.config.managedWorktrees.resolvedRoot(
+            defaultRoot: managedWorktreeDefaultRoot,
+            homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+        )
     }
 
     private func currentLocalBranch(projectRoot: URL) -> String? {

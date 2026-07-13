@@ -67,6 +67,7 @@ extension QuillCodeWorkspaceModel {
         mutateSelectedThread { thread in
             WorkspaceConfigurationEngine.syncThread(&thread, to: config)
         }
+        enforceManagedWorktreeRetention()
         refreshTopBar(agentStatus: root.topBar.agentStatus)
     }
 

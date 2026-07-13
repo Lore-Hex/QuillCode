@@ -60,9 +60,19 @@ extension QuillCodeWorkspaceModel {
     /// Binds the selected thread to a worktree so its agent runs operate in that isolated directory
     /// and branch instead of the shared project root. Persists through the shared thread-mutation
     /// helper. `base` records the ref this worktree was forked off (its land-back target).
-    public func bindSelectedThreadToWorktree(path: String, branch: String, base: String? = nil) {
+    public func bindSelectedThreadToWorktree(
+        path: String,
+        branch: String,
+        base: String? = nil,
+        managedRoot: String? = nil
+    ) {
         mutateSelectedThread { thread in
-            thread.worktree = WorktreeBinding(path: path, branch: branch, base: base)
+            thread.worktree = WorktreeBinding(
+                path: path,
+                branch: branch,
+                base: base,
+                managedRoot: managedRoot
+            )
             thread.updatedAt = Date()
         }
     }

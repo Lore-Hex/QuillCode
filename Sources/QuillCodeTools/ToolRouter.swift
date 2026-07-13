@@ -17,7 +17,8 @@ public struct ToolRouter: Sendable {
     public init(
         workspaceRoot: URL,
         shell: ShellToolExecutor = ShellToolExecutor(),
-        git: GitToolExecutor = GitToolExecutor(),
+        git: GitToolExecutor? = nil,
+        managedWorktreeRoot: URL? = nil,
         editGuard: FileEditSessionGuard = .shared,
         web: WebFetchToolExecutor = WebFetchToolExecutor(),
         skill: SkillLoadToolExecutor? = nil,
@@ -26,7 +27,7 @@ public struct ToolRouter: Sendable {
         self.workspaceRoot = workspaceRoot
         self.shell = shell
         self.files = FileToolExecutor(workspaceRoot: workspaceRoot, editGuard: editGuard)
-        self.git = git
+        self.git = git ?? GitToolExecutor(managedWorktreeRoot: managedWorktreeRoot)
         self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell, editGuard: editGuard)
         self.web = web
         self.skill = skill ?? SkillLoadToolExecutor.default(workspaceRoot: workspaceRoot)

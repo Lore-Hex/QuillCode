@@ -44,6 +44,8 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
     public var base: String?
     /// Where the task currently runs. The associated worktree remains stable across handoffs.
     public var location: WorktreeExecutionLocation
+    /// Root authorized when QuillCode created this managed worktree. nil is the legacy sibling layout.
+    public var managedRoot: String?
     /// Saved state for a removed managed worktree. nil for active, permanent, and legacy bindings.
     public var snapshot: WorktreeSnapshotReference?
 
@@ -52,12 +54,14 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         branch: String,
         base: String? = nil,
         location: WorktreeExecutionLocation = .worktree,
+        managedRoot: String? = nil,
         snapshot: WorktreeSnapshotReference? = nil
     ) {
         self.path = path
         self.branch = branch
         self.base = base
         self.location = location
+        self.managedRoot = managedRoot
         self.snapshot = snapshot
     }
 
@@ -87,6 +91,7 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         case branch
         case base
         case location
+        case managedRoot
         case snapshot
     }
 
@@ -97,6 +102,7 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         self.base = try container.decodeIfPresent(String.self, forKey: .base)
         self.location = try container.decodeIfPresent(WorktreeExecutionLocation.self, forKey: .location)
             ?? .worktree
+        self.managedRoot = try container.decodeIfPresent(String.self, forKey: .managedRoot)
         self.snapshot = try container.decodeIfPresent(WorktreeSnapshotReference.self, forKey: .snapshot)
     }
 
@@ -106,6 +112,7 @@ public struct WorktreeBinding: Codable, Sendable, Hashable {
         try container.encode(branch, forKey: .branch)
         try container.encodeIfPresent(base, forKey: .base)
         try container.encode(location, forKey: .location)
+        try container.encodeIfPresent(managedRoot, forKey: .managedRoot)
         try container.encodeIfPresent(snapshot, forKey: .snapshot)
     }
 }

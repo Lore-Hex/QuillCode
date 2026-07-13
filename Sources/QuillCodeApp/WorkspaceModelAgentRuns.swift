@@ -36,6 +36,7 @@ extension QuillCodeWorkspaceModel {
         lifecycle: WorkspaceComposerSendLifecyclePlan
     ) {
         agentRuns.finish(threadID: threadID)
+        enforceManagedWorktreeRetention()
         guard root.selectedThreadID == threadID else {
             refreshSelectedAgentRunPresentation()
             return

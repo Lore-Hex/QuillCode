@@ -5,11 +5,13 @@ public struct GitWorktreeToolExecutor: Sendable {
     private let runner: GitProcessRunner
     private let managedMaterializer: GitManagedWorktreeMaterializer
     private let handoffExecutor: GitWorktreeHandoffExecutor
+    private let managedRoot: URL?
 
-    public init(runner: GitProcessRunner) {
+    public init(runner: GitProcessRunner, managedRoot: URL? = nil) {
         self.runner = runner
         self.managedMaterializer = GitManagedWorktreeMaterializer(runner: runner)
         self.handoffExecutor = GitWorktreeHandoffExecutor(runner: runner)
+        self.managedRoot = managedRoot?.standardizedFileURL
     }
 
     public func list(cwd: URL) -> ToolResult {
@@ -27,7 +29,7 @@ public struct GitWorktreeToolExecutor: Sendable {
             guard GitInputValidator.trimmedNonEmpty(branch) == nil else {
                 return ToolResult(ok: false, error: "Managed worktrees start detached and cannot create a branch.")
             }
-            return managedMaterializer.create(cwd: cwd, path: path, base: base)
+            return managedMaterializer.create(cwd: cwd, path: path, base: base, managedRoot: managedRoot)
         }
         do {
             var arguments = ["worktree", "add"]
@@ -106,7 +108,7 @@ public struct GitWorktreeToolExecutor: Sendable {
 
     public func open(cwd: URL, path: String) -> ToolResult {
         do {
-            let worktreePath = try Self.safePath(path, cwd: cwd)
+            let worktreePath = try safeRegisteredPath(path, cwd: cwd)
             let registered = registeredPaths(cwd: cwd)
             if let failure = registered.failure {
                 return failure
@@ -131,7 +133,7 @@ public struct GitWorktreeToolExecutor: Sendable {
 
     public func remove(cwd: URL, path: String, force: Bool = false) -> ToolResult {
         do {
-            let worktreePath = try Self.safePath(path, cwd: cwd)
+            let worktreePath = try safeRegisteredPath(path, cwd: cwd)
             let registered = registeredPaths(cwd: cwd)
             if let failure = registered.failure {
                 return failure
@@ -185,6 +187,32 @@ public struct GitWorktreeToolExecutor: Sendable {
             throw GitToolError.mainWorkspaceWorktreePath
         }
         return standardized.path
+    }
+
+    public static func safeManagedPath(_ path: String, cwd: URL, managedRoot: URL) throws -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw GitToolError.emptyPath }
+
+        let root = managedRoot.standardizedFileURL
+        let candidate = trimmed.hasPrefix("/")
+            ? URL(fileURLWithPath: trimmed)
+            : root.appendingPathComponent(trimmed)
+        let standardized = candidate.standardizedFileURL
+        guard WorkspaceBoundary.isWithin(candidate, root: root), standardized.path != root.path else {
+            throw GitToolError.outsideWorkspace(path)
+        }
+        guard standardized.path != cwd.standardizedFileURL.path else {
+            throw GitToolError.mainWorkspaceWorktreePath
+        }
+        return standardized.path
+    }
+
+    private func safeRegisteredPath(_ path: String, cwd: URL) throws -> String {
+        if let siblingPath = try? Self.safePath(path, cwd: cwd) {
+            return siblingPath
+        }
+        guard let managedRoot else { throw GitToolError.outsideWorkspace(path) }
+        return try Self.safeManagedPath(path, cwd: cwd, managedRoot: managedRoot)
     }
 
     private func registeredPaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {

@@ -19,6 +19,12 @@ struct QuillCodeSettingsDraft: Equatable {
     var runSpendDailyLimitUSDText: String = ""
     var runSpendWeeklyLimitUSDText: String = ""
     var runSpendMonthlyLimitUSDText: String = ""
+    var managedWorktreeRootPathText: String = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".quillcode/worktrees").path
+    var managedWorktreeDefaultRootPath: String = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".quillcode/worktrees").path
+    var managedWorktreeAutomaticCleanupEnabled: Bool = true
+    var managedWorktreeRetentionLimit: Int = ManagedWorktreeSettings.defaultRetentionLimit
 
     init() {}
 
@@ -41,10 +47,15 @@ struct QuillCodeSettingsDraft: Equatable {
         self.runSpendDailyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.dailyUSD)
         self.runSpendWeeklyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.weeklyUSD)
         self.runSpendMonthlyLimitUSDText = Self.optionalCurrencyText(settings.runSpendPeriodLimits.monthlyUSD)
+        self.managedWorktreeRootPathText = settings.managedWorktreeRootPath
+        self.managedWorktreeDefaultRootPath = settings.managedWorktreeDefaultRootPath
+        self.managedWorktreeAutomaticCleanupEnabled = settings.managedWorktreeAutomaticCleanupEnabled
+        self.managedWorktreeRetentionLimit = settings.managedWorktreeRetentionLimit
     }
 
     var canSave: Bool {
         !apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && Self.isValidWorktreeRoot(managedWorktreeRootPathText)
     }
 
     var update: WorkspaceSettingsUpdate {
@@ -69,6 +80,14 @@ struct QuillCodeSettingsDraft: Equatable {
                 dailyUSD: Self.optionalCurrency(from: runSpendDailyLimitUSDText),
                 weeklyUSD: Self.optionalCurrency(from: runSpendWeeklyLimitUSDText),
                 monthlyUSD: Self.optionalCurrency(from: runSpendMonthlyLimitUSDText)
+            ),
+            managedWorktrees: ManagedWorktreeSettings(
+                rootPath: Self.explicitWorktreeRoot(
+                    managedWorktreeRootPathText,
+                    defaultRoot: managedWorktreeDefaultRootPath
+                ),
+                automaticCleanupEnabled: managedWorktreeAutomaticCleanupEnabled,
+                retentionLimit: managedWorktreeRetentionLimit
             )
         )
     }
@@ -140,5 +159,15 @@ struct QuillCodeSettingsDraft: Equatable {
             .replacingOccurrences(of: "$", with: "")
         guard !trimmed.isEmpty else { return nil }
         return Double(trimmed)
+    }
+
+    private static func isValidWorktreeRoot(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed == "~" || trimmed.hasPrefix("~/") || trimmed.hasPrefix("/")
+    }
+
+    private static func explicitWorktreeRoot(_ text: String, defaultRoot: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed == defaultRoot ? nil : trimmed
     }
 }

@@ -29,6 +29,21 @@ extension ManagedWorktreeSnapshotStore {
         }
         let sourceRoot = URL(fileURLWithPath: binding.path).standardizedFileURL
         let sourcePath = normalizedPath(sourceRoot)
+        let authorizedRoot = manifest.managedRoot.map(URL.init(fileURLWithPath:))
+            ?? root.deletingLastPathComponent()
+        let validatedSourcePath: String
+        do {
+            validatedSourcePath = try GitWorktreeToolExecutor.safeManagedPath(
+                sourceRoot.path,
+                cwd: root,
+                managedRoot: authorizedRoot
+            )
+        } catch {
+            throw ManagedWorktreeSnapshotError.invalidBinding(error.localizedDescription)
+        }
+        guard normalizedPath(validatedSourcePath) == sourcePath else {
+            throw ManagedWorktreeSnapshotError.invalidBinding("managed root does not own \(binding.path)")
+        }
         let records = try registeredWorktrees(cwd: root)
         guard let recordIndex = records.firstIndex(where: { normalizedPath($0.path) == sourcePath }),
               recordIndex > records.startIndex,
