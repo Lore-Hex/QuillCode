@@ -75,9 +75,10 @@ extension AgentRunner {
             )
         }
 
-        await compactProactivelyIfNeeded(
+        try await compactProactivelyIfNeeded(
             thread: &thread,
             compaction: compaction,
+            workspaceRoot: workspaceRoot,
             onProgress: onProgress
         )
 
@@ -106,8 +107,13 @@ extension AgentRunner {
                     throw ContextOverflowUnresolvedError(rounds: rounds, underlying: error)
                 }
                 rounds += 1
-                let result = await compaction.compactor.compact(&thread)
-                await onProgress?(thread)
+                let result = try await compact(
+                    thread: &thread,
+                    using: compaction.compactor,
+                    trigger: .auto,
+                    workspaceRoot: workspaceRoot,
+                    onProgress: onProgress
+                )
                 // Nothing left to fold away: compacting again would be a no-op, so stop here with a
                 // clear diagnostic rather than spinning to the round cap.
                 if case .noOlderTurns = result {
@@ -119,14 +125,14 @@ extension AgentRunner {
 
     /// Compacts before the call when the thread's estimated tokens cross the proactive threshold.
     /// Bounded by `maxRoundsPerCall` and by `.noOlderTurns`, so even a thread of giant messages settles
-    /// after a fixed number of rounds instead of looping. Never throws — proactive compaction is
-    /// best-effort; if it cannot get under the threshold, the model call still runs and the reactive
-    /// path handles any resulting overflow.
+    /// after a fixed number of rounds instead of looping. Compactor failures remain best-effort, but
+    /// an explicit trusted PreCompact/PostCompact stop propagates and ends the active turn.
     private func compactProactivelyIfNeeded(
         thread: inout ChatThread,
         compaction: AgentCompactionPolicy,
+        workspaceRoot: URL,
         onProgress: AgentRunProgressHandler?
-    ) async {
+    ) async throws {
         guard compaction.proactiveTokenLimit > 0 else { return }
         var rounds = 0
         while rounds < compaction.maxRoundsPerCall {
@@ -136,9 +142,94 @@ extension AgentRunner {
                 limit: compaction.proactiveTokenLimit
             ) != nil else { return }
             rounds += 1
-            let result = await compaction.compactor.compact(&thread)
-            await onProgress?(thread)
+            let result = try await compact(
+                thread: &thread,
+                using: compaction.compactor,
+                trigger: .auto,
+                workspaceRoot: workspaceRoot,
+                onProgress: onProgress
+            )
             if case .noOlderTurns = result { return }
         }
+    }
+
+    private func compact(
+        thread: inout ChatThread,
+        using compactor: ThreadCompactor,
+        trigger: AgentCompactionTrigger,
+        workspaceRoot: URL,
+        onProgress: AgentRunProgressHandler?
+    ) async throws -> ThreadCompactionResult {
+        try await runCompactionHook(
+            preCompactHook,
+            stage: .before,
+            trigger: trigger,
+            thread: &thread,
+            workspaceRoot: workspaceRoot,
+            onProgress: onProgress
+        )
+
+        let result = await compactor.compact(&thread)
+        await onProgress?(thread)
+        guard case .compacted = result else { return result }
+
+        try await runCompactionHook(
+            postCompactHook,
+            stage: .after,
+            trigger: trigger,
+            thread: &thread,
+            workspaceRoot: workspaceRoot,
+            onProgress: onProgress
+        )
+        return result
+    }
+
+    private func runCompactionHook(
+        _ hook: AgentCompactionHook?,
+        stage: AgentCompactionHookStage,
+        trigger: AgentCompactionTrigger,
+        thread: inout ChatThread,
+        workspaceRoot: URL,
+        onProgress: AgentRunProgressHandler?
+    ) async throws {
+        guard let hook else { return }
+        let outcome: AgentCompactionHookOutcome
+        do {
+            outcome = try await hook(trigger, thread, workspaceRoot)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            appendCompactionNotice(
+                "Compaction hook warning: \(error.localizedDescription). Compaction continued.",
+                to: &thread
+            )
+            await onProgress?(thread)
+            return
+        }
+
+        for notice in outcome.notices {
+            appendCompactionNotice(notice, to: &thread)
+        }
+        if !outcome.notices.isEmpty {
+            await onProgress?(thread)
+        }
+        guard outcome.continues else {
+            throw AgentCompactionHookStoppedError(
+                trigger: trigger,
+                stage: stage,
+                reason: outcome.stopReason ?? "A trusted compaction hook stopped this operation."
+            )
+        }
+    }
+
+    private func appendCompactionNotice(_ notice: String, to thread: inout ChatThread) {
+        let bounded = String(
+            notice
+                .replacingOccurrences(of: "\0", with: "")
+                .prefix(4_096)
+        )
+        guard !bounded.isEmpty else { return }
+        thread.events.append(ThreadEvent(kind: .notice, summary: bounded))
+        thread.updatedAt = Date()
     }
 }

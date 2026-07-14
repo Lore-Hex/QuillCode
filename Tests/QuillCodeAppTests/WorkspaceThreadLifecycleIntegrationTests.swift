@@ -557,6 +557,130 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertEqual(model.lastError, "Stop this chat before deleting it.")
         XCTAssertEqual(model.root.threads.first?.messages, thread.messages)
     }
+
+    func testManualPreCompactHookCanStopBeforeSummaryOrThreadMutation() async throws {
+        let workspace = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: workspace.appendingPathComponent(".quillcode/plugins/demo", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        let project = ProjectRef(
+            name: "Hooks",
+            path: workspace.path,
+            runHooks: [],
+            pluginHooks: [compactionHook(
+                event: "PreCompact",
+                command: #"printf '%s' '{"continue":false,"stopReason":"keep full history"}'"#
+            )]
+        )
+        let source = ChatThread(
+            title: "Original",
+            projectID: project.id,
+            messages: [
+                .init(role: .user, content: "old question"),
+                .init(role: .assistant, content: "old answer"),
+                .init(role: .user, content: "latest question"),
+                .init(role: .assistant, content: "latest answer")
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [source],
+                selectedThreadID: source.id
+            ),
+            contextSummaryGenerator: FixedContextSummaryGenerator(summary: "must not run"),
+            pluginDataBaseDirectory: workspace.appendingPathComponent("plugin-data", isDirectory: true)
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("compact-context", workspaceRoot: workspace))
+        try await waitForCompaction(timeoutSeconds: 1) {
+            model.root.threads.first?.events.contains { $0.summary.contains("keep full history") } == true
+        }
+
+        XCTAssertEqual(model.root.threads.count, 1)
+        XCTAssertEqual(model.root.selectedThreadID, source.id)
+        XCTAssertFalse(model.root.threads[0].events.contains { $0.summary == "Summarizing context" })
+        XCTAssertFalse(model.root.threads[0].messages.contains { $0.content.contains("must not run") })
+    }
+
+    func testManualPostCompactStopPreservesCompletedThreadAndNotices() async throws {
+        let workspace = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: workspace.appendingPathComponent(".quillcode/plugins/demo", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        let project = ProjectRef(
+            name: "Hooks",
+            path: workspace.path,
+            runHooks: [],
+            pluginHooks: [compactionHook(
+                event: "PostCompact",
+                command: #"printf '%s' '{"continue":false,"stopReason":"review compacted result","systemMessage":"post ran"}'"#
+            )]
+        )
+        let source = ChatThread(
+            title: "Original",
+            projectID: project.id,
+            messages: [
+                .init(role: .user, content: "old question"),
+                .init(role: .assistant, content: "old answer"),
+                .init(role: .user, content: "latest question"),
+                .init(role: .assistant, content: "latest answer")
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [source],
+                selectedThreadID: source.id
+            ),
+            pluginDataBaseDirectory: workspace.appendingPathComponent("plugin-data", isDirectory: true)
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("compact-context", workspaceRoot: workspace))
+        try await waitForCompaction(timeoutSeconds: 1) {
+            model.root.selectedThreadID != source.id
+        }
+
+        let compacted = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(compacted.title, "Compact: Original")
+        XCTAssertTrue(compacted.events.contains { $0.summary.contains("post ran") })
+        XCTAssertTrue(compacted.events.contains { $0.summary.contains("review compacted result") })
+    }
+
+    private func compactionHook(event: String, command: String) -> ProjectPluginHook {
+        ProjectPluginHook(
+            id: "\(event)-fixture",
+            pluginID: "plugin:demo",
+            pluginName: "Demo Hooks",
+            event: event,
+            matcher: "manual",
+            handlerType: "command",
+            command: command,
+            timeoutSeconds: 5,
+            relativePath: ".quillcode/plugins/demo/hooks/hooks.json#\(event)",
+            pluginRootRelativePath: ".quillcode/plugins/demo",
+            definitionHash: String(repeating: "a", count: 64),
+            trustStatus: .trusted,
+            supportStatus: .supported
+        )
+    }
+
+    private func waitForCompaction(
+        timeoutSeconds: TimeInterval,
+        predicate: @MainActor () -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while !predicate() {
+            guard Date() < deadline else {
+                return XCTFail("Timed out waiting for compaction.")
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
 }
 
 private struct FixedContextSummaryGenerator: WorkspaceContextSummaryGenerating {

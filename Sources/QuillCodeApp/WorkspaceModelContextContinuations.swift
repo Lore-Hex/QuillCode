@@ -61,11 +61,25 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    func startCompactContext() -> Bool {
-        guard contextSummaryGenerator.isModelBacked else {
+    func startCompactContext(workspaceRoot: URL) -> Bool {
+        guard let sourceID = selectedContextSummarySourceID(),
+              let source = contextSummarySourceThread(sourceID)
+        else { return false }
+        let hooks = pluginCompactionHookExecutor(for: source)
+        guard contextSummaryGenerator.isModelBacked || hooks.hasExecutableHooks else {
             return compactContext() != nil
         }
-        return startContextContinuation(.compact)
+        setAgentStatus(ContextContinuationAction.compact.agentStatus)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            _ = await self.compactContext(
+                sourceID: sourceID,
+                workspaceRoot: workspaceRoot,
+                hooks: hooks
+            )
+            self.refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        }
+        return true
     }
 
     @discardableResult
@@ -82,6 +96,93 @@ extension QuillCodeWorkspaceModel {
         )
         appendContextSummaryContinuation(to: &compacted, preparation: preparation, purpose: .compact)
         return insertCreatedThread(compacted, selectedProjectID: preparation.projectID, saveThread: true)
+    }
+
+    private func compactContext(
+        sourceID: UUID,
+        workspaceRoot: URL,
+        hooks: ProjectPluginCompactionHookExecutor
+    ) async -> UUID? {
+        guard let source = contextSummarySourceThread(sourceID) else { return nil }
+        let pre = await hooks.run(
+            event: .preCompact,
+            trigger: .manual,
+            thread: source,
+            workspaceRoot: workspaceRoot
+        )
+        appendCompactionHookNotices(pre.notices, to: sourceID)
+        guard pre.continues else {
+            recordContextSummarySourceNotice(
+                sourceID: sourceID,
+                summary: "Compaction stopped: \(pre.stopReason ?? "A trusted hook stopped this operation.")"
+            )
+            return nil
+        }
+
+        let projectID = knownProjectID(source.projectID)
+        let compacted: ChatThread
+        if contextSummaryGenerator.isModelBacked {
+            recordContextSummaryStart(sourceID: sourceID, purpose: .compact)
+            guard let preparation = await preparedContextContinuation(
+                sourceID: sourceID,
+                purpose: .compact
+            ) else { return nil }
+            var prepared = WorkspaceThreadCreationEngine.compactThread(
+                from: preparation.source,
+                projectID: preparation.projectID,
+                summaryOverride: preparation.summary.summaryOverride
+            )
+            appendContextSummaryContinuation(
+                to: &prepared,
+                preparation: preparation,
+                purpose: .compact
+            )
+            compacted = prepared
+        } else {
+            compacted = WorkspaceThreadCreationEngine.compactThread(
+                from: source,
+                projectID: projectID
+            )
+        }
+
+        let post = await hooks.run(
+            event: .postCompact,
+            trigger: .manual,
+            thread: source,
+            workspaceRoot: workspaceRoot
+        )
+        var final = compacted
+        for notice in post.notices {
+            WorkspaceThreadNoticeAppender.appendNotice(notice, to: &final)
+        }
+        if !post.continues {
+            WorkspaceThreadNoticeAppender.appendNotice(
+                "Post-compaction hook stopped further continuation: "
+                    + (post.stopReason ?? "A trusted hook requested a stop."),
+                to: &final
+            )
+        }
+        return insertCreatedThread(final, selectedProjectID: projectID, saveThread: true)
+    }
+
+    private func pluginCompactionHookExecutor(
+        for source: ChatThread
+    ) -> ProjectPluginCompactionHookExecutor {
+        let project = source.projectID.flatMap { projectID in
+            root.projects.first { $0.id == projectID }
+        }
+        return ProjectPluginCompactionHookExecutor(
+            hooks: project?.pluginHooks ?? [],
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
+            selectedProject: project,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
+    }
+
+    private func appendCompactionHookNotices(_ notices: [String], to sourceID: UUID) {
+        for notice in notices {
+            recordContextSummarySourceNotice(sourceID: sourceID, summary: notice)
+        }
     }
 
     private func startContextContinuation(_ action: ContextContinuationAction) -> Bool {

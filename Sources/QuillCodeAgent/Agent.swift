@@ -23,6 +23,10 @@ public struct AgentRunner: Sendable {
     public var preToolUseHook: AgentPreToolUseHook?
     public var postToolUseHook: AgentPostToolUseHook?
     public var permissionRequestHook: AgentPermissionRequestHook?
+    /// Trusted standard-plugin hooks around both proactive/reactive automatic compaction. Manual
+    /// compaction uses the same typed outcomes through the workspace model.
+    public var preCompactHook: AgentCompactionHook?
+    public var postCompactHook: AgentCompactionHook?
     /// Executes tools whose durable state must be merged back into the active thread. Keep ordinary
     /// host tools on `toolExecutionOverride`; this path is reserved for thread-owning workflows such
     /// as delegated agents.
@@ -67,6 +71,8 @@ public struct AgentRunner: Sendable {
         preToolUseHook: AgentPreToolUseHook? = nil,
         postToolUseHook: AgentPostToolUseHook? = nil,
         permissionRequestHook: AgentPermissionRequestHook? = nil,
+        preCompactHook: AgentCompactionHook? = nil,
+        postCompactHook: AgentCompactionHook? = nil,
         threadToolExecutionOverride: AgentThreadToolExecutionOverride? = nil,
         toolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider? = nil,
         skillResolver: SkillResolver? = nil,
@@ -86,6 +92,8 @@ public struct AgentRunner: Sendable {
         self.preToolUseHook = preToolUseHook
         self.postToolUseHook = postToolUseHook
         self.permissionRequestHook = permissionRequestHook
+        self.preCompactHook = preCompactHook
+        self.postCompactHook = postCompactHook
         self.threadToolExecutionOverride = threadToolExecutionOverride
         self.toolFeedbackAttachmentProvider = toolFeedbackAttachmentProvider
         self.skillResolver = skillResolver
