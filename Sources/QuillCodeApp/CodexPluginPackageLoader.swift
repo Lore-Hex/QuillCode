@@ -226,9 +226,17 @@ enum CodexPluginPackageLoader {
         if isAsync { return .asynchronousHandler }
         if handlerType != "command" { return .unsupportedHandler }
         if command == nil { return .missingCommand }
-        if event != "UserPromptSubmit" && event != "Stop" { return .unsupportedEvent }
-        if let matcher, matcher != "*" { return .unsupportedMatcher }
-        return .supported
+        switch event {
+        case "UserPromptSubmit", "Stop":
+            if let matcher, matcher != "*" { return .unsupportedMatcher }
+            return .supported
+        case "PreToolUse", "PostToolUse":
+            return ProjectPluginToolCallAdapter.isValidMatcher(matcher)
+                ? .supported
+                : .unsupportedMatcher
+        default:
+            return .unsupportedEvent
+        }
     }
 
     private static func hookDefinitionHash(

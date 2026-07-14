@@ -42,7 +42,7 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
                 && $0.trustStatus == .reviewRequired
         })
         XCTAssertEqual(hook(event: "Stop", in: package.hooks)?.supportStatus, .supported)
-        XCTAssertEqual(hook(event: "PreToolUse", in: package.hooks)?.supportStatus, .unsupportedEvent)
+        XCTAssertEqual(hook(event: "PreToolUse", in: package.hooks)?.supportStatus, .supported)
         XCTAssertEqual(
             package.hooks.first { $0.matcher == "tool:*" }?.supportStatus,
             .unsupportedMatcher
@@ -209,7 +209,7 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
         let root = try makeQuillCodeTestDirectory()
         try writePlugin(in: root)
         try writeHooks(
-            #"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"printf unsafe"}]}]}}"#,
+            #"{"hooks":{"Notification":[{"hooks":[{"type":"command","command":"printf unsafe"}]}]}}"#,
             in: root
         )
         let trustStore = ProjectHookTrustFileStore(
@@ -351,8 +351,8 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
             supportStatus: .supported
         )
         let unsupportedHook = makeSurfaceHook(
-            id: "plugin_hook:demo.pretooluse.0.0",
-            event: "PreToolUse",
+            id: "plugin_hook:demo.notification.0.0",
+            event: "Notification",
             supportStatus: .unsupportedEvent
         )
         let project = ProjectRef(

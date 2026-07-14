@@ -124,6 +124,54 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         )
     }
 
+    func testFactoryWiresOnlyTrustedSupportedPluginToolHooks() throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let pluginRoot = workspaceRoot.appendingPathComponent(".quillcode/plugins/demo", isDirectory: true)
+        try FileManager.default.createDirectory(at: pluginRoot, withIntermediateDirectories: true)
+        let trusted = ProjectPluginHook(
+            id: "pre",
+            pluginID: "plugin:demo",
+            pluginName: "Demo",
+            event: "PreToolUse",
+            matcher: "^Bash$",
+            handlerType: "command",
+            command: "true",
+            relativePath: ".quillcode/plugins/demo/hooks/hooks.json#PreToolUse",
+            pluginRootRelativePath: ".quillcode/plugins/demo",
+            definitionHash: String(repeating: "a", count: 64),
+            trustStatus: .trusted,
+            supportStatus: .supported
+        )
+        var untrusted = trusted
+        untrusted.id = "post"
+        untrusted.event = "PostToolUse"
+        untrusted.trustStatus = .reviewRequired
+        let project = ProjectRef(
+            name: "Hook Project",
+            path: workspaceRoot.path,
+            runHooks: [],
+            pluginHooks: [trusted, untrusted]
+        )
+
+        let session = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
+            selectedProject: project,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            pluginDataBaseDirectory: workspaceRoot.appendingPathComponent("plugin-data", isDirectory: true),
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: workspaceRoot
+        ).makeSession(prompt: "Run true", thread: ChatThread(title: "Hooks"))
+
+        XCTAssertNotNil(session.runner.preToolUseHook)
+        XCTAssertNil(session.runner.postToolUseHook)
+    }
+
     func testFactoryUsesRemoteProjectToolDefinitionsAndRunHooks() {
         let hook = ProjectRunHook(
             id: "before:.quillcode/hooks/before-agent-run/01-prepare.sh",
