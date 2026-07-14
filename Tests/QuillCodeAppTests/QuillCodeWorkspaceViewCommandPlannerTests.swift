@@ -62,6 +62,7 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
     func testDispatchedCommandsPreserveComposerFocusRules() throws {
         let planner = makePlanner()
         let slashCommand = try XCTUnwrap(SlashCommandCatalog.commandPaletteCommands().first)
+        let newChatCommand = command("new-chat")
         let memoryCommand = command("memory-add")
         let sshCommand = command("add-ssh-project")
         let sessionCommand = command("open-browser-session")
@@ -70,6 +71,10 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         XCTAssertEqual(
             planner.action(for: slashCommand),
             .dispatch(command: slashCommand, focusesComposer: true)
+        )
+        XCTAssertEqual(
+            planner.action(for: newChatCommand),
+            .dispatch(command: newChatCommand, focusesComposer: true)
         )
         XCTAssertEqual(
             planner.action(for: memoryCommand),

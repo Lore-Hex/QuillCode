@@ -1,0 +1,158 @@
+import AppKit
+import ApplicationServices
+import Foundation
+
+@MainActor
+enum QuillCodeDesktopAccessibilityInteractionVerifier {
+    private static let composerInputIdentifier = "quillcode-composer-input"
+    private static let composerSmokeText = "QuillCode new chat smoke"
+    private static let searchInputIdentifier = "quillcode-search-input"
+    private static let searchSmokeText = "QuillCode search smoke"
+
+    static func observeWorkspaceThreads(
+        _ controller: QuillCodeDesktopController
+    ) -> QuillCodeDesktopAccessibilityActivationState {
+        .workspaceThreads(QuillCodeDesktopWorkspaceThreadActivationState(
+            selectedThreadID: controller.model.root.selectedThreadID,
+            threadIDs: Set(controller.model.root.threads.map(\.id))
+        ))
+    }
+
+    static func newChatTransitionIssue(
+        before: QuillCodeDesktopAccessibilityActivationState,
+        after: QuillCodeDesktopAccessibilityActivationState
+    ) -> String? {
+        guard case .workspaceThreads(let baseline) = before,
+              case .workspaceThreads(let current) = after
+        else {
+            return "command.new-chat did not report workspace thread state"
+        }
+
+        let addedThreadIDs = current.threadIDs.subtracting(baseline.threadIDs)
+        let removedThreadIDs = baseline.threadIDs.subtracting(current.threadIDs)
+        guard removedThreadIDs.isEmpty, addedThreadIDs.count == 1 else {
+            return "command.new-chat must create exactly one chat without removing another"
+        }
+        guard current.selectedThreadID == addedThreadIDs.first else {
+            return "command.new-chat did not select the one chat it created"
+        }
+        return nil
+    }
+
+    static func resetWorkspaceThreads(
+        before: QuillCodeDesktopAccessibilityActivationState,
+        after: QuillCodeDesktopAccessibilityActivationState,
+        controller: QuillCodeDesktopController
+    ) {
+        guard case .workspaceThreads(let baseline) = before,
+              case .workspaceThreads(let current) = after
+        else { return }
+
+        for threadID in current.threadIDs.subtracting(baseline.threadIDs) {
+            _ = controller.model.deleteThread(threadID)
+        }
+        if let selectedThreadID = baseline.selectedThreadID,
+           controller.model.root.threads.contains(where: { $0.id == selectedThreadID })
+        {
+            controller.model.selectThread(selectedThreadID, recordsNavigation: false)
+        }
+        controller.modelStateCoordinator.syncComposerDraft(from: controller.model, draft: &controller.draft)
+        controller.refresh()
+    }
+
+    static func verifyNewChatComposerTextEntry(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        await verifyReversibleTextEntry(
+            inputIdentifier: composerInputIdentifier,
+            smokeText: composerSmokeText,
+            successEvidence: "created exactly one selected chat and \(composerInputIdentifier) focused with reversible AXValue text entry",
+            missingFocusIssue: "command.new-chat did not expose a focused \(composerInputIdentifier) field",
+            rejectedValueIssue: "command.new-chat \(composerInputIdentifier) rejected AXValue",
+            retainedValueIssue: "command.new-chat \(composerInputIdentifier) did not retain AXValue text entry",
+            clearValueIssue: "command.new-chat \(composerInputIdentifier) could not restore its empty value",
+            contentView: contentView
+        )
+    }
+
+    static func verifySearchTextEntry(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        await verifyReversibleTextEntry(
+            inputIdentifier: searchInputIdentifier,
+            smokeText: searchSmokeText,
+            successEvidence: "\(searchInputIdentifier) focused and accepted reversible AXValue text entry",
+            missingFocusIssue: "command.search did not expose a focused \(searchInputIdentifier) field",
+            rejectedValueIssue: "command.search \(searchInputIdentifier) rejected AXValue",
+            retainedValueIssue: "command.search \(searchInputIdentifier) did not retain AXValue text entry",
+            clearValueIssue: "command.search \(searchInputIdentifier) could not restore its empty value",
+            contentView: contentView
+        )
+    }
+
+    private static func verifyReversibleTextEntry(
+        inputIdentifier: String,
+        smokeText: String,
+        successEvidence: String,
+        missingFocusIssue: String,
+        rejectedValueIssue: String,
+        retainedValueIssue: String,
+        clearValueIssue: String,
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        guard let initialInput = await waitForInput(
+            inputIdentifier,
+            expectedValue: nil,
+            requiresFocus: true,
+            in: contentView
+        ) else {
+            return .init(evidence: "\(inputIdentifier) did not become focused", validationIssue: missingFocusIssue)
+        }
+
+        let setError = QuillCodeDesktopAccessibilityTree.performSetValue(smokeText, on: initialInput)
+        guard setError == .success else {
+            return .init(
+                evidence: "\(inputIdentifier) rejected AXValue text entry",
+                validationIssue: "\(rejectedValueIssue) with \(setError)"
+            )
+        }
+        guard await waitForInput(inputIdentifier, expectedValue: smokeText, in: contentView) != nil else {
+            return .init(evidence: "\(inputIdentifier) AXValue did not update", validationIssue: retainedValueIssue)
+        }
+        guard let updatedInput = input(inputIdentifier, in: contentView),
+              QuillCodeDesktopAccessibilityTree.performSetValue("", on: updatedInput) == .success,
+              await waitForInput(inputIdentifier, expectedValue: "", in: contentView) != nil
+        else {
+            return .init(evidence: "\(inputIdentifier) accepted text but did not clear", validationIssue: clearValueIssue)
+        }
+
+        return .init(evidence: successEvidence, validationIssue: nil)
+    }
+
+    private static func waitForInput(
+        _ identifier: String,
+        expectedValue: String?,
+        requiresFocus: Bool = false,
+        in contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        for _ in 0..<20 {
+            if let candidate = input(identifier, in: contentView),
+               (!requiresFocus || candidate.isFocused),
+               expectedValue == nil || candidate.value == expectedValue
+            {
+                return candidate
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return nil
+    }
+
+    private static func input(
+        _ identifier: String,
+        in contentView: NSView
+    ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        QuillCodeDesktopAccessibilityTree(root: contentView).elements
+            .filter { $0.identifier == identifier }
+            .max { $0.frameArea < $1.frameArea }
+    }
+}

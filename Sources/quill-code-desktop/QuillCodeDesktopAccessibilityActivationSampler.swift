@@ -68,77 +68,24 @@ struct QuillCodeDesktopAccessibilityActivationReport {
     }
 }
 
-private struct QuillCodeDesktopAccessibilityActivationVerification {
-    var evidence: String
-    var validationIssue: String?
-
-    static let stateChange = QuillCodeDesktopAccessibilityActivationVerification(
-        evidence: "AXPress changed observable controller state",
-        validationIssue: nil
-    )
-}
-
-private struct QuillCodeDesktopAccessibilityActivationContract {
-    typealias Observe = @MainActor (QuillCodeDesktopController) -> Bool
-    typealias Reset = @MainActor (Bool, Bool, QuillCodeDesktopController) -> Void
-    typealias Verify = @MainActor (NSView) async -> QuillCodeDesktopAccessibilityActivationVerification
-
-    var contractID: String
-    var expectedOutcome: String
-    var observe: Observe
-    var reset: Reset
-    var verify: Verify?
-
-    static func presentation(
-        _ contractID: String,
-        expectedOutcome: String,
-        observe: @escaping Observe,
-        resetToBaseline: @escaping @MainActor (Bool, QuillCodeDesktopController) -> Void,
-        verify: Verify? = nil
-    ) -> Self {
-        Self(
-            contractID: contractID,
-            expectedOutcome: expectedOutcome,
-            observe: observe,
-            reset: { before, after, controller in
-                guard before != after else { return }
-                resetToBaseline(before, controller)
-            },
-            verify: verify
-        )
-    }
-
-    static func toggle(
-        _ contractID: String,
-        expectedOutcome: String,
-        observe: @escaping Observe,
-        resetWith toggle: @escaping @MainActor (QuillCodeDesktopController) -> Void
-    ) -> Self {
-        Self(
-            contractID: contractID,
-            expectedOutcome: expectedOutcome,
-            observe: observe,
-            reset: { before, after, controller in
-                guard before != after else { return }
-                toggle(controller)
-            },
-            verify: nil
-        )
-    }
-}
-
 @MainActor
 enum QuillCodeDesktopAccessibilityActivationSampler {
-    private static let searchInputIdentifier = "quillcode-search-input"
-    private static let searchSmokeText = "QuillCode search smoke"
-
     private static let activationContracts: [QuillCodeDesktopAccessibilityActivationContract] = [
+        QuillCodeDesktopAccessibilityActivationContract(
+            contractID: "command.new-chat",
+            phase: .workspaceReplacement,
+            expectedOutcome: "creates and selects exactly one chat, then focuses its composer",
+            observe: QuillCodeDesktopAccessibilityInteractionVerifier.observeWorkspaceThreads,
+            reset: QuillCodeDesktopAccessibilityInteractionVerifier.resetWorkspaceThreads,
+            validateTransition: QuillCodeDesktopAccessibilityInteractionVerifier.newChatTransitionIssue,
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyNewChatComposerTextEntry
+        ),
         .presentation(
             "command.search",
             expectedOutcome: "search dialog opens, focuses its field, and accepts text",
             observe: { $0.isSearchPresented },
             resetToBaseline: { $1.isSearchPresented = $0 },
-            verify: verifySearchTextEntry
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifySearchTextEntry
         ),
         .presentation(
             "command.settings",
@@ -183,20 +130,16 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         controller: QuillCodeDesktopController,
         nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     ) async -> QuillCodeDesktopAccessibilityActivationReport {
-        let elements = QuillCodeDesktopAccessibilityTree(root: contentView).elements
         let probesByID = Dictionary(uniqueKeysWithValues: nativeHitTargets.clickProbes.map { ($0.contractID, $0) })
         var checks: [QuillCodeDesktopAccessibilityActivationCheck] = []
         var validationIssues: [String] = []
 
-        for contract in activationContracts.sorted(by: { $0.contractID < $1.contractID }) {
+        for contract in activationContracts.sorted(by: activationOrder) {
             guard let probe = probesByID[contract.contractID] else {
                 validationIssues.append("\(contract.contractID) has no native click probe to activate")
                 continue
             }
-            guard let element = QuillCodeDesktopAccessibilityFrameSampler.resolveElementForActivation(
-                probe,
-                in: elements
-            ) else {
+            guard let element = await resolveCurrentElement(probe, contentView: contentView) else {
                 validationIssues.append("\(contract.contractID) did not resolve to an AXPress target")
                 continue
             }
@@ -229,6 +172,16 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         )
     }
 
+    private static func activationOrder(
+        _ lhs: QuillCodeDesktopAccessibilityActivationContract,
+        _ rhs: QuillCodeDesktopAccessibilityActivationContract
+    ) -> Bool {
+        if lhs.phase != rhs.phase {
+            return lhs.phase < rhs.phase
+        }
+        return lhs.contractID < rhs.contractID
+    }
+
     private static func activate(
         contract: QuillCodeDesktopAccessibilityActivationContract,
         probe: QuillCodeNativeHitTargetProbe,
@@ -246,10 +199,14 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             before: baseline,
             after: after
         )
+        let transitionIssue = activationIssue == nil
+            ? contract.validateTransition?(baseline, after)
+            : nil
+        let contractIssue = activationIssue ?? transitionIssue
         let verification: QuillCodeDesktopAccessibilityActivationVerification
-        if let activationIssue {
+        if let contractIssue {
             verification = QuillCodeDesktopAccessibilityActivationVerification(
-                evidence: "deeper interaction verification skipped after failed AXPress: \(activationIssue)",
+                evidence: "deeper interaction verification skipped: \(contractIssue)",
                 validationIssue: nil
             )
         } else if let verify = contract.verify {
@@ -258,7 +215,17 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             verification = .stateChange
         }
         contract.reset(baseline, after, controller)
-        await Task.yield()
+        let didRestoreBaseline = await waitForObservedState(
+            contract: contract,
+            expected: baseline,
+            controller: controller
+        )
+        // State changes can replace SwiftUI's backing AX elements. Let the accessibility
+        // hierarchy settle before the next contract resolves a fresh element snapshot.
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        let resetIssue = didRestoreBaseline
+            ? nil
+            : "\(contract.contractID) could not restore its baseline state after AXPress"
 
         return QuillCodeDesktopAccessibilityActivationCheck(
             contractID: probe.contractID,
@@ -273,8 +240,25 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             afterValue: after.description,
             axError: axErrorDescription(axError),
             interactionEvidence: verification.evidence,
-            validationIssue: activationIssue ?? verification.validationIssue
+            validationIssue: contractIssue ?? verification.validationIssue ?? resetIssue
         )
+    }
+
+    private static func resolveCurrentElement(
+        _ probe: QuillCodeNativeHitTargetProbe,
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        for _ in 0..<20 {
+            let elements = QuillCodeDesktopAccessibilityTree(root: contentView).elements
+            if let element = QuillCodeDesktopAccessibilityFrameSampler.resolveElementForActivation(
+                probe,
+                in: elements
+            ) {
+                return element
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return nil
     }
 
     private static func axErrorDescription(_ error: AXError) -> String {
@@ -283,7 +267,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
 
     private static func waitForStateChange(
         contract: QuillCodeDesktopAccessibilityActivationContract,
-        baseline: Bool,
+        baseline: QuillCodeDesktopAccessibilityActivationState,
         controller: QuillCodeDesktopController
     ) async -> Bool {
         for _ in 0..<10 {
@@ -295,11 +279,25 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         return false
     }
 
+    private static func waitForObservedState(
+        contract: QuillCodeDesktopAccessibilityActivationContract,
+        expected: QuillCodeDesktopAccessibilityActivationState,
+        controller: QuillCodeDesktopController
+    ) async -> Bool {
+        for _ in 0..<20 {
+            if contract.observe(controller) == expected {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return false
+    }
+
     private static func validationIssue(
         contractID: String,
         axError: AXError,
-        before: Bool,
-        after: Bool
+        before: QuillCodeDesktopAccessibilityActivationState,
+        after: QuillCodeDesktopAccessibilityActivationState
     ) -> String? {
         if axError != .success {
             return "\(contractID) AXPress failed with \(axError)"
@@ -308,79 +306,5 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             return "\(contractID) AXPress did not change expected state \(before)"
         }
         return nil
-    }
-
-    private static func verifySearchTextEntry(
-        contentView: NSView
-    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
-        guard let initialSearchInput = await waitForSearchInput(in: contentView) else {
-            return QuillCodeDesktopAccessibilityActivationVerification(
-                evidence: "search input did not become focused",
-                validationIssue: "command.search did not expose a focused \(searchInputIdentifier) field"
-            )
-        }
-
-        let setError = QuillCodeDesktopAccessibilityTree.performSetValue(searchSmokeText, on: initialSearchInput)
-        guard setError == .success else {
-            return QuillCodeDesktopAccessibilityActivationVerification(
-                evidence: "search input rejected AXValue text entry",
-                validationIssue: "command.search \(searchInputIdentifier) rejected AXValue with \(setError)"
-            )
-        }
-
-        guard await waitForSearchValue(searchSmokeText, in: contentView) else {
-            return QuillCodeDesktopAccessibilityActivationVerification(
-                evidence: "search input AXValue did not update",
-                validationIssue: "command.search \(searchInputIdentifier) did not retain AXValue text entry"
-            )
-        }
-
-        guard let updatedInput = searchInput(in: contentView),
-              QuillCodeDesktopAccessibilityTree.performSetValue("", on: updatedInput) == .success,
-              await waitForSearchValue("", in: contentView)
-        else {
-            return QuillCodeDesktopAccessibilityActivationVerification(
-                evidence: "search input accepted text but did not clear",
-                validationIssue: "command.search \(searchInputIdentifier) could not restore its empty value"
-            )
-        }
-
-        return QuillCodeDesktopAccessibilityActivationVerification(
-            evidence: "\(searchInputIdentifier) focused and accepted reversible AXValue text entry",
-            validationIssue: nil
-        )
-    }
-
-    private static func waitForSearchInput(
-        in contentView: NSView
-    ) async -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        for _ in 0..<20 {
-            if let input = searchInput(in: contentView), input.isFocused {
-                return input
-            }
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
-        return nil
-    }
-
-    private static func waitForSearchValue(
-        _ expectedValue: String,
-        in contentView: NSView
-    ) async -> Bool {
-        for _ in 0..<20 {
-            if searchInput(in: contentView)?.value == expectedValue {
-                return true
-            }
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
-        return false
-    }
-
-    private static func searchInput(
-        in contentView: NSView
-    ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        QuillCodeDesktopAccessibilityTree(root: contentView).elements
-            .filter { $0.identifier == searchInputIdentifier }
-            .max { $0.frameArea < $1.frameArea }
     }
 }

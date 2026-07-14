@@ -90,6 +90,12 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} command.search does not prove focused AXValue text entry"
         )
+    if contract_id == "command.new-chat" and not all(
+        marker in interaction_evidence for marker in ("exactly one", "selected", "focused", "AXValue")
+    ):
+        raise SystemExit(
+            f"{report_path} command.new-chat does not prove one selected chat with focused AXValue entry"
+        )
 
     return {
         "contractID": contract_id,

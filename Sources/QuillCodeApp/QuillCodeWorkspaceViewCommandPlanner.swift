@@ -107,6 +107,7 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
 
     private func shouldFocusComposer(afterDispatching command: WorkspaceCommandSurface) -> Bool {
         SlashCommandCatalog.insertText(forCommandPaletteID: command.id) != nil
+            || command.id == "new-chat"
             || command.id == "memory-add"
             || command.id == "add-ssh-project"
             || command.id == "project-rename"
