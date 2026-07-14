@@ -134,6 +134,12 @@ public struct ManagedWorktreeSettings: Codable, Sendable, Hashable {
 }
 
 public struct AppConfig: Codable, Sendable, Hashable {
+    /// Production per-turn tool-step budget. Deliberately much higher than
+    /// `AgentRunner.defaultMaxToolSteps` (a conservative library default): a real coding task
+    /// (edit → build → test → fix → re-test) routinely needs dozens of tool executions, and the
+    /// spend fuse — not a tiny step count — is the primary runaway guard.
+    public static let defaultMaxToolSteps = 64
+
     public var defaultModel: String
     public var mode: AgentMode
     public var apiBaseURL: String
@@ -149,6 +155,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var runSpendFuseUSD: Double?
     public var runSpendPeriodLimits: RunSpendPeriodLimits
     public var managedWorktrees: ManagedWorktreeSettings
+    /// Per-turn ceiling on agent tool executions. Always ≥ 1 (normalized on init).
+    public var maxToolSteps: Int
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
@@ -166,6 +174,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case runSpendFuseUSD
         case runSpendPeriodLimits
         case managedWorktrees
+        case maxToolSteps
     }
 
     public init(
@@ -183,7 +192,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
         runSpendFuseUSD: Double? = 1.0,
         runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
-        managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings()
+        managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings(),
+        maxToolSteps: Int = AppConfig.defaultMaxToolSteps
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
         self.mode = mode
@@ -206,6 +216,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.runSpendFuseUSD = Self.normalizedRunSpendFuse(runSpendFuseUSD)
         self.runSpendPeriodLimits = runSpendPeriodLimits
         self.managedWorktrees = managedWorktrees
+        self.maxToolSteps = max(1, maxToolSteps)
     }
 
     public var browserDomainPolicy: BrowserDomainPolicy {
@@ -265,7 +276,9 @@ public struct AppConfig: Codable, Sendable, Hashable {
             managedWorktrees: try container.decodeIfPresent(
                 ManagedWorktreeSettings.self,
                 forKey: .managedWorktrees
-            ) ?? ManagedWorktreeSettings()
+            ) ?? ManagedWorktreeSettings(),
+            maxToolSteps: try container.decodeIfPresent(Int.self, forKey: .maxToolSteps)
+                ?? Self.defaultMaxToolSteps
         )
     }
 

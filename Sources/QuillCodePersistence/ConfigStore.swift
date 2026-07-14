@@ -100,6 +100,10 @@ public struct ConfigStore: Sendable {
                 if let limit = Self.intValue(value) {
                     managedWorktrees.retentionLimit = ManagedWorktreeSettings.normalizedRetentionLimit(limit)
                 }
+            case "max_tool_steps":
+                if let steps = Self.intValue(value) {
+                    config.maxToolSteps = max(1, steps)
+                }
             default:
                 continue
             }
@@ -175,6 +179,7 @@ public struct ConfigStore: Sendable {
             to: &lines
         )
         lines.append("managed_worktree_retention_limit = \(config.managedWorktrees.retentionLimit)")
+        lines.append("max_tool_steps = \(config.maxToolSteps)")
         Self.appendRepeatedValues(config.favoriteModels, key: "favorite_model", to: &lines)
         Self.appendRepeatedValues(
             config.computerUseApprovedBundleIdentifiers,

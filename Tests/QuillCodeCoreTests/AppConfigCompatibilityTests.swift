@@ -21,6 +21,20 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.notificationPreferences, QuillCodeNotificationPreferences())
         XCTAssertEqual(config.runSpendFuseUSD, 1.0)
         XCTAssertEqual(config.managedWorktrees, ManagedWorktreeSettings())
+        XCTAssertEqual(config.maxToolSteps, AppConfig.defaultMaxToolSteps)
+    }
+
+    func testAppConfigDecodesAndNormalizesMaxToolSteps() throws {
+        let config = try JSONHelpers.decode(AppConfig.self, from: """
+        {
+          "maxToolSteps": 32
+        }
+        """)
+
+        XCTAssertEqual(config.maxToolSteps, 32)
+        // Non-positive values normalize to the ≥1 floor rather than wedging the loop at zero steps.
+        XCTAssertEqual(AppConfig(maxToolSteps: 0).maxToolSteps, 1)
+        XCTAssertEqual(AppConfig(maxToolSteps: -5).maxToolSteps, 1)
     }
 
     func testAppConfigDecodesAndNormalizesRunSpendFuse() throws {

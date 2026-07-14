@@ -30,6 +30,41 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         ])
     }
 
+    func testConfiguredRunnerAppliesConfigMaxToolSteps() {
+        // Config is authoritative per send: a bare AgentRunner() carries the conservative library
+        // default (6), which would strangle any real task — the builder must lift it to the
+        // user-configurable production budget, and honor an explicit config value.
+        let defaulted = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ).configuredRunner(from: AgentRunner())
+        XCTAssertEqual(defaulted.maxToolSteps, AppConfig.defaultMaxToolSteps)
+
+        var builder = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+        builder.config = AppConfig(maxToolSteps: 128)
+        XCTAssertEqual(builder.configuredRunner(from: AgentRunner()).maxToolSteps, 128)
+
+        // A runner with a DELIBERATE non-default budget (delegated subagent runs, tests) keeps it —
+        // config only fills in the library default.
+        XCTAssertEqual(
+            builder.configuredRunner(from: AgentRunner(maxToolSteps: 4)).maxToolSteps,
+            4
+        )
+    }
+
     func testContextPreservesUnrelatedToolFeedbackAttachmentProvider() {
         let baseRunner = AgentRunner(
             baseToolDefinitions: [],
