@@ -1946,7 +1946,7 @@
       right: 0;
       z-index: 31;
       width: min(240px, calc(100vw - 24px));
-      max-height: min(520px, calc(100vh - 130px));
+      max-height: max(180px, min(420px, calc(100vh - 300px)));
       overflow: auto;
       display: grid;
       gap: 8px;
@@ -2005,6 +2005,10 @@
     .sidebar-saved-search-row {
       grid-template-columns: minmax(0, 1fr) var(--hit-target) var(--hit-target) var(--hit-target);
       gap: 2px;
+    }
+    .sidebar-filter-popover .sidebar-saved-search-move,
+    .sidebar-filter-popover .sidebar-saved-search-delete {
+      border-radius: 7px;
     }
     .sidebar-saved-search-create {
       width: 100%;

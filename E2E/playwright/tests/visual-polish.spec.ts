@@ -76,6 +76,13 @@ test('mock harness keeps chat filters compact until explicitly disclosed', async
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+  await page.evaluate(() => {
+    const harness = window as unknown as {
+      addSidebarSavedSearch: (title: string, query: string, id: string) => string | null;
+    };
+    harness.addSidebarSavedSearch('Shell work', 'whoami', 'saved-shell-work');
+    harness.addSidebarSavedSearch('Run work', 'run', 'saved-run-work');
+  });
 
   await expect(page.getByTestId('sidebar-filter-menu-button')).toBeVisible();
   await expect(page.getByTestId('sidebar-filter').first()).toBeHidden();
@@ -96,6 +103,8 @@ test('mock harness keeps chat filters compact until explicitly disclosed', async
       popoverRight: popoverRect.right,
       popoverTop: popoverRect.top,
       popoverBottom: popoverRect.bottom,
+      popoverClientHeight: popover.clientHeight,
+      popoverScrollHeight: popover.scrollHeight,
       viewportHeight: window.innerHeight
     };
   });
@@ -105,6 +114,7 @@ test('mock harness keeps chat filters compact until explicitly disclosed', async
   expect(metrics.popoverRight).toBeLessThanOrEqual(metrics.sidebarRight + 1);
   expect(metrics.popoverTop).toBeGreaterThanOrEqual(0);
   expect(metrics.popoverBottom).toBeLessThanOrEqual(metrics.viewportHeight);
+  expect(metrics.popoverScrollHeight).toBeGreaterThan(metrics.popoverClientHeight);
 
   await page.getByTestId('sidebar-filter-menu-button').click();
   await expect(page.getByTestId('sidebar-filter').first()).toBeHidden();
