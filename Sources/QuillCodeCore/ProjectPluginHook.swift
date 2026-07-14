@@ -39,6 +39,7 @@ public struct ProjectPluginHook: Codable, Sendable, Hashable, Identifiable {
     public var timeoutSeconds: Int
     public var isAsync: Bool
     public var relativePath: String
+    public var pluginRootRelativePath: String?
     public var definitionHash: String
     public var trustStatus: ProjectHookTrustStatus
     public var supportStatus: ProjectHookSupportStatus
@@ -56,6 +57,7 @@ public struct ProjectPluginHook: Codable, Sendable, Hashable, Identifiable {
         timeoutSeconds: Int = 600,
         isAsync: Bool = false,
         relativePath: String,
+        pluginRootRelativePath: String? = nil,
         definitionHash: String,
         trustStatus: ProjectHookTrustStatus = .reviewRequired,
         supportStatus: ProjectHookSupportStatus
@@ -72,6 +74,7 @@ public struct ProjectPluginHook: Codable, Sendable, Hashable, Identifiable {
         self.timeoutSeconds = timeoutSeconds
         self.isAsync = isAsync
         self.relativePath = relativePath
+        self.pluginRootRelativePath = pluginRootRelativePath
         self.definitionHash = definitionHash
         self.trustStatus = trustStatus
         self.supportStatus = supportStatus

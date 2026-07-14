@@ -12,6 +12,7 @@ struct ShellToolCallDispatcher: Sendable {
     private static let toolNames = Set(definitions.map(\.name))
     private static let minTimeoutSeconds = 1
     private static let maxTimeoutSeconds = 1_800
+    private static let maxStandardInputBytes = 1_048_576
 
     static func handles(_ toolName: String) -> Bool {
         toolNames.contains(toolName)
@@ -34,12 +35,18 @@ struct ShellToolCallDispatcher: Sendable {
             case let .allowed(timeoutSeconds):
                 switch environment(args) {
                 case let .allowed(environment):
-                    var request = ShellExecutionRequest(command: command, cwd: cwd)
-                    if let timeoutSeconds {
-                        request.timeoutSeconds = timeoutSeconds
+                    switch standardInput(args) {
+                    case let .allowed(standardInput):
+                        var request = ShellExecutionRequest(command: command, cwd: cwd)
+                        if let timeoutSeconds {
+                            request.timeoutSeconds = timeoutSeconds
+                        }
+                        request.environment = environment
+                        request.standardInput = standardInput
+                        return shell.run(request)
+                    case let .denied(error):
+                        return ToolResult(ok: false, error: error)
                     }
-                    request.environment = environment
-                    return shell.run(request)
                 case let .denied(error):
                     return ToolResult(ok: false, error: error)
                 }
@@ -114,6 +121,16 @@ struct ShellToolCallDispatcher: Sendable {
         }
     }
 
+    private func standardInput(_ args: ToolArguments) -> StandardInputResolution {
+        guard let standardInput = args.string("stdin") else {
+            return .allowed(nil)
+        }
+        guard standardInput.utf8.count <= Self.maxStandardInputBytes else {
+            return .denied("Shell stdin must be at most \(Self.maxStandardInputBytes) UTF-8 bytes.")
+        }
+        return .allowed(standardInput)
+    }
+
     private static func isPath(_ path: String, inside rootPath: String) -> Bool {
         path == rootPath || path.hasPrefix(rootPath + "/")
     }
@@ -130,6 +147,11 @@ struct ShellToolCallDispatcher: Sendable {
 
     private enum EnvironmentResolution {
         case allowed([String: String]?)
+        case denied(String)
+    }
+
+    private enum StandardInputResolution {
+        case allowed(String?)
         case denied(String)
     }
 }

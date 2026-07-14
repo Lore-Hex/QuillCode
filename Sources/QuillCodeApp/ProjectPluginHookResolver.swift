@@ -26,7 +26,9 @@ enum ProjectPluginHookResolver {
                 detail: "Trusted plugin hook from \(hook.pluginName).",
                 relativePath: hook.relativePath,
                 command: command,
-                timeoutSeconds: hook.timeoutSeconds
+                timeoutSeconds: hook.timeoutSeconds,
+                pluginID: hook.pluginID,
+                pluginRootRelativePath: hook.pluginRootRelativePath
             )
         }
     }

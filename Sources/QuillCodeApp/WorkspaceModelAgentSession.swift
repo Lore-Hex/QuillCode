@@ -77,6 +77,7 @@ extension QuillCodeWorkspaceModel {
             computerUseBackend: computerUseBackend,
             imageAttachmentStore: imageAttachmentStore,
             globalMemoryDirectory: globalMemoryDirectory,
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
             mcpToolDefinitions: mcpRuntime.toolDefinitions(
                 manifests: runProject?.extensionManifests ?? [],
                 extensions: extensions

@@ -31,6 +31,20 @@ final class ToolSchemaCoreTests: XCTestCase {
         XCTAssertFalse(redacted.argumentsJSON.contains(".cache/quill"))
     }
 
+    func testToolCallRedactsStandardInputForTranscript() {
+        let call = ToolCall(
+            id: "tool-stdin-redact",
+            name: "host.shell.run",
+            argumentsJSON: #"{"cmd":"cat","stdin":"private hook payload"}"#
+        )
+
+        let redacted = call.redactedForTranscript()
+
+        XCTAssertTrue(redacted.argumentsJSON.contains(ToolCall.redactedStandardInputValue))
+        XCTAssertFalse(redacted.argumentsJSON.contains("private hook payload"))
+        XCTAssertTrue(redacted.argumentsJSON.contains("cat"))
+    }
+
     func testToolCallRedactsMemoryRememberContentForTranscript() {
         let call = ToolCall(
             id: "tool-memory-redact",

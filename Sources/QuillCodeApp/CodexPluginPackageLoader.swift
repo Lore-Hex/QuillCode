@@ -157,6 +157,7 @@ enum CodexPluginPackageLoader {
         else { return [] }
 
         let configPath = relativePath(of: configURL, inside: projectRoot)
+        let packageRootRelativePath = relativePath(of: packageRoot, inside: projectRoot)
         var definitions: [ProjectPluginHook] = []
         for event in configuration.hooks.keys.sorted() {
             guard let eventID = normalizedIdentifier(event),
@@ -181,7 +182,8 @@ enum CodexPluginPackageLoader {
                         commandWindows: commandWindows,
                         statusMessage: statusMessage,
                         timeoutSeconds: timeoutSeconds,
-                        isAsync: isAsync
+                        isAsync: isAsync,
+                        pluginRootRelativePath: packageRootRelativePath
                     )
                     definitions.append(ProjectPluginHook(
                         id: "plugin_hook:\(pluginID).\(eventID).\(groupIndex).\(handlerIndex)",
@@ -196,6 +198,7 @@ enum CodexPluginPackageLoader {
                         timeoutSeconds: timeoutSeconds,
                         isAsync: isAsync,
                         relativePath: "\(configPath)#\(event)/\(groupIndex)/\(handlerIndex)",
+                        pluginRootRelativePath: packageRootRelativePath,
                         definitionHash: definitionHash,
                         supportStatus: hookSupportStatus(
                             event: event,
@@ -236,7 +239,8 @@ enum CodexPluginPackageLoader {
         commandWindows: String?,
         statusMessage: String?,
         timeoutSeconds: Int,
-        isAsync: Bool
+        isAsync: Bool,
+        pluginRootRelativePath: String
     ) -> String {
         let canonical = [
             event,
@@ -246,7 +250,8 @@ enum CodexPluginPackageLoader {
             commandWindows ?? "",
             statusMessage ?? "",
             String(timeoutSeconds),
-            isAsync ? "true" : "false"
+            isAsync ? "true" : "false",
+            pluginRootRelativePath
         ].joined(separator: "\u{1F}")
         return MCPCrypto.sha256(Array(canonical.utf8))
             .map { String(format: "%02x", $0) }

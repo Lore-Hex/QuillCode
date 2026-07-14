@@ -79,6 +79,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             projectHookTrustStore: ProjectHookTrustFileStore(directory: paths.hookTrustDirectory),
             subagentSessionStoreDirectory: paths.subagentSessionsDirectory,
             globalMemoryDirectory: paths.memoriesDirectory,
+            pluginDataBaseDirectory: paths.pluginDataDirectory,
             imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),
             worktreeSnapshotStore: ManagedWorktreeSnapshotStore(directory: paths.worktreeSnapshotsDirectory),
             subagentThreadStore: childStore,

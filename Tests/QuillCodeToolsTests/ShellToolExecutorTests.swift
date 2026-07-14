@@ -33,6 +33,28 @@ final class ShellToolExecutorTests: XCTestCase {
         XCTAssertEqual(result.stdout, "from-shell-request")
     }
 
+    func testShellSuppliesBoundedStandardInputAndClosesEOF() {
+        let result = ShellToolExecutor().run(.init(
+            command: "cat",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            standardInput: "hook payload\n"
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "hook payload\n")
+    }
+
+    func testShellDrainsLargeOutputWithoutPipeDeadlock() {
+        let result = ShellToolExecutor().run(.init(
+            command: "yes quill | head -n 20000",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 5
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("quill"))
+    }
+
     func testCancellableShellStopsLongRunningCommand() async throws {
         let task = Task {
             await ShellToolExecutor().runCancellable(.init(

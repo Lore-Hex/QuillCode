@@ -17,6 +17,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let computerUseBackend: (any ComputerUseBackend)?
     private let imageAttachmentStore: ImageAttachmentStore?
     private let globalMemoryDirectory: URL?
+    private let pluginDataBaseDirectory: URL?
     private let skillResolver: SkillResolver
     private let mcpToolDefinitions: [ToolDefinition]
     private let mcpToolExecutionOverride: AgentToolExecutionOverride?
@@ -39,6 +40,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         computerUseBackend: (any ComputerUseBackend)?,
         imageAttachmentStore: ImageAttachmentStore? = nil,
         globalMemoryDirectory: URL?,
+        pluginDataBaseDirectory: URL? = nil,
         mcpToolDefinitions: [ToolDefinition],
         mcpToolExecutionOverride: AgentToolExecutionOverride?,
         sshRemoteShellExecutor: SSHRemoteShellExecutor,
@@ -59,6 +61,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.computerUseBackend = computerUseBackend
         self.imageAttachmentStore = imageAttachmentStore
         self.globalMemoryDirectory = globalMemoryDirectory
+        self.pluginDataBaseDirectory = pluginDataBaseDirectory
         self.skillResolver = WorkspacePluginSkillResolver.make(
             workspaceRoot: workspaceRoot,
             manifests: selectedProject?.extensionManifests ?? []
@@ -95,6 +98,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
             runHooks: selectedProject?.runHooks ?? [],
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor
         )

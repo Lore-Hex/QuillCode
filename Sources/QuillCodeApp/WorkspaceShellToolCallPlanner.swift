@@ -7,15 +7,23 @@ enum WorkspaceShellToolCallPlanner {
         shellRunToolCall(
             command: action.command,
             environment: action.environment,
-            timeoutSeconds: action.timeoutSeconds
+            timeoutSeconds: action.timeoutSeconds,
+            standardInput: nil,
+            workingDirectory: nil
         )
     }
 
-    static func projectRunHook(_ hook: ProjectRunHook) -> ToolCall {
+    static func projectRunHook(
+        _ hook: ProjectRunHook,
+        environment: [String: String],
+        standardInput: String
+    ) -> ToolCall {
         shellRunToolCall(
             command: hook.command,
-            environment: hook.environment,
-            timeoutSeconds: hook.timeoutSeconds
+            environment: environment,
+            timeoutSeconds: hook.timeoutSeconds,
+            standardInput: standardInput,
+            workingDirectory: hook.workingDirectory
         )
     }
 
@@ -23,7 +31,9 @@ enum WorkspaceShellToolCallPlanner {
         shellRunToolCall(
             command: script.command,
             environment: script.environment,
-            timeoutSeconds: script.timeoutSeconds
+            timeoutSeconds: script.timeoutSeconds,
+            standardInput: nil,
+            workingDirectory: nil
         )
     }
 
@@ -33,13 +43,21 @@ enum WorkspaceShellToolCallPlanner {
     ) -> ToolCall? {
         let command = rawCommand?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !command.isEmpty else { return nil }
-        return shellRunToolCall(command: command, environment: nil, timeoutSeconds: timeoutSeconds)
+        return shellRunToolCall(
+            command: command,
+            environment: nil,
+            timeoutSeconds: timeoutSeconds,
+            standardInput: nil,
+            workingDirectory: nil
+        )
     }
 
     private static func shellRunToolCall(
         command: String,
         environment: [String: String]?,
-        timeoutSeconds: Int?
+        timeoutSeconds: Int?,
+        standardInput: String?,
+        workingDirectory: String?
     ) -> ToolCall {
         var arguments: [String: Any] = ["cmd": command]
         if let environment {
@@ -47,6 +65,12 @@ enum WorkspaceShellToolCallPlanner {
         }
         if let timeoutSeconds {
             arguments["timeoutSeconds"] = timeoutSeconds
+        }
+        if let standardInput {
+            arguments["stdin"] = standardInput
+        }
+        if let workingDirectory {
+            arguments["cwd"] = workingDirectory
         }
         return ToolCall(
             name: ToolDefinition.shellRun.name,

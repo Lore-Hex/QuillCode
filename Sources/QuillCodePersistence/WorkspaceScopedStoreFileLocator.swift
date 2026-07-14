@@ -4,22 +4,30 @@ import QuillCodeCore
 enum WorkspaceScopedStoreFileLocator {
     static func fileURL(directory: URL, workspaceRoot: URL) -> URL {
         let canonicalPath = WorkspaceBoundary.symlinkResolvedPath(workspaceRoot.standardizedFileURL)
-        let component = sanitizedComponent(URL(fileURLWithPath: canonicalPath).lastPathComponent)
+        let component = sanitizedComponent(
+            URL(fileURLWithPath: canonicalPath).lastPathComponent,
+            fallback: "project",
+            maxLength: 40
+        )
         return directory.appendingPathComponent("\(component)-\(fnv1a64Hex(canonicalPath)).json")
     }
 
-    private static func sanitizedComponent(_ component: String) -> String {
+    static func sanitizedComponent(
+        _ component: String,
+        fallback: String,
+        maxLength: Int
+    ) -> String {
         let allowed = component.unicodeScalars.map { scalar -> Character in
             if CharacterSet.alphanumerics.contains(scalar) || scalar == "-" || scalar == "_" {
                 return Character(scalar)
             }
             return "_"
         }
-        let name = String(allowed.prefix(40))
-        return name.isEmpty ? "project" : name
+        let name = String(allowed.prefix(maxLength))
+        return name.isEmpty ? fallback : name
     }
 
-    private static func fnv1a64Hex(_ text: String) -> String {
+    static func fnv1a64Hex(_ text: String) -> String {
         var hash: UInt64 = 0xcbf29ce484222325
         for byte in text.utf8 {
             hash ^= UInt64(byte)

@@ -53,6 +53,7 @@ public final class QuillCodeWorkspaceModel {
     let projectHookTrustStore: ProjectHookTrustFileStore?
     let subagentSessionStore: WorkspaceSubagentSessionStore?
     let globalMemoryDirectory: URL?
+    let pluginDataBaseDirectory: URL?
     let imageAttachmentStore: ImageAttachmentStore?
     let worktreeSnapshotStore: ManagedWorktreeSnapshotStore?
     let subagentThreadStore: SubagentThreadStore?
@@ -126,6 +127,7 @@ public final class QuillCodeWorkspaceModel {
         projectHookTrustStore: ProjectHookTrustFileStore? = nil,
         subagentSessionStoreDirectory: URL? = nil,
         globalMemoryDirectory: URL? = nil,
+        pluginDataBaseDirectory: URL? = nil,
         imageAttachmentStore: ImageAttachmentStore? = nil,
         worktreeSnapshotStore: ManagedWorktreeSnapshotStore? = nil,
         subagentThreadStore: SubagentThreadStore? = nil,
@@ -165,6 +167,7 @@ public final class QuillCodeWorkspaceModel {
         self.projectHookTrustStore = projectHookTrustStore
         self.subagentSessionStore = subagentSessionStoreDirectory.map(WorkspaceSubagentSessionStore.init)
         self.globalMemoryDirectory = globalMemoryDirectory
+        self.pluginDataBaseDirectory = pluginDataBaseDirectory
         self.imageAttachmentStore = imageAttachmentStore
         self.worktreeSnapshotStore = worktreeSnapshotStore
         self.subagentThreadStore = subagentThreadStore
