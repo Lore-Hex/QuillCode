@@ -123,6 +123,10 @@ struct QuillCodeDesktopRootView: View {
             onToggleModelFavorite: controller.toggleModelFavorite,
             onSaveSettings: controller.saveSettings,
             onStartTrustedRouterSignIn: controller.startTrustedRouterSignIn,
+            agentImportActions: QuillCodeAgentImportActions(
+                discover: controller.discoverAgentImport,
+                perform: controller.performAgentImport
+            ),
             onReviewScopeChange: controller.runReviewScopeChange,
             onReviewAction: controller.runReviewAction,
             onPullRequestReviewThreadAction: controller.runPullRequestReviewThreadAction,

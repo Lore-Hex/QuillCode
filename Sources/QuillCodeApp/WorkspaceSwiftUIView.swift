@@ -26,6 +26,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
     @State private var subagentTranscript: WorkspaceSubagentTranscriptSurface?
     @StateObject private var worktreeDialogs = QuillCodeWorktreeDialogCoordinator()
+    @StateObject private var agentImportDialog = QuillCodeAgentImportDialogCoordinator()
     @FocusState private var isComposerFocused: Bool
 
     public init(
@@ -65,6 +66,7 @@ public struct QuillCodeWorkspaceView: View {
         onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
+        agentImportActions: QuillCodeAgentImportActions? = nil,
         onReviewScopeChange: @escaping (WorkspaceReviewSelection) -> Void = { _ in },
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
@@ -132,6 +134,7 @@ public struct QuillCodeWorkspaceView: View {
             onToggleModelFavorite: onToggleModelFavorite,
             onSaveSettings: onSaveSettings,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+            agentImport: agentImportActions,
             onReviewScopeChange: onReviewScopeChange,
             onReviewAction: onReviewAction,
             onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
@@ -267,6 +270,8 @@ public struct QuillCodeWorkspaceView: View {
             renameProjectDraft: $renameProjectDraft,
             sidebarSavedSearchDraft: $sidebarSavedSearchDraft,
             subagentTranscript: $subagentTranscript,
+            agentImportDialog: agentImportDialog,
+            agentImportActions: actions.agentImport,
             onSelectThread: actions.onSelectThread,
             onSaveSettings: actions.onSaveSettings,
             onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,

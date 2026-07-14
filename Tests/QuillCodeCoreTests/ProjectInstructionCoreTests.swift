@@ -45,6 +45,8 @@ final class ProjectInstructionCoreTests: XCTestCase {
     func testProjectInstructionDerivesScopedApplicabilityFromPath() throws {
         XCTAssertEqual(ProjectInstruction.scopePath(for: "AGENTS.md"), ".")
         XCTAssertEqual(ProjectInstruction.scopePath(for: ".quillcode/rules.md"), ".")
+        XCTAssertEqual(ProjectInstruction.scopePath(for: ".quillcode/rules/imported.md"), ".")
+        XCTAssertEqual(ProjectInstruction.scopePath(for: "Sources/.quillcode/rules/imported.md"), "Sources")
         XCTAssertEqual(ProjectInstruction.scopePath(for: "Sources/Feature/AGENTS.md"), "Sources/Feature")
         XCTAssertEqual(ProjectInstruction.scopePath(for: "Sources/Feature/.quillcode/rules.md"), "Sources/Feature")
         XCTAssertEqual(ProjectInstruction.scopePath(for: "Sources/Feature/.quillcode/instructions.md"), "Sources/Feature")

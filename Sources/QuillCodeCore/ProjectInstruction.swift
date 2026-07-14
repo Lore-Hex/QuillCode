@@ -46,6 +46,13 @@ public struct ProjectInstruction: Codable, Sendable, Hashable, Identifiable {
             return scope.isEmpty ? "." : scope
         }
 
+        if components.count >= 3,
+           components[components.count - 3] == ".quillcode",
+           components[components.count - 2] == "rules" {
+            let scope = components.dropLast(3).joined(separator: "/")
+            return scope.isEmpty ? "." : scope
+        }
+
         let scope = components.dropLast().joined(separator: "/")
         return scope.isEmpty ? "." : scope
     }

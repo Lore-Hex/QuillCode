@@ -22,6 +22,8 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var renameProjectDraft: QuillCodeProjectRenameDraft?
     @Binding var sidebarSavedSearchDraft: QuillCodeSidebarSavedSearchDraft?
     @Binding var subagentTranscript: WorkspaceSubagentTranscriptSurface?
+    @ObservedObject var agentImportDialog: QuillCodeAgentImportDialogCoordinator
+    var agentImportActions: QuillCodeAgentImportActions?
     var onSelectThread: (UUID) -> Void
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     var onStartTrustedRouterSignIn: () -> Void
@@ -54,19 +56,8 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @ViewBuilder
     private var modalLayer: some View {
         ZStack {
-            if isSettingsPresented {
-                dismissibleModal(accessibilityLabel: "Dismiss settings", onDismiss: dismissSettings) {
-                    QuillCodeSettingsView(
-                        settings: surface.settings,
-                        draft: $settingsDraft,
-                        onCancel: dismissSettings,
-                        onSave: saveSettings,
-                        onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
-                        onCommand: onCommand
-                    )
-                }
-                .zIndex(10)
-            }
+            settingsModal
+            agentImportModal
             if isSearchPresented {
                 dismissibleModal(accessibilityLabel: "Dismiss search", onDismiss: dismissSearch) {
                     QuillCodeSearchView(
@@ -147,9 +138,42 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
             }
         }
         .animation(.easeOut(duration: 0.16), value: isSettingsPresented)
+        .animation(.easeOut(duration: 0.16), value: agentImportDialog.phase)
         .animation(.easeOut(duration: 0.16), value: isSearchPresented)
         .animation(.easeOut(duration: 0.16), value: isCommandPalettePresented)
         .animation(.easeOut(duration: 0.16), value: subagentTranscript?.id)
+    }
+
+    @ViewBuilder
+    private var settingsModal: some View {
+        if isSettingsPresented {
+            dismissibleModal(accessibilityLabel: "Dismiss settings", onDismiss: dismissSettings) {
+                QuillCodeSettingsView(
+                    settings: surface.settings,
+                    draft: $settingsDraft,
+                    onCancel: dismissSettings,
+                    onSave: saveSettings,
+                    onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+                    onOpenAgentImport: agentImportActions.map { _ in openAgentImport },
+                    onCommand: onCommand
+                )
+            }
+            .zIndex(10)
+        }
+    }
+
+    @ViewBuilder
+    private var agentImportModal: some View {
+        if agentImportDialog.isPresented {
+            dismissibleModal(accessibilityLabel: "Dismiss import", onDismiss: dismissAgentImport) {
+                QuillCodeAgentImportView(
+                    coordinator: agentImportDialog,
+                    onClose: dismissAgentImport,
+                    onImport: performAgentImport
+                )
+            }
+            .zIndex(15)
+        }
     }
 
     private func dismissibleModal<Dialog: View>(
@@ -235,6 +259,21 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     private func saveSettings() {
         onSaveSettings(settingsDraft.update)
         isSettingsPresented = false
+    }
+
+    private func openAgentImport() {
+        guard let agentImportActions else { return }
+        isSettingsPresented = false
+        agentImportDialog.begin(using: agentImportActions)
+    }
+
+    private func dismissAgentImport() {
+        agentImportDialog.dismiss()
+    }
+
+    private func performAgentImport() {
+        guard let agentImportActions else { return }
+        agentImportDialog.perform(using: agentImportActions)
     }
 
     private func dismissSearch() {
@@ -365,6 +404,8 @@ extension View {
         renameProjectDraft: Binding<QuillCodeProjectRenameDraft?>,
         sidebarSavedSearchDraft: Binding<QuillCodeSidebarSavedSearchDraft?>,
         subagentTranscript: Binding<WorkspaceSubagentTranscriptSurface?>,
+        agentImportDialog: QuillCodeAgentImportDialogCoordinator,
+        agentImportActions: QuillCodeAgentImportActions?,
         onSelectThread: @escaping (UUID) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
@@ -405,6 +446,8 @@ extension View {
             renameProjectDraft: renameProjectDraft,
             sidebarSavedSearchDraft: sidebarSavedSearchDraft,
             subagentTranscript: subagentTranscript,
+            agentImportDialog: agentImportDialog,
+            agentImportActions: agentImportActions,
             onSelectThread: onSelectThread,
             onSaveSettings: onSaveSettings,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
