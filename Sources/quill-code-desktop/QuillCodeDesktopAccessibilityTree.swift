@@ -10,6 +10,7 @@ struct QuillCodeDesktopAccessibilityElementSnapshot {
     var accessibilityLabel: String
     var help: String
     var value: String
+    var isFocused: Bool
     var frame: CGRect?
     var ancestorIdentifiers: [String]
 
@@ -81,6 +82,17 @@ struct QuillCodeDesktopAccessibilityTree {
         AXUIElementPerformAction(snapshot.element, kAXPressAction as CFString)
     }
 
+    static func performSetValue(
+        _ value: String,
+        on snapshot: QuillCodeDesktopAccessibilityElementSnapshot
+    ) -> AXError {
+        AXUIElementSetAttributeValue(
+            snapshot.element,
+            kAXValueAttribute as CFString,
+            value as CFTypeRef
+        )
+    }
+
     private static func collect(
         from element: AXUIElement,
         into collected: inout [QuillCodeDesktopAccessibilityElementSnapshot],
@@ -108,6 +120,7 @@ struct QuillCodeDesktopAccessibilityTree {
         let description = stringAttribute(kAXDescriptionAttribute, from: element)
         let help = stringAttribute(kAXHelpAttribute, from: element)
         let value = stringAttribute(kAXValueAttribute, from: element)
+        let isFocused = boolAttribute(kAXFocusedAttribute, from: element)
         let frame = frame(from: element)
         guard !identifier.isEmpty || frame != nil else { return nil }
         return QuillCodeDesktopAccessibilityElementSnapshot(
@@ -118,6 +131,7 @@ struct QuillCodeDesktopAccessibilityTree {
             accessibilityLabel: description,
             help: help,
             value: value,
+            isFocused: isFocused,
             frame: frame,
             ancestorIdentifiers: ancestorIdentifiers
         )
@@ -170,6 +184,17 @@ struct QuillCodeDesktopAccessibilityTree {
             return number.stringValue
         }
         return ""
+    }
+
+    private static func boolAttribute(_ attribute: String, from element: AXUIElement) -> Bool {
+        guard let value = axAttribute(attribute, from: element) else { return false }
+        if let bool = value as? Bool {
+            return bool
+        }
+        if let number = value as? NSNumber {
+            return number.boolValue
+        }
+        return false
     }
 
     private static func frame(from element: AXUIElement) -> CGRect? {

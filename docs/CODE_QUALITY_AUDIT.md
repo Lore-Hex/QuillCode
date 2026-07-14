@@ -15912,6 +15912,26 @@ Validation:
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
 
+## 2026-07-14 Packaged Search Activation And Text-Entry Proof
+
+Overall grade after this slice: **A+ interaction contract, A+ state restoration, A+ release evidence**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Architecture | A+ | Typed activation contracts own observation, expected outcome, restoration, and optional deeper verification; the sampler no longer repeats command-ID switches across observe/reset/copy paths. |
+| Native fidelity | A+ | The packaged SwiftUI app must open Search through real AXPress, expose its stable field identifier, focus the field, accept AXValue text, and clear it again. |
+| State safety | A+ | Every sampled presentation or pane toggle restores its baseline before the smoke runner continues, and the Search text mutation is explicitly reversible. |
+| Release gate | A+ | The Python manifest validator requires Search among the live activation targets and rejects evidence that does not prove both focus and AXValue entry. |
+| Tests | A+ | Focused desktop report tests, packaged-manifest fixture tests, and the real packaged macOS direct/Launch Services/live-window smoke cover model, validator, and runtime behavior. |
+
+Validation:
+
+- `swift test --filter QuillCodeDesktopWindowReportTests`
+- `swift test --filter ParityPackagedClickProbeSmokeGateTests`
+- `scripts/packaged-macos-smoke.sh`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
+
 ## 2026-07-12 Managed Worktree Branch Promotion Hardening
 
 Overall grade after this slice: **A+ Git ownership boundary, A+ regression coverage**.

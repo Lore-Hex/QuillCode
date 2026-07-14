@@ -34,6 +34,7 @@ REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS = [
     "top-bar.overflow",
 ]
 REQUIRED_LIVE_ACCESSIBILITY_ACTIVATION_CONTRACT_IDS = [
+    "command.search",
     "command.settings",
     "command.toggle-automations",
     "command.toggle-extensions",

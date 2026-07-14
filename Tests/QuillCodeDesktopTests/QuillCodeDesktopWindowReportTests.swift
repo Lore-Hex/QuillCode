@@ -67,6 +67,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                     beforeValue: "false",
                     afterValue: "true",
                     axError: "success",
+                    interactionEvidence: "AXPress changed observable controller state",
                     validationIssue: nil
                 )
             ],
@@ -148,6 +149,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""liveAccessibilityActivation" : "ax-press-sampled""#))
         XCTAssertTrue(json.contains(#""expectedOutcome" : "settings sheet becomes presented""#))
         XCTAssertTrue(json.contains(#""activation" : "AXPress""#))
+        XCTAssertTrue(json.contains(#""interactionEvidence" : "AXPress changed observable controller state""#))
         XCTAssertTrue(json.contains(#""hitTestAvailable" : true"#))
         XCTAssertTrue(json.contains(#""hitTestMatchesTarget" : true"#))
         XCTAssertTrue(json.contains(#""requiresTactileFeedback" : true"#))
@@ -188,6 +190,18 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(QuillCodeDesktopAccessibilityFrameSampler.requiredLiveContractIDs.isSuperset(
             of: QuillCodeDesktopAccessibilityFrameSampler.requiredPrimarySidebarContractIDs
         ))
+    }
+
+    func testWindowAccessibilityActivationSamplerRequiresSearchAndSafePrimaryActions() {
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityActivationSampler.requiredActivationContractIDs,
+            [
+                "command.search",
+                "command.settings",
+                "command.toggle-automations",
+                "command.toggle-extensions"
+            ]
+        )
     }
 
     private func waitUntil(

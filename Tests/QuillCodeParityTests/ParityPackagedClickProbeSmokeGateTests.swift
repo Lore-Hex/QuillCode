@@ -90,9 +90,13 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         let windowReport = temporaryDirectory.appendingPathComponent("window-report.json")
         let accessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-report.json")
         let blockedAccessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-blocked-report.json")
+        let shallowSearchActivationReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-shallow-search-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
+        let shallowSearchAccessibilityFrames = temporaryDirectory
+            .appendingPathComponent("shallow-search-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
@@ -103,6 +107,12 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .write(to: accessibilityFrameReport, atomically: true, encoding: .utf8)
         try Self.minimalPackagedWindowAccessibilityFrameReport(firstSampleHitTestMatchesTarget: false)
             .write(to: blockedAccessibilityFrameReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: "quillcode-search-input focused and accepted reversible AXValue text entry",
+                with: "AXPress changed observable controller state"
+            )
+            .write(to: shallowSearchActivationReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -238,6 +248,19 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             blockedFramesResult.output.contains("hit 'quillcode-blocker' instead of the target"),
             blockedFramesResult.output
+        )
+
+        let shallowSearchResult = try Self.runPython(validator, arguments: [
+            "frames",
+            shallowSearchActivationReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            shallowSearchAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(shallowSearchResult.exitCode, 0)
+        XCTAssertTrue(
+            shallowSearchResult.output.contains("command.search does not prove focused AXValue text entry"),
+            shallowSearchResult.output
         )
     }
 }

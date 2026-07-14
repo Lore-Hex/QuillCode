@@ -207,6 +207,7 @@ extension QuillCodeParityTestCase {
     ]
 
     static let requiredLiveAccessibilityActivationContractIDs = [
+        "command.search",
         "command.settings",
         "command.toggle-automations",
         "command.toggle-extensions"
@@ -255,6 +256,7 @@ extension QuillCodeParityTestCase {
                 "beforeValue": "false",
                 "afterValue": "true",
                 "axError": "success",
+                "interactionEvidence": "\(accessibilityActivationEvidence(contractID: contractID))",
                 "ok": true,
                 "validationIssue": ""
               }
@@ -263,6 +265,8 @@ extension QuillCodeParityTestCase {
 
     static func accessibilityActivationExpectedOutcome(contractID: String) -> String {
         switch contractID {
+        case "command.search":
+            return "search dialog opens, focuses its field, and accepts text"
         case "command.settings":
             return "settings sheet becomes presented"
         case "command.toggle-automations":
@@ -272,5 +276,12 @@ extension QuillCodeParityTestCase {
         default:
             return "observable controller state changes"
         }
+    }
+
+    static func accessibilityActivationEvidence(contractID: String) -> String {
+        if contractID == "command.search" {
+            return "quillcode-search-input focused and accepted reversible AXValue text entry"
+        }
+        return "AXPress changed observable controller state"
     }
 }

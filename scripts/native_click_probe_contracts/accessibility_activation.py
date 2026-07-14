@@ -72,6 +72,7 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
     expected_outcome = _required_string(check, "expectedOutcome", report_path)
     before_value = _required_string(check, "beforeValue", report_path)
     after_value = _required_string(check, "afterValue", report_path)
+    interaction_evidence = _required_string(check, "interactionEvidence", report_path)
 
     if check.get("ok") is not True:
         raise SystemExit(f"{report_path} Accessibility activation check failed for {contract_id}")
@@ -83,6 +84,12 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(f"{report_path} {contract_id} AXPress did not change observable state")
     if check.get("validationIssue") not in ("", None):
         raise SystemExit(f"{report_path} {contract_id} carries validationIssue {check.get('validationIssue')}")
+    if contract_id == "command.search" and not all(
+        marker in interaction_evidence for marker in ("focused", "AXValue")
+    ):
+        raise SystemExit(
+            f"{report_path} command.search does not prove focused AXValue text entry"
+        )
 
     return {
         "contractID": contract_id,
@@ -92,6 +99,7 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         "expectedOutcome": expected_outcome,
         "beforeValue": before_value,
         "afterValue": after_value,
+        "interactionEvidence": interaction_evidence,
     }
 
 
