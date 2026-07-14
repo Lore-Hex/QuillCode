@@ -25,6 +25,10 @@ private enum ShellToolDefinitionSchema {
             "type": "string"
           },
           "description": "Optional command-local env overrides. Keys must be ASCII identifiers; values must be single-line strings."
+        },
+        "stdin": {
+          "type": "string",
+          "description": "Optional bounded standard input supplied to the command before EOF."
         }
       },
       "required": [
@@ -39,17 +43,20 @@ public struct ShellExecutionRequest: Sendable {
     public var cwd: URL
     public var timeoutSeconds: TimeInterval
     public var environment: [String: String]?
+    public var standardInput: String?
 
     public init(
         command: String,
         cwd: URL,
         timeoutSeconds: TimeInterval = 30,
-        environment: [String: String]? = nil
+        environment: [String: String]? = nil,
+        standardInput: String? = nil
     ) {
         self.command = command
         self.cwd = cwd
         self.timeoutSeconds = timeoutSeconds
         self.environment = environment
+        self.standardInput = standardInput
     }
 }
 
@@ -179,8 +186,11 @@ public struct ShellToolExecutor: Sendable {
 
         let stdout = Pipe()
         let stderr = Pipe()
+        let stdin = request.standardInput.map { _ in Pipe() }
+        process.standardInput = stdin
         process.standardOutput = stdout
         process.standardError = stderr
+        let completionWaiter = ShellProcessCompletionWaiter(process: process)
 
         do {
             if processBox?.set(process) == false {
@@ -192,19 +202,28 @@ public struct ShellToolExecutor: Sendable {
             return ToolResult(ok: false, error: "Failed to start shell: \(error)")
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in semaphore.signal() }
-        if semaphore.wait(timeout: .now() + request.timeoutSeconds) == .timedOut {
-            process.terminate()
+        if let input = request.standardInput, let stdin {
+            DispatchQueue.global(qos: .userInitiated).async {
+                defer { try? stdin.fileHandleForWriting.close() }
+                try? stdin.fileHandleForWriting.write(contentsOf: Data(input.utf8))
+            }
+        }
+
+        let output = ShellProcessOutputCollector(stdout: stdout, stderr: stderr)
+        output.start()
+
+        if completionWaiter.wait(for: process, timeoutSeconds: request.timeoutSeconds) == .timedOut {
+            output.wait()
             processBox?.clear()
             return ToolResult(ok: false, error: "Command timed out after \(Int(request.timeoutSeconds))s.")
         }
+        output.wait()
         processBox?.clear()
 
         // Bound the output so a chatty command can't blow the model's context window on an unattended
         // run — keep the tail (the final status/error is what matters for a shell command).
-        let out = cappedOutput(from: stdout)
-        let err = cappedOutput(from: stderr)
+        let out = ShellOutputCapper.cap(String(decoding: output.stdout, as: UTF8.self)).text
+        let err = ShellOutputCapper.cap(String(decoding: output.stderr, as: UTF8.self)).text
         let ok = process.terminationStatus == 0
         return ToolResult(
             ok: ok,
@@ -215,9 +234,35 @@ public struct ShellToolExecutor: Sendable {
         )
     }
 
-    private static func cappedOutput(from pipe: Pipe) -> String {
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return ShellOutputCapper.cap(String(decoding: data, as: UTF8.self)).text
+}
+
+private final class ShellProcessOutputCollector: @unchecked Sendable {
+    private let stdoutPipe: Pipe
+    private let stderrPipe: Pipe
+    private let readers = DispatchGroup()
+    private(set) var stdout = Data()
+    private(set) var stderr = Data()
+
+    init(stdout: Pipe, stderr: Pipe) {
+        self.stdoutPipe = stdout
+        self.stderrPipe = stderr
+    }
+
+    func start() {
+        read(stdoutPipe) { [weak self] data in self?.stdout = data }
+        read(stderrPipe) { [weak self] data in self?.stderr = data }
+    }
+
+    func wait() {
+        readers.wait()
+    }
+
+    private func read(_ pipe: Pipe, assign: @escaping @Sendable (Data) -> Void) {
+        readers.enter()
+        DispatchQueue.global(qos: .utility).async { [readers] in
+            assign(pipe.fileHandleForReading.readDataToEndOfFile())
+            readers.leave()
+        }
     }
 }
 

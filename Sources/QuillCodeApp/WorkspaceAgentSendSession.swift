@@ -29,6 +29,7 @@ struct WorkspaceAgentSendSession: Sendable {
     var workspaceRoot: URL
     var recordsUserMessage: Bool
     var runHooks: [ProjectRunHook]
+    var pluginDataBaseDirectory: URL?
     var selectedProject: ProjectRef?
     var sshRemoteShellExecutor: SSHRemoteShellExecutor
 
@@ -39,6 +40,7 @@ struct WorkspaceAgentSendSession: Sendable {
         workspaceRoot: URL,
         recordsUserMessage: Bool = true,
         runHooks: [ProjectRunHook] = [],
+        pluginDataBaseDirectory: URL? = nil,
         selectedProject: ProjectRef? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
     ) {
@@ -49,6 +51,7 @@ struct WorkspaceAgentSendSession: Sendable {
         self.workspaceRoot = workspaceRoot
         self.recordsUserMessage = recordsUserMessage
         self.runHooks = runHooks
+        self.pluginDataBaseDirectory = pluginDataBaseDirectory
         self.selectedProject = selectedProject
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
     }
@@ -65,7 +68,9 @@ struct WorkspaceAgentSendSession: Sendable {
             timing: .beforeAgentRun,
             hooks: runHooks,
             thread: &activeThread,
+            prompt: prompt,
             workspaceRoot: workspaceRoot,
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             onProgress: onProgress
@@ -133,7 +138,9 @@ struct WorkspaceAgentSendSession: Sendable {
             timing: .afterAgentRun,
             hooks: runHooks,
             thread: &activeThread,
+            prompt: prompt,
             workspaceRoot: workspaceRoot,
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             onProgress: onProgress

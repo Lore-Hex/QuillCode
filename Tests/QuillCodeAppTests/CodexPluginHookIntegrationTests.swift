@@ -59,6 +59,7 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
         let before = try XCTUnwrap(package.hooks.first { $0.statusMessage == "Prepare context" })
         XCTAssertEqual(before.timeoutSeconds, 42)
         XCTAssertEqual(before.relativePath, ".quillcode/plugins/demo/hooks/hooks.json#UserPromptSubmit/0/0")
+        XCTAssertEqual(before.pluginRootRelativePath, ".quillcode/plugins/demo")
     }
 
     func testExplicitHookReferenceLoadsAndUnsafeReferenceIsRejected() throws {
@@ -85,6 +86,32 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
             in: root,
             maxManifestBytes: ProjectExtensionManifestLoader.maxManifestBytes
         )?.hooks.isEmpty == true)
+    }
+
+    func testPackageMoveChangesExactHookDefinitionHash() throws {
+        let root = try makeQuillCodeTestDirectory()
+        try writePlugin(in: root)
+        try writeHooks(
+            #"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"printf done"}]}]}}"#,
+            in: root
+        )
+        let source = root.appendingPathComponent(".quillcode/plugins/demo")
+        let moved = root.appendingPathComponent(".quillcode/plugins/moved")
+        try FileManager.default.copyItem(at: source, to: moved)
+
+        let original = try XCTUnwrap(CodexPluginPackageLoader.loadPackage(
+            at: ".quillcode/plugins/demo",
+            in: root,
+            maxManifestBytes: ProjectExtensionManifestLoader.maxManifestBytes
+        )?.hooks.first)
+        let relocated = try XCTUnwrap(CodexPluginPackageLoader.loadPackage(
+            at: ".quillcode/plugins/moved",
+            in: root,
+            maxManifestBytes: ProjectExtensionManifestLoader.maxManifestBytes
+        )?.hooks.first)
+
+        XCTAssertNotEqual(original.pluginRootRelativePath, relocated.pluginRootRelativePath)
+        XCTAssertNotEqual(original.definitionHash, relocated.definitionHash)
     }
 
     func testHookCountIsBoundedAndDirectManifestShadowsPackageHooks() throws {
@@ -203,7 +230,14 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
         let root = try makeQuillCodeTestDirectory()
         try writePlugin(in: root)
         try writeHooks(
-            #"{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"printf before > plugin-before.txt"}]}],"Stop":[{"hooks":[{"type":"command","command":"printf after > plugin-after.txt"}]}]}}"#,
+            #"""
+            {
+              "hooks": {
+                "UserPromptSubmit": [{"hooks":[{"type":"command","command":"printf before > plugin-before.txt; cat > \"$PLUGIN_DATA/before.json\"; printf '%s\\n%s\\n%s\\n%s' \"$PLUGIN_ROOT\" \"$PLUGIN_DATA\" \"$CLAUDE_PLUGIN_ROOT\" \"$CLAUDE_PLUGIN_DATA\" > plugin-env.txt"}]}],
+                "Stop": [{"hooks":[{"type":"command","command":"printf after > plugin-after.txt; cat > \"$PLUGIN_DATA/after.json\""}]}]
+              }
+            }
+            """#,
             in: root
         )
         let trustStore = ProjectHookTrustFileStore(
@@ -214,12 +248,14 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
             try trustStore.setDecision(.trusted, for: hook, workspaceRoot: root)
         }
         let trusted = WorkspaceProjectMetadataLoader.loadLocal(from: root, hookTrustStore: trustStore)
+        let pluginDataBase = root.appendingPathComponent(".test-plugin-data", isDirectory: true)
         let session = WorkspaceAgentSendSession(
             prompt: "say hello",
             thread: ChatThread(title: "Plugin hooks"),
             runner: AgentRunner(llm: HookCompletionLLM()),
             workspaceRoot: root,
-            runHooks: trusted.runHooks
+            runHooks: trusted.runHooks,
+            pluginDataBaseDirectory: pluginDataBase
         )
 
         let result = try await session.run()
@@ -238,6 +274,74 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
             result.thread.events.filter { $0.kind == .notice }.map(\.summary),
             ["Running before-run hook: Demo Hooks · UserPromptSubmit", "Running after-run hook: Demo Hooks · Stop"]
         )
+        let pluginData = try ProjectPluginDataDirectoryLocator.directoryURL(
+            baseDirectory: pluginDataBase,
+            workspaceRoot: root,
+            pluginID: "plugin:demo"
+        )
+        let beforePayload = try hookPayload(at: pluginData.appendingPathComponent("before.json"))
+        let afterPayload = try hookPayload(at: pluginData.appendingPathComponent("after.json"))
+        XCTAssertEqual(beforePayload["hook_event_name"] as? String, "UserPromptSubmit")
+        XCTAssertEqual(beforePayload["prompt"] as? String, "say hello")
+        XCTAssertEqual(afterPayload["hook_event_name"] as? String, "Stop")
+        XCTAssertEqual(afterPayload["last_assistant_message"] as? String, "hello")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("plugin-env.txt"), encoding: .utf8)
+                .split(separator: "\n").map(String.init),
+            [
+                root.appendingPathComponent(".quillcode/plugins/demo").path,
+                pluginData.path,
+                root.appendingPathComponent(".quillcode/plugins/demo").path,
+                pluginData.path
+            ]
+        )
+        let queuedPayloads = result.thread.events
+            .filter { $0.kind == .toolQueued }
+            .compactMap(\.payloadJSON)
+        XCTAssertEqual(queuedPayloads.count, 2)
+        XCTAssertTrue(queuedPayloads.allSatisfy { $0.contains(ToolCall.redactedStandardInputValue) })
+        XCTAssertTrue(queuedPayloads.allSatisfy { $0.contains(ToolCall.redactedEnvironmentValue) })
+        XCTAssertTrue(queuedPayloads.allSatisfy { !$0.contains("say hello") && !$0.contains(pluginData.path) })
+    }
+
+    func testMatchingPluginHooksLaunchConcurrentlyButRecordInConfigurationOrder() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let first = "touch first.started; i=0; while [ ! -f second.started ] && [ $i -lt 50 ]; do sleep 0.02; i=$((i+1)); done; test -f second.started"
+        let second = "touch second.started; i=0; while [ ! -f first.started ] && [ $i -lt 50 ]; do sleep 0.02; i=$((i+1)); done; test -f first.started"
+        let hooks = [
+            ProjectRunHook(
+                id: "first",
+                timing: .beforeAgentRun,
+                title: "First",
+                relativePath: "hooks.json#0",
+                command: first,
+                timeoutSeconds: 3
+            ),
+            ProjectRunHook(
+                id: "second",
+                timing: .beforeAgentRun,
+                title: "Second",
+                relativePath: "hooks.json#1",
+                command: second,
+                timeoutSeconds: 3
+            )
+        ]
+        let session = WorkspaceAgentSendSession(
+            prompt: "continue",
+            thread: ChatThread(title: "Concurrent hooks"),
+            runner: AgentRunner(llm: HookCompletionLLM()),
+            workspaceRoot: root,
+            runHooks: hooks
+        )
+
+        let result = try await session.run()
+
+        XCTAssertEqual(result.thread.messages.map(\.content), ["continue", "hello"])
+        XCTAssertEqual(
+            result.thread.events.filter { $0.kind == .notice }.map(\.summary),
+            ["Running before-run hook: First", "Running before-run hook: Second"]
+        )
+        XCTAssertEqual(result.thread.events.filter { $0.kind == .toolCompleted }.count, 2)
     }
 
     func testHTMLSurfaceShowsReviewActionAndKeepsUnsupportedHookInert() {
@@ -299,6 +403,12 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
 
     private func hook(event: String, in hooks: [ProjectPluginHook]) -> ProjectPluginHook? {
         hooks.first { $0.event == event }
+    }
+
+    private func hookPayload(at url: URL) throws -> [String: Any] {
+        try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        )
     }
 
     private func makeSurfaceHook(

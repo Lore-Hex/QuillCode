@@ -15,6 +15,7 @@ public struct ToolCall: Codable, Sendable, Hashable, Identifiable {
 public extension ToolCall {
     static let redactedEnvironmentValue = "<redacted>"
     static let redactedMemoryContentValue = "<redacted memory content>"
+    static let redactedStandardInputValue = "<redacted standard input>"
 
     func redactedForTranscript() -> ToolCall {
         let redactedArguments = Self.redactedArgumentsJSON(argumentsJSON, toolName: name)
@@ -34,6 +35,10 @@ public extension ToolCall {
         var didRedact = false
         for key in ["environment", "env"] where object[key] != nil {
             object[key] = redactedEnvironmentPayload(object[key])
+            didRedact = true
+        }
+        for key in ["stdin", "standardInput", "standard_input"] where object[key] != nil {
+            object[key] = redactedStandardInputValue
             didRedact = true
         }
         if toolName == ToolDefinition.memoryRemember.name {

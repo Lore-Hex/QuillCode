@@ -13,7 +13,9 @@ enum ProjectRunHookExecutor {
         timing: ProjectRunHookTiming,
         hooks: [ProjectRunHook],
         thread: inout ChatThread,
+        prompt: String,
         workspaceRoot: URL,
+        pluginDataBaseDirectory: URL?,
         selectedProject: ProjectRef?,
         sshRemoteShellExecutor: SSHRemoteShellExecutor,
         onProgress: AgentRunProgressHandler?
@@ -39,20 +41,65 @@ enum ProjectRunHookExecutor {
                 summary: "Running \(displayName(for: timing)) hook: \(hook.title)"
             ))
             thread.updatedAt = Date()
-            await onProgress?(thread)
+        }
+        await onProgress?(thread)
 
-            let call = WorkspaceShellToolCallPlanner.projectRunHook(hook)
-            let result = executor.executePrimary(call)
-            WorkspaceToolEventRecorder.append(call: call, result: result, to: &thread)
-            thread.updatedAt = Date()
-            await onProgress?(thread)
-
-            guard result.ok else {
-                return ProjectRunHookExecutionFailure(hook: hook, result: result)
+        var outcomes: [HookExecutionOutcome] = []
+        var invocations: [(Int, ProjectRunHookInvocation)] = []
+        for (index, hook) in matchingHooks.enumerated() {
+            do {
+                invocations.append((index, try ProjectRunHookInvocationBuilder.build(
+                    hook: hook,
+                    thread: thread,
+                    prompt: prompt,
+                    workspaceRoot: workspaceRoot,
+                    pluginDataBaseDirectory: pluginDataBaseDirectory
+                )))
+            } catch {
+                let call = WorkspaceShellToolCallPlanner.projectRunHook(
+                    hook,
+                    environment: hook.environment ?? [:],
+                    standardInput: "{}\n"
+                )
+                outcomes.append(HookExecutionOutcome(
+                    index: index,
+                    hook: hook,
+                    call: call,
+                    result: ToolResult(ok: false, error: error.localizedDescription)
+                ))
             }
         }
 
-        return nil
+        let completed = await withTaskGroup(of: HookExecutionOutcome.self) { group in
+            for (index, invocation) in invocations {
+                group.addTask {
+                    HookExecutionOutcome(
+                        index: index,
+                        hook: invocation.hook,
+                        call: invocation.call,
+                        result: executor.executePrimary(invocation.call)
+                    )
+                }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+        outcomes.append(contentsOf: completed)
+
+        var firstFailure: ProjectRunHookExecutionFailure?
+        for outcome in outcomes.sorted(by: { $0.index < $1.index }) {
+            WorkspaceToolEventRecorder.append(call: outcome.call, result: outcome.result, to: &thread)
+            thread.updatedAt = Date()
+            await onProgress?(thread)
+
+            if !outcome.result.ok, firstFailure == nil {
+                firstFailure = ProjectRunHookExecutionFailure(
+                    hook: outcome.hook,
+                    result: outcome.result
+                )
+            }
+        }
+
+        return firstFailure
     }
 
     static func failureMessage(
@@ -87,4 +134,11 @@ enum ProjectRunHookExecutor {
         }
         return "Command failed."
     }
+}
+
+private struct HookExecutionOutcome: Sendable {
+    var index: Int
+    var hook: ProjectRunHook
+    var call: ToolCall
+    var result: ToolResult
 }

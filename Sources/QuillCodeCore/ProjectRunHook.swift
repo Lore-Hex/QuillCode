@@ -16,6 +16,8 @@ public struct ProjectRunHook: Codable, Sendable, Hashable, Identifiable {
     public var environment: [String: String]?
     public var workingDirectory: String?
     public var timeoutSeconds: Int?
+    public var pluginID: String?
+    public var pluginRootRelativePath: String?
 
     public init(
         id: String,
@@ -27,7 +29,9 @@ public struct ProjectRunHook: Codable, Sendable, Hashable, Identifiable {
         sortOrder: Int? = nil,
         environment: [String: String]? = nil,
         workingDirectory: String? = nil,
-        timeoutSeconds: Int? = nil
+        timeoutSeconds: Int? = nil,
+        pluginID: String? = nil,
+        pluginRootRelativePath: String? = nil
     ) {
         self.id = id
         self.timing = timing
@@ -39,5 +43,7 @@ public struct ProjectRunHook: Codable, Sendable, Hashable, Identifiable {
         self.environment = environment
         self.workingDirectory = workingDirectory
         self.timeoutSeconds = timeoutSeconds
+        self.pluginID = pluginID
+        self.pluginRootRelativePath = pluginRootRelativePath
     }
 }

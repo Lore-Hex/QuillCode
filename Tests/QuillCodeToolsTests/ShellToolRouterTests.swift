@@ -96,6 +96,32 @@ final class ShellToolRouterTests: XCTestCase {
         XCTAssertEqual(result.stdout, "from-tool")
     }
 
+    func testToolRouterShellPassesStandardInput() throws {
+        let root = try makeTempDirectory()
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"cat","stdin":"standard hook input\n"}"#
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "standard hook input\n")
+    }
+
+    func testToolRouterShellRejectsOversizedStandardInput() throws {
+        let root = try makeTempDirectory()
+        let input = String(repeating: "x", count: 1_048_577)
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "cat", "stdin": input])
+        )
+
+        let result = ToolRouter(workspaceRoot: root).execute(call)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Shell stdin must be at most 1048576 UTF-8 bytes.")
+    }
+
     func testToolRouterShellRejectsUnsafeEnvironmentOverrides() throws {
         let root = try makeTempDirectory()
 
