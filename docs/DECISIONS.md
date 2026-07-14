@@ -975,3 +975,10 @@
 - **State ownership:** Desktop model-picker presentation is owned beside the other desktop presentation bindings, rather than hidden as view-local state. This lets commands, recovery paths, and packaged smoke observe and restore one authoritative value.
 - **Native proof:** Packaged macOS smoke AX-presses the real composer model control, enters `Prometheus` through AXValue, requires the identified `trustedrouter/fusion` row with a `Prometheus 1.0` label, clears the query, and closes the picker back to its baseline without changing the selected model.
 - **Why:** Browser-level catalog tests cannot prove that a native popover focuses correctly or that its SwiftUI rows survive accessibility projection. Search, result identity, and reversible cleanup are one release gate.
+
+## 2026-07-14: Settings is a rendered-and-dismissible packaged contract
+
+- **Behavior:** Opening Settings must render recognizable dialog content and expose a direct close action; a Boolean presentation flag is not sufficient.
+- **Native proof:** Packaged macOS smoke AX-presses Settings, requires the identified title and notifications control, presses the identified Close control through AXPress, and waits for the dialog to disappear.
+- **State safety:** Smoke does not edit preferences, authentication, keys, spend caps, or Computer Use approvals; it restores the baseline presentation state.
+- **Why:** Settings is a critical recovery and configuration surface. Release evidence must prove users can enter and leave it, not merely that command dispatch toggled state.

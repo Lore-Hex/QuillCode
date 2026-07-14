@@ -56,6 +56,7 @@ struct QuillCodeSettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Settings")
                     .font(.title2.weight(.semibold))
+                    .accessibilityIdentifier("quillcode-settings-title")
                 Text(settings.loginStatusLabel)
                     .font(.callout)
                     .foregroundStyle(QuillCodePalette.muted)
@@ -92,6 +93,7 @@ struct QuillCodeSettingsView: View {
             .keyboardShortcut(.cancelAction)
             .help("Close settings")
             .accessibilityLabel("Close settings")
+            .accessibilityIdentifier("quillcode-settings-close")
         }
     }
 

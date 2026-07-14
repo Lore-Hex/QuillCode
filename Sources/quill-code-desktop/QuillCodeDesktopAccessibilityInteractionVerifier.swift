@@ -11,6 +11,9 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     private static let prometheusOptionIdentifier = "quillcode-model-option-trustedrouter/fusion"
     private static let searchInputIdentifier = "quillcode-search-input"
     private static let searchSmokeText = "QuillCode search smoke"
+    private static let settingsTitleIdentifier = "quillcode-settings-title"
+    private static let settingsControlIdentifier = "quillcode-notifications-agent-runs"
+    private static let settingsCloseIdentifier = "quillcode-settings-close"
 
     static func observeWorkspaceThreads(
         _ controller: QuillCodeDesktopController
@@ -111,6 +114,48 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         )
     }
 
+    static func verifySettingsDismissal(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        guard await waitForElement(settingsTitleIdentifier, in: contentView) != nil else {
+            return .init(
+                evidence: "settings title did not render",
+                validationIssue: "command.settings did not render the Settings dialog"
+            )
+        }
+        guard await waitForElement(settingsControlIdentifier, in: contentView) != nil else {
+            return .init(
+                evidence: "settings dialog rendered without its first preference control",
+                validationIssue: "command.settings did not expose the notifications preference control"
+            )
+        }
+        guard let closeButton = await waitForElement(settingsCloseIdentifier, in: contentView) else {
+            return .init(
+                evidence: "settings dialog rendered without an accessible close button",
+                validationIssue: "command.settings did not expose \(settingsCloseIdentifier)"
+            )
+        }
+
+        let pressError = QuillCodeDesktopAccessibilityTree.performPress(on: closeButton)
+        guard pressError == .success else {
+            return .init(
+                evidence: "\(settingsCloseIdentifier) rejected AXPress",
+                validationIssue: "command.settings could not dismiss through \(settingsCloseIdentifier): \(pressError)"
+            )
+        }
+        guard await waitForElementToDisappear(settingsTitleIdentifier, in: contentView) else {
+            return .init(
+                evidence: "\(settingsCloseIdentifier) accepted AXPress but Settings remained visible",
+                validationIssue: "command.settings close button did not dismiss the dialog"
+            )
+        }
+
+        return .init(
+            evidence: "rendered Settings with its notifications control and dismissed through \(settingsCloseIdentifier) with AXPress",
+            validationIssue: nil
+        )
+    }
+
     private static func verifyReversibleTextEntry(
         inputIdentifier: String,
         smokeText: String,
@@ -172,15 +217,47 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         contentView: NSView
     ) async -> String? {
         guard let identifier, let labelFragment, let validationIssue else { return nil }
+        return await waitForElement(identifier, labelFragment: labelFragment, in: contentView) == nil
+            ? validationIssue
+            : nil
+    }
+
+    private static func waitForElement(
+        _ identifier: String,
+        labelFragment: String? = nil,
+        in contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityElementSnapshot? {
         for _ in 0..<20 {
-            if QuillCodeDesktopAccessibilityTree(root: contentView).elements.contains(where: {
-                $0.identifier == identifier && $0.bestLabel.contains(labelFragment)
-            }) {
-                return nil
+            if let candidate = element(identifier, in: contentView) {
+                let labelMatches = labelFragment.map { candidate.bestLabel.contains($0) } ?? true
+                if labelMatches {
+                    return candidate
+                }
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
-        return validationIssue
+        return nil
+    }
+
+    private static func waitForElementToDisappear(
+        _ identifier: String,
+        in contentView: NSView
+    ) async -> Bool {
+        for _ in 0..<20 {
+            if element(identifier, in: contentView) == nil {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return false
+    }
+
+    private static func element(
+        _ identifier: String,
+        in contentView: NSView
+    ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        QuillCodeDesktopAccessibilityTree(root: contentView).elements
+            .first { $0.identifier == identifier }
     }
 
     private static func waitForInput(

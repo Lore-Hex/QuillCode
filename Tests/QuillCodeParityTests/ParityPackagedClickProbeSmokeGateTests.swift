@@ -96,6 +96,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("window-accessibility-shallow-new-chat-report.json")
         let shallowModelPickerActivationReport = temporaryDirectory
             .appendingPathComponent("window-accessibility-shallow-model-picker-report.json")
+        let shallowSettingsActivationReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-shallow-settings-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
@@ -105,6 +107,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("shallow-new-chat-packaged-accessibility-frames.json")
         let shallowModelPickerAccessibilityFrames = temporaryDirectory
             .appendingPathComponent("shallow-model-picker-packaged-accessibility-frames.json")
+        let shallowSettingsAccessibilityFrames = temporaryDirectory
+            .appendingPathComponent("shallow-settings-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
@@ -133,6 +137,12 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 with: "AXPress changed observable controller state"
             )
             .write(to: shallowModelPickerActivationReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: "rendered Settings with its notifications control and dismissed through quillcode-settings-close with AXPress",
+                with: "AXPress changed observable controller state"
+            )
+            .write(to: shallowSettingsActivationReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -311,6 +321,21 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 "composer.model-picker does not prove focused catalog search"
             ),
             shallowModelPickerResult.output
+        )
+
+        let shallowSettingsResult = try Self.runPython(validator, arguments: [
+            "frames",
+            shallowSettingsActivationReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            shallowSettingsAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(shallowSettingsResult.exitCode, 0)
+        XCTAssertTrue(
+            shallowSettingsResult.output.contains(
+                "command.settings does not prove rendered controls and close-button dismissal"
+            ),
+            shallowSettingsResult.output
         )
     }
 }
