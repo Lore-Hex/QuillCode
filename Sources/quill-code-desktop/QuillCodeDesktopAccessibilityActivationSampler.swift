@@ -112,11 +112,16 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             },
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyAutomationsDismissal
         ),
-        .toggle(
+        .presentation(
             "command.toggle-extensions",
-            expectedOutcome: "extensions pane visibility toggles",
+            expectedOutcome: "Extensions renders its Add control and dismisses through Close",
             observe: { $0.surface.extensions.isVisible },
-            resetWith: { $0.toggleExtensions() }
+            resetToBaseline: { baseline, controller in
+                if controller.surface.extensions.isVisible != baseline {
+                    controller.toggleExtensions()
+                }
+            },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyExtensionsDismissal
         )
     ]
 

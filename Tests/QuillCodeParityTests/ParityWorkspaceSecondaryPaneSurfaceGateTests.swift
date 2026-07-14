@@ -79,9 +79,15 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
             "struct QuillCodePaneEmptyStateView"
         ].forEach { Self.assertSource(chromeText, contains: $0) }
 
-        Self.assertSource(extensionsText, contains: "struct QuillCodeExtensionsPaneView")
+        [
+            "struct QuillCodeExtensionsPaneView",
+            "accessibilityIdentifier(\"quillcode-extensions-title\")",
+            "accessibilityIdentifier(\"quillcode-extensions-add\")",
+            "accessibilityIdentifier(\"quillcode-extensions-close\")"
+        ].forEach { Self.assertSource(extensionsText, contains: $0) }
         Self.assertSource(extensionsText, excludes: "private func extensionCard")
         Self.assertSource(extensionsText, excludes: "probeMetadataChips")
+        Self.assertSource(mainPaneText, contains: "onClose: { runCommand(id: \"toggle-extensions\") }")
         Self.assertSource(extensionCardsText, contains: "ProjectExtensionManifestSurface")
         Self.assertSource(extensionCardsText, contains: "extensionCommand(id:")
         Self.assertSource(metadataText, contains: "MCPToolDescriptor")
