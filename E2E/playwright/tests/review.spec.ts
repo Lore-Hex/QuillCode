@@ -169,7 +169,7 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByTestId('review-pane')).toBeVisible();
-  await expect(page.getByTestId('review-scope')).toHaveCount(2);
+  await expect(page.getByTestId('review-scope')).toHaveCount(4);
   await expect(page.getByTestId('review-scope').filter({ hasText: 'Unstaged' })).toHaveAttribute('aria-pressed', 'true');
   const scopeBounds = await elementRect(page, '[data-testid="review-scope"]:has-text("Unstaged")');
   expect(scopeBounds.width).toBeGreaterThanOrEqual(40);
@@ -193,6 +193,62 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await page.getByTestId('review-range-comment-form').getByRole('button', { name: 'Add range note' }).click();
   const rangeComment = page.getByTestId('review-line-comment').filter({ hasText: 'Lines 1-2' });
   await expect(rangeComment).toContainText('Keep the title adjacent to the import');
+});
+
+test('mock harness compares one exact commit with a focused read-only review', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('git diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Commit', exact: true }).click();
+
+  const referenceInput = page.getByTestId('review-reference-input');
+  await expect(referenceInput).toBeFocused();
+  await expect(referenceInput).toHaveValue('HEAD');
+  await expect(page.getByTestId('review-reference-compare')).toBeEnabled();
+  const inputBounds = await elementRect(page, '[data-testid="review-reference-input"]');
+  const compareBounds = await elementRect(page, '[data-testid="review-reference-compare"]');
+  expect(inputBounds.height).toBeGreaterThanOrEqual(40);
+  expect(compareBounds.width).toBeGreaterThanOrEqual(40);
+  expect(compareBounds.height).toBeGreaterThanOrEqual(40);
+
+  await referenceInput.fill('abc123');
+  await page.getByTestId('review-reference-compare').click();
+
+  await expect(page.getByRole('button', { name: 'Commit', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('review-reference-input')).toHaveValue('abc123');
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"commit": "abc123"');
+  await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
+  await expect(page.getByTestId('review-action')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Open', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Stage', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Restore', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Stage hunk' })).toHaveCount(0);
+});
+
+test('mock harness requires a base branch and dispatches a merge-base comparison', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('git diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Branch', exact: true }).click();
+
+  const referenceInput = page.getByTestId('review-reference-input');
+  await expect(referenceInput).toBeFocused();
+  await expect(referenceInput).toHaveValue('');
+  await expect(page.getByTestId('review-reference-compare')).toBeDisabled();
+  await referenceInput.fill('origin/main');
+  await expect(page.getByTestId('review-reference-compare')).toBeEnabled();
+  await referenceInput.press('Enter');
+
+  await expect(page.getByRole('button', { name: 'Branch', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('review-reference-input')).toHaveValue('origin/main');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"baseBranch": "origin/main"');
+  await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
+  await expect(page.getByTestId('review-action')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Unstage', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Unstage hunk' })).toHaveCount(0);
 });
 
 test('mock harness flows apply patch into review diff', async ({ page }) => {

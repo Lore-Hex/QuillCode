@@ -111,12 +111,12 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
     }
 
     func runReviewScopeChange(
-        _ scope: WorkspaceReviewScope,
+        _ selection: WorkspaceReviewSelection,
         model: QuillCodeWorkspaceModel,
         fallbackWorkspaceRoot: URL
     ) {
         model.runReviewScopeChange(
-            scope,
+            selection,
             workspaceRoot: activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
         )
     }

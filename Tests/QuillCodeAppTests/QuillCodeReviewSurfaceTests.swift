@@ -36,7 +36,7 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
 
         XCTAssertTrue(unstaged.isVisible)
         XCTAssertEqual(unstaged.subtitle, "No unstaged changes")
-        XCTAssertEqual(unstaged.availableScopes, [.unstaged, .staged])
+        XCTAssertEqual(unstaged.availableScopes, [.unstaged, .staged, .commit, .branch])
         XCTAssertTrue(staged.isVisible)
         XCTAssertEqual(staged.subtitle, "No staged changes")
         XCTAssertEqual(staged.activeScope, .staged)

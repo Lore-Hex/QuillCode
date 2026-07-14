@@ -22,6 +22,8 @@ public enum GitToolError: Error, CustomStringConvertible {
     case invalidPullRequestReviewer(String)
     case invalidPullRequestLabel(String)
     case emptyBranch
+    case emptyDiffReference
+    case ambiguousDiffSelection
     case invalidGitName(String)
     case branchStartPointRequiresCreate
     case noCurrentBranch
@@ -82,6 +84,10 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "GitHub pull request label is unsupported: \(value)"
         case .emptyBranch:
             return "Git branch is required."
+        case .emptyDiffReference:
+            return "Git diff commit or base branch is required."
+        case .ambiguousDiffSelection:
+            return "Git diff accepts only one of staged, commit, or baseBranch."
         case .invalidGitName(let value):
             return "Git remote or branch contains unsupported characters: \(value)"
         case .branchStartPointRequiresCreate:

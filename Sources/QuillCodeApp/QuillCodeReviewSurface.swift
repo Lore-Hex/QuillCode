@@ -4,6 +4,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     public var title: String
     public var subtitle: String
     public var activeScope: WorkspaceReviewScope?
+    public var scopeReference: String?
     public var files: [WorkspaceReviewFileSurface]
     public var pullRequestThreads: [WorkspacePullRequestReviewThreadSurface]
     public var pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface?
@@ -17,6 +18,10 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
 
     public var availableScopes: [WorkspaceReviewScope] {
         activeScope == nil ? [] : WorkspaceReviewScope.allCases
+    }
+
+    public var activeSelection: WorkspaceReviewSelection? {
+        activeScope.flatMap { WorkspaceReviewSelection(scope: $0, reference: scopeReference) }
     }
 
     public var badgeLabel: String {
@@ -34,6 +39,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         case title
         case subtitle
         case activeScope
+        case scopeReference
         case files
         case pullRequestThreads
         case pullRequestReviewDraft
@@ -46,6 +52,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         title: String = "Review changes",
         subtitle: String = "Latest git diff",
         activeScope: WorkspaceReviewScope? = nil,
+        scopeReference: String? = nil,
         files: [WorkspaceReviewFileSurface] = [],
         pullRequestThreads: [WorkspacePullRequestReviewThreadSurface] = [],
         pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface? = nil
@@ -57,6 +64,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
             ? "Review pull request"
             : title
         self.activeScope = activeScope
+        self.scopeReference = scopeReference
         self.files = files
         self.pullRequestThreads = pullRequestThreads
         self.pullRequestReviewDraft = pullRequestReviewDraft
@@ -75,7 +83,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         } else if let pullRequestReviewDraft {
             self.subtitle = pullRequestReviewDraft.subtitle
         } else if let activeScope {
-            self.subtitle = activeScope.emptySubtitle
+            self.subtitle = activeScope.emptySubtitle(reference: scopeReference)
         } else {
             self.subtitle = subtitle
         }
@@ -86,6 +94,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         self.title = try container.decode(String.self, forKey: .title)
         self.subtitle = try container.decode(String.self, forKey: .subtitle)
         self.activeScope = try container.decodeIfPresent(WorkspaceReviewScope.self, forKey: .activeScope)
+        self.scopeReference = try container.decodeIfPresent(String.self, forKey: .scopeReference)
         self.files = try container.decode([WorkspaceReviewFileSurface].self, forKey: .files)
         self.pullRequestThreads = try container.decodeIfPresent(
             [WorkspacePullRequestReviewThreadSurface].self,

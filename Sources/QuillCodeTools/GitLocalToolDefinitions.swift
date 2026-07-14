@@ -10,9 +10,11 @@ public extension ToolDefinition {
 
     static let gitDiff = gitTool(
         name: "host.git.diff",
-        description: "Show git diff for the project.",
+        description: "Show unstaged changes, staged changes, one exact commit, or changes since a base branch. Select at most one comparison.",
         parametersJSON: GitToolParameterSchema.object(properties: [
-            "staged": .boolean()
+            "staged": .boolean(description: "Show staged changes."),
+            "commit": .string(description: "Show the patch introduced by this exact commit or SHA."),
+            "baseBranch": .string(description: "Show changes from this branch's merge base through HEAD.")
         ]),
         risk: .read
     )

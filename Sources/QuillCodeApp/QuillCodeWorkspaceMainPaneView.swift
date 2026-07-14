@@ -30,7 +30,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onOpenBrowserPreview: () -> Void
     var onOpenBrowserSession: (() -> Void)?
     var onAddBrowserComment: (String) -> Void
-    var onReviewScopeChange: (WorkspaceReviewScope) -> Void
+    var onReviewScopeChange: (WorkspaceReviewSelection) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void

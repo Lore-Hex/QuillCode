@@ -62,6 +62,8 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
             mutatingActions = [
                 WorkspaceReviewActionSurface(kind: .unstage, path: path, scope: scope)
             ]
+        case .commit, .branch:
+            mutatingActions = []
         }
         guard unreadableReason == nil else {
             return mutatingActions
@@ -204,6 +206,8 @@ public struct WorkspaceReviewHunkSurface: Codable, Sendable, Hashable, Identifia
                     scope: scope
                 )
             ]
+        case .commit, .branch:
+            return []
         }
     }
 

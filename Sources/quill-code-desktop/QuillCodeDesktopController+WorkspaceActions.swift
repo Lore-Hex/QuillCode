@@ -48,9 +48,9 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
-    func runReviewScopeChange(_ scope: WorkspaceReviewScope) {
+    func runReviewScopeChange(_ selection: WorkspaceReviewSelection) {
         workspaceActionCoordinator.runReviewScopeChange(
-            scope,
+            selection,
             model: model,
             fallbackWorkspaceRoot: workspaceRoot
         )

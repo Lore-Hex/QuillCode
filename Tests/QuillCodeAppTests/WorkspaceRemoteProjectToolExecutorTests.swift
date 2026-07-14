@@ -210,6 +210,20 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             "git diff --staged"
         )
         XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitDiff.name, arguments: ["commit": "HEAD"]),
+            "git show --format= --no-ext-diff --find-renames --find-copies 'HEAD' --"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitDiff.name, arguments: ["baseBranch": "origin/main"]),
+            "git diff --no-ext-diff --find-renames --find-copies 'origin/main...HEAD' --"
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(
+                name: ToolDefinition.gitDiff.name,
+                arguments: ["staged": true, "commit": "HEAD"]
+            )
+        )
+        XCTAssertEqual(
             try remoteBasicGitCommand(name: ToolDefinition.gitFetch.name, arguments: ["remote": "origin", "prune": true]),
             "git fetch --prune 'origin'"
         )

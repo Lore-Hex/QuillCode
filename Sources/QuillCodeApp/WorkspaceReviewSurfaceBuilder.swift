@@ -22,7 +22,7 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
 
         var review = GitDiffReviewParser.parse(
             completedDiff.result.stdout,
-            scope: completedDiff.scope
+            selection: completedDiff.selection
         )
         review.pullRequestThreads = pullRequestThreads
         review.pullRequestReviewDraft = pullRequestReviewDraft
@@ -50,7 +50,7 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
 
     private struct CompletedGitDiff: Sendable, Hashable {
         var result: ToolResult
-        var scope: WorkspaceReviewScope
+        var selection: WorkspaceReviewSelection
     }
 
     private var latestCompletedGitDiffResult: CompletedGitDiff? {
@@ -64,15 +64,23 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
         }
         return CompletedGitDiff(
             result: result,
-            scope: reviewScope(from: card.inputJSON)
+            selection: reviewSelection(from: card.inputJSON)
         )
     }
 
-    private func reviewScope(from inputJSON: String?) -> WorkspaceReviewScope {
+    private func reviewSelection(from inputJSON: String?) -> WorkspaceReviewSelection {
         guard let inputJSON,
               let arguments = try? ToolArguments(inputJSON)
         else {
             return .unstaged
+        }
+        if let commit = arguments.string("commit")?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !commit.isEmpty {
+            return .commit(commit)
+        }
+        if let baseBranch = arguments.string("baseBranch")?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !baseBranch.isEmpty {
+            return .branch(baseBranch)
         }
         return arguments.bool("staged") == true ? .staged : .unstaged
     }

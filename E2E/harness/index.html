@@ -3239,7 +3239,7 @@
     }
     .review-scopes {
       display: inline-grid;
-      grid-template-columns: repeat(2, minmax(92px, 1fr));
+      grid-template-columns: repeat(4, minmax(78px, 1fr));
       gap: 2px;
       margin-bottom: 10px;
       padding: 2px;
@@ -3266,6 +3266,33 @@
       color: var(--blue);
     }
     .review-scope-button:active { transform: scale(.96); }
+    .review-reference-form {
+      display: grid;
+      grid-template-columns: auto minmax(160px, 260px) auto;
+      align-items: center;
+      gap: 8px;
+      margin: -2px 0 12px;
+    }
+    .review-reference-form label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .review-reference-input {
+      min-width: 0;
+      min-height: var(--hit-target);
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      font: 13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .review-reference-input:focus-visible {
+      border-color: var(--blue);
+      outline: 2px solid rgba(61,201,230,.2);
+      outline-offset: 1px;
+    }
     .review-empty {
       margin: 0;
       color: var(--muted);
@@ -4437,6 +4464,7 @@
         subtitle: 'Latest git diff',
         hasGitDiff: false,
         activeScope: null,
+        scopeReference: null,
         files: [],
         pullRequestThreads: [],
         reviewDraft: null,
@@ -4444,6 +4472,10 @@
         totalDeletions: 0,
         totalHunks: 0,
         activeReplyThreadID: null
+      },
+      reviewScopeEditor: {
+        pendingScope: null,
+        referenceDraft: ''
       },
       mockGitReviewChangeScope: 'unstaged',
       extensions: {
@@ -8183,6 +8215,10 @@
       const reviewDraft = state.review.reviewDraft || null;
       const hasGitDiff = state.review.hasGitDiff === true;
       const reviewScope = state.review.activeScope || 'unstaged';
+      const reviewScopeEditor = state.reviewScopeEditor || { pendingScope: null, referenceDraft: '' };
+      const selectedReviewScope = reviewScopeEditor.pendingScope || reviewScope;
+      const isHistoricalReview = reviewScope === 'commit' || reviewScope === 'branch';
+      const isHistoricalSelection = selectedReviewScope === 'commit' || selectedReviewScope === 'branch';
       const reviewBadge = [
         state.review.files.length ? `${state.review.totalHunks} hunk${state.review.totalHunks === 1 ? '' : 's'}` : null,
         reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null,
@@ -8197,12 +8233,18 @@
           </header>
           ${hasGitDiff ? `
             <div class="review-scopes" data-testid="review-scopes" role="group" aria-label="Review scope">
-              ${['unstaged', 'staged'].map(scope => `
-                <button type="button" class="review-scope-button hit-target-text" data-testid="review-scope" data-scope="${scope}" aria-pressed="${scope === reviewScope ? 'true' : 'false'}">${scope === 'staged' ? 'Staged' : 'Unstaged'}</button>
+              ${['unstaged', 'staged', 'commit', 'branch'].map(scope => `
+                <button type="button" class="review-scope-button hit-target-text" data-testid="review-scope" data-scope="${scope}" aria-pressed="${scope === selectedReviewScope ? 'true' : 'false'}">${scope[0].toUpperCase()}${scope.slice(1)}</button>
               `).join('')}
             </div>` : ''}
+          ${hasGitDiff && isHistoricalSelection ? `
+            <form class="review-reference-form" data-testid="review-reference-form" data-scope="${selectedReviewScope}">
+              <label for="review-reference-input">${selectedReviewScope === 'commit' ? 'Commit' : 'Base branch'}</label>
+              <input id="review-reference-input" class="review-reference-input hit-target-text-entry" data-testid="review-reference-input" aria-label="${selectedReviewScope === 'commit' ? 'Commit' : 'Base branch'}" placeholder="${selectedReviewScope === 'commit' ? 'HEAD or commit SHA' : 'main or origin/main'}" value="${escapeHTML(reviewScopeEditor.referenceDraft || '')}">
+              <button type="submit" class="review-action-button hit-target-form-action" data-testid="review-reference-compare" ${(reviewScopeEditor.referenceDraft || '').trim() ? '' : 'disabled'}>Compare</button>
+            </form>` : ''}
           ${renderPullRequestReviewDraft(reviewDraft)}
-          ${hasGitDiff && !state.review.files.length ? `<p class="review-empty" data-testid="review-empty">${reviewScope === 'staged' ? 'No staged changes' : 'No unstaged changes'}</p>` : ''}
+          ${hasGitDiff && !state.review.files.length ? `<p class="review-empty" data-testid="review-empty">${reviewScope === 'staged' ? 'No staged changes' : reviewScope === 'commit' ? `No changes in commit ${escapeHTML(state.review.scopeReference || '')}` : reviewScope === 'branch' ? `No changes against ${escapeHTML(state.review.scopeReference || '')}` : 'No unstaged changes'}</p>` : ''}
           <ul>
             ${state.review.files.map(file => `
               <li data-testid="review-file">
@@ -8210,7 +8252,9 @@
                 <span class="review-actions">
                   <small>${escapeHTML(file.changeLabel)}</small>
                   <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="open" data-path="${escapeHTML(file.path)}">Open</button>
-                  ${reviewScope === 'staged'
+                  ${isHistoricalReview
+                    ? ''
+                    : reviewScope === 'staged'
                     ? `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="unstage" data-path="${escapeHTML(file.path)}">Unstage</button>`
                     : `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
                        <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>`}
@@ -8223,7 +8267,9 @@
                           <code data-testid="review-hunk-header">${escapeHTML(hunk.header)}</code>
                           <span class="review-actions">
                             <small>${escapeHTML(hunk.changeLabel)}</small>
-                            ${reviewScope === 'staged'
+                            ${isHistoricalReview
+                              ? ''
+                              : reviewScope === 'staged'
                               ? `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="unstage_hunk" data-path="${escapeHTML(file.path)}">Unstage hunk</button>`
                               : `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
                                  <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>`}
@@ -9423,6 +9469,18 @@
         button.addEventListener('click', event => {
           runReviewScopeChange(event.currentTarget.getAttribute('data-scope'));
         });
+      });
+      document.querySelector('[data-testid="review-reference-input"]')?.addEventListener('input', event => {
+        state.reviewScopeEditor.referenceDraft = event.currentTarget.value;
+        const compareButton = document.querySelector('[data-testid="review-reference-compare"]');
+        if (compareButton) compareButton.disabled = !event.currentTarget.value.trim();
+      });
+      document.querySelector('[data-testid="review-reference-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const scope = event.currentTarget.getAttribute('data-scope');
+        const reference = event.currentTarget.querySelector('[data-testid="review-reference-input"]')?.value.trim();
+        if (!reference) return;
+        runGitDiffAction(scope, { reference, suppressAssistantMessage: true });
       });
       document.querySelectorAll('[data-testid="pr-review-thread-action"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -13621,14 +13679,24 @@
     }
 
     function runGitDiffAction(scope = 'unstaged', options = {}) {
-      const normalizedScope = scope === 'staged' ? 'staged' : 'unstaged';
-      const { diff, review } = mockReviewForScope(normalizedScope);
+      const normalizedScope = ['unstaged', 'staged', 'commit', 'branch'].includes(scope) ? scope : 'unstaged';
+      const reference = String(options.reference || '').trim() || null;
+      if ((normalizedScope === 'commit' || normalizedScope === 'branch') && !reference) return;
+      const { diff, review } = mockReviewForScope(normalizedScope, reference);
       state.review = review;
+      state.reviewScopeEditor = { pendingScope: null, referenceDraft: reference || '' };
+      const input = normalizedScope === 'staged'
+        ? { staged: true }
+        : normalizedScope === 'commit'
+          ? { commit: reference }
+          : normalizedScope === 'branch'
+            ? { baseBranch: reference }
+            : {};
       addToolCard({
         title: 'host.git.diff',
         subtitle: 'Completed',
         status: 'done',
-        inputJSON: JSON.stringify(normalizedScope === 'staged' ? { staged: true } : {}, null, 2),
+        inputJSON: JSON.stringify(input, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
       });
       if (!options.suppressAssistantMessage) {
@@ -13638,7 +13706,19 @@
     }
 
     function runReviewScopeChange(scope) {
-      if (scope !== 'unstaged' && scope !== 'staged') return;
+      if (!['unstaged', 'staged', 'commit', 'branch'].includes(scope)) return;
+      if (scope === 'commit' || scope === 'branch') {
+        const existingReference = state.review.activeScope === scope ? state.review.scopeReference : null;
+        state.reviewScopeEditor = {
+          pendingScope: scope,
+          referenceDraft: existingReference || (scope === 'commit' ? 'HEAD' : '')
+        };
+        render();
+        const input = document.querySelector('[data-testid="review-reference-input"]');
+        input?.focus();
+        if (scope === 'commit') input?.select();
+        return;
+      }
       runGitDiffAction(scope, { suppressAssistantMessage: true });
     }
 
@@ -17582,6 +17662,7 @@
       state.transcript.toolCards = [];
       state.transcript.timelineItems = [];
       state.review = emptyReviewSurface();
+      state.reviewScopeEditor = { pendingScope: null, referenceDraft: '' };
     }
 
     function clearSelectedThreadTranscript() {
@@ -17837,6 +17918,7 @@
           subtitle: '1 file changed, +1 -0',
           hasGitDiff: true,
           activeScope: 'unstaged',
+          scopeReference: null,
           totalInsertions: 1,
           totalDeletions: 0,
           totalHunks: 1,
@@ -17857,16 +17939,17 @@
       };
     }
 
-    function mockReviewForScope(scope) {
+    function mockReviewForScope(scope, reference = null) {
       const mock = mockReviewDiff();
-      const hasChanges = state.mockGitReviewChangeScope === scope;
+      const hasChanges = scope === 'commit' || scope === 'branch' || state.mockGitReviewChangeScope === scope;
       if (hasChanges) {
         return {
           diff: mock.diff,
           review: {
             ...mock.review,
             hasGitDiff: true,
-            activeScope: scope
+            activeScope: scope,
+            scopeReference: reference
           }
         };
       }
@@ -17874,9 +17957,16 @@
         diff: '',
         review: {
           ...emptyReviewSurface(),
-          subtitle: scope === 'staged' ? 'No staged changes' : 'No unstaged changes',
+          subtitle: scope === 'staged'
+            ? 'No staged changes'
+            : scope === 'commit'
+              ? `No changes in commit ${reference || ''}`
+              : scope === 'branch'
+                ? `No changes against ${reference || ''}`
+                : 'No unstaged changes',
           hasGitDiff: true,
-          activeScope: scope
+          activeScope: scope,
+          scopeReference: reference
         }
       };
     }
@@ -19022,6 +19112,7 @@
         render();
         return;
       }
+      if (state.review.activeScope === 'commit' || state.review.activeScope === 'branch') return;
       const toolMap = {
         restore: 'host.git.restore',
         unstage: 'host.git.restore',

@@ -17,7 +17,7 @@ struct QuillCodeTranscriptView: View {
     var copiedTranscriptItemID: String?
     var onContextCommand: (WorkspaceCommandSurface) -> Void
     var onRuntimeIssueAction: (() -> Void)?
-    var onReviewScopeChange: (WorkspaceReviewScope) -> Void
+    var onReviewScopeChange: (WorkspaceReviewSelection) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void

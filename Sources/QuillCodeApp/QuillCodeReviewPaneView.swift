@@ -2,7 +2,7 @@ import SwiftUI
 
 struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
-    var onReviewScopeChange: (WorkspaceReviewScope) -> Void
+    var onReviewScopeChange: (WorkspaceReviewSelection) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
@@ -50,22 +50,11 @@ struct QuillCodeReviewPaneView: View {
     }
 
     private var scopePicker: some View {
-        Picker(
-            "Review scope",
-            selection: Binding(
-                get: { review.activeScope ?? .unstaged },
-                set: { scope in onReviewScopeChange(scope) }
-            )
-        ) {
-            ForEach(review.availableScopes) { scope in
-                Text(scope.title).tag(scope)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .quillCodeSegmentedControlTarget()
-        .frame(width: 216, alignment: .leading)
-        .accessibilityIdentifier("quillcode-review-scope")
+        QuillCodeReviewScopePicker(
+            availableScopes: review.availableScopes,
+            activeSelection: review.activeSelection,
+            onSelection: onReviewScopeChange
+        )
     }
 
     private var header: some View {
