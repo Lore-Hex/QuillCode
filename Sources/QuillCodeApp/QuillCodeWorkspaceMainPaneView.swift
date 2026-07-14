@@ -56,6 +56,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                 if surface.automations.isVisible {
                     QuillCodeAutomationsPaneView(
                         automations: surface.automations,
+                        onClose: { runCommand(id: "toggle-automations") },
                         onCommand: onCommand
                     )
                     Divider()

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeAutomationsPaneView: View {
     var automations: WorkspaceAutomationsSurface
+    var onClose: () -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private let columns = [
@@ -33,6 +34,7 @@ struct QuillCodeAutomationsPaneView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(automations.title)
                     .font(.headline)
+                    .accessibilityIdentifier("quillcode-automations-title")
                 Text(automations.subtitle)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
@@ -51,6 +53,14 @@ struct QuillCodeAutomationsPaneView: View {
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .foregroundStyle(QuillCodePalette.blue)
                 .clipShape(Capsule())
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .quillCodeIconButtonTarget()
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .help("Close Automations")
+            .accessibilityLabel("Close Automations")
+            .accessibilityIdentifier("quillcode-automations-close")
         }
     }
 

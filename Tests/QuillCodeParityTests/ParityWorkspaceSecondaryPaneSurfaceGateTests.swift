@@ -91,8 +91,11 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
         [
             "struct QuillCodeAutomationsPaneView",
             "QuillCodeAutomationCreateMenu",
-            "QuillCodeAutomationWorkflowCard"
+            "QuillCodeAutomationWorkflowCard",
+            "accessibilityIdentifier(\"quillcode-automations-title\")",
+            "accessibilityIdentifier(\"quillcode-automations-close\")"
         ].forEach { Self.assertSource(automationsText, contains: $0) }
+        Self.assertSource(mainPaneText, contains: "onClose: { runCommand(id: \"toggle-automations\") }")
 
         Self.assertSource(automationMenuText, contains: "struct QuillCodeAutomationCreateMenu")
         Self.assertSource(automationMenuText, contains: "quillCodePlatformMenuItemTarget")

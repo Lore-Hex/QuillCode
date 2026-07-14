@@ -16013,3 +16013,24 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-14 Packaged Automations Render And Dismissal Proof
+
+Overall grade after this slice: **A+ interaction architecture, A+ native fidelity, A+ state safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Accessibility identity | A+ | The title, Create action, and Close action have stable native identifiers. |
+| Navigation architecture | A+ | Sidebar, shortcut, slash-command, and pane-close paths share the `toggle-automations` command. |
+| Native fidelity | A+ | Packaged smoke requires real title and Create controls, AX-presses Close, and waits for disappearance. |
+| Hit-target quality | A+ | The compact icon keeps a 40-point target, press feedback, help, and a native audit contract. |
+| State safety | A+ | Smoke never creates, edits, runs, pauses, or deletes an automation and restores baseline visibility. |
+| Regression evidence | A+ | Negative fixtures reject state-only reports; direct, Launch Services, and live-window smoke prove the packaged flow. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeNativeHitTargetSurfaceAuditTests|QuillCodeDesktopWindowReportTests|ParityWorkspaceSecondaryPaneSurfaceGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

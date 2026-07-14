@@ -11,9 +11,22 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     private static let prometheusOptionIdentifier = "quillcode-model-option-trustedrouter/fusion"
     private static let searchInputIdentifier = "quillcode-search-input"
     private static let searchSmokeText = "QuillCode search smoke"
-    private static let settingsTitleIdentifier = "quillcode-settings-title"
-    private static let settingsControlIdentifier = "quillcode-notifications-agent-runs"
-    private static let settingsCloseIdentifier = "quillcode-settings-close"
+    private static let settingsSurfaceContract = DismissibleSurfaceContract(
+        contractID: "command.settings",
+        name: "Settings",
+        titleIdentifier: "quillcode-settings-title",
+        requiredControlIdentifier: "quillcode-notifications-agent-runs",
+        requiredControlDescription: "notifications control",
+        closeIdentifier: "quillcode-settings-close"
+    )
+    private static let automationsSurfaceContract = DismissibleSurfaceContract(
+        contractID: "command.toggle-automations",
+        name: "Automations",
+        titleIdentifier: "quillcode-automations-title",
+        requiredControlIdentifier: "quillcode-automation-create",
+        requiredControlDescription: "Create control",
+        closeIdentifier: "quillcode-automations-close"
+    )
 
     static func observeWorkspaceThreads(
         _ controller: QuillCodeDesktopController
@@ -117,43 +130,13 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     static func verifySettingsDismissal(
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
-        guard await waitForElement(settingsTitleIdentifier, in: contentView) != nil else {
-            return .init(
-                evidence: "settings title did not render",
-                validationIssue: "command.settings did not render the Settings dialog"
-            )
-        }
-        guard await waitForElement(settingsControlIdentifier, in: contentView) != nil else {
-            return .init(
-                evidence: "settings dialog rendered without its first preference control",
-                validationIssue: "command.settings did not expose the notifications preference control"
-            )
-        }
-        guard let closeButton = await waitForElement(settingsCloseIdentifier, in: contentView) else {
-            return .init(
-                evidence: "settings dialog rendered without an accessible close button",
-                validationIssue: "command.settings did not expose \(settingsCloseIdentifier)"
-            )
-        }
+        await verifyDismissibleSurface(settingsSurfaceContract, contentView: contentView)
+    }
 
-        let pressError = QuillCodeDesktopAccessibilityTree.performPress(on: closeButton)
-        guard pressError == .success else {
-            return .init(
-                evidence: "\(settingsCloseIdentifier) rejected AXPress",
-                validationIssue: "command.settings could not dismiss through \(settingsCloseIdentifier): \(pressError)"
-            )
-        }
-        guard await waitForElementToDisappear(settingsTitleIdentifier, in: contentView) else {
-            return .init(
-                evidence: "\(settingsCloseIdentifier) accepted AXPress but Settings remained visible",
-                validationIssue: "command.settings close button did not dismiss the dialog"
-            )
-        }
-
-        return .init(
-            evidence: "rendered Settings with its notifications control and dismissed through \(settingsCloseIdentifier) with AXPress",
-            validationIssue: nil
-        )
+    static func verifyAutomationsDismissal(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        await verifyDismissibleSurface(automationsSurfaceContract, contentView: contentView)
     }
 
     private static func verifyReversibleTextEntry(
@@ -222,6 +205,49 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
             : nil
     }
 
+    private static func verifyDismissibleSurface(
+        _ contract: DismissibleSurfaceContract,
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        guard await waitForElement(contract.titleIdentifier, in: contentView) != nil else {
+            return .init(
+                evidence: "\(contract.name) title did not render",
+                validationIssue: "\(contract.contractID) did not render \(contract.name)"
+            )
+        }
+        guard await waitForElement(contract.requiredControlIdentifier, in: contentView) != nil else {
+            return .init(
+                evidence: "\(contract.name) rendered without its \(contract.requiredControlDescription)",
+                validationIssue: "\(contract.contractID) did not expose its \(contract.requiredControlDescription)"
+            )
+        }
+        guard let closeButton = await waitForElement(contract.closeIdentifier, in: contentView) else {
+            return .init(
+                evidence: "\(contract.name) rendered without an accessible close button",
+                validationIssue: "\(contract.contractID) did not expose \(contract.closeIdentifier)"
+            )
+        }
+
+        let pressError = QuillCodeDesktopAccessibilityTree.performPress(on: closeButton)
+        guard pressError == .success else {
+            return .init(
+                evidence: "\(contract.closeIdentifier) rejected AXPress",
+                validationIssue: "\(contract.contractID) could not dismiss through \(contract.closeIdentifier): \(pressError)"
+            )
+        }
+        guard await waitForElementToDisappear(contract.titleIdentifier, in: contentView) else {
+            return .init(
+                evidence: "\(contract.closeIdentifier) accepted AXPress but \(contract.name) remained visible",
+                validationIssue: "\(contract.contractID) close button did not dismiss \(contract.name)"
+            )
+        }
+
+        return .init(
+            evidence: "rendered \(contract.name) with its \(contract.requiredControlDescription) and dismissed through \(contract.closeIdentifier) with AXPress",
+            validationIssue: nil
+        )
+    }
+
     private static func waitForElement(
         _ identifier: String,
         labelFragment: String? = nil,
@@ -285,5 +311,14 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         QuillCodeDesktopAccessibilityTree(root: contentView).elements
             .filter { $0.identifier == identifier }
             .max { $0.frameArea < $1.frameArea }
+    }
+
+    private struct DismissibleSurfaceContract {
+        let contractID: String
+        let name: String
+        let titleIdentifier: String
+        let requiredControlIdentifier: String
+        let requiredControlDescription: String
+        let closeIdentifier: String
     }
 }

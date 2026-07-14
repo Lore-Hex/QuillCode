@@ -150,3 +150,4 @@
 ### Packaged interaction evidence
 
 - Settings parity requires identified dialog content and a real Close action. The packaged macOS gate AX-presses Settings, requires the title and first preference control, dismisses through the identified Close control, and rejects shallow state-only evidence.
+- Automations parity requires identified pane content and an obvious exit. The packaged macOS gate AX-presses Automations, requires the title and Create control, dismisses through the identified Close control, and rejects shallow state-only evidence.

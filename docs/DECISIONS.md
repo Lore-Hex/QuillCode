@@ -982,3 +982,10 @@
 - **Native proof:** Packaged macOS smoke AX-presses Settings, requires the identified title and notifications control, presses the identified Close control through AXPress, and waits for the dialog to disappear.
 - **State safety:** Smoke does not edit preferences, authentication, keys, spend caps, or Computer Use approvals; it restores the baseline presentation state.
 - **Why:** Settings is a critical recovery and configuration surface. Release evidence must prove users can enter and leave it, not merely that command dispatch toggled state.
+
+## 2026-07-14: Automations has one obvious reversible navigation path
+
+- **Behavior:** The Automations pane exposes a compact Close action in its header; sidebar, shortcut, slash-command, and pane-close routes all use the same `toggle-automations` command.
+- **Native proof:** Packaged macOS smoke AX-presses Automations, requires the identified title and Create control, presses the identified Close control, and waits for the pane to disappear.
+- **State safety:** Verification creates, edits, runs, pauses, or deletes no automation. It restores the baseline visibility state.
+- **Why:** A navigation surface should not require users to remember that the entry point is also the exit. Rendered content and reversible dismissal are one release contract.
