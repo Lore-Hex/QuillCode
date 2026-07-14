@@ -5,6 +5,11 @@ import QuillCodeTools
 enum ProjectPluginToolHookEvent: String, Sendable, Hashable {
     case preToolUse = "PreToolUse"
     case postToolUse = "PostToolUse"
+    case permissionRequest = "PermissionRequest"
+
+    var treatsExitTwoAsDecision: Bool {
+        self != .permissionRequest
+    }
 }
 
 struct ProjectPluginToolHookInvocation: Sendable {
@@ -13,11 +18,14 @@ struct ProjectPluginToolHookInvocation: Sendable {
 }
 
 enum ProjectPluginToolHookInvocationBuilder {
+    static let maximumApprovalReasonCharacters = 4_096
+
     static func build(
         hook: ProjectPluginHook,
         event: ProjectPluginToolHookEvent,
         adapter: ProjectPluginToolCallAdapter,
         toolResult: ToolResult?,
+        approvalReason: String? = nil,
         thread: ChatThread,
         workspaceRoot: URL,
         pluginDataBaseDirectory: URL?
@@ -35,6 +43,7 @@ enum ProjectPluginToolHookInvocationBuilder {
             event: event,
             adapter: adapter,
             toolResult: toolResult,
+            approvalReason: approvalReason,
             thread: thread,
             workspaceRoot: workspaceRoot
         )
@@ -60,11 +69,22 @@ enum ProjectPluginToolHookInvocationBuilder {
         event: ProjectPluginToolHookEvent,
         adapter: ProjectPluginToolCallAdapter,
         toolResult: ToolResult?,
+        approvalReason: String? = nil,
         thread: ChatThread,
         workspaceRoot: URL
     ) throws -> String {
-        guard let toolInput = jsonValue(adapter.toolInputJSON) else {
+        guard var toolInput = jsonValue(adapter.toolInputJSON) as? [String: Any] else {
             throw ProjectPluginToolHookInvocationError.invalidToolInput
+        }
+        if event == .permissionRequest,
+           toolInput["description"] == nil,
+           let approvalReason,
+           !approvalReason.isEmpty {
+            toolInput["description"] = String(
+                approvalReason
+                    .replacingOccurrences(of: "\0", with: "")
+                    .prefix(maximumApprovalReasonCharacters)
+            )
         }
         var payload = ProjectHookStandardInput.payload(
             eventName: event.rawValue,
@@ -72,8 +92,10 @@ enum ProjectPluginToolHookInvocationBuilder {
             workspaceRoot: workspaceRoot
         )
         payload["tool_name"] = adapter.canonicalName
-        payload["tool_use_id"] = adapter.call.id
         payload["tool_input"] = toolInput
+        if event != .permissionRequest {
+            payload["tool_use_id"] = adapter.call.id
+        }
         if event == .postToolUse {
             guard let toolResult,
                   let response = try encodedJSONObject(toolResult)

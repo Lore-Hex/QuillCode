@@ -168,12 +168,148 @@ final class AgentToolUseHookTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("changed the tool identity")
         })
     }
+
+    func testPermissionAllowExecutesClarifiedCallAndRunsPostHookWithoutApprovalCard() async throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf allowed"])
+        )
+        let capture = ToolHookCapture()
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [.tool(call), .say("Finished.")]),
+            safety: AlwaysAskingSafetyReviewer(),
+            preToolUseHook: { call, _, _ in
+                AgentPreToolUseHookOutcome(call: ToolCall(
+                    id: call.id,
+                    name: call.name,
+                    argumentsJSON: ToolArguments.json(["cmd": "printf permission-rewrite"])
+                ))
+            },
+            postToolUseHook: { call, result, _, _ in
+                await capture.recordPost(call, result: result)
+                return AgentPostToolUseHookOutcome(result: result)
+            },
+            permissionRequestHook: { call, reason, _, _ in
+                await capture.recordPermission(call, reason: reason)
+                return AgentPermissionRequestHookOutcome(
+                    decision: .allow,
+                    notices: ["Permission hook allowed the command."]
+                )
+            }
+        )
+
+        let result = try await runner.send(
+            "Run the command",
+            in: ChatThread(mode: .review),
+            workspaceRoot: root
+        )
+
+        XCTAssertNil(result.pendingApproval)
+        XCTAssertEqual(result.toolResults.first?.stdout, "permission-rewrite")
+        XCTAssertFalse(result.thread.events.contains { $0.kind == .approvalRequested })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary == "Permission hook allowed the command."
+        })
+        let counts = await capture.snapshot()
+        XCTAssertEqual(counts.permission, 1)
+        XCTAssertEqual(counts.post, 1)
+        XCTAssertTrue(try XCTUnwrap(counts.permissionInput).contains("permission-rewrite"))
+        XCTAssertTrue(try XCTUnwrap(counts.permissionReason).contains("Explicit approval required"))
+    }
+
+    func testPermissionDenyReturnsToolFailureWithoutExecutingOrShowingApproval() async throws {
+        let root = try makeTempDirectory()
+        let target = root.appendingPathComponent("must-not-exist")
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "touch \(target.path)"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [.tool(call), .say("Blocked.")]),
+            safety: AlwaysAskingSafetyReviewer(),
+            permissionRequestHook: { _, _, _, _ in
+                AgentPermissionRequestHookOutcome(decision: .deny(reason: "Denied by trusted policy."))
+            }
+        )
+
+        let result = try await runner.send(
+            "Run it",
+            in: ChatThread(mode: .review),
+            workspaceRoot: root
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.path))
+        XCTAssertNil(result.pendingApproval)
+        XCTAssertEqual(result.toolResults.first?.error, "Denied by trusted policy.")
+        XCTAssertFalse(result.thread.events.contains { $0.kind == .approvalRequested })
+        XCTAssertFalse(result.thread.events.contains { $0.kind == .toolRunning })
+    }
+
+    func testPermissionNoDecisionAndFailurePreserveNormalApproval() async throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf pending"])
+        )
+        let hooks: [AgentPermissionRequestHook] = [
+            { _, _, _, _ in AgentPermissionRequestHookOutcome() },
+            { _, _, _, _ in throw PermissionHookTestError.failed }
+        ]
+        for hook in hooks {
+            let runner = AgentRunner(
+                llm: SequenceLLMClient(actions: [.tool(call)]),
+                safety: AlwaysAskingSafetyReviewer(),
+                permissionRequestHook: hook
+            )
+            let result = try await runner.send(
+                "Run it",
+                in: ChatThread(mode: .review),
+                workspaceRoot: root
+            )
+
+            XCTAssertNotNil(result.pendingApproval)
+            XCTAssertEqual(result.thread.events.filter { $0.kind == .approvalRequested }.count, 1)
+            XCTAssertFalse(result.thread.events.contains { $0.kind == .toolRunning })
+        }
+    }
+
+    func testHardSafetyDenyNeverInvokesPermissionHook() async throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf blocked"])
+        )
+        let capture = ToolHookCapture()
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [.tool(call)]),
+            safety: AlwaysDenyingHookTestSafetyReviewer(),
+            permissionRequestHook: { call, reason, _, _ in
+                await capture.recordPermission(call, reason: reason)
+                return AgentPermissionRequestHookOutcome(decision: .allow)
+            }
+        )
+
+        let result = try await runner.send(
+            "Run it",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertNotNil(result.pendingApproval)
+        let counts = await capture.snapshot()
+        XCTAssertEqual(counts.permission, 0)
+        XCTAssertFalse(result.thread.events.contains { $0.kind == .toolRunning })
+    }
 }
 
 private actor ToolHookCapture {
     private(set) var preCount = 0
     private(set) var postCount = 0
+    private(set) var permissionCount = 0
     private(set) var executedStdout: String?
+    private(set) var permissionReason: String?
+    private(set) var permissionInput: String?
 
     func recordPre(_ call: ToolCall) {
         preCount += 1
@@ -184,7 +320,30 @@ private actor ToolHookCapture {
         executedStdout = result.stdout
     }
 
-    func snapshot() -> (pre: Int, post: Int, stdout: String?) {
-        (preCount, postCount, executedStdout)
+    func recordPermission(_ call: ToolCall, reason: String) {
+        permissionCount += 1
+        permissionReason = reason
+        permissionInput = call.argumentsJSON
     }
+
+    func snapshot() -> (
+        pre: Int,
+        post: Int,
+        permission: Int,
+        stdout: String?,
+        permissionReason: String?,
+        permissionInput: String?
+    ) {
+        (preCount, postCount, permissionCount, executedStdout, permissionReason, permissionInput)
+    }
+}
+
+private struct AlwaysDenyingHookTestSafetyReviewer: SafetyReviewer {
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        SafetyReview(verdict: .deny, rationale: "Hard safety denial.")
+    }
+}
+
+private enum PermissionHookTestError: Error {
+    case failed
 }

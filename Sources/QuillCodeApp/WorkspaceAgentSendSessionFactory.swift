@@ -176,6 +176,9 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         if let postToolUseHook = pluginToolHooks.postToolUseHook {
             runner.postToolUseHook = postToolUseHook
         }
+        if let permissionRequestHook = pluginToolHooks.permissionRequestHook {
+            runner.permissionRequestHook = permissionRequestHook
+        }
         return runner
     }
 }

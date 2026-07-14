@@ -869,7 +869,15 @@
 - **Concurrent aggregation:** Matching trusted commands launch concurrently and their outcomes are folded in configuration order. Denial wins globally. The first valid input rewrite wins and later rewrites produce an auditable warning, making behavior deterministic without serializing independent hook processes.
 - **Approval durability:** The effective rewritten call is the call stored in `AgentPendingApproval`. Resuming an approval executes that exact held call and runs only the post hook, so pre-hook side effects and policy decisions are never duplicated.
 - **Feedback and privacy:** Post hooks can replace only model-facing feedback; they cannot change actual success, exit status, or artifacts and cannot claim that a completed side effect was undone. Hook context is stored as hidden system context for model continuity and is excluded from transcript rendering, export, fork, sidebar search, and compaction surfaces.
-- **Remaining scope:** `PermissionRequest` remains separate because it owns approval UI and persistence rather than tool execution ordering. Other standard lifecycle events remain visible but inert until their owning runtime has an equally explicit boundary.
+- **Remaining scope:** Other standard lifecycle events remain visible but inert until their owning runtime has an equally explicit boundary.
+
+## 2026-07-13: Permission hooks may resolve only approvable gates
+
+- **Boundary:** `PermissionRequest` runs only after safety returns `clarify`. It never runs for already-approved calls or hard `deny` verdicts, so a plugin cannot weaken QuillCode's non-overridable safety policy.
+- **Aggregation:** Matching trusted commands run concurrently and fold in configuration order. Any deny wins; otherwise any allow executes the exact effective call immediately; no decision, malformed output, timeout, or command failure preserves the ordinary durable approval UI.
+- **Input:** Hooks receive the same canonical shell, patch, and MCP names and effective post-`PreToolUse` input. `tool_input.description` falls back to the safety rationale only when the tool did not supply one. Permission payloads deliberately omit `tool_use_id`, and permission output cannot rewrite input, permissions, or interrupt state.
+- **Durability and audit:** Hook allow proceeds through normal running/result/`PostToolUse` ordering without creating an actionable approval card. Hook deny returns a failed tool result to the model without execution. Bounded notices identify allow, deny, warning, and failure outcomes without persisting command stdin or environment secrets.
+- **Why:** Approval ownership belongs in the agent, not the view layer. A typed allow/deny/no-decision adapter keeps plugin JSON outside core orchestration while making failure behavior explicit and preserving the existing approval-resume invariant.
 
 ## 2026-07-13: Finishing a managed task is a recoverable Local transition
 

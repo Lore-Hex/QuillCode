@@ -21,7 +21,8 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
                   {"hooks":[{"type":"command"}]}
                 ],
                 "Stop": [{"matcher":"*","hooks":[{"type":"command","command":"printf after"}]}],
-                "PreToolUse": [{"hooks":[{"type":"command","command":"printf unsupported"}]}]
+                "PreToolUse": [{"hooks":[{"type":"command","command":"printf pre"}]}],
+                "PermissionRequest": [{"matcher":"^Bash$","hooks":[{"type":"command","command":"printf permission"}]}]
               }
             }
             """#,
@@ -34,7 +35,7 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
             maxManifestBytes: ProjectExtensionManifestLoader.maxManifestBytes
         ))
 
-        XCTAssertEqual(package.hooks.count, 7)
+        XCTAssertEqual(package.hooks.count, 8)
         XCTAssertTrue(package.hooks.allSatisfy {
             $0.id.hasPrefix("plugin_hook:demo.")
                 && $0.definitionHash.count == 64
@@ -43,6 +44,7 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
         })
         XCTAssertEqual(hook(event: "Stop", in: package.hooks)?.supportStatus, .supported)
         XCTAssertEqual(hook(event: "PreToolUse", in: package.hooks)?.supportStatus, .supported)
+        XCTAssertEqual(hook(event: "PermissionRequest", in: package.hooks)?.supportStatus, .supported)
         XCTAssertEqual(
             package.hooks.first { $0.matcher == "tool:*" }?.supportStatus,
             .unsupportedMatcher

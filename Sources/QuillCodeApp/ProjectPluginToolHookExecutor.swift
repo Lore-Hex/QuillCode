@@ -30,6 +30,18 @@ struct ProjectPluginToolHookExecutor: Sendable {
         }
     }
 
+    var permissionRequestHook: AgentPermissionRequestHook? {
+        guard hasExecutableHook(for: .permissionRequest) else { return nil }
+        return { call, approvalReason, thread, workspaceRoot in
+            try await runPermissionRequest(
+                call: call,
+                approvalReason: approvalReason,
+                thread: thread,
+                workspaceRoot: workspaceRoot
+            )
+        }
+    }
+
     func runPreToolUse(
         call: ToolCall,
         thread: ChatThread,
@@ -56,7 +68,7 @@ struct ProjectPluginToolHookExecutor: Sendable {
         for outcome in outcomes {
             guard let semantic = outcome.semantic else {
                 if let failure = outcome.failure {
-                    notices.append(failureNotice(outcome.hook, failure: failure))
+                    notices.append(failureNotice(outcome.hook, event: .preToolUse, failure: failure))
                 }
                 continue
             }
@@ -79,7 +91,11 @@ struct ProjectPluginToolHookExecutor: Sendable {
                     effectiveCall = try adapter.replacingToolInput(with: updatedInputJSON)
                     acceptedRewrite = true
                 } catch {
-                    notices.append(failureNotice(outcome.hook, failure: error.localizedDescription))
+                    notices.append(failureNotice(
+                        outcome.hook,
+                        event: .preToolUse,
+                        failure: error.localizedDescription
+                    ))
                 }
             }
         }
@@ -118,7 +134,7 @@ struct ProjectPluginToolHookExecutor: Sendable {
         for outcome in outcomes {
             guard let semantic = outcome.semantic else {
                 if let failure = outcome.failure {
-                    notices.append(failureNotice(outcome.hook, failure: failure))
+                    notices.append(failureNotice(outcome.hook, event: .postToolUse, failure: failure))
                 }
                 continue
             }
@@ -144,10 +160,76 @@ struct ProjectPluginToolHookExecutor: Sendable {
         )
     }
 
+    func runPermissionRequest(
+        call: ToolCall,
+        approvalReason: String,
+        thread: ChatThread,
+        workspaceRoot: URL
+    ) async throws -> AgentPermissionRequestHookOutcome {
+        guard let adapter = ProjectPluginToolCallAdapter.make(for: call) else {
+            return AgentPermissionRequestHookOutcome()
+        }
+        let outcomes = await execute(
+            event: .permissionRequest,
+            adapter: adapter,
+            result: nil,
+            approvalReason: approvalReason,
+            thread: thread,
+            workspaceRoot: workspaceRoot
+        )
+
+        var allowed = false
+        var denialReason: String?
+        var notices: [String] = []
+        for outcome in outcomes {
+            guard let semantic = outcome.semantic else {
+                if let failure = outcome.failure {
+                    notices.append(failureNotice(
+                        outcome.hook,
+                        event: .permissionRequest,
+                        failure: failure
+                    ))
+                }
+                continue
+            }
+            if let message = semantic.systemMessage {
+                notices.append("Hook warning from \(outcome.hook.pluginName): \(message)")
+            }
+            switch semantic.decision {
+            case .allow:
+                allowed = true
+                notices.append(
+                    "Permission hook from \(outcome.hook.pluginName) allowed \(adapter.canonicalName)."
+                )
+            case .deny:
+                notices.append(
+                    "Permission hook from \(outcome.hook.pluginName) denied \(adapter.canonicalName)."
+                )
+                if denialReason == nil {
+                    denialReason = semantic.decisionReason
+                        ?? "The permission hook denied this tool call."
+                }
+            case nil:
+                break
+            }
+        }
+
+        let decision: AgentPermissionRequestDecision
+        if let denialReason {
+            decision = .deny(reason: denialReason)
+        } else if allowed {
+            decision = .allow
+        } else {
+            decision = .noDecision
+        }
+        return AgentPermissionRequestHookOutcome(decision: decision, notices: notices)
+    }
+
     private func execute(
         event: ProjectPluginToolHookEvent,
         adapter: ProjectPluginToolCallAdapter,
         result: ToolResult?,
+        approvalReason: String? = nil,
         thread: ChatThread,
         workspaceRoot: URL
     ) async -> [ProjectPluginToolHookOutcome] {
@@ -175,6 +257,7 @@ struct ProjectPluginToolHookExecutor: Sendable {
                     event: event,
                     adapter: adapter,
                     toolResult: result,
+                    approvalReason: approvalReason,
                     thread: thread,
                     workspaceRoot: workspaceRoot,
                     pluginDataBaseDirectory: pluginDataBaseDirectory
@@ -194,7 +277,7 @@ struct ProjectPluginToolHookExecutor: Sendable {
                 group.addTask {
                     let result = executor.executePrimary(invocation.call)
                     do {
-                        if !result.ok && result.exitCode != 2 {
+                        if !result.ok && !(event.treatsExitTwoAsDecision && result.exitCode == 2) {
                             throw ProjectPluginToolHookExecutionError.commandFailed(
                                 ProjectHookCommandFailureSummary.make(from: result)
                             )
@@ -250,8 +333,15 @@ struct ProjectPluginToolHookExecutor: Sendable {
         contextCharacters += entry.count
     }
 
-    private func failureNotice(_ hook: ProjectPluginHook, failure: String) -> String {
-        "Hook warning from \(hook.pluginName): \(failure) The original tool call continued."
+    private func failureNotice(
+        _ hook: ProjectPluginHook,
+        event: ProjectPluginToolHookEvent,
+        failure: String
+    ) -> String {
+        let fallback = event == .permissionRequest
+            ? "Normal approval is still required."
+            : "The original tool call continued."
+        return "Hook warning from \(hook.pluginName): \(failure) \(fallback)"
     }
 
 }

@@ -230,7 +230,7 @@ enum CodexPluginPackageLoader {
         case "UserPromptSubmit", "Stop":
             if let matcher, matcher != "*" { return .unsupportedMatcher }
             return .supported
-        case "PreToolUse", "PostToolUse":
+        case "PreToolUse", "PostToolUse", "PermissionRequest":
             return ProjectPluginToolCallAdapter.isValidMatcher(matcher)
                 ? .supported
                 : .unsupportedMatcher

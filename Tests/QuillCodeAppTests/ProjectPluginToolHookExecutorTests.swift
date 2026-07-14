@@ -389,6 +389,124 @@ final class ProjectPluginToolHookExecutorTests: XCTestCase {
         XCTAssertEqual(response["stderr"] as? String, "failed")
     }
 
+    func testPermissionRequestUsesCanonicalPayloadAndDenyWinsAcrossHooks() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let pluginRoot = root.appendingPathComponent(".quillcode/plugins/demo", isDirectory: true)
+        try FileManager.default.createDirectory(at: pluginRoot, withIntermediateDirectories: true)
+        let pluginDataBase = root.appendingPathComponent(".test-plugin-data", isDirectory: true)
+        let executor = ProjectPluginToolHookExecutor(
+            hooks: [
+                hook(
+                    event: .permissionRequest,
+                    command: #"cat > "$PLUGIN_DATA/permission.json"; printf '%s' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'"#
+                ),
+                hook(
+                    event: .permissionRequest,
+                    command: #"printf '%s' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"denied by policy"}}}'"#
+                )
+            ],
+            pluginDataBaseDirectory: pluginDataBase,
+            selectedProject: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf original"])
+        )
+
+        let outcome = try await executor.runPermissionRequest(
+            call: call,
+            approvalReason: "Review mode requires approval.",
+            thread: ChatThread(mode: .review),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(outcome.decision, .deny(reason: "denied by policy"))
+        let pluginData = try ProjectPluginDataDirectoryLocator.directoryURL(
+            baseDirectory: pluginDataBase,
+            workspaceRoot: root,
+            pluginID: "plugin:demo"
+        )
+        let payload = try jsonObject(at: pluginData.appendingPathComponent("permission.json"))
+        XCTAssertEqual(payload["hook_event_name"] as? String, "PermissionRequest")
+        XCTAssertEqual(payload["tool_name"] as? String, "Bash")
+        XCTAssertNil(payload["tool_use_id"])
+        let input = try XCTUnwrap(payload["tool_input"] as? [String: Any])
+        XCTAssertEqual(input["command"] as? String, "printf original")
+        XCTAssertEqual(input["description"] as? String, "Review mode requires approval.")
+
+        let describedCall = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "printf described",
+                "description": "Tool-provided reason"
+            ])
+        )
+        let describedPayload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(ProjectPluginToolHookInvocationBuilder.inputJSON(
+                event: .permissionRequest,
+                adapter: try XCTUnwrap(ProjectPluginToolCallAdapter.make(for: describedCall)),
+                toolResult: nil,
+                approvalReason: "Safety-review fallback",
+                thread: ChatThread(mode: .review),
+                workspaceRoot: root
+            ).utf8)) as? [String: Any]
+        )
+        XCTAssertEqual(
+            (describedPayload["tool_input"] as? [String: Any])?["description"] as? String,
+            "Tool-provided reason"
+        )
+
+        let boundedPayload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(ProjectPluginToolHookInvocationBuilder.inputJSON(
+                event: .permissionRequest,
+                adapter: try XCTUnwrap(ProjectPluginToolCallAdapter.make(for: call)),
+                toolResult: nil,
+                approvalReason: String(repeating: "r", count: 8_192) + "\0secret-tail",
+                thread: ChatThread(mode: .review),
+                workspaceRoot: root
+            ).utf8)) as? [String: Any]
+        )
+        let boundedDescription = try XCTUnwrap(
+            (boundedPayload["tool_input"] as? [String: Any])?["description"] as? String
+        )
+        XCTAssertEqual(
+            boundedDescription.count,
+            ProjectPluginToolHookInvocationBuilder.maximumApprovalReasonCharacters
+        )
+        XCTAssertFalse(boundedDescription.contains("\0"))
+        XCTAssertFalse(boundedDescription.contains("secret-tail"))
+    }
+
+    func testPermissionRequestCommandFailurePreservesNormalApproval() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent(".quillcode/plugins/demo", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        let executor = ProjectPluginToolHookExecutor(
+            hooks: [hook(event: .permissionRequest, command: "printf ignored; exit 2")],
+            pluginDataBaseDirectory: root.appendingPathComponent(".test-plugin-data", isDirectory: true),
+            selectedProject: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf original"])
+        )
+
+        let outcome = try await executor.runPermissionRequest(
+            call: call,
+            approvalReason: "Approval required.",
+            thread: ChatThread(mode: .review),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(outcome.decision, .noDecision)
+        XCTAssertEqual(outcome.notices.count, 1)
+        XCTAssertTrue(outcome.notices[0].contains("Normal approval is still required"))
+    }
+
     private func hook(
         event: ProjectPluginToolHookEvent,
         matcher: String? = "^Bash$",
