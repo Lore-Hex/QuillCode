@@ -278,6 +278,21 @@ extension QuillCodeWorkspaceModel {
         WorkspaceManagedWorktreePublishCoordinator(model: self).publishSelectedThread()
     }
 
+    @discardableResult
+    public func refreshSelectedPullRequest() -> Bool {
+        WorkspaceManagedWorktreePullRequestCoordinator(model: self).refreshSelectedThread()
+    }
+
+    @discardableResult
+    public func landSelectedPullRequest() -> Bool {
+        WorkspaceManagedWorktreePullRequestCoordinator(model: self).landSelectedThread()
+    }
+
+    @discardableResult
+    public func cleanUpSelectedMergedWorktree() -> Bool {
+        WorkspaceManagedWorktreePullRequestCoordinator(model: self).cleanUpMergedSelectedThread()
+    }
+
     func activateSelectedThreadWorktreeLocation(
         _ location: WorktreeExecutionLocation,
         destination: URL

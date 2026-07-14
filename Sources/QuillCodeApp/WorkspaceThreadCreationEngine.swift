@@ -129,6 +129,7 @@ struct WorkspaceThreadCreationEngine {
             instructions: source.instructions,
             memories: source.memories,
             worktree: source.worktree,
+            pullRequest: source.pullRequest,
             runtimeContext: .sideConversation(parentThreadID: source.id)
         )
     }

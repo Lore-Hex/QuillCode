@@ -13,6 +13,7 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
     public var isPinned: Bool
     public var isArchived: Bool
     public var worktree: SidebarItemWorktreeSummary?
+    public var pullRequest: PullRequestLink?
 
     public init(thread: ChatThread) {
         self.id = thread.id
@@ -40,6 +41,7 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
                 hasRestorableSnapshot: binding.canRestoreSnapshot
             )
         }
+        self.pullRequest = thread.pullRequest
     }
 }
 

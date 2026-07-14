@@ -1,4 +1,5 @@
 import SwiftUI
+import QuillCodeCore
 
 struct QuillCodeSidebarThreadRowView: View {
     var item: SidebarItemSurface
@@ -58,27 +59,11 @@ struct QuillCodeSidebarThreadRowView: View {
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                if let worktree = item.worktree {
-                    if worktree.location == .local {
-                        Text(worktree.isResolvable ? "Local" : "Local · worktree missing")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(worktree.isResolvable ? QuillCodePalette.muted : QuillCodePalette.red)
-                            .lineLimit(1)
-                    } else if worktree.isResolvable {
-                        Text("⑂ \(worktree.branchLeaf)")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(QuillCodePalette.blue)
-                            .lineLimit(1)
-                    } else if worktree.hasRestorableSnapshot {
-                        Text("↻ Worktree saved")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(QuillCodePalette.blue)
-                            .lineLimit(1)
-                    } else {
-                        Text("⚠ Worktree missing")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(QuillCodePalette.red)
-                            .lineLimit(1)
+                if item.worktree != nil || item.pullRequest != nil {
+                    HStack(spacing: 6) {
+                        worktreeMetadata
+                        pullRequestMetadata
+                        Spacer(minLength: 0)
                     }
                 }
             }
@@ -86,6 +71,54 @@ struct QuillCodeSidebarThreadRowView: View {
         }
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
         .accessibilityValue(item.runStatusLabel ?? "Idle")
+    }
+
+    @ViewBuilder
+    private var worktreeMetadata: some View {
+        if let worktree = item.worktree {
+            if worktree.location == .local {
+                metadataText(
+                    worktree.isResolvable ? "Local" : "Local · worktree missing",
+                    color: worktree.isResolvable ? QuillCodePalette.muted : QuillCodePalette.red,
+                    monospaced: true
+                )
+            } else if worktree.isResolvable {
+                metadataText("⑂ \(worktree.branchLeaf)", color: QuillCodePalette.blue, monospaced: true)
+            } else if worktree.hasRestorableSnapshot {
+                metadataText("↻ Worktree saved", color: QuillCodePalette.blue)
+            } else {
+                metadataText("⚠ Worktree missing", color: QuillCodePalette.red)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pullRequestMetadata: some View {
+        if let pullRequest = item.pullRequest {
+            metadataText(pullRequest.compactLabel, color: pullRequestColor(pullRequest.status))
+                .help(pullRequest.title)
+                .accessibilityLabel("Pull request \(pullRequest.number), \(pullRequest.status.label)")
+        }
+    }
+
+    private func metadataText(_ text: String, color: Color, monospaced: Bool = false) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .medium, design: monospaced ? .monospaced : .default))
+            .foregroundStyle(color)
+            .lineLimit(1)
+    }
+
+    private func pullRequestColor(_ status: PullRequestLifecycleStatus) -> Color {
+        switch status {
+        case .draft:
+            return QuillCodePalette.muted
+        case .open, .queued:
+            return QuillCodePalette.blue
+        case .merged:
+            return QuillCodePalette.green
+        case .closed:
+            return QuillCodePalette.red
+        }
     }
 
     private var actionsMenu: some View {

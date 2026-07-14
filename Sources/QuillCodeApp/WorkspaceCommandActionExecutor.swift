@@ -104,6 +104,12 @@ extension QuillCodeWorkspaceModel {
             return finishSelectedWorktreeInLocal()
         case .publishSelectedWorktreeBranch:
             return publishSelectedWorktreeBranch()
+        case .refreshSelectedPullRequest:
+            return refreshSelectedPullRequest()
+        case .landSelectedPullRequest:
+            return landSelectedPullRequest()
+        case .cleanUpSelectedMergedWorktree:
+            return cleanUpSelectedMergedWorktree()
         case .setThreadPinned(let threadID, let isPinned):
             return setPinThread(threadID, isPinned: isPinned)
         case .clearThread(let threadID):

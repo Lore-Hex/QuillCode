@@ -1,41 +1,10 @@
 import Foundation
 import QuillCodeCore
 
-public struct GitBranchPublicationPullRequest: Sendable, Hashable {
-    public let number: Int
-    public let title: String
-    public let url: String
-    public let state: String
-    public let isDraft: Bool
-    public let baseBranch: String
-    public let headBranch: String
-
-    public init(
-        number: Int,
-        title: String,
-        url: String,
-        state: String,
-        isDraft: Bool,
-        baseBranch: String,
-        headBranch: String
-    ) {
-        self.number = number
-        self.title = title
-        self.url = url
-        self.state = state
-        self.isDraft = isDraft
-        self.baseBranch = baseBranch
-        self.headBranch = headBranch
-    }
-
-    public var isOpen: Bool {
-        state.caseInsensitiveCompare("OPEN") == .orderedSame
-    }
-}
-
 public struct GitBranchPublicationInspection: Sendable, Hashable {
     public let branch: String
     public let baseBranch: String?
+    public let headCommit: String
     public let hasUncommittedChanges: Bool
     public let commitsAheadOfBase: Int?
     public let upstream: String?
@@ -47,6 +16,7 @@ public struct GitBranchPublicationInspection: Sendable, Hashable {
     public init(
         branch: String,
         baseBranch: String?,
+        headCommit: String = "",
         hasUncommittedChanges: Bool,
         commitsAheadOfBase: Int?,
         upstream: String?,
@@ -57,6 +27,7 @@ public struct GitBranchPublicationInspection: Sendable, Hashable {
     ) {
         self.branch = branch
         self.baseBranch = baseBranch
+        self.headCommit = headCommit
         self.hasUncommittedChanges = hasUncommittedChanges
         self.commitsAheadOfBase = commitsAheadOfBase
         self.upstream = upstream
@@ -85,15 +56,44 @@ public struct GitBranchPublicationInspection: Sendable, Hashable {
 
 public struct GitBranchPublicationInspector: Sendable {
     private let runner: GitProcessRunner
+    private let pullRequestInspector: GitHubPullRequestInspector
 
     public init(githubCLIExecutable: URL? = nil) {
         self.runner = GitProcessRunner(githubCLIExecutable: githubCLIExecutable)
+        self.pullRequestInspector = GitHubPullRequestInspector(githubCLIExecutable: githubCLIExecutable)
     }
 
     public func inspect(
         cwd: URL,
         expectedBranch: String,
         baseBranch: String?
+    ) throws -> GitBranchPublicationInspection {
+        try inspect(
+            cwd: cwd,
+            expectedBranch: expectedBranch,
+            baseBranch: baseBranch,
+            includesPullRequest: true
+        )
+    }
+
+    public func inspectBranchState(
+        cwd: URL,
+        expectedBranch: String,
+        baseBranch: String?
+    ) throws -> GitBranchPublicationInspection {
+        try inspect(
+            cwd: cwd,
+            expectedBranch: expectedBranch,
+            baseBranch: baseBranch,
+            includesPullRequest: false
+        )
+    }
+
+    private func inspect(
+        cwd: URL,
+        expectedBranch: String,
+        baseBranch: String?,
+        includesPullRequest: Bool
     ) throws -> GitBranchPublicationInspection {
         let expected = try validatedName(expectedBranch)
         let current = try currentBranch(cwd: cwd)
@@ -106,6 +106,11 @@ public struct GitBranchPublicationInspector: Sendable {
             cwd: cwd,
             operation: "working-tree inspection"
         )
+        let headCommit = try requiredGit(
+            ["rev-parse", "HEAD"],
+            cwd: cwd,
+            operation: "HEAD inspection"
+        ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         let base = resolvedBaseBranch(baseBranch, headBranch: expected, cwd: cwd)
         let aheadOfBase = try base.map {
             try integerOutput(
@@ -119,11 +124,14 @@ public struct GitBranchPublicationInspector: Sendable {
         )
         let upstreamCounts = try upstream.map { try upstreamComparison($0, cwd: cwd) }
             ?? (behind: 0, ahead: 0)
-        let pullRequestLookup = pullRequest(for: expected, cwd: cwd)
+        let pullRequestLookup = includesPullRequest
+            ? pullRequestInspector.inspect(cwd: cwd, selector: expected)
+            : GitHubPullRequestLookup(pullRequest: nil)
 
         return GitBranchPublicationInspection(
             branch: expected,
             baseBranch: base,
+            headCommit: headCommit,
             hasUncommittedChanges: !status.stdout.isEmpty,
             commitsAheadOfBase: aheadOfBase,
             upstream: upstream,
@@ -181,43 +189,6 @@ public struct GitBranchPublicationInspector: Sendable {
         return (behind, ahead)
     }
 
-    private func pullRequest(
-        for branch: String,
-        cwd: URL
-    ) -> (pullRequest: GitBranchPublicationPullRequest?, warning: String?) {
-        let result = runner.runGitHub(
-            [
-                "pr", "view", branch,
-                "--json", "number,title,url,state,isDraft,baseRefName,headRefName"
-            ],
-            cwd: cwd,
-            timeoutSeconds: 30
-        )
-        guard result.ok else {
-            let detail = Self.conciseDetail(result)
-            return Self.isMissingPullRequest(detail)
-                ? (nil, nil)
-                : (nil, detail.isEmpty ? "Could not check for an existing pull request." : detail)
-        }
-        do {
-            let payload = try JSONDecoder().decode(PullRequestPayload.self, from: Data(result.stdout.utf8))
-            return (
-                GitBranchPublicationPullRequest(
-                    number: payload.number,
-                    title: payload.title,
-                    url: payload.url,
-                    state: payload.state,
-                    isDraft: payload.isDraft,
-                    baseBranch: payload.baseRefName,
-                    headBranch: payload.headRefName
-                ),
-                nil
-            )
-        } catch {
-            return (nil, "GitHub returned an unreadable pull request summary.")
-        }
-    }
-
     private func requiredGit(
         _ arguments: [String],
         cwd: URL,
@@ -265,15 +236,6 @@ public struct GitBranchPublicationInspector: Sendable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return String(singleLine.prefix(300))
     }
-
-    private static func isMissingPullRequest(_ detail: String) -> Bool {
-        let normalized = detail.lowercased()
-        return [
-            "no pull requests found",
-            "could not resolve to a pull request",
-            "no open pull requests"
-        ].contains { normalized.contains($0) }
-    }
 }
 
 public enum GitBranchPublicationInspectionError: Error, CustomStringConvertible, Equatable {
@@ -299,14 +261,4 @@ public enum GitBranchPublicationInspectionError: Error, CustomStringConvertible,
             return "Git returned unreadable output during \(operation)."
         }
     }
-}
-
-private struct PullRequestPayload: Decodable {
-    let number: Int
-    let title: String
-    let url: String
-    let state: String
-    let isDraft: Bool
-    let baseRefName: String
-    let headRefName: String
 }

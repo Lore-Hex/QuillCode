@@ -81,6 +81,28 @@ final class QuillCodeSidebarWorktreeBadgeTests: XCTestCase {
         XCTAssertEqual(decoded.worktree, summary)
     }
 
+    func testSidebarItemSurfaceCarriesAndRoundTripsPullRequestStatus() throws {
+        var thread = ChatThread(title: "Land task")
+        thread.pullRequest = PullRequestLink(
+            number: 42,
+            title: "Land task",
+            url: "https://github.test/pull/42",
+            status: .queued,
+            baseBranch: "main",
+            headBranch: "feature/land",
+            headCommit: "abc123"
+        )
+
+        let surface = SidebarItemSurface(item: SidebarItem(thread: thread), selectedThreadID: thread.id)
+        XCTAssertEqual(surface.pullRequest?.compactLabel, "PR #42 · Queued")
+
+        let decoded = try JSONDecoder().decode(
+            SidebarItemSurface.self,
+            from: JSONEncoder().encode(surface)
+        )
+        XCTAssertEqual(decoded.pullRequest, thread.pullRequest)
+    }
+
     func testLegacySidebarItemSurfaceJSONWithoutWorktreeDecodesToNil() throws {
         // A surface persisted before the worktree field existed must still decode (worktree = nil).
         let json = """
@@ -97,6 +119,7 @@ final class QuillCodeSidebarWorktreeBadgeTests: XCTestCase {
         """
         let decoded = try JSONDecoder().decode(SidebarItemSurface.self, from: Data(json.utf8))
         XCTAssertNil(decoded.worktree)
+        XCTAssertNil(decoded.pullRequest)
         XCTAssertNil(decoded.runStatusLabel)
     }
 

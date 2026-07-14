@@ -36,6 +36,9 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         XCTAssertEqual(planner.effect(for: .threadHandoff), .handoffSelectedThread)
         XCTAssertEqual(planner.effect(for: .threadFinishWorktree), .finishSelectedWorktree)
         XCTAssertEqual(planner.effect(for: .threadPublishBranch), .publishSelectedWorktreeBranch)
+        XCTAssertEqual(planner.effect(for: .threadRefreshPullRequest), .refreshSelectedPullRequest)
+        XCTAssertEqual(planner.effect(for: .threadLandPullRequest), .landSelectedPullRequest)
+        XCTAssertEqual(planner.effect(for: .threadCleanupMergedWorktree), .cleanUpSelectedMergedWorktree)
     }
 
     func testProjectActionsRequireOnlyTheContextTheyUse() {

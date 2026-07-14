@@ -34,6 +34,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     /// The git worktree this thread's runs operate in. nil = inherit the project root (every legacy
     /// thread, and any thread not bound to a fork worktree). See `WorktreeBinding`.
     public var worktree: WorktreeBinding?
+    /// The pull request published from this task, if any. It remains after a merged worktree is
+    /// cleaned up so task history keeps its review and landing outcome.
+    public var pullRequest: PullRequestLink?
     /// The thread this was forked from, for compare/land. nil when this thread was not forked.
     public var forkParentThreadID: UUID?
     /// The turn (a `TurnRevertPlan.turnMessageID`) a decision-point fork branched at. nil otherwise.
@@ -62,6 +65,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         composerAttachments: [ChatAttachment] = [],
         followUpQueue: [FollowUpItem] = [],
         worktree: WorktreeBinding? = nil,
+        pullRequest: PullRequestLink? = nil,
         forkParentThreadID: UUID? = nil,
         forkAnchorTurnMessageID: UUID? = nil,
         runtimeContext: ThreadRuntimeContext = .standard
@@ -85,6 +89,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.composerAttachments = Array(composerAttachments.prefix(ChatAttachment.maximumCountPerTurn))
         self.followUpQueue = followUpQueue
         self.worktree = worktree
+        self.pullRequest = pullRequest
         self.forkParentThreadID = forkParentThreadID
         self.forkAnchorTurnMessageID = forkAnchorTurnMessageID
         self.runtimeContext = runtimeContext
@@ -110,6 +115,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case composerAttachments
         case followUpQueue
         case worktree
+        case pullRequest
         case forkParentThreadID
         case forkAnchorTurnMessageID
     }
@@ -140,6 +146,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         )
         self.followUpQueue = try container.decodeIfPresent([FollowUpItem].self, forKey: .followUpQueue) ?? []
         self.worktree = try container.decodeIfPresent(WorktreeBinding.self, forKey: .worktree)
+        self.pullRequest = try container.decodeIfPresent(PullRequestLink.self, forKey: .pullRequest)
         self.forkParentThreadID = try container.decodeIfPresent(UUID.self, forKey: .forkParentThreadID)
         self.forkAnchorTurnMessageID = try container.decodeIfPresent(UUID.self, forKey: .forkAnchorTurnMessageID)
         self.runtimeContext = .standard
@@ -166,6 +173,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(followUpQueue, forKey: .followUpQueue)
         try container.encodeIfPresent(worktree, forKey: .worktree)
+        try container.encodeIfPresent(pullRequest, forKey: .pullRequest)
         try container.encodeIfPresent(forkParentThreadID, forKey: .forkParentThreadID)
         try container.encodeIfPresent(forkAnchorTurnMessageID, forKey: .forkAnchorTurnMessageID)
     }

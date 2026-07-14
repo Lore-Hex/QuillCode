@@ -67,6 +67,12 @@ enum QuillCodeCommandIconCatalog {
             return "arrow.triangle.branch"
         case "thread-publish-branch":
             return "arrow.up.circle"
+        case "thread-refresh-pull-request":
+            return "arrow.clockwise"
+        case "thread-land-pull-request":
+            return "arrow.triangle.merge"
+        case "thread-cleanup-merged-worktree":
+            return "checkmark.circle"
         case "toggle-browser":
             return "globe"
         case "open-browser-session":

@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 enum WorkspaceHTMLSidebarThreadRenderer {
     static func render(_ sidebar: SidebarSurface, commands: [WorkspaceCommandSurface]) -> String {
@@ -164,7 +165,7 @@ enum WorkspaceHTMLSidebarThreadRenderer {
           ))>
             <span class="sidebar-title-line"><span>\(escape(item.title))</span>\(renderRunStatus(item.runStatusLabel))</span>
             <small>\(escape(item.subtitle))</small>
-            \(renderWorktreeChip(item.worktree))
+            <span class="sidebar-thread-metadata">\(renderWorktreeChip(item.worktree))\(renderPullRequestChip(item.pullRequest))</span>
           </button>
           <span data-testid="sidebar-item-actions">
             \(item.actions.map(renderAction).joined(separator: "\n"))
@@ -203,6 +204,13 @@ enum WorkspaceHTMLSidebarThreadRenderer {
         }
         return """
         <span class="sidebar-worktree-warning" data-testid="sidebar-worktree-warning" title="Worktree missing — running in the project root">⚠ Worktree missing</span>
+        """
+    }
+
+    private static func renderPullRequestChip(_ pullRequest: PullRequestLink?) -> String {
+        guard let pullRequest else { return "" }
+        return """
+        <span class="sidebar-pr-chip" data-testid="sidebar-pr-status" data-tone="\(escape(pullRequest.status.rawValue))" title="\(escape(pullRequest.title))">\(escape(pullRequest.compactLabel))</span>
         """
     }
 

@@ -37,8 +37,8 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await openCommandPalette(page);
   await fillCommandPalette(page, '>worktree');
 
-  // Five git-worktree tools plus task, restore, create, publish, handoff, and finish actions.
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(11);
+  // Five git-worktree tools plus task, restore, create, publish, merged cleanup, handoff, and finish actions.
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(12);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expectCommandPaletteClosed(page);
@@ -78,6 +78,39 @@ test('detached worktree task can create and own a branch in place', async ({ pag
   await expect(toolTitles.last()).toHaveText('host.git.pr.create');
   await expect(page.getByTestId('tool-card-input').last()).toContainText('feature/owned-task');
   await expect(page.getByTestId('message').last()).toContainText('opened its pull request');
+  await expect(page.getByTestId('sidebar-pr-status')).toHaveText('PR #1187 · Open');
+  await expect(page.getByTestId('top-bar-publish-branch-button')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-pull-request-button'))
+    .toHaveAttribute('data-command-id', 'thread-land-pull-request');
+  const pullRequestButtonBounds = await page.getByTestId('top-bar-pull-request-button').boundingBox();
+  expect(pullRequestButtonBounds?.width).toBeGreaterThanOrEqual(40);
+  expect(pullRequestButtonBounds?.height).toBeGreaterThanOrEqual(40);
+  await page.getByTestId('top-bar-overflow-button').click();
+  await expect(page.getByTestId('top-bar-overflow-thread-publish-branch')).toBeVisible();
+  await page.getByTestId('top-bar-overflow-button').click();
+
+  await page.getByTestId('top-bar-pull-request-button').click();
+
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.merge');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"auto": true');
+  await expect(page.getByTestId('sidebar-pr-status')).toHaveText('PR #1187 · Queued');
+  await expect(page.getByTestId('top-bar-pull-request-button'))
+    .toHaveAttribute('data-command-id', 'thread-refresh-pull-request');
+
+  await page.getByTestId('top-bar-pull-request-button').click();
+
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.view');
+  await expect(page.getByTestId('sidebar-pr-status')).toHaveText('PR #1187 · Merged');
+  await expect(page.getByTestId('top-bar-pull-request-button'))
+    .toHaveAttribute('data-command-id', 'thread-cleanup-merged-worktree');
+
+  await page.getByTestId('top-bar-pull-request-button').click();
+
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.remove');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"force": false');
+  await expect(page.getByTestId('sidebar-worktree-branch')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar-pr-status')).toHaveText('PR #1187 · Merged');
+  await expect(page.getByTestId('message').last()).toContainText('task and PR history remain available');
 });
 
 test('finishing a managed task confirms, preserves failed cleanup, and retries safely', async ({ page }) => {

@@ -8,7 +8,7 @@ final class GitBranchPublicationInspectorTests: XCTestCase {
         defer { fixture.remove() }
         try fixture.commitFeatureChange()
         let gh = try fixture.fakeGitHubCLI(
-            stdout: #"{"number":42,"title":"Publish worktree","url":"https://github.test/pull/42","state":"OPEN","isDraft":false,"baseRefName":"main","headRefName":"feature/publish"}"#
+            stdout: #"{"number":42,"title":"Publish worktree","url":"https://github.test/pull/42","state":"OPEN","isDraft":false,"baseRefName":"main","headRefName":"feature/publish","headRefOid":"abc123","mergeStateStatus":"BLOCKED","autoMergeRequest":{"enabledAt":"2026-07-14T00:00:00Z"}}"#
         )
 
         let inspection = try GitBranchPublicationInspector(githubCLIExecutable: gh).inspect(
@@ -24,6 +24,10 @@ final class GitBranchPublicationInspectorTests: XCTestCase {
         XCTAssertEqual(inspection.upstreamRemote, nil)
         XCTAssertEqual(inspection.openPullRequest?.number, 42)
         XCTAssertEqual(inspection.openPullRequest?.url, "https://github.test/pull/42")
+        XCTAssertEqual(inspection.openPullRequest?.headCommit, "abc123")
+        XCTAssertEqual(inspection.openPullRequest?.lifecycleStatus, .queued)
+        XCTAssertEqual(inspection.openPullRequest?.mergeStateStatus, "BLOCKED")
+        XCTAssertFalse(inspection.headCommit.isEmpty)
         XCTAssertNil(inspection.pullRequestLookupWarning)
     }
 
@@ -96,6 +100,27 @@ final class GitBranchPublicationInspectorTests: XCTestCase {
         XCTAssertNil(inspection.pullRequest)
         XCTAssertEqual(inspection.pullRequestLookupWarning, "authentication required")
         XCTAssertEqual(inspection.commitsAheadOfBase, 1)
+    }
+
+    func testBranchStateInspectionDoesNotRequireGitHub() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        try fixture.commitFeatureChange()
+        let missingGitHubCLI = fixture.root
+            .deletingLastPathComponent()
+            .appendingPathComponent("missing-gh")
+
+        let inspection = try GitBranchPublicationInspector(
+            githubCLIExecutable: missingGitHubCLI
+        ).inspectBranchState(
+            cwd: fixture.root,
+            expectedBranch: "feature/publish",
+            baseBranch: "main"
+        )
+
+        XCTAssertEqual(inspection.commitsAheadOfBase, 1)
+        XCTAssertNil(inspection.pullRequest)
+        XCTAssertNil(inspection.pullRequestLookupWarning)
     }
 }
 

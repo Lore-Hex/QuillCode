@@ -91,6 +91,9 @@ extension TopBarSurface {
         if let goal {
             parts.append(goal.detail)
         }
+        if let pullRequest {
+            parts.append("\(pullRequest.compactLabel): \(pullRequest.title)")
+        }
         if let runtimeIssuePresentation {
             parts.append("Issue: \(runtimeIssuePresentation.label)")
         }
@@ -108,6 +111,9 @@ extension TopBarSurface {
         }
         if let worktreeStatusLabel {
             parts.append("worktree: \(worktreeStatusLabel)")
+        }
+        if let pullRequest {
+            parts.append("pull request: \(pullRequest.compactLabel)")
         }
         if let liveWork {
             parts.append("current work: \(liveWork.label)")

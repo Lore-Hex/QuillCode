@@ -46,6 +46,23 @@ final class TopBarCommandCatalogTests: XCTestCase {
         )
     }
 
+    func testOverflowIncludesOnlyEnabledPublishAndPullRequestLifecycleActions() {
+        let commands = [
+            command(id: "thread-publish-branch", title: "Publish branch"),
+            command(id: "thread-refresh-pull-request", title: "Refresh pull request"),
+            command(id: "thread-land-pull-request", title: "Land pull request", isEnabled: false),
+            command(id: "thread-cleanup-merged-worktree", title: "Clean up merged worktree", isEnabled: false)
+        ]
+
+        XCTAssertEqual(
+            TopBarOverflowCommandCatalog.commands(
+                from: commands,
+                showsComputerUseSetup: false
+            ).map(\.id),
+            ["thread-publish-branch", "thread-refresh-pull-request"]
+        )
+    }
+
     func testProjectActionsKeepRunnableEnvironmentCommandsInSourceOrder() {
         let commands = [
             command(id: "search", title: "Search", category: WorkspaceCommandPalette.navigationCategory),

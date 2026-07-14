@@ -148,7 +148,7 @@ enum WorkspaceHTMLTopBarRenderer {
         <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
           \(renderRestoreWorktreeButton(commands: commands))
           \(renderCreateBranchButton(commands: commands))
-          \(renderPublishBranchButton(commands: commands))
+          \(renderPullRequestButton(topBar, commands: commands) ?? renderPublishBranchButton(commands: commands))
           \(renderHandoffButton(commands: commands))
           \(renderActiveStopButton(commands: commands))
           <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
@@ -281,6 +281,42 @@ enum WorkspaceHTMLTopBarRenderer {
             classes: ["topbar-publish-branch-button"],
             ariaLabel: command.title,
             title: command.title
+        )
+    }
+
+    private static func renderPullRequestButton(
+        _ topBar: TopBarSurface,
+        commands: [WorkspaceCommandSurface]
+    ) -> String? {
+        guard let pullRequest = topBar.pullRequest else { return nil }
+        let commandID: String
+        let label: String
+        switch pullRequest.status {
+        case .open:
+            commandID = WorkspaceCommandAction.threadLandPullRequest.rawValue
+            label = "Land #\(pullRequest.number)"
+        case .merged:
+            commandID = WorkspaceCommandAction.threadCleanupMergedWorktree.rawValue
+            label = "Clean up #\(pullRequest.number)"
+        case .draft, .queued, .closed:
+            commandID = WorkspaceCommandAction.threadRefreshPullRequest.rawValue
+            label = pullRequest.compactLabel
+        }
+        guard let command = commands.first(where: { $0.id == commandID && $0.isEnabled }) else {
+            return ""
+        }
+        return WorkspaceHTMLPrimitives.commandButton(
+            label,
+            testID: "top-bar-pull-request-button",
+            commandID: command.id,
+            hitTargetKind: .text,
+            classes: ["topbar-pull-request-button"],
+            ariaLabel: command.title,
+            title: command.title,
+            attributes: [
+                ("data-pr-number", String(pullRequest.number)),
+                ("data-pr-status", pullRequest.status.rawValue)
+            ]
         )
     }
 

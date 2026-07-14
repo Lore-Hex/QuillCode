@@ -70,6 +70,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             worktreeStatusLabel: worktreeStatus?.label,
             worktreeStatusDetail: worktreeStatus?.detail,
             worktreeStatusIsWarning: worktreeStatus?.isWarning ?? false,
+            pullRequest: thread?.pullRequest,
             branchStatusLabel: topBarState.branchStatus.flatMap { status in
                 let label = status.compactLabel
                 return label.isEmpty ? nil : label

@@ -15,6 +15,7 @@ final class WorkspaceManagedWorktreePublishCoordinatorTests: XCTestCase {
                 GitBranchPublicationInspection(
                     branch: branch,
                     baseBranch: base,
+                    headCommit: "abc123",
                     hasUncommittedChanges: false,
                     commitsAheadOfBase: 2,
                     upstream: nil
@@ -23,7 +24,7 @@ final class WorkspaceManagedWorktreePublishCoordinatorTests: XCTestCase {
             runTool: { call, _, _ in
                 calls.append(call)
                 return ToolResult(ok: true, stdout: call.name == ToolDefinition.gitPullRequestCreate.name
-                    ? "https://github.com/Lore-Hex/QuillCode/pull/42\n"
+                    ? "Created https://github.com/Lore-Hex/QuillCode/pull/42#discussion\n"
                     : "")
             }
         )
@@ -41,6 +42,13 @@ final class WorkspaceManagedWorktreePublishCoordinatorTests: XCTestCase {
         XCTAssertEqual(create.string("head"), fixture.branch)
         XCTAssertEqual(create.string("base"), "main")
         XCTAssertEqual(create.bool("fill"), true)
+        XCTAssertEqual(fixture.model.selectedThread?.pullRequest?.number, 42)
+        XCTAssertEqual(
+            fixture.model.selectedThread?.pullRequest?.url,
+            "https://github.com/Lore-Hex/QuillCode/pull/42"
+        )
+        XCTAssertEqual(fixture.model.selectedThread?.pullRequest?.headCommit, "abc123")
+        XCTAssertEqual(fixture.model.selectedThread?.pullRequest?.status, .open)
         XCTAssertTrue(fixture.model.selectedThread?.events.last?.summary.contains("opened its pull request") == true)
     }
 
@@ -53,6 +61,7 @@ final class WorkspaceManagedWorktreePublishCoordinatorTests: XCTestCase {
                 GitBranchPublicationInspection(
                     branch: branch,
                     baseBranch: base,
+                    headCommit: "abc123",
                     hasUncommittedChanges: false,
                     commitsAheadOfBase: 3,
                     upstream: "origin/\(branch)",
@@ -76,7 +85,9 @@ final class WorkspaceManagedWorktreePublishCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.publishSelectedThread())
         XCTAssertEqual(calls.map(\.name), [ToolDefinition.gitPullRequestView.name])
         let view = try ToolArguments(XCTUnwrap(calls.first?.argumentsJSON))
-        XCTAssertEqual(view.string("selector"), fixture.branch)
+        XCTAssertEqual(view.string("selector"), "42")
+        XCTAssertEqual(fixture.model.selectedThread?.pullRequest?.number, 42)
+        XCTAssertEqual(fixture.model.selectedThread?.pullRequest?.headCommit, "abc123")
         XCTAssertTrue(fixture.model.selectedThread?.events.last?.summary.contains("#42") == true)
     }
 

@@ -169,7 +169,41 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
               worktree.location == .worktree,
               worktree.isResolvable
         else { return false }
+        let pullRequestCanReceiveUpdates = selectedThread?.pullRequest.map {
+            $0.status == .open || $0.status == .draft
+        } ?? true
+        return pullRequestCanReceiveUpdates
+            && !worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var selectedThreadCanManagePullRequest: Bool {
+        !composerIsSending
+            && !selectedThreadIsRunning
+            && !terminalIsRunning
+            && selectedProject != nil
+            && !selectedProjectIsRemote
+            && selectedThread?.isArchived == false
+            && selectedThread?.pullRequest != nil
+    }
+
+    private var selectedThreadCanRefreshPullRequest: Bool {
+        selectedThreadCanManagePullRequest
+    }
+
+    private var selectedThreadCanLandPullRequest: Bool {
+        guard selectedThreadCanManagePullRequest,
+              selectedThread?.pullRequest?.status == .open,
+              let worktree = selectedThread?.worktree,
+              worktree.location == .worktree,
+              worktree.isResolvable
+        else { return false }
         return !worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var selectedThreadCanCleanupMergedWorktree: Bool {
+        selectedThreadCanManagePullRequest
+            && selectedThread?.pullRequest?.status == .merged
+            && selectedThread?.worktree?.location == .worktree
     }
 
     private var selectedThreadFinishWorktreeTitle: String? {
@@ -215,6 +249,9 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             selectedThreadFinishWorktreeTitle: selectedThreadFinishWorktreeTitle,
             selectedThreadCanCreateBranch: selectedThreadCanCreateBranch,
             selectedThreadCanPublishBranch: selectedThreadCanPublishBranch,
+            selectedThreadCanRefreshPullRequest: selectedThreadCanRefreshPullRequest,
+            selectedThreadCanLandPullRequest: selectedThreadCanLandPullRequest,
+            selectedThreadCanCleanupMergedWorktree: selectedThreadCanCleanupMergedWorktree,
             hasAnySidebarThread: sidebarItemCount > 0,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             hasSidebarSelection: !selectedSidebarThreads.isEmpty,

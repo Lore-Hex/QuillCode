@@ -92,6 +92,13 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    func setSelectedThreadPullRequest(_ pullRequest: PullRequestLink) {
+        mutateSelectedThread { thread in
+            thread.pullRequest = pullRequest
+            thread.updatedAt = Date()
+        }
+    }
+
     func clearWorktreeBinding(threadID: UUID) {
         mutateThread(threadID) { thread in
             thread.worktree = nil

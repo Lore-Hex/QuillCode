@@ -100,6 +100,7 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
             [
                 "thread-new-worktree",
                 "thread-restore-worktree",
+                "thread-cleanup-merged-worktree",
                 "thread-create-branch",
                 "thread-publish-branch",
                 "thread-handoff",
