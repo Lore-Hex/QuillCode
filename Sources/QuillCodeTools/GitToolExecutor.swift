@@ -65,6 +65,10 @@ public struct GitToolExecutor: Sendable {
         patches.stageHunk(cwd: cwd, path: path, patch: patch)
     }
 
+    public func unstageHunk(cwd: URL, path: String, patch: String) -> ToolResult {
+        patches.unstageHunk(cwd: cwd, path: path, patch: patch)
+    }
+
     public func restoreHunk(cwd: URL, path: String, patch: String) -> ToolResult {
         patches.restoreHunk(cwd: cwd, path: path, patch: patch)
     }

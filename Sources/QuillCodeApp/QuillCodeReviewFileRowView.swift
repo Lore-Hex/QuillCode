@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeReviewFileRowView: View {
     var file: WorkspaceReviewFileSurface
+    var scope: WorkspaceReviewScope
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
 
@@ -30,7 +31,7 @@ struct QuillCodeReviewFileRowView: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(QuillCodePalette.muted)
             HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                ForEach(file.actions) { action in
+                ForEach(file.actions(in: scope)) { action in
                     QuillCodeReviewActionButton(action: action, path: file.path, onReviewAction: onReviewAction)
                 }
             }
@@ -46,6 +47,7 @@ struct QuillCodeReviewFileRowView: View {
         ForEach(file.hunkItems) { hunk in
             QuillCodeReviewHunkView(
                 hunk: hunk,
+                scope: scope,
                 onReviewAction: onReviewAction,
                 onAddReviewComment: onAddReviewComment
             )

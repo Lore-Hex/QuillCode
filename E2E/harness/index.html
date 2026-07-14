@@ -3237,6 +3237,40 @@
       gap: 16px;
       margin-bottom: 10px;
     }
+    .review-scopes {
+      display: inline-grid;
+      grid-template-columns: repeat(2, minmax(92px, 1fr));
+      gap: 2px;
+      margin-bottom: 10px;
+      padding: 2px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.06);
+    }
+    .review-scope-button {
+      min-height: var(--hit-target);
+      padding: 0 12px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition-property: background-color, color, transform;
+      transition-duration: 140ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .review-scope-button[aria-pressed="true"] {
+      background: rgba(61,201,230,.18);
+      color: var(--blue);
+    }
+    .review-scope-button:active { transform: scale(.96); }
+    .review-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
     .review-pane ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
     .review-pane li {
       display: grid;
@@ -4401,6 +4435,8 @@
       review: {
         title: 'Review changes',
         subtitle: 'Latest git diff',
+        hasGitDiff: false,
+        activeScope: null,
         files: [],
         pullRequestThreads: [],
         reviewDraft: null,
@@ -4409,6 +4445,7 @@
         totalHunks: 0,
         activeReplyThreadID: null
       },
+      mockGitReviewChangeScope: 'unstaged',
       extensions: {
         isVisible: false,
         focusedKind: null,
@@ -8144,19 +8181,28 @@
       const runtimeIssue = renderRuntimeIssue(state.runtimeIssue);
       const reviewThreads = state.review.pullRequestThreads || [];
       const reviewDraft = state.review.reviewDraft || null;
+      const hasGitDiff = state.review.hasGitDiff === true;
+      const reviewScope = state.review.activeScope || 'unstaged';
       const reviewBadge = [
         state.review.files.length ? `${state.review.totalHunks} hunk${state.review.totalHunks === 1 ? '' : 's'}` : null,
         reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null,
         reviewDraft ? 'review draft' : null
       ].filter(Boolean).join(' · ') || 'Review';
-      const review = (state.review.files.length || reviewThreads.length || reviewDraft) ? `
+      const review = (hasGitDiff || state.review.files.length || reviewThreads.length || reviewDraft) ? `
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
           <header>
             <strong>${escapeHTML(state.review.title)}</strong>
             <span data-testid="review-summary">${escapeHTML(state.review.subtitle)}</span>
             <small data-testid="review-badge">${escapeHTML(reviewBadge)}</small>
           </header>
+          ${hasGitDiff ? `
+            <div class="review-scopes" data-testid="review-scopes" role="group" aria-label="Review scope">
+              ${['unstaged', 'staged'].map(scope => `
+                <button type="button" class="review-scope-button hit-target-text" data-testid="review-scope" data-scope="${scope}" aria-pressed="${scope === reviewScope ? 'true' : 'false'}">${scope === 'staged' ? 'Staged' : 'Unstaged'}</button>
+              `).join('')}
+            </div>` : ''}
           ${renderPullRequestReviewDraft(reviewDraft)}
+          ${hasGitDiff && !state.review.files.length ? `<p class="review-empty" data-testid="review-empty">${reviewScope === 'staged' ? 'No staged changes' : 'No unstaged changes'}</p>` : ''}
           <ul>
             ${state.review.files.map(file => `
               <li data-testid="review-file">
@@ -8164,8 +8210,10 @@
                 <span class="review-actions">
                   <small>${escapeHTML(file.changeLabel)}</small>
                   <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="open" data-path="${escapeHTML(file.path)}">Open</button>
-                  <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
-                  <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
+                  ${reviewScope === 'staged'
+                    ? `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="unstage" data-path="${escapeHTML(file.path)}">Unstage</button>`
+                    : `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
+                       <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>`}
                 </span>
                 ${(file.hunks || []).length ? `
                   <div class="review-hunks">
@@ -8175,8 +8223,10 @@
                           <code data-testid="review-hunk-header">${escapeHTML(hunk.header)}</code>
                           <span class="review-actions">
                             <small>${escapeHTML(hunk.changeLabel)}</small>
-                            <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
-                            <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
+                            ${reviewScope === 'staged'
+                              ? `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="unstage_hunk" data-path="${escapeHTML(file.path)}">Unstage hunk</button>`
+                              : `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
+                                 <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>`}
                           </span>
                         </div>
                         <form class="review-range-comment-form" data-testid="review-range-comment-form" data-path="${escapeHTML(file.path)}">
@@ -9367,6 +9417,11 @@
           const action = event.currentTarget.getAttribute('data-action');
           const path = event.currentTarget.getAttribute('data-path');
           runReviewAction(action, path);
+        });
+      });
+      document.querySelectorAll('[data-testid="review-scope"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runReviewScopeChange(event.currentTarget.getAttribute('data-scope'));
         });
       });
       document.querySelectorAll('[data-testid="pr-review-thread-action"]').forEach(button => {
@@ -13565,18 +13620,26 @@
       render();
     }
 
-    function runGitDiffAction() {
-      const { diff, review } = mockReviewDiff();
+    function runGitDiffAction(scope = 'unstaged', options = {}) {
+      const normalizedScope = scope === 'staged' ? 'staged' : 'unstaged';
+      const { diff, review } = mockReviewForScope(normalizedScope);
       state.review = review;
       addToolCard({
         title: 'host.git.diff',
         subtitle: 'Completed',
         status: 'done',
-        inputJSON: JSON.stringify({}, null, 2),
+        inputJSON: JSON.stringify(normalizedScope === 'staged' ? { staged: true } : {}, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
       });
-      addMessage('assistant', 'Git diff:\n' + diff);
+      if (!options.suppressAssistantMessage) {
+        addMessage('assistant', 'Git diff:\n' + (diff || '(no changes)'));
+      }
       render();
+    }
+
+    function runReviewScopeChange(scope) {
+      if (scope !== 'unstaged' && scope !== 'staged') return;
+      runGitDiffAction(scope, { suppressAssistantMessage: true });
     }
 
     function runGitFetchAction() {
@@ -17504,6 +17567,8 @@
       return {
         title: 'Review changes',
         subtitle: 'Latest git diff',
+        hasGitDiff: false,
+        activeScope: null,
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0,
@@ -17770,6 +17835,8 @@
         review: {
           title: 'Review changes',
           subtitle: '1 file changed, +1 -0',
+          hasGitDiff: true,
+          activeScope: 'unstaged',
           totalInsertions: 1,
           totalDeletions: 0,
           totalHunks: 1,
@@ -17786,6 +17853,30 @@
             }],
             comments: []
           }]
+        }
+      };
+    }
+
+    function mockReviewForScope(scope) {
+      const mock = mockReviewDiff();
+      const hasChanges = state.mockGitReviewChangeScope === scope;
+      if (hasChanges) {
+        return {
+          diff: mock.diff,
+          review: {
+            ...mock.review,
+            hasGitDiff: true,
+            activeScope: scope
+          }
+        };
+      }
+      return {
+        diff: '',
+        review: {
+          ...emptyReviewSurface(),
+          subtitle: scope === 'staged' ? 'No staged changes' : 'No unstaged changes',
+          hasGitDiff: true,
+          activeScope: scope
         }
       };
     }
@@ -18933,34 +19024,39 @@
       }
       const toolMap = {
         restore: 'host.git.restore',
+        unstage: 'host.git.restore',
         stage_hunk: 'host.git.stage_hunk',
+        unstage_hunk: 'host.git.unstage_hunk',
         restore_hunk: 'host.git.restore_hunk'
       };
       const toolName = toolMap[action] || 'host.git.stage';
+      const activeScope = state.review.activeScope === 'staged' ? 'staged' : 'unstaged';
+      const actionArguments = { path };
+      if (action === 'unstage') actionArguments.staged = true;
       state.topBar.agentStatus = 'Running';
       addToolCard({
         title: toolName,
         subtitle: 'Completed',
         status: 'done',
-        inputJSON: JSON.stringify({ path }, null, 2),
+        inputJSON: JSON.stringify(actionArguments, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
       });
+      if (action === 'stage' || action === 'stage_hunk') {
+        state.mockGitReviewChangeScope = 'staged';
+      } else if (action === 'unstage' || action === 'unstage_hunk') {
+        state.mockGitReviewChangeScope = 'unstaged';
+      } else if (action === 'restore' || action === 'restore_hunk') {
+        state.mockGitReviewChangeScope = null;
+      }
+      const refreshed = mockReviewForScope(activeScope);
       addToolCard({
         title: 'host.git.diff',
         subtitle: 'Completed',
         status: 'done',
-        inputJSON: JSON.stringify({}, null, 2),
-        outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
+        inputJSON: JSON.stringify(activeScope === 'staged' ? { staged: true } : {}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: refreshed.diff }, null, 2)
       });
-      state.review = {
-        title: 'Review changes',
-        subtitle: 'Latest git diff',
-        totalInsertions: 0,
-        totalDeletions: 0,
-        totalHunks: 0,
-        files: [],
-        pullRequestThreads: []
-      };
+      state.review = refreshed.review;
       state.topBar.agentStatus = 'Idle';
       render();
     }

@@ -58,7 +58,8 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
             ToolDefinition.gitDiff.name
         ])
         XCTAssertTrue(fixture.model.currentToolCards.allSatisfy { $0.status == .done })
-        XCTAssertFalse(fixture.model.surface().review.isVisible)
+        XCTAssertTrue(fixture.model.surface().review.isVisible)
+        XCTAssertEqual(fixture.model.surface().review.subtitle, "No unstaged changes")
         XCTAssertEqual(try runGit(["status", "--short"], cwd: fixture.root), "M  hello.txt\n")
     }
 
@@ -368,7 +369,8 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         XCTAssertTrue(fixture.model.currentToolCards.allSatisfy { $0.status == .done })
         XCTAssertEqual(try String(contentsOf: fixture.fileURL, encoding: .utf8), "old\n")
         XCTAssertEqual(try runGit(["status", "--short"], cwd: fixture.root), "")
-        XCTAssertFalse(fixture.model.surface().review.isVisible)
+        XCTAssertTrue(fixture.model.surface().review.isVisible)
+        XCTAssertEqual(fixture.model.surface().review.subtitle, "No unstaged changes")
     }
 
     func testRemoteProjectReviewRestoreActionRunsThroughSSHAndRefreshesDiff() throws {
@@ -412,7 +414,54 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         ])
         XCTAssertTrue(fixture.model.currentToolCards.allSatisfy { $0.status == .done })
         XCTAssertTrue(try runGit(["diff", "--staged"], cwd: fixture.root).contains("+TWO"))
-        XCTAssertFalse(fixture.model.surface().review.isVisible)
+        XCTAssertTrue(fixture.model.surface().review.isVisible)
+        XCTAssertEqual(fixture.model.surface().review.subtitle, "No unstaged changes")
+    }
+
+    func testReviewScopeChangeLoadsStagedDiffWithUnstageActions() throws {
+        let fixture = try makeLocalReviewFixture()
+        XCTAssertTrue(GitToolExecutor().stage(cwd: fixture.root, path: "hello.txt").ok)
+
+        fixture.model.runReviewScopeChange(.staged, workspaceRoot: fixture.root)
+
+        let review = fixture.model.surface().review
+        XCTAssertEqual(fixture.model.currentToolCards.map(\.title), [ToolDefinition.gitDiff.name])
+        XCTAssertEqual(review.activeScope, .staged)
+        XCTAssertEqual(review.files.map(\.path), ["hello.txt"])
+        XCTAssertEqual(review.files.first?.actions(in: .staged).map(\.kind), [.open, .unstage])
+        XCTAssertEqual(review.files.first?.hunkItems.first?.actions(in: .staged).map(\.kind), [.unstageHunk])
+    }
+
+    func testRunReviewUnstageHunkPreservesChangeAndRefreshesStagedDiff() throws {
+        let fixture = try makeLocalReviewFixture(
+            initial: "one\ntwo\nthree\n",
+            changed: "one\nTWO\nthree\n"
+        )
+        XCTAssertTrue(GitToolExecutor().stageHunk(
+            cwd: fixture.root,
+            path: "hello.txt",
+            patch: twoLinePatch
+        ).ok)
+
+        fixture.model.runReviewAction(
+            WorkspaceReviewActionSurface(
+                kind: .unstageHunk,
+                path: "hello.txt",
+                patch: twoLinePatch,
+                targetID: "hello.txt:hunk-1",
+                scope: .staged
+            ),
+            workspaceRoot: fixture.root
+        )
+
+        XCTAssertEqual(fixture.model.currentToolCards.map(\.title), [
+            ToolDefinition.gitUnstageHunk.name,
+            ToolDefinition.gitDiff.name
+        ])
+        XCTAssertEqual(try runGit(["diff", "--staged"], cwd: fixture.root), "")
+        XCTAssertTrue(try runGit(["diff"], cwd: fixture.root).contains("+TWO"))
+        XCTAssertEqual(fixture.model.surface().review.activeScope, .staged)
+        XCTAssertEqual(fixture.model.surface().review.subtitle, "No staged changes")
     }
 
     func testRemoteProjectReviewStageHunkActionRunsThroughSSHAndRefreshesDiff() throws {

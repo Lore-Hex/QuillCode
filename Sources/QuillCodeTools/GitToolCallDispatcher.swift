@@ -15,6 +15,7 @@ struct GitToolCallDispatcher: Sendable {
         .gitStage,
         .gitRestore,
         .gitStageHunk,
+        .gitUnstageHunk,
         .gitRestoreHunk,
         .gitCommit,
         .gitPush,
@@ -87,6 +88,12 @@ struct GitToolCallDispatcher: Sendable {
             )
         case ToolDefinition.gitStageHunk.name:
             return git.stageHunk(
+                cwd: workspaceRoot,
+                path: try args.requiredString("path"),
+                patch: try args.requiredString("patch")
+            )
+        case ToolDefinition.gitUnstageHunk.name:
+            return git.unstageHunk(
                 cwd: workspaceRoot,
                 path: try args.requiredString("path"),
                 patch: try args.requiredString("patch")

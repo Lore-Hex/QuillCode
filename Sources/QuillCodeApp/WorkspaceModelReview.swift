@@ -5,6 +5,16 @@ import QuillCodeTools
 
 @MainActor
 public extension QuillCodeWorkspaceModel {
+    func runReviewScopeChange(_ scope: WorkspaceReviewScope, workspaceRoot: URL) {
+        _ = runToolCall(
+            ToolCall(
+                name: ToolDefinition.gitDiff.name,
+                argumentsJSON: scope.gitDiffArgumentsJSON
+            ),
+            workspaceRoot: workspaceRoot
+        )
+    }
+
     func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
         guard selectedThread != nil else { return }
 

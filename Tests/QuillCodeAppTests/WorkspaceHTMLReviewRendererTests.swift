@@ -37,6 +37,9 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="review-hunk""#))
         XCTAssertTrue(html.contains(#"data-testid="review-line""#))
         XCTAssertTrue(html.contains(#"data-testid="review-comment""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-scopes""#))
+        XCTAssertTrue(html.contains(#"data-scope="unstaged" aria-pressed="true""#))
+        XCTAssertTrue(html.contains(#"data-scope="staged" aria-pressed="false""#))
         XCTAssertTrue(html.contains(#"data-action="open""#))
         XCTAssertTrue(html.contains(#"data-action="stage""#))
         XCTAssertTrue(html.contains(#"data-action="restore""#))
@@ -48,6 +51,38 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Stage"))
         XCTAssertTrue(html.contains("Restore"))
         XCTAssertTrue(html.contains("1 file changed, +1 -0"))
+    }
+
+    func testHTMLRendererUsesNonDestructiveActionsForStagedScope() {
+        let review = WorkspaceReviewSurface(
+            activeScope: .staged,
+            files: [
+                WorkspaceReviewFileSurface(
+                    path: "Sources/App.swift",
+                    insertions: 1,
+                    deletions: 0,
+                    hunks: 1,
+                    hunkItems: [
+                        WorkspaceReviewHunkSurface(
+                            id: "hunk-1",
+                            path: "Sources/App.swift",
+                            header: "@@ -1 +1 @@",
+                            insertions: 1,
+                            deletions: 0,
+                            patch: "@@ -1 +1 @@\n+new\n"
+                        )
+                    ]
+                )
+            ]
+        )
+
+        let html = WorkspaceHTMLReviewRenderer.render(review)
+
+        XCTAssertTrue(html.contains(#"data-scope="staged" aria-pressed="true""#))
+        XCTAssertTrue(html.contains(#"data-action="unstage""#))
+        XCTAssertTrue(html.contains(#"data-action="unstage_hunk""#))
+        XCTAssertFalse(html.contains(#"data-action="restore""#))
+        XCTAssertFalse(html.contains(#"data-action="restore_hunk""#))
     }
 
     func testHTMLRendererExplainsUnreadableReviewFiles() {
