@@ -99,6 +99,12 @@ final class GitToolRouterTests: XCTestCase {
             XCTAssertNotNil(schema["properties"] as? [String: Any], definition.name)
         }
 
+        let diffSchema = try schemaDictionary(for: .gitDiff)
+        let diffProperties = try XCTUnwrap(diffSchema["properties"] as? [String: Any])
+        XCTAssertEqual((diffProperties["staged"] as? [String: Any])?["type"] as? String, "boolean")
+        XCTAssertEqual((diffProperties["commit"] as? [String: Any])?["type"] as? String, "string")
+        XCTAssertEqual((diffProperties["baseBranch"] as? [String: Any])?["type"] as? String, "string")
+
         let reviewSchema = try schemaDictionary(for: .gitPullRequestReview)
         let reviewProperties = try XCTUnwrap(reviewSchema["properties"] as? [String: Any])
         let reviewAction = try XCTUnwrap(reviewProperties["action"] as? [String: Any])

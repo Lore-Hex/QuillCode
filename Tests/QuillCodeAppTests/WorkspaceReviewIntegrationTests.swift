@@ -432,6 +432,42 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         XCTAssertEqual(review.files.first?.hunkItems.first?.actions(in: .staged).map(\.kind), [.unstageHunk])
     }
 
+    func testReviewScopeChangeLoadsExactCommitAsReadOnly() throws {
+        let fixture = try makeLocalReviewFixture()
+        _ = try runGit(["add", "hello.txt"], cwd: fixture.root)
+        _ = try runGit(["commit", "-m", "Update hello"], cwd: fixture.root)
+
+        fixture.model.runReviewScopeChange(.commit("HEAD"), workspaceRoot: fixture.root)
+
+        let review = fixture.model.surface().review
+        XCTAssertEqual(review.activeSelection, .commit("HEAD"))
+        XCTAssertEqual(review.files.map(\.path), ["hello.txt"])
+        XCTAssertEqual(review.files.first?.actions(in: .commit).map(\.kind), [.open])
+        XCTAssertTrue(review.files.first?.hunkItems.first?.actions(in: .commit).isEmpty == true)
+        let arguments = try ToolArguments(try XCTUnwrap(fixture.model.currentToolCards.last?.inputJSON))
+        XCTAssertEqual(arguments.string("commit"), "HEAD")
+    }
+
+    func testRemoteReviewScopeChangeLoadsBranchComparisonOverSSH() throws {
+        let fixture = try makeRemoteReviewFixture(argumentsFileName: "ssh-review-branch-args.txt")
+        _ = try runGit(["branch", "review-base", "HEAD"], cwd: fixture.remoteRoot)
+        _ = try runGit(["add", "hello.txt"], cwd: fixture.remoteRoot)
+        _ = try runGit(["commit", "-m", "Update hello"], cwd: fixture.remoteRoot)
+
+        fixture.model.runReviewScopeChange(.branch("review-base"), workspaceRoot: fixture.localRoot)
+
+        let review = fixture.model.surface().review
+        XCTAssertEqual(review.activeSelection, .branch("review-base"))
+        XCTAssertEqual(review.files.map(\.path), ["hello.txt"])
+        XCTAssertEqual(fixture.model.currentToolCards.map(\.executionContext?.kind), [.sshRemote])
+        XCTAssertTrue(
+            try fixture.recordedSSHArguments().contains(
+                "git diff --no-ext-diff --find-renames --find-copies 'review-base...HEAD' --"
+            )
+        )
+        XCTAssertNoLocalReviewFileCopied(to: fixture.localRoot)
+    }
+
     func testRunReviewUnstageHunkPreservesChangeAndRefreshesStagedDiff() throws {
         let fixture = try makeLocalReviewFixture(
             initial: "one\ntwo\nthree\n",

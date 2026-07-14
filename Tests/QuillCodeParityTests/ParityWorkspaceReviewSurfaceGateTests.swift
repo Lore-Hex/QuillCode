@@ -174,7 +174,7 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("ToolDefinition.gitStageHunk.name"), "Hunk stage calls should live in the planner.")
         XCTAssertTrue(plannerText.contains("ToolDefinition.gitUnstageHunk.name"), "Hunk unstage calls should live in the planner.")
         XCTAssertTrue(plannerText.contains("ToolDefinition.gitRestoreHunk.name"), "Hunk restore calls should live in the planner.")
-        XCTAssertTrue(plannerText.contains("action.scope.gitDiffArgumentsJSON"), "Review refreshes should preserve the selected diff scope.")
+        XCTAssertTrue(plannerText.contains("refreshSelection.gitDiffArgumentsJSON"), "Review refreshes should preserve the selected diff scope.")
         XCTAssertTrue(runnerText.contains("struct WorkspaceReviewActionRunner"), "Review action execution should live in a focused runner.")
         XCTAssertTrue(runnerText.contains("struct WorkspaceReviewActionRunResult"), "Review action execution should return a typed result.")
         XCTAssertTrue(runnerText.contains("recordedResults"), "Review action execution should expose ordered tool results for transcript recording.")
@@ -198,16 +198,20 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
 
     func testReviewScopeSelectionStaysWiredThroughNativeAndModelLayers() throws {
         let paneText = try Self.appSourceText(named: "QuillCodeReviewPaneView.swift")
+        let pickerText = try Self.appSourceText(named: "QuillCodeReviewScopePicker.swift")
         let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
         let actionsText = try Self.appSourceText(named: "QuillCodeWorkspaceActions.swift")
         let reviewExtensionText = try Self.appSourceText(named: "WorkspaceModelReview.swift")
 
-        XCTAssertTrue(paneText.contains("quillcode-review-scope"), "Native Review should expose an auditable scope control.")
+        XCTAssertTrue(paneText.contains("QuillCodeReviewScopePicker"), "Native Review should delegate scope selection to a focused control.")
+        XCTAssertTrue(pickerText.contains("quillcode-review-scope"), "Native Review should expose an auditable scope control.")
+        XCTAssertTrue(pickerText.contains("quillcode-review-reference"), "Historical comparisons should expose an auditable reference field.")
+        XCTAssertTrue(pickerText.contains("quillcode-review-compare"), "Historical comparisons should expose an auditable Compare action.")
         XCTAssertTrue(paneText.contains("onReviewScopeChange"), "Review scope controls should emit typed selections.")
         XCTAssertTrue(transcriptText.contains("onReviewScopeChange"), "Transcript composition should forward review scopes.")
         XCTAssertTrue(actionsText.contains("onReviewScopeChange"), "Workspace actions should own review scope routing.")
         XCTAssertTrue(reviewExtensionText.contains("func runReviewScopeChange"), "Workspace model should execute scope refreshes.")
-        XCTAssertTrue(reviewExtensionText.contains("scope.gitDiffArgumentsJSON"), "Scope refreshes should use the typed git-diff arguments.")
+        XCTAssertTrue(reviewExtensionText.contains("selection.gitDiffArgumentsJSON"), "Scope refreshes should use the typed git-diff arguments.")
     }
 
 }

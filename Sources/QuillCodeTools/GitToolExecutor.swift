@@ -23,8 +23,13 @@ public struct GitToolExecutor: Sendable {
         local.status(cwd: cwd)
     }
 
-    public func diff(cwd: URL, staged: Bool = false) -> ToolResult {
-        local.diff(cwd: cwd, staged: staged)
+    public func diff(
+        cwd: URL,
+        staged: Bool = false,
+        commit: String? = nil,
+        baseBranch: String? = nil
+    ) -> ToolResult {
+        local.diff(cwd: cwd, staged: staged, commit: commit, baseBranch: baseBranch)
     }
 
     public func fetch(cwd: URL, remote: String? = nil, prune: Bool = false) -> ToolResult {

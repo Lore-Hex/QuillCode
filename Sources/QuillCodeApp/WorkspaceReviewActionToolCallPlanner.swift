@@ -16,14 +16,19 @@ struct WorkspaceReviewActionRunPlan: Sendable, Hashable {
 
 enum WorkspaceReviewActionToolCallPlanner {
     static func runPlan(for action: WorkspaceReviewActionSurface) -> WorkspaceReviewActionRunPlan {
-        WorkspaceReviewActionRunPlan(
+        let refreshSelection = WorkspaceReviewSelection(scope: action.scope)
+        let diffRefreshCall: ToolCall?
+        if action.kind.isMutating, let refreshSelection {
+            diffRefreshCall = ToolCall(
+                name: ToolDefinition.gitDiff.name,
+                argumentsJSON: refreshSelection.gitDiffArgumentsJSON
+            )
+        } else {
+            diffRefreshCall = nil
+        }
+        return WorkspaceReviewActionRunPlan(
             actionCall: toolCall(for: action),
-            diffRefreshCall: action.kind.isMutating
-                ? ToolCall(
-                    name: ToolDefinition.gitDiff.name,
-                    argumentsJSON: action.scope.gitDiffArgumentsJSON
-                )
-                : nil
+            diffRefreshCall: diffRefreshCall
         )
     }
 

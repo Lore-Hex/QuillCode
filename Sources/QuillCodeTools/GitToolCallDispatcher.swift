@@ -55,7 +55,12 @@ struct GitToolCallDispatcher: Sendable {
         case ToolDefinition.gitStatus.name:
             return git.status(cwd: workspaceRoot)
         case ToolDefinition.gitDiff.name:
-            return git.diff(cwd: workspaceRoot, staged: args.bool("staged") ?? false)
+            return git.diff(
+                cwd: workspaceRoot,
+                staged: args.bool("staged") ?? false,
+                commit: args.string("commit"),
+                baseBranch: args.string("baseBranch")
+            )
         case ToolDefinition.gitFetch.name:
             return git.fetch(
                 cwd: workspaceRoot,

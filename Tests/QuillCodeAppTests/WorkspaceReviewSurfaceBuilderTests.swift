@@ -46,9 +46,47 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
 
         XCTAssertTrue(review.isVisible)
         XCTAssertEqual(review.activeScope, .staged)
-        XCTAssertEqual(review.availableScopes, [.unstaged, .staged])
+        XCTAssertEqual(review.availableScopes, [.unstaged, .staged, .commit, .branch])
         XCTAssertEqual(review.subtitle, "No staged changes")
         XCTAssertTrue(review.files.isEmpty)
+    }
+
+    func testSurfacePreservesHistoricalComparisonReference() throws {
+        let commitReview = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [diffCard(arguments: ["commit": "abc123"])],
+            events: []
+        ).surface()
+        let branchReview = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [diffCard(arguments: ["baseBranch": "origin/main"])],
+            events: []
+        ).surface()
+
+        XCTAssertEqual(commitReview.activeSelection, .commit("abc123"))
+        XCTAssertEqual(commitReview.subtitle, "No changes in commit abc123")
+        XCTAssertEqual(branchReview.activeSelection, .branch("origin/main"))
+        XCTAssertEqual(branchReview.subtitle, "No changes against origin/main")
+    }
+
+    func testHistoricalComparisonActionsAreReadOnly() throws {
+        let diff = """
+        diff --git a/Sources/App.swift b/Sources/App.swift
+        --- a/Sources/App.swift
+        +++ b/Sources/App.swift
+        @@ -1 +1 @@
+        -let old = true
+        +let old = false
+        """
+        let review = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [diffCard(stdout: diff, arguments: ["commit": "HEAD"])],
+            events: []
+        ).surface()
+        let file = try XCTUnwrap(review.files.first)
+        let hunk = try XCTUnwrap(file.hunkItems.first)
+
+        XCTAssertEqual(file.actions(in: .commit).map(\.kind), [.open])
+        XCTAssertTrue(hunk.actions(in: .commit).isEmpty)
+        XCTAssertEqual(file.actions(in: .branch).map(\.kind), [.open])
+        XCTAssertTrue(hunk.actions(in: .branch).isEmpty)
     }
 
     func testSurfaceAttachesSortedMatchingReviewComments() throws {
@@ -263,15 +301,18 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
         status: ToolCardStatus = .done,
         stdout: String = "",
         staged: Bool = false,
+        arguments: [String: Any]? = nil,
         result: ToolResult? = nil
     ) throws -> ToolCardState {
         let result = result ?? ToolResult(ok: true, stdout: stdout)
+        let inputJSON = arguments.map(ToolArguments.json)
+            ?? (staged ? ToolArguments.json(["staged": true]) : "{}")
         return ToolCardState(
             id: id,
             title: "host.git.diff",
             subtitle: "done",
             status: status,
-            inputJSON: staged ? ToolArguments.json(["staged": true]) : "{}",
+            inputJSON: inputJSON,
             outputJSON: try JSONHelpers.encodePretty(result)
         )
     }

@@ -17,8 +17,18 @@ public struct GitLocalToolExecutor: Sendable {
         shell.run(.init(command: "git status --short --branch", cwd: cwd, timeoutSeconds: 15))
     }
 
-    public func diff(cwd: URL, staged: Bool = false) -> ToolResult {
-        shell.run(.init(command: staged ? "git diff --staged" : "git diff", cwd: cwd, timeoutSeconds: 20))
+    public func diff(
+        cwd: URL,
+        staged: Bool = false,
+        commit: String? = nil,
+        baseBranch: String? = nil
+    ) -> ToolResult {
+        do {
+            let options = try GitDiffOptions(staged: staged, commit: commit, baseBranch: baseBranch)
+            return runGit(options.gitArguments, cwd: cwd, timeoutSeconds: 20)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
     }
 
     public func fetch(cwd: URL, remote: String? = nil, prune: Bool = false) -> ToolResult {

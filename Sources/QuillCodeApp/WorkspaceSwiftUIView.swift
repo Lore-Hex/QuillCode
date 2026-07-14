@@ -65,7 +65,7 @@ public struct QuillCodeWorkspaceView: View {
         onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
-        onReviewScopeChange: @escaping (WorkspaceReviewScope) -> Void = { _ in },
+        onReviewScopeChange: @escaping (WorkspaceReviewSelection) -> Void = { _ in },
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
         onPullRequestReviewThreadReply: @escaping (WorkspacePullRequestReviewThreadReplyRequest) -> Void = { _ in },

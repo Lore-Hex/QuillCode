@@ -5,11 +5,11 @@ import QuillCodeTools
 
 @MainActor
 public extension QuillCodeWorkspaceModel {
-    func runReviewScopeChange(_ scope: WorkspaceReviewScope, workspaceRoot: URL) {
+    func runReviewScopeChange(_ selection: WorkspaceReviewSelection, workspaceRoot: URL) {
         _ = runToolCall(
             ToolCall(
                 name: ToolDefinition.gitDiff.name,
-                argumentsJSON: scope.gitDiffArgumentsJSON
+                argumentsJSON: selection.gitDiffArgumentsJSON
             ),
             workspaceRoot: workspaceRoot
         )

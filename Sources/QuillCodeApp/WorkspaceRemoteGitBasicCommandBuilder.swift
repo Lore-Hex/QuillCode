@@ -21,7 +21,7 @@ enum WorkspaceRemoteGitBasicCommandBuilder {
         case ToolDefinition.gitStatus.name:
             return "git status --short --branch"
         case ToolDefinition.gitDiff.name:
-            return args.bool("staged") == true ? "git diff --staged" : "git diff"
+            return try diffCommand(arguments: args)
         case ToolDefinition.gitFetch.name:
             return try fetchCommand(arguments: args)
         case ToolDefinition.gitPull.name:
@@ -66,6 +66,14 @@ enum WorkspaceRemoteGitBasicCommandBuilder {
         try remoteGitCommand(GitFetchOptions(
             remote: args.string("remote"),
             prune: args.bool("prune") == true
+        ).gitArguments)
+    }
+
+    private static func diffCommand(arguments args: ToolArguments) throws -> String {
+        try remoteGitCommand(GitDiffOptions(
+            staged: args.bool("staged") == true,
+            commit: args.string("commit"),
+            baseBranch: args.string("baseBranch")
         ).gitArguments)
     }
 

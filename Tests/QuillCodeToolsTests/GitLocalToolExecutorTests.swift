@@ -2,6 +2,43 @@ import XCTest
 @testable import QuillCodeTools
 
 final class GitLocalToolExecutorTests: XCTestCase {
+    func testDiffShowsOneExactCommit() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        try makeCommit(in: root, file: "hello.txt", contents: "hello\n", message: "Add hello")
+        try makeCommit(in: root, file: "hello.txt", contents: "after\n", message: "Update hello")
+
+        let result = GitToolExecutor().diff(cwd: root, commit: "HEAD")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(result.stdout.contains("-hello"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("+after"), result.stdout)
+        XCTAssertFalse(result.stdout.contains("Update hello"), result.stdout)
+    }
+
+    func testDiffComparesHeadWithBaseBranchMergeBase() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git branch review-base HEAD", cwd: root)).ok)
+        try makeCommit(in: root, file: "feature.txt", contents: "feature\n", message: "Add feature")
+
+        let result = GitToolExecutor().diff(cwd: root, baseBranch: "review-base")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(result.stdout.contains("feature.txt"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("+feature"), result.stdout)
+    }
+
+    func testDiffRejectsConflictingAndUnsafeSelectors() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+
+        let conflicting = GitToolExecutor().diff(cwd: root, staged: true, commit: "HEAD")
+        let unsafe = GitToolExecutor().diff(cwd: root, baseBranch: "main; touch escape")
+
+        XCTAssertFalse(conflicting.ok)
+        XCTAssertTrue(conflicting.error?.contains("only one") == true, conflicting.error ?? "")
+        XCTAssertFalse(unsafe.ok)
+        XCTAssertTrue(unsafe.error?.contains("unsupported characters") == true, unsafe.error ?? "")
+    }
+
     func testStageStagesWorkspaceFileWithSpaces() throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
