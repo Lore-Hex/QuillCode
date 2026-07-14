@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: download-builds-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   macos:
