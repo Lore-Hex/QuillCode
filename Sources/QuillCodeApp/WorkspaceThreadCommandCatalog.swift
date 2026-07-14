@@ -15,6 +15,9 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadFinishWorktreeTitle: String? = nil
     var selectedThreadCanCreateBranch: Bool = false
     var selectedThreadCanPublishBranch: Bool = false
+    var selectedThreadCanRefreshPullRequest: Bool = false
+    var selectedThreadCanLandPullRequest: Bool = false
+    var selectedThreadCanCleanupMergedWorktree: Bool = false
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -68,6 +71,27 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "task", "worktree", "branch", "push", "publish", "pull request", "pr"],
                 isEnabled: availability.selectedThreadCanPublishBranch
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadRefreshPullRequest.rawValue,
+                title: "Refresh pull request",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "pull request", "pr", "github", "refresh", "status"],
+                isEnabled: availability.selectedThreadCanRefreshPullRequest
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadLandPullRequest.rawValue,
+                title: "Land pull request",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "pull request", "pr", "github", "merge", "queue", "land"],
+                isEnabled: availability.selectedThreadCanLandPullRequest
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadCleanupMergedWorktree.rawValue,
+                title: "Clean up merged worktree",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "pull request", "pr", "merged", "worktree", "cleanup", "remove"],
+                isEnabled: availability.selectedThreadCanCleanupMergedWorktree
             ),
             WorkspaceCommandSurface(
                 id: WorkspaceCommandAction.threadHandoff.rawValue,

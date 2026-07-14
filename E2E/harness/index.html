@@ -293,9 +293,16 @@
       color: var(--yellow);
       background: rgba(255, 190, 92, 0.12);
     }
-    .sidebar-worktree-chip {
-      display: inline-block;
+    .sidebar-thread-metadata {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
       margin-top: 3px;
+    }
+    .sidebar-worktree-chip,
+    .sidebar-pr-chip {
+      display: inline-block;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -308,6 +315,15 @@
       border-radius: 6px;
       padding: 1px 6px;
     }
+    .sidebar-pr-chip {
+      flex: 0 1 auto;
+      font-family: inherit;
+    }
+    .sidebar-pr-chip[data-tone="draft"] { color: var(--muted); background: rgba(255,255,255,.06); }
+    .sidebar-pr-chip[data-tone="open"],
+    .sidebar-pr-chip[data-tone="queued"] { color: var(--blue); background: rgba(84,179,255,.10); }
+    .sidebar-pr-chip[data-tone="merged"] { color: var(--green); background: rgba(66,214,119,.10); }
+    .sidebar-pr-chip[data-tone="closed"] { color: var(--red); background: rgba(255,91,82,.10); }
     .sidebar-worktree-chip[data-tone="warning"] {
       color: var(--yellow);
       background: rgba(255, 190, 92, 0.12);
@@ -603,12 +619,24 @@
     }
     .topbar-action-cluster .topbar-create-branch-button,
     .topbar-action-cluster .topbar-restore-worktree-button,
-    .topbar-action-cluster .topbar-publish-branch-button {
+    .topbar-action-cluster .topbar-publish-branch-button,
+    .topbar-action-cluster .topbar-pull-request-button {
       width: auto;
       min-width: 88px;
       padding: 0 12px;
       color: var(--text);
       background: rgba(255,255,255,.07);
+    }
+    .topbar-action-cluster .topbar-pull-request-button[data-pr-status="open"],
+    .topbar-action-cluster .topbar-pull-request-button[data-pr-status="queued"] {
+      color: var(--blue);
+      border-color: rgba(84,179,255,.28);
+      background: rgba(84,179,255,.10);
+    }
+    .topbar-action-cluster .topbar-pull-request-button[data-pr-status="merged"] {
+      color: var(--green);
+      border-color: rgba(66,214,119,.28);
+      background: rgba(66,214,119,.10);
     }
     .topbar-action-cluster .topbar-stop-button:hover {
       color: white;
@@ -4991,6 +5019,9 @@
         { id: 'thread-restore-worktree', title: 'Restore worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'snapshot', 'restore', 'archive'], isEnabled: false },
         { id: 'thread-create-branch', title: 'Create branch here', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'create', 'ownership'], isEnabled: false },
         { id: 'thread-publish-branch', title: 'Publish branch', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'push', 'publish', 'pull request', 'pr'], isEnabled: false },
+        { id: 'thread-refresh-pull-request', title: 'Refresh pull request', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'pull request', 'pr', 'github', 'refresh', 'status'], isEnabled: false },
+        { id: 'thread-land-pull-request', title: 'Land pull request', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'pull request', 'pr', 'github', 'merge', 'queue', 'land'], isEnabled: false },
+        { id: 'thread-cleanup-merged-worktree', title: 'Clean up merged worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'pull request', 'pr', 'merged', 'worktree', 'cleanup', 'remove'], isEnabled: false },
         { id: 'thread-handoff', title: 'Hand off task', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'handoff', 'local', 'worktree', 'move', 'transfer'], isEnabled: false },
         { id: 'thread-finish-worktree', title: 'Finish task in Local', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'finish', 'land', 'local', 'worktree', 'cleanup'], isEnabled: false },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
@@ -7612,6 +7643,14 @@
       const hasProject = Boolean(state.projects.selectedProjectID);
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       const hasLocalProject = hasProject && !selectedProject?.isRemote;
+      const canManagePullRequest = Boolean(
+        hasLocalProject
+        && selectedThread?.pullRequest
+        && !selectedThread?.isArchived
+        && !selectedThreadIsRunning
+        && !state.composer.isSending
+        && !state.terminal.isRunning
+      );
       const hasSelectedRemoteProject = Boolean(selectedProject?.isRemote);
       const hasActiveMCPServer = state.extensions.items.some(item => (
         item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel)
@@ -7699,10 +7738,33 @@
             && selectedThread?.worktree?.location === 'worktree'
             && selectedThread?.worktree?.isResolvable
             && selectedThread?.worktree?.branch
+            && (!selectedThread?.pullRequest || ['open', 'draft'].includes(selectedThread.pullRequest.status))
             && !selectedThread?.isArchived
             && !selectedThreadIsRunning
             && !state.composer.isSending
             && !state.terminal.isRunning
+          )
+        } :
+        command.id === 'thread-refresh-pull-request' ? {
+          ...command,
+          isEnabled: canManagePullRequest
+        } :
+        command.id === 'thread-land-pull-request' ? {
+          ...command,
+          isEnabled: Boolean(
+            canManagePullRequest
+            && selectedThread?.pullRequest?.status === 'open'
+            && selectedThread?.worktree?.location === 'worktree'
+            && selectedThread?.worktree?.isResolvable
+            && selectedThread?.worktree?.branch
+          )
+        } :
+        command.id === 'thread-cleanup-merged-worktree' ? {
+          ...command,
+          isEnabled: Boolean(
+            canManagePullRequest
+            && selectedThread?.pullRequest?.status === 'merged'
+            && selectedThread?.worktree?.location === 'worktree'
           )
         } :
         command.id === 'thread-handoff' ? {
@@ -8850,6 +8912,9 @@
         }
         return `<span class="sidebar-worktree-chip" data-tone="warning" data-testid="sidebar-worktree-warning" title="Worktree missing — running in the project root">⚠ Worktree missing</span>`;
       };
+      const renderSidebarPullRequestChip = (pullRequest) => pullRequest ? `
+        <span class="sidebar-pr-chip" data-testid="sidebar-pr-status" data-tone="${escapeHTML(pullRequest.status)}" title="${escapeHTML(pullRequest.title)}">PR #${escapeHTML(String(pullRequest.number))} · ${escapeHTML(pullRequest.statusLabel)}</span>
+      ` : '';
       const renderSidebarRunStatus = (status) => status ? `
         <span class="sidebar-run-status" data-testid="sidebar-run-status" title="${escapeHTML(status)}" aria-label="${escapeHTML(status)}"><span aria-hidden="true">●</span></span>
       ` : '';
@@ -8862,7 +8927,7 @@
             <button class="sidebar-item hit-target-row ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" data-run-status="${escapeHTML(item.runStatusLabel || '')}" aria-current="${item.isSelected ? 'true' : 'false'}">
               <span class="sidebar-title-line"><span>${escapeHTML(item.title)}</span>${renderSidebarRunStatus(item.runStatusLabel)}</span>
               <small>${escapeHTML(item.subtitle)}</small>
-              ${renderSidebarWorktreeChip(item.worktree)}
+              <span class="sidebar-thread-metadata">${renderSidebarWorktreeChip(item.worktree)}${renderSidebarPullRequestChip(item.pullRequest)}</span>
             </button>
             <details class="sidebar-thread-menu" data-testid="sidebar-item-actions">
               <summary class="hit-target-icon" aria-label="Actions for ${escapeHTML(item.title)}">•••</summary>
@@ -9062,6 +9127,10 @@
         'command-palette',
         'toggle-sidebar',
         'search',
+        ...(commandByID('thread-publish-branch')?.isEnabled ? ['thread-publish-branch'] : []),
+        ...(commandByID('thread-refresh-pull-request')?.isEnabled ? ['thread-refresh-pull-request'] : []),
+        ...(commandByID('thread-land-pull-request')?.isEnabled ? ['thread-land-pull-request'] : []),
+        ...(commandByID('thread-cleanup-merged-worktree')?.isEnabled ? ['thread-cleanup-merged-worktree'] : []),
         ...(commandByID('thread-finish-worktree')?.isEnabled ? ['thread-finish-worktree'] : []),
         ...(state.settings.computerUseStatus.available ? [] : ['computer-use-setup']),
         'settings',
@@ -9091,6 +9160,25 @@
       const topBarPublishBranchCommand = commandByID('thread-publish-branch');
       const topBarPublishBranchButton = topBarPublishBranchCommand?.isEnabled
         ? `<button type="button" class="topbar-publish-branch-button hit-target-text" data-testid="top-bar-publish-branch-button" data-command-id="thread-publish-branch" title="${escapeHTML(topBarPublishBranchCommand.title)}" aria-label="${escapeHTML(topBarPublishBranchCommand.title)}">Publish</button>`
+        : '';
+      const selectedPullRequest = selectedThread()?.pullRequest || null;
+      const topBarPullRequestCommandID = selectedPullRequest?.status === 'open'
+        ? 'thread-land-pull-request'
+        : selectedPullRequest?.status === 'merged'
+          ? 'thread-cleanup-merged-worktree'
+          : selectedPullRequest
+            ? 'thread-refresh-pull-request'
+            : null;
+      const topBarPullRequestCommand = topBarPullRequestCommandID ? commandByID(topBarPullRequestCommandID) : null;
+      const topBarPullRequestLabel = selectedPullRequest?.status === 'open'
+        ? `Land #${selectedPullRequest.number}`
+        : selectedPullRequest?.status === 'merged'
+          ? `Clean up #${selectedPullRequest.number}`
+          : selectedPullRequest
+            ? `PR #${selectedPullRequest.number} · ${selectedPullRequest.statusLabel}`
+            : '';
+      const topBarPullRequestButton = topBarPullRequestCommand?.isEnabled
+        ? `<button type="button" class="topbar-pull-request-button hit-target-text" data-testid="top-bar-pull-request-button" data-command-id="${escapeHTML(topBarPullRequestCommand.id)}" data-pr-number="${escapeHTML(String(selectedPullRequest.number))}" data-pr-status="${escapeHTML(selectedPullRequest.status)}" title="${escapeHTML(topBarPullRequestCommand.title)}" aria-label="${escapeHTML(topBarPullRequestCommand.title)}">${escapeHTML(topBarPullRequestLabel)}</button>`
         : '';
       const topBarRestoreWorktreeCommand = commandByID('thread-restore-worktree');
       const topBarRestoreWorktreeButton = topBarRestoreWorktreeCommand?.isEnabled
@@ -9141,7 +9229,7 @@
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
                 ${topBarRestoreWorktreeButton}
                 ${topBarCreateBranchButton}
-                ${topBarPublishBranchButton}
+                ${topBarPullRequestButton || topBarPublishBranchButton}
                 ${topBarHandoffButton}
                 ${topBarStopButton}
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
@@ -14438,6 +14526,28 @@
       return state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID) || null;
     }
 
+    function updateSelectedThread(transform) {
+      const threadID = state.sidebar.selectedThreadID;
+      if (!threadID) return null;
+      let updatedThread = null;
+      state.sidebar.items = state.sidebar.items.map(item => {
+        if (item.id !== threadID) return item;
+        updatedThread = transform(item);
+        return updatedThread;
+      });
+      return updatedThread;
+    }
+
+    function pullRequestStatusLabel(status) {
+      return {
+        draft: 'Draft',
+        open: 'Open',
+        queued: 'Queued',
+        merged: 'Merged',
+        closed: 'Closed'
+      }[status] || 'Open';
+    }
+
     function touchSelectedThread() {
       const threadID = state.sidebar.selectedThreadID;
       if (!threadID) return;
@@ -15009,6 +15119,9 @@
       'thread-clear',
       'thread-create-branch',
       'thread-publish-branch',
+      'thread-refresh-pull-request',
+      'thread-land-pull-request',
+      'thread-cleanup-merged-worktree',
       'thread-delete',
       'thread-duplicate',
       'thread-finish-worktree',
@@ -15334,34 +15447,110 @@
       }
       if (commandID === 'thread-publish-branch') {
         const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
-        if (thread?.worktree?.location !== 'worktree' || !thread.worktree.isResolvable || !thread.worktree.branch) return;
-        if (!thread.worktree.published) {
-          addToolCard({
-            title: 'host.git.push',
-            subtitle: 'Completed',
-            status: 'done',
-            inputJSON: JSON.stringify({ branch: thread.worktree.branch, remote: 'origin', setUpstream: true }, null, 2),
-            outputJSON: JSON.stringify({ ok: true, stdout: `branch '${thread.worktree.branch}' set up to track 'origin/${thread.worktree.branch}'.` }, null, 2)
-          });
-          addToolCard({
-            title: 'host.git.pr.create',
-            subtitle: 'Completed',
-            status: 'done',
-            inputJSON: JSON.stringify({ base: 'main', fill: true, head: thread.worktree.branch }, null, 2),
-            outputJSON: JSON.stringify({ ok: true, stdout: 'https://github.com/Lore-Hex/QuillCode/pull/1187\n' }, null, 2)
-          });
-          thread.worktree.published = true;
-          addMessage('assistant', `Published ${thread.worktree.branch} and opened its pull request.`);
-        } else {
-          addToolCard({
-            title: 'host.git.pr.view',
-            subtitle: 'Completed',
-            status: 'done',
-            inputJSON: JSON.stringify({ selector: thread.worktree.branch }, null, 2),
-            outputJSON: JSON.stringify({ ok: true, stdout: 'QuillCode #1187 OPEN' }, null, 2)
-          });
-          addMessage('assistant', `Published ${thread.worktree.branch} and refreshed pull request #1187.`);
-        }
+        if (thread?.worktree?.location !== 'worktree' || !thread.worktree.isResolvable || !thread.worktree.branch || thread.pullRequest) return;
+        const branch = thread.worktree.branch;
+        addToolCard({
+          title: 'host.git.push',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ branch, remote: 'origin', setUpstream: true }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `branch '${branch}' set up to track 'origin/${branch}'.` }, null, 2)
+        });
+        addToolCard({
+          title: 'host.git.pr.create',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ base: 'main', fill: true, head: branch }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: 'https://github.com/Lore-Hex/QuillCode/pull/1187\n' }, null, 2)
+        });
+        updateSelectedThread(current => ({
+          ...current,
+          pullRequest: {
+            number: 1187,
+            title: current.title,
+            url: 'https://github.com/Lore-Hex/QuillCode/pull/1187',
+            status: 'open',
+            statusLabel: pullRequestStatusLabel('open'),
+            baseBranch: 'main',
+            headBranch: branch,
+            headCommit: 'abc1234',
+            mergeState: 'CLEAN',
+            updatedAt: new Date().toISOString()
+          }
+        }));
+        addMessage('assistant', `Published ${branch} and opened its pull request.`);
+        updateDynamicCommands();
+        render();
+        return;
+      }
+      if (commandID === 'thread-land-pull-request') {
+        const thread = selectedThread();
+        if (thread?.pullRequest?.status !== 'open' || !thread?.worktree?.isResolvable) return;
+        const pullRequestNumber = thread.pullRequest.number;
+        addToolCard({
+          title: 'host.git.pr.merge',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ selector: String(pullRequestNumber), method: 'squash', auto: true, deleteBranch: false }, null, 2),
+          outputJSON: JSON.stringify({ ok: true }, null, 2)
+        });
+        updateSelectedThread(current => ({
+          ...current,
+          pullRequest: {
+            ...current.pullRequest,
+            status: 'queued',
+            statusLabel: pullRequestStatusLabel('queued'),
+            updatedAt: new Date().toISOString()
+          }
+        }));
+        addMessage('assistant', `Pull request #${pullRequestNumber} is queued for merge.`);
+        updateDynamicCommands();
+        render();
+        return;
+      }
+      if (commandID === 'thread-refresh-pull-request') {
+        const thread = selectedThread();
+        if (!thread?.pullRequest) return;
+        const pullRequestNumber = thread.pullRequest.number;
+        const previousStatus = thread.pullRequest.status;
+        const nextStatus = previousStatus === 'queued' ? 'merged' : previousStatus;
+        addToolCard({
+          title: 'host.git.pr.view',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ selector: String(pullRequestNumber) }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `QuillCode #${pullRequestNumber} ${nextStatus.toUpperCase()}` }, null, 2)
+        });
+        updateSelectedThread(current => ({
+          ...current,
+          pullRequest: {
+            ...current.pullRequest,
+            status: nextStatus,
+            statusLabel: pullRequestStatusLabel(nextStatus),
+            mergeState: nextStatus === 'merged' ? 'MERGED' : current.pullRequest.mergeState,
+            updatedAt: new Date().toISOString()
+          }
+        }));
+        addMessage('assistant', `Pull request #${pullRequestNumber} is ${nextStatus}.`);
+        updateDynamicCommands();
+        render();
+        return;
+      }
+      if (commandID === 'thread-cleanup-merged-worktree') {
+        const thread = selectedThread();
+        if (thread?.pullRequest?.status !== 'merged' || thread?.worktree?.location !== 'worktree') return;
+        addToolCard({
+          title: 'host.git.worktree.remove',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: '/mock/quillcode-worktree-experiment', force: false }, null, 2),
+          outputJSON: JSON.stringify({ ok: true }, null, 2)
+        });
+        updateSelectedThread(current => ({ ...current, worktree: null }));
+        state.topBar.worktreeStatusLabel = null;
+        state.topBar.worktreeStatusDetail = null;
+        state.topBar.worktreeStatusIsWarning = false;
+        addMessage('assistant', 'Removed the merged pull request worktree. The task and PR history remain available.');
         updateDynamicCommands();
         render();
         return;

@@ -35,6 +35,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var worktreeStatusDetail: String?
     /// True when the bound worktree path cannot be resolved and runs have fallen back to project root.
     public var worktreeStatusIsWarning: Bool
+    /// Durable pull-request identity and lifecycle state for the selected task.
+    public var pullRequest: PullRequestLink?
     /// Pre-formatted branch + ahead/behind chip (e.g. `feature/x ↑2 ↓1`), or nil
     /// when no git branch status is known. Renderers display this string as-is.
     public var branchStatusLabel: String?
@@ -79,6 +81,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         worktreeStatusLabel: String? = nil,
         worktreeStatusDetail: String? = nil,
         worktreeStatusIsWarning: Bool = false,
+        pullRequest: PullRequestLink? = nil,
         branchStatusLabel: String? = nil,
         usageStatusLabel: String? = nil,
         tokenBudget: TokenBudgetSurface? = nil,
@@ -113,6 +116,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.worktreeStatusLabel = worktreeStatusLabel
         self.worktreeStatusDetail = worktreeStatusDetail
         self.worktreeStatusIsWarning = worktreeStatusIsWarning
+        self.pullRequest = pullRequest
         self.branchStatusLabel = branchStatusLabel
         self.usageStatusLabel = usageStatusLabel
         self.tokenBudget = tokenBudget

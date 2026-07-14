@@ -15,7 +15,9 @@ struct QuillCodeTopBarActionClusterView: View {
             if let createBranchCommand {
                 createBranchButton(createBranchCommand)
             }
-            if let publishBranchCommand {
+            if let pullRequestAction {
+                pullRequestButton(pullRequestAction)
+            } else if let publishBranchCommand {
                 publishBranchButton(publishBranchCommand)
             }
             if let handoffCommand {
@@ -61,6 +63,20 @@ struct QuillCodeTopBarActionClusterView: View {
 
     private var publishBranchCommand: WorkspaceCommandSurface? {
         commands.first { $0.id == WorkspaceCommandAction.threadPublishBranch.rawValue && $0.isEnabled }
+    }
+
+    private var pullRequestAction: WorkspaceCommandSurface? {
+        guard let pullRequest = topBar.pullRequest else { return nil }
+        let commandID: String
+        switch pullRequest.status {
+        case .open:
+            commandID = WorkspaceCommandAction.threadLandPullRequest.rawValue
+        case .merged:
+            commandID = WorkspaceCommandAction.threadCleanupMergedWorktree.rawValue
+        case .draft, .queued, .closed:
+            commandID = WorkspaceCommandAction.threadRefreshPullRequest.rawValue
+        }
+        return commands.first { $0.id == commandID && $0.isEnabled }
     }
 
     private func restoreWorktreeButton(_ command: WorkspaceCommandSurface) -> some View {
@@ -133,6 +149,72 @@ struct QuillCodeTopBarActionClusterView: View {
         .help(command.title)
         .accessibilityLabel(command.title)
         .accessibilityIdentifier("quillcode-top-bar-publish-branch")
+    }
+
+    private func pullRequestButton(_ command: WorkspaceCommandSurface) -> some View {
+        Button {
+            onCommand(command)
+        } label: {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Image(systemName: pullRequestIcon)
+                    .font(.caption.weight(.semibold))
+                    .accessibilityHidden(true)
+                Text(pullRequestButtonLabel)
+                    .font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(pullRequestColor)
+            .padding(.horizontal, 12)
+            .quillCodeTextButtonTarget(minWidth: 96, radius: QuillCodeMetrics.minimumHitTarget / 2)
+            .background(pullRequestColor.opacity(0.12))
+            .overlay { Capsule().stroke(pullRequestColor.opacity(0.28), lineWidth: 1) }
+            .clipShape(Capsule())
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help(command.title)
+        .accessibilityLabel(command.title)
+        .accessibilityIdentifier("quillcode-top-bar-pull-request")
+    }
+
+    private var pullRequestButtonLabel: String {
+        guard let pullRequest = topBar.pullRequest else { return "Pull request" }
+        switch pullRequest.status {
+        case .open:
+            return "Land #\(pullRequest.number)"
+        case .merged:
+            return "Clean up #\(pullRequest.number)"
+        case .draft, .queued, .closed:
+            return pullRequest.compactLabel
+        }
+    }
+
+    private var pullRequestIcon: String {
+        switch topBar.pullRequest?.status {
+        case .draft:
+            return "pencil.circle"
+        case .open:
+            return "arrow.triangle.merge"
+        case .queued:
+            return "clock.arrow.circlepath"
+        case .merged:
+            return "checkmark.circle"
+        case .closed:
+            return "xmark.circle"
+        case nil:
+            return "arrow.triangle.pull"
+        }
+    }
+
+    private var pullRequestColor: Color {
+        switch topBar.pullRequest?.status {
+        case .merged:
+            return QuillCodePalette.green
+        case .closed:
+            return QuillCodePalette.red
+        case .draft:
+            return QuillCodePalette.muted
+        case .open, .queued, nil:
+            return QuillCodePalette.blue
+        }
     }
 
     private func handoffButton(_ command: WorkspaceCommandSurface) -> some View {

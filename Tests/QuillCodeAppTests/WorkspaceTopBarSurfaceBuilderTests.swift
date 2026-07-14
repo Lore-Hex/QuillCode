@@ -122,6 +122,36 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("worktree: Worktree feature/ui"))
     }
 
+    func testCarriesDurablePullRequestStatusInTopBar() {
+        var thread = ChatThread(title: "Land task", model: TrustedRouterDefaults.fastModel)
+        thread.pullRequest = PullRequestLink(
+            number: 42,
+            title: "Land task",
+            url: "https://github.test/pull/42",
+            status: .queued,
+            baseBranch: "main",
+            headBranch: "feature/land",
+            headCommit: "abc123"
+        )
+
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel),
+            thread: thread,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [thread],
+            runtimeIssue: nil
+        ).surface()
+
+        XCTAssertEqual(topBar.pullRequest, thread.pullRequest)
+        XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("pull request: PR #42 · Queued"))
+        XCTAssertTrue(topBar.topBarHelpText.contains("PR #42 · Queued: Land task"))
+    }
+
     func testShowsLocalExecutionWhileRetainingAssociatedWorktree() throws {
         var thread = ChatThread(title: "Managed task", model: TrustedRouterDefaults.fastModel)
         let worktree = try makeTempDirectory("associated-worktree")

@@ -78,6 +78,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var isPinned: Bool
     public var isArchived: Bool
     public var worktree: SidebarItemWorktreeSummary?
+    public var pullRequest: PullRequestLink?
     /// Live, session-only agent status for this chat. nil means no task currently owns the chat.
     public var runStatusLabel: String?
 
@@ -100,6 +101,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.isPinned = item.isPinned
         self.isArchived = item.isArchived
         self.worktree = item.worktree
+        self.pullRequest = item.pullRequest
         self.runStatusLabel = runStatusLabel
     }
 
@@ -115,6 +117,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         case isPinned
         case isArchived
         case worktree
+        case pullRequest
         case runStatusLabel
     }
 
@@ -131,6 +134,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.isPinned = try container.decode(Bool.self, forKey: .isPinned)
         self.isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
         self.worktree = try container.decodeIfPresent(SidebarItemWorktreeSummary.self, forKey: .worktree)
+        self.pullRequest = try container.decodeIfPresent(PullRequestLink.self, forKey: .pullRequest)
         self.runStatusLabel = try container.decodeIfPresent(String.self, forKey: .runStatusLabel)
     }
 
@@ -147,6 +151,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         try container.encode(isPinned, forKey: .isPinned)
         try container.encode(isArchived, forKey: .isArchived)
         try container.encodeIfPresent(worktree, forKey: .worktree)
+        try container.encodeIfPresent(pullRequest, forKey: .pullRequest)
         try container.encodeIfPresent(runStatusLabel, forKey: .runStatusLabel)
     }
 

@@ -428,6 +428,55 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         ).isEnabled)
     }
 
+    func testPullRequestCommandsFollowDurableLifecycleState() throws {
+        let worktree = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pull-request-command-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: worktree) }
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        var thread = ChatThread(title: "Land task")
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "feature/land",
+            base: "main",
+            location: .worktree
+        )
+        thread.pullRequest = PullRequestLink(
+            number: 42,
+            title: "Land task",
+            url: "https://github.test/pull/42",
+            status: .open,
+            baseBranch: "main",
+            headBranch: "feature/land",
+            headCommit: "abc123"
+        )
+
+        var commands = makeBuilder(selectedThread: thread, selectedProject: project).commands
+        XCTAssertTrue(try command(WorkspaceCommandAction.threadPublishBranch.rawValue, in: commands).isEnabled)
+        XCTAssertTrue(try command(WorkspaceCommandAction.threadRefreshPullRequest.rawValue, in: commands).isEnabled)
+        XCTAssertTrue(try command(WorkspaceCommandAction.threadLandPullRequest.rawValue, in: commands).isEnabled)
+        XCTAssertFalse(try command(WorkspaceCommandAction.threadCleanupMergedWorktree.rawValue, in: commands).isEnabled)
+
+        thread.pullRequest?.status = .queued
+        commands = makeBuilder(selectedThread: thread, selectedProject: project).commands
+        XCTAssertFalse(try command(WorkspaceCommandAction.threadPublishBranch.rawValue, in: commands).isEnabled)
+        XCTAssertTrue(try command(WorkspaceCommandAction.threadRefreshPullRequest.rawValue, in: commands).isEnabled)
+        XCTAssertFalse(try command(WorkspaceCommandAction.threadLandPullRequest.rawValue, in: commands).isEnabled)
+
+        thread.pullRequest?.status = .merged
+        commands = makeBuilder(selectedThread: thread, selectedProject: project).commands
+        XCTAssertTrue(try command(WorkspaceCommandAction.threadCleanupMergedWorktree.rawValue, in: commands).isEnabled)
+
+        commands = makeBuilder(
+            selectedThread: thread,
+            selectedProject: project,
+            selectedThreadIsRunning: true,
+            runningThreadIDs: [thread.id]
+        ).commands
+        XCTAssertFalse(try command(WorkspaceCommandAction.threadRefreshPullRequest.rawValue, in: commands).isEnabled)
+        XCTAssertFalse(try command(WorkspaceCommandAction.threadCleanupMergedWorktree.rawValue, in: commands).isEnabled)
+    }
+
     func testRestoreWorktreeCommandRequiresIdleRestorableSnapshot() throws {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         var thread = ChatThread(title: "Archived task")

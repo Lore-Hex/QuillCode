@@ -285,6 +285,45 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-overflow-thread-finish-worktree""#))
     }
 
+    func testHTMLRendererShowsPullRequestStatusAndLifecycleAction() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
+        let worktree = try makeTempDirectory("pull-request-lifecycle")
+        var thread = ChatThread(title: "Land task", projectID: project.id)
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "feature/land",
+            base: "main",
+            location: .worktree
+        )
+        thread.pullRequest = PullRequestLink(
+            number: 42,
+            title: "Land task",
+            url: "https://github.test/pull/42",
+            status: .open,
+            baseBranch: "main",
+            headBranch: "feature/land",
+            headCommit: "abc123"
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        var html = WorkspaceHTMLRenderer.render(model.surface())
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-pr-status""#))
+        XCTAssertTrue(html.contains("PR #42 · Open"))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-pull-request-button""#))
+        XCTAssertTrue(html.contains(#"data-command-id="thread-land-pull-request""#))
+        XCTAssertFalse(html.contains(#"data-testid="top-bar-publish-branch-button""#))
+
+        model.root.threads[0].pullRequest?.status = .merged
+        html = WorkspaceHTMLRenderer.render(model.surface())
+        XCTAssertTrue(html.contains("PR #42 · Merged"))
+        XCTAssertTrue(html.contains(#"data-command-id="thread-cleanup-merged-worktree""#))
+    }
+
     func testHTMLRendererHidesSidebarAndExpandsWorkspaceGrid() {
         let model = QuillCodeWorkspaceModel(chrome: WorkspaceChromeState(isSidebarVisible: false))
 
