@@ -46,6 +46,18 @@ final class WorkspaceTurnRevertPlannerTests: XCTestCase {
         XCTAssertNil(WorkspaceTurnRevertPlanner.plan(for: u1.id, in: thread))
     }
 
+    func testLatestTurnPlanNeverFallsBackToAnOlderEditingTurn() {
+        let edited = userMessage("edit", at: 100)
+        let latest = userMessage("just explain", at: 300)
+        let thread = ChatThread(title: "T", messages: [edited, latest], events: [
+            applyPatchEvent("PATCH-A", at: 150),
+            toolQueuedEvent(name: ToolDefinition.fileRead.name, arguments: ["path": "x.txt"], at: 350)
+        ])
+
+        XCTAssertEqual(WorkspaceTurnRevertPlanner.latestPlan(in: thread)?.turnMessageID, edited.id)
+        XCTAssertNil(WorkspaceTurnRevertPlanner.latestTurnPlan(in: thread))
+    }
+
     func testFlagsTurnsThatAlsoEditedOutsideApplyPatch() {
         let u1 = userMessage("mixed", at: 100)
         let thread = ChatThread(title: "T", messages: [u1], events: [

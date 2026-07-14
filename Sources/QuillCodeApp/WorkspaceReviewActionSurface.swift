@@ -8,6 +8,10 @@ public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
     case stageHunk = "stage_hunk"
     case unstageHunk = "unstage_hunk"
     case restoreHunk = "restore_hunk"
+    case stageAll = "stage_all"
+    case unstageAll = "unstage_all"
+    case restoreAll = "restore_all"
+    case revertTurn = "revert_turn"
 
     public var title: String {
         switch self {
@@ -25,6 +29,12 @@ public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
             return "Unstage hunk"
         case .restoreHunk:
             return "Restore hunk"
+        case .stageAll:
+            return "Stage all"
+        case .unstageAll:
+            return "Unstage all"
+        case .restoreAll, .revertTurn:
+            return "Revert all"
         }
     }
 
@@ -44,6 +54,12 @@ public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
             return "minus.square.on.square"
         case .restoreHunk:
             return "arrow.uturn.left.square"
+        case .stageAll:
+            return "plus.rectangle.on.folder"
+        case .unstageAll:
+            return "minus.rectangle.on.folder"
+        case .restoreAll, .revertTurn:
+            return "arrow.uturn.backward.circle"
         }
     }
 
@@ -54,7 +70,8 @@ public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
         switch self {
         case .open:
             return false
-        case .stage, .unstage, .restore, .stageHunk, .unstageHunk, .restoreHunk:
+        case .stage, .unstage, .restore, .stageHunk, .unstageHunk, .restoreHunk,
+             .stageAll, .unstageAll, .restoreAll, .revertTurn:
             return true
         }
     }
@@ -66,6 +83,11 @@ public struct WorkspaceReviewActionSurface: Codable, Sendable, Hashable, Identif
     public var patch: String?
     public var targetID: String?
     public var scope: WorkspaceReviewScope
+    /// Exact visible paths affected by a whole-diff action. File/hunk actions leave this empty
+    /// and continue to use `path`; the split keeps existing encoded actions compatible.
+    public var paths: [String]
+    /// The assistant turn to reverse for a Last-turn whole-diff revert.
+    public var turnMessageID: UUID?
 
     public var id: String {
         "\(kind.rawValue):\(path):\(targetID ?? "file")"
@@ -76,13 +98,17 @@ public struct WorkspaceReviewActionSurface: Codable, Sendable, Hashable, Identif
         path: String,
         patch: String? = nil,
         targetID: String? = nil,
-        scope: WorkspaceReviewScope = .unstaged
+        scope: WorkspaceReviewScope = .unstaged,
+        paths: [String] = [],
+        turnMessageID: UUID? = nil
     ) {
         self.kind = kind
         self.path = path
         self.patch = patch
         self.targetID = targetID
         self.scope = scope
+        self.paths = paths
+        self.turnMessageID = turnMessageID
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -91,6 +117,8 @@ public struct WorkspaceReviewActionSurface: Codable, Sendable, Hashable, Identif
         case patch
         case targetID
         case scope
+        case paths
+        case turnMessageID
     }
 
     public init(from decoder: Decoder) throws {
@@ -100,5 +128,7 @@ public struct WorkspaceReviewActionSurface: Codable, Sendable, Hashable, Identif
         self.patch = try container.decodeIfPresent(String.self, forKey: .patch)
         self.targetID = try container.decodeIfPresent(String.self, forKey: .targetID)
         self.scope = try container.decodeIfPresent(WorkspaceReviewScope.self, forKey: .scope) ?? .unstaged
+        self.paths = try container.decodeIfPresent([String].self, forKey: .paths) ?? []
+        self.turnMessageID = try container.decodeIfPresent(UUID.self, forKey: .turnMessageID)
     }
 }

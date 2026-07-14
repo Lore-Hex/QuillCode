@@ -18,7 +18,7 @@ enum WorkspaceReviewActionToolCallPlanner {
     static func runPlan(for action: WorkspaceReviewActionSurface) -> WorkspaceReviewActionRunPlan {
         let refreshSelection = WorkspaceReviewSelection(scope: action.scope)
         let diffRefreshCall: ToolCall?
-        if action.kind.isMutating, let refreshSelection {
+        if action.kind.isMutating, action.kind != .revertTurn, let refreshSelection {
             diffRefreshCall = ToolCall(
                 name: ToolDefinition.gitDiff.name,
                 argumentsJSON: refreshSelection.gitDiffArgumentsJSON
@@ -73,6 +73,31 @@ enum WorkspaceReviewActionToolCallPlanner {
             return hunkToolCall(
                 name: ToolDefinition.gitRestoreHunk.name,
                 action: action
+            )
+        case .stageAll:
+            return ToolCall(
+                name: ToolDefinition.gitStage.name,
+                argumentsJSON: ToolArguments.json(["paths": action.paths])
+            )
+        case .unstageAll:
+            return ToolCall(
+                name: ToolDefinition.gitRestore.name,
+                argumentsJSON: ToolArguments.json([
+                    "paths": action.paths,
+                    "staged": true
+                ])
+            )
+        case .restoreAll:
+            return ToolCall(
+                name: ToolDefinition.gitRestore.name,
+                argumentsJSON: ToolArguments.json(["paths": action.paths])
+            )
+        case .revertTurn:
+            // Last-turn reverts use WorkspaceModelTurnRevert's atomic reverse-patch engine and
+            // are intercepted by WorkspaceModelReview before a generic run plan is requested.
+            return ToolCall(
+                name: WorkspaceTurnRevertPlanner.revertTurnToolName,
+                argumentsJSON: "{}"
             )
         }
     }

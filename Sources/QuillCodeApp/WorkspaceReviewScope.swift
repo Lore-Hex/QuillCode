@@ -6,6 +6,7 @@ public enum WorkspaceReviewScope: String, Codable, Sendable, Hashable, CaseItera
     case staged
     case commit
     case branch
+    case lastTurn = "last_turn"
 
     public var id: String { rawValue }
 
@@ -19,6 +20,8 @@ public enum WorkspaceReviewScope: String, Codable, Sendable, Hashable, CaseItera
             return "Commit"
         case .branch:
             return "Branch"
+        case .lastTurn:
+            return "Last turn"
         }
     }
 
@@ -32,12 +35,14 @@ public enum WorkspaceReviewScope: String, Codable, Sendable, Hashable, CaseItera
             return reference.map { "No changes in commit \($0)" } ?? "No commit selected"
         case .branch:
             return reference.map { "No changes against \($0)" } ?? "No base branch selected"
+        case .lastTurn:
+            return "No changes in the last turn"
         }
     }
 
     public var requiresReference: Bool {
         switch self {
-        case .unstaged, .staged:
+        case .unstaged, .staged, .lastTurn:
             return false
         case .commit, .branch:
             return true
@@ -46,7 +51,7 @@ public enum WorkspaceReviewScope: String, Codable, Sendable, Hashable, CaseItera
 
     public var referenceLabel: String? {
         switch self {
-        case .unstaged, .staged:
+        case .unstaged, .staged, .lastTurn:
             return nil
         case .commit:
             return "Commit"
@@ -57,7 +62,7 @@ public enum WorkspaceReviewScope: String, Codable, Sendable, Hashable, CaseItera
 
     public var referencePlaceholder: String? {
         switch self {
-        case .unstaged, .staged:
+        case .unstaged, .staged, .lastTurn:
             return nil
         case .commit:
             return "HEAD or commit SHA"
@@ -72,6 +77,7 @@ public enum WorkspaceReviewSelection: Sendable, Hashable {
     case staged
     case commit(String)
     case branch(String)
+    case lastTurn
 
     public var scope: WorkspaceReviewScope {
         switch self {
@@ -83,12 +89,14 @@ public enum WorkspaceReviewSelection: Sendable, Hashable {
             return .commit
         case .branch:
             return .branch
+        case .lastTurn:
+            return .lastTurn
         }
     }
 
     public var reference: String? {
         switch self {
-        case .unstaged, .staged:
+        case .unstaged, .staged, .lastTurn:
             return nil
         case .commit(let reference), .branch(let reference):
             return reference
@@ -108,6 +116,8 @@ public enum WorkspaceReviewSelection: Sendable, Hashable {
         case .branch:
             guard let normalizedReference, !normalizedReference.isEmpty else { return nil }
             self = .branch(normalizedReference)
+        case .lastTurn:
+            self = .lastTurn
         }
     }
 
@@ -121,6 +131,8 @@ public enum WorkspaceReviewSelection: Sendable, Hashable {
             return ToolArguments.json(["commit": reference])
         case .branch(let reference):
             return ToolArguments.json(["baseBranch": reference])
+        case .lastTurn:
+            return "{}"
         }
     }
 }

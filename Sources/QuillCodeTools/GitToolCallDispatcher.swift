@@ -84,11 +84,11 @@ struct GitToolCallDispatcher: Sendable {
                 startPoint: args.string("startPoint")
             )
         case ToolDefinition.gitStage.name:
-            return git.stage(cwd: workspaceRoot, path: try args.requiredString("path"))
+            return git.stage(cwd: workspaceRoot, paths: try paths(arguments: args))
         case ToolDefinition.gitRestore.name:
             return git.restore(
                 cwd: workspaceRoot,
-                path: try args.requiredString("path"),
+                paths: try paths(arguments: args),
                 staged: args.bool("staged") ?? false
             )
         case ToolDefinition.gitStageHunk.name:
@@ -253,5 +253,12 @@ struct GitToolCallDispatcher: Sendable {
         default:
             return ToolResult(ok: false, error: "Unknown tool: \(name)")
         }
+    }
+
+    private func paths(arguments: ToolArguments) throws -> [String] {
+        if let paths = arguments.stringArray("paths") {
+            return paths
+        }
+        return [try arguments.requiredString("path")]
     }
 }

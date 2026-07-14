@@ -65,23 +65,23 @@ public extension ToolDefinition {
 
     static let gitStage = gitTool(
         name: "host.git.stage",
-        description: "Stage one file path inside the project.",
-        parametersJSON: GitToolParameterSchema.object(
-            properties: ["path": .string()],
-            required: ["path"]
-        ),
+        description: "Stage one path, or an explicit list of paths, inside the project.",
+        parametersJSON: GitToolParameterSchema.object(properties: [
+            "path": .string(description: "One workspace-relative path."),
+            "paths": .stringArray(description: "An explicit list of workspace-relative paths.")
+        ]),
         risk: .append
     )
 
     static let gitRestore = gitTool(
         name: "host.git.restore",
-        description: "Restore one file path inside the project from git.",
+        description: "Restore one path, or an explicit list of paths, inside the project from git.",
         parametersJSON: GitToolParameterSchema.object(
             properties: [
-                "path": .string(),
+                "path": .string(description: "One workspace-relative path."),
+                "paths": .stringArray(description: "An explicit list of workspace-relative paths."),
                 "staged": .boolean()
-            ],
-            required: ["path"]
+            ]
         ),
         risk: .destructive
     )

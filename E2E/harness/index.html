@@ -3239,7 +3239,7 @@
     }
     .review-scopes {
       display: inline-grid;
-      grid-template-columns: repeat(4, minmax(78px, 1fr));
+      grid-template-columns: repeat(5, minmax(68px, 1fr));
       gap: 2px;
       margin-bottom: 10px;
       padding: 2px;
@@ -3266,6 +3266,12 @@
       color: var(--blue);
     }
     .review-scope-button:active { transform: scale(.96); }
+    @media (max-width: 420px) {
+      .review-scopes {
+        width: 100%;
+        grid-template-columns: repeat(3, minmax(68px, 1fr));
+      }
+    }
     .review-reference-form {
       display: grid;
       grid-template-columns: auto minmax(160px, 260px) auto;
@@ -3307,6 +3313,20 @@
     }
     .review-pane small { color: var(--muted); }
     .review-actions { display: flex; align-items: center; gap: 8px; }
+    .review-header-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+    }
+    .review-scope-notice {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 9px;
+      color: var(--yellow);
+      background: color-mix(in srgb, var(--yellow) 10%, transparent);
+      font-size: 12px;
+    }
     .review-hunks {
       grid-column: 1 / -1;
       display: grid;
@@ -4465,6 +4485,8 @@
         hasGitDiff: false,
         activeScope: null,
         scopeReference: null,
+        scopeNotice: null,
+        lastTurnMessageID: null,
         files: [],
         pullRequestThreads: [],
         reviewDraft: null,
@@ -4478,6 +4500,7 @@
         referenceDraft: ''
       },
       mockGitReviewChangeScope: 'unstaged',
+      mockLastTurnHasPartialProvenance: false,
       extensions: {
         isVisible: false,
         focusedKind: null,
@@ -8217,8 +8240,24 @@
       const reviewScope = state.review.activeScope || 'unstaged';
       const reviewScopeEditor = state.reviewScopeEditor || { pendingScope: null, referenceDraft: '' };
       const selectedReviewScope = reviewScopeEditor.pendingScope || reviewScope;
-      const isHistoricalReview = reviewScope === 'commit' || reviewScope === 'branch';
+      const isHistoricalReview = reviewScope === 'commit' || reviewScope === 'branch' || reviewScope === 'last_turn';
       const isHistoricalSelection = selectedReviewScope === 'commit' || selectedReviewScope === 'branch';
+      const reviewScopeLabels = {
+        unstaged: 'Unstaged',
+        staged: 'Staged',
+        commit: 'Commit',
+        branch: 'Branch',
+        last_turn: 'Last turn'
+      };
+      const wholeReviewActions = !state.review.files.length
+        ? []
+        : reviewScope === 'unstaged'
+          ? [{ action: 'stage_all', title: 'Stage all' }, { action: 'restore_all', title: 'Revert all' }]
+          : reviewScope === 'staged'
+            ? [{ action: 'unstage_all', title: 'Unstage all' }]
+            : reviewScope === 'last_turn' && state.review.lastTurnMessageID
+              ? [{ action: 'revert_turn', title: 'Revert all' }]
+              : [];
       const reviewBadge = [
         state.review.files.length ? `${state.review.totalHunks} hunk${state.review.totalHunks === 1 ? '' : 's'}` : null,
         reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null,
@@ -8233,8 +8272,8 @@
           </header>
           ${hasGitDiff ? `
             <div class="review-scopes" data-testid="review-scopes" role="group" aria-label="Review scope">
-              ${['unstaged', 'staged', 'commit', 'branch'].map(scope => `
-                <button type="button" class="review-scope-button hit-target-text" data-testid="review-scope" data-scope="${scope}" aria-pressed="${scope === selectedReviewScope ? 'true' : 'false'}">${scope[0].toUpperCase()}${scope.slice(1)}</button>
+              ${['unstaged', 'staged', 'commit', 'branch', 'last_turn'].map(scope => `
+                <button type="button" class="review-scope-button hit-target-text" data-testid="review-scope" data-scope="${scope}" aria-pressed="${scope === selectedReviewScope ? 'true' : 'false'}">${reviewScopeLabels[scope]}</button>
               `).join('')}
             </div>` : ''}
           ${hasGitDiff && isHistoricalSelection ? `
@@ -8243,8 +8282,13 @@
               <input id="review-reference-input" class="review-reference-input hit-target-text-entry" data-testid="review-reference-input" aria-label="${selectedReviewScope === 'commit' ? 'Commit' : 'Base branch'}" placeholder="${selectedReviewScope === 'commit' ? 'HEAD or commit SHA' : 'main or origin/main'}" value="${escapeHTML(reviewScopeEditor.referenceDraft || '')}">
               <button type="submit" class="review-action-button hit-target-form-action" data-testid="review-reference-compare" ${(reviewScopeEditor.referenceDraft || '').trim() ? '' : 'disabled'}>Compare</button>
             </form>` : ''}
+          ${state.review.scopeNotice ? `<p class="review-scope-notice" data-testid="review-scope-notice">${escapeHTML(state.review.scopeNotice)}</p>` : ''}
+          ${wholeReviewActions.length ? `
+            <div class="review-header-actions" data-testid="review-header-actions">
+              ${wholeReviewActions.map(item => `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="${item.action}" data-path="">${item.title}</button>`).join('')}
+            </div>` : ''}
           ${renderPullRequestReviewDraft(reviewDraft)}
-          ${hasGitDiff && !state.review.files.length ? `<p class="review-empty" data-testid="review-empty">${reviewScope === 'staged' ? 'No staged changes' : reviewScope === 'commit' ? `No changes in commit ${escapeHTML(state.review.scopeReference || '')}` : reviewScope === 'branch' ? `No changes against ${escapeHTML(state.review.scopeReference || '')}` : 'No unstaged changes'}</p>` : ''}
+          ${hasGitDiff && !state.review.files.length ? `<p class="review-empty" data-testid="review-empty">${reviewScope === 'staged' ? 'No staged changes' : reviewScope === 'commit' ? `No changes in commit ${escapeHTML(state.review.scopeReference || '')}` : reviewScope === 'branch' ? `No changes against ${escapeHTML(state.review.scopeReference || '')}` : reviewScope === 'last_turn' ? 'No changes in the last turn' : 'No unstaged changes'}</p>` : ''}
           <ul>
             ${state.review.files.map(file => `
               <li data-testid="review-file">
@@ -13679,12 +13723,16 @@
     }
 
     function runGitDiffAction(scope = 'unstaged', options = {}) {
-      const normalizedScope = ['unstaged', 'staged', 'commit', 'branch'].includes(scope) ? scope : 'unstaged';
+      const normalizedScope = ['unstaged', 'staged', 'commit', 'branch', 'last_turn'].includes(scope) ? scope : 'unstaged';
       const reference = String(options.reference || '').trim() || null;
       if ((normalizedScope === 'commit' || normalizedScope === 'branch') && !reference) return;
       const { diff, review } = mockReviewForScope(normalizedScope, reference);
       state.review = review;
       state.reviewScopeEditor = { pendingScope: null, referenceDraft: reference || '' };
+      if (normalizedScope === 'last_turn') {
+        render();
+        return;
+      }
       const input = normalizedScope === 'staged'
         ? { staged: true }
         : normalizedScope === 'commit'
@@ -13706,7 +13754,7 @@
     }
 
     function runReviewScopeChange(scope) {
-      if (!['unstaged', 'staged', 'commit', 'branch'].includes(scope)) return;
+      if (!['unstaged', 'staged', 'commit', 'branch', 'last_turn'].includes(scope)) return;
       if (scope === 'commit' || scope === 'branch') {
         const existingReference = state.review.activeScope === scope ? state.review.scopeReference : null;
         state.reviewScopeEditor = {
@@ -17941,7 +17989,8 @@
 
     function mockReviewForScope(scope, reference = null) {
       const mock = mockReviewDiff();
-      const hasChanges = scope === 'commit' || scope === 'branch' || state.mockGitReviewChangeScope === scope;
+      const hasChanges = scope === 'commit' || scope === 'branch' || scope === 'last_turn'
+        || state.mockGitReviewChangeScope === scope;
       if (hasChanges) {
         return {
           diff: mock.diff,
@@ -17949,7 +17998,11 @@
             ...mock.review,
             hasGitDiff: true,
             activeScope: scope,
-            scopeReference: reference
+            scopeReference: reference,
+            lastTurnMessageID: scope === 'last_turn' ? 'turn-latest' : null,
+            scopeNotice: scope === 'last_turn' && state.mockLastTurnHasPartialProvenance
+              ? 'This turn also used mutating tools outside apply_patch; those changes are not shown here.'
+              : null
           }
         };
       }
@@ -17963,10 +18016,14 @@
               ? `No changes in commit ${reference || ''}`
               : scope === 'branch'
                 ? `No changes against ${reference || ''}`
-                : 'No unstaged changes',
+                : scope === 'last_turn'
+                  ? 'No changes in the last turn'
+                  : 'No unstaged changes',
           hasGitDiff: true,
           activeScope: scope,
-          scopeReference: reference
+          scopeReference: reference,
+          lastTurnMessageID: null,
+          scopeNotice: null
         }
       };
     }
@@ -19103,7 +19160,8 @@
     }
 
     function runReviewAction(action, path) {
-      if (!path) return;
+      const isWholeDiffAction = ['stage_all', 'unstage_all', 'restore_all', 'revert_turn'].includes(action);
+      if (!path && !isWholeDiffAction) return;
       if (action === 'open') {
         // Opening a changed file is a non-mutating read: emit a host.file.read tool
         // card and leave the review pane intact (no diff refresh, no clear).
@@ -19112,18 +19170,43 @@
         render();
         return;
       }
-      if (state.review.activeScope === 'commit' || state.review.activeScope === 'branch') return;
+      if (action === 'revert_turn') {
+        if (state.review.activeScope !== 'last_turn' || !state.review.lastTurnMessageID) return;
+        state.topBar.agentStatus = 'Running';
+        addToolCard({
+          title: 'host.git.revert_turn',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({}, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: 'Reverted this turn\'s edits.\n' }, null, 2)
+        });
+        addToolCard({
+          title: 'host.git.diff',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({}, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
+        });
+        state.topBar.agentStatus = 'Idle';
+        render();
+        return;
+      }
+      if (state.review.activeScope === 'commit' || state.review.activeScope === 'branch' || state.review.activeScope === 'last_turn') return;
       const toolMap = {
         restore: 'host.git.restore',
         unstage: 'host.git.restore',
+        restore_all: 'host.git.restore',
+        unstage_all: 'host.git.restore',
         stage_hunk: 'host.git.stage_hunk',
         unstage_hunk: 'host.git.unstage_hunk',
         restore_hunk: 'host.git.restore_hunk'
       };
       const toolName = toolMap[action] || 'host.git.stage';
       const activeScope = state.review.activeScope === 'staged' ? 'staged' : 'unstaged';
-      const actionArguments = { path };
-      if (action === 'unstage') actionArguments.staged = true;
+      const actionArguments = isWholeDiffAction
+        ? { paths: state.review.files.map(file => file.path) }
+        : { path };
+      if (action === 'unstage' || action === 'unstage_all') actionArguments.staged = true;
       state.topBar.agentStatus = 'Running';
       addToolCard({
         title: toolName,
@@ -19132,11 +19215,11 @@
         inputJSON: JSON.stringify(actionArguments, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
       });
-      if (action === 'stage' || action === 'stage_hunk') {
+      if (action === 'stage' || action === 'stage_hunk' || action === 'stage_all') {
         state.mockGitReviewChangeScope = 'staged';
-      } else if (action === 'unstage' || action === 'unstage_hunk') {
+      } else if (action === 'unstage' || action === 'unstage_hunk' || action === 'unstage_all') {
         state.mockGitReviewChangeScope = 'unstaged';
-      } else if (action === 'restore' || action === 'restore_hunk') {
+      } else if (action === 'restore' || action === 'restore_hunk' || action === 'restore_all') {
         state.mockGitReviewChangeScope = null;
       }
       const refreshed = mockReviewForScope(activeScope);
@@ -19383,6 +19466,10 @@
       state.sidebar.items = state.sidebar.items.map(item => (
         item.id === threadID ? { ...item, runStatusLabel: status || null } : item
       ));
+      render();
+    };
+    window.__quillCodeTestSetLastTurnPartialProvenance = function(enabled) {
+      state.mockLastTurnHasPartialProvenance = enabled === true;
       render();
     };
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;

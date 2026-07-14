@@ -45,12 +45,10 @@ enum WorkspaceRemoteGitBasicCommandBuilder {
             }
             return "git switch \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(branch))"
         case ToolDefinition.gitStage.name:
-            let path = try WorkspaceRemoteProjectPath.relativePath(try args.requiredString("path"))
-            return "git add -- \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(path))"
+            return "git add -- \(try quotedPaths(arguments: args))"
         case ToolDefinition.gitRestore.name:
-            let path = try WorkspaceRemoteProjectPath.relativePath(try args.requiredString("path"))
             let stagedFlag = args.bool("staged") == true ? " --staged" : ""
-            return "git restore\(stagedFlag) -- \(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(path))"
+            return "git restore\(stagedFlag) -- \(try quotedPaths(arguments: args))"
         case ToolDefinition.gitCommit.name:
             let message = try args.requiredString("message").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !message.isEmpty else {
@@ -92,6 +90,22 @@ enum WorkspaceRemoteGitBasicCommandBuilder {
                     ? argument
                     : WorkspaceRemoteShellCommandFormatter.shellSingleQuoted(argument)
             }
+            .joined(separator: " ")
+    }
+
+    private static func quotedPaths(arguments args: ToolArguments) throws -> String {
+        let rawPaths: [String]
+        if let paths = args.stringArray("paths") {
+            rawPaths = paths
+        } else {
+            rawPaths = [try args.requiredString("path")]
+        }
+        guard !rawPaths.isEmpty else { throw GitToolError.emptyPath }
+        var seen: Set<String> = []
+        return try rawPaths
+            .map(WorkspaceRemoteProjectPath.relativePath)
+            .filter { seen.insert($0).inserted }
+            .map(WorkspaceRemoteShellCommandFormatter.shellSingleQuoted)
             .joined(separator: " ")
     }
 }

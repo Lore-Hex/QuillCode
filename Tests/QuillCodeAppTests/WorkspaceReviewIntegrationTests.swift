@@ -63,6 +63,94 @@ final class WorkspaceReviewIntegrationTests: XCTestCase {
         XCTAssertEqual(try runGit(["status", "--short"], cwd: fixture.root), "M  hello.txt\n")
     }
 
+    func testRunReviewStageAllStagesEveryVisibleFileAndRefreshesUnstagedDiff() throws {
+        let root = try makeCommittedLocalGitFile()
+        try "two\n".write(to: root.appendingPathComponent("second.txt"), atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "second.txt"], cwd: root)
+        _ = try runGit(["commit", "-m", "Add second"], cwd: root)
+        try "new\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        try "changed\n".write(to: root.appendingPathComponent("second.txt"), atomically: true, encoding: .utf8)
+        let thread = ChatThread(title: "Review")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        _ = model.runToolCall(
+            ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
+            workspaceRoot: root
+        )
+        let action = try XCTUnwrap(model.surface().review.wholeDiffActions.first { $0.kind == .stageAll })
+
+        model.runReviewAction(action, workspaceRoot: root)
+
+        XCTAssertEqual(try runGit(["diff"], cwd: root), "")
+        let staged = try runGit(["diff", "--staged", "--name-only"], cwd: root)
+        XCTAssertEqual(
+            Set(staged.split(separator: "\n").map(String.init)),
+            Set(["hello.txt", "second.txt"])
+        )
+        XCTAssertEqual(model.surface().review.subtitle, "No unstaged changes")
+    }
+
+    func testRunReviewRevertAllRestoresEveryVisibleFile() throws {
+        let fixture = try makeLocalReviewFixture()
+        _ = fixture.model.runToolCall(
+            ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
+            workspaceRoot: fixture.root
+        )
+        let action = try XCTUnwrap(
+            fixture.model.surface().review.wholeDiffActions.first { $0.kind == .restoreAll }
+        )
+
+        fixture.model.runReviewAction(action, workspaceRoot: fixture.root)
+
+        XCTAssertEqual(try String(contentsOf: fixture.fileURL, encoding: .utf8), "old\n")
+        XCTAssertEqual(try runGit(["status", "--short"], cwd: fixture.root), "")
+        XCTAssertEqual(fixture.model.surface().review.subtitle, "No unstaged changes")
+    }
+
+    func testLastTurnScopeRevertsTheRecordedAssistantTurn() throws {
+        let root = try makeCommittedLocalGitFile()
+        let fileURL = root.appendingPathComponent("hello.txt")
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+        XCTAssertTrue(PatchToolExecutor(workspaceRoot: root).apply(unifiedDiff: patch).ok)
+        let user = ChatMessage(role: .user, content: "Update hello", createdAt: Date(timeIntervalSince1970: 100))
+        let call = ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: ToolArguments.json(["patch": patch])
+        )
+        let thread = ChatThread(title: "Review", messages: [user], events: [
+            ThreadEvent(
+                kind: .toolQueued,
+                createdAt: Date(timeIntervalSince1970: 110),
+                summary: "host.apply_patch queued",
+                payloadJSON: try JSONHelpers.encodePretty(call.redactedForTranscript())
+            )
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        model.runReviewScopeChange(.lastTurn, workspaceRoot: root)
+        let review = model.surface().review
+        XCTAssertEqual(review.activeScope, .lastTurn)
+        XCTAssertEqual(review.files.map(\.path), ["hello.txt"])
+        let revert = try XCTUnwrap(review.wholeDiffActions.first)
+
+        model.runReviewAction(revert, workspaceRoot: root)
+
+        XCTAssertEqual(try String(contentsOf: fileURL, encoding: .utf8), "old\n")
+        XCTAssertTrue(model.currentToolCards.contains { $0.title == WorkspaceTurnRevertPlanner.revertTurnToolName })
+    }
+
     func testRunReviewOpenActionReadsFileWithoutMutatingReview() throws {
         let fixture = try makeLocalReviewFixture()
         // Populate and show the review pane with the working-tree diff first.

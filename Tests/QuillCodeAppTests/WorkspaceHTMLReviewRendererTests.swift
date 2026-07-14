@@ -40,6 +40,10 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="review-scopes""#))
         XCTAssertTrue(html.contains(#"data-scope="unstaged" aria-pressed="true""#))
         XCTAssertTrue(html.contains(#"data-scope="staged" aria-pressed="false""#))
+        XCTAssertTrue(html.contains(#"data-scope="last_turn" aria-pressed="false""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-header-actions""#))
+        XCTAssertTrue(html.contains(#"data-action="stage_all""#))
+        XCTAssertTrue(html.contains(#"data-action="restore_all""#))
         XCTAssertTrue(html.contains(#"data-action="open""#))
         XCTAssertTrue(html.contains(#"data-action="stage""#))
         XCTAssertTrue(html.contains(#"data-action="restore""#))
@@ -79,9 +83,39 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         let html = WorkspaceHTMLReviewRenderer.render(review)
 
         XCTAssertTrue(html.contains(#"data-scope="staged" aria-pressed="true""#))
+        XCTAssertTrue(html.contains(#"data-action="unstage_all""#))
         XCTAssertTrue(html.contains(#"data-action="unstage""#))
         XCTAssertTrue(html.contains(#"data-action="unstage_hunk""#))
         XCTAssertFalse(html.contains(#"data-action="restore""#))
+        XCTAssertFalse(html.contains(#"data-action="restore_hunk""#))
+    }
+
+    func testHTMLRendererShowsLastTurnProvenanceAsFocusedReadOnlyFilesWithOneRevertAction() {
+        let notice = "This turn also used mutating tools outside apply_patch; those changes are not shown here."
+        let review = WorkspaceReviewSurface(
+            activeScope: .lastTurn,
+            scopeNotice: notice,
+            lastTurnMessageID: UUID(),
+            files: [
+                WorkspaceReviewFileSurface(
+                    path: "Sources/App.swift",
+                    insertions: 1,
+                    deletions: 0,
+                    hunks: 1
+                )
+            ]
+        )
+
+        let html = WorkspaceHTMLReviewRenderer.render(review)
+
+        XCTAssertTrue(html.contains(#"data-scope="last_turn" aria-pressed="true""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-scope-notice""#))
+        XCTAssertTrue(html.contains(notice))
+        XCTAssertTrue(html.contains(#"data-action="revert_turn""#))
+        XCTAssertTrue(html.contains(#"data-action="open""#))
+        XCTAssertFalse(html.contains(#"data-action="stage""#))
+        XCTAssertFalse(html.contains(#"data-action="restore""#))
+        XCTAssertFalse(html.contains(#"data-action="stage_hunk""#))
         XCTAssertFalse(html.contains(#"data-action="restore_hunk""#))
     }
 

@@ -15,12 +15,28 @@ enum WorkspaceHTMLReviewRenderer {
             <small data-testid="review-badge">\(escape(review.badgeLabel))</small>
           </header>
           \(renderScopes(review))
+          \(renderScopeNotice(review.scopeNotice))
+          \(renderWholeDiffActions(review.wholeDiffActions))
           \(pullRequestReviewDraft)
           <ul>
             \(files)
           </ul>
           \(pullRequestThreads)
         </section>
+        """
+    }
+
+    private static func renderScopeNotice(_ notice: String?) -> String {
+        guard let notice else { return "" }
+        return #"<p class="review-scope-notice" data-testid="review-scope-notice">\#(escape(notice))</p>"#
+    }
+
+    private static func renderWholeDiffActions(_ actions: [WorkspaceReviewActionSurface]) -> String {
+        guard !actions.isEmpty else { return "" }
+        return """
+        <div class="review-header-actions" data-testid="review-header-actions">
+          \(actions.map(renderAction).joined(separator: "\n"))
+        </div>
         """
     }
 

@@ -62,8 +62,16 @@ public struct GitToolExecutor: Sendable {
         local.stage(cwd: cwd, path: path)
     }
 
+    public func stage(cwd: URL, paths: [String]) -> ToolResult {
+        local.stage(cwd: cwd, paths: paths)
+    }
+
     public func restore(cwd: URL, path: String, staged: Bool = false) -> ToolResult {
         local.restore(cwd: cwd, path: path, staged: staged)
+    }
+
+    public func restore(cwd: URL, paths: [String], staged: Bool = false) -> ToolResult {
+        local.restore(cwd: cwd, paths: paths, staged: staged)
     }
 
     public func stageHunk(cwd: URL, path: String, patch: String) -> ToolResult {
