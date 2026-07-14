@@ -46,7 +46,8 @@ final class ParityInteractionTargetRegistryGateTests: QuillCodeParityTestCase {
         Self.assertInteractionTargetText(
             specText,
             containsAll: [
-                "sidebar saved-search controls",
+                "sidebar filter menu button",
+                "sidebar select chats action",
                 "sidebar saved-search chip",
                 "sidebar saved-search create button",
                 "sidebar saved-search delete button",

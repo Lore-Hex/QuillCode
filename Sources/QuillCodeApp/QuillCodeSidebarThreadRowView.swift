@@ -47,18 +47,20 @@ struct QuillCodeSidebarThreadRowView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(QuillCodePalette.text)
                         .lineLimit(1)
-                    Spacer(minLength: 4)
+                        .layoutPriority(1)
                     if let runStatusLabel = item.runStatusLabel {
                         ProgressView()
                             .controlSize(.mini)
                             .help(runStatusLabel)
                             .accessibilityLabel("\(item.title) is \(runStatusLabel.lowercased())")
                     }
+                    Spacer(minLength: 4)
+                    Text(activityLabel)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .monospacedDigit()
+                        .lineLimit(1)
                 }
-                Text(item.subtitle)
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(1)
                 if item.worktree != nil || item.pullRequest != nil {
                     HStack(spacing: 6) {
                         worktreeMetadata
@@ -70,7 +72,12 @@ struct QuillCodeSidebarThreadRowView: View {
             .quillCodeSidebarRowChrome(background: item.isSelected ? QuillCodePalette.selection : Color.clear)
         }
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+        .accessibilityLabel("\(item.title), \(item.subtitle), updated \(activityLabel)")
         .accessibilityValue(item.runStatusLabel ?? "Idle")
+    }
+
+    private var activityLabel: String {
+        SidebarActivityLabelFormatter.label(for: item.updatedAt)
     }
 
     @ViewBuilder

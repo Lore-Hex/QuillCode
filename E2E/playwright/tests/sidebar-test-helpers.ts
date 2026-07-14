@@ -11,6 +11,24 @@ export async function clickThreadAction(row: Locator, name: string) {
   await row.getByTestId('sidebar-thread-action').filter({ hasText: new RegExp(`^${name}$`) }).click();
 }
 
+export async function openSidebarFilterMenu(page: Page) {
+  const menu = page.getByTestId('sidebar-filter-menu');
+  if (await menu.getAttribute('open') === null) {
+    await page.getByTestId('sidebar-filter-menu-button').click();
+  }
+  await expect(menu).toHaveAttribute('open', '');
+}
+
+export async function clickSidebarFilter(page: Page, id: string) {
+  await openSidebarFilterMenu(page);
+  await page.locator(`[data-testid="sidebar-filter"][data-filter-id="${id}"]`).click();
+}
+
+export async function beginSidebarSelection(page: Page) {
+  await openSidebarFilterMenu(page);
+  await page.locator('[data-sidebar-select-chats="true"]').click();
+}
+
 export function sidebarSection(page: Page, title: string) {
   return page.getByTestId('sidebar-section').filter({
     has: page.getByTestId('sidebar-section-title').filter({ hasText: new RegExp(`^${title}$`) })

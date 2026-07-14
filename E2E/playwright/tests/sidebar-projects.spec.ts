@@ -11,7 +11,7 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toHaveCount(2);
   await expect(page.getByTestId('project-count')).toHaveText('2 projects');
   await expect(page.getByTestId('project-item').first()).toContainText('Example Project 2');
-  await expect(page.getByTestId('project-item').first()).toContainText('/mock/example-2');
+  await expect(page.getByTestId('project-item').first()).toHaveAttribute('title', '/mock/example-2');
   await expect(page.getByTestId('project-item').first()).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('Example Project 2');
 
@@ -75,8 +75,11 @@ test('mock harness adds an SSH remote project from command palette and slash com
 
   const remoteProject = page.getByTestId('project-row').first();
   await expect(remoteProject.getByTestId('project-item')).toContainText('feather.local · quill');
-  await expect(remoteProject.getByTestId('project-item')).toContainText('ssh://quill@feather.local/srv/quill');
-  await expect(remoteProject.getByTestId('project-connection-kind')).toHaveText('SSH Remote');
+  await expect(remoteProject.getByTestId('project-item')).toHaveAttribute(
+    'title',
+    'ssh://quill@feather.local/srv/quill'
+  );
+  await expect(remoteProject.getByTestId('project-connection-kind')).toHaveText('SSH');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('feather.local · quill');
   await expect(page.getByTestId('message').last()).toContainText('Added SSH Remote');
 

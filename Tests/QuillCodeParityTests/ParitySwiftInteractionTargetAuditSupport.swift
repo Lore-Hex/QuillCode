@@ -17,7 +17,8 @@ struct SwiftSourceInteractionTargetAudit {
         "quillCodeSegmentedControlTarget",
         "quillCodeAdjustableControlTarget",
         "quillCodeSwitchRowTarget",
-        "quillCodeOwnedGestureTarget"
+        "quillCodeOwnedGestureTarget",
+        "quillCodePlatformMenuItemTarget"
     ]
 
     private let genericTargetMarkers = [
@@ -225,7 +226,8 @@ struct SwiftSourceInteractionTargetAudit {
             "quillCodeSidebarRowTarget",
             "quillCodeSidebarIconButtonTarget",
             "quillCodeCapsuleButtonTarget",
-            "quillCodeFormActionTarget"
+            "quillCodeFormActionTarget",
+            "quillCodePlatformMenuItemTarget"
         ].contains { sourceWindow.contains($0) }
     }
 
@@ -238,7 +240,8 @@ struct SwiftSourceInteractionTargetAudit {
             "quillCodeSidebarRowTarget",
             "quillCodeSidebarIconButtonTarget",
             "quillCodeCapsuleButtonTarget",
-            "quillCodeFormActionTarget"
+            "quillCodeFormActionTarget",
+            "quillCodePlatformMenuItemTarget"
         ].contains { sourceWindow.contains($0) }
     }
 
@@ -265,6 +268,7 @@ struct SwiftSourceInteractionTargetAudit {
 
     private func hasButtonStyle(in sourceWindow: String) -> Bool {
         sourceWindow.contains(".buttonStyle(")
+            || sourceWindow.contains("quillCodePlatformMenuItemTarget")
     }
 
     private func hasIconTargetName(in sourceWindow: String) -> Bool {

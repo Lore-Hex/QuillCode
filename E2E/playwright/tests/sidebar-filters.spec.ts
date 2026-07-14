@@ -1,6 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { harnessURL } from './harness-helpers';
-import { clickThreadAction, sendSidebarPrompt, sendSidebarPromptThenNewChat } from './sidebar-test-helpers';
+import {
+  beginSidebarSelection,
+  clickSidebarFilter,
+  clickThreadAction,
+  openSidebarFilterMenu,
+  sendSidebarPrompt,
+  sendSidebarPromptThenNewChat
+} from './sidebar-test-helpers';
 
 const filter = (page: Page, id: string) => page.locator(`[data-testid="sidebar-filter"][data-filter-id="${id}"]`);
 
@@ -14,6 +21,7 @@ test('mock harness filters sidebar chats with saved filters', async ({ page }) =
   await sendSidebarPrompt(page, 'archived chat');
   await clickThreadAction(page.getByTestId('sidebar-thread-row').filter({ hasText: 'archived chat' }), 'Archive');
 
+  await openSidebarFilterMenu(page);
   await expect(page.getByTestId('sidebar-filter')).toHaveCount(4);
   await expect(page.getByTestId('sidebar-filter').nth(0)).toContainText('All');
   await expect(page.getByTestId('sidebar-filter').nth(0).getByTestId('sidebar-filter-count')).toHaveText('3');
@@ -21,22 +29,24 @@ test('mock harness filters sidebar chats with saved filters', async ({ page }) =
   await expect(page.getByTestId('sidebar-filter').nth(2).getByTestId('sidebar-filter-count')).toHaveText('1');
   await expect(page.getByTestId('sidebar-filter').nth(3).getByTestId('sidebar-filter-count')).toHaveText('1');
 
-  await filter(page, 'pinned').click();
+  await clickSidebarFilter(page, 'pinned');
+  await openSidebarFilterMenu(page);
   await expect(filter(page, 'pinned')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('sidebar-filter-menu-button').click();
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
   await expect(page.getByTestId('sidebar-thread-row')).toContainText('pinned chat');
   await expect(page.getByTestId('sidebar')).not.toContainText('recent chat');
 
-  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await beginSidebarSelection(page);
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select all$/ }).click();
   await expect(page.getByTestId('sidebar-selection-label')).toHaveText('1 chat selected');
   await expect(page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Pin$/ })).toBeDisabled();
-  await filter(page, 'archived').click();
+  await clickSidebarFilter(page, 'archived');
 
   await expect(page.getByTestId('sidebar-selection')).toHaveCount(0);
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
   await expect(page.getByTestId('sidebar-thread-row')).toContainText('archived chat');
-  await filter(page, 'recent').click();
+  await clickSidebarFilter(page, 'recent');
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
   await expect(page.getByTestId('sidebar-thread-row')).toContainText('recent chat');
 });
@@ -56,25 +66,30 @@ test('mock harness filters sidebar chats with custom saved searches', async ({ p
   });
 
   const savedSearch = page.locator('[data-testid="sidebar-saved-search"][data-saved-search-id="saved-openclaw"]');
+  await openSidebarFilterMenu(page);
   await expect(page.getByTestId('sidebar-saved-search-bar')).toBeVisible();
   await expect(savedSearch).toContainText('OpenClaw');
   await expect(savedSearch.getByTestId('sidebar-saved-search-count')).toHaveText('2');
 
   await savedSearch.click({ position: { x: 8, y: 8 } });
+  await openSidebarFilterMenu(page);
   await expect(savedSearch).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('sidebar-filter').first()).toHaveAttribute('aria-pressed', 'false');
+  await page.getByTestId('sidebar-filter-menu-button').click();
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
   await expect(page.getByTestId('sidebar')).toContainText('openclaw setup notes');
   await expect(page.getByTestId('sidebar')).toContainText('openclaw release follow up');
   await expect(page.getByTestId('sidebar')).not.toContainText('quill cloud relay');
 
-  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await beginSidebarSelection(page);
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select all$/ }).click();
   await expect(page.getByTestId('sidebar-selection-label')).toHaveText('2 chats selected');
 
-  await filter(page, 'all').click({ position: { x: 8, y: 8 } });
+  await clickSidebarFilter(page, 'all');
   await expect(page.getByTestId('sidebar-selection')).toHaveCount(0);
+  await openSidebarFilterMenu(page);
   await expect(filter(page, 'all')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('sidebar-filter-menu-button').click();
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
 });
 
@@ -85,6 +100,7 @@ test('mock harness creates and deletes custom saved searches from explicit sideb
     await sendSidebarPromptThenNewChat(page, prompt);
   }
 
+  await openSidebarFilterMenu(page);
   await page.getByTestId('sidebar-saved-search-create').click();
   await expect(page.getByTestId('sidebar-saved-search-panel')).toBeVisible();
   await expect(page.getByTestId('sidebar-saved-search-query')).toBeFocused();
@@ -94,18 +110,23 @@ test('mock harness creates and deletes custom saved searches from explicit sideb
   await page.getByTestId('sidebar-saved-search-save').click();
 
   const savedSearch = page.getByTestId('sidebar-saved-search');
+  await openSidebarFilterMenu(page);
   await expect(savedSearch).toContainText('Shell runs');
   await expect(savedSearch.getByTestId('sidebar-saved-search-count')).toHaveText('2');
   await expect(savedSearch).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('sidebar-filter-menu-button').click();
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
   await expect(page.getByTestId('sidebar')).toContainText('run whoami');
   await expect(page.getByTestId('sidebar')).toContainText('run df -h');
   await expect(page.getByTestId('sidebar')).not.toContainText('write hello world notes');
 
+  await openSidebarFilterMenu(page);
   await page.getByTestId('sidebar-saved-search-delete').click();
   await expect(page.getByTestId('sidebar-saved-search')).toHaveCount(0);
-  await expect(page.getByTestId('sidebar-saved-search-empty')).toBeVisible();
+  await openSidebarFilterMenu(page);
+  await expect(page.getByTestId('sidebar-saved-search-create')).toBeVisible();
   await expect(filter(page, 'all')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('sidebar-filter-menu-button').click();
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
 });
 
@@ -125,6 +146,7 @@ test('mock harness reorders custom saved searches from explicit sidebar targets'
   });
 
   const row = (index: number) => page.getByTestId('sidebar-saved-search-row').nth(index);
+  await openSidebarFilterMenu(page);
   await expect(row(0).getByTestId('sidebar-saved-search')).toContainText('Shell runs');
   await expect(row(0).getByTestId('sidebar-saved-search-move-up')).toBeDisabled();
   await expect(row(0).getByTestId('sidebar-saved-search-move-down')).toBeEnabled();
@@ -135,6 +157,7 @@ test('mock harness reorders custom saved searches from explicit sidebar targets'
     .toHaveAttribute('aria-pressed', 'true');
 
   await row(0).getByTestId('sidebar-saved-search-move-down').click({ position: { x: 8, y: 8 } });
+  await openSidebarFilterMenu(page);
   await expect(row(0).getByTestId('sidebar-saved-search')).toContainText('Notes');
   await expect(row(1).getByTestId('sidebar-saved-search')).toContainText('Shell runs');
   await expect(row(0).getByTestId('sidebar-saved-search-move-up')).toBeDisabled();
@@ -143,6 +166,7 @@ test('mock harness reorders custom saved searches from explicit sidebar targets'
     .toHaveAttribute('aria-pressed', 'true');
 
   await row(1).getByTestId('sidebar-saved-search-move-up').click({ position: { x: 8, y: 8 } });
+  await openSidebarFilterMenu(page);
   await expect(row(0).getByTestId('sidebar-saved-search')).toContainText('Shell runs');
   await expect(row(1).getByTestId('sidebar-saved-search')).toContainText('Notes');
 });

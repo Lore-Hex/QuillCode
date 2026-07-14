@@ -259,9 +259,7 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
                 in: lines,
                 interactivePattern: interactivePattern
             )
-            let markers = kind == "Menu"
-                ? geometryMarkers
-                : geometryMarkers + [platformMenuItemMarker]
+            let markers = geometryMarkers + [platformMenuItemMarker]
             let location = sourceLocation(fileURL: fileURL, sourceRoot: sourceRoot, line: index + 1)
             let summary = "`\(line.trimmingCharacters(in: .whitespaces))`"
             if !markers.contains(where: snippet.contains) {

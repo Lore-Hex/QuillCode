@@ -35,6 +35,9 @@ final class ParityHTMLSidebarRendererGateTests: QuillCodeParityTestCase {
             "enum WorkspaceHTMLSidebarProjectRenderer",
             "private static func renderProjects",
             "project-empty",
+            "project-item-actions",
+            "sidebar-thread-menu-popover",
+            "title: project.path",
             "WorkspaceHTMLPrimitives.escape"
         ].forEach { Self.assertSource(source, contains: $0) }
     }
@@ -52,8 +55,15 @@ final class ParityHTMLSidebarRendererGateTests: QuillCodeParityTestCase {
             "sidebar-worktree-warning",
             "renderRunStatus",
             "sidebar-run-status",
-            "data-run-status"
+            "data-run-status",
+            "sidebar-filter-menu",
+            "sidebar-filter-menu-button",
+            "Select chats",
+            "sidebar-activity",
+            "sidebar-item-actions",
+            "sidebar-thread-menu-popover"
         ].forEach { Self.assertSource(source, contains: $0) }
+        Self.assertSource(source, contains: #"filter { $0.kind != .clearSelection }"#)
     }
 
     func testWorktreeChipTestidsMatchBetweenHTMLRendererAndHarness() throws {

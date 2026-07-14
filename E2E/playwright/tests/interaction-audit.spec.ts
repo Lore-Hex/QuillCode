@@ -20,6 +20,7 @@ import {
   expectCommandTargetsRoutable,
   expectInteractionTargetsClean
 } from './interaction-audit-routability';
+import { beginSidebarSelection, openSidebarFilterMenu } from './sidebar-test-helpers';
 
 test('mock harness audits every visible interactive click target across workspace states', async ({ page }) => {
   await page.goto(harnessURL());
@@ -37,9 +38,11 @@ test('mock harness audits every visible interactive click target across workspac
     harness.addSidebarSavedSearch('Shell work', 'whoami', 'saved-shell-work');
     harness.addSidebarSavedSearch('Run work', 'run', 'saved-run-work');
   });
+  await expectHitTarget(page.getByTestId('sidebar-filter-menu-button'), 'sidebar filter menu button');
+  await openSidebarFilterMenu(page);
+  await expectHitTarget(page.locator('[data-sidebar-select-chats="true"]'), 'sidebar select chats action');
   await expect(page.getByTestId('sidebar-saved-search')).toHaveCount(2);
   await expect(page.getByTestId('sidebar-saved-search').first()).toBeVisible();
-  await expectInteractionTargetsClean(page, 'sidebar saved-search controls');
   await expectHitTarget(page.getByTestId('sidebar-saved-search-create'), 'sidebar saved-search create button');
   await expectHitTarget(page.getByTestId('sidebar-saved-search').first(), 'sidebar saved-search chip');
   await expectHitTarget(page.getByTestId('sidebar-saved-search-move-down').first(), 'sidebar saved-search move down button');
@@ -63,7 +66,7 @@ test('mock harness audits every visible interactive click target across workspac
   await expectInteractionTargetsClean(page, 'project action menu');
   await page.getByTestId('project-item-actions').first().locator('summary').click();
 
-  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await beginSidebarSelection(page);
   await expect(page.getByTestId('sidebar-selection')).toHaveAttribute('data-active', 'true');
   await expectInteractionTargetsClean(page, 'sidebar bulk selection controls');
   await expectHitTarget(page.getByTestId('sidebar-select-toggle').first(), 'sidebar selection toggle');

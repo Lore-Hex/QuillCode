@@ -59,11 +59,8 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
             0.0008,
             "Rendered workspace should contain visible text/control pixels instead of a flat blank surface."
         )
-        XCTAssertGreaterThan(
-            workspaceStats.blueAccentPixelRatio,
-            0.0001,
-            "Rendered workspace should include QuillCode accent controls instead of a flat blank surface."
-        )
+        // Inactive workspace chrome is deliberately neutral. The focused transcript render below
+        // remains the authoritative accent-color check.
 
         let transcriptImage = try renderTranscriptExcerpt(surface)
         let transcriptStats = try RenderedWorkspacePixelStats(image: transcriptImage)

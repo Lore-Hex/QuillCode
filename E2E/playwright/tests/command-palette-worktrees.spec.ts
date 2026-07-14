@@ -262,7 +262,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
 
   await expect(page.getByTestId('worktree-create-panel')).toHaveCount(0);
   await expect(page.getByTestId('project-item').first()).toContainText('quillcode-feature');
-  await expect(page.getByTestId('project-item').first()).toContainText('/mock/quillcode-feature');
+  await expect(page.getByTestId('project-item').first()).toHaveAttribute('title', '/mock/quillcode-feature');
   await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: feature/quillcode');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('quillcode-feature - Auto - Nike 1.0');
   await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: feature/quillcode');
