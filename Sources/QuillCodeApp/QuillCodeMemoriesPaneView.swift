@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeMemoriesPaneView: View {
     var memories: WorkspaceMemoriesSurface
+    var onClose: () -> Void
     var onCommand: (String) -> Void = { _ in }
 
     var body: some View {
@@ -46,6 +47,7 @@ struct QuillCodeMemoriesPaneView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(memories.title)
                     .font(.headline)
+                    .accessibilityIdentifier("quillcode-memories-title")
                 Text(memories.subtitle)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
@@ -62,6 +64,12 @@ struct QuillCodeMemoriesPaneView: View {
             }
             .buttonStyle(QuillCodeActionButtonStyle(.primary))
             .quillCodeFormActionTarget()
+            .accessibilityIdentifier("quillcode-memory-add")
+            QuillCodePaneCloseButton(
+                paneName: "Memories",
+                accessibilityIdentifier: "quillcode-memories-close",
+                action: onClose
+            )
         }
     }
 

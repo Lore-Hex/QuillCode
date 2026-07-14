@@ -33,3 +33,20 @@ struct QuillCodePaneEmptyStateView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
+
+struct QuillCodePaneCloseButton: View {
+    var paneName: String
+    var accessibilityIdentifier: String
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .quillCodeIconButtonTarget()
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help("Close \(paneName)")
+        .accessibilityLabel("Close \(paneName)")
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}

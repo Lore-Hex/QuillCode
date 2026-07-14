@@ -102,6 +102,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("window-accessibility-shallow-automations-report.json")
         let shallowExtensionsActivationReport = temporaryDirectory
             .appendingPathComponent("window-accessibility-shallow-extensions-report.json")
+        let shallowMemoriesActivationReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-shallow-memories-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
@@ -117,6 +119,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("shallow-automations-packaged-accessibility-frames.json")
         let shallowExtensionsAccessibilityFrames = temporaryDirectory
             .appendingPathComponent("shallow-extensions-packaged-accessibility-frames.json")
+        let shallowMemoriesAccessibilityFrames = temporaryDirectory
+            .appendingPathComponent("shallow-memories-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
@@ -163,6 +167,12 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 with: "AXPress changed observable controller state"
             )
             .write(to: shallowExtensionsActivationReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: "rendered Memories with its Add control and dismissed through quillcode-memories-close with AXPress",
+                with: "AXPress changed observable controller state"
+            )
+            .write(to: shallowMemoriesActivationReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -386,6 +396,21 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 "command.toggle-extensions does not prove rendered controls and close-button dismissal"
             ),
             shallowExtensionsResult.output
+        )
+
+        let shallowMemoriesResult = try Self.runPython(validator, arguments: [
+            "frames",
+            shallowMemoriesActivationReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            shallowMemoriesAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(shallowMemoriesResult.exitCode, 0)
+        XCTAssertTrue(
+            shallowMemoriesResult.output.contains(
+                "command.toggle-memories does not prove rendered controls and close-button dismissal"
+            ),
+            shallowMemoriesResult.output
         )
     }
 }

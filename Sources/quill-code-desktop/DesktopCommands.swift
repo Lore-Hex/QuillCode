@@ -71,6 +71,7 @@ struct QuillCodeDesktopCommands: Commands {
             )
         }
         .disabled(commandsByID[commandID]?.isEnabled != true)
+        .accessibilityIdentifier("quillcode-menu-command-\(commandID)")
         .quillCodeShortcut(commandID, profile: shortcutProfile)
     }
 }

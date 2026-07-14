@@ -171,6 +171,15 @@ extension QuillCodeNativeHitTargetAudit {
                 kind: .formAction,
                 minWidth: 56,
                 testID: "memory-add"
+            ),
+            contract(
+                "memories.close",
+                family: .memories,
+                surface: "Memories",
+                label: "Close Memories",
+                kind: .icon,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
+                testID: "memories-close"
             )
         ]
         if surface.items.contains(where: { $0.canEdit }) {

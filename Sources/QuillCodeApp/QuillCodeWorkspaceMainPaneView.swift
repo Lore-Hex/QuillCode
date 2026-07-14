@@ -113,7 +113,10 @@ struct QuillCodeWorkspaceMainPaneView: View {
                 }
                 if surface.memories.isVisible {
                     Divider()
-                    QuillCodeMemoriesPaneView(memories: surface.memories) { commandID in
+                    QuillCodeMemoriesPaneView(
+                        memories: surface.memories,
+                        onClose: { runCommand(id: "toggle-memories") }
+                    ) { commandID in
                         if let command = surface.commands.first(where: { $0.id == commandID }) {
                             onCommand(command)
                         } else if commandID.hasPrefix("memory-edit:")

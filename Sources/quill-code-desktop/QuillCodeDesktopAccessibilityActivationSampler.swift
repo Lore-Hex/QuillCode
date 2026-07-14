@@ -122,6 +122,17 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
                 }
             },
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyExtensionsDismissal
+        ),
+        .presentation(
+            "command.toggle-memories",
+            expectedOutcome: "Memories renders its Add control and dismisses through Close",
+            observe: { $0.surface.memories.isVisible },
+            resetToBaseline: { baseline, controller in
+                if controller.surface.memories.isVisible != baseline {
+                    controller.toggleMemories()
+                }
+            },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyMemoriesDismissal
         )
     ]
 

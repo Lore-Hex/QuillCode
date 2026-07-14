@@ -16055,3 +16055,24 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-14 Packaged Memories Render And Dismissal Proof
+
+Overall grade after this slice: **A+ interaction architecture, A+ native fidelity, A+ state safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Component reuse | A+ | Automations, Extensions, and Memories share one pane-close component with per-pane identity and command routing. |
+| Accessibility identity | A+ | The Memories title, Add action, and Close action have stable native identifiers. |
+| Activation architecture | A+ | Visible workspace controls retain priority; the desktop adapter falls back to a semantic native menu item only when compact layout hides the command. |
+| Native fidelity | A+ | Packaged smoke AX-presses the actual macOS menu item, requires rendered Memories controls, AX-presses Close, and waits for disappearance. |
+| State safety | A+ | Smoke performs no memory mutation and restores baseline pane visibility. |
+| Regression evidence | A+ | Unit resolution tests, negative fixtures, direct and Launch Services startup, and live-window smoke cover the complete route. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeDesktopAccessibilityActivationResolutionTests|QuillCodeNativeHitTargetSurfaceAuditTests|QuillCodeDesktopWindowReportTests|ParityWorkspaceSecondaryPaneSurfaceGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
