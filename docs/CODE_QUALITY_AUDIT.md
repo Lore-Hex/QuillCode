@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-07-13 Managed Worktree Publish Branch Slice
+
+Overall grade after this slice: **A+ inspected publication architecture, A worktree parity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Architecture | A+ | A typed inspector owns Git and pull-request discovery, while one coordinator translates that immutable state into existing audited tool calls. Command planning and native/HTML presentation remain separate. |
+| Git correctness | A+ | Publication verifies branch ownership, dirty state, commits beyond the task base, upstream divergence, and existing pull-request state before mutation. Dirty, behind, diverged, and empty branches stop with actionable feedback. |
+| Safety and auditability | A+ | Push, pull-request creation, pull-request viewing, and dirty-state inspection all run through visible `host.git.*` tool cards; no mutation bypasses the normal transcript or approval pipeline. |
+| UX | A+ | Eligible named worktree tasks expose one compact 40-point `Publish` target. First publication pushes and opens a pull request; later publication refreshes the existing pull request without duplicate creation. |
+| DRY and Swift idioms | A+ | Structured `Sendable`/`Hashable` state replaces output parsing in UI code, argv-only Git execution is reused, and native plus browser surfaces share the same command identifier and availability contract. |
+| Tests | A+ | Real repositories cover unpublished and existing-PR branches, dirty and diverged refusal, upstream state, and persisted-branch mismatch rejection. Native command tests and Playwright cover the complete visible flow. |
+
+Validation:
+
+- Full Swift suite passed (3,895 tests, 2 skipped, 0 failures).
+- Full Playwright suite passed (228 tests), including Create branch -> Publish branch -> push/pull-request evidence.
+- Packaged macOS direct, Launch Services, accessibility/click-target, and live-window smoke passed.
+- `python3 scripts/grade-code-quality.py --root .` reports every affected module A+.
+- `git diff --check` passed.
+
 ## 2026-07-12 Permission Globstar Directory Semantics
 
 Overall grade after this slice: **A+ safety correctness, A+ bounded matching**.

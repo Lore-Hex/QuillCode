@@ -37,8 +37,8 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await openCommandPalette(page);
   await fillCommandPalette(page, '>worktree');
 
-  // Five git-worktree tools plus new/restore-worktree-chat, Create branch, Handoff, and Finish.
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(10);
+  // Five git-worktree tools plus task, restore, create, publish, handoff, and finish actions.
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(11);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expectCommandPaletteClosed(page);
@@ -69,6 +69,15 @@ test('detached worktree task can create and own a branch in place', async ({ pag
   await expect(page.getByTestId('top-bar-worktree')).toContainText('feature/owned-task');
   await expect(page.getByTestId('top-bar-create-branch-button')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-handoff-button')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-publish-branch-button')).toBeVisible();
+
+  await page.getByTestId('top-bar-publish-branch-button').click();
+
+  const toolTitles = page.getByTestId('tool-card-title');
+  await expect(toolTitles.nth((await toolTitles.count()) - 2)).toHaveText('host.git.push');
+  await expect(toolTitles.last()).toHaveText('host.git.pr.create');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('feature/owned-task');
+  await expect(page.getByTestId('message').last()).toContainText('opened its pull request');
 });
 
 test('finishing a managed task confirms, preserves failed cleanup, and retries safely', async ({ page }) => {

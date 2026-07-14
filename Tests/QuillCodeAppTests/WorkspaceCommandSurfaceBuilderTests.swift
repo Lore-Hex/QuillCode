@@ -384,6 +384,50 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         ).isEnabled)
     }
 
+    func testPublishBranchCommandRequiresIdleNamedWorktreeTask() throws {
+        let worktree = FileManager.default.temporaryDirectory
+            .appendingPathComponent("publish-branch-command-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: worktree) }
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        var thread = ChatThread(title: "Named task")
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "feature/publish",
+            base: "main",
+            location: .worktree
+        )
+
+        XCTAssertTrue(try command(
+            WorkspaceCommandAction.threadPublishBranch.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.branch = ""
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadPublishBranch.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.branch = "feature/publish"
+        thread.worktree?.location = .local
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadPublishBranch.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.location = .worktree
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadPublishBranch.rawValue,
+            in: makeBuilder(
+                selectedThread: thread,
+                selectedProject: project,
+                selectedThreadIsRunning: true,
+                runningThreadIDs: [thread.id]
+            ).commands
+        ).isEnabled)
+    }
+
     func testRestoreWorktreeCommandRequiresIdleRestorableSnapshot() throws {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         var thread = ChatThread(title: "Archived task")

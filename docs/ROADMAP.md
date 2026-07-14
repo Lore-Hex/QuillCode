@@ -8,6 +8,7 @@
 - Persistence and secret-store API.
 - Unit tests for direct command execution and safety behavior.
 - Current status: shell, file read/list/write/search, apply patch, git status/diff, git fetch/pull, git branch list/switch/create, file/hunk-level git stage/restore, local git commit, named-remote git push, GitHub PR list, PR creation, PR view/comments, PR checks, PR diff, PR checkout, PR comments, PR reviews, PR reviewer requests/removals, PR label add/removal, PR close/reopen, PR merge/automerge, and git worktree list/create/open/remove/prune are implemented with unit coverage. CI runs on pushes, pull requests, and merge-group candidates, and a serialized merge-train workflow is available for agent PRs labeled `merge-train`.
+- Named local worktree tasks now have a one-click **Publish branch** path. QuillCode inspects the real branch, base, upstream, dirty state, divergence, and existing PR before using the standard visible push/PR tool cards; dirty and diverged states stop without remote mutation.
 
 ## Milestone 1: Native Workspace UI
 

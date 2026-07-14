@@ -15,6 +15,9 @@ struct QuillCodeTopBarActionClusterView: View {
             if let createBranchCommand {
                 createBranchButton(createBranchCommand)
             }
+            if let publishBranchCommand {
+                publishBranchButton(publishBranchCommand)
+            }
             if let handoffCommand {
                 handoffButton(handoffCommand)
             }
@@ -54,6 +57,10 @@ struct QuillCodeTopBarActionClusterView: View {
 
     private var createBranchCommand: WorkspaceCommandSurface? {
         commands.first { $0.id == WorkspaceCommandAction.threadCreateBranch.rawValue && $0.isEnabled }
+    }
+
+    private var publishBranchCommand: WorkspaceCommandSurface? {
+        commands.first { $0.id == WorkspaceCommandAction.threadPublishBranch.rawValue && $0.isEnabled }
     }
 
     private func restoreWorktreeButton(_ command: WorkspaceCommandSurface) -> some View {
@@ -102,6 +109,30 @@ struct QuillCodeTopBarActionClusterView: View {
         .help(command.title)
         .accessibilityLabel(command.title)
         .accessibilityIdentifier("quillcode-top-bar-create-branch")
+    }
+
+    private func publishBranchButton(_ command: WorkspaceCommandSurface) -> some View {
+        Button {
+            onCommand(command)
+        } label: {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Image(systemName: "arrow.up.circle")
+                    .font(.caption.weight(.semibold))
+                    .accessibilityHidden(true)
+                Text("Publish")
+                    .font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(QuillCodePalette.text)
+            .padding(.horizontal, 12)
+            .quillCodeTextButtonTarget(minWidth: 88, radius: QuillCodeMetrics.minimumHitTarget / 2)
+            .background(QuillCodePalette.selection.opacity(0.72))
+            .overlay { Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1) }
+            .clipShape(Capsule())
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help(command.title)
+        .accessibilityLabel(command.title)
+        .accessibilityIdentifier("quillcode-top-bar-publish-branch")
     }
 
     private func handoffButton(_ command: WorkspaceCommandSurface) -> some View {

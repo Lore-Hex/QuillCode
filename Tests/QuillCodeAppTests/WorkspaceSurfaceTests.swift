@@ -112,6 +112,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "thread-new-worktree",
             "thread-restore-worktree",
             "thread-create-branch",
+            "thread-publish-branch",
             "thread-handoff",
             "thread-finish-worktree",
             "sidebar-filter:all",

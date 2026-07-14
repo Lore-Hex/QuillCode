@@ -273,6 +273,11 @@ extension QuillCodeWorkspaceModel {
         WorkspaceManagedWorktreeFinishCoordinator(model: self).finishSelectedThread()
     }
 
+    @discardableResult
+    public func publishSelectedWorktreeBranch() -> Bool {
+        WorkspaceManagedWorktreePublishCoordinator(model: self).publishSelectedThread()
+    }
+
     func activateSelectedThreadWorktreeLocation(
         _ location: WorktreeExecutionLocation,
         destination: URL

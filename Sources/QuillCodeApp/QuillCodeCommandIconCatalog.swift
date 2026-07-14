@@ -65,6 +65,8 @@ enum QuillCodeCommandIconCatalog {
             return "checkmark.circle"
         case "thread-create-branch":
             return "arrow.triangle.branch"
+        case "thread-publish-branch":
+            return "arrow.up.circle"
         case "toggle-browser":
             return "globe"
         case "open-browser-session":

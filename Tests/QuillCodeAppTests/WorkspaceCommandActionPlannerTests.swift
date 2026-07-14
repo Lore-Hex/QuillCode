@@ -35,6 +35,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         XCTAssertEqual(planner.effect(for: .threadNewWorktree), .newWorktreeThread)
         XCTAssertEqual(planner.effect(for: .threadHandoff), .handoffSelectedThread)
         XCTAssertEqual(planner.effect(for: .threadFinishWorktree), .finishSelectedWorktree)
+        XCTAssertEqual(planner.effect(for: .threadPublishBranch), .publishSelectedWorktreeBranch)
     }
 
     func testProjectActionsRequireOnlyTheContextTheyUse() {

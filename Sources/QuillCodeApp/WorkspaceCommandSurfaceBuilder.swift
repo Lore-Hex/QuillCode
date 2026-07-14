@@ -158,6 +158,20 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         return worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var selectedThreadCanPublishBranch: Bool {
+        guard !composerIsSending,
+              !selectedThreadIsRunning,
+              !terminalIsRunning,
+              selectedProject != nil,
+              selectedProjectIsRemote == false,
+              selectedThread?.isArchived == false,
+              let worktree = selectedThread?.worktree,
+              worktree.location == .worktree,
+              worktree.isResolvable
+        else { return false }
+        return !worktree.branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var selectedThreadFinishWorktreeTitle: String? {
         guard !composerIsSending,
               !selectedThreadIsRunning,
@@ -200,6 +214,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             selectedThreadHandoffTitle: selectedThreadHandoffTitle,
             selectedThreadFinishWorktreeTitle: selectedThreadFinishWorktreeTitle,
             selectedThreadCanCreateBranch: selectedThreadCanCreateBranch,
+            selectedThreadCanPublishBranch: selectedThreadCanPublishBranch,
             hasAnySidebarThread: sidebarItemCount > 0,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             hasSidebarSelection: !selectedSidebarThreads.isEmpty,
