@@ -1,6 +1,15 @@
 {
-  "originHash" : "695f3f546179c353f8ec6810117a5a673c03ede3492d0b215859abb0d944cd4b",
+  "originHash" : "390c99261fdd557b37e9d6aa84a3a49537cd0849833677fb02e52867878eb7ba",
   "pins" : [
+    {
+      "identity" : "tomldecoder",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dduan/TOMLDecoder.git",
+      "state" : {
+        "revision" : "a2bbd2796fe3064e107de18cb56031052c4fa899",
+        "version" : "0.4.5"
+      }
+    },
     {
       "identity" : "trusted-router-swift",
       "kind" : "remoteSourceControl",

@@ -24,7 +24,8 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/Lore-Hex/trusted-router-swift.git", from: "0.4.1")
+        .package(url: "https://github.com/Lore-Hex/trusted-router-swift.git", from: "0.4.1"),
+        .package(url: "https://github.com/dduan/TOMLDecoder.git", from: "0.4.5")
     ],
     targets: [
         .target(name: "QuillCodeCore"),
@@ -54,7 +55,8 @@ let package = Package(
                 "QuillCodePersistence",
                 "QuillCodeSafety",
                 "QuillComputerUseKit",
-                "QuillCodePlatformUI"
+                "QuillCodePlatformUI",
+                .product(name: "TOMLDecoder", package: "TOMLDecoder")
             ]
         ),
         .executableTarget(

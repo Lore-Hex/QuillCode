@@ -53,8 +53,8 @@ final class ProjectPluginToolHookExecutorTests: XCTestCase {
         XCTAssertEqual(
             result.thread.messages.filter { $0.role == .system }.map(\.content),
             [
-                "Standard plugin hook context from Demo Hooks:\npre-only guidance",
-                "Standard plugin hook context from Demo Hooks:\npost-only guidance"
+                "Standard hook context from Demo Hooks:\npre-only guidance",
+                "Standard hook context from Demo Hooks:\npost-only guidance"
             ]
         )
         XCTAssertEqual(

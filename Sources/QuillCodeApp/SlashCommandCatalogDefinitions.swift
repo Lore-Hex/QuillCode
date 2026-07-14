@@ -335,8 +335,8 @@ extension SlashCommandCatalog {
         slashDefinition(
             "/hooks",
             "Review hooks",
-            "Inspect plugin hooks, review changed definitions, and manage trust.",
-            aliases: ["plugin hooks", "review hooks"]
+            "Inspect configuration and plugin hooks, review changed definitions, and manage trust.",
+            aliases: ["configuration hooks", "plugin hooks", "review hooks"]
         ),
         slashDefinition(
             "/automations",

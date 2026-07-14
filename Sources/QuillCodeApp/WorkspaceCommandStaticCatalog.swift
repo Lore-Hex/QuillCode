@@ -321,7 +321,7 @@ enum WorkspaceCommandStaticCatalog {
                 "show-hooks",
                 "Hooks",
                 category: Category.extensions,
-                keywords: ["hooks", "plugin hooks", "review hooks", "trust hooks"],
+                keywords: ["hooks", "configuration hooks", "plugin hooks", "review hooks", "trust hooks"],
                 isEnabled: hasActiveWorkspaceRoot
             ),
             .workflowRecordSkill(

@@ -53,12 +53,12 @@ public enum ProjectHookTrustStoreError: LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case .degradedFile:
-            return "The plugin hook trust file is unreadable or uses an unsupported format. It was left unchanged."
+            return "The hook trust file is unreadable or uses an unsupported format. It was left unchanged."
         }
     }
 }
 
-/// Atomic, per-workspace persistence for reviewed plugin hooks.
+/// Atomic, per-workspace persistence for reviewed hooks.
 ///
 /// A corrupt or newer file fails closed: every discovered hook returns to `reviewRequired` until
 /// the trust file is repaired. Trust is valid only for the exact definition hash.
@@ -86,14 +86,14 @@ public struct ProjectHookTrustFileStore: Sendable {
             guard payload.version == Self.currentVersion else {
                 return .init(
                     degraded: true,
-                    diagnostics: ["Hook trust file uses an unsupported format; all plugin hooks require review."]
+                    diagnostics: ["Hook trust file uses an unsupported format; all hooks require review."]
                 )
             }
             return .init(records: Self.normalized(payload.records))
         } catch {
             return .init(
                 degraded: true,
-                diagnostics: ["Hook trust file is unreadable; all plugin hooks require review."]
+                diagnostics: ["Hook trust file is unreadable; all hooks require review."]
             )
         }
     }

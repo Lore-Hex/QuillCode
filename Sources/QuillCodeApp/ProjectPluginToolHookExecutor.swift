@@ -324,7 +324,7 @@ struct ProjectPluginToolHookExecutor: Sendable {
         guard let context = semantic.additionalContext,
               contextCharacters < Self.maximumAggregateContextCharacters
         else { return }
-        let heading = "Standard plugin hook context from \(hook.pluginName):\n"
+        let heading = "Standard hook context from \(hook.pluginName):\n"
         let remaining = max(0, Self.maximumAggregateContextCharacters - contextCharacters - heading.count)
         let bounded = String(context.prefix(remaining))
         guard !bounded.isEmpty else { return }

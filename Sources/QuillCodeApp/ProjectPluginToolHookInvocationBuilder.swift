@@ -129,7 +129,7 @@ enum ProjectPluginToolHookInvocationError: LocalizedError {
         case .invalidToolInput:
             return "The tool input is not valid JSON."
         case .missingCommand:
-            return "The plugin hook command is missing."
+            return "The hook command is missing."
         case .missingToolResult:
             return "PostToolUse requires a tool result."
         }

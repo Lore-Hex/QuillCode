@@ -16,7 +16,7 @@ extension WorkspaceAgentSendSession {
     ) {
         guard !contexts.isEmpty else { return }
         let content = contexts.map { context in
-            "Standard plugin hook context from \(context.hook.title):\n\(context.content)"
+            "Standard hook context from \(context.hook.title):\n\(context.content)"
         }.joined(separator: "\n\n")
         thread.messages.append(ChatMessage(role: .system, content: content))
         thread.updatedAt = Date()

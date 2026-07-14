@@ -86,7 +86,7 @@ enum WorkspaceHTMLExtensionsPaneRenderer {
             countChip(extensions.pluginCount, singular: "plugin"),
             countChip(extensions.skillCount, singular: "skill"),
             countChip(extensions.mcpServerCount, singular: "MCP server"),
-            countChip(extensions.hookCount, singular: "plugin hook")
+            countChip(extensions.hookCount, singular: "hook")
         ]
         if extensions.availableCount > 0 {
             counts.append(countChip(extensions.availableCount, singular: "available extension"))

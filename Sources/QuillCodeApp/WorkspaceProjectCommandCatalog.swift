@@ -106,6 +106,7 @@ enum WorkspaceProjectCommandCatalog {
         hooks.flatMap { hook -> [WorkspaceCommandSurface] in
             let baseKeywords = [
                 "hook",
+                "configuration hook",
                 "plugin hook",
                 hook.pluginName,
                 hook.event,
