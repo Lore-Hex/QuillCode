@@ -260,6 +260,12 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             "git add -- 'notes/plan.txt'"
         )
         XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: [
+                "paths": ["Sources/App.swift", "Tests/App Tests.swift"]
+            ]),
+            "git add -- 'Sources/App.swift' 'Tests/App Tests.swift'"
+        )
+        XCTAssertEqual(
             try remoteBasicGitCommand(name: ToolDefinition.gitRestore.name, arguments: [
                 "path": "notes/plan.txt",
                 "staged": true
@@ -275,6 +281,16 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
     func testRemoteGitBasicBuilderRejectsUnsafeInputs() {
         XCTAssertThrowsError(
             try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: ["path": "../outside.txt"])
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: [
+                "paths": ["inside.txt", "../outside.txt"]
+            ])
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: [
+                "paths": [String]()
+            ])
         )
         XCTAssertThrowsError(
             try remoteBasicGitCommand(name: ToolDefinition.gitBranchSwitch.name, arguments: ["branch": "--detach"])

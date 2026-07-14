@@ -5,11 +5,23 @@ import QuillCodeTools
 struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
     var toolCards: [ToolCardState]
     var events: [ThreadEvent]
+    var thread: ChatThread? = nil
+    var selectionOverride: WorkspaceReviewSelection? = nil
+    var allowsTurnRevert: Bool = true
     var pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface?
 
     func surface() -> WorkspaceReviewSurface {
         let pullRequestThreads = latestPullRequestReviewThreadsCard
             .flatMap(pullRequestReviewThreads(from:)) ?? []
+
+        if selectionOverride == .lastTurn, let thread {
+            return WorkspaceLastTurnReviewSurfaceBuilder(
+                thread: thread,
+                allowsRevert: allowsTurnRevert,
+                pullRequestThreads: pullRequestThreads,
+                pullRequestReviewDraft: pullRequestReviewDraft
+            ).surface()
+        }
 
         guard let completedDiff = latestCompletedGitDiffResult else {
             return WorkspaceReviewSurface(

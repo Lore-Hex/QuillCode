@@ -34,6 +34,49 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
         XCTAssertTrue(refreshArguments.bool("staged") == true)
     }
 
+    func testWholeDiffActionsCarryOnlyTheVisiblePaths() throws {
+        let paths = ["Sources/App.swift", "Tests/AppTests.swift"]
+        let stagePlan = WorkspaceReviewActionToolCallPlanner.runPlan(
+            for: WorkspaceReviewActionSurface(
+                kind: .stageAll,
+                path: "",
+                targetID: "all",
+                paths: paths
+            )
+        )
+        let restorePlan = WorkspaceReviewActionToolCallPlanner.runPlan(
+            for: WorkspaceReviewActionSurface(
+                kind: .restoreAll,
+                path: "",
+                targetID: "all",
+                paths: paths
+            )
+        )
+
+        XCTAssertEqual(try ToolArguments(stagePlan.actionCall.argumentsJSON).stringArray("paths"), paths)
+        XCTAssertEqual(stagePlan.actionCall.name, ToolDefinition.gitStage.name)
+        XCTAssertEqual(try ToolArguments(restorePlan.actionCall.argumentsJSON).stringArray("paths"), paths)
+        XCTAssertEqual(restorePlan.actionCall.name, ToolDefinition.gitRestore.name)
+        XCTAssertNotNil(stagePlan.diffRefreshCall)
+        XCTAssertNotNil(restorePlan.diffRefreshCall)
+    }
+
+    func testLastTurnRevertUsesDedicatedEngineWithoutGenericDiffRefresh() {
+        let turnID = UUID()
+        let plan = WorkspaceReviewActionToolCallPlanner.runPlan(
+            for: WorkspaceReviewActionSurface(
+                kind: .revertTurn,
+                path: "",
+                targetID: "last-turn",
+                scope: .lastTurn,
+                turnMessageID: turnID
+            )
+        )
+
+        XCTAssertEqual(plan.actionCall.name, WorkspaceTurnRevertPlanner.revertTurnToolName)
+        XCTAssertNil(plan.diffRefreshCall)
+    }
+
     func testRunPlanForOpenReadsFileAndPairsNoDiffRefresh() throws {
         let plan = WorkspaceReviewActionToolCallPlanner.runPlan(
             for: WorkspaceReviewActionSurface(kind: .open, path: "Sources/App.swift")

@@ -46,7 +46,7 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
 
         XCTAssertTrue(review.isVisible)
         XCTAssertEqual(review.activeScope, .staged)
-        XCTAssertEqual(review.availableScopes, [.unstaged, .staged, .commit, .branch])
+        XCTAssertEqual(review.availableScopes, [.unstaged, .staged, .commit, .branch, .lastTurn])
         XCTAssertEqual(review.subtitle, "No staged changes")
         XCTAssertTrue(review.files.isEmpty)
     }

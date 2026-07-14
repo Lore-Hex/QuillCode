@@ -19,7 +19,7 @@ struct QuillCodeReviewScopePicker: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .quillCodeSegmentedControlTarget()
-            .frame(width: 360, alignment: .leading)
+            .frame(maxWidth: 500, alignment: .leading)
             .accessibilityIdentifier("quillcode-review-scope")
 
             if let referenceScope {

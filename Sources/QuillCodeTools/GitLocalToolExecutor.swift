@@ -98,24 +98,43 @@ public struct GitLocalToolExecutor: Sendable {
     }
 
     public func stage(cwd: URL, path: String) -> ToolResult {
+        stage(cwd: cwd, paths: [path])
+    }
+
+    public func stage(cwd: URL, paths: [String]) -> ToolResult {
         do {
-            return runGit(["add", "--", try GitInputValidator.safeRelativePath(path, cwd: cwd)], cwd: cwd, timeoutSeconds: 20)
+            let validatedPaths = try validatedPaths(paths, cwd: cwd)
+            return runGit(["add", "--"] + validatedPaths, cwd: cwd, timeoutSeconds: 20)
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
     }
 
     public func restore(cwd: URL, path: String, staged: Bool = false) -> ToolResult {
+        restore(cwd: cwd, paths: [path], staged: staged)
+    }
+
+    public func restore(cwd: URL, paths: [String], staged: Bool = false) -> ToolResult {
         do {
             var arguments = ["restore"]
             if staged {
                 arguments.append("--staged")
             }
-            arguments += ["--", try GitInputValidator.safeRelativePath(path, cwd: cwd)]
+            arguments += ["--"] + (try validatedPaths(paths, cwd: cwd))
             return runGit(arguments, cwd: cwd, timeoutSeconds: 20)
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private func validatedPaths(_ paths: [String], cwd: URL) throws -> [String] {
+        let validated = try paths.map { try GitInputValidator.safeRelativePath($0, cwd: cwd) }
+        var seen: Set<String> = []
+        let unique = validated.filter { path in
+            seen.insert(path).inserted
+        }
+        guard !unique.isEmpty else { throw GitToolError.emptyPath }
+        return unique
     }
 
     public func commit(cwd: URL, message: String) -> ToolResult {

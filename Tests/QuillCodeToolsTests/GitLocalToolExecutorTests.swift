@@ -53,6 +53,29 @@ final class GitLocalToolExecutorTests: XCTestCase {
         XCTAssertTrue(status.stdout.contains("hello world.txt"), status.stdout)
     }
 
+    func testStageAndRestoreAcceptExplicitPathLists() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let first = root.appendingPathComponent("first.txt")
+        let second = root.appendingPathComponent("second.txt")
+        try "first\n".write(to: first, atomically: true, encoding: .utf8)
+        try "second\n".write(to: second, atomically: true, encoding: .utf8)
+        let git = GitToolExecutor()
+
+        XCTAssertTrue(git.stage(cwd: root, paths: ["first.txt", "second.txt"]).ok)
+        XCTAssertTrue(git.diff(cwd: root, staged: true).stdout.contains("first.txt"))
+        XCTAssertTrue(git.diff(cwd: root, staged: true).stdout.contains("second.txt"))
+        XCTAssertTrue(git.restore(cwd: root, paths: ["first.txt", "second.txt"], staged: true).ok)
+        XCTAssertEqual(git.diff(cwd: root, staged: true).stdout, "")
+    }
+
+    func testPathListValidationRejectsTheEntireCallWhenOnePathEscapes() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let result = GitToolExecutor().stage(cwd: root, paths: ["inside.txt", "../escape.txt"])
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+    }
+
     func testRestoreRestoresTrackedWorkspaceFile() throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)

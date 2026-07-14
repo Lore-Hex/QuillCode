@@ -17,6 +17,12 @@ struct QuillCodeReviewPaneView: View {
             if !review.availableScopes.isEmpty {
                 scopePicker
             }
+            if let notice = review.scopeNotice {
+                scopeNotice(notice)
+            }
+            if !review.wholeDiffActions.isEmpty {
+                wholeDiffActions
+            }
             if let draft = review.pullRequestReviewDraft {
                 QuillCodePullRequestReviewDraftView(
                     draft: draft,
@@ -81,6 +87,49 @@ struct QuillCodeReviewPaneView: View {
                 .foregroundStyle(QuillCodePalette.blue)
                 .clipShape(Capsule())
         }
+    }
+
+    private var wholeDiffActions: some View {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+            Spacer()
+            ForEach(review.wholeDiffActions) { action in
+                Button {
+                    onReviewAction(action)
+                } label: {
+                    Label(action.kind.title, systemImage: action.kind.systemImage)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .quillCodeCapsuleButtonTarget(minWidth: 92)
+                        .background(actionBackground(for: action))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .foregroundStyle(actionForeground(for: action))
+                .help("\(action.kind.title) in the visible diff")
+                .accessibilityIdentifier("quillcode-review-\(action.kind.rawValue)")
+            }
+        }
+    }
+
+    private func scopeNotice(_ notice: String) -> some View {
+        Label(notice, systemImage: "exclamationmark.triangle.fill")
+            .font(.caption)
+            .foregroundStyle(QuillCodePalette.yellow)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(QuillCodePalette.yellow.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+    }
+
+    private func actionForeground(for action: WorkspaceReviewActionSurface) -> Color {
+        action.kind == .restoreAll || action.kind == .revertTurn
+            ? QuillCodePalette.yellow
+            : QuillCodePalette.blue
+    }
+
+    private func actionBackground(for action: WorkspaceReviewActionSurface) -> Color {
+        actionForeground(for: action).opacity(0.14)
     }
 
     private var fileList: some View {

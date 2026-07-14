@@ -156,6 +156,21 @@ public enum WorkspaceTurnRevertPlanner {
         plans(for: thread).last
     }
 
+    /// The plan belonging to the thread's most recent user turn. Unlike ``latestPlan(in:)``,
+    /// this never falls back to an older edit-bearing turn when the newest turn made no patch.
+    /// Review's "Last turn" scope depends on that distinction: an empty latest turn must render
+    /// empty instead of silently showing unrelated work from an earlier request.
+    public static func latestTurnPlan(in thread: ChatThread) -> TurnRevertPlan? {
+        guard let latestTurnID = thread.messages
+            .filter({ $0.role == .user })
+            .max(by: { $0.createdAt < $1.createdAt })?
+            .id
+        else {
+            return nil
+        }
+        return plan(for: latestTurnID, in: thread)
+    }
+
     /// Whether this thread's run changed files at all — an `apply_patch` edit OR any non-read mutating
     /// tool (shell write, git, file write, …). The verification gate uses this to check only after an
     /// edit-bearing run. Reuses the same risk-classified mutation test as the revert-scope flag, so it

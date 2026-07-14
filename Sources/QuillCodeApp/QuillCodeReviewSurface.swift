@@ -5,6 +5,8 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     public var subtitle: String
     public var activeScope: WorkspaceReviewScope?
     public var scopeReference: String?
+    public var scopeNotice: String?
+    public var lastTurnMessageID: UUID?
     public var files: [WorkspaceReviewFileSurface]
     public var pullRequestThreads: [WorkspacePullRequestReviewThreadSurface]
     public var pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface?
@@ -24,6 +26,56 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         activeScope.flatMap { WorkspaceReviewSelection(scope: $0, reference: scopeReference) }
     }
 
+    /// Whole-diff actions operate on exactly the paths currently visible in Review. Historical
+    /// commit/branch comparisons stay read-only; Last turn gets a provenance-based reverse patch.
+    public var wholeDiffActions: [WorkspaceReviewActionSurface] {
+        guard let activeScope, !files.isEmpty else { return [] }
+        let paths = files.map(\.path)
+        switch activeScope {
+        case .unstaged:
+            return [
+                WorkspaceReviewActionSurface(
+                    kind: .stageAll,
+                    path: "",
+                    targetID: "all",
+                    scope: activeScope,
+                    paths: paths
+                ),
+                WorkspaceReviewActionSurface(
+                    kind: .restoreAll,
+                    path: "",
+                    targetID: "all",
+                    scope: activeScope,
+                    paths: paths
+                )
+            ]
+        case .staged:
+            return [
+                WorkspaceReviewActionSurface(
+                    kind: .unstageAll,
+                    path: "",
+                    targetID: "all",
+                    scope: activeScope,
+                    paths: paths
+                )
+            ]
+        case .lastTurn:
+            guard let lastTurnMessageID else { return [] }
+            return [
+                WorkspaceReviewActionSurface(
+                    kind: .revertTurn,
+                    path: "",
+                    targetID: "last-turn",
+                    scope: activeScope,
+                    paths: paths,
+                    turnMessageID: lastTurnMessageID
+                )
+            ]
+        case .commit, .branch:
+            return []
+        }
+    }
+
     public var badgeLabel: String {
         let threadCount = pullRequestThreads.count
         let threadLabel = "\(threadCount) thread\(threadCount == 1 ? "" : "s")"
@@ -40,6 +92,8 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         case subtitle
         case activeScope
         case scopeReference
+        case scopeNotice
+        case lastTurnMessageID
         case files
         case pullRequestThreads
         case pullRequestReviewDraft
@@ -53,6 +107,8 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         subtitle: String = "Latest git diff",
         activeScope: WorkspaceReviewScope? = nil,
         scopeReference: String? = nil,
+        scopeNotice: String? = nil,
+        lastTurnMessageID: UUID? = nil,
         files: [WorkspaceReviewFileSurface] = [],
         pullRequestThreads: [WorkspacePullRequestReviewThreadSurface] = [],
         pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface? = nil
@@ -65,6 +121,8 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
             : title
         self.activeScope = activeScope
         self.scopeReference = scopeReference
+        self.scopeNotice = scopeNotice
+        self.lastTurnMessageID = lastTurnMessageID
         self.files = files
         self.pullRequestThreads = pullRequestThreads
         self.pullRequestReviewDraft = pullRequestReviewDraft
@@ -95,6 +153,8 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         self.subtitle = try container.decode(String.self, forKey: .subtitle)
         self.activeScope = try container.decodeIfPresent(WorkspaceReviewScope.self, forKey: .activeScope)
         self.scopeReference = try container.decodeIfPresent(String.self, forKey: .scopeReference)
+        self.scopeNotice = try container.decodeIfPresent(String.self, forKey: .scopeNotice)
+        self.lastTurnMessageID = try container.decodeIfPresent(UUID.self, forKey: .lastTurnMessageID)
         self.files = try container.decode([WorkspaceReviewFileSurface].self, forKey: .files)
         self.pullRequestThreads = try container.decodeIfPresent(
             [WorkspacePullRequestReviewThreadSurface].self,

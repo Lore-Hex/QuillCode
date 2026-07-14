@@ -6,6 +6,13 @@ import QuillCodeTools
 @MainActor
 public extension QuillCodeWorkspaceModel {
     func runReviewScopeChange(_ selection: WorkspaceReviewSelection, workspaceRoot: URL) {
+        if selection == .lastTurn {
+            reviewSelectionOverride = selection
+            setLastError(nil)
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            return
+        }
+        reviewSelectionOverride = nil
         _ = runToolCall(
             ToolCall(
                 name: ToolDefinition.gitDiff.name,
@@ -17,6 +24,16 @@ public extension QuillCodeWorkspaceModel {
 
     func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
         guard selectedThread != nil else { return }
+
+        if action.kind == .revertTurn {
+            guard let turnMessageID = action.turnMessageID else {
+                setLastError("This turn can no longer be reverted.")
+                refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
+                return
+            }
+            _ = runTurnRevert(turnMessageID: turnMessageID, workspaceRoot: workspaceRoot)
+            return
+        }
 
         // A non-mutating action (e.g. Open) is a plain read: route it straight through
         // host.file.read so it does NOT pair a diff refresh or clear the review pane

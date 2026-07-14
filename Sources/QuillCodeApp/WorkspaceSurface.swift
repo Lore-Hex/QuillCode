@@ -150,6 +150,9 @@ public extension QuillCodeWorkspaceModel {
         let review = WorkspaceReviewSurfaceBuilder(
             toolCards: toolCards,
             events: thread?.events ?? [],
+            thread: thread,
+            selectionOverride: reviewSelectionOverride,
+            allowsTurnRevert: selectedProject?.isRemote != true,
             pullRequestReviewDraft: pullRequestReviewDraft
         ).surface()
         return WorkspaceSurface(
