@@ -67,6 +67,7 @@ struct QuillCodeModelRow: View {
                 .help(option.metadataDetails.joined(separator: "\n"))
                 .accessibilityLabel(option.accessibilityLabel)
                 .accessibilityHint(option.metadataDetails.joined(separator: ", "))
+                .accessibilityIdentifier("quillcode-model-option-\(option.id)")
 
                 HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                     modelActionButton(

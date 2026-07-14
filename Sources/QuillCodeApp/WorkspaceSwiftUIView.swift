@@ -12,10 +12,10 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var isKeyboardShortcutsPresented: Bool
     @Binding public var isSearchPresented: Bool
     @Binding public var isFindPresented: Bool
+    @Binding public var isModelPickerPresented: Bool
     public var copiedTranscriptItemID: String?
     public var actions: QuillCodeWorkspaceActions
 
-    @State private var isModelPickerPresented = false
     @State private var searchQuery = ""
     @State private var findQuery = ""
     @State private var activeFindIndex = 0
@@ -39,6 +39,7 @@ public struct QuillCodeWorkspaceView: View {
         isKeyboardShortcutsPresented: Binding<Bool>,
         isSearchPresented: Binding<Bool> = .constant(false),
         isFindPresented: Binding<Bool> = .constant(false),
+        isModelPickerPresented: Binding<Bool> = .constant(false),
         copiedTranscriptItemID: String? = nil,
         onSend: @escaping () -> Void,
         onAddImagesRequested: @escaping () -> Void = {},
@@ -109,6 +110,7 @@ public struct QuillCodeWorkspaceView: View {
         self._isKeyboardShortcutsPresented = isKeyboardShortcutsPresented
         self._isSearchPresented = isSearchPresented
         self._isFindPresented = isFindPresented
+        self._isModelPickerPresented = isModelPickerPresented
         self.copiedTranscriptItemID = copiedTranscriptItemID
         self.actions = QuillCodeWorkspaceActions(
             onSend: onSend,

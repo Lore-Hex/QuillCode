@@ -192,10 +192,11 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         ))
     }
 
-    func testWindowAccessibilityActivationSamplerRequiresNewChatSearchAndSafePrimaryActions() {
+    func testWindowAccessibilityActivationSamplerRequiresModelPickerNewChatSearchAndSafePrimaryActions() {
         XCTAssertEqual(
             QuillCodeDesktopAccessibilityActivationSampler.requiredActivationContractIDs,
             [
+                "composer.model-picker",
                 "command.new-chat",
                 "command.search",
                 "command.settings",

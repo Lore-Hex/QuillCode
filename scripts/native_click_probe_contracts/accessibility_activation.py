@@ -96,6 +96,13 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} command.new-chat does not prove one selected chat with focused AXValue entry"
         )
+    if contract_id == "composer.model-picker" and not all(
+        marker in interaction_evidence
+        for marker in ("focused", "AXValue", "Prometheus 1.0", "model option")
+    ):
+        raise SystemExit(
+            f"{report_path} composer.model-picker does not prove focused catalog search"
+        )
 
     return {
         "contractID": contract_id,

@@ -16,7 +16,8 @@ final class ParityNativeModelPickerGateTests: QuillCodeParityTestCase {
             "struct QuillCodeModelDetails",
             "QuillCodePressableButtonStyle",
             "quillCodeFullRowButtonTarget",
-            "quillCodeIconButtonTarget"
+            "quillCodeIconButtonTarget",
+            #".accessibilityIdentifier("quillcode-model-option-\(option.id)")"#
         ].forEach { Self.assertSource(rowText, contains: $0) }
         [
             "struct QuillCodeModelRow",

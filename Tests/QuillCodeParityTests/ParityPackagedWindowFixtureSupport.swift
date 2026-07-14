@@ -207,6 +207,7 @@ extension QuillCodeParityTestCase {
     ]
 
     static let requiredLiveAccessibilityActivationContractIDs = [
+        "composer.model-picker",
         "command.new-chat",
         "command.search",
         "command.settings",
@@ -267,6 +268,8 @@ extension QuillCodeParityTestCase {
 
     static func accessibilityActivationExpectedOutcome(contractID: String) -> String {
         switch contractID {
+        case "composer.model-picker":
+            return "model picker opens, focuses search, and surfaces a catalog result"
         case "command.new-chat":
             return "creates and selects exactly one chat, then focuses its composer"
         case "command.search":
@@ -284,6 +287,8 @@ extension QuillCodeParityTestCase {
 
     static func accessibilityActivationEvidence(contractID: String) -> String {
         switch contractID {
+        case "composer.model-picker":
+            return "quillcode-model-picker-search focused, accepted reversible AXValue text entry, and surfaced the Prometheus 1.0 model option"
         case "command.new-chat":
             return "created exactly one selected chat and quillcode-composer-input focused with reversible AXValue text entry"
         case "command.search":

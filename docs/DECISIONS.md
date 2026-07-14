@@ -968,3 +968,10 @@
 - **Native proof:** Packaged macOS smoke AX-presses the real New Chat control, compares typed thread-set snapshots, requires one newly selected ID, focuses `quillcode-composer-input`, performs reversible AXValue text entry, and removes only the temporary smoke chat before restoring the prior selection and draft.
 - **Sequencing:** Accessibility activation contracts declare whether they mutate a transient surface or replace the workspace. Transient dialogs and panes run first; workspace-replacing actions run last and every target is resolved from a fresh AX tree. This prevents a valid view replacement from leaving later checks attached to stale native elements.
 - **Why:** A large hit target does not prove an app is ready for input. Creation count, selection, focus, text entry, and restoration are one interaction contract and one release gate.
+
+## 2026-07-14: Model catalog search is a packaged interaction contract
+
+- **Behavior:** Opening the composer model control presents the picker and focuses model search immediately. Typing a branded model query must surface the corresponding catalog row without requiring another click.
+- **State ownership:** Desktop model-picker presentation is owned beside the other desktop presentation bindings, rather than hidden as view-local state. This lets commands, recovery paths, and packaged smoke observe and restore one authoritative value.
+- **Native proof:** Packaged macOS smoke AX-presses the real composer model control, enters `Prometheus` through AXValue, requires the identified `trustedrouter/fusion` row with a `Prometheus 1.0` label, clears the query, and closes the picker back to its baseline without changing the selected model.
+- **Why:** Browser-level catalog tests cannot prove that a native popover focuses correctly or that its SwiftUI rows survive accessibility projection. Search, result identity, and reversible cleanup are one release gate.
