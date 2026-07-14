@@ -91,7 +91,7 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
     }
 
     private static func visibleConversationMessages(from messages: [ChatMessage]) -> [ChatMessage] {
-        messages.filter { $0.role != .tool }
+        messages.filter { $0.role == .user || $0.role == .assistant }
     }
 
     private static func summaryMessage(

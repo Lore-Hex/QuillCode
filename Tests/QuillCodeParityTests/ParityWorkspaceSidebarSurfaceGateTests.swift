@@ -101,10 +101,10 @@ final class ParityWorkspaceSidebarSurfaceGateTests: QuillCodeParityTestCase {
         _ sidebarSurfaceTests: String,
         _ sidebarIntegrationTests: String
     ) {
-        Self.assertSource(sidebarSurfaceTests, contains: "testSidebarSearchExcludesHiddenToolFeedback")
+        Self.assertSource(sidebarSurfaceTests, contains: "testSidebarSearchExcludesHiddenInternalContext")
         Self.assertSource(sidebarSurfaceTests, contains: "workspace manager")
         Self.assertSource(sidebarIntegrationTests, contains: "testBulkSelectionArchivesAndDeletesChats")
-        Self.assertSource(broadSurfaceTests, excludes: "testSidebarSearchExcludesHiddenToolFeedback")
+        Self.assertSource(broadSurfaceTests, excludes: "testSidebarSearchExcludesHiddenInternalContext")
         Self.assertSource(
             broadSurfaceTests,
             excludes: "testSidebarSearchFiltersByThreadTitleSubtitleAndTranscriptContent"

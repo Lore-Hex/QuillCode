@@ -20,7 +20,7 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
         self.subtitle = thread.model
         self.updatedAt = thread.updatedAt
         let combinedSearchText = thread.messages
-            .filter { $0.role != .tool }
+            .filter { $0.role == .user || $0.role == .assistant }
             .map(\.content)
             .joined(separator: "\n")
         self.searchText = String(combinedSearchText.prefix(8_000))

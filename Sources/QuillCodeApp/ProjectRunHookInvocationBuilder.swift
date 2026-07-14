@@ -13,13 +13,15 @@ enum ProjectRunHookInvocationBuilder {
         thread: ChatThread,
         prompt: String,
         workspaceRoot: URL,
-        pluginDataBaseDirectory: URL?
+        pluginDataBaseDirectory: URL?,
+        stopHookActive: Bool = false
     ) throws -> ProjectRunHookInvocation {
         let standardInput = try inputJSON(
             timing: hook.timing,
             thread: thread,
             prompt: prompt,
-            workspaceRoot: workspaceRoot
+            workspaceRoot: workspaceRoot,
+            stopHookActive: stopHookActive
         )
         let environment = try environment(
             for: hook,
@@ -40,7 +42,8 @@ enum ProjectRunHookInvocationBuilder {
         timing: ProjectRunHookTiming,
         thread: ChatThread,
         prompt: String,
-        workspaceRoot: URL
+        workspaceRoot: URL,
+        stopHookActive: Bool = false
     ) throws -> String {
         let userTurnID = thread.messages.last(where: { $0.role == .user })?.id ?? thread.id
         var payload: [String: Any] = [
@@ -56,7 +59,7 @@ enum ProjectRunHookInvocationBuilder {
         case .beforeAgentRun:
             payload["prompt"] = prompt
         case .afterAgentRun:
-            payload["stop_hook_active"] = false
+            payload["stop_hook_active"] = stopHookActive
             payload["last_assistant_message"] = thread.messages
                 .last(where: { $0.role == .assistant })?.content ?? ""
         }

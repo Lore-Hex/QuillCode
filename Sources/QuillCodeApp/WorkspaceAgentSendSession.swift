@@ -64,7 +64,22 @@ struct WorkspaceAgentSendSession: Sendable {
             await onProgress?(activeThread)
         }
 
-        if let failure = try await ProjectRunHookExecutor.run(
+        return try await runAgentTurn(
+            prompt: prompt,
+            thread: activeThread,
+            stopHookActive: false,
+            onProgress: onProgress
+        )
+    }
+
+    private func runAgentTurn(
+        prompt: String,
+        thread: ChatThread,
+        stopHookActive: Bool,
+        onProgress: AgentRunProgressHandler?
+    ) async throws -> WorkspaceAgentSendSessionResult {
+        var activeThread = thread
+        let beforeHooks = try await ProjectRunHookExecutor.run(
             timing: .beforeAgentRun,
             hooks: runHooks,
             thread: &activeThread,
@@ -74,7 +89,8 @@ struct WorkspaceAgentSendSession: Sendable {
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             onProgress: onProgress
-        ) {
+        )
+        if let failure = beforeHooks.firstFailure {
             appendAssistantMessage(
                 ProjectRunHookExecutor.failureMessage(timing: .beforeAgentRun, failure: failure),
                 to: &activeThread
@@ -85,6 +101,17 @@ struct WorkspaceAgentSendSession: Sendable {
                 savedMemory: false
             )
         }
+
+        if let control = beforeHooks.continueFalse ?? beforeHooks.block {
+            appendAssistantMessage(
+                "Prompt blocked by \(control.hook.title). \(control.reason)",
+                to: &activeThread
+            )
+            await onProgress?(activeThread)
+            return WorkspaceAgentSendSessionResult(thread: activeThread, savedMemory: false)
+        }
+
+        appendHookContexts(beforeHooks.contexts, to: &activeThread)
 
         let result = try await runner.send(
             prompt,
@@ -104,18 +131,25 @@ struct WorkspaceAgentSendSession: Sendable {
             )
         }
 
-        return try await runAfterHooks(thread: activeThread, onProgress: onProgress)
+        return try await runAfterHooks(
+            thread: activeThread,
+            prompt: prompt,
+            stopHookActive: stopHookActive,
+            onProgress: onProgress
+        )
     }
 
     func resumeApproved(
         _ pendingApproval: AgentPendingApproval,
         onProgress: AgentRunProgressHandler? = nil
     ) async throws -> WorkspaceAgentSendSessionResult {
+        let continuation = StopHookContinuationState.active(in: thread)
+        let activePrompt = continuation?.prompt ?? prompt
         let result = try await runner.resumeApproved(
             pendingApproval,
             in: thread,
             workspaceRoot: workspaceRoot,
-            userMessage: prompt,
+            userMessage: activePrompt,
             onProgress: onProgress
         )
         if let nextApproval = result.pendingApproval {
@@ -125,16 +159,23 @@ struct WorkspaceAgentSendSession: Sendable {
                 pendingApproval: nextApproval
             )
         }
-        return try await runAfterHooks(thread: result.thread, onProgress: onProgress)
+        return try await runAfterHooks(
+            thread: result.thread,
+            prompt: activePrompt,
+            stopHookActive: continuation != nil,
+            onProgress: onProgress
+        )
     }
 
     private func runAfterHooks(
         thread: ChatThread,
+        prompt: String,
+        stopHookActive: Bool,
         onProgress: AgentRunProgressHandler?
     ) async throws -> WorkspaceAgentSendSessionResult {
         var activeThread = thread
 
-        if let failure = try await ProjectRunHookExecutor.run(
+        let afterHooks = try await ProjectRunHookExecutor.run(
             timing: .afterAgentRun,
             hooks: runHooks,
             thread: &activeThread,
@@ -143,19 +184,73 @@ struct WorkspaceAgentSendSession: Sendable {
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
+            stopHookActive: stopHookActive,
             onProgress: onProgress
-        ) {
+        )
+        if let failure = afterHooks.firstFailure {
             appendAssistantMessage(
                 ProjectRunHookExecutor.failureMessage(timing: .afterAgentRun, failure: failure),
                 to: &activeThread
             )
             await onProgress?(activeThread)
+            return completed(thread: activeThread)
         }
 
-        return WorkspaceAgentSendSessionResult(
-            thread: activeThread,
-            savedMemory: WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: activeThread)
+        if let stopped = afterHooks.continueFalse {
+            activeThread.events.append(ThreadEvent(
+                kind: .notice,
+                summary: "Stop hook ended the run: \(stopped.reason)"
+            ))
+            activeThread.updatedAt = Date()
+            await onProgress?(activeThread)
+            return completed(thread: activeThread)
+        }
+
+        if let continuation = afterHooks.block {
+            guard !stopHookActive else {
+                activeThread.events.append(ThreadEvent(
+                    kind: .notice,
+                    summary: "Ignored another Stop-hook continuation from \(continuation.hook.title)."
+                ))
+                activeThread.updatedAt = Date()
+                await onProgress?(activeThread)
+                return completed(thread: activeThread)
+            }
+
+            appendUserTurn(continuation.reason, to: &activeThread)
+            StopHookContinuationState.record(
+                prompt: continuation.reason,
+                in: &activeThread
+            )
+            await onProgress?(activeThread)
+            return try await runAgentTurn(
+                prompt: continuation.reason,
+                thread: activeThread,
+                stopHookActive: true,
+                onProgress: onProgress
+            )
+        }
+
+        return completed(thread: activeThread)
+    }
+
+    private func completed(thread: ChatThread) -> WorkspaceAgentSendSessionResult {
+        WorkspaceAgentSendSessionResult(
+            thread: thread,
+            savedMemory: WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread)
         )
+    }
+
+    private func appendHookContexts(
+        _ contexts: [ProjectRunHookContext],
+        to thread: inout ChatThread
+    ) {
+        guard !contexts.isEmpty else { return }
+        let content = contexts.map { context in
+            "Standard plugin hook context from \(context.hook.title):\n\(context.content)"
+        }.joined(separator: "\n\n")
+        thread.messages.append(ChatMessage(role: .system, content: content))
+        thread.updatedAt = Date()
     }
 
     private func appendUserTurn(_ prompt: String, to thread: inout ChatThread) {
@@ -171,5 +266,38 @@ struct WorkspaceAgentSendSession: Sendable {
         thread.messages.append(ChatMessage(role: .assistant, content: message))
         thread.events.append(ThreadEvent(kind: .message, summary: message))
         thread.updatedAt = Date()
+    }
+}
+
+private struct StopHookContinuationState: Codable, Sendable, Equatable {
+    static let eventSummary = "Stop hook requested another agent turn"
+
+    var turnID: UUID
+    var prompt: String
+
+    static func record(prompt: String, in thread: inout ChatThread) {
+        guard let turnID = thread.messages.last(where: { $0.role == .user })?.id else { return }
+        let state = StopHookContinuationState(turnID: turnID, prompt: prompt)
+        thread.events.append(ThreadEvent(
+            kind: .notice,
+            summary: eventSummary,
+            payloadJSON: try? JSONHelpers.encodePretty(state)
+        ))
+        thread.updatedAt = Date()
+    }
+
+    static func active(in thread: ChatThread) -> StopHookContinuationState? {
+        guard let latestUserID = thread.messages.last(where: { $0.role == .user })?.id else {
+            return nil
+        }
+        return thread.events.reversed().lazy.compactMap { event -> StopHookContinuationState? in
+            guard event.kind == .notice,
+                  event.summary == eventSummary,
+                  let payload = event.payloadJSON,
+                  let state = try? JSONHelpers.decode(StopHookContinuationState.self, from: payload),
+                  state.turnID == latestUserID
+            else { return nil }
+            return state
+        }.first
     }
 }

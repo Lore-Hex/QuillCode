@@ -130,10 +130,11 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.customSavedSearches, [])
     }
 
-    func testSidebarSearchExcludesHiddenToolFeedback() {
+    func testSidebarSearchExcludesHiddenInternalContext() {
         let thread = ChatThread(title: "Visible thread", messages: [
             .init(role: .user, content: "run whoami"),
             .init(role: .tool, content: #"{"result":"secret internal feedback"}"#),
+            .init(role: .system, content: "private hook guidance"),
             .init(role: .assistant, content: "Output:\nquill")
         ])
         let sidebar = SidebarSurface(
@@ -142,6 +143,7 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         )
 
         XCTAssertEqual(sidebar.filteredItems(matching: "secret internal feedback"), [])
+        XCTAssertEqual(sidebar.filteredItems(matching: "private hook guidance"), [])
         XCTAssertEqual(sidebar.filteredItems(matching: "whoami").map(\.id), [thread.id])
     }
 

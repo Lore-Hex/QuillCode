@@ -8,6 +8,23 @@ struct ProjectRunHookExecutionFailure: Sendable, Equatable {
     var result: ToolResult
 }
 
+struct ProjectRunHookControl: Sendable, Equatable {
+    var hook: ProjectRunHook
+    var reason: String
+}
+
+struct ProjectRunHookContext: Sendable, Equatable {
+    var hook: ProjectRunHook
+    var content: String
+}
+
+struct ProjectRunHookExecutionReport: Sendable, Equatable {
+    var firstFailure: ProjectRunHookExecutionFailure?
+    var contexts: [ProjectRunHookContext] = []
+    var continueFalse: ProjectRunHookControl?
+    var block: ProjectRunHookControl?
+}
+
 enum ProjectRunHookExecutor {
     static func run(
         timing: ProjectRunHookTiming,
@@ -18,10 +35,11 @@ enum ProjectRunHookExecutor {
         pluginDataBaseDirectory: URL?,
         selectedProject: ProjectRef?,
         sshRemoteShellExecutor: SSHRemoteShellExecutor,
+        stopHookActive: Bool = false,
         onProgress: AgentRunProgressHandler?
-    ) async throws -> ProjectRunHookExecutionFailure? {
+    ) async throws -> ProjectRunHookExecutionReport {
         let matchingHooks = hooks.filter { $0.timing == timing }
-        guard !matchingHooks.isEmpty else { return nil }
+        guard !matchingHooks.isEmpty else { return ProjectRunHookExecutionReport() }
 
         let executor = WorkspaceToolCallExecutor(
             selectedProject: selectedProject,
@@ -53,7 +71,8 @@ enum ProjectRunHookExecutor {
                     thread: thread,
                     prompt: prompt,
                     workspaceRoot: workspaceRoot,
-                    pluginDataBaseDirectory: pluginDataBaseDirectory
+                    pluginDataBaseDirectory: pluginDataBaseDirectory,
+                    stopHookActive: stopHookActive
                 )))
             } catch {
                 let call = WorkspaceShellToolCallPlanner.projectRunHook(
@@ -85,21 +104,70 @@ enum ProjectRunHookExecutor {
         }
         outcomes.append(contentsOf: completed)
 
-        var firstFailure: ProjectRunHookExecutionFailure?
+        var report = ProjectRunHookExecutionReport()
+        var contextCharacters = 0
         for outcome in outcomes.sorted(by: { $0.index < $1.index }) {
-            WorkspaceToolEventRecorder.append(call: outcome.call, result: outcome.result, to: &thread)
-            thread.updatedAt = Date()
-            await onProgress?(thread)
+            var recordedResult = outcome.result
+            var semanticOutput: ProjectRunHookSemanticOutput?
+            if outcome.hook.pluginID != nil,
+               outcome.result.ok || outcome.result.exitCode == 2 {
+                do {
+                    semanticOutput = try ProjectRunHookOutputParser.parse(
+                        timing: timing,
+                        result: outcome.result
+                    )
+                    if outcome.result.exitCode == 2 {
+                        recordedResult.ok = true
+                        recordedResult.error = nil
+                    }
+                } catch {
+                    recordedResult.ok = false
+                    recordedResult.error = error.localizedDescription
+                }
+            }
 
-            if !outcome.result.ok, firstFailure == nil {
-                firstFailure = ProjectRunHookExecutionFailure(
+            WorkspaceToolEventRecorder.append(call: outcome.call, result: recordedResult, to: &thread)
+            thread.updatedAt = Date()
+            if !recordedResult.ok, report.firstFailure == nil {
+                report.firstFailure = ProjectRunHookExecutionFailure(
                     hook: outcome.hook,
-                    result: outcome.result
+                    result: recordedResult
                 )
             }
+
+            if let semanticOutput {
+                if let message = semanticOutput.systemMessage {
+                    thread.events.append(ThreadEvent(
+                        kind: .notice,
+                        summary: "Hook warning from \(outcome.hook.title): \(message)"
+                    ))
+                }
+                if let context = semanticOutput.additionalContext,
+                   contextCharacters < maximumAggregateContextCharacters {
+                    let remaining = maximumAggregateContextCharacters - contextCharacters
+                    let bounded = String(context.prefix(remaining))
+                    if !bounded.isEmpty {
+                        report.contexts.append(ProjectRunHookContext(
+                            hook: outcome.hook,
+                            content: bounded
+                        ))
+                        contextCharacters += bounded.count
+                    }
+                }
+                if !semanticOutput.continues, report.continueFalse == nil {
+                    report.continueFalse = ProjectRunHookControl(
+                        hook: outcome.hook,
+                        reason: semanticOutput.stopReason ?? "The hook stopped this run."
+                    )
+                }
+                if let reason = semanticOutput.blockReason, report.block == nil {
+                    report.block = ProjectRunHookControl(hook: outcome.hook, reason: reason)
+                }
+            }
+            await onProgress?(thread)
         }
 
-        return firstFailure
+        return report
     }
 
     static func failureMessage(
@@ -134,6 +202,8 @@ enum ProjectRunHookExecutor {
         }
         return "Command failed."
     }
+
+    private static let maximumAggregateContextCharacters = 65_536
 }
 
 private struct HookExecutionOutcome: Sendable {

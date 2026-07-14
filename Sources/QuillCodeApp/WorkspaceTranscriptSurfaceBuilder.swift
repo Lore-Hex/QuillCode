@@ -10,7 +10,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
     func messageSurfaces() -> [MessageSurface] {
         let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
         return thread.messages
-            .filter { $0.role != .tool }
+            .filter { Self.isVisibleTranscriptRole($0.role) }
             .map { message in
                 MessageSurface(message: message, revert: revertByMessageID[message.id])
             }
@@ -68,9 +68,14 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
             }
         }
 
-        for message in thread.messages where message.role != .tool && !consumedMessageIDs.contains(message.id) {
+        for message in thread.messages
+        where Self.isVisibleTranscriptRole(message.role) && !consumedMessageIDs.contains(message.id) {
             reducer.state.append(.message(MessageSurface(message: message, revert: revertByMessageID[message.id])))
         }
         return reducer.state
+    }
+
+    private static func isVisibleTranscriptRole(_ role: ChatRole) -> Bool {
+        role == .user || role == .assistant
     }
 }

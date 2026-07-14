@@ -91,7 +91,7 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(thinking?.subtitle, "Streaming model response")
     }
 
-    func testMessageSurfacesHideToolMessagesAndIgnoreObsoleteFeedbackEvents() throws {
+    func testMessageSurfacesHideInternalMessagesAndIgnoreObsoleteFeedbackEvents() throws {
         let user = ChatMessage(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             role: .user,
@@ -107,8 +107,12 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
             role: .assistant,
             content: "You are `quill`."
         )
+        let system = ChatMessage(
+            role: .system,
+            content: "Private hook context"
+        )
         let thread = ChatThread(
-            messages: [user, tool, assistant],
+            messages: [user, tool, system, assistant],
             events: [
                 ThreadEvent(
                     kind: .messageFeedback,

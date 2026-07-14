@@ -101,7 +101,11 @@
   concurrently and receive the standard lifecycle JSON on stdin. Package root
   and private workspace/plugin-scoped data paths are exposed through both
   `PLUGIN_*` and `CLAUDE_PLUGIN_*` compatibility variables, while stdin and
-  environment values are redacted from durable tool events. Other standard events,
+  environment values are redacted from durable tool events. User-prompt stdout
+  and structured additional context enter the model as bounded hidden system
+  context; warnings remain visible notices; documented block/continue decisions
+  and exit code 2 stop prompts or request one loop-bounded Stop continuation.
+  `continue:false` wins over concurrent continuation requests, and the continued
+  Stop payload reports `stop_hook_active=true`. Other standard events,
   matchers, prompt/agent handlers, and asynchronous handlers are parsed and
-  labeled Unsupported rather than silently executed. Hook stdout/JSON context,
-  blocking, and automatic Stop continuation semantics remain deferred.
+  labeled Unsupported rather than silently executed.
