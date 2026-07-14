@@ -23,6 +23,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "thread-new-worktree": "plus.rectangle.on.folder",
             "thread-restore-worktree": "arrow.counterclockwise",
             "thread-create-branch": "arrow.triangle.branch",
+            "thread-publish-branch": "arrow.up.circle",
             "thread-handoff": "arrow.left.arrow.right",
             "thread-finish-worktree": "checkmark.circle",
             "toggle-terminal": "terminal",

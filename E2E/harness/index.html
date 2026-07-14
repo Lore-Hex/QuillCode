@@ -601,6 +601,15 @@
       border-color: rgba(255,255,255,.16);
       box-shadow: 0 8px 24px rgba(255,91,82,.20);
     }
+    .topbar-action-cluster .topbar-create-branch-button,
+    .topbar-action-cluster .topbar-restore-worktree-button,
+    .topbar-action-cluster .topbar-publish-branch-button {
+      width: auto;
+      min-width: 88px;
+      padding: 0 12px;
+      color: var(--text);
+      background: rgba(255,255,255,.07);
+    }
     .topbar-action-cluster .topbar-stop-button:hover {
       color: white;
       background: rgba(255,91,82,.98);
@@ -4836,6 +4845,7 @@
         { id: 'thread-new-worktree', title: 'New worktree task', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
         { id: 'thread-restore-worktree', title: 'Restore worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'snapshot', 'restore', 'archive'], isEnabled: false },
         { id: 'thread-create-branch', title: 'Create branch here', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'create', 'ownership'], isEnabled: false },
+        { id: 'thread-publish-branch', title: 'Publish branch', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'push', 'publish', 'pull request', 'pr'], isEnabled: false },
         { id: 'thread-handoff', title: 'Hand off task', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'handoff', 'local', 'worktree', 'move', 'transfer'], isEnabled: false },
         { id: 'thread-finish-worktree', title: 'Finish task in Local', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'finish', 'land', 'local', 'worktree', 'cleanup'], isEnabled: false },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
@@ -7534,6 +7544,19 @@
             && !state.terminal.isRunning
           )
         } :
+        command.id === 'thread-publish-branch' ? {
+          ...command,
+          isEnabled: Boolean(
+            hasLocalProject
+            && selectedThread?.worktree?.location === 'worktree'
+            && selectedThread?.worktree?.isResolvable
+            && selectedThread?.worktree?.branch
+            && !selectedThread?.isArchived
+            && !selectedThreadIsRunning
+            && !state.composer.isSending
+            && !state.terminal.isRunning
+          )
+        } :
         command.id === 'thread-handoff' ? {
           ...command,
           title: selectedThread?.worktree?.location === 'local' ? 'Hand off to Worktree' : 'Hand off to Local',
@@ -8917,6 +8940,10 @@
       const topBarCreateBranchButton = topBarCreateBranchCommand?.isEnabled
         ? `<button type="button" class="topbar-create-branch-button hit-target-text" data-testid="top-bar-create-branch-button" data-command-id="thread-create-branch" title="${escapeHTML(topBarCreateBranchCommand.title)}" aria-label="${escapeHTML(topBarCreateBranchCommand.title)}">Create branch here</button>`
         : '';
+      const topBarPublishBranchCommand = commandByID('thread-publish-branch');
+      const topBarPublishBranchButton = topBarPublishBranchCommand?.isEnabled
+        ? `<button type="button" class="topbar-publish-branch-button hit-target-text" data-testid="top-bar-publish-branch-button" data-command-id="thread-publish-branch" title="${escapeHTML(topBarPublishBranchCommand.title)}" aria-label="${escapeHTML(topBarPublishBranchCommand.title)}">Publish</button>`
+        : '';
       const topBarRestoreWorktreeCommand = commandByID('thread-restore-worktree');
       const topBarRestoreWorktreeButton = topBarRestoreWorktreeCommand?.isEnabled
         ? `<button type="button" class="topbar-restore-worktree-button hit-target-text" data-testid="top-bar-restore-worktree-button" data-command-id="thread-restore-worktree" title="${escapeHTML(topBarRestoreWorktreeCommand.title)}" aria-label="${escapeHTML(topBarRestoreWorktreeCommand.title)}">Restore worktree</button>`
@@ -8966,6 +8993,7 @@
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
                 ${topBarRestoreWorktreeButton}
                 ${topBarCreateBranchButton}
+                ${topBarPublishBranchButton}
                 ${topBarHandoffButton}
                 ${topBarStopButton}
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
@@ -14619,6 +14647,7 @@
       'thread-bulk-unpin',
       'thread-clear',
       'thread-create-branch',
+      'thread-publish-branch',
       'thread-delete',
       'thread-duplicate',
       'thread-finish-worktree',
@@ -14940,6 +14969,40 @@
         state.worktreeDialog = { ...state.worktreeDialog, mode: 'create-branch', branchName: '' };
         render();
         document.querySelector('[data-testid="worktree-create-branch-form"] input[name="branch"]')?.focus();
+        return;
+      }
+      if (commandID === 'thread-publish-branch') {
+        const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+        if (thread?.worktree?.location !== 'worktree' || !thread.worktree.isResolvable || !thread.worktree.branch) return;
+        if (!thread.worktree.published) {
+          addToolCard({
+            title: 'host.git.push',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ branch: thread.worktree.branch, remote: 'origin', setUpstream: true }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, stdout: `branch '${thread.worktree.branch}' set up to track 'origin/${thread.worktree.branch}'.` }, null, 2)
+          });
+          addToolCard({
+            title: 'host.git.pr.create',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ base: 'main', fill: true, head: thread.worktree.branch }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, stdout: 'https://github.com/Lore-Hex/QuillCode/pull/1187\n' }, null, 2)
+          });
+          thread.worktree.published = true;
+          addMessage('assistant', `Published ${thread.worktree.branch} and opened its pull request.`);
+        } else {
+          addToolCard({
+            title: 'host.git.pr.view',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ selector: thread.worktree.branch }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, stdout: 'QuillCode #1187 OPEN' }, null, 2)
+          });
+          addMessage('assistant', `Published ${thread.worktree.branch} and refreshed pull request #1187.`);
+        }
+        updateDynamicCommands();
+        render();
         return;
       }
       if (commandID === 'thread-restore-worktree') {

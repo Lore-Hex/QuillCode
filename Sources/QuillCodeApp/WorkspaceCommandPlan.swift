@@ -270,6 +270,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case threadHandoff = "thread-handoff"
     case threadFinishWorktree = "thread-finish-worktree"
     case threadCreateBranch = "thread-create-branch"
+    case threadPublishBranch = "thread-publish-branch"
     case threadPin = "thread-pin"
     case threadUnpin = "thread-unpin"
     case threadClear = "thread-clear"

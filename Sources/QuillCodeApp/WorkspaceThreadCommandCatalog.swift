@@ -14,6 +14,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadHandoffTitle: String? = nil
     var selectedThreadFinishWorktreeTitle: String? = nil
     var selectedThreadCanCreateBranch: Bool = false
+    var selectedThreadCanPublishBranch: Bool = false
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
@@ -60,6 +61,13 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "task", "worktree", "branch", "permanent", "detached"],
                 isEnabled: availability.selectedThreadCanCreateBranch
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadPublishBranch.rawValue,
+                title: "Publish branch",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "worktree", "branch", "push", "publish", "pull request", "pr"],
+                isEnabled: availability.selectedThreadCanPublishBranch
             ),
             WorkspaceCommandSurface(
                 id: WorkspaceCommandAction.threadHandoff.rawValue,

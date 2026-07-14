@@ -3,6 +3,7 @@
 QuillCode uses unit, functional, integration, Playwright, and native smoke tests.
 
 - **Managed worktree snapshots:** real-Git tests cover exact staged, unstaged, untracked, and commit restoration; repository/task binding; private storage; corrupt payload rollback; permanent-worktree protection; concurrent source mutation between capture and removal; exact-state removal; and post-restore verification.
+- **Managed worktree publication:** real-Git inspection tests cover owned-branch verification, dirty state, base progress, upstream ahead/behind counts, open-PR decoding, and bounded GitHub lookup failures. Coordinator tests cover first push plus PR creation, existing-PR refresh, dirty refusal with visible status, and divergence refusal without mutation; Playwright covers Create branch to Publish to visible push/PR cards.
 
 ## Unit Tests
 

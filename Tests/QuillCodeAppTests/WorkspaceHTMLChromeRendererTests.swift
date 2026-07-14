@@ -279,6 +279,8 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         model.root.threads[0].worktree?.branch = "feature/owned"
         let ownedHTML = WorkspaceHTMLRenderer.render(model.surface())
         XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-create-branch-button""#))
+        XCTAssertTrue(ownedHTML.contains(#"data-testid="top-bar-publish-branch-button""#))
+        XCTAssertTrue(ownedHTML.contains(#"data-command-id="thread-publish-branch""#))
         XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-handoff-button""#))
         XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-overflow-thread-finish-worktree""#))
     }
