@@ -89,13 +89,17 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
             "publishSubagentRunSummary"
         ])
         Self.assertSource(workerText, containsAll: [
-            "sessionFactory.makeSession",
+            "sessionFactory.makeSubagentSession",
             "try await session.run(onProgress: onProgress)",
             "threadStore?.save",
             "inheriting: parentThread"
         ])
         Self.assertSource(workerText, excludes: "tools: []")
-        Self.assertSource(workerText, contains: "allowsSubagents: false")
+        Self.assertSource(sendFactoryText, containsAll: [
+            "func makeSubagentSession(",
+            "makeSession(",
+            "allowsSubagents: false"
+        ])
         Self.assertSource(modelRunText, containsAll: [
             "struct WorkspaceSubagentRunToolExecutor",
             "WorkspaceSubagentRunToolRequestDecoder.decode",

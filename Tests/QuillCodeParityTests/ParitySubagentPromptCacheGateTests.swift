@@ -8,18 +8,24 @@ final class ParitySubagentPromptCacheGateTests: QuillCodeParityTestCase {
     func testSubagentWorkerUsesConfiguredMultiStepAgentSession() throws {
         let runnerSource = try Self.appSourceText(named: "WorkspaceSubagentSlashCommandRunner.swift")
         let workerSource = try Self.appSourceText(named: "WorkspaceSubagentModelWorker.swift")
+        let sessionFactorySource = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
 
         Self.assertSource(runnerSource, containsAll: [
             "AgentWorkspaceSubagentWorker.scheduledWorker",
             "agentSendSessionFactory("
         ])
         Self.assertSource(workerSource, containsAll: [
-            "sessionFactory.makeSession",
+            "sessionFactory.makeSubagentSession",
             "try await session.run(onProgress: onProgress)",
             "result.pendingApproval",
             "pendingApproval.heldToolCall",
             "threadStore?.save",
-            "sessionFactory.resumeApproved("
+            ").resumeApproved("
+        ])
+        Self.assertSource(sessionFactorySource, containsAll: [
+            "func makeSubagentSession(",
+            "makeSession(",
+            "allowsSubagents: false"
         ])
         Self.assertSource(workerSource, excludesAll: [
             "llm.nextAction(",

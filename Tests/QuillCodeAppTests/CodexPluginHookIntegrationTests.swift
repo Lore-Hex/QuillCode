@@ -24,7 +24,10 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
                 "PreToolUse": [{"hooks":[{"type":"command","command":"printf pre"}]}],
                 "PermissionRequest": [{"matcher":"^Bash$","hooks":[{"type":"command","command":"printf permission"}]}],
                 "PreCompact": [{"matcher":"^(manual|auto)$","hooks":[{"type":"command","command":"printf compacting"}]}],
-                "PostCompact": [{"matcher":"auto","hooks":[{"type":"command","command":"printf compacted"}]}]
+                "PostCompact": [{"matcher":"auto","hooks":[{"type":"command","command":"printf compacted"}]}],
+                "SessionStart": [{"matcher":"^(startup|resume)$","hooks":[{"type":"command","command":"printf session"}]}],
+                "SubagentStart": [{"matcher":"^Verifier$","hooks":[{"type":"command","command":"printf worker"}]}],
+                "SubagentStop": [{"matcher":"^Verifier$","hooks":[{"type":"command","command":"printf stopped"}]}]
               }
             }
             """#,
@@ -37,7 +40,7 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
             maxManifestBytes: ProjectExtensionManifestLoader.maxManifestBytes
         ))
 
-        XCTAssertEqual(package.hooks.count, 10)
+        XCTAssertEqual(package.hooks.count, 13)
         XCTAssertTrue(package.hooks.allSatisfy {
             $0.id.hasPrefix("plugin_hook:demo.")
                 && $0.definitionHash.count == 64
@@ -49,6 +52,9 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
         XCTAssertEqual(hook(event: "PermissionRequest", in: package.hooks)?.supportStatus, .supported)
         XCTAssertEqual(hook(event: "PreCompact", in: package.hooks)?.supportStatus, .supported)
         XCTAssertEqual(hook(event: "PostCompact", in: package.hooks)?.supportStatus, .supported)
+        XCTAssertEqual(hook(event: "SessionStart", in: package.hooks)?.supportStatus, .supported)
+        XCTAssertEqual(hook(event: "SubagentStart", in: package.hooks)?.supportStatus, .supported)
+        XCTAssertEqual(hook(event: "SubagentStop", in: package.hooks)?.supportStatus, .supported)
         XCTAssertEqual(
             package.hooks.first { $0.matcher == "tool:*" }?.supportStatus,
             .unsupportedMatcher

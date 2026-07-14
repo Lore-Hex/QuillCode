@@ -6,6 +6,7 @@ enum ProjectHookStandardInput {
         eventName: String,
         thread: ChatThread,
         workspaceRoot: URL,
+        includesTurnID: Bool = true,
         includesPermissionMode: Bool = true
     ) -> [String: Any] {
         let turnID = thread.messages.last(where: { $0.role == .user })?.id ?? thread.id
@@ -14,9 +15,11 @@ enum ProjectHookStandardInput {
             "transcript_path": NSNull(),
             "cwd": workspaceRoot.standardizedFileURL.resolvingSymlinksInPath().path,
             "hook_event_name": eventName,
-            "model": thread.model,
-            "turn_id": stableID(turnID)
+            "model": thread.model
         ]
+        if includesTurnID {
+            payload["turn_id"] = stableID(turnID)
+        }
         if includesPermissionMode {
             payload["permission_mode"] = permissionMode(for: thread.mode)
         }

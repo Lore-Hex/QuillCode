@@ -44,7 +44,12 @@ extension QuillCodeWorkspaceModel {
             from: source,
             projectID: projectID
         )
-        return insertCreatedThread(compacted, selectedProjectID: projectID, saveThread: true)
+        return insertCreatedThread(
+            compacted,
+            selectedProjectID: projectID,
+            saveThread: true,
+            sessionStartSource: .compact
+        )
     }
 
     @discardableResult

@@ -95,7 +95,12 @@ extension QuillCodeWorkspaceModel {
             summaryOverride: preparation.summary.summaryOverride
         )
         appendContextSummaryContinuation(to: &compacted, preparation: preparation, purpose: .compact)
-        return insertCreatedThread(compacted, selectedProjectID: preparation.projectID, saveThread: true)
+        return insertCreatedThread(
+            compacted,
+            selectedProjectID: preparation.projectID,
+            saveThread: true,
+            sessionStartSource: .compact
+        )
     }
 
     private func compactContext(
@@ -162,7 +167,12 @@ extension QuillCodeWorkspaceModel {
                 to: &final
             )
         }
-        return insertCreatedThread(final, selectedProjectID: projectID, saveThread: true)
+        return insertCreatedThread(
+            final,
+            selectedProjectID: projectID,
+            saveThread: true,
+            sessionStartSource: .compact
+        )
     }
 
     private func pluginCompactionHookExecutor(
