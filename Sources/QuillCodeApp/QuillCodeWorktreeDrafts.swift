@@ -5,6 +5,7 @@ enum QuillCodeWorktreeSheet: String, Identifiable {
     case newTask
     case create
     case createBranch
+    case finish
     case open
     case remove
     case prune
@@ -55,6 +56,22 @@ struct QuillCodeWorktreeCreateBranchDraft: Equatable {
         WorkspaceWorktreeCreateBranchRequest(
             branch: branch.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+    }
+}
+
+struct QuillCodeWorktreeFinishDraft: Equatable {
+    var destinationName = "Local"
+    var isCleanupOnly = false
+
+    var title: String {
+        isCleanupOnly ? "Finish Worktree Cleanup" : "Finish Task in Local"
+    }
+
+    var subtitle: String {
+        if isCleanupOnly {
+            return "The task already runs in \(destinationName). Remove its isolated checkout after Git confirms it is clean."
+        }
+        return "Move the complete task state into \(destinationName), then safely remove its isolated checkout."
     }
 }
 

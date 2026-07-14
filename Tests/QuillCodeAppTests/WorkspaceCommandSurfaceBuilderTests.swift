@@ -275,6 +275,65 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         ).isEnabled)
     }
 
+    func testFinishWorktreeCommandNamesTransferAndRetryCleanupStates() throws {
+        let worktree = FileManager.default.temporaryDirectory
+            .appendingPathComponent("finish-command-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: worktree) }
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        var thread = ChatThread(title: "Managed task")
+        thread.worktree = WorktreeBinding(
+            path: worktree.path,
+            branch: "",
+            base: "main",
+            location: .worktree
+        )
+
+        let finish = try command(
+            WorkspaceCommandAction.threadFinishWorktree.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        )
+        XCTAssertEqual(finish.title, "Finish task in Local")
+        XCTAssertTrue(finish.isEnabled)
+
+        thread.worktree?.location = .local
+        let cleanup = try command(
+            WorkspaceCommandAction.threadFinishWorktree.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        )
+        XCTAssertEqual(cleanup.title, "Finish worktree cleanup")
+        XCTAssertTrue(cleanup.isEnabled)
+
+        try FileManager.default.removeItem(at: worktree)
+        XCTAssertTrue(try command(
+            WorkspaceCommandAction.threadFinishWorktree.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled, "Local cleanup can clear an already-missing stale binding")
+
+        thread.worktree?.location = .worktree
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadFinishWorktree.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+
+        thread.worktree?.location = .local
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadFinishWorktree.rawValue,
+            in: makeBuilder(
+                selectedThread: thread,
+                selectedProject: project,
+                selectedThreadIsRunning: true,
+                runningThreadIDs: [thread.id]
+            ).commands
+        ).isEnabled)
+
+        thread.worktree?.branch = "feature/owned"
+        XCTAssertFalse(try command(
+            WorkspaceCommandAction.threadFinishWorktree.rawValue,
+            in: makeBuilder(selectedThread: thread, selectedProject: project).commands
+        ).isEnabled)
+    }
+
     func testCreateBranchCommandRequiresIdleDetachedWorktreeTask() throws {
         let worktree = FileManager.default.temporaryDirectory
             .appendingPathComponent("create-branch-command-\(UUID().uuidString)")

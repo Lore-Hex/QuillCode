@@ -6,6 +6,17 @@ import QuillCodeTools
 struct WorkspaceToolRunCoordinator {
     let model: QuillCodeWorkspaceModel
     let workspaceRoot: URL
+    let managedWorktreeRoot: URL
+
+    init(
+        model: QuillCodeWorkspaceModel,
+        workspaceRoot: URL,
+        managedWorktreeRoot: URL? = nil
+    ) {
+        self.model = model
+        self.workspaceRoot = workspaceRoot
+        self.managedWorktreeRoot = managedWorktreeRoot ?? model.managedWorktreeRoot
+    }
 
     @discardableResult
     func run(_ call: ToolCall) -> ToolResult {
@@ -31,7 +42,7 @@ struct WorkspaceToolRunCoordinator {
         // so a UI read grants no model thread write rights (and vice versa).
         let router = ToolRouter(
             workspaceRoot: workspaceRoot,
-            managedWorktreeRoot: model.managedWorktreeRoot,
+            managedWorktreeRoot: managedWorktreeRoot,
             editGuard: model.uiEditSessionGuard
         )
         let executor = WorkspaceToolCallExecutorFactory.executor(model: model, router: router)

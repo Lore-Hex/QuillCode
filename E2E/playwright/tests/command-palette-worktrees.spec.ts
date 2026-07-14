@@ -37,8 +37,8 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await openCommandPalette(page);
   await fillCommandPalette(page, '>worktree');
 
-  // Five git-worktree tools plus new/restore-worktree-chat, Create branch here, and Handoff.
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(9);
+  // Five git-worktree tools plus new/restore-worktree-chat, Create branch, Handoff, and Finish.
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(10);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expectCommandPaletteClosed(page);
@@ -69,6 +69,52 @@ test('detached worktree task can create and own a branch in place', async ({ pag
   await expect(page.getByTestId('top-bar-worktree')).toContainText('feature/owned-task');
   await expect(page.getByTestId('top-bar-create-branch-button')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-handoff-button')).toHaveCount(0);
+});
+
+test('finishing a managed task confirms, preserves failed cleanup, and retries safely', async ({ page }) => {
+  await createNewWorktreeTask(page, 'Automatic', 'Finish safely');
+  await page.evaluate(() => {
+    (window as typeof window & {
+      __quillCodeFailNextWorktreeFinishCleanup?: boolean
+    }).__quillCodeFailNextWorktreeFinishCleanup = true;
+  });
+
+  await page.getByTestId('top-bar-overflow-button').click();
+  const finishCommand = page.getByTestId('top-bar-overflow-thread-finish-worktree');
+  await expect(finishCommand).toHaveText('Finish task in Local');
+  await finishCommand.click();
+
+  const finishPanel = page.getByTestId('worktree-finish-panel');
+  await expect(finishPanel).toBeVisible();
+  await expect(finishPanel).toContainText('Transfer verified task state');
+  await expect(finishPanel).toContainText('Preserve concurrent edits');
+  await page.getByTestId('worktree-dialog-cancel').click();
+  await expect(finishPanel).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Worktree');
+
+  await page.getByTestId('top-bar-overflow-button').click();
+  await page.getByTestId('top-bar-overflow-thread-finish-worktree').click();
+  await page.getByTestId('worktree-finish-submit').click();
+
+  await expect(page.getByTestId('top-bar-worktree')).toHaveText('Local');
+  await expect(page.getByTestId('sidebar-worktree-local')).toHaveText('Local');
+  await expect(page.getByTestId('message').last()).toContainText(
+    'isolated worktree was preserved because Git could not remove it safely'
+  );
+
+  await page.getByTestId('top-bar-overflow-button').click();
+  const retryCommand = page.getByTestId('top-bar-overflow-thread-finish-worktree');
+  await expect(retryCommand).toHaveText('Finish worktree cleanup');
+  await retryCommand.click();
+  await expect(page.getByTestId('worktree-finish-panel')).toContainText('No task files move during cleanup.');
+  await expect(page.getByTestId('worktree-finish-submit')).toHaveText('Retry Cleanup');
+  await page.getByTestId('worktree-finish-submit').click();
+
+  await expect(page.getByTestId('top-bar-worktree')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar-worktree-local')).toHaveCount(0);
+  await expect(page.getByTestId('message').last()).toContainText('completed worktree cleanup');
+  await page.getByTestId('top-bar-overflow-button').click();
+  await expect(page.getByTestId('top-bar-overflow-thread-finish-worktree')).toHaveCount(0);
 });
 
 test('new managed worktree shows automatic environment setup in the transcript', async ({ page }) => {

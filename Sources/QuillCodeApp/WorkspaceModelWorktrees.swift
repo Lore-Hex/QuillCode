@@ -264,14 +264,26 @@ extension QuillCodeWorkspaceModel {
         )
         guard result.ok else { return false }
 
-        setSelectedThreadWorktreeLocation(nextLocation)
+        activateSelectedThreadWorktreeLocation(nextLocation, destination: destination)
+        return true
+    }
+
+    @discardableResult
+    public func finishSelectedWorktreeInLocal() -> Bool {
+        WorkspaceManagedWorktreeFinishCoordinator(model: self).finishSelectedThread()
+    }
+
+    func activateSelectedThreadWorktreeLocation(
+        _ location: WorktreeExecutionLocation,
+        destination: URL
+    ) {
+        setSelectedThreadWorktreeLocation(location)
         terminal.currentDirectoryPath = destination.path
         terminal.environmentOverrides = [:]
         terminal.removedEnvironmentKeys = []
         terminal.resetInputModes()
         refreshFileMentionIndex()
         refreshTopBar()
-        return true
     }
 
     public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {

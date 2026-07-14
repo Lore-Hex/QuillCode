@@ -13,6 +13,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case presentNewWorktreeTask
     case presentCreateWorktree
     case presentCreateWorktreeBranch
+    case presentFinishWorktree
     case presentOpenWorktree
     case presentRemoveWorktree
     case presentPruneWorktrees
@@ -61,6 +62,8 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
             return .presentCreateWorktree
         case "thread-create-branch":
             return .presentCreateWorktreeBranch
+        case "thread-finish-worktree":
+            return .presentFinishWorktree
         case "git-worktree-open":
             return .presentOpenWorktree
         case "git-worktree-remove":

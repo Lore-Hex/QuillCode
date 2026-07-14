@@ -90,7 +90,7 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
         let commands = QuillCodeWorkspaceModel().surface().commands
         let groups = WorkspaceCommandPaletteRanker.groupedCommands(commands, matching: ">worktree")
 
-        // Task creation, restoration, and Handoff are thread commands; Thread sorts ahead of Git by
+        // Task creation, restoration, Handoff, and Finish are thread commands; Thread sorts ahead of Git by
         // palette category order, so they form the first group above the git-worktree tools.
         XCTAssertEqual(groups.map(\.title), [
             WorkspaceCommandPalette.threadCategory,
@@ -98,7 +98,13 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
         ])
         XCTAssertEqual(
             groups.first?.commands.map(\.id),
-            ["thread-new-worktree", "thread-restore-worktree", "thread-create-branch", "thread-handoff"]
+            [
+                "thread-new-worktree",
+                "thread-restore-worktree",
+                "thread-create-branch",
+                "thread-handoff",
+                "thread-finish-worktree"
+            ]
         )
         XCTAssertEqual(groups.last?.commands.map(\.id), [
             "git-worktree-list",

@@ -9,14 +9,10 @@ struct GitWorktreeHandoffPreflight: Sendable {
     }
 
     func plan(sourceRoot: URL, destinationPath: String) throws -> GitWorktreeHandoffPlan {
-        let opened = GitWorktreeToolExecutor(runner: runner).open(
-            cwd: sourceRoot,
-            path: destinationPath
+        let destinationRoot = try registeredDestination(
+            sourceRoot: sourceRoot,
+            destinationPath: destinationPath
         )
-        guard opened.ok, let path = opened.artifacts.first else {
-            throw GitWorktreeHandoffError.preflight(opened.error ?? opened.stderr)
-        }
-        let destinationRoot = URL(fileURLWithPath: path).standardizedFileURL
         guard try commonDirectory(sourceRoot) == commonDirectory(destinationRoot) else {
             throw GitWorktreeHandoffError.differentRepository
         }
@@ -81,6 +77,44 @@ struct GitWorktreeHandoffPreflight: Sendable {
             ? URL(fileURLWithPath: path)
             : root.appendingPathComponent(path)
         return url.standardizedFileURL.resolvingSymlinksInPath()
+    }
+
+    private func registeredDestination(sourceRoot: URL, destinationPath: String) throws -> URL {
+        let trimmed = destinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GitWorktreeHandoffError.preflight("Handoff destination is required.")
+        }
+        let candidate = trimmed.hasPrefix("/")
+            ? URL(fileURLWithPath: trimmed)
+            : sourceRoot.deletingLastPathComponent().appendingPathComponent(trimmed)
+        let requested = candidate
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let source = sourceRoot.standardizedFileURL.resolvingSymlinksInPath()
+        guard requested.path != source.path else {
+            throw GitWorktreeHandoffError.preflight("Handoff destination must be a different registered worktree.")
+        }
+
+        let result = runner.runGit(
+            ["worktree", "list", "--porcelain"],
+            cwd: sourceRoot,
+            timeoutSeconds: 20
+        )
+        guard result.ok else {
+            throw GitWorktreeHandoffError.commandFailed("worktree inspection", result)
+        }
+        let registered = GitWorktreePorcelainParser.parse(result.stdout)
+        guard registered.contains(where: {
+            URL(fileURLWithPath: $0.path)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .path == requested.path
+        }) else {
+            throw GitWorktreeHandoffError.preflight(
+                "Handoff destination is not a registered worktree: \(requested.path)"
+            )
+        }
+        return requested
     }
 }
 

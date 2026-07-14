@@ -44,6 +44,60 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertEqual(gitStatus(in: fixture.worktree), "")
     }
 
+    func testHandoffAcceptsExactRegisteredDestinationOutsideProjectParent() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let managedRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-managed-handoff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: managedRoot, withIntermediateDirectories: true)
+        let worktree = managedRoot.appendingPathComponent("task")
+        let git = GitToolExecutor(managedWorktreeRoot: managedRoot)
+        let create = git.createWorktree(
+            cwd: root,
+            path: worktree.path,
+            managed: true
+        )
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        defer {
+            _ = git.removeWorktree(cwd: root, path: worktree.path, force: true)
+            try? FileManager.default.removeItem(at: managedRoot)
+        }
+        try "managed task\n".write(
+            to: worktree.appendingPathComponent("managed.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = git.handoffWorktree(
+            cwd: worktree,
+            destination: root.path
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("managed.txt")),
+            "managed task\n"
+        )
+        XCTAssertEqual(gitStatus(in: worktree), "")
+        XCTAssertEqual(gitStatus(in: root), "?? managed.txt\n")
+    }
+
+    func testHandoffStillRejectsUnregisteredDestinationOutsideProjectParent() throws {
+        let fixture = try makeHandoffFixture()
+        defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }
+        let unrelated = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-unregistered-handoff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: unrelated, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: unrelated) }
+
+        let result = fixture.git.handoffWorktree(
+            cwd: fixture.worktree,
+            destination: unrelated.path
+        )
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("not a registered worktree") == true, result.error ?? "")
+    }
+
     func testHandoffAcceptsAnExactTaskSnapshotAlreadyPresentAtDestination() throws {
         let fixture = try makeHandoffFixture()
         defer { _ = fixture.git.removeWorktree(cwd: fixture.root, path: fixture.worktreeName, force: true) }

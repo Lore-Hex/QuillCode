@@ -76,6 +76,7 @@ public struct QuillCodeWorkspaceView: View {
         onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void = { _ in },
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> Void = { _ in },
+        onFinishWorktree: @escaping () -> Void = {},
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
@@ -141,6 +142,7 @@ public struct QuillCodeWorkspaceView: View {
             onCreateWorktreeThread: onCreateWorktreeThread,
             onCreateWorktree: onCreateWorktree,
             onCreateWorktreeBranch: onCreateWorktreeBranch,
+            onFinishWorktree: onFinishWorktree,
             onListWorktreeChoices: onListWorktreeChoices,
             onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
@@ -254,6 +256,7 @@ public struct QuillCodeWorkspaceView: View {
             newWorktreeTaskDraft: $worktreeDialogs.newTaskDraft,
             createWorktreeDraft: $worktreeDialogs.createDraft,
             createWorktreeBranchDraft: $worktreeDialogs.createBranchDraft,
+            finishWorktreeDraft: $worktreeDialogs.finishDraft,
             openWorktreeDraft: $worktreeDialogs.openDraft,
             removeWorktreeDraft: $worktreeDialogs.removeDraft,
             pruneWorktreeDraft: $worktreeDialogs.pruneDraft,
@@ -268,6 +271,7 @@ public struct QuillCodeWorkspaceView: View {
             onCreateWorktreeThread: actions.onCreateWorktreeThread,
             onCreateWorktree: actions.onCreateWorktree,
             onCreateWorktreeBranch: actions.onCreateWorktreeBranch,
+            onFinishWorktree: actions.onFinishWorktree,
             onRetryWorktreeChoices: retryWorktreeChoices,
             onOpenWorktree: actions.onOpenWorktree,
             onRemoveWorktree: actions.onRemoveWorktree,
@@ -370,6 +374,17 @@ public struct QuillCodeWorkspaceView: View {
             worktreeDialogs.presentCreate()
         case .presentCreateWorktreeBranch:
             worktreeDialogs.presentCreateBranch()
+        case .presentFinishWorktree:
+            let projectName = surface.projects.items.first {
+                $0.id == surface.projects.selectedProjectID
+            }?.name ?? "Local"
+            let cleanupOnly = surface.sidebar.items.first {
+                $0.id == surface.sidebar.selectedThreadID
+            }?.worktree?.location == .local
+            worktreeDialogs.presentFinish(
+                destinationName: projectName,
+                isCleanupOnly: cleanupOnly
+            )
         case .presentOpenWorktree:
             worktreeDialogs.presentOpen(loadChoices: actions.onListWorktreeChoices)
         case .presentRemoveWorktree:

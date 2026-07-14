@@ -12,6 +12,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var selectedThreadIsRunning: Bool = false
     var selectedThreadCanRestoreWorktree: Bool = false
     var selectedThreadHandoffTitle: String? = nil
+    var selectedThreadFinishWorktreeTitle: String? = nil
     var selectedThreadCanCreateBranch: Bool = false
     var hasAnySidebarThread: Bool
     var sidebarSelectionIsActive: Bool
@@ -66,6 +67,13 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "task", "handoff", "local", "worktree", "move", "transfer"],
                 isEnabled: availability.selectedThreadHandoffTitle != nil
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.threadFinishWorktree.rawValue,
+                title: availability.selectedThreadFinishWorktreeTitle ?? "Finish task in Local",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "task", "finish", "land", "local", "worktree", "cleanup"],
+                isEnabled: availability.selectedThreadFinishWorktreeTitle != nil
             ),
             savedFilterCommand(.all),
             savedFilterCommand(.pinned),

@@ -17,6 +17,11 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    func finishWorktree() {
+        _ = model.finishSelectedWorktreeInLocal()
+        refresh()
+    }
+
     func worktreeChoiceLoad() async -> WorkspaceWorktreeChoiceLoad {
         await worktreeCoordinator.worktreeChoiceLoad(model: model, fallbackWorkspaceRoot: workspaceRoot)
     }

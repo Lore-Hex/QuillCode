@@ -406,6 +406,145 @@ final class WorktreeThreadModelTests: XCTestCase {
         )
     }
 
+    func testFinishManagedTaskTransfersHistoryAndDirtyStateThenRemovesWorktree() throws {
+        let repo = try makeGitRepo()
+        let managedRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-finish-\(UUID().uuidString)")
+        let model = QuillCodeWorkspaceModel(managedWorktreeDefaultRoot: managedRoot)
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+        let threadID = try XCTUnwrap(model.newWorktreeThread(name: "finish"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        let worktree = URL(fileURLWithPath: worktreePath)
+        try "committed task\n".write(
+            to: worktree.appendingPathComponent("committed.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", "committed.txt"], cwd: worktree)
+        _ = try runGit(["commit", "-m", "Finish task commit"], cwd: worktree)
+        let taskCommit = try runGit(["rev-parse", "HEAD"], cwd: worktree)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        try "staged task\n".write(
+            to: worktree.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", "README.md"], cwd: worktree)
+        try "untracked task\n".write(
+            to: worktree.appendingPathComponent("notes.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(model.finishSelectedWorktreeInLocal())
+
+        XCTAssertEqual(model.selectedThread?.id, threadID)
+        XCTAssertNil(model.selectedThread?.worktree)
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, repo.standardizedFileURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktreePath))
+        XCTAssertEqual(
+            try runGit(["rev-parse", "HEAD"], cwd: repo)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            taskCommit
+        )
+        XCTAssertEqual(
+            try String(contentsOf: repo.appendingPathComponent("committed.txt")),
+            "committed task\n"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: repo.appendingPathComponent("README.md")),
+            "staged task\n"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: repo.appendingPathComponent("notes.txt")),
+            "untracked task\n"
+        )
+        XCTAssertEqual(
+            try runGit(["status", "--porcelain=v1", "--untracked-files=all"], cwd: repo),
+            "M  README.md\n?? notes.txt\n"
+        )
+        XCTAssertTrue(model.selectedThread?.events.contains {
+            $0.kind == .notice && $0.summary.contains("removed its isolated worktree")
+        } == true)
+    }
+
+    func testFinishCleanupFailurePreservesBindingAndCanBeRetried() throws {
+        let repo = try makeGitRepo()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+        _ = try XCTUnwrap(model.newWorktreeThread(name: "cleanup retry"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        let worktree = URL(fileURLWithPath: worktreePath)
+        XCTAssertTrue(model.handoffSelectedThread())
+        try "concurrent edit\n".write(
+            to: worktree.appendingPathComponent("concurrent.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(model.finishSelectedWorktreeInLocal())
+
+        XCTAssertEqual(model.selectedThread?.worktree?.location, .local)
+        XCTAssertEqual(model.selectedThread?.worktree?.path, worktreePath)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktreePath))
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, repo.standardizedFileURL)
+        XCTAssertTrue(model.selectedThread?.events.contains {
+            $0.kind == .notice && $0.summary.contains("preserved")
+        } == true)
+
+        try FileManager.default.removeItem(at: worktree.appendingPathComponent("concurrent.txt"))
+        XCTAssertTrue(model.finishSelectedWorktreeInLocal())
+        XCTAssertNil(model.selectedThread?.worktree)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktreePath))
+    }
+
+    func testFinishClearsStaleLocalBindingWhenWorktreeIsAlreadyMissing() throws {
+        let repo = try makeGitRepo()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+        _ = try XCTUnwrap(model.newWorktreeThread(name: "stale cleanup"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        XCTAssertTrue(model.handoffSelectedThread())
+        let removal = GitToolExecutor().removeWorktree(
+            cwd: repo,
+            path: worktreePath,
+            force: false
+        )
+        XCTAssertTrue(removal.ok, "\(removal.error ?? "") \(removal.stderr)")
+
+        XCTAssertTrue(model.finishSelectedWorktreeInLocal())
+
+        XCTAssertNil(model.selectedThread?.worktree)
+        XCTAssertEqual(model.activeWorkspaceRoot?.standardizedFileURL, repo.standardizedFileURL)
+        XCTAssertTrue(model.selectedThread?.events.contains {
+            $0.kind == .notice && $0.summary.contains("already-missing")
+        } == true)
+    }
+
+    func testFinishManagedTaskRejectsArchivedThreadForDirectCallers() throws {
+        let repo = try makeGitRepo()
+        let model = QuillCodeWorkspaceModel(
+            managedWorktreeDefaultRoot: repo.deletingLastPathComponent()
+        )
+        let projectID = model.addProject(path: repo, name: "Repo")
+        model.selectProject(projectID)
+        _ = try XCTUnwrap(model.newWorktreeThread(name: "archived"))
+        let worktreePath = try XCTUnwrap(model.selectedThread?.worktree?.path)
+        model.mutateSelectedThread { $0.isArchived = true }
+
+        XCTAssertFalse(model.finishSelectedWorktreeInLocal())
+
+        XCTAssertEqual(model.selectedThread?.worktree?.path, worktreePath)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktreePath))
+    }
+
     func testCreateBranchHereKeepsTaskInWorktreeAndPersistsOwnership() throws {
         let repo = try makeGitRepo()
         let model = QuillCodeWorkspaceModel(
