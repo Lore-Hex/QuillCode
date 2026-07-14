@@ -2,13 +2,13 @@ import CoreFoundation
 import Foundation
 import QuillCodeCore
 
-enum ProjectPluginPreToolDecision: Sendable, Hashable {
+enum ProjectPluginToolHookDecision: Sendable, Hashable {
     case allow
     case deny
 }
 
 struct ProjectPluginToolHookSemanticOutput: Sendable, Hashable {
-    var decision: ProjectPluginPreToolDecision? = nil
+    var decision: ProjectPluginToolHookDecision? = nil
     var decisionReason: String? = nil
     var updatedInputJSON: String? = nil
     var additionalContext: String? = nil
@@ -25,7 +25,7 @@ enum ProjectPluginToolHookOutputParser {
         event: ProjectPluginToolHookEvent,
         result: ToolResult
     ) throws -> ProjectPluginToolHookSemanticOutput {
-        if result.exitCode == 2 {
+        if result.exitCode == 2, event.treatsExitTwoAsDecision {
             let fallback = event == .preToolUse
                 ? "The hook blocked this tool call."
                 : "The hook rejected the tool result."
@@ -61,7 +61,47 @@ enum ProjectPluginToolHookOutputParser {
             return try parsePreToolUse(dictionary, systemMessage: systemMessage)
         case .postToolUse:
             return try parsePostToolUse(dictionary, systemMessage: systemMessage)
+        case .permissionRequest:
+            return try parsePermissionRequest(dictionary, systemMessage: systemMessage)
         }
+    }
+
+    private static func parsePermissionRequest(
+        _ dictionary: [String: Any],
+        systemMessage: String?
+    ) throws -> ProjectPluginToolHookSemanticOutput {
+        for unsupported in ["continue", "stopReason", "suppressOutput"]
+            where dictionary[unsupported] != nil {
+                throw ProjectPluginToolHookOutputError.unsupportedField(unsupported)
+        }
+
+        var output = ProjectPluginToolHookSemanticOutput(systemMessage: systemMessage)
+        guard let rawSpecific = dictionary["hookSpecificOutput"] else { return output }
+        guard let specific = rawSpecific as? [String: Any] else {
+            throw ProjectPluginToolHookOutputError.invalidType("hookSpecificOutput")
+        }
+        try validateEvent(.permissionRequest, in: specific)
+        for unsupported in ["updatedInput", "updatedPermissions", "interrupt"]
+            where specific[unsupported] != nil {
+                throw ProjectPluginToolHookOutputError.unsupportedField(unsupported)
+        }
+        guard let rawDecision = specific["decision"] else { return output }
+        guard let decision = rawDecision as? [String: Any] else {
+            throw ProjectPluginToolHookOutputError.invalidType("decision")
+        }
+        let behavior = try requiredString("behavior", in: decision)
+        switch behavior {
+        case "allow":
+            output.decision = .allow
+        case "deny":
+            output.decision = .deny
+            output.decisionReason = try string("message", in: decision)
+                .flatMap(boundedMessage)
+                ?? "The permission hook denied this tool call."
+        default:
+            throw ProjectPluginToolHookOutputError.unsupportedDecision(behavior)
+        }
+        return output
     }
 
     private static func parsePreToolUse(

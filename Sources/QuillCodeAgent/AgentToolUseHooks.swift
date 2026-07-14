@@ -40,6 +40,28 @@ public struct AgentPostToolUseHookOutcome: Sendable, Hashable {
     }
 }
 
+/// A trusted `PermissionRequest` hook may suppress the ordinary approval UI only by making an
+/// explicit allow or deny decision. Missing, invalid, and failed hook output maps to
+/// `noDecision`, preserving QuillCode's normal durable approval flow.
+public enum AgentPermissionRequestDecision: Sendable, Hashable {
+    case noDecision
+    case allow
+    case deny(reason: String)
+}
+
+public struct AgentPermissionRequestHookOutcome: Sendable, Hashable {
+    public var decision: AgentPermissionRequestDecision
+    public var notices: [String]
+
+    public init(
+        decision: AgentPermissionRequestDecision = .noDecision,
+        notices: [String] = []
+    ) {
+        self.decision = decision
+        self.notices = notices
+    }
+}
+
 public typealias AgentPreToolUseHook = @Sendable (
     ToolCall,
     ChatThread,
@@ -52,3 +74,10 @@ public typealias AgentPostToolUseHook = @Sendable (
     ChatThread,
     URL
 ) async throws -> AgentPostToolUseHookOutcome
+
+public typealias AgentPermissionRequestHook = @Sendable (
+    ToolCall,
+    String,
+    ChatThread,
+    URL
+) async throws -> AgentPermissionRequestHookOutcome

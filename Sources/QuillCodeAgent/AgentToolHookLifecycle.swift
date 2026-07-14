@@ -47,6 +47,43 @@ extension AgentRunner {
         return outcome.result
     }
 
+    func resolvePermissionRequest(
+        for call: ToolCall,
+        approvalReason: String,
+        thread: inout ChatThread,
+        workspaceRoot: URL,
+        onProgress: AgentRunProgressHandler?
+    ) async throws -> AgentPermissionRequestDecision {
+        guard let permissionRequestHook else { return .noDecision }
+        do {
+            try Task.checkCancellation()
+            let outcome = try await permissionRequestHook(
+                call,
+                approvalReason,
+                thread,
+                workspaceRoot
+            )
+            try Task.checkCancellation()
+            await appendHookEffects(
+                contexts: [],
+                notices: outcome.notices,
+                to: &thread,
+                onProgress: onProgress
+            )
+            return outcome.decision
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            await appendHookEffects(
+                contexts: [],
+                notices: ["Permission hook warning: \(error.localizedDescription) Normal approval is still required."],
+                to: &thread,
+                onProgress: onProgress
+            )
+            return .noDecision
+        }
+    }
+
     private func appendHookEffects(
         contexts: [String],
         notices: [String],

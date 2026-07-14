@@ -120,5 +120,10 @@
   input before safety review; post hooks receive the actual success or failure
   and may add context or replace model-facing feedback without undoing effects.
   Rewritten calls survive approval pause/resume without rerunning pre hooks.
+  Trusted `PermissionRequest` hooks run only for approvable gates, receive the
+  effective canonical call plus a bounded approval description, and aggregate
+  deny-wins/allow/abstain decisions without overriding hard safety denials.
+  Failures preserve the normal durable approval UI; reserved input, permission,
+  and interrupt mutations are rejected.
   Remaining standard events, prompt/agent handlers, and asynchronous handlers
   are parsed and labeled Unsupported rather than silently executed.

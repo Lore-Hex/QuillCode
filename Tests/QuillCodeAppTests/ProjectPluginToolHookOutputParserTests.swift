@@ -103,6 +103,60 @@ final class ProjectPluginToolHookOutputParserTests: XCTestCase {
         }
     }
 
+    func testPermissionRequestParsesAllowDenyAndNoDecision() throws {
+        let allowed = try ProjectPluginToolHookOutputParser.parse(
+            event: .permissionRequest,
+            result: ToolResult(
+                ok: true,
+                stdout: #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#
+            )
+        )
+        XCTAssertEqual(allowed.decision, .allow)
+
+        let denied = try ProjectPluginToolHookOutputParser.parse(
+            event: .permissionRequest,
+            result: ToolResult(
+                ok: true,
+                stdout: #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"blocked by policy"}}}"#
+            )
+        )
+        XCTAssertEqual(denied.decision, .deny)
+        XCTAssertEqual(denied.decisionReason, "blocked by policy")
+
+        XCTAssertEqual(
+            try ProjectPluginToolHookOutputParser.parse(
+                event: .permissionRequest,
+                result: ToolResult(ok: true, stdout: "plain output is ignored")
+            ),
+            ProjectPluginToolHookSemanticOutput()
+        )
+    }
+
+    func testPermissionRequestRejectsReservedMutationsAndFlowControls() {
+        for stdout in [
+            #"{"continue":false}"#,
+            #"{"stopReason":"stop"}"#,
+            #"{"suppressOutput":true}"#,
+            #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","updatedInput":{}}}"#,
+            #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","updatedPermissions":[]}}"#,
+            #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","interrupt":true}}"#,
+            #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"clarify"}}}"#
+        ] {
+            XCTAssertThrowsError(try ProjectPluginToolHookOutputParser.parse(
+                event: .permissionRequest,
+                result: ToolResult(ok: true, stdout: stdout)
+            ), stdout)
+        }
+    }
+
+    func testPermissionRequestDoesNotTreatExitTwoAsDenial() throws {
+        let output = try ProjectPluginToolHookOutputParser.parse(
+            event: .permissionRequest,
+            result: ToolResult(ok: false, stderr: "ordinary command failure", exitCode: 2)
+        )
+        XCTAssertEqual(output, ProjectPluginToolHookSemanticOutput())
+    }
+
     private func jsonObject(_ value: String) throws -> [String: Any] {
         try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any]

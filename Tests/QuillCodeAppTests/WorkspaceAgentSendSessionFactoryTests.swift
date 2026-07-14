@@ -146,11 +146,14 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         untrusted.id = "post"
         untrusted.event = "PostToolUse"
         untrusted.trustStatus = .reviewRequired
+        var permission = trusted
+        permission.id = "permission"
+        permission.event = "PermissionRequest"
         let project = ProjectRef(
             name: "Hook Project",
             path: workspaceRoot.path,
             runHooks: [],
-            pluginHooks: [trusted, untrusted]
+            pluginHooks: [trusted, untrusted, permission]
         )
 
         let session = WorkspaceAgentSendSessionFactory(
@@ -170,6 +173,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
 
         XCTAssertNotNil(session.runner.preToolUseHook)
         XCTAssertNil(session.runner.postToolUseHook)
+        XCTAssertNotNil(session.runner.permissionRequestHook)
     }
 
     func testFactoryUsesRemoteProjectToolDefinitionsAndRunHooks() {

@@ -88,7 +88,7 @@ extension AgentRunner {
         ))
         try Task.checkCancellation()
 
-        if review.verdict != .approve {
+        if review.verdict == .deny {
             let pendingApproval = await appendBlockedReview(
                 review,
                 for: effectiveCall,
@@ -97,6 +97,43 @@ extension AgentRunner {
                 onProgress: onProgress
             )
             return .blocked(pendingApproval)
+        }
+
+        if review.verdict == .clarify {
+            switch try await resolvePermissionRequest(
+                for: effectiveCall,
+                approvalReason: review.rationale,
+                thread: &thread,
+                workspaceRoot: workspaceRoot,
+                onProgress: onProgress
+            ) {
+            case .allow:
+                break
+            case .noDecision:
+                let pendingApproval = await appendBlockedReview(
+                    review,
+                    for: effectiveCall,
+                    definition: definition,
+                    to: &thread,
+                    onProgress: onProgress
+                )
+                return .blocked(pendingApproval)
+            case .deny(let reason):
+                let result = ToolResult(ok: false, error: reason)
+                await appendResultEvent(
+                    for: effectiveCall,
+                    result: result,
+                    publishProgress: true,
+                    to: &thread,
+                    onProgress: onProgress
+                )
+                return .completed(AgentToolStepCompletion(
+                    call: effectiveCall,
+                    result: result,
+                    followUpReviewResult: nil,
+                    toolResults: [result]
+                ))
+            }
         }
 
         let result = try await executeApprovedTool(
