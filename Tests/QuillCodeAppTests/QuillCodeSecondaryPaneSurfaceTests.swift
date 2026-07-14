@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeCore
 import QuillCodeTools
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 final class QuillCodeSecondaryPaneSurfaceTests: XCTestCase {
@@ -86,6 +87,43 @@ final class QuillCodeSecondaryPaneSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.availableCount, 1)
         XCTAssertEqual(surface.items.first?.statusLabel, "Available")
         XCTAssertEqual(surface.items.first?.installCommandID, "extension-install:plugin:github")
+    }
+
+    func testExtensionsSurfaceProjectsActiveWorkflowRecording() throws {
+        let startedAt = Date(timeIntervalSince1970: 123)
+        let surface = WorkspaceExtensionsSurface(
+            workflowRecording: WorkflowRecordingStatus(
+                phase: .recording,
+                goal: "Publish a release",
+                startedAt: startedAt,
+                eventCount: 12,
+                snapshotCount: 3
+            )
+        )
+
+        XCTAssertEqual(surface.workflowRecording?.phase, .recording)
+        XCTAssertEqual(surface.workflowRecording?.goal, "Publish a release")
+        XCTAssertEqual(surface.workflowRecording?.startedAt, startedAt)
+        XCTAssertEqual(surface.workflowRecording?.eventCount, 12)
+        XCTAssertEqual(surface.workflowRecording?.snapshotCount, 3)
+    }
+
+    func testExtensionsSurfaceDecodesPayloadWithoutRecordingStatus() throws {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "isVisible": false,
+            "title": "Extensions",
+            "subtitle": "No extensions",
+            "items": [],
+            "totalItems": [],
+            "hookItems": [],
+            "totalHookItems": [],
+            "emptyTitle": "No extensions",
+            "emptySubtitle": "Add extensions"
+        ])
+
+        let surface = try JSONDecoder().decode(WorkspaceExtensionsSurface.self, from: data)
+
+        XCTAssertNil(surface.workflowRecording)
     }
 
     func testMemoriesSurfaceBuildsPreviewCountsAndDeleteCommands() {

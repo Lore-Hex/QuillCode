@@ -3,6 +3,7 @@ import XCTest
 import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
+import QuillComputerUseKit
 @testable import quill_code_desktop
 
 @MainActor
@@ -190,6 +191,26 @@ final class QuillCodeDesktopConcurrentChatTests: XCTestCase {
         }
     }
 
+    func testDesktopStopAllCancelsActiveWorkflowRecording() async throws {
+        let backend = DesktopWorkflowRecordingBackend()
+        let model = QuillCodeWorkspaceModel(computerUseBackend: backend)
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        var draft = "unsent local text"
+
+        QuillCodeDesktopActiveWorkCoordinator().stopAll(
+            draft: &draft,
+            model: model,
+            tasks: tasks,
+            refresh: {}
+        )
+
+        try await waitUntilAsync(timeoutSeconds: 1) {
+            await backend.wasCancelled()
+        }
+        XCTAssertEqual(draft, "")
+        XCTAssertFalse(tasks.isRunning(.workflowRecording))
+    }
+
     private func waitUntil(
         timeoutSeconds: TimeInterval,
         condition: @MainActor @escaping () -> Bool,
@@ -271,4 +292,35 @@ private struct DesktopConcurrentPromptGateLLMClient: LLMClient {
         await gate.wait(for: userMessage)
         return .say("Finished \(userMessage)")
     }
+}
+
+private actor DesktopWorkflowRecordingBackend: ComputerUseBackend, WorkflowRecordingBackend {
+    nonisolated let status = ComputerUseStatus.permissionStatus(
+        screenRecordingGranted: true,
+        accessibilityGranted: true
+    )
+    nonisolated let workflowRecordingStatusSnapshot = WorkflowRecordingStatus(
+        phase: .recording,
+        goal: "Recorded workflow"
+    )
+    private var cancelled = false
+
+    func wasCancelled() -> Bool { cancelled }
+    func workflowRecordingStatus() async -> WorkflowRecordingStatus { workflowRecordingStatusSnapshot }
+    func startWorkflowRecording(_ request: WorkflowRecordingRequest) async throws -> WorkflowRecordingStatus {
+        _ = request
+        return workflowRecordingStatusSnapshot
+    }
+    func stopWorkflowRecording() async throws -> WorkflowRecordingCapture {
+        throw ComputerUseError.unavailable("Not needed by this test.")
+    }
+    func cancelWorkflowRecording() async { cancelled = true }
+    func screenshot() async throws -> ComputerScreenshot {
+        ComputerScreenshot(width: 1, height: 1, pngBase64: "iVBORw0KGgo=")
+    }
+    func leftClick(x: Int, y: Int) async throws {}
+    func type(_ text: String) async throws {}
+    func scroll(dx: Int, dy: Int) async throws {}
+    func moveCursor(x: Int, y: Int) async throws {}
+    func pressKey(_ key: String) async throws {}
 }

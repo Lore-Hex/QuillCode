@@ -98,6 +98,7 @@ public enum ApprovalReviewFallbackReason: String, Codable, Sendable, Hashable {
     case permissionRuleDenied = "permission_rule_denied"
     case permissionRuleAllowed = "permission_rule_allowed"
     case permissionRuleAsked = "permission_rule_asked"
+    case explicitApprovalRequired = "explicit_approval_required"
 }
 
 public struct ApprovalReviewTelemetry: Codable, Sendable, Hashable {

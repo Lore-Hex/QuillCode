@@ -2674,6 +2674,82 @@
     .extensions-pane header p,
     .memories-pane header p,
     .automations-pane header p { margin: 3px 0 0; color: var(--muted); }
+    .extensions-header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--hit-target-clearance);
+    }
+    .workflow-recording-button,
+    .workflow-recording-stop {
+      min-height: var(--hit-target);
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 999px;
+      padding: 0 13px;
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 720;
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease;
+    }
+    .workflow-recording-button:hover {
+      background: rgba(255,255,255,.1);
+      border-color: rgba(255,255,255,.17);
+    }
+    .workflow-recording-button:active,
+    .workflow-recording-stop:active { transform: scale(.96); }
+    .workflow-recording-card {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 11px;
+      padding: 11px 12px;
+      border: 1px solid rgba(255,91,91,.24);
+      border-radius: 12px;
+      background: rgba(255,91,91,.07);
+    }
+    .workflow-recording-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .workflow-recording-copy strong,
+    .workflow-recording-copy p,
+    .workflow-recording-copy span { min-width: 0; }
+    .workflow-recording-copy p {
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .workflow-recording-copy span {
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+    .workflow-recording-indicator {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #ff6464;
+      box-shadow: 0 0 0 4px rgba(255,100,100,.12);
+      animation: workflow-recording-pulse 1.7s ease-in-out infinite;
+    }
+    .workflow-recording-stop {
+      color: #ffd1d1;
+      background: rgba(255,91,91,.11);
+      border-color: rgba(255,91,91,.24);
+    }
+    .workflow-recording-stop:hover { background: rgba(255,91,91,.17); }
+    @keyframes workflow-recording-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .62; transform: scale(.84); }
+    }
     .extensions-counts,
     .memories-counts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
     .automation-create-actions {
@@ -4573,6 +4649,9 @@
         opacity: .72;
         transform: none;
       }
+      .workflow-recording-indicator {
+        animation: none !important;
+      }
       button,
       summary,
       input,
@@ -4877,6 +4956,15 @@
         hookCount: 2,
         emptyTitle: 'No extension manifests found',
         emptySubtitle: 'Add JSON manifests under .quillcode/plugins, .quillcode/skills, or .quillcode/mcp.',
+        workflowRecording: {
+          isAvailable: true,
+          phase: 'idle',
+          goal: null,
+          eventCount: 0,
+          snapshotCount: 0,
+          originThreadID: null,
+          skillPath: null
+        },
         hookItems: [
           {
             id: 'plugin_hook:demo.userpromptsubmit.0.0',
@@ -5301,6 +5389,8 @@
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'show-skills', title: 'Skills', shortcut: '', category: 'Extensions', keywords: ['skills', 'installed skills', 'available skills', 'manifest'], isEnabled: true },
         { id: 'show-hooks', title: 'Hooks', shortcut: '', category: 'Extensions', keywords: ['hooks', 'plugin hooks', 'review hooks', 'trust hooks'], isEnabled: true },
+        { id: 'workflow-recording-create', title: 'Record a skill', shortcut: '', category: 'Extensions', keywords: ['record', 'replay', 'workflow', 'skill', 'demonstrate'], isEnabled: true },
+        { id: 'workflow-recording-stop', title: 'Stop recording', shortcut: '', category: 'Extensions', keywords: ['record', 'workflow', 'skill', 'stop', 'finish'], isEnabled: false },
         { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
         { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
         { id: 'mcp-resource:mcp_server:filesystem:0', title: 'Read README', shortcut: '', category: 'Extensions', keywords: ['mcp', 'resource', 'read', 'filesystem', 'README', 'file:///workspace/README.md'], isEnabled: false },
@@ -7173,6 +7263,29 @@
         (card.actions || []).some(action => action.requestID === requestID)
       ));
       if (!card) return;
+      if (card.title === 'host.workflow.record.start') {
+        const goal = String(safeJSON(card.inputJSON).goal || '').trim();
+        card.actions = [];
+        card.status = 'done';
+        card.reviewState = 'none';
+        card.subtitle = kind === 'approve' ? 'Approved' : 'Cancelled';
+        card.outputJSON = JSON.stringify({
+          requestID,
+          verdict: kind === 'approve' ? 'approve' : 'deny',
+          rationale: kind === 'approve'
+            ? 'The user explicitly approved cross-app workflow recording.'
+            : 'The user cancelled workflow recording.'
+        }, null, 2);
+        card.density = toolCardDensity(card.status, false);
+        card.isExpanded = false;
+        if (kind === 'approve') {
+          beginWorkflowRecording(goal);
+        } else {
+          addMessage('assistant', 'Recording cancelled. No workflow activity was captured.');
+        }
+        render();
+        return;
+      }
       card.actions = [];
       card.status = 'done';
       card.reviewState = 'none';
@@ -8051,6 +8164,18 @@
         command.id?.startsWith('automation-create-workspace-schedule-after:') ? { ...command, isEnabled: hasProject } :
         command.id === 'automation-create-workspace-schedule-tomorrow' ? { ...command, isEnabled: hasProject } :
         command.id?.startsWith('automation-create-workspace-schedule-every:') ? { ...command, isEnabled: hasProject } :
+        command.id === 'workflow-recording-create' ? {
+          ...command,
+          isEnabled: Boolean(
+            hasLocalProject
+            && state.extensions.workflowRecording?.isAvailable
+            && state.extensions.workflowRecording?.phase === 'idle'
+          )
+        } :
+        command.id === 'workflow-recording-stop' ? {
+          ...command,
+          isEnabled: state.extensions.workflowRecording?.phase === 'recording'
+        } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork || hasActiveMCPServer } :
         command.id === 'disconnect-all' ? { ...command, isEnabled: hasSelectedRemoteProject || hasActiveMCPServer } :
         command
@@ -9941,7 +10066,7 @@
 	        state.extensions.isVisible = !state.extensions.isVisible;
 	        render();
 	      });
-      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"], [data-testid="extension-install"], [data-testid="extension-update"], [data-testid="extension-mcp-resource-action"], [data-testid="extension-mcp-prompt-action"], [data-testid="hook-trust"], [data-testid="hook-disable"]').forEach(button => {
+      document.querySelectorAll('[data-testid="workflow-recording-start"], [data-testid="workflow-recording-stop"], [data-testid="extension-start"], [data-testid="extension-stop"], [data-testid="extension-install"], [data-testid="extension-update"], [data-testid="extension-mcp-resource-action"], [data-testid="extension-mcp-prompt-action"], [data-testid="hook-trust"], [data-testid="hook-disable"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -12324,6 +12449,121 @@
       focusComposerAtDraftEnd();
     }
 
+    const workflowRecordingPromptPrefix = 'Create a reusable skill by recording this workflow: ';
+
+    function workflowRecordingGoal(text) {
+      const value = String(text || '').trim();
+      if (!value.toLowerCase().startsWith(workflowRecordingPromptPrefix.toLowerCase())) return null;
+      const goal = value.slice(workflowRecordingPromptPrefix.length).trim();
+      return goal || null;
+    }
+
+    function workflowSkillSlug(goal) {
+      return String(goal || 'recorded-workflow')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48) || 'recorded-workflow';
+    }
+
+    function requestWorkflowRecording(goal) {
+      const requestID = `workflow-recording-${crypto.randomUUID()}`;
+      addToolCard({
+        title: 'host.workflow.record.start',
+        subtitle: 'Confirmation required · Screenshots and typed text are sent to TrustedRouter',
+        status: 'review',
+        reviewState: 'ready',
+        density: 'peek',
+        inputJSON: JSON.stringify({ goal }, null, 2),
+        isExpanded: false,
+        actions: [
+          { id: `${requestID}-approve`, title: 'Start recording', kind: 'approve', requestID, style: 'primary' },
+          { id: `${requestID}-skip`, title: 'Cancel', kind: 'deny', requestID, style: 'secondary' }
+        ]
+      });
+      addMessage('assistant', 'Recording activity across your apps needs one confirmation. QuillCode redacts protected text fields and stops when you choose Stop.');
+    }
+
+    function beginWorkflowRecording(goal) {
+      const recording = state.extensions.workflowRecording;
+      recording.phase = 'recording';
+      recording.goal = goal;
+      recording.eventCount = 0;
+      recording.snapshotCount = 1;
+      recording.originThreadID = state.sidebar.selectedThreadID;
+      recording.skillPath = null;
+      state.extensions.focusedKind = null;
+      state.extensions.isVisible = true;
+      addToolCard({
+        title: 'host.workflow.record.start',
+        subtitle: 'Recording started',
+        status: 'done',
+        inputJSON: JSON.stringify({ goal }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, phase: 'recording' }, null, 2)
+      });
+      addMessage('assistant', 'Recording started. Demonstrate the workflow in the apps you normally use, then choose Stop in QuillCode.');
+      updateDynamicCommands();
+    }
+
+    function stopWorkflowRecording() {
+      const recording = state.extensions.workflowRecording;
+      if (recording?.phase !== 'recording') return false;
+      const goal = recording.goal || 'Recorded workflow';
+      const eventCount = Math.max(4, recording.eventCount || 0);
+      const snapshotCount = Math.max(2, recording.snapshotCount || 0);
+      const skillPath = `.quillcode/skills/${workflowSkillSlug(goal)}/SKILL.md`;
+      const skill = [
+        `# ${goal}`,
+        '',
+        '## Purpose',
+        goal,
+        '',
+        '## Inputs',
+        '- The target project, account, or item supplied by the user.',
+        '- Any non-secret values required by the workflow.',
+        '',
+        '## Steps',
+        '1. Open the relevant workspace and confirm the intended target.',
+        '2. Perform the demonstrated workflow using the visible controls.',
+        '3. Preserve user data and stop if the target or result is ambiguous.',
+        '',
+        '## Verification',
+        '- Confirm the expected result is visible before reporting completion.',
+        '- Report any skipped or failed step clearly.'
+      ].join('\n');
+
+      addToolCard({
+        title: 'host.workflow.record.stop',
+        subtitle: 'Recording stopped',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({
+          ok: true,
+          goal,
+          eventCount,
+          snapshotCount,
+          artifacts: ['recording-start.png', 'recording-final.png']
+        }, null, 2)
+      });
+      state.mockFiles[skillPath] = skill;
+      addToolCard({
+        title: 'host.file.write',
+        subtitle: `Created ${skillPath}`,
+        status: 'done',
+        inputJSON: JSON.stringify({ path: skillPath, content: skill }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, path: skillPath, artifacts: [skillPath] }, null, 2)
+      });
+      recording.phase = 'idle';
+      recording.eventCount = eventCount;
+      recording.snapshotCount = snapshotCount;
+      recording.originThreadID = null;
+      recording.skillPath = skillPath;
+      addMessage('assistant', `Created a reusable skill at ${skillPath}. It includes the workflow purpose, inputs, generalized steps, and verification checks.`);
+      updateDynamicCommands();
+      render();
+      return true;
+    }
+
     function sendStarterPrompt(prompt) {
       const text = String(prompt || '').trim();
       if (!text) return;
@@ -13402,6 +13642,20 @@
         <span data-testid="extensions-count">${countLabel(state.extensions.skillCount, 'skill')}</span>
         <span data-testid="extensions-count">${countLabel(state.extensions.mcpServerCount, 'MCP server')}</span>
         <span data-testid="extensions-count">${countLabel(state.extensions.hookCount || 0, 'plugin hook')}</span>`;
+      const recording = state.extensions.workflowRecording || {};
+      const recordingIsActive = recording.phase === 'recording';
+      const recordingAction = !focusedKind && recording.isAvailable && !recordingIsActive
+        ? `<button type="button" class="workflow-recording-button hit-target-capsule" data-testid="workflow-recording-start" data-command-id="workflow-recording-create">Record a skill</button>`
+        : '';
+      const recordingStatus = !focusedKind && recordingIsActive ? `
+        <article class="workflow-recording-card" data-testid="workflow-recording-status" aria-live="polite">
+          <span class="workflow-recording-indicator" aria-hidden="true"></span>
+          <div class="workflow-recording-copy">
+            <strong>Recording workflow</strong>
+            <p data-testid="workflow-recording-goal">${escapeHTML(recording.goal || 'Untitled workflow')}</p>
+          </div>
+          <button type="button" class="workflow-recording-stop hit-target-capsule" data-testid="workflow-recording-stop" data-command-id="workflow-recording-stop">Stop</button>
+        </article>` : '';
       const hookCards = visibleHooks.map(hook => `
             <article class="extension-card hook-card" data-testid="hook-item" data-kind="hook" data-status="${escapeHTML(hook.statusLabel)}">
               <header>
@@ -13416,8 +13670,9 @@
               ${hook.supportDetail ? `<p data-testid="hook-support">${escapeHTML(hook.supportDetail)}</p>` : ''}
               ${hook.actionCommandID ? `<button type="button" class="extension-action-button hit-target-form-action" data-testid="${hook.actionTitle === 'Disable' ? 'hook-disable' : 'hook-trust'}" data-command-id="${escapeHTML(hook.actionCommandID)}">${escapeHTML(hook.actionTitle)}</button>` : ''}
             </article>`).join('');
-      const content = visibleItems.length || visibleHooks.length ? `
+      const content = visibleItems.length || visibleHooks.length || recordingStatus ? `
         <div class="extensions-grid" data-testid="extensions-grid">
+          ${recordingStatus}
           ${visibleItems.map(item => `
             <article class="extension-card" data-testid="extension-item" data-kind="${escapeHTML(item.kind)}" data-status="${escapeHTML(item.statusLabel)}">
               <header>
@@ -13459,7 +13714,10 @@
               <strong>${escapeHTML(title)}</strong>
               <p data-testid="extensions-subtitle">${escapeHTML(subtitle)}</p>
             </div>
-            <span class="extensions-counts">${counts}</span>
+            <div class="extensions-header-actions">
+              ${recordingAction}
+              <span class="extensions-counts">${counts}</span>
+            </div>
           </header>
           ${content}
         </section>`;
@@ -15385,6 +15643,8 @@
       'toggle-browser',
       'toggle-extensions',
       'toggle-memories',
+      'workflow-recording-create',
+      'workflow-recording-stop',
       'workspace-back',
       'workspace-forward',
       'toggle-sidebar',
@@ -16179,6 +16439,15 @@
       if (commandID === 'show-hooks') {
         state.extensions.focusedKind = 'hook';
         state.extensions.isVisible = true;
+      }
+      if (commandID === 'workflow-recording-create') {
+        if (state.extensions.workflowRecording?.phase !== 'idle') return;
+        usePromptAsDraft(workflowRecordingPromptPrefix);
+        return;
+      }
+      if (commandID === 'workflow-recording-stop') {
+        stopWorkflowRecording();
+        return;
       }
       if (commandID?.startsWith('hook-trust:') || commandID?.startsWith('hook-disable:')) {
         const hook = state.extensions.hookItems.find(item => item.actionCommandID === commandID);
@@ -19205,7 +19474,12 @@
       const fileWriteRequest = fileWriteRequestFromPrompt(text);
       const fileReadPath = fileReadPathFromPrompt(text);
       const fileSearchRequest = fileSearchRequestFromPrompt(text);
-      if (text.toLowerCase().includes('grow other thread')) {
+      const recordingGoal = workflowRecordingGoal(text);
+      if (recordingGoal) {
+        requestWorkflowRecording(recordingGoal);
+      } else if (String(text).trim().toLowerCase() === workflowRecordingPromptPrefix.trim().toLowerCase()) {
+        addMessage('assistant', 'Describe the workflow you want to record before starting.');
+      } else if (text.toLowerCase().includes('grow other thread')) {
         // Grow the first thread that is NOT currently selected, in the background, so returning
         // to it shows the "N new turns" pill. Deterministic hook for the E2E harness.
         const other = state.sidebar.items.find(item => item.id !== state.sidebar.selectedThreadID);

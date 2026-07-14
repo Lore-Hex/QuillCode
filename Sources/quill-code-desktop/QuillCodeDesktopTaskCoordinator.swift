@@ -10,6 +10,7 @@ final class QuillCodeDesktopTaskCoordinator {
         case automationTicker
         case modelCatalogRefresh
         case modelCatalogRefreshTicker
+        case workflowRecording
     }
 
     private let coordinator = QuillCodeTaskCoordinator<Slot>()

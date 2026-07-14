@@ -39,6 +39,8 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "toggle-extensions": "puzzlepiece.extension",
             "show-skills": "graduationcap",
             "show-hooks": "link",
+            "workflow-recording-create": "record.circle",
+            "workflow-recording-stop": "stop.circle",
             "git-pr-create": "arrow.up.doc",
             "git-pr-checkout": "arrow.down.doc",
             "git-pr-reviewers": "person.2.badge.gearshape",

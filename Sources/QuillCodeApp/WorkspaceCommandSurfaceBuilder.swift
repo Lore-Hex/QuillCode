@@ -23,6 +23,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var mcpServerStatuses: [String: MCPServerLifecycleStatus]
     var mcpServerProbeSummaries: [String: MCPServerProbeSummary]
     var computerUseStatus: ComputerUseStatus
+    var workflowRecordingAvailable: Bool = false
+    var workflowRecordingIsActive: Bool = false
     var selectedThreadIsRunning: Bool = false
     var runningThreadIDs: Set<UUID> = []
 
@@ -54,7 +56,9 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         )
         + WorkspaceCommandStaticCatalog.memoryCommands()
         + WorkspaceCommandStaticCatalog.extensionToggleCommands(
-            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot,
+            workflowRecordingAvailable: workflowRecordingAvailable,
+            workflowRecordingIsActive: workflowRecordingIsActive
         )
         + WorkspaceGitCommandCatalog.commands(
             hasWorkspaceOrRemoteProject: hasWorkspaceOrRemoteProject
@@ -90,7 +94,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             composerIsSending: composerIsSending,
             terminalIsRunning: terminalIsRunning,
             hasActiveMCPServer: mcpServerStatuses.values.contains { $0.isActive },
-            hasSelectedRemoteProject: selectedProjectIsRemote
+            hasSelectedRemoteProject: selectedProjectIsRemote,
+            workflowRecordingIsActive: workflowRecordingIsActive
         )
         + WorkspaceCommandStaticCatalog.computerUseCommands(
             computerUseStatus: computerUseStatus

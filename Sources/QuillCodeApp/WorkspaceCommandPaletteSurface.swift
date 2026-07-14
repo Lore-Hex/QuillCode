@@ -125,6 +125,26 @@ public enum TopBarProjectActionCatalog {
 }
 
 public extension WorkspaceCommandSurface {
+    static func workflowRecordSkill(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "workflow-recording-create",
+            title: "Record a skill",
+            category: WorkspaceCommandPalette.extensionsCategory,
+            keywords: ["record", "replay", "workflow", "computer use", "skill"],
+            isEnabled: isEnabled
+        )
+    }
+
+    static func workflowStopRecording(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: WorkspaceCommandAction.workflowRecordingStop.rawValue,
+            title: "Stop recording",
+            category: WorkspaceCommandPalette.extensionsCategory,
+            keywords: ["stop", "finish", "record", "skill"],
+            isEnabled: isEnabled
+        )
+    }
+
     static func automationCreateThreadFollowUp(isEnabled: Bool) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
             id: "automation-create-thread-follow-up",

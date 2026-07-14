@@ -70,12 +70,37 @@ public protocol SafetyModelClient: Sendable {
     func review(prompt: String, model: String) async throws -> String
 }
 
+enum ExplicitApprovalPolicy {
+    static let workflowRecordingStartTool = "host.workflow.record.start"
+
+    static func review(for context: SafetyContext) -> SafetyReview? {
+        guard context.toolCall.name == workflowRecordingStartTool,
+              context.mode == .auto || context.mode == .review || context.mode == .plan
+        else {
+            return nil
+        }
+        return SafetyReview(
+            verdict: .clarify,
+            rationale: "Workflow recording captures screenshots and typed text across applications. That content is "
+                + "sent to TrustedRouter to create the skill. Password fields are redacted. "
+                + "One explicit confirmation is required.",
+            userIntentMatched: true
+        ).withReviewTelemetry(.init(
+            source: .staticPolicy,
+            fallbackReason: .explicitApprovalRequired
+        ))
+    }
+}
+
 public struct StaticSafetyReviewer: SafetyReviewer {
     private let policy = StaticSafetyPolicy()
 
     public init() {}
 
     public func review(_ context: SafetyContext) async -> SafetyReview {
+        if let explicitReview = ExplicitApprovalPolicy.review(for: context) {
+            return explicitReview
+        }
         let review: SafetyReview = switch context.mode {
         case .readOnly:
             if context.toolDefinition?.risk == .read {
@@ -162,6 +187,9 @@ public struct AutoSafetyReviewer: SafetyReviewer {
     }
 
     public func review(_ context: SafetyContext) async -> SafetyReview {
+        if let explicitReview = ExplicitApprovalPolicy.review(for: context) {
+            return explicitReview
+        }
         let baseline = await staticReviewer.review(context)
         guard context.mode == .auto else {
             return baseline.withReviewTelemetry(.init(

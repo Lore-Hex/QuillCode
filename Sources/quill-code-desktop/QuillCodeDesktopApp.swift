@@ -45,6 +45,7 @@ struct QuillCodeDesktopApp: App {
                 onToggleBrowser: controller.toggleBrowser,
                 onOpenBrowserSession: controller.openBrowserSession,
                 onToggleExtensions: controller.toggleExtensions,
+                onStopWorkflowRecording: controller.stopWorkflowRecording,
                 onToggleMemories: controller.toggleMemories,
                 onStopAll: controller.stopAll,
                 onDisconnectAll: controller.disconnectAll,

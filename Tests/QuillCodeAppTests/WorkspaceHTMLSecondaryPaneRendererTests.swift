@@ -1,10 +1,57 @@
 import XCTest
 import QuillCodeCore
 import QuillCodeTools
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 @MainActor
 final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
+    func testHTMLRendererShowsWorkflowRecordingStartAndActiveStopStates() {
+        let idleHTML = WorkspaceHTMLExtensionsPaneRenderer.render(WorkspaceExtensionsSurface(
+            isVisible: true,
+            workflowRecording: .idle
+        ))
+        assertContainsAction(
+            idleHTML,
+            testID: "workflow-recording-start",
+            commandID: "workflow-recording-create",
+            title: "Record a skill"
+        )
+        XCTAssertFalse(idleHTML.contains(#"data-testid="workflow-recording-status""#))
+
+        let activeHTML = WorkspaceHTMLExtensionsPaneRenderer.render(WorkspaceExtensionsSurface(
+            isVisible: true,
+            workflowRecording: WorkflowRecordingStatus(
+                phase: .recording,
+                goal: "Publish a release",
+                eventCount: 9,
+                snapshotCount: 2
+            )
+        ))
+        XCTAssertTrue(activeHTML.contains(#"data-testid="workflow-recording-status""#))
+        XCTAssertTrue(activeHTML.contains(#"data-testid="workflow-recording-goal">Publish a release"#))
+        XCTAssertFalse(activeHTML.contains(#"data-testid="workflow-recording-count""#))
+        assertContainsAction(
+            activeHTML,
+            testID: "workflow-recording-stop",
+            commandID: "workflow-recording-stop",
+            title: "Stop recording"
+        )
+        XCTAssertFalse(activeHTML.contains(#"data-testid="workflow-recording-start""#))
+
+        let limitHTML = WorkspaceHTMLExtensionsPaneRenderer.render(WorkspaceExtensionsSurface(
+            isVisible: true,
+            workflowRecording: WorkflowRecordingStatus(
+                phase: .limitReached,
+                goal: "Publish a release"
+            )
+        ))
+        XCTAssertTrue(limitHTML.contains("Recording limit reached"))
+        XCTAssertTrue(limitHTML.contains("The 30-minute capture is complete"))
+        XCTAssertTrue(limitHTML.contains(#"data-testid="workflow-recording-stop""#))
+        XCTAssertFalse(limitHTML.contains(#"data-testid="workflow-recording-start""#))
+    }
+
     func testHTMLRendererIncludesVisibleExtensionsPane() throws {
         let project = ProjectRef(
             name: "QuillCode",

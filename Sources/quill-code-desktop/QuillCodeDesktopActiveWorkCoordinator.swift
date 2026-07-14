@@ -10,6 +10,7 @@ struct QuillCodeDesktopActiveWorkCoordinator {
         refresh: @escaping @MainActor () -> Void
     ) {
         cancelInteractiveTasks(tasks)
+        cancelWorkflowRecording(model: model, tasks: tasks, refresh: refresh)
         model.cancelActiveWork()
         draft = ""
         refresh()
@@ -22,6 +23,7 @@ struct QuillCodeDesktopActiveWorkCoordinator {
         refresh: @escaping @MainActor () -> Void
     ) {
         cancelInteractiveTasks(tasks)
+        cancelWorkflowRecording(model: model, tasks: tasks, refresh: refresh)
         guard model.disconnectAll() else {
             refresh()
             return
@@ -34,5 +36,17 @@ struct QuillCodeDesktopActiveWorkCoordinator {
     private func cancelInteractiveTasks(_ tasks: QuillCodeDesktopTaskCoordinator) {
         tasks.cancelAllSends()
         tasks.cancel([.terminal, .browserPreview])
+    }
+
+    private func cancelWorkflowRecording(
+        model: QuillCodeWorkspaceModel,
+        tasks: QuillCodeDesktopTaskCoordinator,
+        refresh: @escaping @MainActor () -> Void
+    ) {
+        tasks.replace(.workflowRecording) {
+            await model.cancelWorkflowRecording()
+        } onFinish: {
+            refresh()
+        }
     }
 }

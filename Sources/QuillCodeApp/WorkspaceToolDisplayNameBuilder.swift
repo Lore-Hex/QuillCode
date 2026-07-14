@@ -59,6 +59,8 @@ enum WorkspaceToolDisplayNameBuilder {
         ToolDefinition.computerScroll.name,
         ToolDefinition.computerMove.name,
         ToolDefinition.computerKey.name,
+        ToolDefinition.workflowRecordStart.name,
+        ToolDefinition.workflowRecordStop.name,
         ToolDefinition.mcpCall.name,
         ToolDefinition.mcpReadResource.name,
         ToolDefinition.mcpGetPrompt.name,
@@ -176,6 +178,10 @@ enum WorkspaceToolDisplayNameBuilder {
             return "Move pointer"
         case ToolDefinition.computerKey.name:
             return "Keyboard shortcut"
+        case ToolDefinition.workflowRecordStart.name:
+            return "Record workflow"
+        case ToolDefinition.workflowRecordStop.name:
+            return "Stop recording"
         case ToolDefinition.mcpCall.name:
             return "MCP tool"
         case ToolDefinition.mcpReadResource.name:

@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeCore
 import QuillCodeTools
+import QuillComputerUseKit
 
 public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
     public var isVisible: Bool
@@ -13,6 +14,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
     public var totalHookItems: [ProjectPluginHookSurface]
     public var emptyTitle: String
     public var emptySubtitle: String
+    public var workflowRecording: WorkflowRecordingStatus?
 
     public var pluginCount: Int { totalItems.filter { $0.kind == .plugin }.count }
     public var skillCount: Int { totalItems.filter { $0.kind == .skill }.count }
@@ -27,6 +29,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
         hooks: [ProjectPluginHook] = [],
         mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
         mcpServerProbeSummaries: [String: MCPServerProbeSummary] = [:],
+        workflowRecording: WorkflowRecordingStatus? = nil,
         emptyTitle: String = "No extension manifests found",
         emptySubtitle: String = "Add JSON manifests under .quillcode/plugins, .quillcode/skills, or .quillcode/mcp."
     ) {
@@ -50,6 +53,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
         self.totalHookItems = projectedHooks
         self.emptyTitle = Self.emptyTitle(focusedKind: focusedKind, fallback: emptyTitle)
         self.emptySubtitle = Self.emptySubtitle(focusedKind: focusedKind, fallback: emptySubtitle)
+        self.workflowRecording = workflowRecording
         self.title = Self.title(focusedKind: focusedKind)
         self.subtitle = Self.subtitle(
             for: visibleItems,

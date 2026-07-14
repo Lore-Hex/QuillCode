@@ -92,7 +92,8 @@ enum WorkspaceCommandPlan: Equatable {
         "git-branch-switch": "/branch switch ",
         "git-worktree-open": "Open git worktree at ",
         "git-worktree-remove": "Remove git worktree at ",
-        "automation-create-monitor": "/monitor "
+        "automation-create-monitor": "/monitor ",
+        "workflow-recording-create": "Create a reusable skill by recording this workflow: "
     ].merging(WorkspacePullRequestCommandCatalog.draftByCommandID) { local, _ in local }
 
     private static func prefixPlan(_ commandID: String) -> WorkspaceCommandPlan? {
@@ -246,6 +247,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case toggleExtensions = "toggle-extensions"
     case showSkills = "show-skills"
     case showHooks = "show-hooks"
+    case workflowRecordingStop = "workflow-recording-stop"
     case toggleMemories = "toggle-memories"
     case toggleActivity = "toggle-activity"
     case toggleAutomations = "toggle-automations"

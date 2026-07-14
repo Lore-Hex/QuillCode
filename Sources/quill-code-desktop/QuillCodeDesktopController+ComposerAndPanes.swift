@@ -35,6 +35,16 @@ extension QuillCodeDesktopController {
         )
     }
 
+    func stopWorkflowRecording() {
+        workflowRecordingCoordinator.stopAndCreateSkill(
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() },
+            onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
+        )
+    }
+
     func requestAddImages() {
         isImageImporterPresented = true
     }

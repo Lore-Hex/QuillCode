@@ -85,6 +85,9 @@ public struct PermissionRuleGatedSafetyReviewer: SafetyReviewer {
     }
 
     public func review(_ context: SafetyContext) async -> SafetyReview {
+        if let explicitReview = ExplicitApprovalPolicy.review(for: context) {
+            return explicitReview
+        }
         guard let workspaceRoot = context.workspaceRoot else {
             return await base.review(context)
         }

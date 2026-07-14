@@ -6,9 +6,17 @@ import Foundation
 
 public struct MacComputerUseBackend: ComputerUseBackend,
     ComputerUseForegroundApplicationProviding,
-    ComputerUseAccessibilitySnapshotProviding
+    ComputerUseAccessibilitySnapshotProviding,
+    WorkflowRecordingBackend
 {
-    public init() {}
+    private let workflowRecordingStatusStore: MacWorkflowRecordingStatusStore
+    private let workflowRecorder: MacWorkflowRecorder
+
+    public init() {
+        let statusStore = MacWorkflowRecordingStatusStore()
+        self.workflowRecordingStatusStore = statusStore
+        self.workflowRecorder = MacWorkflowRecorder(statusStore: statusStore)
+    }
 
     public var status: ComputerUseStatus {
         ComputerUseStatus.permissionStatus(
@@ -126,6 +134,30 @@ public struct MacComputerUseBackend: ComputerUseBackend,
         }
         let snapshot = ComputerUseAccessibilitySnapshot(elements: elements)
         return snapshot.isEmpty ? nil : snapshot
+    }
+
+    public func workflowRecordingStatus() async -> WorkflowRecordingStatus {
+        await workflowRecorder.status()
+    }
+
+    public var workflowRecordingStatusSnapshot: WorkflowRecordingStatus {
+        workflowRecordingStatusStore.snapshot
+    }
+
+    public func startWorkflowRecording(
+        _ request: WorkflowRecordingRequest
+    ) async throws -> WorkflowRecordingStatus {
+        try requireScreenRecording()
+        try requireAccessibility()
+        return try await workflowRecorder.start(request)
+    }
+
+    public func stopWorkflowRecording() async throws -> WorkflowRecordingCapture {
+        try await workflowRecorder.stop()
+    }
+
+    public func cancelWorkflowRecording() async {
+        await workflowRecorder.cancel()
     }
 
     private func requireScreenRecording() throws {

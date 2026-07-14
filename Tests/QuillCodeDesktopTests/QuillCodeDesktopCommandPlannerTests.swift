@@ -18,4 +18,16 @@ final class QuillCodeDesktopCommandPlannerTests: XCTestCase {
             return XCTFail("Expected copy-conversation to copy the current transcript markdown.")
         }
     }
+
+    func testStopWorkflowRecordingUsesImmediateDesktopAction() {
+        let command = WorkspaceCommandSurface(
+            id: "workflow-recording-stop",
+            title: "Stop recording",
+            isEnabled: true
+        )
+
+        guard case .stopWorkflowRecording = QuillCodeDesktopCommandPlanner.action(for: command) else {
+            return XCTFail("Expected workflow recording to stop before the drafting turn is queued.")
+        }
+    }
 }
