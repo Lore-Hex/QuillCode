@@ -64,7 +64,31 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         if let modelID {
             activeRunner.llm = overridingModelIfSupported(activeRunner.llm, modelID: modelID)
         }
+        // Proactive compaction: compact BEFORE the provider wall, sized to the ACTIVE model's real
+        // context window from the catalog (85%), recomputed per send so a /model switch takes effect
+        // immediately. The base runner is built reactive-only (limit 0) long before the catalog is
+        // fetched; this fill-in only runs when the limit is still 0 (an explicitly configured policy
+        // survives), never fabricates a compactor for runners built without one, and leaves
+        // reactive-only when the catalog does not know the model's window.
+        if var compaction = activeRunner.compaction,
+           compaction.proactiveTokenLimit == 0,
+           let limit = proactiveCompactionTokenLimit(modelID: modelID) {
+            compaction.proactiveTokenLimit = limit
+            activeRunner.compaction = compaction
+        }
         return activeRunner
+    }
+
+    /// 85% of the active model's catalog context window, or nil when the catalog has no entry (or no
+    /// window) for it — mirroring `WorkspaceTokenBudgetSurfaceBuilder`'s resolution so the compaction
+    /// threshold and the top-bar token chip agree on what "the window" is.
+    private func proactiveCompactionTokenLimit(modelID: String?) -> Int? {
+        let canonicalModelID = TrustedRouterDefaults.canonicalModelID(modelID ?? config.defaultModel)
+        let model = TrustedRouterDefaults.normalizedModelCatalog(modelCatalog).first {
+            TrustedRouterDefaults.canonicalModelID($0.id) == canonicalModelID
+        }
+        guard let tokens = model?.capabilities.contextWindowTokens, tokens > 0 else { return nil }
+        return tokens * 85 / 100
     }
 
     var baseToolDefinitions: [ToolDefinition] {
