@@ -17,6 +17,11 @@ public struct AgentRunner: Sendable {
     public var baseToolDefinitions: [ToolDefinition]
     public var additionalToolDefinitions: [ToolDefinition]
     public var toolExecutionOverride: AgentToolExecutionOverride?
+    /// Trusted standard-plugin lifecycle hooks. The desktop supplies validated adapters; the core
+    /// agent owns ordering so rewrites precede safety review and post hooks also run after a held
+    /// approval resumes.
+    public var preToolUseHook: AgentPreToolUseHook?
+    public var postToolUseHook: AgentPostToolUseHook?
     /// Executes tools whose durable state must be merged back into the active thread. Keep ordinary
     /// host tools on `toolExecutionOverride`; this path is reserved for thread-owning workflows such
     /// as delegated agents.
@@ -58,6 +63,8 @@ public struct AgentRunner: Sendable {
         baseToolDefinitions: [ToolDefinition] = ToolRouter.definitions,
         additionalToolDefinitions: [ToolDefinition] = [],
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
+        preToolUseHook: AgentPreToolUseHook? = nil,
+        postToolUseHook: AgentPostToolUseHook? = nil,
         threadToolExecutionOverride: AgentThreadToolExecutionOverride? = nil,
         toolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider? = nil,
         skillResolver: SkillResolver? = nil,
@@ -74,6 +81,8 @@ public struct AgentRunner: Sendable {
         self.baseToolDefinitions = baseToolDefinitions
         self.additionalToolDefinitions = additionalToolDefinitions
         self.toolExecutionOverride = toolExecutionOverride
+        self.preToolUseHook = preToolUseHook
+        self.postToolUseHook = postToolUseHook
         self.threadToolExecutionOverride = threadToolExecutionOverride
         self.toolFeedbackAttachmentProvider = toolFeedbackAttachmentProvider
         self.skillResolver = skillResolver

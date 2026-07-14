@@ -55,7 +55,7 @@ public struct ProjectPluginHookSurface: Codable, Sendable, Hashable, Identifiabl
         case .unsupportedEvent:
             return "This lifecycle event is not executable in this build."
         case .unsupportedMatcher:
-            return "Event matchers are not executable in this build."
+            return "This matcher is not supported for this lifecycle event."
         case .unsupportedHandler:
             return "Only command hooks are executable."
         case .asynchronousHandler:
