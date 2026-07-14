@@ -96,9 +96,10 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         ),
         .presentation(
             "command.settings",
-            expectedOutcome: "settings sheet becomes presented",
+            expectedOutcome: "settings dialog renders its primary controls and dismisses through Close",
             observe: { $0.isSettingsPresented },
-            resetToBaseline: { $1.isSettingsPresented = $0 }
+            resetToBaseline: { $1.isSettingsPresented = $0 },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifySettingsDismissal
         ),
         .toggle(
             "command.toggle-automations",

@@ -103,6 +103,13 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} composer.model-picker does not prove focused catalog search"
         )
+    if contract_id == "command.settings" and not all(
+        marker in interaction_evidence
+        for marker in ("Settings", "notifications control", "quillcode-settings-close", "AXPress")
+    ):
+        raise SystemExit(
+            f"{report_path} command.settings does not prove rendered controls and close-button dismissal"
+        )
 
     return {
         "contractID": contract_id,

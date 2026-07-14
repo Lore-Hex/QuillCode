@@ -275,7 +275,7 @@ extension QuillCodeParityTestCase {
         case "command.search":
             return "search dialog opens, focuses its field, and accepts text"
         case "command.settings":
-            return "settings sheet becomes presented"
+            return "settings dialog renders its primary controls and dismisses through Close"
         case "command.toggle-automations":
             return "automations pane visibility toggles"
         case "command.toggle-extensions":
@@ -293,6 +293,8 @@ extension QuillCodeParityTestCase {
             return "created exactly one selected chat and quillcode-composer-input focused with reversible AXValue text entry"
         case "command.search":
             return "quillcode-search-input focused and accepted reversible AXValue text entry"
+        case "command.settings":
+            return "rendered Settings with its notifications control and dismissed through quillcode-settings-close with AXPress"
         default:
             return "AXPress changed observable controller state"
         }

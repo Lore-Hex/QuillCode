@@ -97,6 +97,8 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         Self.assertSource(settingsText, contains: "QuillCodeComputerUseSettingsCard(")
         Self.assertSource(settingsText, contains: "QuillCodeComputerUseApprovalSettingsCard(")
         Self.assertSource(settingsText, contains: "QuillCodeRuntimeIssueView(")
+        Self.assertSource(settingsText, contains: "accessibilityIdentifier(\"quillcode-settings-title\")")
+        Self.assertSource(settingsText, contains: "accessibilityIdentifier(\"quillcode-settings-close\")")
         Self.assertSource(computerUseText, contains: "struct QuillCodeComputerUseSettingsCard")
         Self.assertSource(computerUseText, contains: "struct QuillCodePermissionRow")
         Self.assertSource(computerUseApprovalsText, contains: "struct QuillCodeComputerUseApprovalSettingsCard")

@@ -146,3 +146,7 @@
   wins, and a second continuation is ignored to prevent loops.
   Remaining standard events, prompt/agent handlers, and asynchronous handlers
   are parsed and labeled Unsupported rather than silently executed.
+
+### Packaged interaction evidence
+
+- Settings parity requires identified dialog content and a real Close action. The packaged macOS gate AX-presses Settings, requires the title and first preference control, dismisses through the identified Close control, and rejects shallow state-only evidence.

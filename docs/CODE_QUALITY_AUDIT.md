@@ -15846,6 +15846,26 @@ Validation:
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
 
+## 2026-07-14 Packaged Settings Render And Dismissal Proof
+
+Overall grade after this slice: **A+ interaction fidelity, A+ state safety, A+ release evidence**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Accessibility identity | A+ | The dialog title and Close control expose stable identifiers while retaining human-readable labels and keyboard dismissal. |
+| Native fidelity | A+ | The packaged SwiftUI app must render Settings and its first preference control, AX-press the real Close control, and prove the dialog disappears. |
+| State safety | A+ | Verification reads no secrets and changes no preferences; it only opens and closes the transient dialog before restoring the baseline. |
+| DRY architecture | A+ | Shared Accessibility element lookup and bounded appearance/disappearance polling serve Settings and existing native interaction verifiers. |
+| Regression evidence | A+ | Swift fixtures and the Python manifest validator reject state-only Settings evidence, while direct, Launch Services, and live-window packaged smoke exercise the real app. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeDesktopWindowReportTests|ParityWorkspaceSettingsSheetGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
+
 ## 2026-07-13 Durable Subagent Transcript Drilldown
 
 Overall grade after this slice: **A+ event architecture, A+ privacy boundary, A+ cross-surface UX**.
