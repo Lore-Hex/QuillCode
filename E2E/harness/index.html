@@ -1997,9 +1997,19 @@
     }
     .sidebar-filter-count {
       margin-left: auto;
+      flex: 0 0 auto;
       color: var(--muted);
       background: transparent;
       font-size: 11px;
+    }
+    .sidebar-saved-search {
+      overflow: hidden;
+    }
+    .sidebar-saved-search > span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .sidebar-saved-search-bar { gap: 2px; }
     .sidebar-saved-search-row {

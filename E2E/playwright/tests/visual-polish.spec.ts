@@ -95,6 +95,15 @@ test('mock harness keeps chat filters compact until explicitly disclosed', async
     const sidebarRect = sidebar.getBoundingClientRect();
     const popoverRect = popover.getBoundingClientRect();
     const filters = [...document.querySelectorAll<HTMLElement>('[data-testid="sidebar-filter"]')];
+    const savedSearch = document.querySelector<HTMLElement>('[data-testid="sidebar-saved-search"]');
+    const savedSearchCount = savedSearch?.querySelector<HTMLElement>('[data-testid="sidebar-saved-search-count"]');
+    const savedSearchMoveUp = document.querySelector<HTMLElement>('[data-testid="sidebar-saved-search-move-up"]');
+    if (!savedSearch || !savedSearchCount || !savedSearchMoveUp) {
+      throw new Error('Expected populated saved-search controls.');
+    }
+    const savedSearchRect = savedSearch.getBoundingClientRect();
+    const savedSearchCountRect = savedSearchCount.getBoundingClientRect();
+    const savedSearchMoveUpRect = savedSearchMoveUp.getBoundingClientRect();
     return {
       filterCount: filters.length,
       sidebarLeft: sidebarRect.left,
@@ -105,6 +114,9 @@ test('mock harness keeps chat filters compact until explicitly disclosed', async
       popoverBottom: popoverRect.bottom,
       popoverClientHeight: popover.clientHeight,
       popoverScrollHeight: popover.scrollHeight,
+      savedSearchRight: savedSearchRect.right,
+      savedSearchCountRight: savedSearchCountRect.right,
+      savedSearchMoveUpLeft: savedSearchMoveUpRect.left,
       viewportHeight: window.innerHeight
     };
   });
@@ -115,6 +127,8 @@ test('mock harness keeps chat filters compact until explicitly disclosed', async
   expect(metrics.popoverTop).toBeGreaterThanOrEqual(0);
   expect(metrics.popoverBottom).toBeLessThanOrEqual(metrics.viewportHeight);
   expect(metrics.popoverScrollHeight).toBeGreaterThan(metrics.popoverClientHeight);
+  expect(metrics.savedSearchCountRight).toBeLessThanOrEqual(metrics.savedSearchRight);
+  expect(metrics.savedSearchRight).toBeLessThan(metrics.savedSearchMoveUpLeft);
 
   await page.getByTestId('sidebar-filter-menu-button').click();
   await expect(page.getByTestId('sidebar-filter').first()).toBeHidden();
