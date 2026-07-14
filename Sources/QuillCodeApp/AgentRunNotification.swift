@@ -21,8 +21,21 @@ public struct AgentRunNotification: Sendable, Hashable, Identifiable {
         /// An edit-bearing run that was not verified (edits made, but no verification check ran) —
         /// an honest absence of a green claim.
         case unverified
+        /// The run exhausted its tool-step budget without the model returning a real conclusion — the
+        /// summary is synthesized from the last tool result, so this is "gave up", not "done".
+        case ceilingReached
+        /// The flail detector stopped a busy-but-stuck run to save the remaining budget.
+        case flailed
         /// The run produced a final answer with nothing pending.
         case finished
+    }
+
+    /// A non-finish run stop that must read as "gave up", not "done" — so an unattended run's OS ping is
+    /// honest. Kept App-local (rather than importing the agent's stop-reason enum here) so this pure
+    /// decision type stays decoupled; the builder maps `AgentRunStopReason` into it.
+    public enum BudgetStop: Sendable, Hashable {
+        case ceilingReached(limit: Int)
+        case flailed(reason: String)
     }
 
     public var kind: Kind
@@ -72,6 +85,7 @@ public enum AgentRunNotificationPlanner {
         didEditFiles: Bool = false,
         hasVerificationAction: Bool = false,
         verification: VerificationVerdict? = nil,
+        budgetStop: AgentRunNotification.BudgetStop? = nil,
         integrity: RunIntegrityVerdict? = nil
     ) -> AgentRunNotification? {
         let title = displayTitle(rawTitle)
@@ -92,6 +106,12 @@ public enum AgentRunNotificationPlanner {
                 body: "\(title) — the run hit an error and stopped.",
                 threadID: threadID
             )
+        }
+        // Ranked below a failure but ABOVE a plain finish/verification: a ceiling/flail run "gave up",
+        // so it must never masquerade as a checked-green finish. Stamped with the integrity badge like
+        // the finish paths so the honesty verdict still rides along.
+        if let budgetStop {
+            return stamped(budgetStopNotification(budgetStop, title: title, threadID: threadID), integrity: integrity)
         }
         // For an edit-bearing run, "finished" should be a CHECKED fact, not a claim: report the
         // verification verdict (green / failing), or an honest "unverified" when a verify action exists
@@ -143,6 +163,30 @@ public enum AgentRunNotificationPlanner {
             stamped.title = "[\(integrity.badgeLabel)] \(notification.title)"
         }
         return stamped
+    }
+
+    private static func budgetStopNotification(
+        _ budgetStop: AgentRunNotification.BudgetStop,
+        title: String,
+        threadID: UUID
+    ) -> AgentRunNotification {
+        switch budgetStop {
+        case .ceilingReached(let limit):
+            return AgentRunNotification(
+                kind: .ceilingReached,
+                title: "QuillCode hit its step limit",
+                body: "\(title) — stopped after \(limit) tool step\(limit == 1 ? "" : "s") without finishing.",
+                threadID: threadID
+            )
+        case .flailed(let reason):
+            let detail = trimmedNonEmpty(reason).map { firstLine($0, limit: 100) }
+            return AgentRunNotification(
+                kind: .flailed,
+                title: "QuillCode stopped — stuck",
+                body: detail.map { "\(title) — \($0)" } ?? "\(title) — the run was busy but not making progress.",
+                threadID: threadID
+            )
+        }
     }
 
     private static func verificationNotification(

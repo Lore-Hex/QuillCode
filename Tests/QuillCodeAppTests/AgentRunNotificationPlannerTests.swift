@@ -33,6 +33,60 @@ final class AgentRunNotificationPlannerTests: XCTestCase {
         XCTAssertTrue(note?.body.contains("Build the parser") == true, note?.body ?? "")
     }
 
+    func testCeilingRunReportsGaveUpNotFinished() {
+        // The whole point: a ceiling run carries a synthesized final answer, but the ping must say it
+        // stopped without finishing — NOT masquerade as a plain finish.
+        let note = AgentRunNotificationPlanner.notification(
+            threadTitle: "Migrate the schema",
+            threadID: threadID,
+            didFail: false,
+            pendingApprovalSummary: nil,
+            finalAnswer: "Ran the last tool; here is what I saw.",
+            budgetStop: .ceilingReached(limit: 64)
+        )
+        XCTAssertEqual(note?.kind, .ceilingReached)
+        XCTAssertTrue(note?.body.contains("64 tool steps") == true, note?.body ?? "")
+        XCTAssertTrue(note?.body.contains("without finishing") == true, note?.body ?? "")
+    }
+
+    func testFlailRunReportsStuckWithReason() {
+        let note = AgentRunNotificationPlanner.notification(
+            threadTitle: "Fix the flaky test",
+            threadID: threadID,
+            didFail: false,
+            pendingApprovalSummary: nil,
+            finalAnswer: nil,
+            budgetStop: .flailed(reason: "repeated the same failing command with no workspace change")
+        )
+        XCTAssertEqual(note?.kind, .flailed)
+        XCTAssertTrue(note?.body.contains("repeated the same failing command") == true, note?.body ?? "")
+    }
+
+    func testBudgetStopOutranksVerificationButNotApprovalOrFailure() {
+        // Approval/failure still win; a ceiling on an edit-bearing run does NOT become verifiedGreen.
+        let approval = AgentRunNotificationPlanner.notification(
+            threadTitle: "T", threadID: threadID, didFail: false,
+            pendingApprovalSummary: "host.shell.run", finalAnswer: nil,
+            budgetStop: .ceilingReached(limit: 8)
+        )
+        XCTAssertEqual(approval?.kind, .needsApproval)
+
+        let failed = AgentRunNotificationPlanner.notification(
+            threadTitle: "T", threadID: threadID, didFail: true,
+            pendingApprovalSummary: nil, finalAnswer: nil,
+            budgetStop: .ceilingReached(limit: 8)
+        )
+        XCTAssertEqual(failed?.kind, .failed)
+
+        let ceilingOverVerify = AgentRunNotificationPlanner.notification(
+            threadTitle: "T", threadID: threadID, didFail: false,
+            pendingApprovalSummary: nil, finalAnswer: "done",
+            didEditFiles: true, hasVerificationAction: true, verification: .passed,
+            budgetStop: .ceilingReached(limit: 8)
+        )
+        XCTAssertEqual(ceilingOverVerify?.kind, .ceilingReached)
+    }
+
     func testFinishedRunSummarizesTheAnswer() {
         let note = AgentRunNotificationPlanner.notification(
             threadTitle: "Add tests",

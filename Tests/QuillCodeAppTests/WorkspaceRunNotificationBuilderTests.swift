@@ -138,4 +138,27 @@ final class WorkspaceRunNotificationBuilderTests: XCTestCase {
         let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
         XCTAssertEqual(note?.integrity, .red)
     }
+
+    func testBudgetStopMapsAgentStopReasonAndDrivesNotificationKind() {
+        // The agent's stop reason maps to the App-local BudgetStop; a genuine finish / approval /
+        // spend-fuse pause maps to nil (surfaced by other paths, not a "gave up" ping).
+        XCTAssertEqual(
+            WorkspaceRunNotificationBuilder.budgetStop(for: .toolStepCeilingExhausted(limit: 64)),
+            .ceilingReached(limit: 64)
+        )
+        XCTAssertEqual(
+            WorkspaceRunNotificationBuilder.budgetStop(for: .flailDetected(reason: "stuck")),
+            .flailed(reason: "stuck")
+        )
+        XCTAssertNil(WorkspaceRunNotificationBuilder.budgetStop(for: .finished))
+        XCTAssertNil(WorkspaceRunNotificationBuilder.budgetStop(for: .approvalRequired(requestID: "r")))
+        XCTAssertNil(WorkspaceRunNotificationBuilder.budgetStop(for: .spendFuseApprovalRequired(totalUSD: 2, fuseUSD: 1)))
+
+        // End-to-end through the builder: a ceiling stop yields the ceiling Kind, not a plain finish.
+        let t = thread(messages: [ChatMessage(role: .assistant, content: "last tool output")])
+        let note = WorkspaceRunNotificationBuilder.notification(
+            thread: t, didFail: false, budgetStop: .ceilingReached(limit: 64)
+        )
+        XCTAssertEqual(note?.kind, .ceilingReached)
+    }
 }
