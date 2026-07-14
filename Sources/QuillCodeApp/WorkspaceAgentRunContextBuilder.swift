@@ -47,6 +47,14 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
             periodThreads: spendPeriodThreads,
             modelCatalog: modelCatalog
         )
+        // Lift the conservative library default (6) to the user-configured production budget so a
+        // bare/mock runner never strangles a real task. Conditional on the runner still carrying the
+        // library default: deliberately tighter budgets (delegated subagent runs, tests) survive, and
+        // an explicit settings change reaches the live runner via the settings-save runtime rebuild
+        // (applyRuntime), not this fill-in.
+        if activeRunner.maxToolSteps == AgentRunner.defaultMaxToolSteps {
+            activeRunner.maxToolSteps = config.maxToolSteps
+        }
         if let permissionRules {
             activeRunner.safety = PermissionRuleGatedSafetyReviewer(
                 base: runner.safety,

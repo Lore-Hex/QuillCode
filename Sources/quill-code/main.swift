@@ -120,11 +120,15 @@ struct QuillCodeCLI {
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safetyClient),
                 webSearch: webSearch,
+                maxToolSteps: config.maxToolSteps,
                 enablesImmediateActionPreflight: true
             )
             thread.model = model
         } else {
-            runner = AgentRunner(enablesImmediateActionPreflight: true)
+            runner = AgentRunner(
+                maxToolSteps: config.maxToolSteps,
+                enablesImmediateActionPreflight: true
+            )
         }
         // The CLI honors the same per-project permission rules the desktop saves ("always
         // allow/deny"), composing them with — never replacing — the mode + intent safety review.

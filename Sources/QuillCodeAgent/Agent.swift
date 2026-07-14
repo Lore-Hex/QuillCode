@@ -5,6 +5,10 @@ import QuillCodeTools
 
 public struct AgentRunner: Sendable {
     public static let streamingNotice = "Streaming model response"
+    /// Conservative LIBRARY default only — every production composition (desktop RuntimeFactory,
+    /// per-send configuredRunner, and the quill-code CLI) overrides this with the user-configurable
+    /// `AppConfig.maxToolSteps` (default 64): real coding tasks need dozens of tool steps, and the
+    /// spend fuse is the runaway guard. Bare `AgentRunner()` (tests, ad-hoc embedding) stays tight.
     public static let defaultMaxToolSteps = 6
     static let promisedWorkCorrectionLimit = 2
 

@@ -128,6 +128,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safetyClient),
                 webSearch: webSearch,
+                maxToolSteps: config.maxToolSteps,
                 enablesImmediateActionPreflight: true,
                 compaction: AgentCompactionPolicy(compactor: compactor)
             ),

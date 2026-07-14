@@ -242,6 +242,36 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertEqual(loaded.runSpendPeriodLimits.monthlyUSD, 15)
     }
 
+    func testConfigRoundTripsMaxToolSteps() throws {
+        let store = try makeConfigStore()
+
+        try store.save(AppConfig(maxToolSteps: 128))
+        XCTAssertEqual(try store.load().maxToolSteps, 128)
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains("max_tool_steps = 128"))
+    }
+
+    func testConfigWithoutMaxToolStepsKeyLoadsProductionDefault() throws {
+        // A legacy config file written before max_tool_steps existed must load the production
+        // default (64), NOT the conservative library default (6) that strangles real tasks.
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        try """
+        default_model = "/prometheus"
+        mode = "auto"
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(try ConfigStore(fileURL: fileURL).load().maxToolSteps, AppConfig.defaultMaxToolSteps)
+    }
+
+    func testConfigClampsNonPositiveMaxToolSteps() throws {
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        try """
+        max_tool_steps = 0
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(try ConfigStore(fileURL: fileURL).load().maxToolSteps, 1)
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
         try """
