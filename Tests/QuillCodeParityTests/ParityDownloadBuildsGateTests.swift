@@ -89,6 +89,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         let workflow = try Self.workflowText(named: "download-builds.yml")
 
         Self.assertSource(workflow, containsAll: [
+            "group: download-builds-${{ github.ref }}",
+            "cancel-in-progress: false",
             "scripts/build-download-manifest.py",
             "--output \"$RUNNER_TEMP/release-assets/latest-tester-build.json\"",
             "RELEASE_CHANNEL=\"tester\"",
@@ -96,6 +98,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "\\`latest-tester-build.json\\`: machine-readable build metadata",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber"
         ])
+        XCTAssertFalse(
+            workflow.contains("cancel-in-progress: true"),
+            "a scheduled build must not cancel another run while it is publishing release assets"
+        )
     }
 
     func testDownloadDocsExposeStableManifestLink() throws {

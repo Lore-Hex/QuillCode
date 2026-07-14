@@ -71,6 +71,10 @@
   workflows afterward. The train therefore dispatches both `ci.yml` and `download-builds.yml` explicitly after a
   successful merge. This keeps `main` validated and refreshes `tester-latest` without requiring a maintainer to
   remember a manual tester-build run after agent PRs land.
+- Download-build runs serialize instead of canceling an in-progress run. A delayed scheduled run can otherwise arrive
+  after both platform packages finish and cancel the publisher while it is fetching the repository, leaving valid
+  artifacts without an updated `tester-latest` release. Serial execution favors a complete release over a newer run
+  preempting the final publication step.
 - Tool-card image previews read only bounded local file headers for dimensions. `ToolArtifactImageMetadataReader`
   handles PNG, GIF, and JPEG width/height from the first 64 KiB and refuses URLs/non-file artifacts. The preview
   builders surface a plain `dimensionsLabel`, keeping SwiftUI/HTML renderers filesystem-free and avoiding a general
