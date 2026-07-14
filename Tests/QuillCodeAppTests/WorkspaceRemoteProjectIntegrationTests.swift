@@ -157,6 +157,7 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitStage.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitRestore.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitStageHunk.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitUnstageHunk.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitRestoreHunk.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitCommit.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPush.name))

@@ -34,7 +34,21 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(review.totalDeletions, 2)
         XCTAssertEqual(review.totalHunks, 2)
         XCTAssertEqual(review.subtitle, "2 files changed, +3 -2")
+        XCTAssertEqual(review.activeScope, .unstaged)
         XCTAssertEqual(review.files.first?.hunkItems.first?.lines.map(\.kind), [.insertion, .context, .deletion, .insertion])
+    }
+
+    func testSurfaceDerivesStagedScopeAndKeepsEmptyDiffVisible() throws {
+        let review = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [diffCard(staged: true)],
+            events: []
+        ).surface()
+
+        XCTAssertTrue(review.isVisible)
+        XCTAssertEqual(review.activeScope, .staged)
+        XCTAssertEqual(review.availableScopes, [.unstaged, .staged])
+        XCTAssertEqual(review.subtitle, "No staged changes")
+        XCTAssertTrue(review.files.isEmpty)
     }
 
     func testSurfaceAttachesSortedMatchingReviewComments() throws {
@@ -248,6 +262,7 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
         id: String = "diff",
         status: ToolCardStatus = .done,
         stdout: String = "",
+        staged: Bool = false,
         result: ToolResult? = nil
     ) throws -> ToolCardState {
         let result = result ?? ToolResult(ok: true, stdout: stdout)
@@ -256,6 +271,7 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
             title: "host.git.diff",
             subtitle: "done",
             status: status,
+            inputJSON: staged ? ToolArguments.json(["staged": true]) : "{}",
             outputJSON: try JSONHelpers.encodePretty(result)
         )
     }

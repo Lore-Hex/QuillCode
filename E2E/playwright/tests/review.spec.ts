@@ -169,6 +169,11 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-scope')).toHaveCount(2);
+  await expect(page.getByTestId('review-scope').filter({ hasText: 'Unstaged' })).toHaveAttribute('aria-pressed', 'true');
+  const scopeBounds = await elementRect(page, '[data-testid="review-scope"]:has-text("Unstaged")');
+  expect(scopeBounds.width).toBeGreaterThanOrEqual(40);
+  expect(scopeBounds.height).toBeGreaterThanOrEqual(40);
   await expect(page.getByTestId('review-summary')).toHaveText('1 file changed, +1 -0');
   await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
   await expect(page.getByTestId('review-line')).toHaveCount(2);
@@ -216,7 +221,9 @@ test('mock harness stages a changed file from the review pane', async ({ page })
 
   await page.getByRole('button', { name: 'Stage', exact: true }).click();
 
-  await expect(page.getByTestId('review-pane')).toHaveCount(0);
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-empty')).toHaveText('No unstaged changes');
+  await expect(page.getByTestId('review-file')).toHaveCount(0);
   await expect(page.getByTestId('agent-status')).toHaveText('Idle');
   await expect(page.getByTestId('tool-card-title')).toHaveText([
     'host.git.diff',
@@ -224,6 +231,36 @@ test('mock harness stages a changed file from the review pane', async ({ page })
     'host.git.diff'
   ]);
   await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Sources/App.swift');
+});
+
+test('mock harness switches staged review scope and unstages without discarding the change', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('git diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Stage', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Staged', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Staged', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
+  await expect(page.getByRole('button', { name: 'Unstage', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restore', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Unstage hunk' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Unstage', exact: true }).click();
+  await expect(page.getByTestId('review-empty')).toHaveText('No staged changes');
+  await expect(page.getByTestId('tool-card-title')).toContainText([
+    'host.git.diff',
+    'host.git.stage',
+    'host.git.diff',
+    'host.git.diff',
+    'host.git.restore',
+    'host.git.diff'
+  ]);
+  await expect(page.getByTestId('tool-card-input').nth(4)).toContainText('"staged": true');
+
+  await page.getByRole('button', { name: 'Unstaged', exact: true }).click();
+  await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
 });
 
 test('mock harness opens a changed file from the review pane without clearing it', async ({ page }) => {
@@ -245,7 +282,7 @@ test('mock harness opens a changed file from the review pane without clearing it
   await expect(page.getByTestId('review-pane')).toBeVisible();
 });
 
-test('mock harness stages a single hunk from the review pane', async ({ page }) => {
+test('mock harness stages and unstages a single hunk without discarding it', async ({ page }) => {
   await page.goto(harnessURL());
 
   await page.getByLabel('Message').fill('git diff');
@@ -255,13 +292,32 @@ test('mock harness stages a single hunk from the review pane', async ({ page }) 
 
   await page.getByRole('button', { name: 'Stage hunk' }).click();
 
-  await expect(page.getByTestId('review-pane')).toHaveCount(0);
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-empty')).toHaveText('No unstaged changes');
   await expect(page.getByTestId('tool-card-title')).toHaveText([
     'host.git.diff',
     'host.git.stage_hunk',
     'host.git.diff'
   ]);
   await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Sources/App.swift');
+
+  await page.getByRole('button', { name: 'Staged', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Unstage hunk' })).toBeVisible();
+  await page.getByRole('button', { name: 'Unstage hunk' }).click();
+
+  await expect(page.getByTestId('review-empty')).toHaveText('No staged changes');
+  await expect(page.getByTestId('tool-card-title')).toHaveText([
+    'host.git.diff',
+    'host.git.stage_hunk',
+    'host.git.diff',
+    'host.git.diff',
+    'host.git.unstage_hunk',
+    'host.git.diff'
+  ]);
+  await expect(page.getByTestId('tool-card-input').nth(4)).toContainText('Sources/App.swift');
+
+  await page.getByRole('button', { name: 'Unstaged', exact: true }).click();
+  await expect(page.getByTestId('review-hunk')).toBeVisible();
 });
 
 test('mock harness browses and resolves pull request review threads', async ({ page }) => {

@@ -14,6 +14,7 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.fetch"))
         XCTAssertTrue(definitions.contains("host.git.pull"))
         XCTAssertTrue(definitions.contains("host.git.stage_hunk"))
+        XCTAssertTrue(definitions.contains("host.git.unstage_hunk"))
         XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
         XCTAssertTrue(definitions.contains("host.git.branch.list"))
         XCTAssertTrue(definitions.contains("host.git.branch.switch"))

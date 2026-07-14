@@ -22,6 +22,7 @@ enum WorkspaceRemoteProjectToolCatalog {
         .gitStage,
         .gitRestore,
         .gitStageHunk,
+        .gitUnstageHunk,
         .gitRestoreHunk,
         .gitCommit,
         .gitPush,

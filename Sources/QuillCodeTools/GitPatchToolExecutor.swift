@@ -18,6 +18,16 @@ public struct GitPatchToolExecutor: Sendable {
         )
     }
 
+    public func unstageHunk(cwd: URL, path: String, patch: String) -> ToolResult {
+        applyHunk(
+            cwd: cwd,
+            path: path,
+            patch: patch,
+            arguments: ["apply", "--cached", "--reverse", "--whitespace=nowarn"],
+            successMessage: "Hunk unstaged.\n"
+        )
+    }
+
     public func restoreHunk(cwd: URL, path: String, patch: String) -> ToolResult {
         applyHunk(
             cwd: cwd,

@@ -97,6 +97,19 @@ public extension ToolDefinition {
         risk: .append
     )
 
+    static let gitUnstageHunk = gitTool(
+        name: "host.git.unstage_hunk",
+        description: "Unstage one selected git diff hunk while preserving the working-tree change.",
+        parametersJSON: GitToolParameterSchema.object(
+            properties: [
+                "path": .string(),
+                "patch": .string()
+            ],
+            required: ["path", "patch"]
+        ),
+        risk: .destructive
+    )
+
     static let gitRestoreHunk = gitTool(
         name: "host.git.restore_hunk",
         description: "Restore one selected git diff hunk inside the project.",

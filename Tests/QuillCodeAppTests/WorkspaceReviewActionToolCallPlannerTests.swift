@@ -17,6 +17,23 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(diffRefreshCall.argumentsJSON, "{}")
     }
 
+    func testStagedRunPlanUnstagesFileAndRefreshesStagedDiff() throws {
+        let plan = WorkspaceReviewActionToolCallPlanner.runPlan(
+            for: WorkspaceReviewActionSurface(
+                kind: .unstage,
+                path: "Sources/App.swift",
+                scope: .staged
+            )
+        )
+        let actionArguments = try ToolArguments(plan.actionCall.argumentsJSON)
+        let refreshArguments = try ToolArguments(try XCTUnwrap(plan.diffRefreshCall).argumentsJSON)
+
+        XCTAssertEqual(plan.actionCall.name, ToolDefinition.gitRestore.name)
+        XCTAssertEqual(try actionArguments.requiredString("path"), "Sources/App.swift")
+        XCTAssertTrue(actionArguments.bool("staged") == true)
+        XCTAssertTrue(refreshArguments.bool("staged") == true)
+    }
+
     func testRunPlanForOpenReadsFileAndPairsNoDiffRefresh() throws {
         let plan = WorkspaceReviewActionToolCallPlanner.runPlan(
             for: WorkspaceReviewActionSurface(kind: .open, path: "Sources/App.swift")
@@ -112,6 +129,24 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
         let arguments = try ToolArguments(call.argumentsJSON)
 
         XCTAssertEqual(call.name, ToolDefinition.gitRestoreHunk.name)
+        XCTAssertEqual(try arguments.requiredString("path"), "Sources/App.swift")
+        XCTAssertEqual(try arguments.requiredString("patch"), patch)
+    }
+
+    func testUnstageHunkBuildsGitUnstageHunkCall() throws {
+        let patch = "@@ -1 +1 @@\n-old\n+new\n"
+        let call = WorkspaceReviewActionToolCallPlanner.toolCall(
+            for: WorkspaceReviewActionSurface(
+                kind: .unstageHunk,
+                path: "Sources/App.swift",
+                patch: patch,
+                targetID: "hunk-1",
+                scope: .staged
+            )
+        )
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.gitUnstageHunk.name)
         XCTAssertEqual(try arguments.requiredString("path"), "Sources/App.swift")
         XCTAssertEqual(try arguments.requiredString("patch"), patch)
     }

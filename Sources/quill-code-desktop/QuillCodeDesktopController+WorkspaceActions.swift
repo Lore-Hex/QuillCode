@@ -48,6 +48,15 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    func runReviewScopeChange(_ scope: WorkspaceReviewScope) {
+        workspaceActionCoordinator.runReviewScopeChange(
+            scope,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot
+        )
+        refresh()
+    }
+
     func runPullRequestReviewThreadAction(_ action: WorkspacePullRequestReviewThreadActionSurface) {
         workspaceActionCoordinator.runPullRequestReviewThreadAction(
             action,

@@ -70,6 +70,7 @@ struct WorkspaceExecutionContextSurfaceBuilder: Sendable, Hashable {
         ToolDefinition.gitStage.name,
         ToolDefinition.gitRestore.name,
         ToolDefinition.gitStageHunk.name,
+        ToolDefinition.gitUnstageHunk.name,
         ToolDefinition.gitRestoreHunk.name,
         ToolDefinition.gitCommit.name,
         ToolDefinition.gitPush.name,

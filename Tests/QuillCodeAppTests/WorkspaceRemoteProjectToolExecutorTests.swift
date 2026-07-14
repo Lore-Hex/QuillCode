@@ -545,6 +545,19 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(command.contains("git apply '--reverse' '--whitespace=nowarn' --check"), command)
         XCTAssertTrue(command.contains("printf 'Hunk restored.\\n'"), command)
 
+        let unstageCommand = try remoteHunkCommand(
+            name: ToolDefinition.gitUnstageHunk.name,
+            arguments: [
+                "path": "hello.txt",
+                "patch": patch
+            ]
+        )
+        XCTAssertTrue(
+            unstageCommand.contains("git apply '--cached' '--reverse' '--whitespace=nowarn' --check"),
+            unstageCommand
+        )
+        XCTAssertTrue(unstageCommand.contains("printf 'Hunk unstaged.\\n'"), unstageCommand)
+
         XCTAssertThrowsError(
             try remoteHunkCommand(
                 name: ToolDefinition.gitStageHunk.name,

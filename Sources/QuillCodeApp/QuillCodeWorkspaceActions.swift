@@ -31,6 +31,7 @@ public struct QuillCodeWorkspaceActions {
     let onToggleModelFavorite: (String) -> Void
     let onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     let onStartTrustedRouterSignIn: () -> Void
+    let onReviewScopeChange: (WorkspaceReviewScope) -> Void
     let onReviewAction: (WorkspaceReviewActionSurface) -> Void
     let onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     let onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
@@ -87,6 +88,7 @@ public struct QuillCodeWorkspaceActions {
         onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
+        onReviewScopeChange: @escaping (WorkspaceReviewScope) -> Void = { _ in },
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
         onPullRequestReviewThreadReply: @escaping (WorkspacePullRequestReviewThreadReplyRequest) -> Void = { _ in },
@@ -144,6 +146,7 @@ public struct QuillCodeWorkspaceActions {
         self.onToggleModelFavorite = onToggleModelFavorite
         self.onSaveSettings = onSaveSettings
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
+        self.onReviewScopeChange = onReviewScopeChange
         self.onReviewAction = onReviewAction
         self.onPullRequestReviewThreadAction = onPullRequestReviewThreadAction
         self.onPullRequestReviewThreadReply = onPullRequestReviewThreadReply
