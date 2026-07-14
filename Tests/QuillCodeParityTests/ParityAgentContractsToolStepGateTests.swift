@@ -30,12 +30,29 @@ final class ParityAgentContractsToolStepGateTests: QuillCodeParityTestCase {
     func testAgentToolStepRunnerLivesOutsideAgentRunnerFile() throws {
         let agentText = try Self.agentSourceText(named: "Agent.swift")
         let runnerText = try Self.agentSourceText(named: "AgentToolStepRunner.swift")
+        let hookLifecycleText = try Self.agentSourceText(named: "AgentToolHookLifecycle.swift")
+        let eventText = try Self.agentSourceText(named: "AgentToolStepEvents.swift")
 
         Self.assertSource(runnerText, containsAll: [
             "enum AgentToolStep",
             "func runToolStep",
             "appendQueuedEvent",
+            "prepareToolCall"
+        ])
+        Self.assertSource(hookLifecycleText, containsAll: [
+            "func prepareToolCall",
+            "func finishToolCall",
+            "appendHookEffects"
+        ])
+        Self.assertSource(eventText, containsAll: [
+            "func appendQueuedEvent",
+            "func appendResultEvent",
+            "func appendBlockedReview",
             "SafetyReview"
+        ])
+        Self.assertSource(runnerText, excludesAll: [
+            "func appendBlockedReview",
+            "func appendHookEffects"
         ])
         Self.assertSource(agentText, contains: "runToolStep(")
         Self.assertSource(agentText, excludesAll: [

@@ -28,9 +28,9 @@ extension AgentRunner {
         // entered this thread (read or written here) may be overwritten/patched here.
         let router = toolRouter(workspaceRoot: workspaceRoot, threadID: thread.id)
         let definition = toolDefinitions.first { $0.name == call.name }
-        await appendQueuedEvent(for: call, to: &thread, onProgress: onProgress)
 
         guard let definition else {
+            await appendQueuedEvent(for: call, to: &thread, onProgress: onProgress)
             let result = ToolResult(
                 ok: false,
                 error: "Tool is not available in this workspace: \(call.name)"
@@ -51,11 +51,37 @@ extension AgentRunner {
             ))
         }
 
+        let preHook = try await prepareToolCall(
+            call,
+            thread: &thread,
+            workspaceRoot: workspaceRoot,
+            onProgress: onProgress
+        )
+        let effectiveCall = preHook.call
+        await appendQueuedEvent(for: effectiveCall, to: &thread, onProgress: onProgress)
+
+        if let reason = preHook.blockedReason {
+            let result = ToolResult(ok: false, error: reason)
+            await appendResultEvent(
+                for: effectiveCall,
+                result: result,
+                publishProgress: true,
+                to: &thread,
+                onProgress: onProgress
+            )
+            return .completed(AgentToolStepCompletion(
+                call: effectiveCall,
+                result: result,
+                followUpReviewResult: nil,
+                toolResults: [result]
+            ))
+        }
+
         try Task.checkCancellation()
         let review = await safety.review(.init(
             mode: thread.mode,
             userMessage: userMessage,
-            toolCall: call,
+            toolCall: effectiveCall,
             toolDefinition: definition,
             recentMessages: thread.messages,
             workspaceRoot: workspaceRoot
@@ -65,7 +91,7 @@ extension AgentRunner {
         if review.verdict != .approve {
             let pendingApproval = await appendBlockedReview(
                 review,
-                for: call,
+                for: effectiveCall,
                 definition: definition,
                 to: &thread,
                 onProgress: onProgress
@@ -74,14 +100,14 @@ extension AgentRunner {
         }
 
         let result = try await executeApprovedTool(
-            call,
+            effectiveCall,
             router: router,
             workspaceRoot: workspaceRoot,
             thread: &thread,
             onProgress: onProgress
         )
         let followUpReviewResult = try await runFollowUpReviewIfNeeded(
-            after: call,
+            after: effectiveCall,
             result: result,
             router: router,
             workspaceRoot: workspaceRoot,
@@ -92,7 +118,7 @@ extension AgentRunner {
 
         thread.updatedAt = Date()
         return .completed(AgentToolStepCompletion(
-            call: call,
+            call: effectiveCall,
             result: result,
             followUpReviewResult: followUpReviewResult,
             toolResults: toolResults
@@ -180,7 +206,7 @@ extension AgentRunner {
     ) async throws -> ToolResult {
         await appendRunningEvent(for: call, to: &thread, onProgress: onProgress)
         try Task.checkCancellation()
-        let result: ToolResult
+        let executedResult: ToolResult
         if let execution = await threadToolExecutionOverride?(
             call,
             workspaceRoot,
@@ -188,15 +214,22 @@ extension AgentRunner {
             onProgress
         ) {
             thread = execution.thread
-            result = execution.result
+            executedResult = execution.result
         } else if let searchResult = await webSearchResult(for: call) {
-            result = searchResult
+            executedResult = searchResult
         } else if let overrideResult = await toolExecutionOverride?(call, workspaceRoot) {
-            result = overrideResult
+            executedResult = overrideResult
         } else {
-            result = router.execute(call)
+            executedResult = router.execute(call)
         }
         try Task.checkCancellation()
+        let result = try await finishToolCall(
+            call,
+            executedResult: executedResult,
+            thread: &thread,
+            workspaceRoot: workspaceRoot,
+            onProgress: onProgress
+        )
         await appendResultEvent(for: call, result: result, to: &thread, onProgress: onProgress)
         return result
     }
@@ -247,99 +280,6 @@ extension AgentRunner {
             thread: &thread,
             onProgress: onProgress
         )
-    }
-
-    private func appendQueuedEvent(
-        for call: ToolCall,
-        to thread: inout ChatThread,
-        onProgress: AgentRunProgressHandler?
-    ) async {
-        let transcriptCall = call.redactedForTranscript()
-        let callJSON = (try? JSONHelpers.encodePretty(transcriptCall)) ?? transcriptCall.argumentsJSON
-        thread.events.append(.init(
-            kind: .toolQueued,
-            summary: "\(call.name) queued",
-            payloadJSON: callJSON
-        ))
-        thread.updatedAt = Date()
-        await onProgress?(thread)
-    }
-
-    private func appendRunningEvent(
-        for call: ToolCall,
-        to thread: inout ChatThread,
-        onProgress: AgentRunProgressHandler?
-    ) async {
-        thread.events.append(.init(kind: .toolRunning, summary: "\(call.name) running"))
-        thread.updatedAt = Date()
-        await onProgress?(thread)
-    }
-
-    private func appendResultEvent(
-        for call: ToolCall,
-        result: ToolResult,
-        unavailable: Bool = false,
-        publishProgress: Bool = false,
-        to thread: inout ChatThread,
-        onProgress: AgentRunProgressHandler?
-    ) async {
-        let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
-        thread.events.append(.init(
-            kind: result.ok ? .toolCompleted : .toolFailed,
-            summary: toolResultSummary(for: call, result: result, unavailable: unavailable),
-            payloadJSON: resultJSON
-        ))
-        thread.updatedAt = Date()
-        if publishProgress {
-            await onProgress?(thread)
-        }
-    }
-
-    private func appendBlockedReview(
-        _ review: SafetyReview,
-        for call: ToolCall,
-        definition: ToolDefinition?,
-        to thread: inout ChatThread,
-        onProgress: AgentRunProgressHandler?
-    ) async -> AgentPendingApproval {
-        let text: String
-        let request = ApprovalRequest(
-            toolCall: call.redactedForTranscript(),
-            toolDefinition: definition,
-            reason: review.rationale,
-            recommendedVerdict: review.verdict,
-            reviewTelemetry: review.reviewTelemetry
-        )
-        let requestJSON = try? JSONHelpers.encodePretty(request)
-        switch review.verdict {
-        case .clarify:
-            text = "I need a little more detail before running \(call.name): \(review.rationale)"
-        case .deny:
-            text = "I cannot run \(call.name): \(review.rationale)"
-        case .approve:
-            preconditionFailure("Approved reviews do not create approval requests")
-        }
-        thread.events.append(.init(
-            kind: .approvalRequested,
-            summary: "\(review.verdict.rawValue): \(review.rationale)",
-            payloadJSON: requestJSON
-        ))
-        thread.messages.append(.init(role: .assistant, content: text))
-        thread.events.append(.init(kind: .message, summary: text))
-        thread.updatedAt = Date()
-        await onProgress?(thread)
-        return AgentPendingApproval(request: request, heldToolCall: call)
-    }
-
-    private func toolResultSummary(
-        for call: ToolCall,
-        result: ToolResult,
-        unavailable: Bool
-    ) -> String {
-        if unavailable {
-            return "\(call.name) unavailable"
-        }
-        return result.ok ? "\(call.name) completed" : "\(call.name) failed"
     }
 
 }

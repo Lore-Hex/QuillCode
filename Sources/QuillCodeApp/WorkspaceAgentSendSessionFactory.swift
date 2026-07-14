@@ -164,6 +164,18 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         } else {
             runner.threadToolExecutionOverride = nil
         }
+        let pluginToolHooks = ProjectPluginToolHookExecutor(
+            hooks: selectedProject?.pluginHooks ?? [],
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
+        if let preToolUseHook = pluginToolHooks.preToolUseHook {
+            runner.preToolUseHook = preToolUseHook
+        }
+        if let postToolUseHook = pluginToolHooks.postToolUseHook {
+            runner.postToolUseHook = postToolUseHook
+        }
         return runner
     }
 }
