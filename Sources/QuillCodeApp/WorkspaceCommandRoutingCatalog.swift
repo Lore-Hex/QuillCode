@@ -3,7 +3,8 @@ public enum WorkspaceCommandRoutingCatalog {
         "stop-all",
         "computer-use-open-screen-recording",
         "computer-use-open-accessibility",
-        "computer-use-refresh"
+        "computer-use-refresh",
+        "dictation"
     ]
 
     public static func isHostCommand(_ commandID: String) -> Bool {

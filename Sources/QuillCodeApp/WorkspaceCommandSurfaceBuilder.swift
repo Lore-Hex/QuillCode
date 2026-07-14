@@ -27,9 +27,10 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var workflowRecordingIsActive: Bool = false
     var selectedThreadIsRunning: Bool = false
     var runningThreadIDs: Set<UUID> = []
+    var shortcutProfile: WorkspaceShortcutProfile = WorkspaceShortcutRegistry.defaults
 
     var commands: [WorkspaceCommandSurface] {
-        WorkspaceThreadCommandCatalog.commands(
+        let commands = WorkspaceThreadCommandCatalog.commands(
             availability: threadAvailability,
             savedSearches: sidebarSavedSearches
         )
@@ -38,6 +39,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         )
         + WorkspaceCommandStaticCatalog.navigationCommands(
             hasSelectedThread: hasSelectedThread,
+            hasMultipleSidebarThreads: sidebarItemCount > 1,
             canNavigateBack: canNavigateBack,
             canNavigateForward: canNavigateForward
         )
@@ -100,6 +102,13 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         + WorkspaceCommandStaticCatalog.computerUseCommands(
             computerUseStatus: computerUseStatus
         )
+        return commands.map { command in
+            var command = command
+            if let shortcut = shortcutProfile.label(for: command.id) {
+                command.shortcut = shortcut
+            }
+            return command
+        }
     }
 
     private var hasSelectedThread: Bool {

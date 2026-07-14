@@ -21,7 +21,63 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.notificationPreferences, QuillCodeNotificationPreferences())
         XCTAssertEqual(config.runSpendFuseUSD, 1.0)
         XCTAssertEqual(config.managedWorktrees, ManagedWorktreeSettings())
+        XCTAssertEqual(config.keyboardShortcuts, KeyboardShortcutPreferences())
         XCTAssertEqual(config.maxToolSteps, AppConfig.defaultMaxToolSteps)
+    }
+
+    func testKeyboardShortcutPreferencesNormalizeAndKeepLatestOverride() throws {
+        let preferences = KeyboardShortcutPreferences(overrides: [
+            KeyboardShortcutOverride(
+                commandID: " search ",
+                key: " k ",
+                modifiers: [.shift, .command, .command]
+            ),
+            KeyboardShortcutOverride(
+                commandID: "search",
+                key: "g",
+                modifiers: [.command]
+            ),
+            KeyboardShortcutOverride(commandID: "", key: "x", modifiers: [.command])
+        ])
+
+        XCTAssertEqual(preferences.overrides, [
+            KeyboardShortcutOverride(commandID: "search", key: "g", modifiers: [.command])
+        ])
+
+        let encoded = try JSONEncoder().encode(AppConfig(keyboardShortcuts: preferences))
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: encoded)
+        XCTAssertEqual(decoded.keyboardShortcuts, preferences)
+    }
+
+    func testKeyboardShortcutPreferencesRejectUnsafeOrUnsupportedManualOverrides() {
+        let preferences = KeyboardShortcutPreferences(overrides: [
+            KeyboardShortcutOverride(commandID: "bare-letter", key: "x", modifiers: []),
+            KeyboardShortcutOverride(commandID: "unsupported-name", key: "space", modifiers: [.command]),
+            KeyboardShortcutOverride(commandID: "safe-letter", key: " K ", modifiers: [.option]),
+            KeyboardShortcutOverride(commandID: "escape", key: "ESCAPE", modifiers: [])
+        ])
+
+        XCTAssertEqual(preferences.overrides, [
+            KeyboardShortcutOverride(commandID: "escape", key: "escape", modifiers: []),
+            KeyboardShortcutOverride(commandID: "safe-letter", key: "k", modifiers: [.option])
+        ])
+    }
+
+    func testKeyboardShortcutPreferencesNormalizeRawConfigDuringDecoding() throws {
+        let preferences = try JSONHelpers.decode(KeyboardShortcutPreferences.self, from: """
+        {
+          "overrides": [
+            {"commandID":" bare ","key":" X ","modifiers":[]},
+            {"commandID":"unsafe-name","key":"space","modifiers":["command"]},
+            {"commandID":"search","key":" G ","modifiers":["shift","command","command"]},
+            {"commandID":"search","key":" K ","modifiers":["option"]}
+          ]
+        }
+        """)
+
+        XCTAssertEqual(preferences.overrides, [
+            KeyboardShortcutOverride(commandID: "search", key: "k", modifiers: [.option])
+        ])
     }
 
     func testAppConfigDecodesAndNormalizesMaxToolSteps() throws {

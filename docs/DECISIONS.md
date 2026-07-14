@@ -10,6 +10,15 @@
 - **Presentation:** Extensions and the command palette expose Record/Stop. Active recording uses one restrained red status indicator and a direct Stop action. The macOS menu-bar widget also exposes Stop so the user does not have to return to the originating window before ending capture.
 - **Why:** Recording is useful only when it is immediate, legible, stoppable, and safe to demonstrate across apps. Keeping consent, capture, model analysis, and file mutation as separate typed boundaries makes that behavior testable and prevents reviewer heuristics from silently broadening surveillance.
 
+## 2026-07-14: Keyboard shortcuts are one configurable command profile
+
+- **Decision:** `WorkspaceShortcutRegistry` is the source of truth for Codex-compatible defaults and QuillCode-specific additions. The workspace surface, command palette, Settings editor, native menus, and deterministic browser harness consume that same command identity and binding model.
+- **Customization:** User overrides persist in `AppConfig` as normalized command/key/modifier values. The editor supports Action and Keystroke search, conflict feedback, per-command reset, and Reset all. Unsupported keys and unmodified typing keys are rejected at the core configuration boundary, including hand-edited config.
+- **Conflict recovery:** A valid set of simultaneous overrides can swap bindings. If hand-edited overrides still collide, only conflicting customizations fall back to known defaults; the active profile never ships duplicate command bindings.
+- **Native routing:** SwiftUI menus own each command's primary binding, preserving standard macOS discoverability and reserved-key behavior. A narrow AppKit monitor handles secondary aliases only. All activations post one command notification and return to the existing command planner/model route.
+- **Behavior:** Quick Chat opens an ephemeral side conversation when a parent user turn exists and otherwise creates a normal chat. Previous/Next Chat wraps predictably and starts at the nearest edge when no chat is selected. Review, text-scale, terminal, sidebar, search, and dictation shortcuts use their existing workspace actions instead of view-local mutations.
+- **Why:** Parallel menu, monitor, palette, and view shortcut tables drift quickly and can steal text-entry keys. A validated profile keeps customization safe, testable, platform-native, and behaviorally identical across visible entry points.
+
 ## 2026-07-13: Agent imports are additive, reviewable, and destination-scoped
 
 - **Decision:** Import from another agent is a Settings workflow with a discovery phase, editable project/item selection, and an outcome phase. Discovery is read-only; import starts only after explicit review. The first source adapter is Claude Code and covers local projects, recent chats, instructions, settings, skills, plugins, MCP servers, hooks, slash commands, and subagents.

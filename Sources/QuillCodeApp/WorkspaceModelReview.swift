@@ -6,6 +6,7 @@ import QuillCodeTools
 @MainActor
 public extension QuillCodeWorkspaceModel {
     func runReviewScopeChange(_ selection: WorkspaceReviewSelection, workspaceRoot: URL) {
+        chrome.isReviewVisible = true
         if selection == .lastTurn {
             reviewSelectionOverride = selection
             setLastError(nil)

@@ -26,6 +26,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var agentImportActions: QuillCodeAgentImportActions?
     var onSelectThread: (UUID) -> Void
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
+    var onSaveKeyboardShortcuts: (KeyboardShortcutPreferences) -> Void
     var onStartTrustedRouterSignIn: () -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
     var onCreateWorktreeThread: (WorkspaceNewWorktreeThreadRequest) -> Void
@@ -73,6 +74,8 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                 dismissibleModal(accessibilityLabel: "Dismiss keyboard shortcuts", onDismiss: dismissKeyboardShortcuts) {
                     QuillCodeKeyboardShortcutsView(
                         commands: surface.commands,
+                        preferences: surface.settings.keyboardShortcuts,
+                        onSave: onSaveKeyboardShortcuts,
                         onClose: dismissKeyboardShortcuts
                     )
                 }
@@ -408,6 +411,7 @@ extension View {
         agentImportActions: QuillCodeAgentImportActions?,
         onSelectThread: @escaping (UUID) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
+        onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void,
         onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void,
@@ -450,6 +454,7 @@ extension View {
             agentImportActions: agentImportActions,
             onSelectThread: onSelectThread,
             onSaveSettings: onSaveSettings,
+            onSaveKeyboardShortcuts: onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             onCommand: onCommand,
             onCreateWorktreeThread: onCreateWorktreeThread,

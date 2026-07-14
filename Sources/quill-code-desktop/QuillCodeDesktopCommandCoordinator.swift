@@ -14,6 +14,9 @@ protocol QuillCodeDesktopCommandPerforming: AnyObject {
     func toggleAutomations()
     func openCommandPalette()
     func openKeyboardShortcuts()
+    func openSearch()
+    func openFind()
+    func startDictation()
     func openSettings()
     func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination)
     func refreshComputerUseStatus()
@@ -56,6 +59,12 @@ struct QuillCodeDesktopCommandCoordinator {
             performer.openCommandPalette()
         case .keyboardShortcuts:
             performer.openKeyboardShortcuts()
+        case .search:
+            performer.openSearch()
+        case .find:
+            performer.openFind()
+        case .dictation:
+            performer.startDictation()
         case .settings:
             performer.openSettings()
         case .openComputerUseSystemSettings(let destination):

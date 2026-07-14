@@ -19,6 +19,7 @@ enum WorkspaceCommandStaticCatalog {
 
     static func navigationCommands(
         hasSelectedThread: Bool,
+        hasMultipleSidebarThreads: Bool = false,
         canNavigateBack: Bool,
         canNavigateForward: Bool
     ) -> [Command] {
@@ -52,6 +53,20 @@ enum WorkspaceCommandStaticCatalog {
                 isEnabled: hasSelectedThread
             ),
             shortcut(
+                "previous-task",
+                "Previous chat",
+                category: navigation,
+                keywords: ["previous", "chat", "task", "thread", "navigate"],
+                isEnabled: hasMultipleSidebarThreads
+            ),
+            shortcut(
+                "next-task",
+                "Next chat",
+                category: navigation,
+                keywords: ["next", "chat", "task", "thread", "navigate"],
+                isEnabled: hasMultipleSidebarThreads
+            ),
+            shortcut(
                 "copy-conversation",
                 "Copy conversation",
                 category: navigation,
@@ -79,6 +94,12 @@ enum WorkspaceCommandStaticCatalog {
     ) -> [Command] {
         let navigation = Category.navigation
         return [
+            shortcut(
+                "quick-chat",
+                "Quick chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["quick", "side", "chat", "task", "question"]
+            ),
             shortcut(
                 "cycle-mode",
                 "Cycle approval mode",
@@ -164,11 +185,42 @@ enum WorkspaceCommandStaticCatalog {
                 "Terminal",
                 keywords: ["shell", "command", "pty"]
             ),
+            shortcut(
+                "toggle-bottom-panel",
+                "Toggle bottom panel",
+                category: navigation,
+                keywords: ["bottom", "panel", "show", "hide"]
+            ),
             command(
                 "terminal-clear",
                 "Terminal: Clear history",
                 keywords: ["shell", "command", "clear", "history"],
                 isEnabled: terminalHasEntries && !terminalIsRunning
+            ),
+            shortcut(
+                "toggle-review-panel",
+                "Toggle review panel",
+                category: navigation,
+                keywords: ["review", "diff", "changes", "panel", "show", "hide"],
+                isEnabled: hasSelectedProject
+            ),
+            shortcut(
+                "increase-font-size",
+                "Increase font size",
+                category: navigation,
+                keywords: ["font", "text", "size", "zoom", "larger"]
+            ),
+            shortcut(
+                "decrease-font-size",
+                "Decrease font size",
+                category: navigation,
+                keywords: ["font", "text", "size", "zoom", "smaller"]
+            ),
+            shortcut(
+                "dictation",
+                "Start dictation",
+                category: navigation,
+                keywords: ["dictation", "voice", "speech", "microphone"]
             ),
             shortcut(
                 "toggle-browser",

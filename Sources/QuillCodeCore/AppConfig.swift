@@ -155,6 +155,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var runSpendFuseUSD: Double?
     public var runSpendPeriodLimits: RunSpendPeriodLimits
     public var managedWorktrees: ManagedWorktreeSettings
+    public var keyboardShortcuts: KeyboardShortcutPreferences
     /// Per-turn ceiling on agent tool executions. Always ≥ 1 (normalized on init).
     public var maxToolSteps: Int
 
@@ -174,6 +175,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case runSpendFuseUSD
         case runSpendPeriodLimits
         case managedWorktrees
+        case keyboardShortcuts
         case maxToolSteps
     }
 
@@ -193,6 +195,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         runSpendFuseUSD: Double? = 1.0,
         runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
         managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings(),
+        keyboardShortcuts: KeyboardShortcutPreferences = KeyboardShortcutPreferences(),
         maxToolSteps: Int = AppConfig.defaultMaxToolSteps
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
@@ -216,6 +219,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.runSpendFuseUSD = Self.normalizedRunSpendFuse(runSpendFuseUSD)
         self.runSpendPeriodLimits = runSpendPeriodLimits
         self.managedWorktrees = managedWorktrees
+        self.keyboardShortcuts = keyboardShortcuts
         self.maxToolSteps = max(1, maxToolSteps)
     }
 
@@ -277,6 +281,10 @@ public struct AppConfig: Codable, Sendable, Hashable {
                 ManagedWorktreeSettings.self,
                 forKey: .managedWorktrees
             ) ?? ManagedWorktreeSettings(),
+            keyboardShortcuts: try container.decodeIfPresent(
+                KeyboardShortcutPreferences.self,
+                forKey: .keyboardShortcuts
+            ) ?? KeyboardShortcutPreferences(),
             maxToolSteps: try container.decodeIfPresent(Int.self, forKey: .maxToolSteps)
                 ?? Self.defaultMaxToolSteps
         )

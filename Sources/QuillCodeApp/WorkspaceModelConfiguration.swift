@@ -46,6 +46,10 @@ extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: root.topBar.agentStatus)
     }
 
+    public func setKeyboardShortcutPreferences(_ preferences: KeyboardShortcutPreferences) {
+        root.config.keyboardShortcuts = preferences
+    }
+
     public func setModelCatalog(_ models: [ModelInfo]) {
         guard let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: models) else { return }
         root.modelCatalog = catalog

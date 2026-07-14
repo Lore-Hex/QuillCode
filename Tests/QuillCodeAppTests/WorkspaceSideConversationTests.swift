@@ -75,6 +75,31 @@ final class WorkspaceSideConversationTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(model.selectedThread).runtimeContext.isEphemeral)
     }
 
+    func testQuickChatStartsAnEphemeralSideConversationWhenContextExists() throws {
+        let parent = parentThread()
+        let model = model(selectedThread: parent)
+
+        let quickChatID = model.startQuickChat()
+        let quickChat = try XCTUnwrap(model.selectedThread)
+
+        XCTAssertEqual(quickChat.id, quickChatID)
+        XCTAssertEqual(quickChat.runtimeContext.sideConversationParentThreadID, parent.id)
+        XCTAssertEqual(model.root.sidebarItems.map(\.id), [parent.id])
+        XCTAssertNil(model.lastError)
+    }
+
+    func testQuickChatFallsBackToDurableChatWithoutAParentTurn() throws {
+        let emptyParent = ChatThread(title: "Empty")
+        let model = model(selectedThread: emptyParent)
+
+        let quickChatID = model.startQuickChat()
+        let quickChat = try XCTUnwrap(model.selectedThread)
+
+        XCTAssertEqual(quickChat.id, quickChatID)
+        XCTAssertFalse(quickChat.runtimeContext.isEphemeral)
+        XCTAssertNil(model.lastError)
+    }
+
     func testSurfaceShowsReturnButDisablesDurableLifecycleCommands() throws {
         let parent = parentThread()
         let model = model(selectedThread: parent)

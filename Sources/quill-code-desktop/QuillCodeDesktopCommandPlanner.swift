@@ -13,6 +13,9 @@ enum QuillCodeDesktopCommandAction {
     case toggleAutomations
     case commandPalette
     case keyboardShortcuts
+    case search
+    case find
+    case dictation
     case settings
     case openComputerUseSystemSettings(MacSystemSettingsOpener.Destination)
     case refreshComputerUseStatus
@@ -51,6 +54,12 @@ enum QuillCodeDesktopCommandPlanner {
             return .commandPalette
         case "keyboard-shortcuts":
             return .keyboardShortcuts
+        case "search":
+            return .search
+        case "find-in-chat":
+            return .find
+        case "dictation":
+            return .dictation
         case "settings", "computer-use-setup":
             return .settings
         case "computer-use-open-screen-recording":
