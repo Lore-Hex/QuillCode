@@ -65,6 +65,65 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         )
     }
 
+    func testConfiguredRunnerWiresProactiveCompactionToTheActiveModelsContextWindow() {
+        var builder = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+        builder.config = AppConfig(defaultModel: "trustedrouter/fast")
+        builder.modelCatalog = [
+            catalogModel(id: "trustedrouter/fast", contextWindowTokens: 100_000),
+            catalogModel(id: "trustedrouter/deep", contextWindowTokens: 200_000)
+        ]
+        let baseRunner = AgentRunner(compaction: AgentCompactionPolicy(compactor: ThreadCompactor()))
+
+        // The default model's window sizes the proactive threshold (85%).
+        XCTAssertEqual(
+            builder.configuredRunner(from: baseRunner).compaction?.proactiveTokenLimit,
+            85_000
+        )
+        // A per-send model override resolves THAT model's window, so /model switches take effect.
+        XCTAssertEqual(
+            builder.configuredRunner(from: baseRunner, modelID: "trustedrouter/deep")
+                .compaction?.proactiveTokenLimit,
+            170_000
+        )
+
+        // Unknown model → catalog has no window → stays reactive-only (0), never a guess.
+        XCTAssertEqual(
+            builder.configuredRunner(from: baseRunner, modelID: "trustedrouter/unknown")
+                .compaction?.proactiveTokenLimit,
+            0
+        )
+
+        // A runner built WITHOUT compaction never gains a fabricated one.
+        XCTAssertNil(builder.configuredRunner(from: AgentRunner()).compaction)
+
+        // An explicitly configured proactive limit survives (the fill-in only lifts 0).
+        let explicit = AgentRunner(
+            compaction: AgentCompactionPolicy(compactor: ThreadCompactor(), proactiveTokenLimit: 12_345)
+        )
+        XCTAssertEqual(
+            builder.configuredRunner(from: explicit).compaction?.proactiveTokenLimit,
+            12_345
+        )
+    }
+
+    private func catalogModel(id: String, contextWindowTokens: Int) -> ModelInfo {
+        ModelInfo(
+            id: id,
+            provider: "TrustedRouter",
+            displayName: id,
+            category: "Recommended",
+            capabilities: ModelCapabilities(contextWindowTokens: contextWindowTokens)
+        )
+    }
+
     func testContextPreservesUnrelatedToolFeedbackAttachmentProvider() {
         let baseRunner = AgentRunner(
             baseToolDefinitions: [],
