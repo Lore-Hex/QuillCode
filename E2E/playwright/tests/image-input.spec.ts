@@ -43,6 +43,7 @@ test('composer image can be removed without changing the typed draft', async ({ 
 
 test('image-only submission during a live run queues and drains with the image intact', async ({ page }) => {
   await page.goto(harnessURL());
+  await page.clock.install();
   await page.getByLabel('Message').fill('slow task');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('agent-status')).toHaveText('Running');
@@ -52,6 +53,7 @@ test('image-only submission during a live run queues and drains with the image i
 
   await expect(page.getByTestId('composer-followup-text')).toHaveText('1 image');
   await expect(page.getByTestId('composer-attachment')).toHaveCount(0);
+  await page.clock.runFor(2000);
   await expect(page.getByTestId('message-attachment')).toHaveAttribute('alt', 'follow-up.png', {
     timeout: 5000
   });
