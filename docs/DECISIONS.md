@@ -848,7 +848,7 @@
 
 ## 2026-07-13: Standard hook commands receive one bounded execution envelope
 
-- **Decision:** Every supported standard plugin command receives newline-terminated JSON on stdin. Common fields are `session_id`, nullable `transcript_path`, canonical `cwd`, `hook_event_name`, `model`, `turn_id`, and mapped `permission_mode`; `UserPromptSubmit` adds `prompt`, while `Stop` adds `stop_hook_active` and `last_assistant_message`.
+- **Decision:** Every supported standard plugin command receives newline-terminated JSON on stdin. Common fields are `session_id`, nullable `transcript_path`, canonical `cwd`, `hook_event_name`, `model`, and `turn_id`; events that define it add mapped `permission_mode`. `UserPromptSubmit` adds `prompt`, while `Stop` adds `stop_hook_active` and `last_assistant_message`.
 - **Plugin paths:** Package roots are revalidated inside the workspace for every invocation. `PLUGIN_ROOT`/`CLAUDE_PLUGIN_ROOT` point at that root, while `PLUGIN_DATA`/`CLAUDE_PLUGIN_DATA` point at a stable private directory isolated by canonical workspace and plugin ID. Package root is part of the trusted definition hash, so moving executable code invalidates prior trust.
 - **Execution:** All matching synchronous command handlers launch concurrently as the standard contract requires. Notices and tool cards are projected in deterministic configuration order after completion, and the first configured failure retains the existing before/after failure policy.
 - **Privacy and bounds:** Shell stdin is capped at 1 MiB, closes with EOF, and is redacted alongside environment values before any tool call reaches persisted transcript state. The non-streaming shell runner drains stdout and stderr while the process runs, preventing pipe-buffer deadlocks from chatty hooks.
@@ -878,6 +878,14 @@
 - **Input:** Hooks receive the same canonical shell, patch, and MCP names and effective post-`PreToolUse` input. `tool_input.description` falls back to the safety rationale only when the tool did not supply one. Permission payloads deliberately omit `tool_use_id`, and permission output cannot rewrite input, permissions, or interrupt state.
 - **Durability and audit:** Hook allow proceeds through normal running/result/`PostToolUse` ordering without creating an actionable approval card. Hook deny returns a failed tool result to the model without execution. Bounded notices identify allow, deny, warning, and failure outcomes without persisting command stdin or environment secrets.
 - **Why:** Approval ownership belongs in the agent, not the view layer. A typed allow/deny/no-decision adapter keeps plugin JSON outside core orchestration while making failure behavior explicit and preserving the existing approval-resume invariant.
+
+## 2026-07-13: Compaction hooks share one mutation boundary
+
+- **Lifecycle:** `PreCompact` runs before summary generation or thread mutation. `PostCompact` runs only after `ThreadCompactor` reports a real compaction, never for `.noOlderTurns`. Both manual and automatic paths use the same typed `AgentCompactionHookOutcome`; plugin JSON remains in the app adapter.
+- **Triggers and input:** Matchers receive only `manual` or `auto`. Stdin adds that `trigger` to the common turn-scoped fields and omits tool-specific and `permission_mode` fields, matching the documented event contract.
+- **Stop semantics:** An explicit common `continue:false` before compaction leaves the original history intact. The same response after compaction preserves the compacted thread but prevents an automatic model retry. Manual compaction has no continuation to cancel, so it keeps the new thread and records the post-stop reason.
+- **Failure semantics:** Matching commands launch concurrently and fold in configuration order. Any explicit stop wins, while command failures, timeouts, malformed output, and invalid common-field types become bounded visible warnings and compaction continues. Cancellation remains cancellation and is never downgraded.
+- **Why:** Context recovery is a reliability mechanism. Plugins may deliberately gate it, but an accidental hook failure must not turn a recoverable overflow into a lost coding session.
 
 ## 2026-07-13: Finishing a managed task is a recoverable Local transition
 

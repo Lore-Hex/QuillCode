@@ -121,7 +121,7 @@ extension QuillCodeWorkspaceModel {
         case .forkThread(let strategy):
             return startForkThread(strategy: strategy)
         case .compactContext:
-            return startCompactContext()
+            return startCompactContext(workspaceRoot: workspaceRoot)
         case .disconnectAll:
             return disconnectAll()
         case .sideConversationReturn:

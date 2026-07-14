@@ -402,4 +402,183 @@ final class AgentCompactionRunLoopTests: XCTestCase {
         let summaryCalls = await summaryCounter.count
         XCTAssertEqual(summaryCalls, 1, "a real overflow should invoke the aux summary once")
     }
+
+    // MARK: - Standard compaction hook lifecycle
+
+    func testAutomaticHooksBracketRealCompactionBeforeModelRetry() async throws {
+        let root = try makeTempDirectory()
+        let state = OverflowScriptState(overflowRounds: 1, finalAction: .say("recovered"))
+        let recorder = CompactionHookRecorder()
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            preCompactHook: { trigger, thread, _ in
+                await recorder.record("pre", trigger: trigger, containsSummary: thread.messages.contains {
+                    $0.content == "COMPACTED SUMMARY"
+                })
+                return AgentCompactionHookOutcome(notices: ["pre notice"])
+            },
+            postCompactHook: { trigger, thread, _ in
+                await recorder.record("post", trigger: trigger, containsSummary: thread.messages.contains {
+                    $0.content == "COMPACTED SUMMARY"
+                })
+                return AgentCompactionHookOutcome(notices: ["post notice"])
+            },
+            compaction: compactionPolicy()
+        )
+
+        let result = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+
+        let entries = await recorder.entries
+        let calls = await state.callCount
+        XCTAssertEqual(entries, [
+            "pre:auto:false",
+            "post:auto:true"
+        ])
+        XCTAssertTrue(result.thread.events.contains { $0.summary == "pre notice" })
+        XCTAssertTrue(result.thread.events.contains { $0.summary == "post notice" })
+        XCTAssertEqual(calls, 2)
+    }
+
+    func testPreCompactExplicitStopLeavesThreadUncompactedAndSkipsRetry() async throws {
+        let root = try makeTempDirectory()
+        let state = OverflowScriptState(overflowRounds: 1, finalAction: .say("must not run"))
+        let summaries = SummaryCallCounter()
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            preCompactHook: { _, _, _ in
+                AgentCompactionHookOutcome(continues: false, stopReason: "policy stop")
+            },
+            compaction: compactionPolicy(summaryCounter: summaries)
+        )
+
+        do {
+            _ = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+            XCTFail("expected the pre-compaction hook to stop the run")
+        } catch let error as AgentCompactionHookStoppedError {
+            XCTAssertEqual(error.stage, .before)
+            XCTAssertEqual(error.trigger, .auto)
+            XCTAssertEqual(error.reason, "policy stop")
+        }
+        let summaryCount = await summaries.count
+        let calls = await state.callCount
+        XCTAssertEqual(summaryCount, 0)
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testPostCompactExplicitStopPreservesCompactionAndSkipsRetry() async throws {
+        let root = try makeTempDirectory()
+        let state = OverflowScriptState(overflowRounds: 1, finalAction: .say("must not run"))
+        let summaries = SummaryCallCounter()
+        let recorder = CompactionHookRecorder()
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            postCompactHook: { _, thread, _ in
+                await recorder.record("post", trigger: .auto, containsSummary: thread.messages.contains {
+                    $0.content == "COMPACTED SUMMARY"
+                })
+                return AgentCompactionHookOutcome(continues: false, stopReason: "after stop")
+            },
+            compaction: compactionPolicy(summaryCounter: summaries)
+        )
+
+        do {
+            _ = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+            XCTFail("expected the post-compaction hook to stop the run")
+        } catch let error as AgentCompactionHookStoppedError {
+            XCTAssertEqual(error.stage, .after)
+            XCTAssertEqual(error.reason, "after stop")
+        }
+        let summaryCount = await summaries.count
+        let entries = await recorder.entries
+        let calls = await state.callCount
+        XCTAssertEqual(summaryCount, 1)
+        XCTAssertEqual(entries, ["post:auto:true"])
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testHookFailureBecomesNoticeAndCompactionContinues() async throws {
+        let root = try makeTempDirectory()
+        let state = OverflowScriptState(overflowRounds: 1, finalAction: .say("recovered"))
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            preCompactHook: { _, _, _ in throw CompactionHookFixtureError.failed },
+            compaction: compactionPolicy()
+        )
+
+        let result = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+
+        XCTAssertEqual(result.thread.messages.last?.content, "recovered")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("Compaction hook warning") && $0.summary.contains("fixture failed")
+        })
+    }
+
+    func testPostCompactDoesNotRunForNoOpCompaction() async throws {
+        let root = try makeTempDirectory()
+        let state = OverflowScriptState(overflowRounds: 1_000, finalAction: .say("unused"))
+        let recorder = CompactionHookRecorder()
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            preCompactHook: { trigger, _, _ in
+                await recorder.record("pre", trigger: trigger, containsSummary: false)
+                return AgentCompactionHookOutcome()
+            },
+            postCompactHook: { trigger, _, _ in
+                await recorder.record("post", trigger: trigger, containsSummary: false)
+                return AgentCompactionHookOutcome()
+            },
+            compaction: compactionPolicy(keepRecent: 6)
+        )
+
+        do {
+            _ = try await runner.send("go", in: ChatThread(mode: .auto), workspaceRoot: root)
+            XCTFail("expected the unresolved overflow")
+        } catch is ContextOverflowUnresolvedError {
+            // expected
+        }
+        let entries = await recorder.entries
+        XCTAssertEqual(entries, ["pre:auto:false"])
+    }
+
+    func testCompactionHookCancellationPropagatesWithoutSummarizing() async throws {
+        let root = try makeTempDirectory()
+        let state = OverflowScriptState(overflowRounds: 1, finalAction: .say("must not run"))
+        let summaries = SummaryCallCounter()
+        let runner = AgentRunner(
+            llm: OverflowScriptedLLMClient(state: state),
+            safety: AlwaysApprovingSafetyReviewer(),
+            preCompactHook: { _, _, _ in throw CancellationError() },
+            compaction: compactionPolicy(summaryCounter: summaries)
+        )
+
+        do {
+            _ = try await runner.send("go", in: longThread(pairs: 10), workspaceRoot: root)
+            XCTFail("expected cancellation")
+        } catch is CancellationError {
+            // expected
+        }
+        let summaryCount = await summaries.count
+        let calls = await state.callCount
+        XCTAssertEqual(summaryCount, 0)
+        XCTAssertEqual(calls, 1)
+    }
+}
+
+private actor CompactionHookRecorder {
+    private(set) var entries: [String] = []
+
+    func record(_ stage: String, trigger: AgentCompactionTrigger, containsSummary: Bool) {
+        entries.append("\(stage):\(trigger.rawValue):\(containsSummary)")
+    }
+}
+
+private enum CompactionHookFixtureError: LocalizedError {
+    case failed
+
+    var errorDescription: String? { "fixture failed" }
 }

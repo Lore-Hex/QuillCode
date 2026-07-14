@@ -9,7 +9,7 @@ enum ProjectPluginToolKind: Sendable, Hashable {
 }
 
 struct ProjectPluginToolCallAdapter: Sendable, Hashable {
-    static let maximumMatcherCharacters = 512
+    static let maximumMatcherCharacters = ProjectPluginHookMatcher.maximumPatternCharacters
     static let maximumToolNameCharacters = 256
 
     var call: ToolCall
@@ -85,21 +85,11 @@ struct ProjectPluginToolCallAdapter: Sendable, Hashable {
     }
 
     func matches(_ matcher: String?) -> Bool {
-        guard let matcher, !matcher.isEmpty, matcher != "*" else { return true }
-        guard matcher.count <= Self.maximumMatcherCharacters,
-              let expression = try? NSRegularExpression(pattern: matcher)
-        else { return false }
-        return aliases.contains { alias in
-            let bounded = String(alias.prefix(Self.maximumToolNameCharacters))
-            let range = NSRange(bounded.startIndex..<bounded.endIndex, in: bounded)
-            return expression.firstMatch(in: bounded, range: range) != nil
-        }
+        ProjectPluginHookMatcher.matches(matcher, candidates: aliases)
     }
 
     static func isValidMatcher(_ matcher: String?) -> Bool {
-        guard let matcher, !matcher.isEmpty, matcher != "*" else { return true }
-        guard matcher.count <= maximumMatcherCharacters else { return false }
-        return (try? NSRegularExpression(pattern: matcher)) != nil
+        ProjectPluginHookMatcher.isValid(matcher)
     }
 
     private static func adapter(

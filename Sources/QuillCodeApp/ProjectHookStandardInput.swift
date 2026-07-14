@@ -5,18 +5,22 @@ enum ProjectHookStandardInput {
     static func payload(
         eventName: String,
         thread: ChatThread,
-        workspaceRoot: URL
+        workspaceRoot: URL,
+        includesPermissionMode: Bool = true
     ) -> [String: Any] {
         let turnID = thread.messages.last(where: { $0.role == .user })?.id ?? thread.id
-        return [
+        var payload: [String: Any] = [
             "session_id": stableID(thread.id),
             "transcript_path": NSNull(),
             "cwd": workspaceRoot.standardizedFileURL.resolvingSymlinksInPath().path,
             "hook_event_name": eventName,
             "model": thread.model,
-            "turn_id": stableID(turnID),
-            "permission_mode": permissionMode(for: thread.mode)
+            "turn_id": stableID(turnID)
         ]
+        if includesPermissionMode {
+            payload["permission_mode"] = permissionMode(for: thread.mode)
+        }
+        return payload
     }
 
     static func encoded(_ payload: [String: Any]) throws -> String {

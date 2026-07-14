@@ -179,6 +179,18 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         if let permissionRequestHook = pluginToolHooks.permissionRequestHook {
             runner.permissionRequestHook = permissionRequestHook
         }
+        let pluginCompactionHooks = ProjectPluginCompactionHookExecutor(
+            hooks: selectedProject?.pluginHooks ?? [],
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
+        if let preCompactHook = pluginCompactionHooks.preCompactHook {
+            runner.preCompactHook = preCompactHook
+        }
+        if let postCompactHook = pluginCompactionHooks.postCompactHook {
+            runner.postCompactHook = postCompactHook
+        }
         return runner
     }
 }

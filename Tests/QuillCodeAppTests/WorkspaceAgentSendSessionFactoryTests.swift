@@ -149,11 +149,19 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         var permission = trusted
         permission.id = "permission"
         permission.event = "PermissionRequest"
+        var preCompact = trusted
+        preCompact.id = "pre-compact"
+        preCompact.event = "PreCompact"
+        preCompact.matcher = "auto"
+        var postCompact = trusted
+        postCompact.id = "post-compact"
+        postCompact.event = "PostCompact"
+        postCompact.matcher = "auto"
         let project = ProjectRef(
             name: "Hook Project",
             path: workspaceRoot.path,
             runHooks: [],
-            pluginHooks: [trusted, untrusted, permission]
+            pluginHooks: [trusted, untrusted, permission, preCompact, postCompact]
         )
 
         let session = WorkspaceAgentSendSessionFactory(
@@ -174,6 +182,8 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         XCTAssertNotNil(session.runner.preToolUseHook)
         XCTAssertNil(session.runner.postToolUseHook)
         XCTAssertNotNil(session.runner.permissionRequestHook)
+        XCTAssertNotNil(session.runner.preCompactHook)
+        XCTAssertNotNil(session.runner.postCompactHook)
     }
 
     func testFactoryUsesRemoteProjectToolDefinitionsAndRunHooks() {
