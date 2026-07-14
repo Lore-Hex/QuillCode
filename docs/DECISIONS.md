@@ -989,3 +989,10 @@
 - **Native proof:** Packaged macOS smoke AX-presses Automations, requires the identified title and Create control, presses the identified Close control, and waits for the pane to disappear.
 - **State safety:** Verification creates, edits, runs, pauses, or deletes no automation. It restores the baseline visibility state.
 - **Why:** A navigation surface should not require users to remember that the entry point is also the exit. Rendered content and reversible dismissal are one release contract.
+
+## 2026-07-14: Extensions has one obvious reversible navigation path
+
+- **Behavior:** The Extensions pane exposes identified Add and Close controls in its header; sidebar, shortcut, slash-command, and pane-close routes share `toggle-extensions`.
+- **Native proof:** Packaged macOS smoke AX-presses Extensions, requires its identified title and Add control, presses Close with AXPress, and waits for disappearance.
+- **State safety:** Verification installs, updates, starts, stops, trusts, disables, or records nothing. It restores baseline visibility.
+- **Why:** Extension management is a recovery and capability surface. Users need an obvious exit, and release evidence must prove real content rather than a Boolean.

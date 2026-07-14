@@ -279,7 +279,7 @@ extension QuillCodeParityTestCase {
         case "command.toggle-automations":
             return "Automations renders its Create control and dismisses through Close"
         case "command.toggle-extensions":
-            return "extensions pane visibility toggles"
+            return "Extensions renders its Add control and dismisses through Close"
         default:
             return "observable controller state changes"
         }
@@ -297,6 +297,8 @@ extension QuillCodeParityTestCase {
             return "rendered Settings with its notifications control and dismissed through quillcode-settings-close with AXPress"
         case "command.toggle-automations":
             return "rendered Automations with its Create control and dismissed through quillcode-automations-close with AXPress"
+        case "command.toggle-extensions":
+            return "rendered Extensions with its Add control and dismissed through quillcode-extensions-close with AXPress"
         default:
             return "AXPress changed observable controller state"
         }

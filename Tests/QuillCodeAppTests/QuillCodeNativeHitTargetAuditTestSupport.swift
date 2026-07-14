@@ -61,6 +61,8 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
         "browser.comment",
         "browser.add-comment",
         "extensions.action",
+        "extensions.add",
+        "extensions.close",
         "extensions.reference-action",
         "extensions.mcp-reference",
         "memories.add",

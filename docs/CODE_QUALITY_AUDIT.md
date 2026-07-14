@@ -16034,3 +16034,24 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-14 Packaged Extensions Render And Dismissal Proof
+
+Overall grade after this slice: **A+ interaction architecture, A+ native fidelity, A+ state safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Accessibility identity | A+ | The title, Add action, and Close action have stable native identifiers. |
+| Navigation architecture | A+ | Sidebar, shortcut, slash-command, and pane-close paths share the `toggle-extensions` command. |
+| Native fidelity | A+ | Packaged smoke requires real title and Add controls, AX-presses Close, and waits for disappearance. |
+| Hit-target quality | A+ | Conditional Add and Close icon controls retain 40-point targets, press feedback, help, and native audit contracts. |
+| State safety | A+ | Smoke installs, updates, starts, stops, trusts, disables, or records no extension and restores baseline visibility. |
+| Regression evidence | A+ | Negative fixtures reject state-only reports; direct, Launch Services, and live-window smoke prove the packaged flow. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeNativeHitTargetSurfaceAuditTests|QuillCodeDesktopWindowReportTests|ParityWorkspaceSecondaryPaneSurfaceGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

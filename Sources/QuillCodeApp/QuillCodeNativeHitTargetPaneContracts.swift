@@ -108,7 +108,26 @@ extension QuillCodeNativeHitTargetAudit {
     ) -> [QuillCodeNativeHitTargetContract] {
         guard surface.isVisible else { return [] }
 
-        var contracts: [QuillCodeNativeHitTargetContract] = []
+        var contracts: [QuillCodeNativeHitTargetContract] = [
+            contract(
+                "extensions.add",
+                family: .extensions,
+                surface: "Extensions",
+                label: "Add an extension",
+                kind: .icon,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
+                testID: "extensions-add"
+            ),
+            contract(
+                "extensions.close",
+                family: .extensions,
+                surface: "Extensions",
+                label: "Close Extensions",
+                kind: .icon,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
+                testID: "extensions-close"
+            )
+        ]
         if surface.items.contains(where: hasExtensionLifecycleAction) {
             contracts.append(
                 contract(

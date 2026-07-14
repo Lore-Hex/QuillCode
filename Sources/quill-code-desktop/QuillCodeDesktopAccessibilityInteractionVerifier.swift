@@ -27,6 +27,14 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         requiredControlDescription: "Create control",
         closeIdentifier: "quillcode-automations-close"
     )
+    private static let extensionsSurfaceContract = DismissibleSurfaceContract(
+        contractID: "command.toggle-extensions",
+        name: "Extensions",
+        titleIdentifier: "quillcode-extensions-title",
+        requiredControlIdentifier: "quillcode-extensions-add",
+        requiredControlDescription: "Add control",
+        closeIdentifier: "quillcode-extensions-close"
+    )
 
     static func observeWorkspaceThreads(
         _ controller: QuillCodeDesktopController
@@ -137,6 +145,12 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
         await verifyDismissibleSurface(automationsSurfaceContract, contentView: contentView)
+    }
+
+    static func verifyExtensionsDismissal(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        await verifyDismissibleSurface(extensionsSurfaceContract, contentView: contentView)
     }
 
     private static func verifyReversibleTextEntry(

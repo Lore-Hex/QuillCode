@@ -6,6 +6,7 @@ struct QuillCodeExtensionsPaneView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var extensions: WorkspaceExtensionsSurface
+    var onClose: () -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -37,6 +38,7 @@ struct QuillCodeExtensionsPaneView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(extensions.title)
                     .font(.headline)
+                    .accessibilityIdentifier("quillcode-extensions-title")
                 Text(extensions.subtitle)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
@@ -65,6 +67,15 @@ struct QuillCodeExtensionsPaneView: View {
                 .menuIndicator(.hidden)
                 .help("Add an extension")
                 .accessibilityLabel("Add an extension")
+                .accessibilityIdentifier("quillcode-extensions-add")
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .quillCodeIconButtonTarget()
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .help("Close Extensions")
+                .accessibilityLabel("Close Extensions")
+                .accessibilityIdentifier("quillcode-extensions-close")
             }
         }
     }

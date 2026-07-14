@@ -107,6 +107,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                     Divider()
                     QuillCodeExtensionsPaneView(
                         extensions: surface.extensions,
+                        onClose: { runCommand(id: "toggle-extensions") },
                         onCommand: onCommand
                     )
                 }
