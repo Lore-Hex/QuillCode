@@ -7,6 +7,7 @@ struct QuillCodeSettingsView: View {
     var onCancel: () -> Void
     var onSave: () -> Void
     var onStartTrustedRouterSignIn: () -> Void
+    var onOpenAgentImport: (() -> Void)?
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -26,6 +27,10 @@ struct QuillCodeSettingsView: View {
                     QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
                     QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
                     QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)
+                    QuillCodeAgentImportSettingsCard(
+                        isAvailable: onOpenAgentImport != nil,
+                        onOpen: { onOpenAgentImport?() }
+                    )
 
                     if let issue = settings.runtimeIssue {
                         QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)

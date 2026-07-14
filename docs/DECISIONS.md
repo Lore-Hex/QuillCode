@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-13: Agent imports are additive, reviewable, and destination-scoped
+
+- **Decision:** Import from another agent is a Settings workflow with a discovery phase, editable project/item selection, and an outcome phase. Discovery is read-only; import starts only after explicit review. The first source adapter is Claude Code and covers local projects, recent chats, instructions, settings, skills, plugins, MCP servers, hooks, slash commands, and subagents.
+- **Mutation boundary:** Existing project files are never overwritten. Imported instructions, settings snapshots, and extension packages receive unique QuillCode-owned destinations. The mutation records only artifacts created by that import. Projects, chats, created artifacts, and the destination-scoped receipt commit as one workspace transaction; a project, thread, or receipt failure restores the prior stores and removes only those newly-created artifacts.
+- **Identity:** Receipts bind a source candidate fingerprint to its destination project. This prevents repeat imports without incorrectly treating global setup as complete for projects discovered later. Imported chats additionally retain source/session provenance so an existing transcript is not duplicated.
+- **Security:** Discovery and copying revalidate regular-file, root-containment, symlink, file-count, and byte-count limits. Dependency trees and credential-like files are excluded. Settings, hook payloads, MCP arguments, URLs, and environment declarations are sanitized; credentials are never copied. Imported hooks require trust and MCP servers require credential reconnection before use.
+- **Context:** Imported instructions are written beneath `.quillcode/rules/` and enter the same bounded broad-to-specific local and SSH Remote instruction loader as native QuillCode rules. Import does not create a parallel instruction runtime.
+- **Presentation:** The native dialog and deterministic Playwright harness share loading, review, importing, result, cancellation, selection, previously-imported, and follow-up states. Counts use tabular presentation, controls keep full hit targets, and cancellation invalidates delayed asynchronous discovery.
+- **Why:** Migration should reduce switching cost without turning another agent's mutable configuration into trusted executable state or making a partially understood bulk copy impossible to audit.
+
 ## 2026-07-12
 
 - Permission wildcard `**/` is compiled as a two-state complete-segment NFA fragment, while bare `**` keeps its cross-separator self-loop. Only the directory-boundary state may epsilon-skip the fragment. A direct epsilon edge around the slash would also be reachable after consuming a partial segment and could broaden an allow rule, so the matcher is regression-checked against an independent recursive oracle over a generated corpus.

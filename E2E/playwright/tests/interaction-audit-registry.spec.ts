@@ -103,6 +103,7 @@ test('critical click-target registry covers primary workspace surfaces', async (
     { label: 'API base URL', locator: page.getByLabel('TrustedRouter API base URL'), expectedKind: 'text-entry' },
     { label: 'authentication selector', locator: page.getByLabel('Authentication'), expectedKind: 'text-entry' },
     { label: 'TrustedRouter sign in', locator: page.getByTestId('settings-sign-in'), expectedKind: 'text' },
+    { label: 'review agent import', locator: page.getByTestId('agent-import-open'), expectedKind: 'text' },
     { label: 'cancel', locator: page.getByTestId('settings-cancel'), expectedKind: 'text' },
     { label: 'save', locator: page.getByTestId('settings-save'), expectedKind: 'text' }
   ]);

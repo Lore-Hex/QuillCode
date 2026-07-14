@@ -49,6 +49,7 @@ public final class QuillCodeWorkspaceModel {
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
     private let sidebarSavedSearchStore: JSONSidebarSavedSearchStore?
+    let agentImporter: ClaudeCodeAgentImporter?
     /// Persisted per-project permission rules ("always allow/deny"). The agent's safety gate reads
     /// this same store per review, so a rule saved here applies to the very next tool call. Nil
     /// (tests/CLI without persistence) disables saving; approval flows still work as before.
@@ -128,6 +129,7 @@ public final class QuillCodeWorkspaceModel {
         projectStore: JSONProjectStore? = nil,
         automationStore: JSONAutomationStore? = nil,
         sidebarSavedSearchStore: JSONSidebarSavedSearchStore? = nil,
+        agentImporter: ClaudeCodeAgentImporter? = nil,
         permissionRuleStore: PermissionRuleFileStore? = nil,
         projectHookTrustStore: ProjectHookTrustFileStore? = nil,
         subagentSessionStoreDirectory: URL? = nil,
@@ -169,6 +171,7 @@ public final class QuillCodeWorkspaceModel {
         self.projectStore = projectStore
         self.automationStore = automationStore
         self.sidebarSavedSearchStore = sidebarSavedSearchStore
+        self.agentImporter = agentImporter
         self.permissionRuleStore = permissionRuleStore
         self.projectHookTrustStore = projectHookTrustStore
         self.subagentSessionStore = subagentSessionStoreDirectory.map(WorkspaceSubagentSessionStore.init)
@@ -339,6 +342,10 @@ public final class QuillCodeWorkspaceModel {
 
     func saveProjects() {
         try? projectStore?.save(root.projects)
+    }
+
+    func saveProjectsOrThrow(_ projects: [ProjectRef]) throws {
+        try projectStore?.save(projects)
     }
 
     func applyAutomationState(_ state: AutomationsState) {

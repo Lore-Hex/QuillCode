@@ -19,7 +19,8 @@ final class QuillCodePathsTests: PersistenceTestCase {
             paths.worktreesDirectory,
             paths.secretsDirectory,
             paths.pluginDataDirectory,
-            paths.subagentSessionsDirectory
+            paths.subagentSessionsDirectory,
+            paths.importsDirectory
         ] {
             var isDirectory: ObjCBool = false
             XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory))
@@ -27,6 +28,7 @@ final class QuillCodePathsTests: PersistenceTestCase {
         }
         XCTAssertEqual(try posixPermissions(at: paths.subagentApprovalPayloadsDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.pluginDataDirectory), 0o700)
+        XCTAssertEqual(try posixPermissions(at: paths.importsDirectory), 0o700)
     }
 
     func testPluginDataDirectoriesAreStablePrivateAndWorkspaceScoped() throws {

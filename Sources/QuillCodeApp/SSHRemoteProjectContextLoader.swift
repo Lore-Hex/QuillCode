@@ -221,6 +221,10 @@ enum SSHRemoteProjectContextLoader {
         qc_emit_instruction 'AGENTS.md'
         qc_emit_instruction '.quillcode/rules.md'
         qc_emit_instruction '.quillcode/instructions.md'
+        for qc_rule in .quillcode/rules/*.md; do
+          [ -e "$qc_rule" ] || continue
+          qc_emit_instruction "${qc_rule#./}"
+        done
 
         qc_scanned_dirs=0
         find . -type d 2>/dev/null | awk '{ print gsub("/", "/") "\t" $0 }' | sort -n -k1,1 -k2,2 | cut -f2- | while IFS= read -r qc_dir; do
@@ -232,6 +236,10 @@ enum SSHRemoteProjectContextLoader {
           qc_emit_instruction "$qc_rel/AGENTS.md"
           qc_emit_instruction "$qc_rel/.quillcode/rules.md"
           qc_emit_instruction "$qc_rel/.quillcode/instructions.md"
+          for qc_rule in "$qc_rel"/.quillcode/rules/*.md; do
+            [ -e "$qc_rule" ] || continue
+            qc_emit_instruction "${qc_rule#./}"
+          done
         done
 
         for qc_memory in .quillcode/memories/*.json .quillcode/memories/*.md .quillcode/memories/*.txt; do
@@ -260,6 +268,9 @@ enum SSHRemoteProjectContextLoader {
         case ".quillcode/instructions.md":
             return "QuillCode instructions"
         default:
+            if relativePath.contains(".quillcode/rules/") {
+                return "QuillCode rule: \(URL(fileURLWithPath: relativePath).deletingPathExtension().lastPathComponent)"
+            }
             return relativePath
         }
     }

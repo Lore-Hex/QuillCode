@@ -12,6 +12,7 @@ public enum ProjectInstructionLoader {
     public static let maxTotalBytes = 100_000
     public static let maxScannedDirectories = 400
     public static let maxInstructionFiles = 40
+    private static let rulesDirectoryName = ".quillcode/rules"
 
     private static let ignoredDirectoryNames: Set<String> = [
         ".build",
@@ -70,8 +71,9 @@ public enum ProjectInstructionLoader {
         maxScannedDirectories: Int
     ) -> [String] {
         var candidates = baseRelativePaths
+        candidates.append(contentsOf: ruleFilePaths(root: root, scopePath: nil))
         guard includeNested, maxScannedDirectories > 0 else {
-            return candidates
+            return unique(candidates)
         }
 
         let directories = nestedDirectoryPaths(root: root, maxScannedDirectories: maxScannedDirectories)
@@ -79,8 +81,40 @@ public enum ProjectInstructionLoader {
             for relativePath in baseRelativePaths {
                 candidates.append("\(directory)/\(relativePath)")
             }
+            candidates.append(contentsOf: ruleFilePaths(root: root, scopePath: directory))
         }
-        return candidates
+        return unique(candidates)
+    }
+
+    private static func ruleFilePaths(root: URL, scopePath: String?) -> [String] {
+        let relativeDirectory = [scopePath, rulesDirectoryName]
+            .compactMap { $0 }
+            .joined(separator: "/")
+        let directory = root.appendingPathComponent(relativeDirectory, isDirectory: true)
+        guard let values = try? directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
+              values.isDirectory == true,
+              values.isSymbolicLink != true,
+              let entries = try? FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+                options: [.skipsHiddenFiles]
+              )
+        else { return [] }
+
+        return entries.compactMap { entry -> String? in
+            guard entry.pathExtension.lowercased() == "md",
+                  let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
+                  values.isRegularFile == true,
+                  values.isSymbolicLink != true
+            else { return nil }
+            return "\(relativeDirectory)/\(entry.lastPathComponent)"
+        }
+        .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    private static func unique(_ paths: [String]) -> [String] {
+        var seen = Set<String>()
+        return paths.filter { seen.insert($0).inserted }
     }
 
     private static func nestedDirectoryPaths(root: URL, maxScannedDirectories: Int) -> [String] {
@@ -196,6 +230,9 @@ public enum ProjectInstructionLoader {
         case ".quillcode/instructions.md":
             return "QuillCode instructions"
         default:
+            if relativePath.contains(".quillcode/rules/") {
+                return "QuillCode rule: \(URL(fileURLWithPath: relativePath).deletingPathExtension().lastPathComponent)"
+            }
             return relativePath
         }
     }

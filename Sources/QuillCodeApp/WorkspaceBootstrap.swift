@@ -75,6 +75,10 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             projectStore: projectStore,
             automationStore: automationStore,
             sidebarSavedSearchStore: sidebarSavedSearchStore,
+            agentImporter: ClaudeCodeAgentImporter(
+                sourceHomeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                destinationPaths: paths
+            ),
             permissionRuleStore: PermissionRuleFileStore(directory: paths.permissionsDirectory),
             projectHookTrustStore: ProjectHookTrustFileStore(directory: paths.hookTrustDirectory),
             subagentSessionStoreDirectory: paths.subagentSessionsDirectory,

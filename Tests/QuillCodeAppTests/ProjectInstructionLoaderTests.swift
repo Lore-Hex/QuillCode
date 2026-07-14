@@ -107,4 +107,28 @@ final class ProjectInstructionLoaderTests: XCTestCase {
             "Area1/AGENTS.md"
         ])
     }
+
+    func testLoadsAdditiveRuleFilesWithoutFollowingSymlinks() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let rules = root.appendingPathComponent(".quillcode/rules")
+        try FileManager.default.createDirectory(at: rules, withIntermediateDirectories: true)
+        try "Imported guidance\n".write(
+            to: rules.appendingPathComponent("imported-claude.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let outside = try makeQuillCodeTestDirectory().appendingPathComponent("outside.md")
+        try "Do not load\n".write(to: outside, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: rules.appendingPathComponent("escaped.md"),
+            withDestinationURL: outside
+        )
+
+        let instructions = ProjectInstructionLoader.load(from: root)
+
+        XCTAssertEqual(instructions.map(\.path), [".quillcode/rules/imported-claude.md"])
+        XCTAssertEqual(instructions.map(\.scopePath), ["."])
+        XCTAssertEqual(instructions.map(\.title), ["QuillCode rule: imported-claude"])
+        XCTAssertFalse(instructions.contains { $0.content.contains("Do not load") })
+    }
 }

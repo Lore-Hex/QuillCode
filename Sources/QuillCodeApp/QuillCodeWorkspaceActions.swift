@@ -31,6 +31,7 @@ public struct QuillCodeWorkspaceActions {
     let onToggleModelFavorite: (String) -> Void
     let onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     let onStartTrustedRouterSignIn: () -> Void
+    let agentImport: QuillCodeAgentImportActions?
     let onReviewScopeChange: (WorkspaceReviewSelection) -> Void
     let onReviewAction: (WorkspaceReviewActionSurface) -> Void
     let onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
@@ -88,6 +89,7 @@ public struct QuillCodeWorkspaceActions {
         onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
+        agentImport: QuillCodeAgentImportActions? = nil,
         onReviewScopeChange: @escaping (WorkspaceReviewSelection) -> Void = { _ in },
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
@@ -146,6 +148,7 @@ public struct QuillCodeWorkspaceActions {
         self.onToggleModelFavorite = onToggleModelFavorite
         self.onSaveSettings = onSaveSettings
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
+        self.agentImport = agentImport
         self.onReviewScopeChange = onReviewScopeChange
         self.onReviewAction = onReviewAction
         self.onPullRequestReviewThreadAction = onPullRequestReviewThreadAction

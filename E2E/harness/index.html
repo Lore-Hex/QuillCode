@@ -1032,6 +1032,130 @@
     .permission-status-pill { flex: none; max-width: 180px; padding: 5px 10px; border-radius: 999px; color: var(--yellow); background: rgba(255,184,77,.14); font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .permission-status-pill[data-available="true"] { color: var(--green); background: rgba(67,212,120,.14); }
     .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
+    .agent-import-panel {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(0,0,0,.52);
+      backdrop-filter: blur(10px);
+      z-index: 7;
+    }
+    .agent-import-card {
+      width: min(640px, 100%);
+      max-height: calc(100vh - 48px);
+      min-height: 420px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+      border-radius: 12px;
+      background: rgba(15, 23, 28, .98);
+      box-shadow: var(--shadow-panel);
+    }
+    .agent-import-header,
+    .agent-import-footer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      box-shadow: inset 0 -1px rgba(255,255,255,.07);
+    }
+    .agent-import-footer {
+      justify-content: flex-end;
+      box-shadow: inset 0 1px rgba(255,255,255,.07);
+    }
+    .agent-import-header > div { min-width: 0; }
+    .agent-import-header h2,
+    .agent-import-header p,
+    .agent-import-section h3,
+    .agent-import-section p { margin: 0; }
+    .agent-import-header h2 { font-size: 18px; text-wrap: balance; }
+    .agent-import-header p,
+    .agent-import-footer p { color: var(--muted); font-size: 12px; text-wrap: pretty; }
+    .agent-import-header p { margin-top: 3px; }
+    .agent-import-header button { margin-left: auto; }
+    .agent-import-content {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 20px;
+      padding: 20px;
+    }
+    .agent-import-source-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .agent-import-source-summary > div:first-child { min-width: 0; }
+    .agent-import-source-summary strong { display: block; }
+    .agent-import-source-summary small { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .agent-import-selection-actions { display: flex; gap: 8px; margin-left: auto; }
+    .agent-import-section { display: grid; gap: 8px; }
+    .agent-import-section h3 {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .agent-import-list {
+      display: grid;
+      padding: 6px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.035);
+      box-shadow: var(--shadow-border);
+    }
+    .agent-import-row {
+      min-height: 44px;
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 11px;
+      padding: 7px 0;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .agent-import-row + .agent-import-row { box-shadow: inset 0 1px rgba(255,255,255,.07); }
+    .agent-import-row > span { min-width: 0; }
+    .agent-import-row strong,
+    .agent-import-row small { display: block; overflow-wrap: anywhere; }
+    .agent-import-row small { margin-top: 2px; color: var(--muted); font-size: 12px; text-wrap: pretty; }
+    .agent-import-row input {
+      width: 18px;
+      min-width: 18px;
+      height: 18px;
+      min-height: 18px;
+      margin: 0;
+      accent-color: var(--blue);
+    }
+    .agent-import-row[data-disabled="true"] { cursor: default; opacity: .56; }
+    .agent-import-status {
+      padding: 4px 7px;
+      border-radius: 999px;
+      color: var(--green);
+      background: rgba(67,212,120,.13);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .agent-import-status.review { color: var(--yellow); background: rgba(255,184,77,.13); }
+    .agent-import-progress,
+    .agent-import-result {
+      min-height: 300px;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+    .agent-import-progress p,
+    .agent-import-result p { max-width: 420px; margin: 0; color: var(--muted); text-wrap: pretty; }
+    .agent-import-result strong { font-size: 18px; }
+    .agent-import-result-count { color: var(--green); font-variant-numeric: tabular-nums; }
+    .agent-import-follow-ups { justify-self: stretch; text-align: left; }
+    .agent-import-follow-ups li { color: var(--muted); font-size: 12px; margin-top: 6px; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr); gap: 16px; padding: 14px 18px 18px 0; }
     .workspace-grid.with-activity { grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr) 320px; }
     .workspace-grid.sidebar-hidden { grid-template-columns: minmax(0, 1fr); padding-left: 18px; }
@@ -4796,6 +4920,27 @@
           }
         ]
       },
+      agentImport: {
+        isOpen: false,
+        phase: 'idle',
+        generation: 0,
+        projects: [
+          { name: 'QuillCode', path: '/Users/quill/Projects/QuillCode', isAlreadyRegistered: true },
+          { name: 'LoreGames', path: '/Users/quill/Projects/LoreGames', isAlreadyRegistered: false }
+        ],
+        candidates: [
+          { id: 'project-quillcode', kind: 'Projects', title: 'QuillCode', detail: '/Users/quill/Projects/QuillCode', projectPath: '/Users/quill/Projects/QuillCode' },
+          { id: 'project-loregames', kind: 'Projects', title: 'LoreGames', detail: '/Users/quill/Projects/LoreGames', projectPath: '/Users/quill/Projects/LoreGames' },
+          { id: 'instructions-global', kind: 'Instructions', title: 'Global instructions', detail: '~/.claude/CLAUDE.md', projectPath: null },
+          { id: 'chat-quillcode', kind: 'Recent chats', title: 'Continue import parity', detail: '18 messages · QuillCode', projectPath: '/Users/quill/Projects/QuillCode' },
+          { id: 'mcp-global', kind: 'MCP servers', title: 'filesystem', detail: 'Requires authorization after import', projectPath: null, requiresSetup: true },
+          { id: 'hook-global', kind: 'Hooks', title: 'PostToolUse hook', detail: 'Requires trust review after import', projectPath: null, requiresSetup: true },
+          { id: 'skill-imported', kind: 'Skills', title: 'Interface review', detail: 'Previously imported', projectPath: null, isPreviouslyImported: true }
+        ],
+        selectedProjectPaths: [],
+        selectedCandidateIDs: [],
+        result: null
+      },
       lastOpenedURL: null,
       search: {
         isOpen: false,
@@ -5225,6 +5370,9 @@
         'textarea'
       ].join(',')).forEach(element => {
         if (element.closest('.visually-hidden,.composer-sr-only,[hidden],[aria-hidden="true"]')) return;
+        if (element instanceof HTMLInputElement
+            && ['checkbox', 'radio'].includes(element.type)
+            && element.closest('label')) return;
         if (element instanceof HTMLLabelElement && !isRenderedLabelTarget(element)) return;
         const existingKind = existingHitTargetKind(element);
         if (existingKind) {
@@ -9053,6 +9201,7 @@
             ${state.activity.isVisible ? renderActivityPane() : ''}
           </div>
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
+          ${state.agentImport.isOpen ? renderAgentImportPanel() : ''}
           ${state.search.isOpen ? renderSearchPanel() : ''}
           ${state.commandPalette.isOpen ? renderCommandPalette() : ''}
           ${state.copiedTranscriptItemID === 'conversation' ? '<div class="copy-toast" data-testid="conversation-copied-toast" role="status">Conversation copied</div>' : ''}
@@ -9767,6 +9916,49 @@
         state.settings.loginStatusLabel = 'Opening TrustedRouter sign in';
         render();
       });
+      document.querySelector('[data-testid="agent-import-open"]')?.addEventListener('click', openAgentImport);
+      document.querySelector('[data-testid="agent-import-panel"]')?.addEventListener('click', event => {
+        if (event.target !== event.currentTarget || state.agentImport.phase === 'importing') return;
+        closeAgentImport();
+      });
+      document.querySelector('[data-testid="agent-import-close"]')?.addEventListener('click', closeAgentImport);
+      document.querySelector('[data-testid="agent-import-cancel"]')?.addEventListener('click', closeAgentImport);
+      document.querySelector('[data-testid="agent-import-done"]')?.addEventListener('click', closeAgentImport);
+      document.querySelector('[data-testid="agent-import-all"]')?.addEventListener('click', () => {
+        state.agentImport.selectedCandidateIDs = selectableAgentImportCandidates().map(candidate => candidate.id);
+        render();
+      });
+      document.querySelector('[data-testid="agent-import-none"]')?.addEventListener('click', () => {
+        state.agentImport.selectedCandidateIDs = [];
+        render();
+      });
+      document.querySelectorAll('[data-testid="agent-import-project"]').forEach(input => {
+        input.addEventListener('change', event => {
+          const path = event.currentTarget.getAttribute('data-project-path');
+          if (event.currentTarget.checked) {
+            state.agentImport.selectedProjectPaths.push(path);
+          } else {
+            state.agentImport.selectedProjectPaths = state.agentImport.selectedProjectPaths.filter(value => value !== path);
+            state.agentImport.selectedCandidateIDs = state.agentImport.selectedCandidateIDs.filter(id => {
+              const candidate = state.agentImport.candidates.find(item => item.id === id);
+              return candidate?.projectPath !== path;
+            });
+          }
+          render();
+        });
+      });
+      document.querySelectorAll('[data-testid="agent-import-candidate"]').forEach(input => {
+        input.addEventListener('change', event => {
+          const id = event.currentTarget.getAttribute('data-candidate-id');
+          if (event.currentTarget.checked) {
+            state.agentImport.selectedCandidateIDs.push(id);
+          } else {
+            state.agentImport.selectedCandidateIDs = state.agentImport.selectedCandidateIDs.filter(value => value !== id);
+          }
+          render();
+        });
+      });
+      document.querySelector('[data-testid="agent-import-submit"]')?.addEventListener('click', performAgentImport);
       document.querySelectorAll('[data-testid="computer-use-settings"] [data-command-id]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
@@ -10611,6 +10803,174 @@
       });
     }
 
+    function selectableAgentImportCandidates() {
+      return state.agentImport.candidates.filter(candidate => (
+        !candidate.isPreviouslyImported
+        && (!candidate.projectPath || state.agentImport.selectedProjectPaths.includes(candidate.projectPath))
+      ));
+    }
+
+    function openAgentImport() {
+      state.settings.isOpen = false;
+      state.agentImport.isOpen = true;
+      state.agentImport.phase = 'loading';
+      state.agentImport.result = null;
+      const generation = ++state.agentImport.generation;
+      render();
+      window.setTimeout(() => {
+        if (!state.agentImport.isOpen || state.agentImport.generation !== generation) return;
+        state.agentImport.selectedProjectPaths = state.agentImport.projects.map(project => project.path);
+        state.agentImport.selectedCandidateIDs = state.agentImport.candidates
+          .filter(candidate => !candidate.isPreviouslyImported)
+          .map(candidate => candidate.id);
+        state.agentImport.phase = 'review';
+        render();
+      }, 80);
+    }
+
+    function closeAgentImport() {
+      state.agentImport.generation += 1;
+      state.agentImport.isOpen = false;
+      state.agentImport.phase = 'idle';
+      render();
+    }
+
+    function performAgentImport() {
+      if (!state.agentImport.selectedCandidateIDs.length || state.agentImport.phase !== 'review') return;
+      const importedCandidates = selectableAgentImportCandidates().filter(candidate => (
+        state.agentImport.selectedCandidateIDs.includes(candidate.id)
+      ));
+      const generation = ++state.agentImport.generation;
+      state.agentImport.phase = 'importing';
+      render();
+      window.setTimeout(() => {
+        if (!state.agentImport.isOpen || state.agentImport.generation !== generation) return;
+        const counts = importedCandidates.reduce((result, candidate) => {
+          result[candidate.kind] = (result[candidate.kind] || 0) + 1;
+          return result;
+        }, {});
+        state.agentImport.result = {
+          importedCount: importedCandidates.length,
+          skippedCount: state.agentImport.selectedCandidateIDs.length - importedCandidates.length,
+          counts,
+          followUps: importedCandidates.some(candidate => candidate.requiresSetup)
+            ? ['Review imported MCP servers before authorizing them.', 'Review imported hooks before trusting command execution.']
+            : []
+        };
+        importedCandidates.forEach(candidate => { candidate.isPreviouslyImported = true; });
+        state.agentImport.phase = 'result';
+        render();
+      }, 100);
+    }
+
+    function renderAgentImportSettingsCard() {
+      return `
+        <section class="permission-card" data-testid="agent-import-settings">
+          <header>
+            <div>
+              <h3>Import from another agent</h3>
+              <p>Bring projects, recent chats, instructions, and extensions into QuillCode.</p>
+            </div>
+            <button class="hit-target-text" type="button" data-testid="agent-import-open">Review import</button>
+          </header>
+          <p>Existing QuillCode files are never replaced. Credentials and provider secrets must be configured again.</p>
+        </section>`;
+    }
+
+    function renderAgentImportPanel() {
+      const importState = state.agentImport;
+      const phaseTitle = {
+        loading: 'Import from another agent',
+        review: 'Review import',
+        importing: 'Importing',
+        result: 'Import summary'
+      }[importState.phase] || 'Import from another agent';
+      const phaseDetail = importState.phase === 'loading'
+        ? 'Looking for supported local agent setup'
+        : 'Claude Code · additive and non-destructive';
+      let content = '';
+      if (importState.phase === 'loading' || importState.phase === 'importing') {
+        const importing = importState.phase === 'importing';
+        content = `
+          <div class="agent-import-progress" data-testid="agent-import-progress">
+            <span class="dialog-choice-spinner" aria-hidden="true"></span>
+            <strong>${importing ? 'Importing selected items' : 'Looking for supported setup'}</strong>
+            <p>${importing ? 'QuillCode is adding data without replacing existing files…' : 'Scanning local agent data safely…'}</p>
+          </div>`;
+      } else if (importState.phase === 'result') {
+        const result = importState.result || { importedCount: 0, skippedCount: 0, counts: {}, followUps: [] };
+        content = `
+          <div class="agent-import-result" data-testid="agent-import-result">
+            <strong>${result.importedCount ? 'Import complete' : 'Nothing new to import'}</strong>
+            <p class="agent-import-result-count" data-testid="agent-import-result-count">${result.importedCount} items added · ${result.skippedCount} skipped</p>
+            ${Object.keys(result.counts).length ? `
+              <section class="agent-import-section agent-import-follow-ups" aria-label="Added items">
+                <h3>Added</h3>
+                <ul>${Object.entries(result.counts).map(([kind, count]) => `<li>${escapeHTML(kind)} · ${count}</li>`).join('')}</ul>
+              </section>` : ''}
+            ${result.followUps.length ? `
+              <section class="agent-import-section agent-import-follow-ups" data-testid="agent-import-follow-ups">
+                <h3>Needs your review</h3>
+                <ul>${result.followUps.map(item => `<li>${escapeHTML(item)}</li>`).join('')}</ul>
+              </section>` : ''}
+          </div>`;
+      } else {
+        const selectable = selectableAgentImportCandidates();
+        const alreadyImported = importState.candidates.filter(candidate => candidate.isPreviouslyImported).length;
+        const projects = importState.projects.map(project => {
+          const selected = importState.selectedProjectPaths.includes(project.path);
+          return `
+            <label class="agent-import-row hit-target-row">
+              <input type="checkbox" data-testid="agent-import-project" data-project-path="${escapeHTML(project.path)}" ${selected ? 'checked' : ''}>
+              <span><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.path)}</small></span>
+              ${project.isAlreadyRegistered ? '<span class="agent-import-status">In sidebar</span>' : ''}
+            </label>`;
+        }).join('');
+        const visibleCandidates = importState.candidates.filter(candidate => candidate.kind !== 'Projects');
+        const groups = [...new Set(visibleCandidates.map(candidate => candidate.kind))].map(kind => {
+          const rows = visibleCandidates.filter(candidate => candidate.kind === kind).map(candidate => {
+            const projectEnabled = !candidate.projectPath || importState.selectedProjectPaths.includes(candidate.projectPath);
+            const enabled = !candidate.isPreviouslyImported && projectEnabled;
+            const selected = enabled && importState.selectedCandidateIDs.includes(candidate.id);
+            return `
+              <label class="agent-import-row hit-target-row" data-disabled="${enabled ? 'false' : 'true'}">
+                <input type="checkbox" data-testid="agent-import-candidate" data-candidate-id="${escapeHTML(candidate.id)}" ${selected ? 'checked' : ''} ${enabled ? '' : 'disabled'}>
+                <span><strong>${escapeHTML(candidate.title)}</strong><small>${escapeHTML(candidate.detail)}</small></span>
+                ${candidate.isPreviouslyImported ? '<span class="agent-import-status">Imported</span>' : candidate.requiresSetup ? '<span class="agent-import-status review">Review later</span>' : ''}
+              </label>`;
+          }).join('');
+          return `<section class="agent-import-section"><h3>${escapeHTML(kind)}</h3><div class="agent-import-list">${rows}</div></section>`;
+        }).join('');
+        content = `
+          <div class="agent-import-source-summary">
+            <div><strong>Claude Code</strong><small data-testid="agent-import-summary">${selectable.length} available · ${alreadyImported} previously imported</small></div>
+            <div class="agent-import-selection-actions">
+              <button class="hit-target-text" type="button" data-testid="agent-import-none">None</button>
+              <button class="hit-target-text" type="button" data-testid="agent-import-all">All</button>
+            </div>
+          </div>
+          <section class="agent-import-section"><h3>Projects</h3><p>Choose where project setup and chats should be added.</p><div class="agent-import-list">${projects}</div></section>
+          ${groups}`;
+      }
+      const selectedCount = importState.selectedCandidateIDs.length;
+      const footer = importState.phase === 'result'
+        ? `<p>Imported data is ready in QuillCode.</p><button class="hit-target-text" type="button" data-testid="agent-import-done">Done</button>`
+        : `<p data-testid="agent-import-selection-count">${selectedCount ? `${selectedCount} selected` : 'Choose at least one item'}</p>
+           <button class="hit-target-text" type="button" data-testid="agent-import-cancel" ${importState.phase === 'importing' ? 'disabled' : ''}>Cancel</button>
+           <button class="hit-target-text" type="button" data-testid="agent-import-submit" ${importState.phase === 'review' && selectedCount ? '' : 'disabled'}>Import</button>`;
+      return `
+        <div class="agent-import-panel" data-testid="agent-import-panel">
+          <section class="agent-import-card" role="dialog" aria-modal="true" aria-label="${escapeHTML(phaseTitle)}">
+            <header class="agent-import-header">
+              <div><h2>${escapeHTML(phaseTitle)}</h2><p>${escapeHTML(phaseDetail)}</p></div>
+              <button class="hit-target-icon" type="button" data-testid="agent-import-close" aria-label="Close import" ${importState.phase === 'importing' ? 'disabled' : ''}>×</button>
+            </header>
+            <div class="agent-import-content">${content}</div>
+            <footer class="agent-import-footer">${footer}</footer>
+          </section>
+        </div>`;
+    }
+
     function renderSettingsPanel() {
       return `
         <div class="settings-panel" data-testid="settings-panel">
@@ -10624,6 +10984,7 @@
             ${renderManagedWorktreeSettingsCard()}
             ${renderComputerUseSettingsCard()}
             ${renderComputerUseApprovalSettingsCard()}
+            ${renderAgentImportSettingsCard()}
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
             <label>
               TrustedRouter API base URL
