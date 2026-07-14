@@ -527,9 +527,11 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         try await waitUntil(timeoutSeconds: 1) {
             model.activeAgentRunThreadIDs == [firstThreadID, secondThreadID]
         }
-        let alphaStarted = await gate.hasStarted("alpha task")
-        let betaStarted = await gate.hasStarted("beta task")
-        XCTAssertTrue(alphaStarted && betaStarted, "both model calls must be live concurrently")
+        try await waitUntilAsync(timeoutSeconds: 5) {
+            await gate.hasStarted(["alpha task", "beta task"])
+        }
+        let bothModelCallsStarted = await gate.hasStarted(["alpha task", "beta task"])
+        XCTAssertTrue(bothModelCallsStarted, "both model calls must be live concurrently")
 
         XCTAssertEqual(model.root.selectedThreadID, secondThreadID)
         XCTAssertTrue(model.composer.isSending)
@@ -618,6 +620,20 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         while !condition() {
             if Date() > deadline {
                 XCTFail("Timed out waiting for condition")
+                return
+            }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+    }
+
+    private func waitUntilAsync(
+        timeoutSeconds: TimeInterval,
+        condition: @MainActor @escaping () async -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while !(await condition()) {
+            if Date() > deadline {
+                XCTFail("Timed out waiting for asynchronous condition")
                 return
             }
             try await Task.sleep(nanoseconds: 1_000_000)
@@ -764,8 +780,8 @@ private actor ConcurrentPromptGate {
         }
     }
 
-    func hasStarted(_ prompt: String) -> Bool {
-        started.contains(prompt)
+    func hasStarted(_ prompts: Set<String>) -> Bool {
+        prompts.isSubset(of: started)
     }
 }
 
