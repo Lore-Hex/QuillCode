@@ -6,6 +6,9 @@ import Foundation
 enum QuillCodeDesktopAccessibilityInteractionVerifier {
     private static let composerInputIdentifier = "quillcode-composer-input"
     private static let composerSmokeText = "QuillCode new chat smoke"
+    private static let modelPickerSearchIdentifier = "quillcode-model-picker-search"
+    private static let modelPickerSearchSmokeText = "Prometheus"
+    private static let prometheusOptionIdentifier = "quillcode-model-option-trustedrouter/fusion"
     private static let searchInputIdentifier = "quillcode-search-input"
     private static let searchSmokeText = "QuillCode search smoke"
 
@@ -90,6 +93,24 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         )
     }
 
+    static func verifyModelPickerSearch(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        await verifyReversibleTextEntry(
+            inputIdentifier: modelPickerSearchIdentifier,
+            smokeText: modelPickerSearchSmokeText,
+            successEvidence: "\(modelPickerSearchIdentifier) focused, accepted reversible AXValue text entry, and surfaced the Prometheus 1.0 model option",
+            missingFocusIssue: "composer.model-picker did not expose a focused \(modelPickerSearchIdentifier) field",
+            rejectedValueIssue: "composer.model-picker \(modelPickerSearchIdentifier) rejected AXValue",
+            retainedValueIssue: "composer.model-picker \(modelPickerSearchIdentifier) did not retain AXValue text entry",
+            clearValueIssue: "composer.model-picker \(modelPickerSearchIdentifier) could not restore its empty value",
+            requiredElementIdentifier: prometheusOptionIdentifier,
+            requiredElementLabelFragment: "Prometheus 1.0",
+            missingRequiredElementIssue: "composer.model-picker search did not surface the Prometheus 1.0 model option",
+            contentView: contentView
+        )
+    }
+
     private static func verifyReversibleTextEntry(
         inputIdentifier: String,
         smokeText: String,
@@ -98,6 +119,9 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         rejectedValueIssue: String,
         retainedValueIssue: String,
         clearValueIssue: String,
+        requiredElementIdentifier: String? = nil,
+        requiredElementLabelFragment: String? = nil,
+        missingRequiredElementIssue: String? = nil,
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
         guard let initialInput = await waitForInput(
@@ -119,14 +143,44 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         guard await waitForInput(inputIdentifier, expectedValue: smokeText, in: contentView) != nil else {
             return .init(evidence: "\(inputIdentifier) AXValue did not update", validationIssue: retainedValueIssue)
         }
+        let requiredElementIssue = await validateRequiredElement(
+            identifier: requiredElementIdentifier,
+            labelFragment: requiredElementLabelFragment,
+            validationIssue: missingRequiredElementIssue,
+            contentView: contentView
+        )
         guard let updatedInput = input(inputIdentifier, in: contentView),
               QuillCodeDesktopAccessibilityTree.performSetValue("", on: updatedInput) == .success,
               await waitForInput(inputIdentifier, expectedValue: "", in: contentView) != nil
         else {
             return .init(evidence: "\(inputIdentifier) accepted text but did not clear", validationIssue: clearValueIssue)
         }
+        if let requiredElementIssue {
+            return .init(
+                evidence: "\(inputIdentifier) accepted text but the required result did not appear",
+                validationIssue: requiredElementIssue
+            )
+        }
 
         return .init(evidence: successEvidence, validationIssue: nil)
+    }
+
+    private static func validateRequiredElement(
+        identifier: String?,
+        labelFragment: String?,
+        validationIssue: String?,
+        contentView: NSView
+    ) async -> String? {
+        guard let identifier, let labelFragment, let validationIssue else { return nil }
+        for _ in 0..<20 {
+            if QuillCodeDesktopAccessibilityTree(root: contentView).elements.contains(where: {
+                $0.identifier == identifier && $0.bestLabel.contains(labelFragment)
+            }) {
+                return nil
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return validationIssue
     }
 
     private static func waitForInput(

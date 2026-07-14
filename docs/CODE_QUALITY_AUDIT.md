@@ -15973,3 +15973,23 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-14 Packaged Model Picker Search Proof
+
+Overall grade after this slice: **A+ state ownership, A+ native fidelity, A+ reversible verification**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| State ownership | A+ | Model-picker presentation now lives beside the desktop's other presentation bindings, removing an unobservable view-local state island. |
+| Accessibility identity | A+ | Every selectable model row exposes a stable identifier derived from its canonical model ID while retaining its full human accessibility label. |
+| Native fidelity | A+ | The packaged app must AX-press the composer control, focus search, accept `Prometheus`, and expose the canonical Prometheus 1.0 row. |
+| State safety | A+ | Verification clears the temporary query and restores the picker presentation baseline without selecting a different model. |
+| Regression evidence | A+ | Swift fixtures and the Python manifest validator reject state-only evidence that lacks focus, AXValue entry, and a concrete model result. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeDesktopWindowReportTests|ParityNativeModelPickerGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

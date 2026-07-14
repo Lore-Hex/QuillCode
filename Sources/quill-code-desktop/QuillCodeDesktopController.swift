@@ -15,6 +15,7 @@ final class QuillCodeDesktopController: ObservableObject {
     @Published var isKeyboardShortcutsPresented = false
     @Published var isSearchPresented = false
     @Published var isFindPresented = false
+    @Published var isModelPickerPresented = false
     @Published var isProjectImporterPresented = false
     @Published var isImageImporterPresented = false
     @Published var copiedTranscriptItemID: String?

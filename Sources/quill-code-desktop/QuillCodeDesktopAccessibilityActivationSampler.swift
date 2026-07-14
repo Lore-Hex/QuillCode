@@ -71,6 +71,13 @@ struct QuillCodeDesktopAccessibilityActivationReport {
 @MainActor
 enum QuillCodeDesktopAccessibilityActivationSampler {
     private static let activationContracts: [QuillCodeDesktopAccessibilityActivationContract] = [
+        .presentation(
+            "composer.model-picker",
+            expectedOutcome: "model picker opens, focuses search, and surfaces a catalog result",
+            observe: { $0.isModelPickerPresented },
+            resetToBaseline: { $1.isModelPickerPresented = $0 },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyModelPickerSearch
+        ),
         QuillCodeDesktopAccessibilityActivationContract(
             contractID: "command.new-chat",
             phase: .workspaceReplacement,

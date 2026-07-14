@@ -102,6 +102,7 @@ struct QuillCodeDesktopRootView: View {
             isKeyboardShortcutsPresented: $controller.isKeyboardShortcutsPresented,
             isSearchPresented: $controller.isSearchPresented,
             isFindPresented: $controller.isFindPresented,
+            isModelPickerPresented: $controller.isModelPickerPresented,
             copiedTranscriptItemID: controller.copiedTranscriptItemID,
             onSend: controller.send,
             onAddImagesRequested: controller.requestAddImages,

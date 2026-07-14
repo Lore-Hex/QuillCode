@@ -94,6 +94,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("window-accessibility-shallow-search-report.json")
         let shallowNewChatActivationReport = temporaryDirectory
             .appendingPathComponent("window-accessibility-shallow-new-chat-report.json")
+        let shallowModelPickerActivationReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-shallow-model-picker-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
@@ -101,6 +103,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("shallow-search-packaged-accessibility-frames.json")
         let shallowNewChatAccessibilityFrames = temporaryDirectory
             .appendingPathComponent("shallow-new-chat-packaged-accessibility-frames.json")
+        let shallowModelPickerAccessibilityFrames = temporaryDirectory
+            .appendingPathComponent("shallow-model-picker-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
@@ -123,6 +127,12 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 with: "AXPress changed observable controller state"
             )
             .write(to: shallowNewChatActivationReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: "quillcode-model-picker-search focused, accepted reversible AXValue text entry, and surfaced the Prometheus 1.0 model option",
+                with: "AXPress changed observable controller state"
+            )
+            .write(to: shallowModelPickerActivationReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -286,6 +296,21 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 "command.new-chat does not prove one selected chat with focused AXValue entry"
             ),
             shallowNewChatResult.output
+        )
+
+        let shallowModelPickerResult = try Self.runPython(validator, arguments: [
+            "frames",
+            shallowModelPickerActivationReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            shallowModelPickerAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(shallowModelPickerResult.exitCode, 0)
+        XCTAssertTrue(
+            shallowModelPickerResult.output.contains(
+                "composer.model-picker does not prove focused catalog search"
+            ),
+            shallowModelPickerResult.output
         )
     }
 }
