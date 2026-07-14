@@ -15953,3 +15953,23 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-14 Packaged New Chat Activation And Immediate-Input Proof
+
+Overall grade after this slice: **A+ interaction behavior, A+ harness architecture, A+ state isolation**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Product behavior | A+ | `new-chat` now shares the command planner's composer-focus rule, so mouse, palette, and shortcut dispatches create one chat and leave the user ready to type. |
+| Native fidelity | A+ | The packaged app must AX-press New Chat, observe exactly one added selected thread, focus the identified composer, accept AXValue text, and clear it. |
+| Architecture | A+ | Typed activation state, contracts, and reusable text-entry verification are split from report orchestration; transient and workspace-replacing phases make native-element lifetime explicit. |
+| State safety | A+ | Smoke removes only thread IDs created by its activation, restores the baseline selection and draft, validates restoration, and resolves each later AX target from a fresh hierarchy. |
+| Regression coverage | A+ | Planner, transition, malformed-evidence, fixture, manifest, and real packaged direct/Launch Services/live-window tests cover every layer. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeWorkspaceViewCommandPlannerTests|QuillCodeDesktopWindowReportTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

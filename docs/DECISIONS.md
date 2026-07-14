@@ -961,3 +961,10 @@
 - **Mutation boundary:** Reconciliation may update durable PR metadata and may clear a merged worktree binding only when the checkout path is already absent. It never removes an existing checkout, invokes merge, or bypasses the explicit cleanup command.
 - **Failure boundary:** Authentication, network, malformed-response, and identity-mismatch failures stay silent in the background and stop polling. Manual Refresh remains the visible diagnostic path, while stale async results are discarded unless task ID, PR number, and head branch still match.
 - **Why:** Merge queues commonly finish after the user leaves the task or relaunches the app. The UI should become truthful without repeated manual refreshes, but background convenience must never broaden the exact-head and non-force cleanup safety boundary.
+
+## 2026-07-14: New Chat is an immediate typing transition
+
+- **Behavior:** Every rendered `new-chat` command creates and selects exactly one chat, then returns focus to the composer. A user can click New Chat and type without a second click; command-palette and keyboard routes keep the same shared command plan.
+- **Native proof:** Packaged macOS smoke AX-presses the real New Chat control, compares typed thread-set snapshots, requires one newly selected ID, focuses `quillcode-composer-input`, performs reversible AXValue text entry, and removes only the temporary smoke chat before restoring the prior selection and draft.
+- **Sequencing:** Accessibility activation contracts declare whether they mutate a transient surface or replace the workspace. Transient dialogs and panes run first; workspace-replacing actions run last and every target is resolved from a fresh AX tree. This prevents a valid view replacement from leaving later checks attached to stale native elements.
+- **Why:** A large hit target does not prove an app is ready for input. Creation count, selection, focus, text entry, and restoration are one interaction contract and one release gate.

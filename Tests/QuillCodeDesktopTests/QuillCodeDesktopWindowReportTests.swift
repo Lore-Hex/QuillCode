@@ -192,16 +192,62 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         ))
     }
 
-    func testWindowAccessibilityActivationSamplerRequiresSearchAndSafePrimaryActions() {
+    func testWindowAccessibilityActivationSamplerRequiresNewChatSearchAndSafePrimaryActions() {
         XCTAssertEqual(
             QuillCodeDesktopAccessibilityActivationSampler.requiredActivationContractIDs,
             [
+                "command.new-chat",
                 "command.search",
                 "command.settings",
                 "command.toggle-automations",
                 "command.toggle-extensions"
             ]
         )
+    }
+
+    func testNewChatActivationTransitionRequiresOneAddedSelectedThread() {
+        let baselineID = UUID()
+        let createdID = UUID()
+        let before = QuillCodeDesktopAccessibilityActivationState.workspaceThreads(.init(
+            selectedThreadID: baselineID,
+            threadIDs: [baselineID]
+        ))
+        let after = QuillCodeDesktopAccessibilityActivationState.workspaceThreads(.init(
+            selectedThreadID: createdID,
+            threadIDs: [baselineID, createdID]
+        ))
+
+        XCTAssertNil(QuillCodeDesktopAccessibilityInteractionVerifier.newChatTransitionIssue(
+            before: before,
+            after: after
+        ))
+    }
+
+    func testNewChatActivationTransitionRejectsMultipleOrUnselectedThreads() {
+        let baselineID = UUID()
+        let firstCreatedID = UUID()
+        let secondCreatedID = UUID()
+        let before = QuillCodeDesktopAccessibilityActivationState.workspaceThreads(.init(
+            selectedThreadID: baselineID,
+            threadIDs: [baselineID]
+        ))
+        let multipleAfter = QuillCodeDesktopAccessibilityActivationState.workspaceThreads(.init(
+            selectedThreadID: firstCreatedID,
+            threadIDs: [baselineID, firstCreatedID, secondCreatedID]
+        ))
+        let unselectedAfter = QuillCodeDesktopAccessibilityActivationState.workspaceThreads(.init(
+            selectedThreadID: baselineID,
+            threadIDs: [baselineID, firstCreatedID]
+        ))
+
+        XCTAssertNotNil(QuillCodeDesktopAccessibilityInteractionVerifier.newChatTransitionIssue(
+            before: before,
+            after: multipleAfter
+        ))
+        XCTAssertNotNil(QuillCodeDesktopAccessibilityInteractionVerifier.newChatTransitionIssue(
+            before: before,
+            after: unselectedAfter
+        ))
     }
 
     private func waitUntil(

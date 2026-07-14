@@ -92,11 +92,15 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         let blockedAccessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-blocked-report.json")
         let shallowSearchActivationReport = temporaryDirectory
             .appendingPathComponent("window-accessibility-shallow-search-report.json")
+        let shallowNewChatActivationReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-shallow-new-chat-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
         let shallowSearchAccessibilityFrames = temporaryDirectory
             .appendingPathComponent("shallow-search-packaged-accessibility-frames.json")
+        let shallowNewChatAccessibilityFrames = temporaryDirectory
+            .appendingPathComponent("shallow-new-chat-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
@@ -113,6 +117,12 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 with: "AXPress changed observable controller state"
             )
             .write(to: shallowSearchActivationReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: "created exactly one selected chat and quillcode-composer-input focused with reversible AXValue text entry",
+                with: "AXPress changed observable controller state"
+            )
+            .write(to: shallowNewChatActivationReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -261,6 +271,21 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             shallowSearchResult.output.contains("command.search does not prove focused AXValue text entry"),
             shallowSearchResult.output
+        )
+
+        let shallowNewChatResult = try Self.runPython(validator, arguments: [
+            "frames",
+            shallowNewChatActivationReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            shallowNewChatAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(shallowNewChatResult.exitCode, 0)
+        XCTAssertTrue(
+            shallowNewChatResult.output.contains(
+                "command.new-chat does not prove one selected chat with focused AXValue entry"
+            ),
+            shallowNewChatResult.output
         )
     }
 }

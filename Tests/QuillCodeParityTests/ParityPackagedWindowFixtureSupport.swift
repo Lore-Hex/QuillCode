@@ -207,6 +207,7 @@ extension QuillCodeParityTestCase {
     ]
 
     static let requiredLiveAccessibilityActivationContractIDs = [
+        "command.new-chat",
         "command.search",
         "command.settings",
         "command.toggle-automations",
@@ -243,6 +244,7 @@ extension QuillCodeParityTestCase {
 
     static func accessibilityActivationCheckJSON(contractID: String) -> String {
         let commandID = String(contractID.dropFirst("command.".count))
+        let values = accessibilityActivationValues(contractID: contractID)
         return """
               {
                 "contractID": "\(contractID)",
@@ -253,8 +255,8 @@ extension QuillCodeParityTestCase {
                 "label": "\(commandID)",
                 "activation": "AXPress",
                 "expectedOutcome": "\(accessibilityActivationExpectedOutcome(contractID: contractID))",
-                "beforeValue": "false",
-                "afterValue": "true",
+                "beforeValue": "\(values.before)",
+                "afterValue": "\(values.after)",
                 "axError": "success",
                 "interactionEvidence": "\(accessibilityActivationEvidence(contractID: contractID))",
                 "ok": true,
@@ -265,6 +267,8 @@ extension QuillCodeParityTestCase {
 
     static func accessibilityActivationExpectedOutcome(contractID: String) -> String {
         switch contractID {
+        case "command.new-chat":
+            return "creates and selects exactly one chat, then focuses its composer"
         case "command.search":
             return "search dialog opens, focuses its field, and accepts text"
         case "command.settings":
@@ -279,9 +283,20 @@ extension QuillCodeParityTestCase {
     }
 
     static func accessibilityActivationEvidence(contractID: String) -> String {
-        if contractID == "command.search" {
+        switch contractID {
+        case "command.new-chat":
+            return "created exactly one selected chat and quillcode-composer-input focused with reversible AXValue text entry"
+        case "command.search":
             return "quillcode-search-input focused and accepted reversible AXValue text entry"
+        default:
+            return "AXPress changed observable controller state"
         }
-        return "AXPress changed observable controller state"
+    }
+
+    static func accessibilityActivationValues(contractID: String) -> (before: String, after: String) {
+        if contractID == "command.new-chat" {
+            return ("selected=baseline;count=1", "selected=created;count=2")
+        }
+        return ("false", "true")
     }
 }
