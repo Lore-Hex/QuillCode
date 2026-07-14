@@ -34,6 +34,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         // New-worktree is context-free: the model resolves the selected project when it runs.
         XCTAssertEqual(planner.effect(for: .threadNewWorktree), .newWorktreeThread)
         XCTAssertEqual(planner.effect(for: .threadHandoff), .handoffSelectedThread)
+        XCTAssertEqual(planner.effect(for: .threadFinishWorktree), .finishSelectedWorktree)
     }
 
     func testProjectActionsRequireOnlyTheContextTheyUse() {

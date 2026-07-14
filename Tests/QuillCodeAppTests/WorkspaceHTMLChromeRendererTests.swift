@@ -273,11 +273,14 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         let detachedHTML = WorkspaceHTMLRenderer.render(model.surface())
         XCTAssertTrue(detachedHTML.contains(#"data-testid="top-bar-create-branch-button""#))
         XCTAssertTrue(detachedHTML.contains(#"data-command-id="thread-create-branch""#))
+        XCTAssertTrue(detachedHTML.contains(#"data-testid="top-bar-overflow-thread-finish-worktree""#))
+        XCTAssertTrue(detachedHTML.contains(#"data-command-id="thread-finish-worktree""#))
 
         model.root.threads[0].worktree?.branch = "feature/owned"
         let ownedHTML = WorkspaceHTMLRenderer.render(model.surface())
         XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-create-branch-button""#))
         XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-handoff-button""#))
+        XCTAssertFalse(ownedHTML.contains(#"data-testid="top-bar-overflow-thread-finish-worktree""#))
     }
 
     func testHTMLRendererHidesSidebarAndExpandsWorkspaceGrid() {

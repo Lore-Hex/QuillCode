@@ -61,6 +61,8 @@ enum QuillCodeCommandIconCatalog {
             return "arrow.counterclockwise"
         case "thread-handoff":
             return "arrow.left.arrow.right"
+        case "thread-finish-worktree":
+            return "checkmark.circle"
         case "thread-create-branch":
             return "arrow.triangle.branch"
         case "toggle-browser":

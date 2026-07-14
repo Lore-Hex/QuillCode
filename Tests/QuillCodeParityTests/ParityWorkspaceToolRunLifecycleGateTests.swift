@@ -10,10 +10,13 @@ final class ParityWorkspaceToolRunLifecycleGateTests: QuillCodeParityTestCase {
         let runBody = try Self.toolRunCoordinatorBody(in: coordinatorText)
 
         Self.assertSource(toolRunsText, contains: "extension QuillCodeWorkspaceModel")
-        Self.assertSource(
-            toolRunsText,
-            contains: "WorkspaceToolRunCoordinator(model: self, workspaceRoot: workspaceRoot).run(call)"
-        )
+        [
+            "WorkspaceToolRunCoordinator(",
+            "model: self",
+            "workspaceRoot: workspaceRoot",
+            "managedWorktreeRoot: managedWorktreeRoot",
+            ").run(call)"
+        ].forEach { Self.assertSource(toolRunsText, contains: $0) }
         Self.assertSource(modelText, excludes: "public func runToolCall")
 
         [

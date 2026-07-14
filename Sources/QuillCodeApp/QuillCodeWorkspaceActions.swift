@@ -42,6 +42,7 @@ public struct QuillCodeWorkspaceActions {
     let onCreateWorktreeThread: (WorkspaceNewWorktreeThreadRequest) -> Void
     let onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     let onCreateWorktreeBranch: (WorkspaceWorktreeCreateBranchRequest) -> Void
+    let onFinishWorktree: () -> Void
     let onListWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoad
     let onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     let onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
@@ -97,6 +98,7 @@ public struct QuillCodeWorkspaceActions {
         onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void = { _ in },
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> Void = { _ in },
+        onFinishWorktree: @escaping () -> Void = {},
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
@@ -153,6 +155,7 @@ public struct QuillCodeWorkspaceActions {
         self.onCreateWorktreeThread = onCreateWorktreeThread
         self.onCreateWorktree = onCreateWorktree
         self.onCreateWorktreeBranch = onCreateWorktreeBranch
+        self.onFinishWorktree = onFinishWorktree
         self.onListWorktreeChoices = onListWorktreeChoices
         self.onOpenWorktree = onOpenWorktree
         self.onRemoveWorktree = onRemoveWorktree

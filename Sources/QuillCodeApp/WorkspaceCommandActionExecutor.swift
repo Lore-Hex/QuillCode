@@ -100,6 +100,8 @@ extension QuillCodeWorkspaceModel {
             return restoreManagedWorktree(threadID: threadID)
         case .handoffSelectedThread:
             return handoffSelectedThread()
+        case .finishSelectedWorktree:
+            return finishSelectedWorktreeInLocal()
         case .setThreadPinned(let threadID, let isPinned):
             return setPinThread(threadID, isPinned: isPinned)
         case .clearThread(let threadID):

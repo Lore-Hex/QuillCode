@@ -24,6 +24,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "thread-restore-worktree": "arrow.counterclockwise",
             "thread-create-branch": "arrow.triangle.branch",
             "thread-handoff": "arrow.left.arrow.right",
+            "thread-finish-worktree": "checkmark.circle",
             "toggle-terminal": "terminal",
             "terminal-clear": "clear",
             "toggle-browser": "globe",

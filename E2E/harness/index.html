@@ -4745,6 +4745,7 @@
         { id: 'thread-restore-worktree', title: 'Restore worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'snapshot', 'restore', 'archive'], isEnabled: false },
         { id: 'thread-create-branch', title: 'Create branch here', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'branch', 'create', 'ownership'], isEnabled: false },
         { id: 'thread-handoff', title: 'Hand off task', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'handoff', 'local', 'worktree', 'move', 'transfer'], isEnabled: false },
+        { id: 'thread-finish-worktree', title: 'Finish task in Local', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'finish', 'land', 'local', 'worktree', 'cleanup'], isEnabled: false },
         { id: 'cycle-mode', title: 'Cycle approval mode', shortcut: 'Shift+Tab', category: 'Workspace', keywords: ['mode', 'approval', 'auto', 'plan', 'review', 'read-only', 'safety', 'cycle'], isEnabled: true },
         { id: 'focus-composer', title: 'Focus message input', shortcut: 'Cmd+L', category: 'Workspace', keywords: ['focus', 'composer', 'message', 'input', 'prompt', 'type'], isEnabled: true },
         { id: 'toggle-sidebar', title: 'Toggle sidebar', shortcut: 'Cmd+B', category: 'Navigation', keywords: ['sidebar', 'navigation', 'hide', 'show', 'chats', 'projects'], isEnabled: true },
@@ -7453,6 +7454,22 @@
             && !state.terminal.isRunning
           )
         } :
+        command.id === 'thread-finish-worktree' ? {
+          ...command,
+          title: selectedThread?.worktree?.location === 'local'
+            ? 'Finish worktree cleanup'
+            : 'Finish task in Local',
+          isEnabled: Boolean(
+            hasLocalProject
+            && selectedThread?.worktree
+            && !selectedThread.worktree.branch
+            && !selectedThread.isArchived
+            && !selectedThreadIsRunning
+            && !state.composer.isSending
+            && !state.terminal.isRunning
+            && (selectedThread.worktree.location === 'local' || selectedThread.worktree.isResolvable)
+          )
+        } :
         command.id === 'thread-pin' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && !selectedThread.isPinned && !selectedThread.isArchived } :
         command.id === 'thread-unpin' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && selectedThread.isPinned } :
         command.id === 'thread-clear' ? { ...command, isEnabled: hasThread && !selectedThreadIsEphemeral && !selectedThreadIsRunning && Boolean(state.transcript.messages.length || state.transcript.toolCards.length || state.transcript.timelineItems.length) } :
@@ -8734,6 +8751,7 @@
         'command-palette',
         'toggle-sidebar',
         'search',
+        ...(commandByID('thread-finish-worktree')?.isEnabled ? ['thread-finish-worktree'] : []),
         ...(state.settings.computerUseStatus.available ? [] : ['computer-use-setup']),
         'settings',
         'keyboard-shortcuts',
@@ -9782,6 +9800,10 @@
       document.querySelector('[data-testid="worktree-create-branch-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         createBranchHere(event.currentTarget.elements.namedItem('branch').value.trim());
+      });
+      document.querySelector('[data-testid="worktree-finish-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        finishWorktreeTask();
       });
       document.querySelector('[data-testid="worktree-open-form"]')?.addEventListener('input', event => {
         const form = event.currentTarget;
@@ -14408,6 +14430,7 @@
       'thread-create-branch',
       'thread-delete',
       'thread-duplicate',
+      'thread-finish-worktree',
       'thread-handoff',
       'thread-new-worktree',
       'thread-pin',
@@ -14758,6 +14781,13 @@
             : 'Handed off this task to its worktree.'
         );
         updateDynamicCommands();
+        render();
+        return;
+      }
+      if (commandID === 'thread-finish-worktree') {
+        const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+        if (!thread?.worktree || thread.worktree.branch) return;
+        state.worktreeDialog = { ...state.worktreeDialog, mode: 'finish' };
         render();
         return;
       }
@@ -16770,6 +16800,46 @@
             </form>
           </div>`;
       }
+      if (state.worktreeDialog.mode === 'finish') {
+        const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+        const cleanupOnly = thread?.worktree?.location === 'local';
+        const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+        const destinationName = selectedProject?.name || 'Local';
+        return `
+          <div class="search-panel" data-testid="worktree-finish-panel">
+            <form class="search-card" data-testid="worktree-finish-form" role="dialog" aria-label="${cleanupOnly ? 'Finish worktree cleanup' : 'Finish task in Local'}">
+              <header>
+                <div>
+                  <h2>${cleanupOnly ? 'Finish Worktree Cleanup' : 'Finish Task in Local'}</h2>
+                  <p>${cleanupOnly
+                    ? 'Retry safe removal of the isolated checkout while keeping this task in Local.'
+                    : 'Move this task into the Local checkout and safely remove its isolated worktree.'}</p>
+                </div>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-close">Close</button>
+              </header>
+              <div class="dialog-choice-list" data-testid="worktree-finish-details">
+                <div class="dialog-choice">
+                  <strong>${cleanupOnly ? 'Keep the task in Local' : 'Transfer verified task state'}</strong>
+                  <span>${cleanupOnly
+                    ? 'No task files move during cleanup.'
+                    : 'Committed, staged, unstaged, and bounded local files must match in Local before cleanup.'}</span>
+                </div>
+                <div class="dialog-choice">
+                  <strong>Preserve concurrent edits</strong>
+                  <span>The isolated checkout is removed without force. If Git finds new changes, it stays available for recovery.</span>
+                </div>
+                <div class="dialog-choice">
+                  <strong>Continue in ${escapeHTML(destinationName)}</strong>
+                  <span>This chat and future commands use the Local checkout after completion.</span>
+                </div>
+              </div>
+              <div class="settings-actions">
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" class="hit-target-form-action" data-testid="worktree-finish-submit">${cleanupOnly ? 'Retry Cleanup' : 'Finish Task'}</button>
+              </div>
+            </form>
+          </div>`;
+      }
       if (state.worktreeDialog.mode === 'create') {
         return `
           <div class="search-panel" data-testid="worktree-create-panel">
@@ -17069,6 +17139,43 @@
         });
       }
       addMessage('assistant', 'Started a detached worktree task with the current local changes.');
+      render();
+    }
+
+    function finishWorktreeTask() {
+      const thread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      if (!thread?.worktree || thread.worktree.branch) return;
+      const requiresHandoff = thread.worktree.location !== 'local';
+      if (requiresHandoff) {
+        thread.worktree.location = 'local';
+        thread.worktree.branchLeaf = 'Local';
+        state.topBar.worktreeStatusLabel = 'Local';
+        state.topBar.worktreeStatusDetail = 'Runs for this task use the local checkout. Associated worktree: /mock/quillcode-worktree-experiment.';
+      }
+      if (window.__quillCodeFailNextWorktreeFinishCleanup) {
+        window.__quillCodeFailNextWorktreeFinishCleanup = false;
+        state.worktreeDialog.mode = null;
+        addMessage(
+          'assistant',
+          'Task changes are in Local, but the isolated worktree was preserved because Git could not remove it safely. Review the failed removal, then retry Finish cleanup.'
+        );
+        updateDynamicCommands();
+        render();
+        return;
+      }
+
+      delete thread.worktree;
+      state.topBar.worktreeStatusLabel = null;
+      state.topBar.worktreeStatusDetail = '';
+      state.topBar.worktreeStatusIsWarning = false;
+      state.worktreeDialog.mode = null;
+      addMessage(
+        'assistant',
+        requiresHandoff
+          ? 'Finished this task in Local and removed its isolated worktree.'
+          : 'Finished this task in Local and completed worktree cleanup.'
+      );
+      updateDynamicCommands();
       render();
     }
 

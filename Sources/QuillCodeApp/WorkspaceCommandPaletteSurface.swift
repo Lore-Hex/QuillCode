@@ -66,6 +66,7 @@ public enum TopBarOverflowCommandCatalog {
             commandIDs.append("computer-use-setup")
         }
         commandIDs.append(contentsOf: [
+            WorkspaceCommandAction.threadFinishWorktree.rawValue,
             "settings",
             "keyboard-shortcuts",
             "disconnect-all"
@@ -80,7 +81,12 @@ public enum TopBarOverflowCommandCatalog {
         commandIDs(showsComputerUseSetup: showsComputerUseSetup).compactMap { commandID in
             commands.first { $0.id == commandID }
         }.filter { command in
-            command.id != "disconnect-all" || command.isEnabled
+            switch command.id {
+            case "disconnect-all", WorkspaceCommandAction.threadFinishWorktree.rawValue:
+                command.isEnabled
+            default:
+                true
+            }
         }
     }
 

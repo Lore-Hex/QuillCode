@@ -86,4 +86,11 @@ extension QuillCodeWorkspaceModel {
             thread.updatedAt = Date()
         }
     }
+
+    func clearWorktreeBinding(threadID: UUID) {
+        mutateThread(threadID) { thread in
+            thread.worktree = nil
+            thread.updatedAt = Date()
+        }
+    }
 }

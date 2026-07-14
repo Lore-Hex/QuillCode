@@ -37,6 +37,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case newWorktreeThread
     case restoreManagedWorktree(threadID: UUID)
     case handoffSelectedThread
+    case finishSelectedWorktree
     case setThreadPinned(threadID: UUID, isPinned: Bool)
     case clearThread(threadID: UUID)
     case revertLatestTurn
@@ -141,6 +142,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .restoreManagedWorktree(threadID: selectedThreadID)
         case .threadHandoff:
             return .handoffSelectedThread
+        case .threadFinishWorktree:
+            return .finishSelectedWorktree
         case .threadCreateBranch:
             return .setDraft("/branch create ")
         case .threadPin:

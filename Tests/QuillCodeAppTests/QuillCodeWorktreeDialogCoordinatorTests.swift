@@ -36,6 +36,25 @@ final class QuillCodeWorktreeDialogCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.createBranchDraft.request.branch, "feature/owned-task")
     }
 
+    func testPresentFinishBuildsTransferAndCleanupCopy() {
+        let coordinator = QuillCodeWorktreeDialogCoordinator()
+
+        coordinator.presentFinish(destinationName: "QuillCode", isCleanupOnly: false)
+
+        XCTAssertEqual(coordinator.sheet, .finish)
+        XCTAssertEqual(coordinator.finishDraft.destinationName, "QuillCode")
+        XCTAssertFalse(coordinator.finishDraft.isCleanupOnly)
+        XCTAssertEqual(coordinator.finishDraft.title, "Finish Task in Local")
+        XCTAssertTrue(coordinator.finishDraft.subtitle.contains("safely remove"))
+
+        coordinator.presentFinish(destinationName: "QuillCode", isCleanupOnly: true)
+
+        XCTAssertEqual(coordinator.sheet, .finish)
+        XCTAssertTrue(coordinator.finishDraft.isCleanupOnly)
+        XCTAssertEqual(coordinator.finishDraft.title, "Finish Worktree Cleanup")
+        XCTAssertTrue(coordinator.finishDraft.subtitle.contains("already runs"))
+    }
+
     func testPresentOpenLoadsChoicesIntoOpenDraft() async {
         let coordinator = QuillCodeWorktreeDialogCoordinator()
         let choice = WorkspaceWorktreeChoice(

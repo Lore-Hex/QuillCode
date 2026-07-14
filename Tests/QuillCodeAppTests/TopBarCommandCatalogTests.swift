@@ -2,6 +2,50 @@ import XCTest
 @testable import QuillCodeApp
 
 final class TopBarCommandCatalogTests: XCTestCase {
+    func testOverflowShowsFinishOnlyWhileManagedTaskCanFinish() {
+        let baseCommands = [
+            command(id: "command-palette", title: "Command Palette"),
+            command(id: "toggle-sidebar", title: "Toggle Sidebar"),
+            command(id: "search", title: "Search"),
+            command(id: "thread-finish-worktree", title: "Finish task in Local"),
+            command(id: "settings", title: "Settings"),
+            command(id: "keyboard-shortcuts", title: "Keyboard Shortcuts"),
+            command(id: "disconnect-all", title: "Disconnect All", isEnabled: false)
+        ]
+
+        XCTAssertEqual(
+            TopBarOverflowCommandCatalog.commands(
+                from: baseCommands,
+                showsComputerUseSetup: false
+            ).map(\.id),
+            [
+                "command-palette",
+                "toggle-sidebar",
+                "search",
+                "thread-finish-worktree",
+                "settings",
+                "keyboard-shortcuts"
+            ]
+        )
+
+        let disabledFinish = baseCommands.map { command in
+            command.id == "thread-finish-worktree"
+                ? WorkspaceCommandSurface(
+                    id: command.id,
+                    title: command.title,
+                    category: command.category,
+                    isEnabled: false
+                )
+                : command
+        }
+        XCTAssertFalse(
+            TopBarOverflowCommandCatalog.commands(
+                from: disabledFinish,
+                showsComputerUseSetup: false
+            ).contains { $0.id == "thread-finish-worktree" }
+        )
+    }
+
     func testProjectActionsKeepRunnableEnvironmentCommandsInSourceOrder() {
         let commands = [
             command(id: "search", title: "Search", category: WorkspaceCommandPalette.navigationCategory),

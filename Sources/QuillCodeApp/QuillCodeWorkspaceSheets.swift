@@ -14,6 +14,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var newWorktreeTaskDraft: QuillCodeNewWorktreeTaskDraft
     @Binding var createWorktreeDraft: QuillCodeWorktreeCreateDraft
     @Binding var createWorktreeBranchDraft: QuillCodeWorktreeCreateBranchDraft
+    @Binding var finishWorktreeDraft: QuillCodeWorktreeFinishDraft
     @Binding var openWorktreeDraft: QuillCodeWorktreeOpenDraft
     @Binding var removeWorktreeDraft: QuillCodeWorktreeRemoveDraft
     @Binding var pruneWorktreeDraft: QuillCodeWorktreePruneDraft
@@ -28,6 +29,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onCreateWorktreeThread: (WorkspaceNewWorktreeThreadRequest) -> Void
     var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     var onCreateWorktreeBranch: (WorkspaceWorktreeCreateBranchRequest) -> Void
+    var onFinishWorktree: () -> Void
     var onRetryWorktreeChoices: (QuillCodeWorktreeSheet) -> Void
     var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
@@ -196,6 +198,12 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                 onCancel: dismissWorktreeSheet,
                 onCreate: createWorktreeBranch
             )
+        case .finish:
+            QuillCodeWorktreeFinishView(
+                draft: finishWorktreeDraft,
+                onCancel: dismissWorktreeSheet,
+                onFinish: finishWorktree
+            )
         case .open:
             QuillCodeWorktreeOpenView(
                 draft: $openWorktreeDraft,
@@ -267,6 +275,11 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
 
     private func createWorktreeBranch() {
         onCreateWorktreeBranch(createWorktreeBranchDraft.request)
+        worktreeSheet = nil
+    }
+
+    private func finishWorktree() {
+        onFinishWorktree()
         worktreeSheet = nil
     }
 
@@ -344,6 +357,7 @@ extension View {
         newWorktreeTaskDraft: Binding<QuillCodeNewWorktreeTaskDraft>,
         createWorktreeDraft: Binding<QuillCodeWorktreeCreateDraft>,
         createWorktreeBranchDraft: Binding<QuillCodeWorktreeCreateBranchDraft>,
+        finishWorktreeDraft: Binding<QuillCodeWorktreeFinishDraft>,
         openWorktreeDraft: Binding<QuillCodeWorktreeOpenDraft>,
         removeWorktreeDraft: Binding<QuillCodeWorktreeRemoveDraft>,
         pruneWorktreeDraft: Binding<QuillCodeWorktreePruneDraft>,
@@ -358,6 +372,7 @@ extension View {
         onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onCreateWorktreeBranch: @escaping (WorkspaceWorktreeCreateBranchRequest) -> Void,
+        onFinishWorktree: @escaping () -> Void,
         onRetryWorktreeChoices: @escaping (QuillCodeWorktreeSheet) -> Void,
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
@@ -382,6 +397,7 @@ extension View {
             newWorktreeTaskDraft: newWorktreeTaskDraft,
             createWorktreeDraft: createWorktreeDraft,
             createWorktreeBranchDraft: createWorktreeBranchDraft,
+            finishWorktreeDraft: finishWorktreeDraft,
             openWorktreeDraft: openWorktreeDraft,
             removeWorktreeDraft: removeWorktreeDraft,
             pruneWorktreeDraft: pruneWorktreeDraft,
@@ -396,6 +412,7 @@ extension View {
             onCreateWorktreeThread: onCreateWorktreeThread,
             onCreateWorktree: onCreateWorktree,
             onCreateWorktreeBranch: onCreateWorktreeBranch,
+            onFinishWorktree: onFinishWorktree,
             onRetryWorktreeChoices: onRetryWorktreeChoices,
             onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
