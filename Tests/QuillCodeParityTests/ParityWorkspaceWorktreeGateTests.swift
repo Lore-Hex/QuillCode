@@ -182,6 +182,35 @@ final class ParityWorkspaceWorktreeGateTests: QuillCodeParityTestCase {
         Self.assertSource(playwright, contains: "shows automatic environment setup in the transcript")
     }
 
+    func testPullRequestReconciliationStaysAutomaticBoundedAndOffMainThread() throws {
+        let model = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let bootstrap = try Self.appSourceText(named: "WorkspaceBootstrap.swift")
+        let selection = try Self.appSourceText(named: "WorkspaceModelThreadSelection.swift")
+        let reconciliation = try Self.appSourceText(
+            named: "WorkspaceModelPullRequestReconciliation.swift"
+        )
+        let tests = try Self.appTestSourceText(
+            named: "WorkspacePullRequestReconciliationTests.swift"
+        )
+
+        Self.assertSource(model, contains: "pullRequestReconciliationTask?.cancel()")
+        Self.assertSource(bootstrap, contains: "scheduleSelectedPullRequestReconciliation()")
+        Self.assertSource(selection, contains: "scheduleSelectedPullRequestReconciliation()")
+        Self.assertSource(reconciliation, contains: "Task.detached(priority: .utility)")
+        Self.assertSource(reconciliation, contains: "Task.sleep(for: .seconds(15))")
+        Self.assertSource(reconciliation, contains: "lookup.warning == nil")
+        Self.assertSource(reconciliation, contains: "!FileManager.default.fileExists")
+        Self.assertSource(
+            tests,
+            contains: "testQueuedPullRequestRefreshesToMergedWithoutRemovingExistingWorktree"
+        )
+        Self.assertSource(
+            tests,
+            contains: "testPersistedMergedStateRepairsAnAlreadyMissingWorktreeAfterRelaunch"
+        )
+        Self.assertSource(tests, contains: "testLookupFailureIsSilentAndStopsPolling")
+    }
+
     private func assertWorktreeRequestAndEngineContracts(
         _ requestsText: String,
         _ engineText: String,

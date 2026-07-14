@@ -95,6 +95,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         )
         model.refreshSelectedProjectInstructions()
         model.enforceManagedWorktreeRetention()
+        model.scheduleSelectedPullRequestReconciliation()
         return model
     }
 

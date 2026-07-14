@@ -68,6 +68,7 @@ public final class QuillCodeWorkspaceModel {
     let mcpRuntime: WorkspaceMCPRuntime
     let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
     var activeTerminalSession: (any ShellInteractiveSession)?
+    var pullRequestReconciliationTask: Task<Void, Never>?
     /// Test seam for deterministic scheduler behavior. Production builds leave this nil and create
     /// a scheduler from the originating chat's fully configured agent session at dispatch time.
     /// Building it per run is essential: project, worktree, model, permissions, MCP, and SSH routing
@@ -201,6 +202,7 @@ public final class QuillCodeWorkspaceModel {
 
     deinit {
         activeTerminalSession?.cancel()
+        pullRequestReconciliationTask?.cancel()
         mcpRuntime.terminateAllRunningProcesses()
     }
 
