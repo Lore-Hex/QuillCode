@@ -19,6 +19,7 @@ enum WorkspaceToolDisplayNameBuilder {
         ToolDefinition.gitBranchSwitch.name,
         ToolDefinition.gitStage.name,
         ToolDefinition.gitStageHunk.name,
+        ToolDefinition.gitUnstageHunk.name,
         ToolDefinition.gitRestore.name,
         ToolDefinition.gitRestoreHunk.name,
         ToolDefinition.gitCommit.name,
@@ -97,6 +98,8 @@ enum WorkspaceToolDisplayNameBuilder {
             return "Switch branch"
         case ToolDefinition.gitStage.name, ToolDefinition.gitStageHunk.name:
             return "Stage changes"
+        case ToolDefinition.gitUnstageHunk.name:
+            return "Unstage changes"
         case ToolDefinition.gitRestore.name, ToolDefinition.gitRestoreHunk.name:
             return "Restore changes"
         case ToolDefinition.gitCommit.name:

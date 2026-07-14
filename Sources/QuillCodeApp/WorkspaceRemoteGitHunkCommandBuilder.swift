@@ -6,6 +6,7 @@ import QuillCodeTools
 enum WorkspaceRemoteGitHunkCommandBuilder {
     static let toolNames: Set<String> = [
         ToolDefinition.gitStageHunk.name,
+        ToolDefinition.gitUnstageHunk.name,
         ToolDefinition.gitRestoreHunk.name
     ]
 
@@ -17,6 +18,13 @@ enum WorkspaceRemoteGitHunkCommandBuilder {
                 patch: try args.requiredString("patch"),
                 applyArguments: ["--cached", "--whitespace=nowarn"],
                 successMessage: "Hunk staged.\\n"
+            )
+        case ToolDefinition.gitUnstageHunk.name:
+            return try command(
+                path: try args.requiredString("path"),
+                patch: try args.requiredString("patch"),
+                applyArguments: ["--cached", "--reverse", "--whitespace=nowarn"],
+                successMessage: "Hunk unstaged.\\n"
             )
         case ToolDefinition.gitRestoreHunk.name:
             return try command(

@@ -30,6 +30,18 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(review.badgeLabel, "3 hunks")
     }
 
+    func testReviewSurfaceKeepsSuccessfulEmptyDiffVisibleByScope() {
+        let unstaged = WorkspaceReviewSurface(activeScope: .unstaged)
+        let staged = WorkspaceReviewSurface(activeScope: .staged)
+
+        XCTAssertTrue(unstaged.isVisible)
+        XCTAssertEqual(unstaged.subtitle, "No unstaged changes")
+        XCTAssertEqual(unstaged.availableScopes, [.unstaged, .staged])
+        XCTAssertTrue(staged.isVisible)
+        XCTAssertEqual(staged.subtitle, "No staged changes")
+        XCTAssertEqual(staged.activeScope, .staged)
+    }
+
     func testReviewSurfaceSummarizesPullRequestThreads() {
         let unresolved = WorkspacePullRequestReviewThreadSurface(
             id: "PRRT_one",
@@ -284,6 +296,21 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
             "restore_hunk:Sources/App.swift:hunk-1"
         ])
         XCTAssertEqual(hunk.actions[0].patch, hunk.patch)
+
+        XCTAssertEqual(file.actions(in: .staged).map(\.kind), [.unstage])
+        XCTAssertEqual(file.actions(in: .staged).map(\.scope), [.staged])
+        XCTAssertEqual(hunk.actions(in: .staged).map(\.kind), [.unstageHunk])
+        XCTAssertEqual(hunk.actions(in: .staged).map(\.scope), [.staged])
+        XCTAssertEqual(WorkspaceReviewActionKind.unstage.title, "Unstage")
+        XCTAssertEqual(WorkspaceReviewActionKind.unstageHunk.title, "Unstage hunk")
+    }
+
+    func testReviewActionDecodesLegacyPayloadAsUnstaged() throws {
+        let data = #"{"kind":"stage","path":"Sources/App.swift"}"#.data(using: .utf8)!
+
+        let action = try JSONDecoder().decode(WorkspaceReviewActionSurface.self, from: data)
+
+        XCTAssertEqual(action.scope, .unstaged)
     }
 
     func testReviewFileOmitsOpenForDeletedFiles() {

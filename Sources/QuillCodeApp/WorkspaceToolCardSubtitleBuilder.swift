@@ -27,7 +27,8 @@ enum WorkspaceToolCardSubtitleBuilder {
         case ToolDefinition.fileRead.name, ToolDefinition.fileWrite.name,
              ToolDefinition.fileList.name,
              ToolDefinition.gitStage.name, ToolDefinition.gitRestore.name,
-             ToolDefinition.gitStageHunk.name, ToolDefinition.gitRestoreHunk.name,
+             ToolDefinition.gitStageHunk.name, ToolDefinition.gitUnstageHunk.name,
+             ToolDefinition.gitRestoreHunk.name,
              ToolDefinition.gitPullRequestDiff.name, ToolDefinition.gitPullRequestReviewComment.name,
              ToolDefinition.gitWorktreeRemove.name:
             return sanitized(arguments.string("path"))

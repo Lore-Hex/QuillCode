@@ -11,7 +11,7 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
         let pullRequestThreads = latestPullRequestReviewThreadsCard
             .flatMap(pullRequestReviewThreads(from:)) ?? []
 
-        guard let result = latestCompletedGitDiffResult else {
+        guard let completedDiff = latestCompletedGitDiffResult else {
             return WorkspaceReviewSurface(
                 title: pullRequestThreads.isEmpty ? "Review changes" : "Review threads",
                 files: [],
@@ -20,7 +20,10 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
             )
         }
 
-        var review = GitDiffReviewParser.parse(result.stdout)
+        var review = GitDiffReviewParser.parse(
+            completedDiff.result.stdout,
+            scope: completedDiff.scope
+        )
         review.pullRequestThreads = pullRequestThreads
         review.pullRequestReviewDraft = pullRequestReviewDraft
         let commentBuckets = Self.reviewCommentBuckets(from: events)
@@ -45,7 +48,12 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
         return review
     }
 
-    private var latestCompletedGitDiffResult: ToolResult? {
+    private struct CompletedGitDiff: Sendable, Hashable {
+        var result: ToolResult
+        var scope: WorkspaceReviewScope
+    }
+
+    private var latestCompletedGitDiffResult: CompletedGitDiff? {
         guard let card = toolCards.reversed().first(where: { $0.title == ToolDefinition.gitDiff.name }),
               card.status == .done,
               let outputJSON = card.outputJSON,
@@ -54,7 +62,19 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
         else {
             return nil
         }
-        return result
+        return CompletedGitDiff(
+            result: result,
+            scope: reviewScope(from: card.inputJSON)
+        )
+    }
+
+    private func reviewScope(from inputJSON: String?) -> WorkspaceReviewScope {
+        guard let inputJSON,
+              let arguments = try? ToolArguments(inputJSON)
+        else {
+            return .unstaged
+        }
+        return arguments.bool("staged") == true ? .staged : .unstaged
     }
 
     private var latestPullRequestReviewThreadsCard: ToolCardState? {

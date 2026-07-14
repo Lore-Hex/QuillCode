@@ -108,7 +108,8 @@ final class ParityWorkspacePlaywrightInteractionSpecGateTests: QuillCodeParityTe
             "shows git review summary for diff flow",
             "flows apply patch into review diff",
             "stages a changed file from the review pane",
-            "stages a single hunk from the review pane",
+            "switches staged review scope and unstages without discarding the change",
+            "stages and unstages a single hunk without discarding it",
             "commits staged changes in one turn"
         ]
 

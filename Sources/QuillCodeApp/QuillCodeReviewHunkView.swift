@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeReviewHunkView: View {
     var hunk: WorkspaceReviewHunkSurface
+    var scope: WorkspaceReviewScope
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
 
@@ -40,7 +41,7 @@ struct QuillCodeReviewHunkView: View {
             .help("Add range note")
             .foregroundStyle(QuillCodePalette.blue)
             .disabled(hunk.lines.isEmpty)
-            ForEach(hunk.actions) { action in
+            ForEach(hunk.actions(in: scope)) { action in
                 QuillCodeReviewActionButton(action: action, path: hunk.path, onReviewAction: onReviewAction)
             }
         }

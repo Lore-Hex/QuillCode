@@ -4,7 +4,8 @@ enum WorkspaceHTMLReviewRenderer {
     static func render(_ review: WorkspaceReviewSurface) -> String {
         guard review.isVisible else { return "" }
         let pullRequestReviewDraft = renderPullRequestReviewDraft(review.pullRequestReviewDraft)
-        let files = review.files.map(renderFile).joined(separator: "\n")
+        let scope = review.activeScope ?? .unstaged
+        let files = review.files.map { renderFile($0, scope: scope) }.joined(separator: "\n")
         let pullRequestThreads = renderPullRequestThreads(review.pullRequestThreads)
         return """
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
@@ -13,12 +14,29 @@ enum WorkspaceHTMLReviewRenderer {
             <span data-testid="review-summary">\(escape(review.subtitle))</span>
             <small data-testid="review-badge">\(escape(review.badgeLabel))</small>
           </header>
+          \(renderScopes(review))
           \(pullRequestReviewDraft)
           <ul>
             \(files)
           </ul>
           \(pullRequestThreads)
         </section>
+        """
+    }
+
+    private static func renderScopes(_ review: WorkspaceReviewSurface) -> String {
+        guard let activeScope = review.activeScope else { return "" }
+        return """
+        <div class="review-scopes" data-testid="review-scopes" role="group" aria-label="Review scope">
+          \(review.availableScopes.map { scope in
+              let isActive = scope == activeScope
+              return """
+              <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .text, classes: ["review-scope-button"])) data-testid="review-scope" data-scope="\(escape(scope.rawValue))" aria-pressed="\(isActive ? "true" : "false")">
+                \(escape(scope.title))
+              </button>
+              """
+          }.joined(separator: "\n"))
+        </div>
         """
     }
 
@@ -121,7 +139,10 @@ enum WorkspaceHTMLReviewRenderer {
         }
     }
 
-    private static func renderFile(_ file: WorkspaceReviewFileSurface) -> String {
+    private static func renderFile(
+        _ file: WorkspaceReviewFileSurface,
+        scope: WorkspaceReviewScope
+    ) -> String {
         let comments = file.comments.map { comment in
             """
             <blockquote data-testid="review-comment">\(escape(comment.text))</blockquote>
@@ -135,22 +156,25 @@ enum WorkspaceHTMLReviewRenderer {
           <span data-testid="review-file-path">\(escape(file.path))</span>
           <small>\(escape(file.changeLabel))</small>
           <span>
-            \(file.actions.map(renderAction).joined(separator: "\n"))
+            \(file.actions(in: scope).map(renderAction).joined(separator: "\n"))
           </span>
           \(unreadable)
-          \(file.hunkItems.map(renderHunk).joined(separator: "\n"))
+          \(file.hunkItems.map { renderHunk($0, scope: scope) }.joined(separator: "\n"))
           \(comments)
         </li>
         """
     }
 
-    private static func renderHunk(_ hunk: WorkspaceReviewHunkSurface) -> String {
+    private static func renderHunk(
+        _ hunk: WorkspaceReviewHunkSurface,
+        scope: WorkspaceReviewScope
+    ) -> String {
         """
         <div data-testid="review-hunk">
           <code data-testid="review-hunk-header">\(escape(hunk.header))</code>
           <small>\(escape(hunk.changeLabel))</small>
           <span>
-            \(hunk.actions.map(renderAction).joined(separator: "\n"))
+            \(hunk.actions(in: scope).map(renderAction).joined(separator: "\n"))
           </span>
           <ol data-testid="review-lines">
             \(hunk.lines.map(renderLine).joined(separator: "\n"))

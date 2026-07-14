@@ -110,6 +110,17 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         )
     }
 
+    func runReviewScopeChange(
+        _ scope: WorkspaceReviewScope,
+        model: QuillCodeWorkspaceModel,
+        fallbackWorkspaceRoot: URL
+    ) {
+        model.runReviewScopeChange(
+            scope,
+            workspaceRoot: activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
+        )
+    }
+
     func runTurnRevert(
         turnMessageID: UUID,
         model: QuillCodeWorkspaceModel,

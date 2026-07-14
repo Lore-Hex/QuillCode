@@ -15,6 +15,10 @@ struct QuillCodeReviewActionButton: View {
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("\(action.kind.title) \(path)")
-        .foregroundStyle(action.kind == .restore || action.kind == .restoreHunk ? QuillCodePalette.yellow : QuillCodePalette.blue)
+        .foregroundStyle(isDestructiveRestore ? QuillCodePalette.yellow : QuillCodePalette.blue)
+    }
+
+    private var isDestructiveRestore: Bool {
+        action.kind == .restore || action.kind == .restoreHunk
     }
 }

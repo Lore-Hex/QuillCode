@@ -1,7 +1,10 @@
 import Foundation
 
 enum GitDiffReviewParser {
-    static func parse(_ diff: String) -> WorkspaceReviewSurface {
+    static func parse(
+        _ diff: String,
+        scope: WorkspaceReviewScope? = nil
+    ) -> WorkspaceReviewSurface {
         var files: [WorkspaceReviewFileSurface] = []
         var current: DiffFileAccumulator?
 
@@ -55,7 +58,7 @@ enum GitDiffReviewParser {
         }
 
         finishCurrentFile()
-        return WorkspaceReviewSurface(files: files)
+        return WorkspaceReviewSurface(activeScope: scope, files: files)
     }
 
     private static func pathFromNewFileHeader(_ line: String) -> String? {

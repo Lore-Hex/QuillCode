@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
+    var onReviewScopeChange: (WorkspaceReviewScope) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
@@ -13,6 +14,9 @@ struct QuillCodeReviewPaneView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            if !review.availableScopes.isEmpty {
+                scopePicker
+            }
             if let draft = review.pullRequestReviewDraft {
                 QuillCodePullRequestReviewDraftView(
                     draft: draft,
@@ -43,6 +47,25 @@ struct QuillCodeReviewPaneView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var scopePicker: some View {
+        Picker(
+            "Review scope",
+            selection: Binding(
+                get: { review.activeScope ?? .unstaged },
+                set: { scope in onReviewScopeChange(scope) }
+            )
+        ) {
+            ForEach(review.availableScopes) { scope in
+                Text(scope.title).tag(scope)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .quillCodeSegmentedControlTarget()
+        .frame(width: 216, alignment: .leading)
+        .accessibilityIdentifier("quillcode-review-scope")
     }
 
     private var header: some View {
@@ -76,6 +99,7 @@ struct QuillCodeReviewPaneView: View {
             ForEach(review.files) { file in
                 QuillCodeReviewFileRowView(
                     file: file,
+                    scope: review.activeScope ?? .unstaged,
                     onReviewAction: onReviewAction,
                     onAddReviewComment: onAddReviewComment
                 )

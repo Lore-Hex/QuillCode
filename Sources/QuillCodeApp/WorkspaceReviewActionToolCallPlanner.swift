@@ -19,7 +19,10 @@ enum WorkspaceReviewActionToolCallPlanner {
         WorkspaceReviewActionRunPlan(
             actionCall: toolCall(for: action),
             diffRefreshCall: action.kind.isMutating
-                ? ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
+                ? ToolCall(
+                    name: ToolDefinition.gitDiff.name,
+                    argumentsJSON: action.scope.gitDiffArgumentsJSON
+                )
                 : nil
         )
     }
@@ -38,6 +41,14 @@ enum WorkspaceReviewActionToolCallPlanner {
                 name: ToolDefinition.gitStage.name,
                 argumentsJSON: ToolArguments.json(["path": action.path])
             )
+        case .unstage:
+            return ToolCall(
+                name: ToolDefinition.gitRestore.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": action.path,
+                    "staged": true
+                ])
+            )
         case .restore:
             return ToolCall(
                 name: ToolDefinition.gitRestore.name,
@@ -46,6 +57,11 @@ enum WorkspaceReviewActionToolCallPlanner {
         case .stageHunk:
             return hunkToolCall(
                 name: ToolDefinition.gitStageHunk.name,
+                action: action
+            )
+        case .unstageHunk:
+            return hunkToolCall(
+                name: ToolDefinition.gitUnstageHunk.name,
                 action: action
             )
         case .restoreHunk:
