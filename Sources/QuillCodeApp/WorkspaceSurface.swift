@@ -148,7 +148,7 @@ public extension QuillCodeWorkspaceModel {
         ).surface()
         // Compute the review (git-diff) surface once and reuse it: the review pane renders it in full,
         // and the Activity pane's `.changes` section shows a glanceable per-file roll-up of the same delta.
-        let review = WorkspaceReviewSurfaceBuilder(
+        var review = WorkspaceReviewSurfaceBuilder(
             toolCards: toolCards,
             events: thread?.events ?? [],
             thread: thread,
@@ -156,6 +156,7 @@ public extension QuillCodeWorkspaceModel {
             allowsTurnRevert: selectedProject?.isRemote != true,
             pullRequestReviewDraft: pullRequestReviewDraft
         ).surface()
+        review.isPresented = chrome.isReviewVisible
         return WorkspaceSurface(
             chrome: WorkspaceChromeSurface(state: chrome),
             topBar: topBar,
@@ -299,7 +300,10 @@ public extension QuillCodeWorkspaceModel {
             workflowRecordingAvailable: computerUseBackend is any WorkflowRecordingBackend,
             workflowRecordingIsActive: workflowRecordingStatus?.isRecording == true,
             selectedThreadIsRunning: isAgentRunActive(for: root.selectedThreadID),
-            runningThreadIDs: activeAgentRunThreadIDs
+            runningThreadIDs: activeAgentRunThreadIDs,
+            shortcutProfile: WorkspaceShortcutRegistry.profile(
+                preferences: root.config.keyboardShortcuts
+            )
         )
     }
 

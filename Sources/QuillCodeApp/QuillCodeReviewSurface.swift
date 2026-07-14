@@ -1,6 +1,7 @@
 import Foundation
 
 public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
+    public var isPresented: Bool
     public var title: String
     public var subtitle: String
     public var activeScope: WorkspaceReviewScope?
@@ -14,8 +15,12 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     public var totalDeletions: Int
     public var totalHunks: Int
 
-    public var isVisible: Bool {
+    public var hasContent: Bool {
         activeScope != nil || !files.isEmpty || !pullRequestThreads.isEmpty || pullRequestReviewDraft != nil
+    }
+
+    public var isVisible: Bool {
+        isPresented && hasContent
     }
 
     public var availableScopes: [WorkspaceReviewScope] {
@@ -88,6 +93,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case isPresented
         case title
         case subtitle
         case activeScope
@@ -103,6 +109,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     }
 
     public init(
+        isPresented: Bool = true,
         title: String = "Review changes",
         subtitle: String = "Latest git diff",
         activeScope: WorkspaceReviewScope? = nil,
@@ -113,6 +120,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         pullRequestThreads: [WorkspacePullRequestReviewThreadSurface] = [],
         pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface? = nil
     ) {
+        self.isPresented = isPresented
         self.title = files.isEmpty
             && pullRequestThreads.isEmpty
             && pullRequestReviewDraft != nil
@@ -149,6 +157,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.isPresented = try container.decodeIfPresent(Bool.self, forKey: .isPresented) ?? true
         self.title = try container.decode(String.self, forKey: .title)
         self.subtitle = try container.decode(String.self, forKey: .subtitle)
         self.activeScope = try container.decodeIfPresent(WorkspaceReviewScope.self, forKey: .activeScope)

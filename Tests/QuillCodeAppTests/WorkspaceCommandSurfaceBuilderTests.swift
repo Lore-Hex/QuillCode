@@ -71,8 +71,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("workspace-forward", in: commands).isEnabled, true)
         XCTAssertEqual(try command("workspace-back", in: commands).category, WorkspaceCommandPalette.navigationCategory)
         XCTAssertEqual(try command("workspace-forward", in: commands).category, WorkspaceCommandPalette.navigationCategory)
-        XCTAssertEqual(try command("workspace-back", in: commands).shortcut, "Cmd+Option+←")
-        XCTAssertEqual(try command("workspace-forward", in: commands).shortcut, "Cmd+Option+→")
+        XCTAssertEqual(try command("workspace-back", in: commands).shortcut, "Cmd+[")
+        XCTAssertEqual(try command("workspace-forward", in: commands).shortcut, "Cmd+]")
     }
 
     func testCommandOrderingPreservesHighPriorityPaletteSequence() throws {

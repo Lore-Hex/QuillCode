@@ -96,7 +96,7 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
 test('mock harness opens search surfaces from composer slash commands', async ({ page }) => {
   await page.goto(harnessURL());
 
-  const message = page.getByLabel('Message');
+  const message = page.getByRole('textbox', { name: 'Message', exact: true });
   await message.fill('needle in the transcript');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('sidebar-item')).toContainText('needle in the transcript');
@@ -121,7 +121,7 @@ test('mock harness opens search surfaces from composer slash commands', async ({
 test('mock harness opens utility surfaces from composer slash commands', async ({ page }) => {
   await page.goto(harnessURL());
 
-  const message = page.getByLabel('Message');
+  const message = page.getByRole('textbox', { name: 'Message', exact: true });
   await message.fill('/focus');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(message).toBeFocused();

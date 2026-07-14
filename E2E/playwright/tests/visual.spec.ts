@@ -53,10 +53,18 @@ test('visual: settings', async ({ page }) => {
   await capture(page, '04-settings');
 });
 
+test('visual: keyboard shortcuts', async ({ page }) => {
+  await page.goto(harnessURL());
+  await page.keyboard.press('Meta+Shift+/');
+  await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
+  await expect(page.getByTestId('keyboard-shortcuts-input')).toBeFocused();
+  await capture(page, '05-keyboard-shortcuts');
+});
+
 test('visual: terminal pane', async ({ page }) => {
   await page.goto(harnessURL());
   await clickSidebarTool(page, 'terminal-button');
-  await capture(page, '05-terminal');
+  await capture(page, '06-terminal');
 });
 
 test('visual: active workflow recording', async ({ page }) => {

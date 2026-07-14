@@ -31,7 +31,12 @@ struct QuillCodeDesktopApp: App {
         .defaultSize(width: 1280, height: 900)
         .windowStyle(.hiddenTitleBar)
         .commands {
-            QuillCodeDesktopCommands()
+            QuillCodeDesktopCommands(
+                commands: controller.surface.commands,
+                shortcutProfile: WorkspaceShortcutRegistry.profile(
+                    preferences: controller.surface.settings.keyboardShortcuts
+                )
+            )
         }
         MenuBarExtra {
             QuillCodeMenuBarView(
@@ -95,6 +100,8 @@ struct QuillCodeDesktopRootView: View {
             isCommandPalettePresented: $controller.isCommandPalettePresented,
             isSettingsPresented: $controller.isSettingsPresented,
             isKeyboardShortcutsPresented: $controller.isKeyboardShortcutsPresented,
+            isSearchPresented: $controller.isSearchPresented,
+            isFindPresented: $controller.isFindPresented,
             copiedTranscriptItemID: controller.copiedTranscriptItemID,
             onSend: controller.send,
             onAddImagesRequested: controller.requestAddImages,
@@ -123,6 +130,7 @@ struct QuillCodeDesktopRootView: View {
             onSetModel: controller.setModel,
             onToggleModelFavorite: controller.toggleModelFavorite,
             onSaveSettings: controller.saveSettings,
+            onSaveKeyboardShortcuts: controller.saveKeyboardShortcuts,
             onStartTrustedRouterSignIn: controller.startTrustedRouterSignIn,
             agentImportActions: QuillCodeAgentImportActions(
                 discover: controller.discoverAgentImport,
@@ -162,59 +170,63 @@ struct QuillCodeDesktopRootView: View {
 private struct QuillCodeDesktopCommandNotifications: ViewModifier {
     @ObservedObject var controller: QuillCodeDesktopController
     @State private var observers: [NSObjectProtocol] = []
+    @State private var shortcutMonitor: Any?
 
     func body(content: Content) -> some View {
         content
             .onAppear(perform: installObservers)
             .onDisappear(perform: removeObservers)
+            .onChange(of: controller.surface.settings.keyboardShortcuts) { _, _ in
+                installShortcutMonitor()
+            }
     }
 
     private func installObservers() {
         guard observers.isEmpty else { return }
         controller.installApprovalNotificationHandling()
         observers = [
-            observe(.quillCodeNewChat) { $0.newChat() },
-            observe(.quillCodeCycleMode) { $0.runWorkspaceCommand("cycle-mode") },
-            observe(.quillCodeFocusComposer) { $0.runWorkspaceCommand("focus-composer") },
-            observe(.quillCodeWorkspaceBack) { $0.runWorkspaceCommand("workspace-back") },
-            observe(.quillCodeWorkspaceForward) { $0.runWorkspaceCommand("workspace-forward") },
-            observe(.quillCodeToggleTerminal) { $0.toggleTerminal() },
-            observe(.quillCodeToggleBrowser) { $0.toggleBrowser() },
-            observe(.quillCodeBrowserBack) { $0.runWorkspaceCommand("browser-back") },
-            observe(.quillCodeBrowserForward) { $0.runWorkspaceCommand("browser-forward") },
-            observe(.quillCodeBrowserReload) { $0.runWorkspaceCommand("browser-reload") },
-            observe(.quillCodeToggleExtensions) { $0.toggleExtensions() },
-            observe(.quillCodeToggleMemories) { $0.toggleMemories() },
-            observe(.quillCodeToggleActivity) { $0.toggleActivity() },
-            observe(.quillCodeToggleAutomations) { $0.toggleAutomations() },
-            observe(.quillCodeOpenProject) { $0.requestAddProject() },
-            observe(.quillCodeCommandPalette) { $0.openCommandPalette() },
-            observe(.quillCodeKeyboardShortcuts) { $0.openKeyboardShortcuts() },
-            observe(.quillCodeOpenSettings) { $0.openSettings() },
-            observe(.quillCodeStopAll) { $0.stopAll() },
-            observe(.quillCodeRetryLastTurn) { $0.retryLastTurn() },
-            observe(.quillCodeCopyConversation) { $0.copyCurrentConversation() },
-            observe(.quillCodeExportConversationMarkdown) { $0.exportCurrentConversationMarkdown() }
+            observeCommand()
         ]
+        installShortcutMonitor()
     }
 
     private func removeObservers() {
         observers.forEach(NotificationCenter.default.removeObserver)
         observers = []
+        if let shortcutMonitor {
+            NSEvent.removeMonitor(shortcutMonitor)
+            self.shortcutMonitor = nil
+        }
     }
 
-    private func observe(
-        _ name: Notification.Name,
-        perform action: @escaping @MainActor (QuillCodeDesktopController) -> Void
-    ) -> NSObjectProtocol {
+    private func installShortcutMonitor() {
+        if let shortcutMonitor {
+            NSEvent.removeMonitor(shortcutMonitor)
+        }
+        let profile = WorkspaceShortcutRegistry.profile(
+            preferences: controller.surface.settings.keyboardShortcuts
+        )
+        shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard let shortcutEvent = QuillCodeDesktopShortcutEvent(event),
+                  let commandID = QuillCodeSecondaryShortcutResolver.commandID(
+                    for: shortcutEvent,
+                    profile: profile
+                  )
+            else { return event }
+            NotificationCenter.default.post(name: .quillCodeRunCommand, object: commandID)
+            return nil
+        }
+    }
+
+    private func observeCommand() -> NSObjectProtocol {
         NotificationCenter.default.addObserver(
-            forName: name,
+            forName: .quillCodeRunCommand,
             object: nil,
             queue: .main
-        ) { [weak controller] _ in
-            guard let controller else { return }
+        ) { [weak controller] notification in
+            guard let controller, let commandID = notification.object as? String else { return }
             Task { @MainActor in
-                action(controller)
+                controller.runCommand(commandID: commandID)
             }
         }
     }

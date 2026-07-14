@@ -13,6 +13,8 @@ final class QuillCodeDesktopController: ObservableObject {
     @Published var isCommandPalettePresented = false
     @Published var isSettingsPresented = false
     @Published var isKeyboardShortcutsPresented = false
+    @Published var isSearchPresented = false
+    @Published var isFindPresented = false
     @Published var isProjectImporterPresented = false
     @Published var isImageImporterPresented = false
     @Published var copiedTranscriptItemID: String?
@@ -94,7 +96,7 @@ final class QuillCodeDesktopController: ObservableObject {
             guard let preferences = workspaceModel?.root.config.notificationPreferences else { return }
             guard DesktopNotificationPolicy.shouldDeliverAgentRun(
                 preferences: preferences,
-                appIsActive: NSApplication.shared.isActive
+                appIsActive: QuillCodeDesktopSystemApplication.isActive
             ) else { return }
             automationNotifier.deliver(notification)
         }

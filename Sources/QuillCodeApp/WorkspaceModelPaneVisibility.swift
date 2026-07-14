@@ -7,6 +7,32 @@ extension QuillCodeWorkspaceModel {
         chrome.isSidebarVisible.toggle()
     }
 
+    @discardableResult
+    public func toggleReviewPanel(workspaceRoot: URL) -> Bool {
+        let review = surface().review
+        if review.hasContent {
+            chrome.isReviewVisible.toggle()
+            return true
+        }
+        chrome.isReviewVisible = true
+        runReviewScopeChange(.unstaged, workspaceRoot: workspaceRoot)
+        return true
+    }
+
+    @discardableResult
+    public func increaseTextScale() -> Bool {
+        guard chrome.textScale.canIncrease else { return false }
+        chrome.textScale = chrome.textScale.increased()
+        return true
+    }
+
+    @discardableResult
+    public func decreaseTextScale() -> Bool {
+        guard chrome.textScale.canDecrease else { return false }
+        chrome.textScale = chrome.textScale.decreased()
+        return true
+    }
+
     public func toggleExtensions() {
         extensions.focusedKind = nil
         extensions.isVisible.toggle()

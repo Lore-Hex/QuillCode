@@ -69,6 +69,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var managedWorktreeRetentionLimit: Int
     public var managedWorktreeStatusLabel: String
     public var managedWorktreeSummary: String
+    public var keyboardShortcuts: KeyboardShortcutPreferences
 
     public init(
         config: AppConfig,
@@ -144,6 +145,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             config.managedWorktrees,
             resolvedRoot: resolvedWorktreeRoot
         )
+        self.keyboardShortcuts = config.keyboardShortcuts
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -206,6 +208,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case managedWorktreeRetentionLimit
         case managedWorktreeStatusLabel
         case managedWorktreeSummary
+        case keyboardShortcuts
     }
 
     public init(from decoder: Decoder) throws {
@@ -372,6 +375,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             worktreeSettings,
             resolvedRoot: URL(fileURLWithPath: managedWorktreeRootPath)
         )
+        self.keyboardShortcuts = try container.decodeIfPresent(
+            KeyboardShortcutPreferences.self,
+            forKey: .keyboardShortcuts
+        ) ?? KeyboardShortcutPreferences()
     }
 }
 

@@ -1034,7 +1034,11 @@
       align-items: center;
       gap: 12px;
     }
-    .shortcut-row kbd {
+    .shortcut-row > span:first-child { min-width: 0; }
+    .shortcut-row > span:first-child strong { display: block; overflow: hidden; text-overflow: ellipsis; }
+    .shortcut-row > span:first-child small { display: block; margin-top: 2px; color: var(--blue); }
+    .shortcut-actions { display: flex; align-items: center; gap: 6px; }
+    .shortcut-binding {
       padding: 6px 10px;
       border-radius: 8px;
       color: var(--text);
@@ -1044,6 +1048,49 @@
       font-size: 12px;
       font-weight: 800;
       white-space: nowrap;
+    }
+    .shortcut-binding.editing {
+      color: var(--blue);
+      border-color: rgba(61,201,230,.56);
+      box-shadow: 0 0 0 2px rgba(61,201,230,.12);
+    }
+    .shortcut-search-controls {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+    }
+    .shortcut-search-mode {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 3px;
+      border-radius: 9px;
+      background: rgba(255,255,255,.06);
+      box-shadow: var(--shadow-border);
+    }
+    .shortcut-search-mode button {
+      min-height: var(--hit-target);
+      padding: 0 10px;
+      border-radius: 7px;
+      color: var(--muted);
+      background: transparent;
+    }
+    .shortcut-search-mode button.selected {
+      color: var(--text);
+      background: rgba(255,255,255,.11);
+    }
+    .shortcut-validation {
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: var(--yellow);
+      background: rgba(255,184,77,.10);
+      font-size: 12px;
+    }
+    .shortcut-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
     .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
@@ -4835,7 +4882,9 @@
         computerUseLabel: 'Needs Screen Recording + Accessibility'
       },
       chrome: {
-        isSidebarVisible: true
+        isSidebarVisible: true,
+        isReviewVisible: true,
+        textScale: 'standard'
       },
       navigationHistory: {
         entries: [],
@@ -5279,7 +5328,11 @@
       },
       shortcuts: {
         isOpen: false,
-        query: ''
+        query: '',
+        searchMode: 'action',
+        editingCommandID: null,
+        validationMessage: '',
+        overrides: {}
       },
       worktreeDialog: {
         mode: null,
@@ -5306,6 +5359,7 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
+        { id: 'quick-chat', title: 'Quick chat', shortcut: 'Cmd+Option+N', category: 'Thread', keywords: ['quick', 'side', 'chat', 'task', 'question'], isEnabled: true },
         { id: 'side-conversation-return', title: 'Return to main chat', shortcut: '', category: 'Thread', keywords: ['side', 'conversation', 'return', 'back', 'btw'], isEnabled: false },
         { id: 'thread-new-worktree', title: 'New worktree task', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
         { id: 'thread-restore-worktree', title: 'Restore worktree', shortcut: '', category: 'Thread', keywords: ['thread', 'task', 'worktree', 'snapshot', 'restore', 'archive'], isEnabled: false },
@@ -5346,10 +5400,12 @@
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'sidebar-saved-search-create', title: 'Create sidebar search', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter'], isEnabled: true },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: 'Cmd+Shift+R', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
-        { id: 'workspace-back', title: 'Back', shortcut: 'Cmd+Option+←', category: 'Navigation', keywords: ['history', 'previous', 'navigation', 'thread', 'project'], isEnabled: false },
-        { id: 'workspace-forward', title: 'Forward', shortcut: 'Cmd+Option+→', category: 'Navigation', keywords: ['history', 'next', 'navigation', 'thread', 'project'], isEnabled: false },
-        { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
+        { id: 'workspace-back', title: 'Back', shortcut: 'Cmd+[', category: 'Navigation', keywords: ['history', 'previous', 'navigation', 'thread', 'project'], isEnabled: false },
+        { id: 'workspace-forward', title: 'Forward', shortcut: 'Cmd+]', category: 'Navigation', keywords: ['history', 'next', 'navigation', 'thread', 'project'], isEnabled: false },
+        { id: 'search', title: 'Search', shortcut: 'Cmd+G', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
+        { id: 'previous-task', title: 'Previous chat', shortcut: 'Cmd+Shift+[', category: 'Navigation', keywords: ['previous', 'chat', 'task', 'thread', 'navigate'], isEnabled: false },
+        { id: 'next-task', title: 'Next chat', shortcut: 'Cmd+Shift+]', category: 'Navigation', keywords: ['next', 'chat', 'task', 'thread', 'navigate'], isEnabled: false },
         { id: 'copy-conversation', title: 'Copy conversation', shortcut: '', category: 'Navigation', keywords: ['export', 'transcript', 'markdown', 'copy all', 'share'], isEnabled: false },
         { id: 'export-conversation-markdown', title: 'Export conversation as Markdown...', shortcut: '', category: 'Navigation', keywords: ['export', 'transcript', 'markdown', 'file', 'save', 'share'], isEnabled: false },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
@@ -5365,10 +5421,15 @@
         { id: 'project-rename', title: 'Rename project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'title', 'name'], isEnabled: true },
         { id: 'project-remove', title: 'Remove project from list', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'forget', 'remove'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
-        { id: 'terminal-clear', title: 'Terminal: Clear history', shortcut: '', category: 'Workspace', keywords: ['shell', 'command', 'clear', 'history'], isEnabled: false },
+        { id: 'toggle-bottom-panel', title: 'Toggle bottom panel', shortcut: 'Cmd+J', category: 'Navigation', keywords: ['bottom', 'panel', 'show', 'hide'], isEnabled: true },
+        { id: 'terminal-clear', title: 'Terminal: Clear history', shortcut: 'Ctrl+L', category: 'Workspace', keywords: ['shell', 'command', 'clear', 'history'], isEnabled: false },
+        { id: 'toggle-review-panel', title: 'Toggle review panel', shortcut: 'Cmd+Option+B', category: 'Navigation', keywords: ['review', 'diff', 'changes', 'panel', 'show', 'hide'], isEnabled: true },
+        { id: 'increase-font-size', title: 'Increase font size', shortcut: 'Cmd++', category: 'Navigation', keywords: ['font', 'text', 'size', 'zoom', 'larger'], isEnabled: true },
+        { id: 'decrease-font-size', title: 'Decrease font size', shortcut: 'Cmd+-', category: 'Navigation', keywords: ['font', 'text', 'size', 'zoom', 'smaller'], isEnabled: true },
+        { id: 'dictation', title: 'Start dictation', shortcut: 'Ctrl+Shift+D', category: 'Navigation', keywords: ['dictation', 'voice', 'speech', 'microphone'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
-        { id: 'browser-back', title: 'Browser: Back', shortcut: 'Cmd+[', category: 'Workspace', keywords: ['preview', 'web', 'history', 'back'], isEnabled: false },
-        { id: 'browser-forward', title: 'Browser: Forward', shortcut: 'Cmd+]', category: 'Workspace', keywords: ['preview', 'web', 'history', 'forward'], isEnabled: false },
+        { id: 'browser-back', title: 'Browser: Back', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'back'], isEnabled: false },
+        { id: 'browser-forward', title: 'Browser: Forward', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'forward'], isEnabled: false },
         { id: 'browser-reload', title: 'Browser: Reload', shortcut: 'Cmd+R', category: 'Workspace', keywords: ['preview', 'web', 'refresh', 'reload'], isEnabled: false },
         { id: 'open-browser-session', title: 'Browser: Open session', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'session', 'login', 'cookies', 'sign in', '/session'], isEnabled: false },
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
@@ -5402,10 +5463,10 @@
         { id: 'extension-install:skill:browser-use', title: 'Install Browser Use', shortcut: '', category: 'Extensions', keywords: ['extension', 'skill', 'install', 'Browser Use', 'browser automation', 'CDP'], isEnabled: true },
         { id: 'extension-install:skill:openclaw-video-toolkit', title: 'Install OpenClaw Video Toolkit', shortcut: '', category: 'Extensions', keywords: ['extension', 'skill', 'install', 'OpenClaw Video Toolkit', 'video production'], isEnabled: true },
         { id: 'extension-install:skill:burstyrouter', title: 'Install BurstyRouter', shortcut: '', category: 'Extensions', keywords: ['extension', 'skill', 'install', 'BurstyRouter', 'local router', 'TrustedRouter'], isEnabled: true },
-        { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
-        { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
+        { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
+        { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+Shift+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
         { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
-        { id: 'git-diff', title: 'Review diff', shortcut: '', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
+        { id: 'git-diff', title: 'Review diff', shortcut: 'Ctrl+Shift+G', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
         { id: 'git-fetch', title: 'Fetch latest refs', shortcut: '', category: 'Git', keywords: ['git', 'fetch', 'sync', 'remote', 'latest', 'refs'], isEnabled: true },
         { id: 'git-pull', title: 'Pull latest changes', shortcut: '', category: 'Git', keywords: ['git', 'pull', 'sync', 'remote', 'latest', 'ff-only'], isEnabled: true },
         { id: 'git-branch-list', title: 'List branches', shortcut: '', category: 'Git', keywords: ['git', 'branch', 'branches', 'switch', 'remote'], isEnabled: true },
@@ -5563,6 +5624,195 @@
     };
     let activeMockRun = null;
     let activeTerminalRun = null;
+
+    const defaultShortcutBindings = {
+      'command-palette': ['Cmd+K', 'Cmd+Shift+P'],
+      settings: ['Cmd+,'],
+      'keyboard-shortcuts': ['Cmd+Shift+/'],
+      'add-project': ['Cmd+O'],
+      'workspace-back': ['Cmd+['],
+      'workspace-forward': ['Cmd+]'],
+      'increase-font-size': ['Cmd++'],
+      'decrease-font-size': ['Cmd+-'],
+      'toggle-sidebar': ['Cmd+B'],
+      'git-diff': ['Ctrl+Shift+G'],
+      'toggle-review-panel': ['Cmd+Option+B'],
+      'toggle-bottom-panel': ['Cmd+J'],
+      'toggle-terminal': ['Ctrl+`'],
+      'terminal-clear': ['Ctrl+L'],
+      'quick-chat': ['Cmd+Option+N'],
+      'new-chat': ['Cmd+N', 'Cmd+Shift+O'],
+      search: ['Cmd+G'],
+      'find-in-chat': ['Cmd+F'],
+      'previous-task': ['Cmd+Shift+['],
+      'next-task': ['Cmd+Shift+]'],
+      dictation: ['Ctrl+Shift+D'],
+      'cycle-mode': ['Shift+Tab'],
+      'retry-last-turn': ['Cmd+Shift+R'],
+      'focus-composer': ['Cmd+L'],
+      'copy-conversation': ['Cmd+Shift+C'],
+      'toggle-browser': ['Cmd+Shift+B'],
+      'toggle-activity': ['Cmd+Shift+A'],
+      'toggle-automations': ['Cmd+Option+A'],
+      'toggle-memories': ['Cmd+Shift+M'],
+      'toggle-extensions': ['Cmd+Shift+X'],
+      'browser-reload': ['Cmd+R'],
+      'stop-all': ['Esc']
+    };
+
+    function loadShortcutOverrides() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem('quillcode.shortcut-overrides') || '{}');
+        return Object.fromEntries(Object.entries(parsed).filter(([commandID, binding]) => (
+          Object.hasOwn(defaultShortcutBindings, commandID)
+          && typeof binding === 'string'
+          && binding.trim()
+        )));
+      } catch {
+        return {};
+      }
+    }
+
+    state.shortcuts.overrides = loadShortcutOverrides();
+
+    function saveShortcutOverrides() {
+      localStorage.setItem(
+        'quillcode.shortcut-overrides',
+        JSON.stringify(state.shortcuts.overrides)
+      );
+    }
+
+    function shortcutBindings(commandID) {
+      const override = state.shortcuts.overrides[commandID];
+      return override ? [override] : (defaultShortcutBindings[commandID] || []);
+    }
+
+    function primaryShortcut(commandID) {
+      return shortcutBindings(commandID)[0] || '';
+    }
+
+    function applyEffectiveShortcutLabels() {
+      state.commands = state.commands.map(command => ({
+        ...command,
+        shortcut: primaryShortcut(command.id)
+      }));
+    }
+
+    function normalizedShortcutSearchText(value) {
+      return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replaceAll('command', 'cmd')
+        .replace(/[^a-z0-9\-\[\]\/,`←→↑↓]/g, '');
+    }
+
+    function shortcutLabelForEvent(event) {
+      const keyLabels = {
+        Escape: 'Esc',
+        Tab: 'Tab',
+        ArrowLeft: '←',
+        ArrowRight: '→',
+        ArrowUp: '↑',
+        ArrowDown: '↓'
+      };
+      const eventKey = physicalShortcutKey(event);
+      const rawKey = keyLabels[eventKey]
+        || (String(eventKey || '').length === 1 ? String(eventKey).toUpperCase() : '');
+      if (!rawKey) return '';
+      const modifiers = [
+        event.metaKey ? 'Cmd' : null,
+        event.ctrlKey ? 'Ctrl' : null,
+        event.altKey ? 'Option' : null,
+        event.shiftKey ? 'Shift' : null
+      ].filter(Boolean);
+      return [...modifiers, rawKey].join('+');
+    }
+
+    function assignShortcut(commandID, binding) {
+      const parts = binding.split('+').filter(Boolean);
+      const key = parts.at(-1);
+      const modifiers = new Set(parts.slice(0, -1));
+      if (!key) return { ok: false, message: 'Press a supported shortcut.' };
+      if (!['Esc', 'Tab'].includes(key)
+          && !['Cmd', 'Ctrl', 'Option'].some(modifier => modifiers.has(modifier))) {
+        return {
+          ok: false,
+          message: 'Add Command, Control, or Option so typing stays uninterrupted.'
+        };
+      }
+      const signature = normalizedShortcutSearchText(binding);
+      const conflict = state.commands.find(command => (
+        command.id !== commandID
+        && shortcutBindings(command.id).some(candidate => (
+          normalizedShortcutSearchText(candidate) === signature
+        ))
+      ));
+      if (conflict) {
+        return {
+          ok: false,
+          message: binding + ' is already used by ' + conflict.title + '.'
+        };
+      }
+      const defaults = defaultShortcutBindings[commandID] || [];
+      if (defaults.some(candidate => normalizedShortcutSearchText(candidate) === signature)) {
+        delete state.shortcuts.overrides[commandID];
+      } else {
+        state.shortcuts.overrides[commandID] = binding;
+      }
+      saveShortcutOverrides();
+      applyEffectiveShortcutLabels();
+      return { ok: true, message: '' };
+    }
+
+    function resetShortcut(commandID) {
+      delete state.shortcuts.overrides[commandID];
+      saveShortcutOverrides();
+      applyEffectiveShortcutLabels();
+    }
+
+    function resetAllShortcuts() {
+      state.shortcuts.overrides = {};
+      saveShortcutOverrides();
+      applyEffectiveShortcutLabels();
+    }
+
+    function handleShortcutEditorKeydown(event) {
+      const commandID = state.shortcuts.isOpen
+        ? state.shortcuts.editingCommandID
+        : null;
+      if (!commandID) return false;
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.key === 'Escape') {
+        state.shortcuts.editingCommandID = null;
+        state.shortcuts.validationMessage = '';
+        render();
+        focusKeyboardShortcutsInput();
+        return true;
+      }
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        resetShortcut(commandID);
+        state.shortcuts.editingCommandID = null;
+        state.shortcuts.validationMessage = '';
+        render();
+        focusKeyboardShortcutsInput();
+        return true;
+      }
+
+      const binding = shortcutLabelForEvent(event);
+      if (!binding || ['Shift', 'Meta', 'Control', 'Alt'].includes(event.key)) {
+        return true;
+      }
+      const result = assignShortcut(commandID, binding);
+      state.shortcuts.validationMessage = result.message;
+      if (result.ok) {
+        state.shortcuts.editingCommandID = null;
+      }
+      render();
+      if (result.ok) focusKeyboardShortcutsInput();
+      return true;
+    }
 
     function escapeHTML(value) {
       return String(value)
@@ -8153,6 +8403,9 @@
         command.id === 'workspace-back' ? { ...command, isEnabled: canNavigateWorkspaceBack() } :
         command.id === 'workspace-forward' ? { ...command, isEnabled: canNavigateWorkspaceForward() } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
+        command.id === 'previous-task' ? { ...command, isEnabled: visibleSidebarItems.length > 1 } :
+        command.id === 'next-task' ? { ...command, isEnabled: visibleSidebarItems.length > 1 } :
+        command.id === 'toggle-review-panel' ? { ...command, isEnabled: hasProject } :
         command.id === 'copy-conversation' ? { ...command, isEnabled: hasThread } :
         command.id === 'export-conversation-markdown' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
@@ -8181,6 +8434,7 @@
         command
       ))
       .concat(savedSearchCommands);
+      applyEffectiveShortcutLabels();
     }
 
     function syncAutomationsSurface() {
@@ -8825,7 +9079,8 @@
         reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null,
         reviewDraft ? 'review draft' : null
       ].filter(Boolean).join(' · ') || 'Review';
-      const review = (hasGitDiff || state.review.files.length || reviewThreads.length || reviewDraft) ? `
+      const review = state.chrome.isReviewVisible
+        && (hasGitDiff || state.review.files.length || reviewThreads.length || reviewDraft) ? `
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
           <header>
             <strong>${escapeHTML(state.review.title)}</strong>
@@ -9572,7 +9827,12 @@
         </div>`;
 
       document.getElementById('app').innerHTML = `
-        <section class="quillcode-workspace" data-testid="workspace" data-sidebar-visible="${state.chrome.isSidebarVisible}">
+        <section
+          class="quillcode-workspace"
+          data-testid="workspace"
+          data-sidebar-visible="${state.chrome.isSidebarVisible}"
+          data-review-visible="${state.chrome.isReviewVisible}"
+          data-text-scale="${escapeHTML(state.chrome.textScale)}">
           <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
             <div class="topbar-status-metadata" data-testid="top-bar-status-metadata" aria-hidden="true">
               <span data-testid="agent-status" data-tone="${escapeHTML(topBarStatusTone())}" data-indicator="${topBarStatusIndicator()}">${escapeHTML(state.topBar.agentStatus)}</span>
@@ -10510,7 +10770,33 @@
       });
       document.querySelector('[data-testid="keyboard-shortcuts-close"]')?.addEventListener('click', () => {
         state.shortcuts.isOpen = false;
+        state.shortcuts.editingCommandID = null;
         render();
+      });
+      document.querySelector('[data-testid="keyboard-shortcuts-done"]')?.addEventListener('click', () => {
+        state.shortcuts.isOpen = false;
+        state.shortcuts.editingCommandID = null;
+        render();
+      });
+      document.querySelector('[data-testid="keyboard-shortcuts-panel"]')?.addEventListener('click', event => {
+        if (event.target !== event.currentTarget) return;
+        state.shortcuts.isOpen = false;
+        state.shortcuts.editingCommandID = null;
+        render();
+      });
+      document.querySelector('[data-testid="keyboard-shortcuts-mode-action"]')?.addEventListener('click', () => {
+        state.shortcuts.searchMode = 'action';
+        state.shortcuts.query = '';
+        state.shortcuts.validationMessage = '';
+        render();
+        focusKeyboardShortcutsInput();
+      });
+      document.querySelector('[data-testid="keyboard-shortcuts-mode-keystroke"]')?.addEventListener('click', () => {
+        state.shortcuts.searchMode = 'keystroke';
+        state.shortcuts.query = '';
+        state.shortcuts.validationMessage = '';
+        render();
+        focusKeyboardShortcutsInput();
       });
       document.querySelector('[data-testid="keyboard-shortcuts-input"]')?.addEventListener('input', event => {
         state.shortcuts.query = event.target.value;
@@ -10520,10 +10806,48 @@
         input?.setSelectionRange(input.value.length, input.value.length);
       });
       document.querySelector('[data-testid="keyboard-shortcuts-input"]')?.addEventListener('keydown', event => {
-        if (event.key !== 'Escape') return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          state.shortcuts.isOpen = false;
+          state.shortcuts.editingCommandID = null;
+          render();
+          return;
+        }
+        if (state.shortcuts.searchMode !== 'keystroke') return;
+        const binding = shortcutLabelForEvent(event);
+        if (!binding || (!event.metaKey && !event.ctrlKey && !event.altKey)) return;
         event.preventDefault();
-        state.shortcuts.isOpen = false;
+        event.stopPropagation();
+        state.shortcuts.query = binding;
         render();
+        focusKeyboardShortcutsInput();
+      });
+      document.querySelectorAll('[data-testid="keyboard-shortcut-edit"]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.shortcuts.editingCommandID = button.dataset.commandId;
+          state.shortcuts.validationMessage = '';
+          render();
+          document.querySelector(
+            '[data-testid="keyboard-shortcut-edit"][data-command-id="'
+              + CSS.escape(button.dataset.commandId)
+              + '"]'
+          )?.focus();
+        });
+      });
+      document.querySelectorAll('[data-testid="keyboard-shortcut-reset"]').forEach(button => {
+        button.addEventListener('click', () => {
+          resetShortcut(button.dataset.commandId);
+          state.shortcuts.validationMessage = '';
+          render();
+          focusKeyboardShortcutsInput();
+        });
+      });
+      document.querySelector('[data-testid="keyboard-shortcuts-reset-all"]')?.addEventListener('click', () => {
+        resetAllShortcuts();
+        state.shortcuts.validationMessage = '';
+        state.shortcuts.editingCommandID = null;
+        render();
+        focusKeyboardShortcutsInput();
       });
       document.querySelector('[data-testid="search-input"]')?.addEventListener('input', event => {
         state.search.query = event.target.value;
@@ -12888,23 +13212,20 @@
 
     function renderKeyboardShortcutsPanel() {
       const query = normalizeCommandText(state.shortcuts.query || '');
-      const compactQuery = query.replace(/\s+|\+/g, '');
+      const compactQuery = normalizedShortcutSearchText(query);
       const shortcutCommands = state.commands.filter(command => {
         if (!command.shortcut) return false;
         if (!query) return true;
+        if (state.shortcuts.searchMode === 'keystroke') {
+          return normalizedShortcutSearchText(command.shortcut).includes(compactQuery);
+        }
         const fields = [
           command.title,
           command.id.replace(/-/g, ' '),
           command.category,
-          command.shortcut,
           ...(command.keywords || [])
         ].map(value => normalizeCommandText(value || ''));
-        const shortcutText = normalizeCommandText(command.shortcut)
-          .replace('←', ' left arrowleft')
-          .replace('→', ' right arrowright')
-          .replace(/\s+|\+/g, '');
-        return fields.some(field => field.includes(query))
-          || (compactQuery && shortcutText.includes(compactQuery));
+        return fields.some(field => field.includes(query));
       });
       const groups = new Map();
       for (const command of shortcutCommands) {
@@ -12924,35 +13245,57 @@
             <header>
               <div>
                 <h2>Keyboard shortcuts</h2>
-                <p>Fast paths for the workspace actions available right now.</p>
+                <p>Search commands or click a shortcut to change it.</p>
               </div>
               <button class="hit-target-text" type="button" data-testid="keyboard-shortcuts-close">Close</button>
             </header>
-            <div class="command-palette-input-row">
-              <input class="hit-target-text-entry" data-testid="keyboard-shortcuts-input" aria-label="Search shortcuts" placeholder="Search shortcuts" value="${escapeHTML(state.shortcuts.query)}" autofocus>
+            <div class="shortcut-search-controls">
+              <div class="shortcut-search-mode" role="group" aria-label="Search shortcuts by">
+                <button class="hit-target-segmented ${state.shortcuts.searchMode === 'action' ? 'selected' : ''}" type="button" data-testid="keyboard-shortcuts-mode-action" aria-pressed="${state.shortcuts.searchMode === 'action'}">Action</button>
+                <button class="hit-target-segmented ${state.shortcuts.searchMode === 'keystroke' ? 'selected' : ''}" type="button" data-testid="keyboard-shortcuts-mode-keystroke" aria-pressed="${state.shortcuts.searchMode === 'keystroke'}">Keystroke</button>
+              </div>
+              <input class="hit-target-text-entry" data-testid="keyboard-shortcuts-input" aria-label="Search shortcuts" placeholder="${state.shortcuts.searchMode === 'action' ? 'Search commands' : 'Type or press a shortcut'}" value="${escapeHTML(state.shortcuts.query)}" autofocus>
             </div>
+            ${state.shortcuts.validationMessage ? `<div class="shortcut-validation" data-testid="keyboard-shortcuts-validation">${escapeHTML(state.shortcuts.validationMessage)}</div>` : ''}
             <div class="search-results" data-testid="keyboard-shortcuts-list">
               ${sortedCategories.length ? sortedCategories.map(category => `
                 <div class="command-group" data-testid="keyboard-shortcuts-group">
                   <div class="command-group-title">${escapeHTML(category)}</div>
                   ${groups.get(category).map(command => `
                     <article class="search-result shortcut-row" data-testid="keyboard-shortcut-row" data-command-id="${escapeHTML(command.id)}">
-                      <span>${escapeHTML(command.title)}</span>
-                      <kbd>${escapeHTML(command.shortcut)}</kbd>
+                      <span>
+                        <strong>${escapeHTML(command.title)}</strong>
+                        ${state.shortcuts.overrides[command.id] ? '<small>Customized</small>' : ''}
+                      </span>
+                      <span class="shortcut-actions">
+                        <button class="shortcut-binding hit-target-capsule ${state.shortcuts.editingCommandID === command.id ? 'editing' : ''}" type="button" data-testid="keyboard-shortcut-edit" data-command-id="${escapeHTML(command.id)}" aria-label="Change ${escapeHTML(command.title)} shortcut">${state.shortcuts.editingCommandID === command.id ? 'Press shortcut...' : escapeHTML(command.shortcut)}</button>
+                        ${state.shortcuts.overrides[command.id] ? `<button class="hit-target-text" type="button" data-testid="keyboard-shortcut-reset" data-command-id="${escapeHTML(command.id)}">Reset</button>` : ''}
+                      </span>
                     </article>`).join('')}
                 </div>`).join('') : '<p data-testid="keyboard-shortcuts-empty">No matching shortcuts</p>'}
             </div>
+            <footer class="shortcut-footer">
+              <button class="hit-target-text" type="button" data-testid="keyboard-shortcuts-reset-all" ${Object.keys(state.shortcuts.overrides).length ? '' : 'disabled'}>Reset all</button>
+              <button class="hit-target-text" type="button" data-testid="keyboard-shortcuts-done">Done</button>
+            </footer>
           </section>
         </div>`;
     }
 
     function focusKeyboardShortcutsInput() {
-      setTimeout(() => document.querySelector('[data-testid="keyboard-shortcuts-input"]')?.focus(), 0);
+      const focusInput = () => {
+        document.querySelector('[data-testid="keyboard-shortcuts-input"]')?.focus();
+      };
+      focusInput();
+      requestAnimationFrame(focusInput);
     }
 
     function openKeyboardShortcutsPanel() {
       state.shortcuts.isOpen = true;
       state.shortcuts.query = '';
+      state.shortcuts.searchMode = 'action';
+      state.shortcuts.editingCommandID = null;
+      state.shortcuts.validationMessage = '';
       render();
       focusKeyboardShortcutsInput();
     }
@@ -14706,6 +15049,7 @@
       const reference = String(options.reference || '').trim() || null;
       if ((normalizedScope === 'commit' || normalizedScope === 'branch') && !reference) return;
       const { diff, review } = mockReviewForScope(normalizedScope, reference);
+      state.chrome.isReviewVisible = true;
       state.review = review;
       state.reviewScopeEditor = { pendingScope: null, referenceDraft: reference || '' };
       if (normalizedScope === 'last_turn') {
@@ -15555,6 +15899,8 @@
       'computer-use-refresh',
       'computer-use-setup',
       'disconnect-all',
+      'dictation',
+      'decrease-font-size',
       'find-in-chat',
       'copy-conversation',
       'export-conversation-markdown',
@@ -15590,9 +15936,12 @@
       'git-worktree-prune',
       'git-worktree-remove',
       'keyboard-shortcuts',
+      'increase-font-size',
       'memory-add',
       'new-chat',
+      'next-task',
       'open-browser-session',
+      'previous-task',
       'project-new-chat',
       'project-refresh-context',
       'project-init',
@@ -15603,6 +15952,7 @@
       'project-list',
       'project-remove',
       'project-rename',
+      'quick-chat',
       'retry-last-turn',
       'search',
       'settings',
@@ -15641,10 +15991,12 @@
       'toggle-activity',
       'toggle-automations',
       'toggle-browser',
+      'toggle-bottom-panel',
       'toggle-extensions',
       'toggle-memories',
       'workflow-recording-create',
       'workflow-recording-stop',
+      'toggle-review-panel',
       'workspace-back',
       'workspace-forward',
       'toggle-sidebar',
@@ -15729,6 +16081,26 @@
         unroutableCommands,
         unroutableTargets
       };
+    }
+
+    function selectAdjacentTask(offset) {
+      const items = filteredSidebarItems();
+      if (items.length < 2) return false;
+      const selectedIndex = items.findIndex(item => item.id === state.sidebar.selectedThreadID);
+      const baseIndex = selectedIndex >= 0
+        ? selectedIndex
+        : offset < 0 ? 0 : -1;
+      const targetIndex = (baseIndex + offset + items.length) % items.length;
+      selectThread(items[targetIndex].id);
+      return true;
+    }
+
+    function adjustWorkspaceTextScale(offset) {
+      const scales = ['small', 'standard', 'large', 'extraLarge'];
+      const currentIndex = Math.max(0, scales.indexOf(state.chrome.textScale));
+      const targetIndex = Math.max(0, Math.min(scales.length - 1, currentIndex + offset));
+      state.chrome.textScale = scales[targetIndex];
+      render();
     }
 
     function runCommand(commandID) {
@@ -15907,6 +16279,10 @@
       state.commandPalette.isOpen = false;
       if (commandID === 'new-chat') {
         newChat();
+        return;
+      }
+      if (commandID === 'quick-chat') {
+        if (!startSideConversation()) newChat();
         return;
       }
       if (commandID === 'side-conversation-return') {
@@ -16199,9 +16575,45 @@
         openFindInChat();
         return;
       }
+      if (commandID === 'previous-task') {
+        selectAdjacentTask(-1);
+        return;
+      }
+      if (commandID === 'next-task') {
+        selectAdjacentTask(1);
+        return;
+      }
       if (commandID === 'toggle-sidebar') {
         state.chrome.isSidebarVisible = !state.chrome.isSidebarVisible;
         render();
+        return;
+      }
+      if (commandID === 'toggle-review-panel') {
+        const hasReviewContent = Boolean(
+          state.review.hasGitDiff
+          || state.review.files.length
+          || state.review.pullRequestThreads.length
+          || state.review.reviewDraft
+        );
+        if (!hasReviewContent) {
+          runGitDiffAction();
+        } else {
+          state.chrome.isReviewVisible = !state.chrome.isReviewVisible;
+          render();
+        }
+        return;
+      }
+      if (commandID === 'increase-font-size') {
+        adjustWorkspaceTextScale(1);
+        return;
+      }
+      if (commandID === 'decrease-font-size') {
+        adjustWorkspaceTextScale(-1);
+        return;
+      }
+      if (commandID === 'dictation') {
+        render();
+        focusComposerAtDraftEnd();
         return;
       }
       if (commandID === 'copy-conversation') {
@@ -16292,6 +16704,11 @@
       }
       if (commandID === 'toggle-terminal') {
         state.terminal.isVisible = !state.terminal.isVisible;
+      }
+      if (commandID === 'toggle-bottom-panel') {
+        state.terminal.isVisible = !state.terminal.isVisible;
+        render();
+        return;
       }
       if (commandID === 'terminal-clear') {
         if (!state.terminal.isRunning) {
@@ -20438,16 +20855,20 @@
 
     function shortcutMatches(event, shortcut) {
       if (!shortcut) return false;
-      const parts = shortcut.split('+').map(part => part.trim().toLowerCase()).filter(Boolean);
+      const isPlusKey = shortcut.endsWith('++');
+      const shortcutPrefix = isPlusKey ? shortcut.slice(0, -1) : shortcut;
+      const parts = shortcutPrefix.split('+').map(part => part.trim().toLowerCase()).filter(Boolean);
+      if (isPlusKey) parts.push('+');
       const key = normalizedShortcutKey(parts.at(-1));
       const requiresCmd = parts.includes('cmd');
       const requiresCtrl = parts.includes('ctrl');
       const requiresShift = parts.includes('shift');
       const requiresOption = parts.includes('option');
-      const eventKey = normalizedShortcutKey(event.key === 'Escape' ? 'esc' : event.key);
+      const physicalKey = physicalShortcutKey(event);
+      const eventKey = normalizedShortcutKey(physicalKey === 'Escape' ? 'esc' : physicalKey);
       return event.metaKey === requiresCmd
         && event.ctrlKey === requiresCtrl
-        && event.shiftKey === requiresShift
+        && (isPlusKey || event.shiftKey === requiresShift)
         && event.altKey === requiresOption
         && eventKey === key;
     }
@@ -20467,23 +20888,43 @@
       }
     }
 
-    document.addEventListener('keydown', event => {
-      if (handleCommandPaletteKeydown(event)) return;
-      if (handleModalEscape(event)) return;
-      if (handleAttentionTriageKeydown(event)) return;
+    function physicalShortcutKey(event) {
+      const punctuationByCode = {
+        Backquote: '`',
+        BracketLeft: '[',
+        BracketRight: ']',
+        Comma: ',',
+        Minus: '-',
+        Slash: '/',
+        Equal: event.shiftKey ? '+' : '='
+      };
+      if (/^Key[A-Z]$/.test(event.code)) return event.code.slice(3);
+      if (/^Digit[0-9]$/.test(event.code)) return event.code.slice(5);
+      return punctuationByCode[event.code] || event.key;
+    }
+
+    function handleWorkspaceShortcutKeydown(event) {
+      if (handleShortcutEditorKeydown(event)) return 'shortcut-editor';
+      if (handleCommandPaletteKeydown(event)) return 'command-palette';
+      if (handleModalEscape(event)) return 'modal';
+      if (handleAttentionTriageKeydown(event)) return 'attention';
       updateDynamicCommands();
       const command = state.commands.find(candidate => (
-        candidate.isEnabled && shortcutMatches(event, candidate.shortcut)
+        candidate.isEnabled
+        && shortcutBindings(candidate.id).some(shortcut => shortcutMatches(event, shortcut))
       ));
-      if (!command) return;
+      if (!command) return false;
       // Tab is the universal focus-traversal key. Only let a Tab-bound shortcut (cycle-mode)
       // fire when focus is on the composer or not in an editable field — otherwise leave
       // Shift+Tab to move focus backward through search boxes, the terminal, dialogs, etc.,
       // instead of silently changing the agent's approval mode out from under the user.
-      if (event.key === 'Tab' && !focusAllowsTabShortcut()) return;
+      if (event.key === 'Tab' && !focusAllowsTabShortcut()) return false;
       event.preventDefault();
       runCommand(command.id);
-    });
+      return command.id;
+    }
+
+    document.addEventListener('keydown', handleWorkspaceShortcutKeydown);
 
     // Morning-triage keyboard triage (issue #877): j/k/Enter/a/d act on the Attention section. They are
     // bare single-letter keys, so they must NOT fire while typing in ANY editable field — including the
@@ -20556,6 +20997,13 @@
     }
 
     window.__quillCodeCommandRoutingAudit = commandRoutingAuditReport;
+    window.__quillCodeTestDispatchShortcut = shortcut => handleWorkspaceShortcutKeydown(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        ...shortcut
+      })
+    );
     // Test hook (issue #877): seed the sidebar with threads carrying morning-triage verdict stamps so
     // Playwright can drive the Attention section deterministically. Each spec: { id, title, verdict,
     // summary, unseenCount, reasons, outcome, updatedAt? }.

@@ -10,11 +10,11 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var isCommandPalettePresented: Bool
     @Binding public var isSettingsPresented: Bool
     @Binding public var isKeyboardShortcutsPresented: Bool
+    @Binding public var isSearchPresented: Bool
+    @Binding public var isFindPresented: Bool
     public var copiedTranscriptItemID: String?
     public var actions: QuillCodeWorkspaceActions
 
-    @State private var isSearchPresented = false
-    @State private var isFindPresented = false
     @State private var isModelPickerPresented = false
     @State private var searchQuery = ""
     @State private var findQuery = ""
@@ -37,6 +37,8 @@ public struct QuillCodeWorkspaceView: View {
         isCommandPalettePresented: Binding<Bool>,
         isSettingsPresented: Binding<Bool>,
         isKeyboardShortcutsPresented: Binding<Bool>,
+        isSearchPresented: Binding<Bool> = .constant(false),
+        isFindPresented: Binding<Bool> = .constant(false),
         copiedTranscriptItemID: String? = nil,
         onSend: @escaping () -> Void,
         onAddImagesRequested: @escaping () -> Void = {},
@@ -65,6 +67,7 @@ public struct QuillCodeWorkspaceView: View {
         onSetModel: @escaping (String) -> Void,
         onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
+        onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void = { _ in },
         onStartTrustedRouterSignIn: @escaping () -> Void,
         agentImportActions: QuillCodeAgentImportActions? = nil,
         onReviewScopeChange: @escaping (WorkspaceReviewSelection) -> Void = { _ in },
@@ -104,6 +107,8 @@ public struct QuillCodeWorkspaceView: View {
         self._isCommandPalettePresented = isCommandPalettePresented
         self._isSettingsPresented = isSettingsPresented
         self._isKeyboardShortcutsPresented = isKeyboardShortcutsPresented
+        self._isSearchPresented = isSearchPresented
+        self._isFindPresented = isFindPresented
         self.copiedTranscriptItemID = copiedTranscriptItemID
         self.actions = QuillCodeWorkspaceActions(
             onSend: onSend,
@@ -133,6 +138,7 @@ public struct QuillCodeWorkspaceView: View {
             onSetModel: onSetModel,
             onToggleModelFavorite: onToggleModelFavorite,
             onSaveSettings: onSaveSettings,
+            onSaveKeyboardShortcuts: onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             agentImport: agentImportActions,
             onReviewScopeChange: onReviewScopeChange,
@@ -240,6 +246,7 @@ public struct QuillCodeWorkspaceView: View {
         .frame(minWidth: 980, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
+        .dynamicTypeSize(surface.chrome.textScale.dynamicTypeSize)
         .overlay {
             if let digest = surface.attentionDigest {
                 attentionDigestOverlay(digest)
@@ -274,6 +281,7 @@ public struct QuillCodeWorkspaceView: View {
             agentImportActions: actions.agentImport,
             onSelectThread: actions.onSelectThread,
             onSaveSettings: actions.onSaveSettings,
+            onSaveKeyboardShortcuts: actions.onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
             onCommand: handleCommand,
             onCreateWorktreeThread: actions.onCreateWorktreeThread,
@@ -483,6 +491,21 @@ extension AgentMode {
             return "Plan"
         case .auto:
             return "Auto"
+        }
+    }
+}
+
+private extension WorkspaceTextScale {
+    var dynamicTypeSize: DynamicTypeSize {
+        switch self {
+        case .small:
+            .medium
+        case .standard:
+            .large
+        case .large:
+            .xLarge
+        case .extraLarge:
+            .xxLarge
         }
     }
 }

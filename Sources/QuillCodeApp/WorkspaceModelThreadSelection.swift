@@ -36,6 +36,24 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func selectAdjacentSidebarThread(offset: Int) -> Bool {
+        let items = filteredSidebarItems()
+        guard !items.isEmpty, offset != 0 else { return false }
+        let selectedIndex = root.selectedThreadID.flatMap { selectedID in
+            items.firstIndex { $0.id == selectedID }
+        }
+        let targetIndex: Int
+        if let selectedIndex {
+            guard items.count > 1 else { return false }
+            targetIndex = (selectedIndex + offset % items.count + items.count) % items.count
+        } else {
+            targetIndex = offset < 0 ? items.count - 1 : 0
+        }
+        selectThread(items[targetIndex].id)
+        return true
+    }
+
+    @discardableResult
     func insertCreatedThread(
         _ thread: ChatThread,
         selectedProjectID: UUID?,

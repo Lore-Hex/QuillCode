@@ -72,9 +72,9 @@ test('mock harness ranks and navigates command palette with keyboard', async ({ 
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'New chat' }))
     .toContainText('Cmd+N');
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Search' }))
-    .toContainText('Cmd+K');
+    .toContainText('Cmd+G');
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Keyboard shortcuts' }))
-    .toContainText('Cmd+/');
+    .toContainText('Cmd+Shift+/');
   await page.getByTestId('keyboard-shortcuts-close').click();
 
   await cmdP(page);

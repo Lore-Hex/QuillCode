@@ -58,6 +58,15 @@ public extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    func startQuickChat() -> UUID {
+        if let threadID = startSideConversation() {
+            return threadID
+        }
+        setLastError(nil)
+        return newChat()
+    }
+
+    @discardableResult
     func returnFromSideConversation() -> Bool {
         guard let side = selectedThread,
               let parentThreadID = side.runtimeContext.sideConversationParentThreadID,

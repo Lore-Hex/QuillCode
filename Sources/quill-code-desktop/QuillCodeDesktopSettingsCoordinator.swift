@@ -31,6 +31,14 @@ struct QuillCodeDesktopSettingsCoordinator {
         persist(model.root.config)
     }
 
+    func setKeyboardShortcutPreferences(
+        _ preferences: KeyboardShortcutPreferences,
+        on model: QuillCodeWorkspaceModel
+    ) {
+        model.setKeyboardShortcutPreferences(preferences)
+        persist(model.root.config)
+    }
+
     func refreshModelCatalog(on model: QuillCodeWorkspaceModel) async {
         let catalog = await bootstrap.fetchModelCatalog(config: model.root.config)
         model.setModelCatalog(catalog)

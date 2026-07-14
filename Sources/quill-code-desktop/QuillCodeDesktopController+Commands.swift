@@ -1,7 +1,15 @@
+import Foundation
 import QuillCodeApp
 
 @MainActor
 extension QuillCodeDesktopController {
+    func runCommand(commandID: String) {
+        guard let command = surface.commands.first(where: { $0.id == commandID }),
+              command.isEnabled
+        else { return }
+        runCommand(command)
+    }
+
     func runCommand(_ command: WorkspaceCommandSurface) {
         guard let action = QuillCodeDesktopCommandPlanner.action(for: command) else { return }
         commandCoordinator.run(action, performer: self)
@@ -13,6 +21,22 @@ extension QuillCodeDesktopController {
 
     func openKeyboardShortcuts() {
         isKeyboardShortcutsPresented = true
+    }
+
+    func openSearch() {
+        isSearchPresented = true
+    }
+
+    func openFind() {
+        isFindPresented = true
+    }
+
+    func startDictation() {
+        _ = model.focusComposer()
+        refresh()
+        DispatchQueue.main.async {
+            QuillCodeDesktopSystemApplication.startDictation()
+        }
     }
 
     func openSettings() {

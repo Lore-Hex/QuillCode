@@ -3,12 +3,17 @@ import QuillCodeCore
 
 enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case newChat
+    case quickChat
     case workspaceBack
     case workspaceForward
+    case selectAdjacentTask(offset: Int)
     case cycleMode
     case focusComposer
     case toggleSidebar
     case toggleTerminal
+    case toggleReviewPanel
+    case increaseTextScale
+    case decreaseTextScale
     case clearTerminal
     case toggleBrowser
     case browserBack
@@ -72,10 +77,16 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
         switch action {
         case .newChat:
             return .newChat
+        case .quickChat:
+            return .quickChat
         case .workspaceBack:
             return .workspaceBack
         case .workspaceForward:
             return .workspaceForward
+        case .previousTask:
+            return .selectAdjacentTask(offset: -1)
+        case .nextTask:
+            return .selectAdjacentTask(offset: 1)
         case .cycleMode:
             return .cycleMode
         case .focusComposer:
@@ -84,6 +95,14 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .toggleSidebar
         case .toggleTerminal:
             return .toggleTerminal
+        case .toggleBottomPanel:
+            return .toggleTerminal
+        case .toggleReviewPanel:
+            return .toggleReviewPanel
+        case .increaseFontSize:
+            return .increaseTextScale
+        case .decreaseFontSize:
+            return .decreaseTextScale
         case .clearTerminal:
             return .clearTerminal
         case .toggleBrowser:

@@ -19,6 +19,11 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    func saveKeyboardShortcuts(_ preferences: KeyboardShortcutPreferences) {
+        settingsCoordinator.setKeyboardShortcutPreferences(preferences, on: model)
+        refresh()
+    }
+
     func refreshModelCatalog() async {
         await settingsCoordinator.refreshModelCatalog(on: model)
         refresh()

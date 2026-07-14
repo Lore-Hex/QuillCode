@@ -20,10 +20,15 @@ extension QuillCodeWorkspaceModel {
         case .newChat:
             _ = newChat()
             return true
+        case .quickChat:
+            _ = startQuickChat()
+            return true
         case .workspaceBack:
             return navigateBackInWorkspace()
         case .workspaceForward:
             return navigateForwardInWorkspace()
+        case .selectAdjacentTask(let offset):
+            return selectAdjacentSidebarThread(offset: offset)
         case .cycleMode:
             return cycleMode()
         case .focusComposer:
@@ -34,6 +39,12 @@ extension QuillCodeWorkspaceModel {
         case .toggleTerminal:
             toggleTerminal()
             return true
+        case .toggleReviewPanel:
+            return toggleReviewPanel(workspaceRoot: workspaceRoot)
+        case .increaseTextScale:
+            return increaseTextScale()
+        case .decreaseTextScale:
+            return decreaseTextScale()
         case .clearTerminal:
             return clearTerminalHistory()
         case .toggleBrowser:

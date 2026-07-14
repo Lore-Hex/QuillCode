@@ -97,6 +97,9 @@ extension QuillCodeWorkspaceModel {
             setDraft(draft)
             return true
         case .runTool(let toolName):
+            if toolName == ToolDefinition.gitDiff.name {
+                chrome.isReviewVisible = true
+            }
             runToolCall(
                 ToolCall(name: toolName, argumentsJSON: "{}"),
                 workspaceRoot: workspaceRoot

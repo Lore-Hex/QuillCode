@@ -45,21 +45,21 @@ final class ParityWorkspacePlaywrightInteractionSpecGateTests: QuillCodeParityTe
             contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
             encoding: .utf8
         )
-        let shortcutFlowName = "dispatches workspace keyboard shortcuts"
+        let shortcutFlowName = "dispatches Codex-compatible workspace shortcuts"
 
         XCTAssertTrue(shortcutSpecText.contains("harnessURL()"), "Focused shortcut flows should reuse the shared harness URL helper.")
-        XCTAssertTrue(shortcutSpecText.contains("Meta+K"), "Focused shortcut flows should cover search shortcut dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains("Meta+K"), "Focused shortcut flows should cover command-palette dispatch.")
         XCTAssertTrue(shortcutSpecText.contains("Meta+Shift+P"), "Focused shortcut flows should cover command palette shortcut dispatch.")
-        XCTAssertTrue(shortcutSpecText.contains("Meta+/"), "Focused shortcut flows should cover keyboard-shortcuts help dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains("Meta+Shift+/"), "Focused shortcut flows should cover keyboard-shortcuts help dispatch.")
         XCTAssertTrue(shortcutSpecText.contains("Control+Backquote"), "Focused shortcut flows should cover terminal shortcut dispatch.")
         XCTAssertTrue(shortcutSpecText.contains("Meta+F"), "Focused shortcut flows should cover transcript find dispatch.")
         XCTAssertTrue(shortcutSpecText.contains("Meta+N"), "Focused shortcut flows should cover new-chat shortcut dispatch.")
         XCTAssertTrue(
-            shortcutSpecText.contains("Meta+Alt+ArrowLeft"),
+            shortcutSpecText.contains("Meta+["),
             "Focused shortcut flows should cover workspace back shortcut dispatch."
         )
         XCTAssertTrue(
-            shortcutSpecText.contains("Meta+Alt+ArrowRight"),
+            shortcutSpecText.contains("Meta+]"),
             "Focused shortcut flows should cover workspace forward shortcut dispatch."
         )
         XCTAssertTrue(shortcutSpecText.contains(shortcutFlowName), "\(shortcutFlowName) should live in shortcuts.spec.ts.")
