@@ -930,3 +930,10 @@
 - **Landing boundary:** **Land pull request** is available only for an idle, clean, synchronized named worktree whose current branch and exact `HEAD` match the linked open PR. It requests squash auto-merge through the existing audited `host.git.pr.merge` tool and then refreshes the PR instead of silently deleting anything.
 - **Cleanup boundary:** **Clean up merged worktree** appears only after GitHub reports the PR merged. Removal rechecks a clean registered checkout, exact branch, and exact merged head, calls non-force `host.git.worktree.remove`, and clears only the worktree binding after success. A missing checkout clears stale binding metadata; drift or local changes preserve the checkout for inspection.
 - **Presentation and verification:** Sidebar and top bar show Draft/Open/Queued/Merged/Closed state with one lifecycle action at a time. Native, static HTML, and Playwright surfaces share command IDs, icons, 40-point targets, and the publish-to-queued-to-merged-to-cleaned flow while retaining task and PR history.
+
+## 2026-07-14: Queued pull requests reconcile without background mutation
+
+- **Decision:** Relaunching QuillCode or selecting a task with a nonterminal linked PR refreshes GitHub status off the main actor. Queued PRs poll every 15 seconds until they leave the queue; selecting another task cancels the prior monitor.
+- **Mutation boundary:** Reconciliation may update durable PR metadata and may clear a merged worktree binding only when the checkout path is already absent. It never removes an existing checkout, invokes merge, or bypasses the explicit cleanup command.
+- **Failure boundary:** Authentication, network, malformed-response, and identity-mismatch failures stay silent in the background and stop polling. Manual Refresh remains the visible diagnostic path, while stale async results are discarded unless task ID, PR number, and head branch still match.
+- **Why:** Merge queues commonly finish after the user leaves the task or relaunches the app. The UI should become truthful without repeated manual refreshes, but background convenience must never broaden the exact-head and non-force cleanup safety boundary.

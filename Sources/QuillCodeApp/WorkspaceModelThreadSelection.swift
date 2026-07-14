@@ -107,5 +107,6 @@ extension QuillCodeWorkspaceModel {
         touchProject(root.selectedProjectID)
         saveProjects()
         refreshSelectedAgentRunPresentation()
+        scheduleSelectedPullRequestReconciliation()
     }
 }
