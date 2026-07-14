@@ -65,6 +65,7 @@ public final class QuillCodeWorkspaceModel {
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
+    let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
     var activeTerminalSession: (any ShellInteractiveSession)?
     /// Test seam for deterministic scheduler behavior. Production builds leave this nil and create
     /// a scheduler from the originating chat's fully configured agent session at dispatch time.
@@ -180,6 +181,9 @@ public final class QuillCodeWorkspaceModel {
         self.managedWorktreeDefaultRoot = managedWorktreeDefaultRoot.standardizedFileURL
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
+        self.sessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(
+            resumedThreadIDs: Set(root.threads.map(\.id))
+        )
         self.mcpRuntime = WorkspaceMCPRuntime(
             launcher: DefaultWorkspaceMCPServerLauncher(secretStore: mcpSecretStore)
         )

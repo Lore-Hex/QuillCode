@@ -100,11 +100,14 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             parentThread: parent
         )
 
+        let job = WorkspaceSubagentJob(
+            name: "Builder",
+            role: "write a file",
+            objective: "test review mode"
+        )
         let pause: WorkspaceSubagentApprovalPause
         do {
-            _ = try await worker.runWithTranscript(
-                WorkspaceSubagentJob(name: "Builder", role: "write a file", objective: "test review mode")
-            )
+            _ = try await worker.runWithTranscript(job)
             XCTFail("Expected review mode to block an unapproved delegated write")
             return
         } catch let caught as WorkspaceSubagentApprovalPause {
@@ -116,7 +119,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(pause.pendingApproval.request.reason.contains("explicit approval"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))
 
-        let resumed = try await worker.resume(pause, fallbackRole: "write a file")
+        let resumed = try await worker.resume(pause, job: job)
 
         XCTAssertEqual(resumed.summary, "Done.")
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))

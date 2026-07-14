@@ -40,7 +40,8 @@ extension QuillCodeWorkspaceModel {
         _ thread: ChatThread,
         selectedProjectID: UUID?,
         saveThread: Bool,
-        recordsNavigation: Bool = true
+        recordsNavigation: Bool = true,
+        sessionStartSource: ProjectPluginSessionStartSource = .startup
     ) -> UUID {
         let previousLocation = currentNavigationLocation
         // Leaving the current thread for a newly created one (New Chat / fork / compact): persist its
@@ -51,6 +52,7 @@ extension QuillCodeWorkspaceModel {
         clearSidebarSelection()
         restoreComposerDraft(from: root.selectedThreadID, to: thread.id)
         root.threads.insert(thread, at: 0)
+        sessionStartHookCoordinator.registerCreatedThread(thread.id, source: sessionStartSource)
         selectThreadRecord(thread.id, projectID: selectedProjectID)
         if saveThread {
             threadPersistence.save(thread)

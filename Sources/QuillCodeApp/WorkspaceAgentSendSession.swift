@@ -29,6 +29,8 @@ struct WorkspaceAgentSendSession: Sendable {
     var workspaceRoot: URL
     var recordsUserMessage: Bool
     var runHooks: [ProjectRunHook]
+    var pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor
+    var lifecycle: WorkspaceAgentSessionLifecycle
     var pluginDataBaseDirectory: URL?
     var selectedProject: ProjectRef?
     var sshRemoteShellExecutor: SSHRemoteShellExecutor
@@ -40,6 +42,13 @@ struct WorkspaceAgentSendSession: Sendable {
         workspaceRoot: URL,
         recordsUserMessage: Bool = true,
         runHooks: [ProjectRunHook] = [],
+        pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor = ProjectPluginLifecycleHookExecutor(
+            hooks: [],
+            pluginDataBaseDirectory: nil,
+            selectedProject: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ),
+        lifecycle: WorkspaceAgentSessionLifecycle = .primary(WorkspaceSessionStartHookCoordinator()),
         pluginDataBaseDirectory: URL? = nil,
         selectedProject: ProjectRef? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
@@ -51,6 +60,8 @@ struct WorkspaceAgentSendSession: Sendable {
         self.workspaceRoot = workspaceRoot
         self.recordsUserMessage = recordsUserMessage
         self.runHooks = runHooks
+        self.pluginLifecycleHooks = pluginLifecycleHooks
+        self.lifecycle = lifecycle
         self.pluginDataBaseDirectory = pluginDataBaseDirectory
         self.selectedProject = selectedProject
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
@@ -63,19 +74,26 @@ struct WorkspaceAgentSendSession: Sendable {
             appendUserTurn(prompt, to: &activeThread)
             await onProgress?(activeThread)
         }
+        let preparation = await prepareLifecycle(thread: activeThread, onProgress: onProgress)
+        activeThread = preparation.thread
+        if preparation.stopped {
+            return completed(thread: activeThread)
+        }
 
         return try await runAgentTurn(
             prompt: prompt,
             thread: activeThread,
             stopHookActive: false,
+            subagentStopHookActive: false,
             onProgress: onProgress
         )
     }
 
-    private func runAgentTurn(
+    func runAgentTurn(
         prompt: String,
         thread: ChatThread,
         stopHookActive: Bool,
+        subagentStopHookActive: Bool,
         onProgress: AgentRunProgressHandler?
     ) async throws -> WorkspaceAgentSendSessionResult {
         var activeThread = thread
@@ -135,6 +153,7 @@ struct WorkspaceAgentSendSession: Sendable {
             thread: activeThread,
             prompt: prompt,
             stopHookActive: stopHookActive,
+            subagentStopHookActive: subagentStopHookActive,
             onProgress: onProgress
         )
     }
@@ -143,11 +162,20 @@ struct WorkspaceAgentSendSession: Sendable {
         _ pendingApproval: AgentPendingApproval,
         onProgress: AgentRunProgressHandler? = nil
     ) async throws -> WorkspaceAgentSendSessionResult {
-        let continuation = StopHookContinuationState.active(in: thread)
-        let activePrompt = continuation?.prompt ?? prompt
+        let preparation = await prepareLifecycle(thread: thread, onProgress: onProgress)
+        guard !preparation.stopped else { return completed(thread: preparation.thread) }
+        let stopContinuation = HookContinuationState.active(
+            eventSummary: HookContinuationState.stopEventSummary,
+            in: preparation.thread
+        )
+        let subagentContinuation = HookContinuationState.active(
+            eventSummary: HookContinuationState.subagentStopEventSummary,
+            in: preparation.thread
+        )
+        let activePrompt = subagentContinuation?.prompt ?? stopContinuation?.prompt ?? prompt
         let result = try await runner.resumeApproved(
             pendingApproval,
-            in: thread,
+            in: preparation.thread,
             workspaceRoot: workspaceRoot,
             userMessage: activePrompt,
             onProgress: onProgress
@@ -162,7 +190,8 @@ struct WorkspaceAgentSendSession: Sendable {
         return try await runAfterHooks(
             thread: result.thread,
             prompt: activePrompt,
-            stopHookActive: continuation != nil,
+            stopHookActive: stopContinuation != nil,
+            subagentStopHookActive: subagentContinuation != nil,
             onProgress: onProgress
         )
     }
@@ -171,6 +200,7 @@ struct WorkspaceAgentSendSession: Sendable {
         thread: ChatThread,
         prompt: String,
         stopHookActive: Bool,
+        subagentStopHookActive: Bool,
         onProgress: AgentRunProgressHandler?
     ) async throws -> WorkspaceAgentSendSessionResult {
         var activeThread = thread
@@ -218,8 +248,9 @@ struct WorkspaceAgentSendSession: Sendable {
             }
 
             appendUserTurn(continuation.reason, to: &activeThread)
-            StopHookContinuationState.record(
+            HookContinuationState.record(
                 prompt: continuation.reason,
+                eventSummary: HookContinuationState.stopEventSummary,
                 in: &activeThread
             )
             await onProgress?(activeThread)
@@ -227,77 +258,16 @@ struct WorkspaceAgentSendSession: Sendable {
                 prompt: continuation.reason,
                 thread: activeThread,
                 stopHookActive: true,
+                subagentStopHookActive: subagentStopHookActive,
                 onProgress: onProgress
             )
         }
 
-        return completed(thread: activeThread)
-    }
-
-    private func completed(thread: ChatThread) -> WorkspaceAgentSendSessionResult {
-        WorkspaceAgentSendSessionResult(
-            thread: thread,
-            savedMemory: WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread)
+        return try await runSubagentStopHooks(
+            thread: activeThread,
+            stopHookActive: subagentStopHookActive,
+            onProgress: onProgress
         )
     }
 
-    private func appendHookContexts(
-        _ contexts: [ProjectRunHookContext],
-        to thread: inout ChatThread
-    ) {
-        guard !contexts.isEmpty else { return }
-        let content = contexts.map { context in
-            "Standard plugin hook context from \(context.hook.title):\n\(context.content)"
-        }.joined(separator: "\n\n")
-        thread.messages.append(ChatMessage(role: .system, content: content))
-        thread.updatedAt = Date()
-    }
-
-    private func appendUserTurn(_ prompt: String, to thread: inout ChatThread) {
-        thread.messages.append(ChatMessage(role: .user, content: prompt))
-        thread.events.append(ThreadEvent(kind: .message, summary: prompt))
-        thread.updatedAt = Date()
-        if thread.title == "New chat" {
-            thread.title = WorkspaceThreadSeedBuilder.title(fromUserPrompt: prompt)
-        }
-    }
-
-    private func appendAssistantMessage(_ message: String, to thread: inout ChatThread) {
-        thread.messages.append(ChatMessage(role: .assistant, content: message))
-        thread.events.append(ThreadEvent(kind: .message, summary: message))
-        thread.updatedAt = Date()
-    }
-}
-
-private struct StopHookContinuationState: Codable, Sendable, Equatable {
-    static let eventSummary = "Stop hook requested another agent turn"
-
-    var turnID: UUID
-    var prompt: String
-
-    static func record(prompt: String, in thread: inout ChatThread) {
-        guard let turnID = thread.messages.last(where: { $0.role == .user })?.id else { return }
-        let state = StopHookContinuationState(turnID: turnID, prompt: prompt)
-        thread.events.append(ThreadEvent(
-            kind: .notice,
-            summary: eventSummary,
-            payloadJSON: try? JSONHelpers.encodePretty(state)
-        ))
-        thread.updatedAt = Date()
-    }
-
-    static func active(in thread: ChatThread) -> StopHookContinuationState? {
-        guard let latestUserID = thread.messages.last(where: { $0.role == .user })?.id else {
-            return nil
-        }
-        return thread.events.reversed().lazy.compactMap { event -> StopHookContinuationState? in
-            guard event.kind == .notice,
-                  event.summary == eventSummary,
-                  let payload = event.payloadJSON,
-                  let state = try? JSONHelpers.decode(StopHookContinuationState.self, from: payload),
-                  state.turnID == latestUserID
-            else { return nil }
-            return state
-        }.first
-    }
 }

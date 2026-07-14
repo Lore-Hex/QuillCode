@@ -68,6 +68,7 @@ public extension QuillCodeWorkspaceModel {
 
         applyThreadDraftSelection(to: parentThreadID, removing: side.id)
         root.threads.removeAll { $0.id == side.id }
+        sessionStartHookCoordinator.remove(threadID: side.id)
         agentRuns.finish(threadID: side.id)
         root.selectedThreadID = parentThreadID
         root.selectedProjectID = knownProjectID(parent.projectID)

@@ -105,10 +105,12 @@ struct AgentWorkspaceSubagentWorker: Sendable {
         )
         // Recursive delegation stays under the scheduler's bounded spawn protocol. A child model
         // cannot start an independent scheduler tree that would bypass this run's depth/job limits.
-        let session = sessionFactory.makeSession(
+        let session = sessionFactory.makeSubagentSession(
             prompt: prompt,
             thread: thread,
-            allowsSubagents: false
+            parentThread: parentThread,
+            job: job,
+            runsStartHook: true
         )
         let result = try await AgentRunRetryScope.$threadID.withValue(thread.id) {
             try await session.run(onProgress: onProgress)
@@ -150,17 +152,18 @@ struct AgentWorkspaceSubagentWorker: Sendable {
 
     func resume(
         _ pause: WorkspaceSubagentApprovalPause,
-        fallbackRole: String,
+        job: WorkspaceSubagentJob,
         onProgress: AgentRunProgressHandler? = nil
     ) async throws -> WorkspaceSubagentWorkerResult {
         let result = try await AgentRunRetryScope.$threadID.withValue(pause.thread.id) {
-            try await sessionFactory.resumeApproved(
-                pause.pendingApproval,
+            try await sessionFactory.makeSubagentSession(
                 prompt: pause.prompt,
                 thread: pause.thread,
-                onProgress: onProgress,
-                allowsSubagents: false
-            )
+                parentThread: parentThread,
+                job: job,
+                recordsUserMessage: false,
+                runsStartHook: false
+            ).resumeApproved(pause.pendingApproval, onProgress: onProgress)
         }
         if let pendingApproval = result.pendingApproval {
             throw WorkspaceSubagentApprovalPause(
@@ -169,7 +172,7 @@ struct AgentWorkspaceSubagentWorker: Sendable {
                 pendingApproval: pendingApproval
             )
         }
-        return Self.workerResult(from: result.thread, fallbackRole: fallbackRole)
+        return Self.workerResult(from: result.thread, fallbackRole: job.role)
     }
 
     private static func workerResult(

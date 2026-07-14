@@ -91,6 +91,7 @@ extension QuillCodeWorkspaceModel {
             subagentRunRecordSink: { [weak self] record, parentThreadID in
                 await self?.recordSubagentRun(record, threadID: parentThreadID)
             },
+            sessionStartHookCoordinator: sessionStartHookCoordinator,
             workspaceRoot: workspaceRoot
         )
     }

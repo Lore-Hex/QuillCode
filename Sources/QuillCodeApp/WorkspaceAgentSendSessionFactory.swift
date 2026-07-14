@@ -28,6 +28,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let subagentApprovalPayloadStore: SubagentApprovalPayloadStore?
     private let subagentSchedulerOverride: WorkspaceSubagentScheduler?
     private let subagentRunRecordSink: WorkspaceSubagentRunRecordSink?
+    private let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
 
     init(
         baseRunner: AgentRunner,
@@ -49,6 +50,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         subagentApprovalPayloadStore: SubagentApprovalPayloadStore? = nil,
         subagentSchedulerOverride: WorkspaceSubagentScheduler? = nil,
         subagentRunRecordSink: WorkspaceSubagentRunRecordSink? = nil,
+        sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(),
         workspaceRoot: URL
     ) {
         self.baseRunner = baseRunner
@@ -74,6 +76,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.subagentApprovalPayloadStore = subagentApprovalPayloadStore
         self.subagentSchedulerOverride = subagentSchedulerOverride
         self.subagentRunRecordSink = subagentRunRecordSink
+        self.sessionStartHookCoordinator = sessionStartHookCoordinator
         self.workspaceRoot = workspaceRoot
     }
 
@@ -81,7 +84,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         prompt: String,
         thread: ChatThread,
         recordsUserMessage: Bool = true,
-        allowsSubagents: Bool? = nil
+        allowsSubagents: Bool? = nil,
+        lifecycle: WorkspaceAgentSessionLifecycle? = nil
     ) -> WorkspaceAgentSendSession {
         let permitsSubagents = allowsSubagents ?? !thread.runtimeContext.isEphemeral
         return WorkspaceAgentSendSession(
@@ -98,9 +102,33 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
             runHooks: selectedProject?.runHooks ?? [],
+            pluginLifecycleHooks: pluginLifecycleHooks,
+            lifecycle: lifecycle ?? .primary(sessionStartHookCoordinator),
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
+    }
+
+    func makeSubagentSession(
+        prompt: String,
+        thread: ChatThread,
+        parentThread: ChatThread,
+        job: WorkspaceSubagentJob,
+        recordsUserMessage: Bool = true,
+        runsStartHook: Bool
+    ) -> WorkspaceAgentSendSession {
+        makeSession(
+            prompt: prompt,
+            thread: thread,
+            recordsUserMessage: recordsUserMessage,
+            allowsSubagents: false,
+            lifecycle: .subagent(
+                parentThread: parentThread,
+                job: job,
+                threadStore: subagentThreadStore,
+                runsStartHook: runsStartHook
+            )
         )
     }
 
@@ -192,5 +220,14 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             runner.postCompactHook = postCompactHook
         }
         return runner
+    }
+
+    private var pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {
+        ProjectPluginLifecycleHookExecutor(
+            hooks: selectedProject?.pluginHooks ?? [],
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
     }
 }

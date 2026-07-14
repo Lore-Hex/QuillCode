@@ -68,9 +68,19 @@ extension QuillCodeWorkspaceModel {
                 }
 
                 do {
+                    let item = record.state.items[itemIndex]
+                    let workerID = item.workerID ?? pause.thread.id.uuidString
+                    let job = record.state.jobs.first(where: { $0.id == workerID })
+                        ?? WorkspaceSubagentJob(
+                            id: workerID,
+                            childThreadID: pause.thread.id,
+                            name: item.name,
+                            role: item.role,
+                            objective: record.state.objective
+                        )
                     let workerResult = try await worker.resume(
                         pause,
-                        fallbackRole: record.state.items[itemIndex].role,
+                        job: job,
                         onProgress: progress
                     )
                     record = (try? store.load(command.runID)) ?? record

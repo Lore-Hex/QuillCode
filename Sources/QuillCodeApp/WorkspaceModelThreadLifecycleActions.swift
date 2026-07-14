@@ -92,6 +92,7 @@ extension QuillCodeWorkspaceModel {
             }) else { return false }
 
             threadPersistence.delete(id)
+            sessionStartHookCoordinator.remove(threadID: id)
             let subagentAttachments = removeSubagentArtifacts(for: result.removedThread)
             deleteWorktreeSnapshotIfPresent(in: result.removedThread)
             applyLifecycleSelection(result.selectedThreadID, removing: id)
@@ -123,6 +124,7 @@ extension QuillCodeWorkspaceModel {
         clearComposerDraft(for: id)
         clearComposerAttachments(for: id)
         persistChangedThread(result.changedThread)
+        sessionStartHookCoordinator.reset(threadID: id, source: .clear)
         let subagentAttachments = originalThread.map(removeSubagentArtifacts) ?? []
         removeManagedImagesIfUnreferenced(attachments + subagentAttachments)
         return true

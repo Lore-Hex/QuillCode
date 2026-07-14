@@ -36,11 +36,12 @@ final class ParityWorkspaceExecutionAgentContextGateTests: QuillCodeParityTestCa
         let agentSessionText = try Self.appSourceText(named: "WorkspaceModelAgentSession.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
+        let transcriptText = try Self.appSourceText(named: "WorkspaceAgentSendSessionTranscript.swift")
 
         XCTAssertTrue(sessionText.contains("struct WorkspaceAgentSendSession"), "Agent send lifecycle should live in a focused session.")
         XCTAssertTrue(sessionText.contains("func run("), "Agent send lifecycle should be directly testable.")
         XCTAssertTrue(sessionText.contains("runner.send("), "The session should own the runner send call.")
-        XCTAssertTrue(sessionText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory"), "The session should report whether the run saved memory.")
+        XCTAssertTrue(transcriptText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory"), "The session transcript helper should report whether the run saved memory.")
         XCTAssertTrue(factoryText.contains("WorkspaceAgentSendSession("), "The factory should own agent send session construction.")
         XCTAssertTrue(agentSessionText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel agent-session APIs should delegate agent send execution setup.")
         XCTAssertFalse(modelText.contains("WorkspaceAgentSendSession("), "WorkspaceModel should not construct agent send sessions inline.")

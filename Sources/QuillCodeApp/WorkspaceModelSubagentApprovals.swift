@@ -107,22 +107,21 @@ private extension QuillCodeWorkspaceModel {
         let parent = try parentThread(id: target.parentThreadID)
         let runProject = parent.projectID.flatMap(project(id:))
         let factory = agentSendSessionFactory(workspaceRoot: workspaceRoot, runProject: runProject)
+        let worker = record.workers[workerIndex]
+        let job = WorkspaceSubagentJob(
+            runID: record.id,
+            id: worker.id,
+            childThreadID: worker.childThreadID,
+            name: worker.name,
+            role: worker.role,
+            objective: record.objective,
+            dependencyIDs: worker.dependencyIDs,
+            groupPath: worker.groupPath,
+            attempt: worker.attempt,
+            depth: worker.depth
+        )
         let prompt = child.messages.first(where: { $0.role == .user })?.content
-            ?? WorkspaceSubagentPromptBuilder.prompt(
-                objective: record.objective,
-                job: WorkspaceSubagentJob(
-                    runID: record.id,
-                    id: record.workers[workerIndex].id,
-                    childThreadID: record.workers[workerIndex].childThreadID,
-                    name: record.workers[workerIndex].name,
-                    role: record.workers[workerIndex].role,
-                    objective: record.objective,
-                    dependencyIDs: record.workers[workerIndex].dependencyIDs,
-                    groupPath: record.workers[workerIndex].groupPath,
-                    attempt: record.workers[workerIndex].attempt,
-                    depth: record.workers[workerIndex].depth
-                )
-            )
+            ?? WorkspaceSubagentPromptBuilder.prompt(objective: record.objective, job: job)
 
         if plan.shouldRunTool {
             let heldCall = try payloadStore.load(pending.payloadKey)
@@ -159,11 +158,13 @@ private extension QuillCodeWorkspaceModel {
         // the held payload is obsolete and must not survive as replayable state.
         try payloadStore.delete(pending.payloadKey)
 
-        let session = factory.makeSession(
+        let session = factory.makeSubagentSession(
             prompt: prompt,
             thread: child,
+            parentThread: parent,
+            job: job,
             recordsUserMessage: false,
-            allowsSubagents: false
+            runsStartHook: false
         )
         let continuation = try await AgentRunRetryScope.$threadID.withValue(child.id) {
             try await session.run { progressThread in
