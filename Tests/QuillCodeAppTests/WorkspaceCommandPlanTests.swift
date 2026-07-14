@@ -95,6 +95,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             WorkspaceCommandPlan(commandID: "git-worktree-open"),
             .setDraft("Open git worktree at ")
         )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "workflow-recording-create"),
+            .setDraft("Create a reusable skill by recording this workflow: ")
+        )
     }
 
     func testPullRequestReviewCommandOpensStructuredDraftAction() {
@@ -331,6 +335,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "compact-context"),
             .action(.compactContext)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "workflow-recording-stop"),
+            .action(.workflowRecordingStop)
         )
     }
 

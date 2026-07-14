@@ -84,6 +84,43 @@ final class SafetyReviewerCalibrationTests: SafetyPolicyTestCase {
         }
     }
 
+    func testWorkflowRecordingAlwaysRequiresExplicitApprovalBeforeModelReview() async {
+        let tool = ToolDefinition(
+            name: "host.workflow.record.start",
+            description: "Record a demonstrated workflow",
+            parametersJSON: "{}",
+            host: .computer,
+            risk: .destructive
+        )
+        let client = CountingSafetyModelClient(response: approvalJSON(
+            verdict: "approve",
+            rationale: "the user requested recording",
+            userIntentMatched: true
+        ))
+
+        for mode in [AgentMode.auto, .review, .plan] {
+            let review = await reviewer(client: client).review(SafetyContext(
+                mode: mode,
+                userMessage: "Record this workflow as a reusable skill.",
+                toolCall: ToolCall(name: tool.name, argumentsJSON: #"{"goal":"Publish a release"}"#),
+                toolDefinition: tool,
+                recentMessages: []
+            ))
+
+            XCTAssertEqual(review.verdict, .clarify, "mode: \(mode)")
+            XCTAssertTrue(review.userIntentMatched, "mode: \(mode)")
+            XCTAssertEqual(review.reviewTelemetry?.source, .staticPolicy, "mode: \(mode)")
+            XCTAssertEqual(
+                review.reviewTelemetry?.fallbackReason,
+                .explicitApprovalRequired,
+                "mode: \(mode)"
+            )
+            XCTAssertTrue(review.rationale.contains("sent to TrustedRouter"), "mode: \(mode)")
+            XCTAssertTrue(review.rationale.contains("Password fields are redacted"), "mode: \(mode)")
+        }
+        XCTAssertEqual(client.reviewCount, 0, "explicit consent must not be delegated to the reviewer model")
+    }
+
     private func reviewer(client: SafetyModelClient) -> AutoSafetyReviewer {
         AutoSafetyReviewer(
             client: client,
@@ -117,6 +154,20 @@ private struct CalibrationSafetyModelClient: SafetyModelClient {
     func review(prompt: String, model: String) async throws -> String {
         _ = prompt
         _ = model
+        return response
+    }
+}
+
+private final class CountingSafetyModelClient: SafetyModelClient, @unchecked Sendable {
+    private(set) var reviewCount = 0
+    private let response: String
+
+    init(response: String) {
+        self.response = response
+    }
+
+    func review(prompt: String, model: String) async throws -> String {
+        reviewCount += 1
         return response
     }
 }

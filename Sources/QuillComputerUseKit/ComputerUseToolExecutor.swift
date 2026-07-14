@@ -9,15 +9,24 @@ public struct ComputerUseToolExecutor: Sendable {
     private let backend: any ComputerUseBackend
     private let artifactDirectory: URL
     private let appApprovalPolicy: ComputerUseAppApprovalPolicy
+    private let originThreadID: String?
+    private let projectID: String?
+    private let workspaceRoot: String?
 
     public init(
         backend: any ComputerUseBackend,
         appApprovalPolicy: ComputerUseAppApprovalPolicy = .unrestricted,
-        artifactDirectory: URL = Self.defaultArtifactDirectory
+        artifactDirectory: URL = Self.defaultArtifactDirectory,
+        originThreadID: String? = nil,
+        projectID: String? = nil,
+        workspaceRoot: String? = nil
     ) {
         self.backend = backend
         self.appApprovalPolicy = appApprovalPolicy
         self.artifactDirectory = artifactDirectory
+        self.originThreadID = originThreadID
+        self.projectID = projectID
+        self.workspaceRoot = workspaceRoot
     }
 
     public func execute(_ call: ToolCall) async -> ToolResult? {
@@ -47,6 +56,10 @@ public struct ComputerUseToolExecutor: Sendable {
             return try await executeMove(args)
         case ToolDefinition.computerKey.name:
             return try await executeKey(args)
+        case ToolDefinition.workflowRecordStart.name:
+            return try await executeWorkflowRecordStart(args)
+        case ToolDefinition.workflowRecordStop.name:
+            return try await executeWorkflowRecordStop()
         default:
             return nil
         }
@@ -127,10 +140,48 @@ public struct ComputerUseToolExecutor: Sendable {
         return ToolResult(ok: true, stdout: "Pressed \(key).")
     }
 
+    private func executeWorkflowRecordStart(_ args: ToolArguments) async throws -> ToolResult {
+        guard let recorder = workflowRecordingBackend() else {
+            return ToolResult(ok: false, error: "Workflow recording is unavailable on this Computer Use backend.")
+        }
+        let goal = try args.requiredString("goal").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !goal.isEmpty else {
+            return ToolResult(ok: false, error: "Describe the workflow before recording it.")
+        }
+        let sessionDirectory = artifactDirectory
+            .appendingPathComponent("workflow-recording-\(UUID().uuidString)", isDirectory: true)
+        let status = try await recorder.startWorkflowRecording(WorkflowRecordingRequest(
+            goal: goal,
+            originThreadID: originThreadID,
+            projectID: projectID,
+            workspaceRoot: workspaceRoot,
+            artifactDirectory: sessionDirectory.path
+        ))
+        return ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(status))
+    }
+
+    private func executeWorkflowRecordStop() async throws -> ToolResult {
+        guard let recorder = workflowRecordingBackend() else {
+            return ToolResult(ok: false, error: "Workflow recording is unavailable on this Computer Use backend.")
+        }
+        let capture = try await recorder.stopWorkflowRecording()
+        return ToolResult(
+            ok: true,
+            stdout: try JSONHelpers.encodePretty(capture),
+            artifacts: capture.artifactPaths
+        )
+    }
+
+    private func workflowRecordingBackend() -> (any WorkflowRecordingBackend)? {
+        backend as? any WorkflowRecordingBackend
+    }
+
     private func preflightFailure(for toolName: String) async -> ToolResult? {
         guard Self.isComputerUseTool(toolName) else {
             return nil
         }
+        // Stopping must remain available even if permissions are revoked mid-recording.
+        guard toolName != ToolDefinition.workflowRecordStop.name else { return nil }
 
         let status = backend.status
         if let unavailableReason = status.unavailableReason {
@@ -145,6 +196,7 @@ public struct ComputerUseToolExecutor: Sendable {
 
         let missingPermissions = Self.missingPermissions(for: toolName, status: status)
         guard !missingPermissions.isEmpty else {
+            guard Self.requiresAppApproval(toolName) else { return nil }
             return await appApprovalPreflightFailure(for: toolName)
         }
 
@@ -174,6 +226,11 @@ public struct ComputerUseToolExecutor: Sendable {
     }
 
     private static func isComputerUseTool(_ toolName: String) -> Bool {
+        (ToolDefinition.computerUseDefinitions + ToolDefinition.workflowRecordingDefinitions)
+            .contains { $0.name == toolName }
+    }
+
+    private static func requiresAppApproval(_ toolName: String) -> Bool {
         ToolDefinition.computerUseDefinitions.contains { $0.name == toolName }
     }
 
@@ -190,6 +247,13 @@ public struct ComputerUseToolExecutor: Sendable {
              ToolDefinition.computerMove.name,
              ToolDefinition.computerKey.name:
             return status.accessibilityGranted ? [] : [.accessibility]
+        case ToolDefinition.workflowRecordStart.name:
+            var requirements: [ComputerUsePermissionRequirement] = []
+            if !status.screenRecordingGranted { requirements.append(.screenRecording) }
+            if !status.accessibilityGranted { requirements.append(.accessibility) }
+            return requirements
+        case ToolDefinition.workflowRecordStop.name:
+            return []
         default:
             return []
         }
@@ -227,6 +291,10 @@ public struct ComputerUseToolExecutor: Sendable {
             return "cursor movement"
         case ToolDefinition.computerKey.name:
             return "keyboard"
+        case ToolDefinition.workflowRecordStart.name:
+            return "workflow recording"
+        case ToolDefinition.workflowRecordStop.name:
+            return "workflow recording stop"
         default:
             return "action"
         }

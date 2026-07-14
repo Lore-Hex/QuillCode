@@ -3,6 +3,7 @@ import QuillCodeCore
 import QuillCodeTools
 import QuillCodeSafety
 import QuillCodePersistence
+import QuillComputerUseKit
 @testable import QuillCodeAgent
 
 final class TrustedRouterPromptBuilderTests: XCTestCase {
@@ -114,6 +115,27 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("untrusted page content"))
         XCTAssertFalse(TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun])
             .contains("Computer Use screenshot results"))
+    }
+
+    func testWorkflowRecordingPromptRequiresImmediateToolsAndAuditedSkillDrafting() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .computerScreenshot,
+            .workflowRecordStart,
+            .workflowRecordStop
+        ])
+
+        XCTAssertTrue(prompt.contains("call `host.workflow.record.start` immediately"))
+        XCTAssertTrue(prompt.contains("Do not reply with a future-tense promise"))
+        XCTAssertTrue(prompt.contains("call `host.workflow.record.stop` immediately"))
+        XCTAssertTrue(prompt.contains(".quillcode/skills/<safe-slug>/SKILL.md"))
+        XCTAssertTrue(prompt.contains("list variable inputs, give numbered replay steps, and define verification"))
+        XCTAssertTrue(prompt.contains("omit protected or credential text"))
+
+        let ordinaryComputerUsePrompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .computerScreenshot,
+            .computerClick
+        ])
+        XCTAssertFalse(ordinaryComputerUsePrompt.contains("host.workflow.record.start"))
     }
 
     func testPromptRequiresNonEmptyShellCommand() {

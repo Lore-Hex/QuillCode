@@ -39,6 +39,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
     let transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator
     let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
+    let workflowRecordingCoordinator: QuillCodeDesktopWorkflowRecordingCoordinator
     let tasks = QuillCodeDesktopTaskCoordinator()
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until the window installs it.
     private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
@@ -77,6 +78,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
         self.transcriptExportCoordinator = transcriptExportCoordinator
         self.worktreeCoordinator = QuillCodeDesktopWorktreeCoordinator()
+        self.workflowRecordingCoordinator = QuillCodeDesktopWorkflowRecordingCoordinator()
         do {
             self.model = try bootstrap.makeModel()
         } catch {

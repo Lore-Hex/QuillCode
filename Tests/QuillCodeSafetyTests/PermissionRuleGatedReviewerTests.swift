@@ -32,6 +32,13 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let workflowRecordingStart = ToolDefinition(
+        name: "host.workflow.record.start",
+        description: "Record a demonstrated workflow",
+        parametersJSON: "{}",
+        host: .computer,
+        risk: .destructive
+    )
 
     private func makeWorkspace() throws -> URL {
         let url = FileManager.default.temporaryDirectory
@@ -116,6 +123,30 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
     }
 
     // MARK: - Allow rules
+
+    func testAllowRuleCannotBypassWorkflowRecordingConsent() async throws {
+        let root = try makeWorkspace()
+        let base = RecordingBaseReviewer(SafetyReview(verdict: .approve, rationale: "approved"))
+        let gated = reviewer(
+            rules: [PermissionRule(action: workflowRecordingStart.name, resource: "**", decision: .allow)],
+            base: base
+        )
+
+        let review = await gated.review(context(
+            mode: .auto,
+            call: ToolCall(
+                name: workflowRecordingStart.name,
+                argumentsJSON: #"{"goal":"Publish a release"}"#
+            ),
+            definition: workflowRecordingStart,
+            workspaceRoot: root
+        ))
+
+        XCTAssertEqual(review.verdict, .clarify)
+        XCTAssertEqual(review.reviewTelemetry?.source, .staticPolicy)
+        XCTAssertEqual(review.reviewTelemetry?.fallbackReason, .explicitApprovalRequired)
+        XCTAssertEqual(base.reviewCount, 0)
+    }
 
     func testAllowRuleSkipsAskInReviewAndAutoModes() async throws {
         let root = try makeWorkspace()

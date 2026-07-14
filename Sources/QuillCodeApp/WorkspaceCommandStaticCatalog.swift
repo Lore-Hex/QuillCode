@@ -245,7 +245,11 @@ enum WorkspaceCommandStaticCatalog {
         ]
     }
 
-    static func extensionToggleCommands(hasActiveWorkspaceRoot: Bool) -> [Command] {
+    static func extensionToggleCommands(
+        hasActiveWorkspaceRoot: Bool,
+        workflowRecordingAvailable: Bool = false,
+        workflowRecordingIsActive: Bool = false
+    ) -> [Command] {
         [
             shortcut(
                 "toggle-extensions",
@@ -267,7 +271,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: Category.extensions,
                 keywords: ["hooks", "plugin hooks", "review hooks", "trust hooks"],
                 isEnabled: hasActiveWorkspaceRoot
-            )
+            ),
+            .workflowRecordSkill(
+                isEnabled: hasActiveWorkspaceRoot
+                    && workflowRecordingAvailable
+                    && !workflowRecordingIsActive
+            ),
+            .workflowStopRecording(isEnabled: workflowRecordingIsActive)
         ]
     }
 
@@ -275,7 +285,8 @@ enum WorkspaceCommandStaticCatalog {
         composerIsSending: Bool,
         terminalIsRunning: Bool,
         hasActiveMCPServer: Bool,
-        hasSelectedRemoteProject: Bool
+        hasSelectedRemoteProject: Bool,
+        workflowRecordingIsActive: Bool
     ) -> [Command] {
         let control = Category.control
         let navigation = Category.navigation
@@ -285,7 +296,10 @@ enum WorkspaceCommandStaticCatalog {
                 "Stop all",
                 category: control,
                 keywords: ["cancel", "abort", "halt"],
-                isEnabled: composerIsSending || terminalIsRunning || hasActiveMCPServer
+                isEnabled: composerIsSending
+                    || terminalIsRunning
+                    || hasActiveMCPServer
+                    || workflowRecordingIsActive
             ),
             command(
                 "disconnect-all",

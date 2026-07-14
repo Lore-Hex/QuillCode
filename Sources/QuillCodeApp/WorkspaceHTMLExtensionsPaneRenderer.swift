@@ -13,9 +13,12 @@ enum WorkspaceHTMLExtensionsPaneRenderer {
               <strong>\(escape(extensions.title))</strong>
               <p data-testid="extensions-subtitle">\(escape(extensions.subtitle))</p>
             </div>
-            <span class="extensions-counts">
-              \(renderCounts(extensions))
-            </span>
+            <div class="extensions-header-actions">
+              \(renderRecordingStartAction(extensions))
+              <span class="extensions-counts">
+                \(renderCounts(extensions))
+              </span>
+            </div>
           </header>
           \(content)
         </section>
@@ -23,18 +26,58 @@ enum WorkspaceHTMLExtensionsPaneRenderer {
     }
 
     private static func renderContent(_ extensions: WorkspaceExtensionsSurface) -> String {
-        guard !extensions.items.isEmpty || !extensions.hookItems.isEmpty else {
-            return """
+        let recording = renderRecordingStatus(extensions)
+        let catalog: String
+        if extensions.items.isEmpty && extensions.hookItems.isEmpty {
+            catalog = """
             <div class="extensions-empty" data-testid="extensions-empty">
               <strong>\(escape(extensions.emptyTitle))</strong>
               <p>\(escape(extensions.emptySubtitle))</p>
             </div>
             """
+        } else {
+            catalog = """
+            <div class="extensions-grid" data-testid="extensions-grid">
+              \((extensions.items.map(renderExtensionItem) + extensions.hookItems.map(renderHookItem)).joined(separator: "\n"))
+            </div>
+            """
         }
+        return [recording, catalog].filter { !$0.isEmpty }.joined(separator: "\n")
+    }
+
+    private static func renderRecordingStartAction(_ extensions: WorkspaceExtensionsSurface) -> String {
+        guard let status = extensions.workflowRecording, !status.isRecording else { return "" }
+        return commandButton(
+            "Record a skill",
+            testID: "workflow-recording-start",
+            commandID: "workflow-recording-create",
+            hitTargetKind: .formAction,
+            classes: ["extension-action-button"]
+        )
+    }
+
+    private static func renderRecordingStatus(_ extensions: WorkspaceExtensionsSurface) -> String {
+        guard let status = extensions.workflowRecording, status.isRecording else { return "" }
+        let goal = status.goal ?? "Demonstrated workflow"
+        let title = status.hasReachedDurationLimit ? "Recording limit reached" : "Recording workflow"
+        let detail = status.hasReachedDurationLimit
+            ? "The 30-minute capture is complete. Stop to create the skill."
+            : goal
         return """
-        <div class="extensions-grid" data-testid="extensions-grid">
-          \((extensions.items.map(renderExtensionItem) + extensions.hookItems.map(renderHookItem)).joined(separator: "\n"))
-        </div>
+        <article class="workflow-recording-card" data-testid="workflow-recording-status" aria-live="polite">
+          <span class="workflow-recording-indicator" aria-hidden="true"></span>
+          <div>
+            <strong>\(escape(title))</strong>
+            <p data-testid="workflow-recording-goal">\(escape(detail))</p>
+          </div>
+          \(commandButton(
+              "Stop recording",
+              testID: "workflow-recording-stop",
+              commandID: WorkspaceCommandAction.workflowRecordingStop.rawValue,
+              hitTargetKind: .formAction,
+              classes: ["extension-action-button"]
+          ))
+        </article>
         """
     }
 

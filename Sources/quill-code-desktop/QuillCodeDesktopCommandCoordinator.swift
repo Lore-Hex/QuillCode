@@ -8,6 +8,7 @@ protocol QuillCodeDesktopCommandPerforming: AnyObject {
     func toggleBrowser()
     func openBrowserSession()
     func toggleExtensions()
+    func stopWorkflowRecording()
     func toggleMemories()
     func toggleActivity()
     func toggleAutomations()
@@ -43,6 +44,8 @@ struct QuillCodeDesktopCommandCoordinator {
             performer.openBrowserSession()
         case .toggleExtensions:
             performer.toggleExtensions()
+        case .stopWorkflowRecording:
+            performer.stopWorkflowRecording()
         case .toggleMemories:
             performer.toggleMemories()
         case .toggleActivity:

@@ -54,6 +54,9 @@ extension QuillCodeWorkspaceModel {
         case .showHooks:
             showExtensions(focusedOn: .hook)
             return true
+        case .stopWorkflowRecording:
+            Task { await prepareStoppedWorkflowRecordingForComposer() }
+            return true
         case .toggleMemories:
             toggleMemories()
             return true

@@ -1,9 +1,43 @@
 import XCTest
 import QuillCodeCore
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 @MainActor
 final class WorkspaceSurfaceTests: XCTestCase {
+    func testSurfaceProjectsWorkflowRecordingAndCommandAvailability() throws {
+        let workspace = try makeQuillCodeTestDirectory()
+        let project = ProjectRef(name: "Recorder", path: workspace.path)
+        let thread = ChatThread(projectID: project.id)
+        let backend = SurfaceWorkflowRecordingBackend(status: WorkflowRecordingStatus(
+            phase: .recording,
+            goal: "Publish a release",
+            startedAt: Date(timeIntervalSince1970: 123),
+            eventCount: 8,
+            snapshotCount: 2
+        ))
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            computerUseBackend: backend
+        )
+
+        let surface = model.surface()
+
+        XCTAssertEqual(surface.extensions.workflowRecording?.goal, "Publish a release")
+        XCTAssertEqual(surface.extensions.workflowRecording?.eventCount, 8)
+        XCTAssertFalse(try XCTUnwrap(surface.commands.first {
+            $0.id == "workflow-recording-create"
+        }).isEnabled)
+        XCTAssertTrue(try XCTUnwrap(surface.commands.first {
+            $0.id == "workflow-recording-stop"
+        }).isEnabled)
+    }
+
     func testSurfaceExposesNamedWorktreeEnvironmentsForSelectedLocalProject() throws {
         let root = try makeQuillCodeTestDirectory()
         let directory = root.appendingPathComponent(".quillcode")
@@ -190,6 +224,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-extensions",
             "show-skills",
             "show-hooks",
+            "workflow-recording-create",
+            "workflow-recording-stop",
             "git-status",
             "git-diff",
             "git-fetch",
@@ -389,4 +425,37 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.topBar.showsComputerUseSetup)
     }
 
+}
+
+private struct SurfaceWorkflowRecordingBackend: ComputerUseBackend, WorkflowRecordingBackend {
+    let status: ComputerUseStatus = .permissionStatus(
+        screenRecordingGranted: true,
+        accessibilityGranted: true
+    )
+    let workflowRecordingStatusSnapshot: WorkflowRecordingStatus
+
+    init(status: WorkflowRecordingStatus) {
+        workflowRecordingStatusSnapshot = status
+    }
+
+    func workflowRecordingStatus() async -> WorkflowRecordingStatus {
+        workflowRecordingStatusSnapshot
+    }
+
+    func startWorkflowRecording(_ request: WorkflowRecordingRequest) async throws -> WorkflowRecordingStatus {
+        _ = request
+        return workflowRecordingStatusSnapshot
+    }
+
+    func stopWorkflowRecording() async throws -> WorkflowRecordingCapture {
+        throw ComputerUseError.unavailable("Not used by this surface test.")
+    }
+
+    func cancelWorkflowRecording() async {}
+    func screenshot() async throws -> ComputerScreenshot { .init(width: 1, height: 1, pngBase64: "") }
+    func leftClick(x: Int, y: Int) async throws {}
+    func type(_ text: String) async throws {}
+    func scroll(dx: Int, dy: Int) async throws {}
+    func moveCursor(x: Int, y: Int) async throws {}
+    func pressKey(_ key: String) async throws {}
 }

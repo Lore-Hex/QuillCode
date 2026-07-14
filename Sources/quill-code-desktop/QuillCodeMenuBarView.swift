@@ -12,6 +12,7 @@ struct QuillCodeMenuBarView: View {
     var onToggleBrowser: () -> Void
     var onOpenBrowserSession: () -> Void
     var onToggleExtensions: () -> Void
+    var onStopWorkflowRecording: () -> Void
     var onToggleMemories: () -> Void
     var onStopAll: () -> Void
     var onDisconnectAll: () -> Void
@@ -34,6 +35,10 @@ struct QuillCodeMenuBarView: View {
         Text("Model: \(surface.topBar.modelLabel)")
         Text("Mode: \(surface.topBar.modeLabel)")
         Text("Computer Use: \(surface.topBar.computerUseLabel)")
+        if surface.extensions.workflowRecording?.isRecording == true {
+            Label("Recording workflow", systemImage: "record.circle.fill")
+            menuActionButton("Stop Recording", action: onStopWorkflowRecording)
+        }
         Divider()
         menuActionButton("New Chat", action: onNewChat)
         menuActionButton("Open Project...", action: onOpenProject)

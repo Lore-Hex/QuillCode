@@ -10,6 +10,11 @@ public extension ToolDefinition {
         .computerKey
     ]
 
+    static let workflowRecordingDefinitions: [ToolDefinition] = [
+        .workflowRecordStart,
+        .workflowRecordStop
+    ]
+
     static let computerScreenshot = ToolDefinition(
         name: "host.computer.screenshot",
         description: "Capture a screenshot of the active desktop.",
@@ -56,5 +61,23 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}"#,
         host: .computer,
         risk: .destructive
+    )
+
+    static let workflowRecordStart = ToolDefinition(
+        name: "host.workflow.record.start",
+        description: "Start a consented Computer Use recording of screenshots and typed text across apps. "
+            + "The capture is sent to TrustedRouter to create a reusable skill; password fields are redacted. "
+            + "Call this immediately when the user asks to record a skill; do not merely promise to start.",
+        parametersJSON: #"{"type":"object","properties":{"goal":{"type":"string","description":"What the reusable workflow should accomplish."}},"required":["goal"]}"#,
+        host: .computer,
+        risk: .destructive
+    )
+
+    static let workflowRecordStop = ToolDefinition(
+        name: "host.workflow.record.stop",
+        description: "Stop the active workflow recording and return bounded actions plus screenshot artifacts for drafting the skill in the same turn.",
+        parametersJSON: #"{"type":"object","properties":{}}"#,
+        host: .computer,
+        risk: .read
     )
 }

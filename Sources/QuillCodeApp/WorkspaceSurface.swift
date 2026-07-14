@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeCore
 import QuillCodeTools
+import QuillComputerUseKit
 
 public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var chrome: WorkspaceChromeSurface
@@ -184,7 +185,9 @@ public extension QuillCodeWorkspaceModel {
                 manifests: selectedProject?.extensionManifests ?? [],
                 hooks: selectedProject?.pluginHooks ?? [],
                 mcpServerStatuses: extensions.mcpServerStatuses,
-                mcpServerProbeSummaries: extensions.mcpServerProbeSummaries
+                mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
+                workflowRecording: (computerUseBackend as? any WorkflowRecordingStatusProviding)?
+                    .workflowRecordingStatusSnapshot
             ),
             memories: WorkspaceMemoriesSurface(
                 isVisible: memories.isVisible,
@@ -270,6 +273,8 @@ public extension QuillCodeWorkspaceModel {
         let sidebarSelectedThreadIDs = Set(selectedSidebarThreadIDs())
         let selectedSidebarThreads = root.threads.filter { sidebarSelectedThreadIDs.contains($0.id) }
         let visibleSidebarItemCount = filteredSidebarItems().count
+        let workflowRecordingStatus = (computerUseBackend as? any WorkflowRecordingStatusProviding)?
+            .workflowRecordingStatusSnapshot
         return WorkspaceCommandSurfaceBuilder(
             selectedThread: selectedThread,
             selectedProject: selectedProject,
@@ -291,6 +296,8 @@ public extension QuillCodeWorkspaceModel {
             mcpServerStatuses: extensions.mcpServerStatuses,
             mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
             computerUseStatus: root.topBar.computerUseStatus,
+            workflowRecordingAvailable: computerUseBackend is any WorkflowRecordingBackend,
+            workflowRecordingIsActive: workflowRecordingStatus?.isRecording == true,
             selectedThreadIsRunning: isAgentRunActive(for: root.selectedThreadID),
             runningThreadIDs: activeAgentRunThreadIDs
         )

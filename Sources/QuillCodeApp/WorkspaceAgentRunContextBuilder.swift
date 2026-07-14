@@ -139,7 +139,12 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     private var computerUseToolDefinitions: [ToolDefinition] {
-        computerUseBackend == nil ? [] : ToolDefinition.computerUseDefinitions
+        guard let computerUseBackend else { return [] }
+        var definitions = ToolDefinition.computerUseDefinitions
+        if computerUseBackend is any WorkflowRecordingBackend {
+            definitions += ToolDefinition.workflowRecordingDefinitions
+        }
+        return definitions
     }
 
     private var memoryToolDefinitions: [ToolDefinition] {
@@ -187,7 +192,10 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
                 approvedBundleIdentifiers: config.computerUseApprovedBundleIdentifiers,
                 approvedAppNames: config.computerUseApprovedAppNames
             ),
-            artifactDirectory: computerUseArtifactDirectory
+            artifactDirectory: computerUseArtifactDirectory,
+            originThreadID: threadID?.uuidString,
+            projectID: selectedProject?.id.uuidString,
+            workspaceRoot: selectedProject?.isRemote == false ? selectedProject?.path : nil
         )
         return { call, _ in
             await executor.execute(call)
@@ -209,13 +217,25 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
               let imageAttachmentStore
         else { return nil }
         return { call, result in
-            guard call.name == ToolDefinition.computerScreenshot.name, result.ok else { return [] }
-            return Array(result.artifacts.lazy.compactMap { path in
+            guard result.ok else { return [] }
+            let limit: Int
+            let displayName: (Int) -> String
+            switch call.name {
+            case ToolDefinition.computerScreenshot.name:
+                limit = 1
+                displayName = { _ in "Computer Use screenshot.png" }
+            case ToolDefinition.workflowRecordStop.name:
+                limit = 4
+                displayName = { "Workflow recording \($0 + 1).png" }
+            default:
+                return []
+            }
+            return Array(result.artifacts.lazy.enumerated().compactMap { index, path in
                 try? imageAttachmentStore.attachmentForManagedImage(
                     at: URL(fileURLWithPath: path),
-                    displayName: "Computer Use screenshot.png"
+                    displayName: displayName(index)
                 )
-            }.prefix(1))
+            }.prefix(limit))
         }
     }
 

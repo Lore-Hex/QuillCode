@@ -7,6 +7,7 @@ enum QuillCodeDesktopCommandAction {
     case toggleBrowser
     case openBrowserSession
     case toggleExtensions
+    case stopWorkflowRecording
     case toggleMemories
     case toggleActivity
     case toggleAutomations
@@ -38,6 +39,8 @@ enum QuillCodeDesktopCommandPlanner {
             return .openBrowserSession
         case "toggle-extensions":
             return .toggleExtensions
+        case "workflow-recording-stop":
+            return .stopWorkflowRecording
         case "toggle-memories":
             return .toggleMemories
         case "toggle-activity":

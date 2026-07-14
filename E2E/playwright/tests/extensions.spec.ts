@@ -131,3 +131,69 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(reviewHook.getByTestId('hook-status')).toHaveText('Disabled');
   await expect(reviewHook.getByTestId('hook-trust')).toHaveText('Enable');
 });
+
+test('record and replay requires consent and creates a reusable skill in one stopped workflow', async ({ page }) => {
+  await page.goto(harnessURL());
+  await clickSidebarTool(page, 'extensions-button');
+
+  const startButton = page.getByTestId('workflow-recording-start');
+  await expect(startButton).toBeVisible();
+  await startButton.click();
+
+  const composer = page.getByLabel('Message');
+  await expect(composer).toBeFocused();
+  await expect(composer).toHaveValue('Create a reusable skill by recording this workflow: ');
+  await composer.fill('Create a reusable skill by recording this workflow: Publish a release to staging');
+  await page.getByTestId('send-button').click();
+
+  const consentCard = page.getByTestId('tool-card').filter({ hasText: 'host.workflow.record.start' }).first();
+  await expect(consentCard).toHaveAttribute('data-status', 'review');
+  await expect(consentCard).toContainText('Confirmation required');
+  await expect(consentCard).toContainText('sent to TrustedRouter');
+  await expect(consentCard.getByRole('button', { name: 'Start recording' })).toBeVisible();
+  await expect(consentCard.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  await expect(page.getByTestId('workflow-recording-status')).toHaveCount(0);
+
+  await consentCard.getByRole('button', { name: 'Start recording' }).click();
+  const recording = page.getByTestId('workflow-recording-status');
+  await expect(recording).toBeVisible();
+  await expect(recording.getByTestId('workflow-recording-goal')).toHaveText('Publish a release to staging');
+  await expect(page.getByTestId('workflow-recording-start')).toHaveCount(0);
+  await expect(page.getByTestId('message').last()).toContainText('Demonstrate the workflow');
+
+  await recording.getByTestId('workflow-recording-stop').click();
+
+  await expect(page.getByTestId('workflow-recording-status')).toHaveCount(0);
+  await expect(page.getByTestId('workflow-recording-start')).toBeVisible();
+  await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.workflow.record.stop' })).toHaveCount(1);
+  const skillWrite = page.getByTestId('tool-card').filter({ hasText: 'host.file.write' }).last();
+  await expect(skillWrite.getByTestId('tool-card-input')).toContainText(
+    '.quillcode/skills/publish-a-release-to-staging/SKILL.md'
+  );
+  await expect(skillWrite.getByTestId('tool-card-input')).toContainText('## Verification');
+  await expect(page.getByTestId('message').last()).toContainText(
+    'Created a reusable skill at .quillcode/skills/publish-a-release-to-staging/SKILL.md'
+  );
+  await expect(page.getByTestId('message').filter({ hasText: 'recording-start.png' })).toHaveCount(0);
+});
+
+test('cancelling record and replay captures nothing and creates no skill', async ({ page }) => {
+  await page.goto(harnessURL());
+  await clickSidebarTool(page, 'extensions-button');
+  await page.getByTestId('workflow-recording-start').click();
+  await page.getByLabel('Message').fill(
+    'Create a reusable skill by recording this workflow: Update an issue label'
+  );
+  await page.getByTestId('send-button').click();
+
+  const consentCard = page.getByTestId('tool-card').filter({ hasText: 'host.workflow.record.start' }).first();
+  await consentCard.getByRole('button', { name: 'Cancel' }).click();
+
+  await expect(page.getByTestId('workflow-recording-status')).toHaveCount(0);
+  await expect(page.getByTestId('workflow-recording-start')).toBeVisible();
+  await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.workflow.record.stop' })).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').filter({ hasText: 'host.file.write' })).toHaveCount(0);
+  await expect(page.getByTestId('message').last()).toContainText(
+    'Recording cancelled. No workflow activity was captured.'
+  );
+});

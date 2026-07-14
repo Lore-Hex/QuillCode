@@ -89,6 +89,10 @@ enum QuillCodeCommandIconCatalog {
             return "graduationcap"
         case "show-hooks":
             return "link"
+        case "workflow-recording-create":
+            return "record.circle"
+        case "workflow-recording-stop":
+            return "stop.circle"
         case "git-fetch":
             return "arrow.down.circle"
         case "git-pull":

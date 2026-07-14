@@ -42,6 +42,26 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("computer-use-setup", in: commands).isEnabled, true)
         XCTAssertEqual(try command("computer-use-open-screen-recording", in: commands).isEnabled, true)
         XCTAssertEqual(try command("computer-use-open-accessibility", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("workflow-recording-create", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("workflow-recording-stop", in: commands).isEnabled, false)
+    }
+
+    func testWorkflowRecordingCommandsTrackAvailabilityAndActiveState() throws {
+        let idleCommands = makeBuilder(
+            hasActiveWorkspaceRoot: true,
+            workflowRecordingAvailable: true
+        ).commands
+        XCTAssertTrue(try command("workflow-recording-create", in: idleCommands).isEnabled)
+        XCTAssertFalse(try command("workflow-recording-stop", in: idleCommands).isEnabled)
+
+        let activeCommands = makeBuilder(
+            hasActiveWorkspaceRoot: true,
+            workflowRecordingAvailable: true,
+            workflowRecordingIsActive: true
+        ).commands
+        XCTAssertFalse(try command("workflow-recording-create", in: activeCommands).isEnabled)
+        XCTAssertTrue(try command("workflow-recording-stop", in: activeCommands).isEnabled)
+        XCTAssertTrue(try command("stop-all", in: activeCommands).isEnabled)
     }
 
     func testWorkspaceNavigationAvailabilityUsesHistoryFlags() throws {
@@ -691,6 +711,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             screenRecordingGranted: false,
             accessibilityGranted: false
         ),
+        workflowRecordingAvailable: Bool = false,
+        workflowRecordingIsActive: Bool = false,
         selectedThreadIsRunning: Bool = false,
         runningThreadIDs: Set<UUID> = []
     ) -> WorkspaceCommandSurfaceBuilder {
@@ -715,6 +737,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             mcpServerStatuses: mcpServerStatuses,
             mcpServerProbeSummaries: mcpServerProbeSummaries,
             computerUseStatus: computerUseStatus,
+            workflowRecordingAvailable: workflowRecordingAvailable,
+            workflowRecordingIsActive: workflowRecordingIsActive,
             selectedThreadIsRunning: selectedThreadIsRunning,
             runningThreadIDs: runningThreadIDs
         )

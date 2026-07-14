@@ -58,3 +58,18 @@ test('visual: terminal pane', async ({ page }) => {
   await clickSidebarTool(page, 'terminal-button');
   await capture(page, '05-terminal');
 });
+
+test('visual: active workflow recording', async ({ page }) => {
+  await page.goto(harnessURL());
+  await clickSidebarTool(page, 'extensions-button');
+  await page.getByTestId('workflow-recording-start').click();
+  await page.getByLabel('Message').pressSequentially('Publish a release to staging');
+  await page.getByTestId('send-button').click();
+
+  const consentCard = page.getByTestId('tool-card').filter({ hasText: 'host.workflow.record.start' }).first();
+  await consentCard.getByRole('button', { name: 'Start recording' }).click();
+  const recordingStatus = page.getByTestId('workflow-recording-status');
+  await expect(recordingStatus).toBeVisible();
+  await recordingStatus.scrollIntoViewIfNeeded();
+  await capture(page, '06-active-workflow-recording');
+});

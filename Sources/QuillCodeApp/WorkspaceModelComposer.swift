@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillComputerUseKit
 
 @MainActor
 extension QuillCodeWorkspaceModel {
@@ -163,7 +164,7 @@ extension QuillCodeWorkspaceModel {
     /// both a typed draft and a drained follow-up so both paths go through the identical
     /// run/finish machinery (no divergent lifecycle handling). Returns the turn result.
     @discardableResult
-    private func runAgentTurn(
+    func runAgentTurn(
         prompt: String,
         attachments: [ChatAttachment] = [],
         threadID: UUID?,
