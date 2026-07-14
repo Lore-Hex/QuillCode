@@ -68,6 +68,7 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
         "memories.edit",
         "memories.delete",
         "automations.create",
+        "automations.close",
         "automations.run",
         "automations.primary",
         "automations.delete",

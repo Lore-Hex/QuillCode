@@ -277,7 +277,7 @@ extension QuillCodeParityTestCase {
         case "command.settings":
             return "settings dialog renders its primary controls and dismisses through Close"
         case "command.toggle-automations":
-            return "automations pane visibility toggles"
+            return "Automations renders its Create control and dismisses through Close"
         case "command.toggle-extensions":
             return "extensions pane visibility toggles"
         default:
@@ -295,6 +295,8 @@ extension QuillCodeParityTestCase {
             return "quillcode-search-input focused and accepted reversible AXValue text entry"
         case "command.settings":
             return "rendered Settings with its notifications control and dismissed through quillcode-settings-close with AXPress"
+        case "command.toggle-automations":
+            return "rendered Automations with its Create control and dismissed through quillcode-automations-close with AXPress"
         default:
             return "AXPress changed observable controller state"
         }

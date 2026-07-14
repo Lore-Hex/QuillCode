@@ -101,11 +101,16 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             resetToBaseline: { $1.isSettingsPresented = $0 },
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifySettingsDismissal
         ),
-        .toggle(
+        .presentation(
             "command.toggle-automations",
-            expectedOutcome: "automations pane visibility toggles",
+            expectedOutcome: "Automations renders its Create control and dismisses through Close",
             observe: { $0.surface.automations.isVisible },
-            resetWith: { $0.toggleAutomations() }
+            resetToBaseline: { baseline, controller in
+                if controller.surface.automations.isVisible != baseline {
+                    controller.toggleAutomations()
+                }
+            },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyAutomationsDismissal
         ),
         .toggle(
             "command.toggle-extensions",

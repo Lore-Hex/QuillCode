@@ -96,7 +96,12 @@ extension QuillCodeNativeHitTargetAudit {
             ),
             policy(.extensions, kinds: [.formAction, .capsule], actions: [.press]),
             policy(.memories, kinds: [.formAction, .icon], actions: [.press]),
-            policy(.automations, kinds: [.formAction], actions: [.press]),
+            policy(
+                .automations,
+                kinds: [.formAction],
+                actions: [.press],
+                allowedKinds: [.formAction, .icon]
+            ),
             policy(.menuBar, kinds: [.fullRow], actions: [.press])
         ]
     }

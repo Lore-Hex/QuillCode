@@ -214,7 +214,17 @@ extension QuillCodeNativeHitTargetAudit {
     ) -> [QuillCodeNativeHitTargetContract] {
         guard surface.isVisible else { return [] }
 
-        var contracts: [QuillCodeNativeHitTargetContract] = []
+        var contracts: [QuillCodeNativeHitTargetContract] = [
+            contract(
+                "automations.close",
+                family: .automations,
+                surface: "Automations",
+                label: "Close Automations",
+                kind: .icon,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
+                testID: "automations-close"
+            )
+        ]
         if surface.createThreadFollowUpCommand != nil
             || surface.createWorkspaceScheduleCommand != nil
             || surface.createMonitorCommand != nil {

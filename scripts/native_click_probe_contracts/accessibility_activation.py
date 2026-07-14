@@ -110,6 +110,13 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} command.settings does not prove rendered controls and close-button dismissal"
         )
+    if contract_id == "command.toggle-automations" and not all(
+        marker in interaction_evidence
+        for marker in ("Automations", "Create control", "quillcode-automations-close", "AXPress")
+    ):
+        raise SystemExit(
+            f"{report_path} command.toggle-automations does not prove rendered controls and close-button dismissal"
+        )
 
     return {
         "contractID": contract_id,
