@@ -265,7 +265,7 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParitySidebarCommandPresentationGateTests.swift", testNames: [
             "testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces",
-            "testSidebarSavedFiltersWrapInsteadOfClippingHorizontally",
+            "testSidebarSavedFiltersUseProgressiveDisclosureWithoutHorizontalChrome",
             "testNativeSidebarDelegatesProjectListRendering",
         ]),
         Suite(fileName: "ParityWorkspaceSidebarSurfaceGateTests.swift", testNames: [

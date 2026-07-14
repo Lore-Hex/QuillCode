@@ -20,6 +20,7 @@ import {
   expectCommandTargetsRoutable,
   expectInteractionTargetsClean
 } from './interaction-audit-routability';
+import { openSidebarFilterMenu } from './sidebar-test-helpers';
 
 async function fillComposerAndSend(page: Page, text: string) {
   const composer = page.getByLabel('Message');
@@ -250,6 +251,7 @@ test('sidebar and project controls activate from near-edge target points', async
     harness.addSidebarSavedSearch('Shell work', 'whoami', 'saved-shell-work');
     harness.addSidebarSavedSearch('Run work', 'run', 'saved-run-work');
   });
+  await openSidebarFilterMenu(page);
   await expect(page.getByTestId('sidebar-saved-search')).toHaveCount(2);
 
   await clickTargetInteriorPoint(
@@ -261,6 +263,7 @@ test('sidebar and project controls activate from near-edge target points', async
   await expect(
     page.getByTestId('sidebar-filter').filter({ hasText: 'Pinned' })
   ).toHaveAttribute('aria-pressed', 'true');
+  await openSidebarFilterMenu(page);
   await clickTargetInteriorPoint(
     page.getByTestId('sidebar-filter').filter({ hasText: 'All' }),
     'sidebar all filter leading edge',
@@ -269,6 +272,7 @@ test('sidebar and project controls activate from near-edge target points', async
   );
   await expect(page.getByTestId('sidebar-filter').filter({ hasText: 'All' })).toHaveAttribute('aria-pressed', 'true');
 
+  await openSidebarFilterMenu(page);
   const firstSavedSearchTitle = await page.getByTestId('sidebar-saved-search').first().textContent();
   await clickTargetInteriorPoint(
     page.getByTestId('sidebar-saved-search').first(),
@@ -276,6 +280,7 @@ test('sidebar and project controls activate from near-edge target points', async
     0.92,
     0.5
   );
+  await openSidebarFilterMenu(page);
   await expect(page.getByTestId('sidebar-saved-search').first()).toHaveAttribute('aria-pressed', 'true');
   await clickTargetInteriorPoint(
     page.getByTestId('sidebar-saved-search-move-down').first(),
@@ -283,9 +288,11 @@ test('sidebar and project controls activate from near-edge target points', async
     0.08,
     0.5
   );
+  await openSidebarFilterMenu(page);
   await expect(page.getByTestId('sidebar-saved-search').nth(1)).toContainText(
     firstSavedSearchTitle?.replace(/\d+/g, '').trim() || 'Shell work'
   );
+  await openSidebarFilterMenu(page);
   await clickTargetInteriorPoint(
     page.getByTestId('sidebar-saved-search-delete').first(),
     'saved search delete trailing edge',

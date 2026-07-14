@@ -36,17 +36,27 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         assertHTMLSidebarCommandRendering(htmlSidebarText, htmlCommandText)
     }
 
-    func testSidebarSavedFiltersWrapInsteadOfClippingHorizontally() throws {
+    func testSidebarSavedFiltersUseProgressiveDisclosureWithoutHorizontalChrome() throws {
         let savedFilterText = try Self.appSourceText(named: "QuillCodeSidebarSavedFilterBar.swift")
         let harnessText = try String(
             contentsOf: Self.packageRoot().appendingPathComponent("E2E/harness/index.html"),
             encoding: .utf8
         )
 
-        Self.assertSource(savedFilterText, contains: "LazyVGrid(")
-        Self.assertSource(savedFilterText, contains: ".adaptive(minimum: 86)")
+        Self.assertSource(savedFilterText, contains: "Menu {")
+        Self.assertSource(savedFilterText, contains: #"Section("Chats")"#)
+        Self.assertSource(savedFilterText, contains: #"Section("Actions")"#)
+        Self.assertSource(savedFilterText, contains: #"Label("Select chats", systemImage: "checkmark.circle")"#)
+        Self.assertSource(savedFilterText, contains: "QuillCodeSidebarSavedSearchMenuContent")
+        Self.assertSource(savedFilterText, contains: #"accessibilityIdentifier("quillcode-sidebar-filter-menu")"#)
+        Self.assertSource(savedFilterText, excludes: "LazyVGrid(")
         Self.assertSource(savedFilterText, excludes: horizontalFilterScrollNeedle)
-        Self.assertSource(harnessText, contains: "flex-wrap: wrap;")
+        Self.assertSource(harnessText, contains: #".sidebar-filter-menu {"#)
+        Self.assertSource(harnessText, contains: #".sidebar-filter-popover {"#)
+        Self.assertSource(harnessText, contains: #"data-testid="sidebar-filter-menu-button""#)
+        Self.assertSource(harnessText, contains: #"data-sidebar-select-chats="true""#)
+        Self.assertSource(harnessText, contains: #"bulkActions.filter(action => action.id !== 'clearSelection')"#)
+        Self.assertSource(harnessText, excludes: #"data-testid="sidebar-filter-bar""#)
         Self.assertSource(harnessText, excludes: ".sidebar-filter-bar::-webkit-scrollbar")
     }
 
@@ -84,6 +94,7 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         let primaryActionsText = try Self.appSourceText(named: "QuillCodeSidebarActionsView.swift")
         let utilityActionsText = try Self.appSourceText(named: "QuillCodeSidebarUtilityActionsView.swift")
         let threadRowText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
+        let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
         let projectRowText = try Self.appSourceText(named: "QuillCodeProjectRowView.swift")
         let buttonTargetText = try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift")
 
@@ -113,11 +124,12 @@ final class ParitySidebarCommandPresentationGateTests: QuillCodeParityTestCase {
         Self.assertSource(projectRowText, contains: "HStack(spacing: QuillCodeMetrics.sidebarControlSpacing)")
         Self.assertSource(threadRowText, contains: ".quillCodeSidebarIconButtonTarget")
         Self.assertSource(projectRowText, contains: ".quillCodeSidebarIconButtonTarget")
-        Self.assertSource(projectRowText, contains: "projectDragHandle")
-        Self.assertSource(projectRowText, contains: "line.3.horizontal")
-        Self.assertSource(projectRowText, contains: "sidebarIconTargetSize")
-        Self.assertSource(projectRowText, contains: "sidebarInteractionRowHeight")
-        Self.assertSource(projectRowText, contains: "Drag to reorder project")
+        Self.assertSource(threadRowText, contains: "SidebarActivityLabelFormatter.label")
+        Self.assertSource(projectListText, contains: ".projectDragReorderTarget(")
+        Self.assertSource(projectListText, contains: ".onDrag {")
+        Self.assertSource(projectRowText, excludes: "projectDragHandle")
+        Self.assertSource(projectRowText, excludes: "line.3.horizontal")
+        Self.assertSource(projectRowText, contains: "Drag to reorder")
         Self.assertSource(projectRowText, contains: "Drag the row to reorder it.")
     }
 

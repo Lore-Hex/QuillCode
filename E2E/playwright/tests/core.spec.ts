@@ -83,7 +83,8 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
-  await expect(page.getByTestId('sidebar-item')).toContainText('z-ai/GLM 5.2');
+  await expect(page.getByTestId('sidebar-item')).toHaveAttribute('title', 'z-ai/GLM 5.2');
+  await expect(page.getByTestId('sidebar-item')).toHaveAttribute('aria-label', /z-ai\/GLM 5\.2/);
   await expect(page.getByTestId('top-bar-title')).toHaveText('run whoami');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Auto');
   await expect(page.getByTestId('top-bar-token-budget')).toBeVisible();

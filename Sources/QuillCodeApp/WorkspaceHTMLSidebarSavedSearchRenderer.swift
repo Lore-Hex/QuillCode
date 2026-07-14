@@ -9,25 +9,19 @@ enum WorkspaceHTMLSidebarSavedSearchRenderer {
         }
         let rows = sidebar.customSavedSearches.map(renderSavedSearch).joined(separator: "\n")
         return """
-        <div class="sidebar-filter-bar sidebar-saved-search-bar" data-testid="sidebar-saved-search-bar">
-          <div class="sidebar-saved-search-header">
-            <span class="sidebar-saved-search-label">Saved searches</span>
-            \(WorkspaceHTMLPrimitives.commandButton(
-                "Save",
-                testID: "sidebar-saved-search-create",
-                commandID: createCommandID,
-                hitTargetKind: .text,
-                classes: ["sidebar-saved-search-create"],
-                ariaLabel: "Save sidebar search"
-            ))
-          </div>
-          \(rows.isEmpty ? emptySearches : rows)
-        </div>
+        <section class="sidebar-filter-section sidebar-saved-search-bar" data-testid="sidebar-saved-search-bar">
+          <h3>Saved searches</h3>
+          \(rows)
+          \(WorkspaceHTMLPrimitives.commandButton(
+              "Save current search…",
+              testID: "sidebar-saved-search-create",
+              commandID: createCommandID,
+              hitTargetKind: .row,
+              classes: ["sidebar-saved-search-create"],
+              ariaLabel: "Save sidebar search"
+          ))
+        </section>
         """
-    }
-
-    private static var emptySearches: String {
-        #"<p class="sidebar-saved-search-empty" data-testid="sidebar-saved-search-empty">No saved searches yet</p>"#
     }
 
     private static func renderSavedSearch(_ savedSearch: SidebarSavedSearchSurface) -> String {

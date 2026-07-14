@@ -78,6 +78,20 @@ export async function expectHitTarget(locator: Locator, label: string) {
       return topElement === element || Boolean(topElement && element.contains(topElement));
     }
 
+    function pointOwnerDescription(x: number, y: number) {
+      const topElement = document.elementFromPoint(x, y);
+      if (!topElement) return 'none';
+      const testID = topElement.getAttribute('data-testid');
+      const id = topElement.getAttribute('id');
+      const classes = [...topElement.classList].slice(0, 3).join('.');
+      return [
+        topElement.tagName.toLowerCase(),
+        id ? `#${id}` : '',
+        testID ? `[data-testid=${testID}]` : '',
+        classes ? `.${classes}` : ''
+      ].join('');
+    }
+
     function classDerivedHitTargetKind(targetElement: Element) {
       for (const [className, kind] of Object.entries(expectedKindByClass)) {
         if (targetElement.classList.contains(className)) return kind;
@@ -216,8 +230,12 @@ export async function expectHitTarget(locator: Locator, label: string) {
     if (!isDisabled && samplePoints.length === 0) {
       issues.push('no_visible_sample_points');
     }
-    if (!isDisabled && samplePoints.some(([x, y]) => !isPointOwnedByTarget(x, y))) {
-      issues.push('clickable_interior_blocked');
+    const blockedSamplePoints = isDisabled ? [] : samplePoints.filter(([x, y]) => !isPointOwnedByTarget(x, y));
+    if (blockedSamplePoints.length > 0) {
+      const blockedOwners = blockedSamplePoints.map(([x, y]) => (
+        `${Math.round(x)},${Math.round(y)}=${pointOwnerDescription(x, y)}`
+      ));
+      issues.push(`clickable_interior_blocked:${blockedOwners.join('|')}`);
     }
     return issues;
   }, {

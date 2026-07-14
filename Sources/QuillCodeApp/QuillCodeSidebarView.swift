@@ -22,17 +22,6 @@ struct QuillCodeSidebarView: View {
             if showsThreadHeader {
                 Divider()
                 threadHeader
-                QuillCodeSidebarSavedFilterBar(
-                    filters: sidebar.savedFilters,
-                    onCommand: onCommand
-                )
-                if let createCommand = savedSearchCreateCommand {
-                    QuillCodeSidebarSavedSearchBar(
-                        savedSearches: sidebar.customSavedSearches,
-                        createCommand: createCommand,
-                        onCommand: onCommand
-                    )
-                }
                 if sidebar.isSelectionMode {
                     QuillCodeSidebarBulkActionsView(
                         selectionLabel: sidebar.selectionLabel,
@@ -84,9 +73,8 @@ struct QuillCodeSidebarView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             Spacer()
-            if let action = sidebar.bulkActions.first(where: {
-                sidebar.isSelectionMode ? $0.kind == .clearSelection : $0.kind == .select
-            }) {
+            if sidebar.isSelectionMode,
+               let action = sidebar.bulkActions.first(where: { $0.kind == .clearSelection }) {
                 Button(action.title) {
                     onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: action))
                 }
@@ -97,11 +85,25 @@ struct QuillCodeSidebarView: View {
                 .disabled(!action.isEnabled)
                 .accessibilityIdentifier("quillcode-sidebar-\(action.kind.rawValue)")
             }
+            QuillCodeSidebarSavedFilterBar(
+                filters: sidebar.savedFilters,
+                savedSearches: sidebar.customSavedSearches,
+                createCommand: savedSearchCreateCommand,
+                selectionCommand: selectionCommand,
+                onCommand: onCommand
+            )
         }
     }
 
     private var savedSearchCreateCommand: WorkspaceCommandSurface? {
         commands.first { $0.id == WorkspaceCommandAction.sidebarSavedSearchCreate.rawValue }
+    }
+
+    private var selectionCommand: WorkspaceCommandSurface? {
+        guard !sidebar.isSelectionMode,
+              let action = sidebar.bulkActions.first(where: { $0.kind == .select })
+        else { return nil }
+        return QuillCodeSidebarCommandAdapter.workspaceCommand(for: action)
     }
 
 }

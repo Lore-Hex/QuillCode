@@ -5,32 +5,57 @@ enum WorkspaceHTMLSidebarThreadRenderer {
     static func render(_ sidebar: SidebarSurface, commands: [WorkspaceCommandSurface]) -> String {
         """
         <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
-          \(renderThreadHeader(sidebar))
-          \(renderSavedFilters(sidebar))
-          \(WorkspaceHTMLSidebarSavedSearchRenderer.render(sidebar, commands: commands))
+          \(renderThreadHeader(sidebar, commands: commands))
           \(renderBulkToolbar(sidebar))
           \(renderThreadSections(sidebar))
         </div>
         """
     }
 
-    private static func renderThreadHeader(_ sidebar: SidebarSurface) -> String {
+    private static func renderThreadHeader(
+        _ sidebar: SidebarSurface,
+        commands: [WorkspaceCommandSurface]
+    ) -> String {
         guard !sidebar.items.isEmpty || sidebar.isSelectionMode else { return "" }
         return """
         <div class="sidebar-title-row" data-testid="sidebar-title-row">
           <h2>\(escape(sidebar.title))</h2>
-          \(renderSelectionHeaderAction(sidebar))
+          <span class="sidebar-title-actions">
+            \(renderSelectionHeaderAction(sidebar))
+            \(renderFilterMenu(sidebar, commands: commands))
+          </span>
         </div>
         """
     }
 
-    private static func renderSavedFilters(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.items.isEmpty else { return "" }
+    private static func renderFilterMenu(
+        _ sidebar: SidebarSurface,
+        commands: [WorkspaceCommandSurface]
+    ) -> String {
         let filters = sidebar.savedFilters.map(renderSavedFilter).joined(separator: "\n")
+        let activeSavedSearch = sidebar.customSavedSearches.first(where: \.isActive)
+        let activeFilter = sidebar.savedFilters.first(where: \.isActive)
+        let activeTitle = activeSavedSearch?.title ?? activeFilter?.title ?? "Custom"
+        let activeCount = activeSavedSearch?.count ?? activeFilter?.count ?? 0
+        let isRefined = activeSavedSearch != nil || activeFilter?.kind != .all
         return """
-        <div class="sidebar-filter-bar" data-testid="sidebar-filter-bar">
-          \(filters)
-        </div>
+        <details class="sidebar-filter-menu" data-testid="sidebar-filter-menu" data-active="\(isRefined)">
+          \(WorkspaceHTMLPrimitives.summary(
+              "Filter",
+              testID: "sidebar-filter-menu-button",
+              hitTargetKind: .icon,
+              ariaLabel: "Filter chats, \(activeTitle), \(activeCount)",
+              title: "Filter chats"
+          ))
+          <div class="sidebar-filter-popover" role="menu">
+            <section class="sidebar-filter-section">
+              <h3>Chats</h3>
+              \(filters)
+            </section>
+            \(WorkspaceHTMLSidebarSavedSearchRenderer.render(sidebar, commands: commands))
+            \(renderSelectionMenuAction(sidebar))
+          </div>
+        </details>
         """
     }
 
@@ -53,8 +78,9 @@ enum WorkspaceHTMLSidebarThreadRenderer {
     }
 
     private static func renderBulkToolbar(_ sidebar: SidebarSurface) -> String {
-        guard sidebar.isSelectionMode, !sidebar.bulkActions.isEmpty else { return "" }
-        let actions = sidebar.bulkActions.map(renderBulkAction).joined(separator: "\n")
+        let toolbarActions = sidebar.bulkActions.filter { $0.kind != .clearSelection }
+        guard sidebar.isSelectionMode, !toolbarActions.isEmpty else { return "" }
+        let actions = toolbarActions.map(renderBulkAction).joined(separator: "\n")
         return """
         <div\(selectionAttributes(for: sidebar))>
           <span data-testid="sidebar-selection-label">\(escape(sidebar.selectionLabel))</span>
@@ -157,19 +183,28 @@ enum WorkspaceHTMLSidebarThreadRenderer {
               testID: "sidebar-item",
               hitTargetKind: .row,
               classes: ["sidebar-item", item.isSelected ? "selected" : ""],
+              ariaLabel: "\(item.title), \(item.subtitle), updated \(activityLabel(for: item))",
+              title: item.subtitle,
               attributes: [
                   ("data-thread-id", item.id.uuidString),
                   ("aria-current", item.isSelected ? "true" : "false"),
                   ("data-run-status", item.runStatusLabel ?? "")
               ]
           ))>
-            <span class="sidebar-title-line"><span>\(escape(item.title))</span>\(renderRunStatus(item.runStatusLabel))</span>
-            <small>\(escape(item.subtitle))</small>
+            <span class="sidebar-title-line"><span>\(escape(item.title))</span>\(renderRunStatus(item.runStatusLabel))<time data-testid="sidebar-activity">\(escape(activityLabel(for: item)))</time></span>
             <span class="sidebar-thread-metadata">\(renderWorktreeChip(item.worktree))\(renderPullRequestChip(item.pullRequest))</span>
           </button>
-          <span data-testid="sidebar-item-actions">
-            \(item.actions.map(renderAction).joined(separator: "\n"))
-          </span>
+          <details class="sidebar-thread-menu" data-testid="sidebar-item-actions">
+            \(WorkspaceHTMLPrimitives.summary(
+                "•••",
+                hitTargetKind: .icon,
+                ariaLabel: "Thread actions for \(item.title)",
+                title: "Thread actions"
+            ))
+            <div class="sidebar-thread-menu-popover">
+              \(item.actions.map(renderAction).joined(separator: "\n"))
+            </div>
+          </details>
         </div>
         """
     }
@@ -179,6 +214,10 @@ enum WorkspaceHTMLSidebarThreadRenderer {
         return """
         <span class="sidebar-run-status" data-testid="sidebar-run-status" title="\(escape(status))" aria-label="\(escape(status))"><span aria-hidden="true">●</span></span>
         """
+    }
+
+    private static func activityLabel(for item: SidebarItemSurface) -> String {
+        SidebarActivityLabelFormatter.label(for: item.updatedAt)
     }
 
     private static func renderWorktreeChip(_ worktree: SidebarItemWorktreeSummary?) -> String {
@@ -215,18 +254,40 @@ enum WorkspaceHTMLSidebarThreadRenderer {
     }
 
     private static func renderSelectionHeaderAction(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.visibleItems.isEmpty,
-              !sidebar.isSelectionMode,
-              let action = sidebar.bulkActions.first(where: { $0.kind == .select })
+        guard sidebar.isSelectionMode,
+              let action = sidebar.bulkActions.first(where: { $0.kind == .clearSelection })
         else { return "" }
         return renderBulkAction(action)
+    }
+
+    private static func renderSelectionMenuAction(_ sidebar: SidebarSurface) -> String {
+        guard !sidebar.isSelectionMode,
+              let action = sidebar.bulkActions.first(where: { $0.kind == .select })
+        else { return "" }
+        let selectAction = WorkspaceHTMLPrimitives.commandButton(
+            "Select chats",
+            testID: "sidebar-select-chats",
+            commandID: action.commandID,
+            hitTargetKind: .text,
+            disabled: !action.isEnabled,
+            attributes: [
+                ("data-action", action.kind.rawValue),
+                ("data-destructive", String(action.isDestructive))
+            ]
+        )
+        return """
+        <section class="sidebar-filter-section">
+          <h3>Actions</h3>
+          \(selectAction)
+        </section>
+        """
     }
 
     private static func renderAction(_ action: SidebarItemActionSurface) -> String {
         WorkspaceHTMLPrimitives.button(
             action.kind.title,
             testID: "sidebar-thread-action",
-            hitTargetKind: .icon,
+            hitTargetKind: .row,
             ariaLabel: action.kind.title,
             attributes: [
                 ("data-action", action.kind.rawValue),

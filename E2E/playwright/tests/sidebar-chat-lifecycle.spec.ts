@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { harnessURL } from './harness-helpers';
 import {
+  beginSidebarSelection,
   clickThreadAction,
   expectThreadCount,
   sendSidebarPrompt,
@@ -20,7 +21,10 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
 
   await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Today']);
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('run whoami');
-  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('Nike 1.0');
+  await expect(page.getByTestId('sidebar-thread-row').first().getByTestId('sidebar-item'))
+    .toHaveAttribute('title', 'Nike 1.0');
+  await expect(page.getByTestId('sidebar-thread-row').first().getByTestId('sidebar-activity'))
+    .toHaveText(/\S+/);
 
   page.once('dialog', async dialog => {
     expect(dialog.message()).toContain('Rename chat');
@@ -101,7 +105,7 @@ test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
   }
 
   await expectThreadCount(page, 3);
-  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await beginSidebarSelection(page);
   await expect(page.getByTestId('sidebar-selection')).toHaveAttribute('data-active', 'true');
 
   await page.getByTestId('sidebar-thread-row').nth(0).getByTestId('sidebar-select-toggle').click();
@@ -113,7 +117,7 @@ test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
   await expect(sidebarSection(page, 'Archived').getByTestId('sidebar-thread-row')).toHaveCount(2);
   await expect(sidebarSection(page, 'Today').getByTestId('sidebar-thread-row')).toHaveCount(1);
 
-  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await beginSidebarSelection(page);
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: 'Select all' }).click();
   await expect(page.getByTestId('sidebar-selection-label')).toHaveText('3 chats selected');
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Delete$/ }).click();

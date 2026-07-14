@@ -10,6 +10,7 @@ import {
   expectHitTarget,
   MINIMUM_HIT_TARGET
 } from './interaction-audit-helpers';
+import { openSidebarFilterMenu } from './sidebar-test-helpers';
 import { expectNoHorizontalOverflow } from './visual-polish-helpers';
 
 test('mock harness avoids horizontal clipping in key desktop and mobile flows', async ({ browser }) => {
@@ -70,52 +71,67 @@ test('mock harness styles interactive accents with the defined cyan token, not a
   expect(audit.resolvedBlue).toBe('rgb(61, 201, 230)');
 });
 
-test('mock harness keeps sidebar saved filters fully visible', async ({ page }) => {
+test('mock harness keeps chat filters compact until explicitly disclosed', async ({ page }) => {
   await page.goto(harnessURL());
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+  await page.evaluate(() => {
+    const harness = window as unknown as {
+      addSidebarSavedSearch: (title: string, query: string, id: string) => string | null;
+    };
+    harness.addSidebarSavedSearch('Shell work', 'whoami', 'saved-shell-work');
+    harness.addSidebarSavedSearch('Run work', 'run', 'saved-run-work');
+  });
 
-  const filterBar = page.getByTestId('sidebar-filter-bar');
-  await expect(filterBar).toBeVisible();
+  await expect(page.getByTestId('sidebar-filter-menu-button')).toBeVisible();
+  await expect(page.getByTestId('sidebar-filter').first()).toBeHidden();
+  await openSidebarFilterMenu(page);
 
-  const metrics = await filterBar.evaluate((element) => {
-    const style = window.getComputedStyle(element);
-    const barRect = element.getBoundingClientRect();
-    const filters = [...element.querySelectorAll<HTMLElement>('[data-testid="sidebar-filter"]')].map((filter) => {
-      const rect = filter.getBoundingClientRect();
-      return {
-        text: filter.textContent?.trim() ?? '',
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom
-      };
-    });
+  const metrics = await page.evaluate(() => {
+    const sidebar = document.querySelector<HTMLElement>('[data-testid="sidebar"]');
+    const popover = document.querySelector<HTMLElement>('.sidebar-filter-popover');
+    if (!sidebar || !popover) throw new Error('Expected the sidebar filter menu to be visible.');
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const filters = [...document.querySelectorAll<HTMLElement>('[data-testid="sidebar-filter"]')];
+    const savedSearch = document.querySelector<HTMLElement>('[data-testid="sidebar-saved-search"]');
+    const savedSearchCount = savedSearch?.querySelector<HTMLElement>('[data-testid="sidebar-saved-search-count"]');
+    const savedSearchMoveUp = document.querySelector<HTMLElement>('[data-testid="sidebar-saved-search-move-up"]');
+    if (!savedSearch || !savedSearchCount || !savedSearchMoveUp) {
+      throw new Error('Expected populated saved-search controls.');
+    }
+    const savedSearchRect = savedSearch.getBoundingClientRect();
+    const savedSearchCountRect = savedSearchCount.getBoundingClientRect();
+    const savedSearchMoveUpRect = savedSearchMoveUp.getBoundingClientRect();
     return {
-      className: element.className,
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-      flexWrap: style.getPropertyValue('flex-wrap') || style.flexWrap,
-      overflowX: style.overflowX,
-      left: barRect.left,
-      right: barRect.right,
-      top: barRect.top,
-      bottom: barRect.bottom,
-      filters
+      filterCount: filters.length,
+      sidebarLeft: sidebarRect.left,
+      sidebarRight: sidebarRect.right,
+      popoverLeft: popoverRect.left,
+      popoverRight: popoverRect.right,
+      popoverTop: popoverRect.top,
+      popoverBottom: popoverRect.bottom,
+      popoverClientHeight: popover.clientHeight,
+      popoverScrollHeight: popover.scrollHeight,
+      savedSearchRight: savedSearchRect.right,
+      savedSearchCountRight: savedSearchCountRect.right,
+      savedSearchMoveUpLeft: savedSearchMoveUpRect.left,
+      viewportHeight: window.innerHeight
     };
   });
 
-  expect(metrics.className).toContain('sidebar-filter-bar');
-  if (metrics.flexWrap) expect(metrics.flexWrap).toBe('wrap');
-  if (metrics.overflowX) expect(metrics.overflowX).toBe('visible');
-  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
-  for (const filter of metrics.filters) {
-    expect(filter.left, `${filter.text} should not clip left`).toBeGreaterThanOrEqual(metrics.left - 1);
-    expect(filter.right, `${filter.text} should not clip right`).toBeLessThanOrEqual(metrics.right + 1);
-    expect(filter.top, `${filter.text} should not clip top`).toBeGreaterThanOrEqual(metrics.top - 1);
-    expect(filter.bottom, `${filter.text} should not clip bottom`).toBeLessThanOrEqual(metrics.bottom + 1);
-  }
+  expect(metrics.filterCount).toBe(4);
+  expect(metrics.popoverLeft).toBeGreaterThanOrEqual(metrics.sidebarLeft - 1);
+  expect(metrics.popoverRight).toBeLessThanOrEqual(metrics.sidebarRight + 1);
+  expect(metrics.popoverTop).toBeGreaterThanOrEqual(0);
+  expect(metrics.popoverBottom).toBeLessThanOrEqual(metrics.viewportHeight);
+  expect(metrics.popoverScrollHeight).toBeGreaterThan(metrics.popoverClientHeight);
+  expect(metrics.savedSearchCountRight).toBeLessThanOrEqual(metrics.savedSearchRight);
+  expect(metrics.savedSearchRight).toBeLessThan(metrics.savedSearchMoveUpLeft);
+
+  await page.getByTestId('sidebar-filter-menu-button').click();
+  await expect(page.getByTestId('sidebar-filter').first()).toBeHidden();
 });
 
 test('mock harness applies interface polish primitives', async ({ page }) => {
@@ -275,6 +291,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-density', 'collapsed');
+  await openSidebarFilterMenu(page);
 
   const [
     toolCardStyle,
@@ -284,7 +301,6 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     messageCopyButtonStyle,
     sidebarMenuRect,
     sidebarFilterStyle,
-    sidebarFilterVisualStyle,
     tokenBudgetLabelStyle,
     tokenBudgetPrimaryStyle,
     tokenBudgetSecondaryStyle
@@ -296,14 +312,6 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     computedStyleProperties(page, '[data-testid="message-copy"]', ['min-height']),
     elementRect(page, '[data-testid="sidebar-item-actions"] summary'),
     computedStyleProperties(page, '[data-testid="sidebar-filter"]', ['min-height', 'padding-left', 'padding-right']),
-    page.getByTestId('sidebar-filter').first().evaluate(element => {
-      const style = getComputedStyle(element, '::before');
-      return {
-        top: style.top,
-        bottom: style.bottom,
-        borderRadius: style.borderRadius
-      };
-    }),
     computedStyleProperties(page, '.topbar-token-budget-label', ['font-size']),
     computedStyleProperties(page, '[data-testid="top-bar-token-budget-primary"]', ['font-size', 'font-variant-numeric']),
     computedStyleProperties(page, '[data-testid="top-bar-token-budget-secondary"]', ['font-size'])
@@ -320,9 +328,6 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     sidebarFilterMinHeight: parseFloat(sidebarFilterStyle['min-height']),
     sidebarFilterPaddingLeft: parseFloat(sidebarFilterStyle['padding-left']),
     sidebarFilterPaddingRight: parseFloat(sidebarFilterStyle['padding-right']),
-    sidebarFilterVisualTop: parseFloat(sidebarFilterVisualStyle.top),
-    sidebarFilterVisualBottom: parseFloat(sidebarFilterVisualStyle.bottom),
-    sidebarFilterVisualRadius: parseFloat(sidebarFilterVisualStyle.borderRadius),
     tokenBudgetLabelFontSize: parseFloat(tokenBudgetLabelStyle['font-size']),
     tokenBudgetPrimaryFontSize: parseFloat(tokenBudgetPrimaryStyle['font-size']),
     tokenBudgetPrimaryNumbers: tokenBudgetPrimaryStyle['font-variant-numeric'],
@@ -337,11 +342,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(transcriptPolish.sidebarFilterMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
-  expect(transcriptPolish.sidebarFilterPaddingLeft).toBe(10);
-  expect(transcriptPolish.sidebarFilterPaddingRight).toBe(10);
-  expect(transcriptPolish.sidebarFilterVisualTop).toBe(5);
-  expect(transcriptPolish.sidebarFilterVisualBottom).toBe(5);
-  expect(transcriptPolish.sidebarFilterVisualRadius).toBeGreaterThanOrEqual(999);
+  expect(transcriptPolish.sidebarFilterPaddingLeft).toBe(9);
+  expect(transcriptPolish.sidebarFilterPaddingRight).toBe(9);
   expect(transcriptPolish.tokenBudgetLabelFontSize).toBeGreaterThanOrEqual(14);
   expect(transcriptPolish.tokenBudgetPrimaryFontSize).toBeGreaterThanOrEqual(16.5);
   expect(transcriptPolish.tokenBudgetPrimaryNumbers).toContain('tabular-nums');
