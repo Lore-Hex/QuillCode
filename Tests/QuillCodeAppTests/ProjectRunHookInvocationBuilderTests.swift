@@ -66,6 +66,23 @@ final class ProjectRunHookInvocationBuilderTests: XCTestCase {
         XCTAssertNil(payload["prompt"])
     }
 
+    func testStopInputMarksAutomaticContinuationActive() throws {
+        let root = try makeQuillCodeTestDirectory()
+
+        let json = try ProjectRunHookInvocationBuilder.inputJSON(
+            timing: .afterAgentRun,
+            thread: ChatThread(),
+            prompt: "Continue",
+            workspaceRoot: root,
+            stopHookActive: true
+        )
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
+        )
+
+        XCTAssertEqual(payload["stop_hook_active"] as? Bool, true)
+    }
+
     func testInvocationAddsStandardPluginEnvironmentAndRedactableInput() throws {
         let root = try makeQuillCodeTestDirectory()
         let pluginRoot = root.appendingPathComponent(".quillcode/plugins/demo")

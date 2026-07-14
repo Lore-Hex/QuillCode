@@ -11,12 +11,13 @@ final class WorkspaceThreadSeedBuilderTests: XCTestCase {
         XCTAssertEqual(WorkspaceThreadSeedBuilder.title(fromUserPrompt: " \n\t "), "New chat")
     }
 
-    func testForkSeedStartsAtLatestUserTurnAndHidesToolMessages() {
+    func testForkSeedStartsAtLatestUserTurnAndHidesInternalMessages() {
         let messages = [
             ChatMessage(role: .user, content: "old request"),
             ChatMessage(role: .assistant, content: "old answer"),
             ChatMessage(role: .user, content: "latest request"),
             ChatMessage(role: .tool, content: #"{"internal":"hidden"}"#),
+            ChatMessage(role: .system, content: "private hook context"),
             ChatMessage(role: .assistant, content: "latest answer"),
             ChatMessage(role: .assistant, content: "follow-up detail")
         ]
@@ -62,10 +63,11 @@ final class WorkspaceThreadSeedBuilderTests: XCTestCase {
         XCTAssertEqual(seed[1].content, "latest request")
         XCTAssertEqual(seed[2].content, "latest answer")
         XCTAssertTrue(seed[0].content.contains("Context forked from \"Large fork\" with a summary."))
-        XCTAssertTrue(seed[0].content.contains("summarized 3 earlier messages"))
+        XCTAssertTrue(seed[0].content.contains("summarized 2 earlier messages"))
         XCTAssertTrue(seed[0].content.contains("- User: old request with spacing"))
         XCTAssertTrue(seed[0].content.contains("Continue the fork from the preserved latest turn below."))
         XCTAssertFalse(seed[0].content.contains("hidden continuation feedback"))
+        XCTAssertFalse(seed[0].content.contains("system context"))
     }
 
     func testFullContextForkSeedKeepsAllVisibleMessages() {
@@ -73,6 +75,7 @@ final class WorkspaceThreadSeedBuilderTests: XCTestCase {
             ChatMessage(role: .user, content: "old request"),
             ChatMessage(role: .assistant, content: "old answer"),
             ChatMessage(role: .tool, content: #"{"hidden":true}"#),
+            ChatMessage(role: .system, content: "private hook context"),
             ChatMessage(role: .user, content: "latest request"),
             ChatMessage(role: .assistant, content: "latest answer")
         ]
@@ -104,10 +107,11 @@ final class WorkspaceThreadSeedBuilderTests: XCTestCase {
         XCTAssertEqual(seed[1].content, "latest request")
         XCTAssertEqual(seed[2].content, "latest answer")
         XCTAssertTrue(seed[0].content.contains("Context compacted from \"Large context\""))
-        XCTAssertTrue(seed[0].content.contains("summarized 3 earlier messages"))
+        XCTAssertTrue(seed[0].content.contains("summarized 2 earlier messages"))
         XCTAssertTrue(seed[0].content.contains("- User: old request with spacing"))
         XCTAssertTrue(seed[0].content.contains("..."))
         XCTAssertFalse(seed[0].content.contains("hidden continuation feedback"))
+        XCTAssertFalse(seed[0].content.contains("system context"))
     }
 
     func testCompactSeedCanUseModelSummaryOverride() {
