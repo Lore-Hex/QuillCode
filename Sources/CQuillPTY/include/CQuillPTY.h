@@ -28,4 +28,13 @@ int cquill_pty_set_winsize(int masterFD, unsigned short rows, unsigned short col
 /// command code stay platform-neutral on macOS and Linux.
 int cquill_fd_isatty(int fileDescriptor);
 
+/// Returns the platform's interrupt signal number (`SIGINT`). Keeping the POSIX constant in the C
+/// adapter lets Swift command code install one signal source without importing Darwin or Glibc.
+int cquill_signal_interrupt(void);
+
+/// Changes `signalNumber` to the ignored or default disposition. These helpers are intentionally
+/// narrow: QuillCode uses them only while a Dispatch signal source owns SIGINT delivery.
+int cquill_signal_ignore(int signalNumber);
+int cquill_signal_restore_default(int signalNumber);
+
 #endif /* CQUILL_PTY_H */

@@ -222,6 +222,48 @@ final class QuillCodeCommandRunnerTests: XCTestCase {
         XCTAssertFalse(types.contains("turn.completed"))
     }
 
+    func testInterruptCancelsRunPersistsPartialThreadAndDoesNotWriteFinalOutput() async throws {
+        let workspace = try gitWorkspace()
+        let home = try temporaryDirectory(prefix: "interrupt-home")
+        let finalOutput = home.appendingPathComponent("final.txt")
+        let output = BufferedCLIOutput()
+        let llm = BlockingLLM()
+        let interruptSource = ManualCLIInterruptSource()
+        let runner = commandRunner(llm: llm, interruptSource: interruptSource)
+
+        let run = Task {
+            await runner.run(
+                arguments: [
+                    "--home", home.path,
+                    "exec", "--mock", "--json", "--cwd", workspace.path,
+                    "--output-last-message", finalOutput.path,
+                    "wait for interruption"
+                ],
+                input: BufferedCLIInput(isTerminal: true),
+                output: output
+            )
+        }
+        await llm.waitUntilStarted()
+        interruptSource.interrupt()
+
+        let status = await run.value
+        let snapshot = await output.snapshot()
+        let records = try jsonLines(snapshot.standardOutput)
+        let types = records.compactMap { $0["type"] as? String }
+        let thread = try XCTUnwrap(
+            JSONThreadStore(directory: home.appendingPathComponent("threads")).list().first
+        )
+
+        XCTAssertEqual(status, 1)
+        XCTAssertEqual(snapshot.standardError, "")
+        XCTAssertEqual(types.prefix(2), ["thread.started", "turn.started"])
+        XCTAssertFalse(types.contains("error"))
+        XCTAssertFalse(types.contains("turn.failed"))
+        XCTAssertFalse(types.contains("turn.completed"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: finalOutput.path))
+        XCTAssertTrue(thread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
+    }
+
     func testExactResumeEmitsOnlyNewAssistantMessage() async throws {
         let workspace = try gitWorkspace()
         let home = try temporaryDirectory(prefix: "exact-resume-home")
@@ -336,15 +378,22 @@ final class QuillCodeCommandRunnerTests: XCTestCase {
             || fileSnapshot.standardError.contains("No such file"))
     }
 
-    private func commandRunner(llm: any LLMClient) -> QuillCodeCommandRunner {
-        QuillCodeCommandRunner(runnerFactory: { configuration in
-            AgentRunner(
-                llm: llm,
-                safety: StaticSafetyReviewer(),
-                maxToolSteps: configuration.appConfig.maxToolSteps,
-                enablesImmediateActionPreflight: true
-            )
-        })
+    private func commandRunner(
+        llm: any LLMClient,
+        interruptSource: any CLIInterruptSource = InactiveCLIInterruptSource()
+    ) -> QuillCodeCommandRunner {
+        QuillCodeCommandRunner(
+            parser: CLIArgumentParser(),
+            runnerFactory: { configuration in
+                AgentRunner(
+                    llm: llm,
+                    safety: StaticSafetyReviewer(),
+                    maxToolSteps: configuration.appConfig.maxToolSteps,
+                    enablesImmediateActionPreflight: true
+                )
+            },
+            interruptSource: interruptSource
+        )
     }
 
     private func gitWorkspace() throws -> URL {
@@ -388,5 +437,43 @@ private actor ScriptedLLM: LLMClient {
 private struct EchoLLM: LLMClient {
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         .say(userMessage)
+    }
+}
+
+private actor BlockingLLM: LLMClient {
+    private var didStart = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        didStart = true
+        startWaiters.forEach { $0.resume() }
+        startWaiters.removeAll()
+        try await Task.sleep(for: .seconds(30))
+        return .say("Unexpected completion.")
+    }
+
+    func waitUntilStarted() async {
+        guard !didStart else { return }
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+}
+
+private final class ManualCLIInterruptSource: CLIInterruptSource, @unchecked Sendable {
+    private let stream: AsyncStream<Void>
+    private let continuation: AsyncStream<Void>.Continuation
+
+    init() {
+        (stream, continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+    }
+
+    func makeInterruptStream() -> AsyncStream<Void> {
+        stream
+    }
+
+    func interrupt() {
+        continuation.yield()
+        continuation.finish()
     }
 }

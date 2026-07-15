@@ -113,6 +113,13 @@ actor CLIProgressReporter {
         }
     }
 
+    /// Codex JSONL exits nonzero without inventing a failed-turn event when an interrupted turn is
+    /// acknowledged. Human output still makes the stop explicit on stderr.
+    func interrupted() async {
+        guard !emitsJSONLines else { return }
+        await output.writeStandardErrorLine("Run interrupted.")
+    }
+
     private func report(_ event: ThreadEvent) async {
         if let eventUsage = ModelTokenUsageEvent.usage(from: event) {
             usage.promptTokens += eventUsage.promptTokens

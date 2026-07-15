@@ -1045,8 +1045,9 @@
   input/output boundaries without forking a process.
 - **Output contract:** Plain runs reserve stdout for the final assistant message and stderr for human
   progress. JSON mode reserves stdout for one JSON object per line and emits a terminal
-  `turn.completed` or `turn.failed`, never both. Resume establishes historical transcript state as a
-  reporting baseline so old messages are not replayed as new automation events.
+  `turn.completed` or `turn.failed`, never both, for completed and failed turns. A user interruption
+  matches Codex JSONL by emitting neither terminal event and exiting 1. Resume establishes historical
+  transcript state as a reporting baseline so old messages are not replayed as new automation events.
 - **Safety:** Exec defaults to read-only and requires a Git workspace. Workspace-write must be
   explicit. The Git bypass is explicit and named. `danger-full-access` is parsed for compatibility but
   rejected until QuillCode can enforce it, because silently mapping it to Auto would make the CLI lie
@@ -1054,6 +1055,11 @@
 - **Bounds and durability:** Stdin and schema files are byte-capped, schema recursion is bounded,
   relative paths resolve against the supplied invocation directory, final-message writes are atomic,
   ephemeral runs never save tasks, and persistence failures turn the run into a visible failure.
-- **Verification:** 29 focused CLI tests cover parser, repository, schema, runtime, event, secret, and
-  failure contracts. `scripts/cli-exec-smoke.sh` verifies the built process and is part of the aggregate
-  smoke gate.
+- **Interruption boundary:** The executable owns one process-level SIGINT source; it races that source
+  against the structured agent task, cancels cooperatively, waits for tool cleanup and the agent's
+  `Stopped by user` progress snapshot, checks that persistence succeeded, then exits 1. It does not run
+  schema validation or write a last-message file after interruption. Process-global POSIX constants and
+  dispositions remain in the existing C platform adapter so macOS/Linux Swift code stays identical.
+- **Verification:** 30 focused CLI tests cover parser, repository, schema, runtime, event, secret,
+  interruption, and failure contracts. `scripts/cli-exec-smoke.sh` verifies the built process, including
+  real SIGINT delivery during a running shell command, and is part of the aggregate smoke gate.
