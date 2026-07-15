@@ -52,7 +52,9 @@ public enum LinuxNotificationAdapter {
             .init(urgency: .critical, expireTimeMilliseconds: 0)
         case .failed, .checksFailing:
             .init(urgency: .critical, expireTimeMilliseconds: 12_000)
-        case .unverified:
+        case .unverified, .ceilingReached, .flailed:
+            // The run "gave up" without finishing — worth noticing (normal urgency, lingers) but not a
+            // blocking critical like a failure or a pending approval.
             .init(urgency: .normal, expireTimeMilliseconds: 8_000)
         case .finished:
             .init(urgency: .normal, expireTimeMilliseconds: 6_000)

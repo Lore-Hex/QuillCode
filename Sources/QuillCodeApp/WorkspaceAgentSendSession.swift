@@ -7,17 +7,23 @@ struct WorkspaceAgentSendSessionResult: Sendable {
     var thread: ChatThread
     var savedMemory: Bool
     var pendingApproval: AgentPendingApproval?
+    /// How the underlying agent run ended (finished / ceiling / flail / approval / spend-fuse). Carried
+    /// so the composer + notification layer can tell a genuine finish from "gave up at the budget" —
+    /// without which an unattended ceiling/flail run pings the OS as `.finished`.
+    var stopReason: AgentRunStopReason
 
     var pendingApprovalToolCall: ToolCall? { pendingApproval?.heldToolCall }
 
     init(
         thread: ChatThread,
         savedMemory: Bool,
-        pendingApproval: AgentPendingApproval? = nil
+        pendingApproval: AgentPendingApproval? = nil,
+        stopReason: AgentRunStopReason = .finished
     ) {
         self.thread = thread
         self.savedMemory = savedMemory
         self.pendingApproval = pendingApproval
+        self.stopReason = stopReason
     }
 }
 
@@ -145,17 +151,35 @@ struct WorkspaceAgentSendSession: Sendable {
             return WorkspaceAgentSendSessionResult(
                 thread: activeThread,
                 savedMemory: false,
-                pendingApproval: pendingApproval
+                pendingApproval: pendingApproval,
+                stopReason: result.stopReason
             )
         }
 
-        return try await runAfterHooks(
-            thread: activeThread,
-            prompt: prompt,
-            stopHookActive: stopHookActive,
-            subagentStopHookActive: subagentStopHookActive,
-            onProgress: onProgress
+        return carrying(
+            result.stopReason,
+            into: try await runAfterHooks(
+                thread: activeThread,
+                prompt: prompt,
+                stopHookActive: stopHookActive,
+                subagentStopHookActive: subagentStopHookActive,
+                onProgress: onProgress
+            )
         )
+    }
+
+    /// After-hook and stop-hook processing returns a `.finished` session result (a hook ending a run is
+    /// a genuine finish). Overlay the model run's stop reason only when the pipeline itself did not set
+    /// a more specific one — a Stop-hook CONTINUATION re-runs the agent and already carries the fresh
+    /// run's reason, which must not be clobbered by the first run's `.finished`.
+    private func carrying(
+        _ stopReason: AgentRunStopReason,
+        into result: WorkspaceAgentSendSessionResult
+    ) -> WorkspaceAgentSendSessionResult {
+        guard result.stopReason == .finished else { return result }
+        var carried = result
+        carried.stopReason = stopReason
+        return carried
     }
 
     func resumeApproved(
@@ -184,15 +208,19 @@ struct WorkspaceAgentSendSession: Sendable {
             return WorkspaceAgentSendSessionResult(
                 thread: result.thread,
                 savedMemory: false,
-                pendingApproval: nextApproval
+                pendingApproval: nextApproval,
+                stopReason: result.stopReason
             )
         }
-        return try await runAfterHooks(
-            thread: result.thread,
-            prompt: activePrompt,
-            stopHookActive: stopContinuation != nil,
-            subagentStopHookActive: subagentContinuation != nil,
-            onProgress: onProgress
+        return carrying(
+            result.stopReason,
+            into: try await runAfterHooks(
+                thread: result.thread,
+                prompt: activePrompt,
+                stopHookActive: stopContinuation != nil,
+                subagentStopHookActive: subagentContinuation != nil,
+                onProgress: onProgress
+            )
         )
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeAgent
 import QuillCodeCore
 
 /// Turns a just-finished agent run (its resulting thread + whether it errored) into an
@@ -14,7 +15,8 @@ enum WorkspaceRunNotificationBuilder {
         thread: ChatThread,
         didFail: Bool,
         localActions: [LocalEnvironmentAction] = [],
-        verification: VerificationVerdict? = nil
+        verification: VerificationVerdict? = nil,
+        budgetStop: AgentRunNotification.BudgetStop? = nil
     ) -> AgentRunNotification? {
         let pending = pendingApproval(in: thread)
         // The run-integrity badge is the honesty stamp on the transcript: prefer a verdict already
@@ -31,8 +33,20 @@ enum WorkspaceRunNotificationBuilder {
             didEditFiles: WorkspaceTurnRevertPlanner.threadMadeEdits(thread),
             hasVerificationAction: LocalEnvironmentActionMatcher.verificationAction(in: localActions) != nil,
             verification: verification,
+            budgetStop: budgetStop,
             integrity: integrity
         )
+    }
+
+    /// Maps the agent's run stop reason into the App-local `BudgetStop` the notification planner uses —
+    /// nil for a genuine finish, and for approval/spend-fuse pauses (those are surfaced by the
+    /// pending-approval path, not a "finished run" ping).
+    static func budgetStop(for stopReason: AgentRunStopReason) -> AgentRunNotification.BudgetStop? {
+        switch stopReason {
+        case .toolStepCeilingExhausted(let limit): return .ceilingReached(limit: limit)
+        case .flailDetected(let reason): return .flailed(reason: reason)
+        case .finished, .spendFuseApprovalRequired, .approvalRequired: return nil
+        }
     }
 
     /// An approval that was requested but never decided means the run stopped waiting on the user —

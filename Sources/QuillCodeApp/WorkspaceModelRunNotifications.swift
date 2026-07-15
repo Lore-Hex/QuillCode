@@ -27,8 +27,11 @@ extension QuillCodeWorkspaceModel {
     /// errored, or blocked on an approval gate. A user-cancelled run is skipped.
     func notifyRunFinishedIfNeeded(outcome: WorkspaceAgentSendTaskOutcome, threadID: UUID) {
         let didFail: Bool
+        var budgetStop: AgentRunNotification.BudgetStop?
         switch outcome {
-        case .completed: didFail = false
+        case .completed(let result):
+            didFail = false
+            budgetStop = WorkspaceRunNotificationBuilder.budgetStop(for: result.stopReason)
         case .failed: didFail = true
         case .cancelled: return
         }
@@ -39,6 +42,19 @@ extension QuillCodeWorkspaceModel {
             root.projects.first { $0.id == projectID }
         }
         let localActions = runProject?.localActions ?? []
+
+        // A ceiling/flail run "gave up" — surface that directly instead of running the verify command
+        // and reporting a checked-green finish. Approval/finish runs keep the verification path.
+        if let budgetStop {
+            postRunNotification(
+                thread: thread,
+                didFail: false,
+                localActions: localActions,
+                budgetStop: budgetStop,
+                handler: handler
+            )
+            return
+        }
 
         if let plan = verificationNotificationPlan(
             thread: thread,
@@ -85,12 +101,14 @@ extension QuillCodeWorkspaceModel {
         thread: ChatThread,
         didFail: Bool,
         localActions: [LocalEnvironmentAction],
+        budgetStop: AgentRunNotification.BudgetStop? = nil,
         handler: @MainActor @Sendable (AgentRunNotification) -> Void
     ) {
         guard let notification = WorkspaceRunNotificationBuilder.notification(
             thread: thread,
             didFail: didFail,
-            localActions: localActions
+            localActions: localActions,
+            budgetStop: budgetStop
         ) else {
             return
         }
