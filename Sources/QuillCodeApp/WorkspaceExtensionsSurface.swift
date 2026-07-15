@@ -76,7 +76,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
         }
         if let focusedKind {
             if focusedKind == .hook {
-                return WorkspacePaneSummaryFormatter.count(hookCount, singular: "plugin hook")
+                return WorkspacePaneSummaryFormatter.count(hookCount, singular: "hook")
             }
             let singular = focusedKind.singularSummaryName
             let availability = WorkspacePaneSummaryFormatter.optionalCount(
@@ -92,7 +92,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
             (allItems.filter { $0.kind == .mcpServer }.count, "MCP server", nil)
         ]
         if hookCount > 0 {
-            summaryCounts.append((hookCount, "plugin hook", nil))
+            summaryCounts.append((hookCount, "hook", nil))
         }
         let counts = WorkspacePaneSummaryFormatter.joinedCounts(summaryCounts)
         let availability = WorkspacePaneSummaryFormatter.optionalCount(
@@ -125,7 +125,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
     private static func emptySubtitle(focusedKind: ProjectExtensionKind?, fallback: String) -> String {
         guard let focusedKind else { return fallback }
         if focusedKind == .hook {
-            return "Install a plugin that provides hooks/hooks.json."
+            return "Add hooks.json or inline hooks to project config, or install a plugin that provides hooks."
         }
         return "Add \(focusedKind.singularSummaryName) manifests under \(focusedKind.defaultManifestDirectory)."
     }
@@ -141,7 +141,7 @@ private extension ProjectExtensionKind {
         case .mcpServer:
             return "MCP server"
         case .hook:
-            return "plugin hook"
+            return "hook"
         }
     }
 
@@ -154,7 +154,7 @@ private extension ProjectExtensionKind {
         case .mcpServer:
             return ".quillcode/mcp"
         case .hook:
-            return "hooks/hooks.json"
+            return ".quillcode/hooks.json"
         }
     }
 }

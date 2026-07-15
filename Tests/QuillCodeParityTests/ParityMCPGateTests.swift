@@ -106,4 +106,36 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(launcherText.contains("process.environment"))
         XCTAssertFalse(loaderText.contains("Process()"), "Discovery must never execute plugin code.")
     }
+
+    func testStandardHooksShareOneBoundedJSONAndTOMLDefinitionPipeline() throws {
+        let decoderText = try Self.appSourceText(named: "CodexHookConfiguration.swift")
+        let pluginLoaderText = try Self.appSourceText(named: "CodexPluginPackageLoader.swift")
+        let configLoaderText = try Self.appSourceText(named: "ProjectHookConfigurationLoader.swift")
+        let metadataLoaderText = try Self.appSourceText(named: "WorkspaceProjectMetadataLoader.swift")
+        let testsText = try Self.appTestSourceText(named: "ProjectHookConfigurationLoaderTests.swift")
+        let packageText = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("Package.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(decoderText.contains("TOMLDecoder"))
+        XCTAssertTrue(decoderText.contains("decodeJSON"))
+        XCTAssertTrue(decoderText.contains("decodeTOML"))
+        XCTAssertTrue(decoderText.contains("command_windows"))
+        XCTAssertTrue(decoderText.contains("status_message"))
+        XCTAssertTrue(pluginLoaderText.contains("CodexHookConfigurationDecoder.decodeJSON"))
+        XCTAssertTrue(pluginLoaderText.contains("CodexHookDefinitionBuilder.definitions"))
+        XCTAssertTrue(configLoaderText.contains(".quillcode/hooks.json"))
+        XCTAssertTrue(configLoaderText.contains(".quillcode/config.toml"))
+        XCTAssertTrue(configLoaderText.contains(".codex/hooks.json"))
+        XCTAssertTrue(configLoaderText.contains(".codex/config.toml"))
+        XCTAssertTrue(configLoaderText.contains("WorkspaceBoundary.isWithin"))
+        XCTAssertTrue(metadataLoaderText.contains("ProjectHookConfigurationLoader.load"))
+        XCTAssertTrue(metadataLoaderText.contains("ProjectPluginHookResolver.resolve"))
+        XCTAssertTrue(testsText.contains("testExactDefinitionTrustControlsDiscoveryAndExecution"))
+        XCTAssertTrue(testsText.contains("testMalformedOversizedAndSymlinkedDocumentsFailClosed"))
+        XCTAssertTrue(testsText.contains("asynchronousHandler"))
+        XCTAssertTrue(packageText.contains("TOMLDecoder"))
+        XCTAssertFalse(configLoaderText.contains("Process()"), "Config discovery must never execute hooks.")
+    }
 }

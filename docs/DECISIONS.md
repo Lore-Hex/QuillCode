@@ -996,3 +996,10 @@
 - **Native proof:** Packaged macOS smoke AX-presses Extensions, requires its identified title and Add control, presses Close with AXPress, and waits for disappearance.
 - **State safety:** Verification installs, updates, starts, stops, trusts, disables, or records nothing. It restores baseline visibility.
 - **Why:** Extension management is a recovery and capability surface. Users need an obvious exit, and release evidence must prove real content rather than a Boolean.
+
+## 2026-07-14: Project config hooks share the standard hook trust boundary
+
+- **Discovery:** QuillCode merges bounded hook definitions from project `.quillcode/hooks.json`, `.quillcode/config.toml`, `.codex/hooks.json`, and `.codex/config.toml` with installed plugin hooks. A single canonical decoder and definition builder owns JSON/TOML aliases, normalization, support classification, stable IDs, timeout bounds, and exact-definition hashes so source formats cannot drift.
+- **Safety:** Discovery is data-only. Documents must be regular, non-symlink files inside the canonical workspace, each document is capped at 64 KiB, and the aggregate config-hook inventory is capped at 96 definitions. Malformed or unsafe sources fail closed without executing anything. Every supported non-managed command remains skipped until its exact normalized definition is trusted; changing an executable field invalidates that decision.
+- **Compatibility:** Synchronous command handlers use the same typed prompt, stop, tool, permission, compaction, session, and subagent boundaries as plugin hooks. Async handlers and prompt/agent handlers remain visible but inert, matching current Codex behavior. Plugin-only root/data compatibility variables are added only when a package root exists.
+- **Presentation and scope:** The shared surface says **Hooks** and identifies the actual source instead of calling config hooks plugins. This slice covers project layers; user/system layers and managed-policy trust are still required for full Codex hook parity.

@@ -207,12 +207,12 @@ extension QuillCodeWorkspaceModel {
             saveProjects()
             appendNotice(
                 decision == .trusted
-                    ? "Trusted plugin hook: \(hook.statusMessage ?? hook.event)"
-                    : "Disabled plugin hook: \(hook.statusMessage ?? hook.event)"
+                    ? "Trusted hook: \(hook.statusMessage ?? hook.event)"
+                    : "Disabled hook: \(hook.statusMessage ?? hook.event)"
             )
             return true
         } catch {
-            setLastError("Could not save plugin hook trust: \(error.localizedDescription)")
+            setLastError("Could not save hook trust: \(error.localizedDescription)")
             return false
         }
     }

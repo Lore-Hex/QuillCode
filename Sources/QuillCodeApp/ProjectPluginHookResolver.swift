@@ -23,7 +23,7 @@ enum ProjectPluginHookResolver {
                 id: hook.id,
                 timing: timing,
                 title: hook.statusMessage ?? "\(hook.pluginName) · \(hook.event)",
-                detail: "Trusted plugin hook from \(hook.pluginName).",
+                detail: "Trusted hook from \(hook.pluginName).",
                 relativePath: hook.relativePath,
                 command: command,
                 timeoutSeconds: hook.timeoutSeconds,

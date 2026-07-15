@@ -13,7 +13,7 @@ enum WorkspaceProjectMetadataLoader {
         let installed = ProjectExtensionManifestLoader.discover(from: root)
         let installedManifests = installed.manifests
         let pluginHooks = ProjectPluginHookResolver.resolve(
-            installed.pluginHooks,
+            installed.pluginHooks + ProjectHookConfigurationLoader.load(from: root),
             trust: hookTrustStore?.load(forWorkspaceRoot: root) ?? ProjectHookTrustLoadResult()
         )
         let marketplaceManifests = ProjectExtensionManifestLoader.loadMarketplace(

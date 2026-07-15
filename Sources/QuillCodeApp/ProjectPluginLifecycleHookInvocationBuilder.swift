@@ -74,6 +74,6 @@ enum ProjectPluginLifecycleHookInvocationError: LocalizedError {
     case missingCommand
 
     var errorDescription: String? {
-        "The plugin hook command is missing."
+        "The hook command is missing."
     }
 }

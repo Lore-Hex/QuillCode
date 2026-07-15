@@ -380,7 +380,7 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
 
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
-        XCTAssertEqual(model.surface().extensions.subtitle, "2 plugin hooks")
+        XCTAssertEqual(model.surface().extensions.subtitle, "2 hooks")
         XCTAssertEqual(html.components(separatedBy: #"data-testid="hook-item""#).count - 1, 2)
         XCTAssertTrue(html.contains(#"data-testid="hook-status">Review required"#))
         XCTAssertTrue(html.contains(#"data-testid="hook-status">Unsupported"#))

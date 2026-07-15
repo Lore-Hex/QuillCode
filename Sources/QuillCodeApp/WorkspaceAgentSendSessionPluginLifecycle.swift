@@ -25,7 +25,7 @@ extension WorkspaceAgentSendSession {
         appendLifecycleReport(report, eventName: event.name, to: &activeThread)
         if !report.continues {
             appendAssistantMessage(
-                "Session stopped by a trusted plugin hook. \(report.stopReason ?? "The hook requested a stop.")",
+                "Session stopped by a trusted hook. \(report.stopReason ?? "The hook requested a stop.")",
                 to: &activeThread
             )
         }

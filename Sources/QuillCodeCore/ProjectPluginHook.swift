@@ -22,10 +22,12 @@ public enum ProjectHookSupportStatus: String, Codable, Sendable, Hashable {
     public var isSupported: Bool { self == .supported }
 }
 
-/// A bounded, data-only hook contributed by an installed Codex plugin package.
+/// A bounded, data-only standard hook contributed by a config layer or plugin package.
 ///
 /// Discovery never executes the command. `definitionHash` covers the exact normalized hook
 /// definition, so changing any executable field moves a previously trusted hook back to review.
+/// The `pluginID` and `pluginName` wire keys are retained for persisted-state compatibility; for
+/// config-layer hooks they identify the source layer rather than an installed plugin.
 public struct ProjectPluginHook: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var pluginID: String

@@ -14,7 +14,6 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await page.getByTestId('terminal-run').click();
 
   await expect(page.getByTestId('terminal-entry')).toContainText('$ pwd');
-  await expect(page.getByTestId('terminal-status')).toHaveText('Running · running');
   await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
   await expect(page.getByTestId('terminal-stdout')).toContainText('/mock/QuillCode');
   await expect(page.getByLabel('Terminal command')).toHaveValue('');

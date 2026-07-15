@@ -4998,7 +4998,7 @@
         isVisible: false,
         focusedKind: null,
         title: 'Extensions',
-        subtitle: '1 plugin · 5 skills · 1 MCP server · 2 plugin hooks · 4 available extensions',
+        subtitle: '1 plugin · 5 skills · 1 MCP server · 2 hooks · 4 available extensions',
         pluginCount: 1,
         skillCount: 5,
         mcpServerCount: 1,
@@ -5016,17 +5016,17 @@
         },
         hookItems: [
           {
-            id: 'plugin_hook:demo.userpromptsubmit.0.0',
+            id: 'config_hook:quillcode-config.userpromptsubmit.0.0',
             name: 'Prepare workspace context',
-            pluginName: 'Demo Hooks',
+            pluginName: 'Project config hooks',
             event: 'UserPromptSubmit',
             matcher: null,
             command: 'printf ready',
-            relativePath: '.quillcode/plugins/demo/hooks/hooks.json#UserPromptSubmit/0/0',
+            relativePath: '.quillcode/config.toml#UserPromptSubmit/0/0',
             statusLabel: 'Review required',
             supportDetail: null,
             actionTitle: 'Trust',
-            actionCommandID: 'hook-trust:plugin_hook:demo.userpromptsubmit.0.0'
+            actionCommandID: 'hook-trust:config_hook:quillcode-config.userpromptsubmit.0.0'
           },
           {
             id: 'plugin_hook:demo.pretooluse.0.0',
@@ -5449,7 +5449,7 @@
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'show-skills', title: 'Skills', shortcut: '', category: 'Extensions', keywords: ['skills', 'installed skills', 'available skills', 'manifest'], isEnabled: true },
-        { id: 'show-hooks', title: 'Hooks', shortcut: '', category: 'Extensions', keywords: ['hooks', 'plugin hooks', 'review hooks', 'trust hooks'], isEnabled: true },
+        { id: 'show-hooks', title: 'Hooks', shortcut: '', category: 'Extensions', keywords: ['hooks', 'configuration hooks', 'plugin hooks', 'review hooks', 'trust hooks'], isEnabled: true },
         { id: 'workflow-recording-create', title: 'Record a skill', shortcut: '', category: 'Extensions', keywords: ['record', 'replay', 'workflow', 'skill', 'demonstrate'], isEnabled: true },
         { id: 'workflow-recording-stop', title: 'Stop recording', shortcut: '', category: 'Extensions', keywords: ['record', 'workflow', 'skill', 'stop', 'finish'], isEnabled: false },
         { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
@@ -6197,7 +6197,7 @@
       { usage: '/commands', title: 'Command palette', detail: 'Open the searchable command palette.', insertText: '/commands', aliases: ['command-palette', 'palette'] },
       { usage: '/extensions', title: 'Toggle extensions', detail: 'Show or hide project plugins, skills, MCP servers, and marketplace entries.', insertText: '/extensions', aliases: ['plugins'] },
       { usage: '/skills', title: 'Show skills', detail: 'Open the Extensions pane filtered around installed and available skills.', insertText: '/skills', aliases: ['skill list', 'installed skills', 'available skills'] },
-      { usage: '/hooks', title: 'Review hooks', detail: 'Inspect plugin hooks, review changed definitions, and manage trust.', insertText: '/hooks', aliases: ['plugin hooks', 'review hooks'] },
+      { usage: '/hooks', title: 'Review hooks', detail: 'Inspect configuration and plugin hooks, review changed definitions, and manage trust.', insertText: '/hooks', aliases: ['configuration hooks', 'plugin hooks', 'review hooks'] },
       { usage: '/automations', title: 'Toggle automations', detail: 'Show or hide scheduled follow-ups, workspace checks, and automation history.', insertText: '/automations', aliases: [] },
       { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
       { usage: '/browser [target]', title: 'Open browser', detail: 'Open a URL, localhost app, or project file in the browser preview; omit target to show or hide the panel.', insertText: '/browser ', aliases: ['preview'] },
@@ -13965,7 +13965,7 @@
         ? 'Skills'
         : (focusedKind === 'hook' ? 'Hooks' : state.extensions.title);
       const subtitle = focusedKind === 'hook'
-        ? countLabel(visibleHooks.length, 'plugin hook')
+        ? countLabel(visibleHooks.length, 'hook')
         : focusedKind === 'skill'
         ? [
             countLabel(visibleItems.length, 'skill'),
@@ -13974,9 +13974,9 @@
         : state.extensions.subtitle;
       const emptyTitle = focusedKind === 'skill'
         ? 'No skills found'
-        : (focusedKind === 'hook' ? 'No plugin hooks found' : state.extensions.emptyTitle);
+        : (focusedKind === 'hook' ? 'No hooks found' : state.extensions.emptyTitle);
       const emptySubtitle = focusedKind === 'hook'
-        ? 'Install a plugin that provides hooks/hooks.json.'
+        ? 'Add hooks.json or inline hooks to project config, or install a plugin that provides hooks.'
         : focusedKind === 'skill'
         ? 'Add skill manifests under .quillcode/skills.'
         : state.extensions.emptySubtitle;
@@ -13984,7 +13984,7 @@
         <span data-testid="extensions-count">${countLabel(state.extensions.pluginCount, 'plugin')}</span>
         <span data-testid="extensions-count">${countLabel(state.extensions.skillCount, 'skill')}</span>
         <span data-testid="extensions-count">${countLabel(state.extensions.mcpServerCount, 'MCP server')}</span>
-        <span data-testid="extensions-count">${countLabel(state.extensions.hookCount || 0, 'plugin hook')}</span>`;
+        <span data-testid="extensions-count">${countLabel(state.extensions.hookCount || 0, 'hook')}</span>`;
       const recording = state.extensions.workflowRecording || {};
       const recordingIsActive = recording.phase === 'recording';
       const recordingAction = !focusedKind && recording.isAvailable && !recordingIsActive

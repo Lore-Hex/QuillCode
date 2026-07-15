@@ -14,13 +14,13 @@ test('mock harness shows project extension manifests from sidebar and command pa
 
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
   await expect(page.getByTestId('extensions-subtitle')).toHaveText(
-    '1 plugin · 5 skills · 1 MCP server · 2 plugin hooks · 4 available extensions'
+    '1 plugin · 5 skills · 1 MCP server · 2 hooks · 4 available extensions'
   );
   await expect(page.getByTestId('extensions-count')).toContainText([
     '1 plugin',
     '5 skills',
     '1 MCP server',
-    '2 plugin hooks'
+    '2 hooks'
   ]);
   await expect(page.getByTestId('extension-item')).toHaveCount(7);
 
@@ -100,7 +100,7 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await clickCommandPaletteCommand(page, '>extensions', 'toggle-extensions');
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
   await expect(page.getByTestId('extensions-subtitle')).toHaveText(
-    '1 plugin · 5 skills · 1 MCP server · 2 plugin hooks · 4 available extensions'
+    '1 plugin · 5 skills · 1 MCP server · 2 hooks · 4 available extensions'
   );
   await clickSidebarTool(page, 'command-palette-button');
   await expect(page.getByTestId('command-palette-input')).toBeFocused();
@@ -110,14 +110,20 @@ test('mock harness shows project extension manifests from sidebar and command pa
 
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>hooks', 'show-hooks');
-  await expect(page.getByTestId('extensions-subtitle')).toHaveText('2 plugin hooks');
+  await expect(page.getByTestId('extensions-subtitle')).toHaveText('2 hooks');
   await expect(page.getByTestId('extension-item')).toHaveCount(0);
   await expect(page.getByTestId('hook-item')).toHaveCount(2);
 
   const reviewHook = page.getByTestId('hook-item').filter({ hasText: 'Prepare workspace context' });
   const unsupportedHook = page.getByTestId('hook-item').filter({ hasText: 'PreToolUse' });
   await expect(reviewHook.getByTestId('hook-status')).toHaveText('Review required');
+  await expect(reviewHook.getByTestId('hook-source')).toHaveText(
+    'Project config hooks · UserPromptSubmit'
+  );
   await expect(reviewHook.getByTestId('hook-command')).toHaveText('printf ready');
+  await expect(reviewHook.getByTestId('hook-path')).toHaveText(
+    '.quillcode/config.toml#UserPromptSubmit/0/0'
+  );
   await expect(reviewHook.getByTestId('hook-trust')).toHaveText('Trust');
   await expect(unsupportedHook.getByTestId('hook-status')).toHaveText('Unsupported');
   await expect(unsupportedHook.getByTestId('hook-support')).toContainText('not executable');
