@@ -1,5 +1,22 @@
 import Foundation
 
+public enum WorkspaceReviewPresentation: String, Codable, Sendable, Hashable {
+    case automatic
+    case visible
+    case hidden
+
+    public func resolves(hasContent: Bool) -> Bool {
+        switch self {
+        case .automatic:
+            hasContent
+        case .visible:
+            true
+        case .hidden:
+            false
+        }
+    }
+}
+
 public enum WorkspaceTextScale: Int, Codable, Sendable, Hashable, CaseIterable {
     case small
     case standard
@@ -20,41 +37,54 @@ public enum WorkspaceTextScale: Int, Codable, Sendable, Hashable, CaseIterable {
 
 public struct WorkspaceChromeState: Sendable, Hashable, Codable {
     public var isSidebarVisible: Bool
-    public var isReviewVisible: Bool
+    public var reviewPresentation: WorkspaceReviewPresentation
     public var textScale: WorkspaceTextScale
+
+    public var isReviewVisible: Bool {
+        get { reviewPresentation != .hidden }
+        set { reviewPresentation = newValue ? .visible : .hidden }
+    }
 
     public init(
         isSidebarVisible: Bool = true,
-        isReviewVisible: Bool = true,
+        isReviewVisible: Bool? = nil,
+        reviewPresentation: WorkspaceReviewPresentation = .automatic,
         textScale: WorkspaceTextScale = .standard
     ) {
         self.isSidebarVisible = isSidebarVisible
-        self.isReviewVisible = isReviewVisible
+        self.reviewPresentation = isReviewVisible.map {
+            $0 ? WorkspaceReviewPresentation.visible : .hidden
+        } ?? reviewPresentation
         self.textScale = textScale
     }
 
     private enum CodingKeys: String, CodingKey {
         case isSidebarVisible
         case isReviewVisible
+        case reviewPresentation
         case textScale
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let presentation = try container.decodeIfPresent(
+            WorkspaceReviewPresentation.self,
+            forKey: .reviewPresentation
+        ) ?? container.decodeIfPresent(Bool.self, forKey: .isReviewVisible).map {
+            $0 ? WorkspaceReviewPresentation.automatic : .hidden
+        } ?? .automatic
         self.init(
-            isSidebarVisible: try container.decodeIfPresent(
-                Bool.self,
-                forKey: .isSidebarVisible
-            ) ?? true,
-            isReviewVisible: try container.decodeIfPresent(
-                Bool.self,
-                forKey: .isReviewVisible
-            ) ?? true,
-            textScale: try container.decodeIfPresent(
-                WorkspaceTextScale.self,
-                forKey: .textScale
-            ) ?? .standard
+            isSidebarVisible: try container.decodeIfPresent(Bool.self, forKey: .isSidebarVisible) ?? true,
+            reviewPresentation: presentation,
+            textScale: try container.decodeIfPresent(WorkspaceTextScale.self, forKey: .textScale) ?? .standard
         )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(isSidebarVisible, forKey: .isSidebarVisible)
+        try container.encode(reviewPresentation, forKey: .reviewPresentation)
+        try container.encode(textScale, forKey: .textScale)
     }
 }
 
@@ -73,10 +103,11 @@ public struct WorkspaceChromeSurface: Codable, Sendable, Hashable {
         self.textScale = textScale
     }
 
-    public init(state: WorkspaceChromeState) {
+    public init(state: WorkspaceChromeState, reviewHasContent: Bool? = nil) {
         self.init(
             isSidebarVisible: state.isSidebarVisible,
-            isReviewVisible: state.isReviewVisible,
+            isReviewVisible: reviewHasContent.map(state.reviewPresentation.resolves(hasContent:))
+                ?? state.isReviewVisible,
             textScale: state.textScale
         )
     }

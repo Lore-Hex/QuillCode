@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import QuillCodeApp
+import QuillCodePersistence
 
 struct QuillCodeDesktopSmokeRequest: Sendable {
     var reportPath: String?
@@ -34,6 +35,7 @@ struct QuillCodeDesktopSmokeRequest: Sendable {
 struct QuillCodeDesktopWindowSmokeRequest: Sendable {
     var reportPath: String?
     var screenshotPath: String?
+    var stateRootPath: String?
 
     init?(arguments: [String]) {
         guard arguments.contains("--native-window-smoke") else {
@@ -42,6 +44,7 @@ struct QuillCodeDesktopWindowSmokeRequest: Sendable {
 
         self.reportPath = Self.value(after: "--window-smoke-report", in: arguments)
         self.screenshotPath = Self.value(after: "--window-smoke-screenshot", in: arguments)
+        self.stateRootPath = Self.value(after: "--window-smoke-state-root", in: arguments)
     }
 
     private static func value(after flag: String, in arguments: [String]) -> String? {
@@ -49,6 +52,41 @@ struct QuillCodeDesktopWindowSmokeRequest: Sendable {
         let valueIndex = arguments.index(after: index)
         guard valueIndex < arguments.endIndex else { return nil }
         return arguments[valueIndex]
+    }
+}
+
+struct QuillCodeDesktopWindowSmokeWorkspaceRoot: Sendable, Hashable {
+    var root: URL
+    var appState: URL
+    var workspace: URL
+
+    init(request: QuillCodeDesktopWindowSmokeRequest) {
+        if let stateRootPath = request.stateRootPath, !stateRootPath.isEmpty {
+            root = URL(fileURLWithPath: stateRootPath, isDirectory: true)
+        } else if let reportPath = request.reportPath, !reportPath.isEmpty {
+            root = URL(fileURLWithPath: reportPath)
+                .deletingLastPathComponent()
+                .appendingPathComponent("window-smoke-state", isDirectory: true)
+        } else {
+            root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("quillcode-window-smoke-\(UUID().uuidString)", isDirectory: true)
+        }
+        appState = root.appendingPathComponent("app-state", isDirectory: true)
+        workspace = root.appendingPathComponent("workspace", isDirectory: true)
+    }
+
+    @MainActor
+    func makeController() -> QuillCodeDesktopController {
+        let paths = QuillCodePaths(home: appState)
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+        return QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            workspaceRoot: workspace
+        )
     }
 }
 
@@ -267,6 +305,9 @@ struct QuillCodeDesktopWindowSmokeReport {
     var windowFrame: CGRect
     var contentSize: CGSize
     var screenshotPath: String
+    var stateRootPath: String
+    var appStatePath: String
+    var workspacePath: String
     var image: QuillCodeDesktopSmokePixelReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     var accessibilityFrameSamples: QuillCodeDesktopAccessibilityFrameSampleReport
@@ -291,6 +332,9 @@ struct QuillCodeDesktopWindowSmokeReport {
                     "height": contentSize.height
                 ],
                 "screenshotPath": screenshotPath,
+                "stateRootPath": stateRootPath,
+                "appStatePath": appStatePath,
+                "workspacePath": workspacePath,
                 "image": image.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary,
                 "accessibilityFrameSamples": accessibilityFrameSamples.dictionary,

@@ -199,7 +199,7 @@ enum WorkspaceCommandStaticCatalog {
             ),
             shortcut(
                 "toggle-review-panel",
-                "Toggle review panel",
+                "Review",
                 category: navigation,
                 keywords: ["review", "diff", "changes", "panel", "show", "hide"],
                 isEnabled: hasSelectedProject

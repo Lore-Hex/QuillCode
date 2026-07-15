@@ -106,6 +106,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("window-accessibility-shallow-memories-report.json")
         let shallowActivityActivationReport = temporaryDirectory
             .appendingPathComponent("window-accessibility-shallow-activity-report.json")
+        let shallowReviewActivationReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-shallow-review-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
@@ -125,6 +127,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("shallow-memories-packaged-accessibility-frames.json")
         let shallowActivityAccessibilityFrames = temporaryDirectory
             .appendingPathComponent("shallow-activity-packaged-accessibility-frames.json")
+        let shallowReviewAccessibilityFrames = temporaryDirectory
+            .appendingPathComponent("shallow-review-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
@@ -183,6 +187,12 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 with: "AXPress changed observable controller state"
             )
             .write(to: shallowActivityActivationReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: "rendered Review with its scope control and dismissed through quillcode-review-close with AXPress",
+                with: "AXPress changed observable controller state"
+            )
+            .write(to: shallowReviewActivationReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -436,6 +446,21 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 "command.toggle-activity does not prove rendered content, close-button dismissal, and workspace restoration"
             ),
             shallowActivityResult.output
+        )
+
+        let shallowReviewResult = try Self.runPython(validator, arguments: [
+            "frames",
+            shallowReviewActivationReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            shallowReviewAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(shallowReviewResult.exitCode, 0)
+        XCTAssertTrue(
+            shallowReviewResult.output.contains(
+                "command.toggle-review-panel does not prove rendered scope controls and close-button dismissal"
+            ),
+            shallowReviewResult.output
         )
     }
 }

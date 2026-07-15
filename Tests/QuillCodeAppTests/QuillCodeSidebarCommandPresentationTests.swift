@@ -51,6 +51,7 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
         ])
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.utilityCommandIDs, [
             "command-palette",
+            "toggle-review-panel",
             "toggle-terminal",
             "toggle-browser",
             "toggle-memories",
@@ -70,11 +71,12 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
             QuillCodeSidebarCommandPresentation.htmlTestID(for: $0)
         }
 
-        XCTAssertEqual(titles, ["Command palette", "Terminal", "Browser", "Memories", "Activity"])
-        XCTAssertEqual(symbols, ["command", "terminal", "globe", "brain.head.profile", "waveform.path.ecg"])
-        XCTAssertEqual(iconTokens, ["command", "terminal", "browser", "memories", "activity"])
+        XCTAssertEqual(titles, ["Command palette", "Review", "Terminal", "Browser", "Memories", "Activity"])
+        XCTAssertEqual(symbols, ["command", "doc.text.magnifyingglass", "terminal", "globe", "brain.head.profile", "waveform.path.ecg"])
+        XCTAssertEqual(iconTokens, ["command", "review", "terminal", "browser", "memories", "activity"])
         XCTAssertEqual(testIDs, [
             "command-palette-button",
+            "review-button",
             "terminal-button",
             "browser-button",
             "memories-button",
@@ -97,6 +99,7 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
     func testVisibleUtilityCommandGroupsFilterMissingCommandsWithoutChangingGroupOrder() {
         let commands = [
             WorkspaceCommandSurface(id: "command-palette", title: "Command Palette", category: "Global"),
+            WorkspaceCommandSurface(id: "toggle-review-panel", title: "Toggle review panel", category: "Workspace"),
             WorkspaceCommandSurface(id: "toggle-browser", title: "Browser", category: "Workspace"),
             WorkspaceCommandSurface(id: "toggle-activity", title: "Activity", category: "Context")
         ]
@@ -107,7 +110,7 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
         XCTAssertEqual(groups.map(\.title), ["Navigate", "Workspace", "Context"])
         XCTAssertEqual(groups.map { $0.commands.map(\.id) }, [
             ["command-palette"],
-            ["toggle-browser"],
+            ["toggle-review-panel", "toggle-browser"],
             ["toggle-activity"]
         ])
     }

@@ -144,6 +144,17 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
                 }
             },
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyActivityDismissal
+        ),
+        .presentation(
+            "command.toggle-review-panel",
+            expectedOutcome: "Review renders its scope control and dismisses through Close",
+            observe: { $0.surface.review.isVisible },
+            resetToBaseline: { baseline, controller in
+                if controller.surface.review.isVisible != baseline {
+                    controller.runCommand(commandID: "toggle-review-panel")
+                }
+            },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyReviewDismissal
         )
     ]
 
@@ -175,6 +186,8 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         var validationIssues: [String] = []
 
         for contract in activationContracts.sorted(by: activationOrder) {
+            contract.prepare?(controller)
+            try? await Task.sleep(nanoseconds: 100_000_000)
             guard let probe = probesByID[contract.contractID] else {
                 validationIssues.append("\(contract.contractID) has no native click probe to activate")
                 continue
@@ -238,7 +251,9 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             axError: axError,
             before: baseline,
             after: after
-        )
+        ).map { issue in
+            "\(issue) via \(element.role) id=\(element.identifier) label=\(element.bestLabel)"
+        }
         let transitionIssue = activationIssue == nil
             ? contract.validateTransition?(baseline, after)
             : nil

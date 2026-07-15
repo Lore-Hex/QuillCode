@@ -1586,6 +1586,7 @@
     .sidebar-tool-action[data-icon="command"]::before { content: "⌘"; }
     .sidebar-tool-action[data-icon="plugins"]::before { content: "◌"; }
     .sidebar-tool-action[data-icon="automations"]::before { content: "◷"; }
+    .sidebar-tool-action[data-icon="review"]::before { content: "◫"; }
     .sidebar-tool-action[data-icon="terminal"]::before { content: ">"; }
     .sidebar-tool-action[data-icon="browser"]::before { content: "◎"; }
     .sidebar-tool-action[data-icon="memories"]::before { content: "◍"; }
@@ -3721,10 +3722,29 @@
     }
     .review-pane header {
       display: flex;
+      align-items: center;
       justify-content: space-between;
       gap: 16px;
       margin-bottom: 10px;
     }
+    .review-close-button {
+      flex: 0 0 var(--hit-target);
+      margin-left: auto;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      cursor: pointer;
+      transition-property: background-color, color, transform;
+      transition-duration: 140ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .review-close-button:hover {
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+    }
+    .review-close-button:active { transform: scale(.96); }
     .review-scopes {
       display: inline-grid;
       grid-template-columns: repeat(5, minmax(68px, 1fr));
@@ -5423,7 +5443,7 @@
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-bottom-panel', title: 'Toggle bottom panel', shortcut: 'Cmd+J', category: 'Navigation', keywords: ['bottom', 'panel', 'show', 'hide'], isEnabled: true },
         { id: 'terminal-clear', title: 'Terminal: Clear history', shortcut: 'Ctrl+L', category: 'Workspace', keywords: ['shell', 'command', 'clear', 'history'], isEnabled: false },
-        { id: 'toggle-review-panel', title: 'Toggle review panel', shortcut: 'Cmd+Option+B', category: 'Navigation', keywords: ['review', 'diff', 'changes', 'panel', 'show', 'hide'], isEnabled: true },
+        { id: 'toggle-review-panel', title: 'Review', shortcut: 'Cmd+Option+B', category: 'Navigation', keywords: ['review', 'diff', 'changes', 'panel', 'show', 'hide'], isEnabled: true },
         { id: 'increase-font-size', title: 'Increase font size', shortcut: 'Cmd++', category: 'Navigation', keywords: ['font', 'text', 'size', 'zoom', 'larger'], isEnabled: true },
         { id: 'decrease-font-size', title: 'Decrease font size', shortcut: 'Cmd+-', category: 'Navigation', keywords: ['font', 'text', 'size', 'zoom', 'smaller'], isEnabled: true },
         { id: 'dictation', title: 'Start dictation', shortcut: 'Ctrl+Shift+D', category: 'Navigation', keywords: ['dictation', 'voice', 'speech', 'microphone'], isEnabled: true },
@@ -6130,6 +6150,7 @@
               </section>
               <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="workspace">
                 <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Workspace</h3>
+                <button class="sidebar-tool-action hit-target-row" type="button" data-testid="review-button" role="menuitem" aria-label="Review" title="Review" data-icon="review" data-command-id="toggle-review-panel">Review</button>
                 <button class="sidebar-tool-action hit-target-row" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
                 <button class="sidebar-tool-action hit-target-row" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
               </section>
@@ -9086,6 +9107,7 @@
             <strong>${escapeHTML(state.review.title)}</strong>
             <span data-testid="review-summary">${escapeHTML(state.review.subtitle)}</span>
             <small data-testid="review-badge">${escapeHTML(reviewBadge)}</small>
+            <button type="button" class="review-close-button hit-target-icon" data-testid="review-close" data-command-id="toggle-review-panel" aria-label="Close Review" title="Close Review">Close</button>
           </header>
           ${hasGitDiff ? `
             <div class="review-scopes" data-testid="review-scopes" role="group" aria-label="Review scope">
@@ -10262,8 +10284,10 @@
       document.querySelector('[data-testid="search-button"]')?.addEventListener('click', () => {
         openSearchPanel();
       });
-      document.querySelector('[data-testid="command-palette-button"]').addEventListener('click', () => {
-        openCommandPalette();
+      document.querySelectorAll('[data-testid="sidebar-tools-menu"] [data-command-id]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
       });
       document.querySelector('[data-testid="settings-button"]')?.addEventListener('click', () => {
         runCommand('settings');
@@ -10276,9 +10300,6 @@
       });
       document.querySelector('[data-testid="automations-button"]').addEventListener('click', () => {
         runCommand('toggle-automations');
-      });
-      document.querySelector('[data-testid="activity-button"]').addEventListener('click', () => {
-        runCommand('toggle-activity');
       });
       document.querySelectorAll('[data-testid="activity-section-toggle"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -10310,19 +10331,7 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
-	      document.querySelector('[data-testid="terminal-button"]').addEventListener('click', () => {
-	        state.terminal.isVisible = !state.terminal.isVisible;
-	        render();
-	      });
-	      document.querySelector('[data-testid="browser-button"]').addEventListener('click', () => {
-	        state.browser.isVisible = !state.browser.isVisible;
-	        render();
-	      });
-	      document.querySelector('[data-testid="memories-button"]').addEventListener('click', () => {
-	        state.memories.isVisible = !state.memories.isVisible;
-	        render();
-	      });
-	      document.querySelector('[data-testid="extensions-button"]').addEventListener('click', () => {
+		      document.querySelector('[data-testid="extensions-button"]').addEventListener('click', () => {
 	        state.extensions.isVisible = !state.extensions.isVisible;
 	        render();
 	      });
@@ -10401,6 +10410,11 @@
           const action = event.currentTarget.getAttribute('data-action');
           const path = event.currentTarget.getAttribute('data-path');
           runReviewAction(action, path);
+        });
+      });
+      document.querySelectorAll('[data-testid="review-pane"] [data-command-id]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
       document.querySelectorAll('[data-testid="review-scope"]').forEach(button => {

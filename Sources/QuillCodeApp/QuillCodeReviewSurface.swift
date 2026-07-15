@@ -20,11 +20,11 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     }
 
     public var isVisible: Bool {
-        isPresented && hasContent
+        isPresented
     }
 
     public var availableScopes: [WorkspaceReviewScope] {
-        activeScope == nil ? [] : WorkspaceReviewScope.allCases
+        WorkspaceReviewScope.allCases
     }
 
     public var activeSelection: WorkspaceReviewSelection? {
@@ -109,7 +109,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     }
 
     public init(
-        isPresented: Bool = true,
+        isPresented: Bool? = nil,
         title: String = "Review changes",
         subtitle: String = "Latest git diff",
         activeScope: WorkspaceReviewScope? = nil,
@@ -120,7 +120,11 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         pullRequestThreads: [WorkspacePullRequestReviewThreadSurface] = [],
         pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface? = nil
     ) {
-        self.isPresented = isPresented
+        let containsContent = activeScope != nil
+            || !files.isEmpty
+            || !pullRequestThreads.isEmpty
+            || pullRequestReviewDraft != nil
+        self.isPresented = isPresented ?? containsContent
         self.title = files.isEmpty
             && pullRequestThreads.isEmpty
             && pullRequestReviewDraft != nil
@@ -157,22 +161,27 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.isPresented = try container.decodeIfPresent(Bool.self, forKey: .isPresented) ?? true
-        self.title = try container.decode(String.self, forKey: .title)
-        self.subtitle = try container.decode(String.self, forKey: .subtitle)
-        self.activeScope = try container.decodeIfPresent(WorkspaceReviewScope.self, forKey: .activeScope)
-        self.scopeReference = try container.decodeIfPresent(String.self, forKey: .scopeReference)
-        self.scopeNotice = try container.decodeIfPresent(String.self, forKey: .scopeNotice)
-        self.lastTurnMessageID = try container.decodeIfPresent(UUID.self, forKey: .lastTurnMessageID)
-        self.files = try container.decode([WorkspaceReviewFileSurface].self, forKey: .files)
-        self.pullRequestThreads = try container.decodeIfPresent(
+        let activeScope = try container.decodeIfPresent(WorkspaceReviewScope.self, forKey: .activeScope)
+        let files = try container.decode([WorkspaceReviewFileSurface].self, forKey: .files)
+        let pullRequestThreads = try container.decodeIfPresent(
             [WorkspacePullRequestReviewThreadSurface].self,
             forKey: .pullRequestThreads
         ) ?? []
-        self.pullRequestReviewDraft = try container.decodeIfPresent(
+        let pullRequestReviewDraft = try container.decodeIfPresent(
             WorkspacePullRequestReviewDraftSurface.self,
             forKey: .pullRequestReviewDraft
         )
+        self.isPresented = try container.decodeIfPresent(Bool.self, forKey: .isPresented)
+            ?? (activeScope != nil || !files.isEmpty || !pullRequestThreads.isEmpty || pullRequestReviewDraft != nil)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.subtitle = try container.decode(String.self, forKey: .subtitle)
+        self.activeScope = activeScope
+        self.scopeReference = try container.decodeIfPresent(String.self, forKey: .scopeReference)
+        self.scopeNotice = try container.decodeIfPresent(String.self, forKey: .scopeNotice)
+        self.lastTurnMessageID = try container.decodeIfPresent(UUID.self, forKey: .lastTurnMessageID)
+        self.files = files
+        self.pullRequestThreads = pullRequestThreads
+        self.pullRequestReviewDraft = pullRequestReviewDraft
         self.totalInsertions = try container.decode(Int.self, forKey: .totalInsertions)
         self.totalDeletions = try container.decode(Int.self, forKey: .totalDeletions)
         self.totalHunks = try container.decode(Int.self, forKey: .totalHunks)

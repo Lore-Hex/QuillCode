@@ -1026,3 +1026,13 @@
 - **Native proof:** Packaged macOS smoke opens Activity through AXPress, requires its identified title and task summary, AX-presses Close, waits for the pane to disappear, and measures the composer regaining at least 240 points of width.
 - **State safety:** Verification does not collapse sections, change plans, resolve instruction diagnostics, approve workers, or mutate task state. It restores baseline pane visibility.
 - **Why:** A Boolean visibility transition cannot prove a fixed-width side pane rendered, dismissed, or returned useful workspace area. Content, dismissal, and layout restoration are one release contract.
+
+## 2026-07-14: Review discovery, visibility, and dismissal share one command
+
+- **Behavior:** Review remains progressively disclosed in the compact Tools menu instead of adding another permanent sidebar row. Tools, shortcuts, native menus, HTML, and the pane Close action all route through `toggle-review-panel`.
+- **Presentation state:** Review uses `automatic`, `visible`, and `hidden` presentation policies instead of overloading one Boolean. Automatic preserves content-driven presentation, visible allows an explicitly opened empty or failed review to render, and hidden keeps a dismissed diff closed until the user reopens it.
+- **Empty and failed reviews:** The scope picker remains available before a successful diff exists. An empty pane explains how to choose a scope; a failed `host.git.diff` surfaces its failure reason without reviving stale diff content.
+- **Viewport contract:** Opening Review scrolls its stable anchor into view and suspends transcript-tail following. Closing Review returns to the transcript tail and restores normal append-follow behavior.
+- **Native proof:** Packaged macOS smoke first normalizes Review to hidden, AX-presses the real semantic command, requires the identified title and scope control, AX-presses Close, waits for disappearance, and restores the hidden baseline. State-only evidence is rejected.
+- **Test isolation:** The packaged window smoke receives an explicit state root, uses a mock runtime, and records its app-state and workspace paths in the evidence report. It never treats an overridden process `HOME` as proof of isolation because macOS can still resolve `homeDirectoryForCurrentUser` to the signed-in user's real home.
+- **Why:** A Review command that technically toggles an off-screen pane is not usable. Discovery, in-viewport presentation, explicit dismissal, and deterministic restoration are one interaction contract.

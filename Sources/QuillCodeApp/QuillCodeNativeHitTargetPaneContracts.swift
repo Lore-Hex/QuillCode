@@ -9,8 +9,26 @@ extension QuillCodeNativeHitTargetAudit {
         contracts.append(contentsOf: memoryContracts(for: surface.memories))
         contracts.append(contentsOf: automationContracts(for: surface.automations))
         contracts.append(contentsOf: activityContracts(for: surface.activity))
+        contracts.append(contentsOf: reviewContracts(for: surface.review))
         contracts.append(contentsOf: transcriptContracts(for: surface.transcript))
         return contracts
+    }
+
+    private static func reviewContracts(
+        for surface: WorkspaceReviewSurface
+    ) -> [QuillCodeNativeHitTargetContract] {
+        guard surface.isVisible else { return [] }
+        return [
+            contract(
+                "review.close",
+                family: .review,
+                surface: "Review",
+                label: "Close Review",
+                kind: .icon,
+                minWidth: Double(QuillCodeMetrics.minimumHitTarget),
+                testID: "review-close"
+            )
+        ]
     }
 
     private static func activityContracts(

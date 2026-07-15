@@ -40,6 +40,7 @@ enum QuillCodeDesktopAccessibilityActivationPhase: Int, Comparable {
 }
 
 struct QuillCodeDesktopAccessibilityActivationContract {
+    typealias Prepare = @MainActor (QuillCodeDesktopController) -> Void
     typealias Observe = @MainActor (QuillCodeDesktopController) -> QuillCodeDesktopAccessibilityActivationState
     typealias Reset = @MainActor (
         QuillCodeDesktopAccessibilityActivationState,
@@ -55,6 +56,7 @@ struct QuillCodeDesktopAccessibilityActivationContract {
     var contractID: String
     var phase: QuillCodeDesktopAccessibilityActivationPhase
     var expectedOutcome: String
+    var prepare: Prepare? = nil
     var observe: Observe
     var reset: Reset
     var validateTransition: ValidateTransition?
@@ -71,6 +73,11 @@ struct QuillCodeDesktopAccessibilityActivationContract {
             contractID: contractID,
             phase: .transientSurface,
             expectedOutcome: expectedOutcome,
+            prepare: { controller in
+                if observe(controller) {
+                    resetToBaseline(false, controller)
+                }
+            },
             observe: { .flag(observe($0)) },
             reset: { before, after, controller in
                 guard case .flag(let baseline) = before,
@@ -94,6 +101,7 @@ struct QuillCodeDesktopAccessibilityActivationContract {
             contractID: contractID,
             phase: .transientSurface,
             expectedOutcome: expectedOutcome,
+            prepare: nil,
             observe: { .flag(observe($0)) },
             reset: { before, after, controller in
                 guard before != after else { return }

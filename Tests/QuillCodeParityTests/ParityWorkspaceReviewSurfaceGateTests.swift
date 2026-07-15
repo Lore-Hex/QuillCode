@@ -204,6 +204,7 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
         let reviewExtensionText = try Self.appSourceText(named: "WorkspaceModelReview.swift")
 
         XCTAssertTrue(paneText.contains("QuillCodeReviewScopePicker"), "Native Review should delegate scope selection to a focused control.")
+        XCTAssertTrue(paneText.contains("quillcode-review-empty"), "Native Review should explain an empty or unavailable diff.")
         XCTAssertTrue(pickerText.contains("quillcode-review-scope"), "Native Review should expose an auditable scope control.")
         XCTAssertTrue(pickerText.contains("quillcode-review-reference"), "Historical comparisons should expose an auditable reference field.")
         XCTAssertTrue(pickerText.contains("quillcode-review-compare"), "Historical comparisons should expose an auditable Compare action.")
@@ -212,6 +213,29 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionsText.contains("onReviewScopeChange"), "Workspace actions should own review scope routing.")
         XCTAssertTrue(reviewExtensionText.contains("func runReviewScopeChange"), "Workspace model should execute scope refreshes.")
         XCTAssertTrue(reviewExtensionText.contains("selection.gitDiffArgumentsJSON"), "Scope refreshes should use the typed git-diff arguments.")
+    }
+
+    func testNativeReviewDismissalUsesTheSharedToggleCommand() throws {
+        let paneText = try Self.appSourceText(named: "QuillCodeReviewPaneView.swift")
+        let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
+        let mainPaneText = try Self.appSourceText(named: "QuillCodeWorkspaceMainPaneView.swift")
+
+        [
+            "QuillCodePaneCloseButton",
+            "accessibilityIdentifier(\"quillcode-review-title\")",
+            "accessibilityIdentifier: \"quillcode-review-close\""
+        ].forEach { Self.assertSource(paneText, contains: $0) }
+        Self.assertSource(transcriptText, contains: "onCloseReview")
+        Self.assertSource(mainPaneText, contains: "onCloseReview: { runCommand(id: \"toggle-review-panel\") }")
+    }
+
+    func testNativeReviewOpeningBringsThePaneIntoViewWithoutTailScrollCompetition() throws {
+        let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
+
+        Self.assertSource(transcriptText, contains: ".id(Self.reviewAnchorID)")
+        Self.assertSource(transcriptText, contains: ".onChange(of: review.isVisible)")
+        Self.assertSource(transcriptText, contains: "proxy.scrollTo(Self.reviewAnchorID, anchor: .top)")
+        Self.assertSource(transcriptText, contains: "!review.isVisible")
     }
 
 }

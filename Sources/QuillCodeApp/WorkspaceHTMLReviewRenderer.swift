@@ -13,6 +13,15 @@ enum WorkspaceHTMLReviewRenderer {
             <strong>\(escape(review.title))</strong>
             <span data-testid="review-summary">\(escape(review.subtitle))</span>
             <small data-testid="review-badge">\(escape(review.badgeLabel))</small>
+            \(WorkspaceHTMLPrimitives.commandButton(
+                "Close",
+                testID: "review-close",
+                commandID: "toggle-review-panel",
+                hitTargetKind: .icon,
+                classes: ["review-close-button"],
+                ariaLabel: "Close Review",
+                title: "Close Review"
+            ))
           </header>
           \(renderScopes(review))
           \(renderScopeNotice(review.scopeNotice))

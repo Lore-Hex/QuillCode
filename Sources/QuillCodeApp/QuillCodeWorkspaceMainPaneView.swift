@@ -75,6 +75,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         copiedTranscriptItemID: copiedTranscriptItemID,
                         onContextCommand: onCommand,
                         onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
+                        onCloseReview: { runCommand(id: "toggle-review-panel") },
                         onReviewScopeChange: onReviewScopeChange,
                         onReviewAction: onReviewAction,
                         onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,

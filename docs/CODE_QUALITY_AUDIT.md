@@ -15846,6 +15846,29 @@ Validation:
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
 
+## 2026-07-14 Packaged Review Discovery, Viewport, And Dismissal Proof
+
+Overall grade after this slice: **A+ interaction architecture, A+ native fidelity, A+ viewport behavior**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Command reuse | A+ | Tools, shortcuts, native menus, HTML, and Close route through one `toggle-review-panel` command. |
+| Progressive disclosure | A+ | Review is discoverable in compact Tools without making the permanent sidebar busier. |
+| Viewport behavior | A+ | A stable Review anchor suspends transcript-tail following while open and returns to the tail on close. |
+| Accessibility identity | A+ | Review title, scope control, and Close expose stable native identifiers and minimum 40-point targets. |
+| Activation architecture | A+ | Presentation contracts normalize restored visible state before directional activation, preventing an AXPress smoke from accidentally closing the target. |
+| Native fidelity | A+ | Packaged smoke AX-presses Review, verifies real pane content, AX-presses Close, and waits for disappearance. |
+| Test isolation | A+ | The app launch and Accessibility verifier share one explicit mock-runtime controller rooted under packaged smoke artifacts; JSON evidence records app-state/workspace paths and never relies on process `HOME`. |
+| Regression evidence | A+ | Swift source/contracts, negative report fixtures, Playwright interaction tests, and direct/Launch Services/live-window packaged smoke cover the route. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeSidebarCommandPresentationTests|WorkspaceHTMLReviewRendererTests|QuillCodeNativeHitTargetSurfaceAuditTests|QuillCodeDesktopAccessibilityActivationResolutionTests|QuillCodeDesktopWindowReportTests|ParityWorkspaceReviewSurfaceGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `npm test -- --grep 'mock harness executes simple command flow|mock harness shows git review summary for diff flow'`
+- `scripts/packaged-macos-smoke.sh`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
+
 ## 2026-07-14 Packaged Settings Render And Dismissal Proof
 
 Overall grade after this slice: **A+ interaction fidelity, A+ state safety, A+ release evidence**.
@@ -16094,6 +16117,27 @@ Overall grade after this slice: **A+ interaction architecture, A+ native fidelit
 Validation:
 
 - `swift test --filter 'QuillCodeNativeHitTargetSurfaceAuditTests|QuillCodeDesktopWindowReportTests|ParityWorkspaceSecondaryPaneSurfaceGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
+
+## 2026-07-14 Review Presentation State And Isolated Native Proof
+
+Overall grade after this slice: **A+ state modeling, A+ failure clarity, A+ packaged evidence**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| State modeling | A+ | `WorkspaceReviewPresentation` separates automatic content-driven behavior from explicit visible and hidden intent; no Boolean must represent all three states. |
+| Empty-state UX | A+ | Explicit Review remains rendered without diff content, keeps every scope available, and explains the next action in a compact neutral surface. |
+| Failure clarity | A+ | The latest failed diff suppresses stale content and exposes its error as a Review notice instead of silently disappearing. |
+| Command semantics | A+ | The first shared command opens an empty Review and requests the default scope; the next command closes it regardless of content. |
+| Test isolation | A+ | The packaged runner injects explicit app-state and workspace roots into the controller and report rather than trusting process `HOME`. |
+| Native fidelity | A+ | Live packaged smoke AX-presses the real Review command, requires title/scope controls, dismisses through Close, and preserves screenshot/report evidence. |
+
+Validation:
+
+- `swift test --filter 'WorkspaceChromeStateTests|QuillCodeReviewSurfaceTests|WorkspaceReviewSurfaceBuilderTests|QuillCodeDesktopWindowReportTests|ParityWorkspaceReviewSurfaceGateTests|ParityPackagedMacOSSmokeGateTests'`
 - `scripts/packaged-macos-smoke.sh`
 - `npm test`
 - `python3 scripts/grade-code-quality.py`

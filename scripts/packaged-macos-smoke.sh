@@ -11,6 +11,7 @@ ACCESSIBILITY_READINESS_MANIFEST="$SMOKE_ROOT/packaged-accessibility-readiness.j
 ACCESSIBILITY_FRAMES_MANIFEST="$SMOKE_ROOT/packaged-accessibility-frames.json"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
+WINDOW_STATE_ROOT="$SMOKE_ROOT/window-state"
 ARTIFACT_DIR="${QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR:-}"
 
 cleanup() {
@@ -150,10 +151,11 @@ QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR
 
 echo "==> Running packaged macOS app live-window smoke"
 (
-  HOME="$SMOKE_ROOT/home" "$APP_EXECUTABLE" \
+  "$APP_EXECUTABLE" \
     --native-window-smoke \
     --window-smoke-report "$WINDOW_REPORT_PATH" \
     --window-smoke-screenshot "$WINDOW_SCREENSHOT_PATH" \
+    --window-smoke-state-root "$WINDOW_STATE_ROOT" \
     >/dev/null
 ) &
 WINDOW_SMOKE_PID="$!"

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
+    var onClose: () -> Void
     var onReviewScopeChange: (WorkspaceReviewSelection) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
@@ -43,6 +44,9 @@ struct QuillCodeReviewPaneView: View {
             if !review.pullRequestThreads.isEmpty {
                 pullRequestThreadList
             }
+            if !review.hasContent {
+                emptyState
+            }
         }
         .padding(14)
         .frame(maxWidth: 760, alignment: .leading)
@@ -63,6 +67,31 @@ struct QuillCodeReviewPaneView: View {
         )
     }
 
+    private var emptyState: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(review.scopeNotice == nil ? "Choose changes to review" : "Review unavailable")
+                    .font(.callout.weight(.semibold))
+                Text(
+                    review.scopeNotice == nil
+                        ? "Select a scope above to load its diff."
+                        : "Resolve the issue above or choose another scope."
+                )
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+        } icon: {
+            Image(systemName: review.scopeNotice == nil ? "doc.text.magnifyingglass" : "exclamationmark.triangle")
+                .foregroundStyle(review.scopeNotice == nil ? QuillCodePalette.blue : QuillCodePalette.yellow)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(QuillCodePalette.background.opacity(0.56))
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .accessibilityIdentifier("quillcode-review-empty")
+    }
+
     private var header: some View {
         HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
             Image(systemName: "doc.text.magnifyingglass")
@@ -74,6 +103,7 @@ struct QuillCodeReviewPaneView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(review.title)
                     .font(.headline)
+                    .accessibilityIdentifier("quillcode-review-title")
                 Text(review.subtitle)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
@@ -86,6 +116,11 @@ struct QuillCodeReviewPaneView: View {
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .foregroundStyle(QuillCodePalette.blue)
                 .clipShape(Capsule())
+            QuillCodePaneCloseButton(
+                paneName: "Review",
+                accessibilityIdentifier: "quillcode-review-close",
+                action: onClose
+            )
         }
     }
 

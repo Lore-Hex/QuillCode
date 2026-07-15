@@ -8,6 +8,7 @@ extension QuillCodeNativeHitTargetAudit {
             "search",
             "toggle-extensions",
             "toggle-automations",
+            "toggle-review-panel",
             "toggle-terminal",
             "toggle-browser",
             "toggle-memories",
@@ -79,7 +80,8 @@ extension QuillCodeNativeHitTargetAudit {
                 .review,
                 kinds: [.textEntry, .segmentedControl, .fullRow, .formAction],
                 actions: [.textInput, .press],
-                focusTargets: [.reviewBody, .reviewThreadReply]
+                focusTargets: [.reviewBody, .reviewThreadReply],
+                allowedKinds: [.textEntry, .segmentedControl, .fullRow, .formAction, .icon]
             ),
             policy(
                 .secondaryPane,

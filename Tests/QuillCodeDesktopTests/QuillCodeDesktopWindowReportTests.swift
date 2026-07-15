@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import QuillCodeApp
+import QuillCodePersistence
 import QuillComputerUseKit
 @testable import quill_code_desktop
 
@@ -13,12 +14,47 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "--window-smoke-report",
             "/tmp/quillcode-window-report.json",
             "--window-smoke-screenshot",
-            "/tmp/quillcode-window.png"
+            "/tmp/quillcode-window.png",
+            "--window-smoke-state-root",
+            "/tmp/quillcode-window-state"
         ])
 
         XCTAssertEqual(request?.reportPath, "/tmp/quillcode-window-report.json")
         XCTAssertEqual(request?.screenshotPath, "/tmp/quillcode-window.png")
+        XCTAssertEqual(request?.stateRootPath, "/tmp/quillcode-window-state")
         XCTAssertNil(QuillCodeDesktopWindowSmokeRequest(arguments: ["QuillCode"]))
+    }
+
+    func testDesktopWindowSmokeWorkspaceUsesExplicitIsolatedStateRoot() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-window-smoke-root-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let request = try XCTUnwrap(QuillCodeDesktopWindowSmokeRequest(arguments: [
+            "QuillCode",
+            "--native-window-smoke",
+            "--window-smoke-state-root",
+            temporaryDirectory.path
+        ]))
+        let root = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: request)
+        let controller = root.makeController()
+
+        XCTAssertEqual(root.root.path, temporaryDirectory.path)
+        XCTAssertEqual(root.appState.path, temporaryDirectory.appendingPathComponent("app-state").path)
+        XCTAssertEqual(root.workspace.path, temporaryDirectory.appendingPathComponent("workspace").path)
+        XCTAssertEqual(controller.bootstrap.paths.home, root.appState)
+        XCTAssertEqual(controller.workspaceRoot, root.workspace)
+        XCTAssertNotEqual(controller.bootstrap.paths.home, QuillCodePaths().home)
+        XCTAssertTrue(controller.model.root.projects.allSatisfy { $0.path == root.workspace.path })
+
+        let reviewCommand = try XCTUnwrap(
+            controller.surface.commands.first { $0.id == "toggle-review-panel" }
+        )
+        XCTAssertTrue(reviewCommand.isEnabled)
+        XCTAssertFalse(controller.surface.review.isVisible)
+        controller.runCommand(reviewCommand)
+        XCTAssertTrue(controller.surface.review.isVisible)
+        controller.runCommand(commandID: reviewCommand.id)
+        XCTAssertFalse(controller.surface.review.isVisible)
     }
 
     func testDesktopBrowserSmokeReportDocumentsAgentInspection() {
@@ -124,6 +160,9 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             windowFrame: CGRect(x: 0, y: 0, width: 1280, height: 928),
             contentSize: CGSize(width: 1280, height: 900),
             screenshotPath: "/tmp/quillcode-window.png",
+            stateRootPath: "/tmp/quillcode-window-state",
+            appStatePath: "/tmp/quillcode-window-state/app-state",
+            workspacePath: "/tmp/quillcode-window-state/workspace",
             image: QuillCodeDesktopSmokePixelReport(
                 width: 2560,
                 height: 1800,
@@ -139,6 +178,9 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
 
         let json = String(data: try report.prettyJSON(), encoding: .utf8) ?? ""
+        let jsonObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: report.prettyJSON()) as? [String: Any]
+        )
         XCTAssertTrue(json.contains(#""nativeHitTargets""#))
         XCTAssertTrue(json.contains(#""clickProbes""#))
         XCTAssertTrue(json.contains(#""quillcode-send-button""#))
@@ -156,6 +198,9 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""allowsTextSelection" : false"#))
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
+        XCTAssertEqual(jsonObject["stateRootPath"] as? String, "/tmp/quillcode-window-state")
+        XCTAssertEqual(jsonObject["appStatePath"] as? String, "/tmp/quillcode-window-state/app-state")
+        XCTAssertEqual(jsonObject["workspacePath"] as? String, "/tmp/quillcode-window-state/workspace")
     }
 
     func testComputerUseCoordinatorRefreshesForegroundApplication() async throws {
@@ -203,7 +248,8 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 "command.toggle-automations",
                 "command.toggle-extensions",
                 "command.toggle-memories",
-                "command.toggle-activity"
+                "command.toggle-activity",
+                "command.toggle-review-panel"
             ]
         )
     }

@@ -197,6 +197,7 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
 
         XCTAssertFalse(review.isVisible)
         XCTAssertEqual(review.files, [])
+        XCTAssertEqual(review.scopeNotice, "Couldn't load this review: not a git repository")
     }
 
     func testMalformedOrUnsuccessfulDiffOutputReturnsEmptySurface() throws {
