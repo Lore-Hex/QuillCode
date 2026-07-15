@@ -70,7 +70,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.pluginDataBaseDirectory = pluginDataBaseDirectory
         self.skillResolver = WorkspacePluginSkillResolver.make(
             workspaceRoot: workspaceRoot,
-            manifests: selectedProject?.extensionManifests ?? []
+            manifests: selectedProject?.extensionManifests ?? [],
+            configuration: config.skillConfiguration
         )
         self.mcpToolDefinitions = mcpToolDefinitions
         self.mcpToolExecutionOverride = mcpToolExecutionOverride

@@ -6,6 +6,7 @@ enum WorkspacePluginSkillResolver {
     static func make(
         workspaceRoot: URL,
         manifests: [ProjectExtensionManifest],
+        configuration: SkillConfiguration = SkillConfiguration(),
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) -> SkillResolver {
         let defaults = SkillResolver.defaultRoots(
@@ -20,7 +21,8 @@ enum WorkspacePluginSkillResolver {
         return SkillResolver(
             roots: Array(defaults[..<firstGlobal])
                 + pluginRoots
-                + Array(defaults[firstGlobal...])
+                + Array(defaults[firstGlobal...]),
+            configuration: configuration
         )
     }
 

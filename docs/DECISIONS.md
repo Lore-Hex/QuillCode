@@ -35,6 +35,20 @@
 - **Protocol:** `skills/list` uses the shared catalog, caches by canonical working directory, supports
   explicit `forceReload`, and reports invalid working directories as per-entry errors. Bounded absolute
   `skills/extraRoots/set` roots are session-local, clear the cache, and emit `skills/changed`.
+- **Configuration:** `skills/config/write` accepts exactly one bounded absolute manifest path or
+  bounded skill name. Disabled selectors persist in the ordinary config store, survive older config
+  payloads, and are enforced by desktop, CLI, and app-server metadata. A disabled higher-precedence
+  path can fall through to an enabled skill of the same name in a later root; a name selector disables
+  every matching root.
+- **Change lifecycle:** After `skills/list`, one session-owned Foundation task recursively snapshots
+  all deduplicated roots, including missing roots, under catalog-equivalent depth/directory bounds and
+  a hard entry cap. It fingerprints bounded manifests/metadata, follows only allowed directory links,
+  debounces edits, clears every CWD cache, emits invalidation-only `skills/changed`, and is cancelled on
+  EOF. This keeps clients current without creating one task per root or leaking work after disconnect.
+- **Evidence:** Core normalization, config round trips, resolver precedence, live desktop/CLI runner
+  enforcement, app-server validation/persistence, missing-root creation, manifest edits, cache refresh,
+  and disconnect cleanup have focused tests. The real-process smoke disables, re-enables, edits, and
+  reloads a skill through the public wire surface.
 - **Why:** A separate RPC scanner and live-agent resolver would drift in roots, metadata validation,
   and precedence. One catalog gives desktop, CLI, and app-server clients the same truthful skill set.
 

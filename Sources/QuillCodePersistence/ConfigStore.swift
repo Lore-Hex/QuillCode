@@ -33,6 +33,8 @@ public struct ConfigStore: Sendable {
         var computerUseApprovedAppNames: [String] = []
         var browserAllowedDomains: [String] = []
         var browserBlockedDomains: [String] = []
+        var disabledSkillPaths: [String] = []
+        var disabledSkillNames: [String] = []
         var notificationPreferences = QuillCodeNotificationPreferences()
         var runSpendPeriodLimits = RunSpendPeriodLimits()
         var managedWorktrees = ManagedWorktreeSettings()
@@ -78,6 +80,10 @@ public struct ConfigStore: Sendable {
                 browserAllowedDomains.append(value)
             case "browser_blocked_domain":
                 browserBlockedDomains.append(value)
+            case "disabled_skill_path":
+                disabledSkillPaths.append(value)
+            case "disabled_skill_name":
+                disabledSkillNames.append(value)
             case "agent_run_notifications_enabled":
                 notificationPreferences.agentRunNotificationsEnabled = Self.boolValue(value)
                     ?? notificationPreferences.agentRunNotificationsEnabled
@@ -139,6 +145,10 @@ public struct ConfigStore: Sendable {
         )
         config.browserAllowedDomains = browserPolicy.allowedDomains
         config.browserBlockedDomains = browserPolicy.blockedDomains
+        config.skillConfiguration = SkillConfiguration(
+            disabledPaths: disabledSkillPaths,
+            disabledNames: disabledSkillNames
+        )
         config.notificationPreferences = notificationPreferences
         config.runSpendPeriodLimits = runSpendPeriodLimits
         config.managedWorktrees = managedWorktrees
@@ -201,6 +211,16 @@ public struct ConfigStore: Sendable {
         )
         Self.appendRepeatedValues(config.browserAllowedDomains, key: "browser_allowed_domain", to: &lines)
         Self.appendRepeatedValues(config.browserBlockedDomains, key: "browser_blocked_domain", to: &lines)
+        Self.appendRepeatedValues(
+            config.skillConfiguration.disabledPaths,
+            key: "disabled_skill_path",
+            to: &lines
+        )
+        Self.appendRepeatedValues(
+            config.skillConfiguration.disabledNames,
+            key: "disabled_skill_name",
+            to: &lines
+        )
         if let account = config.trustedRouterAccount {
             if let userID = account.userID {
                 lines.append("trustedrouter_user_id = \(Self.quote(userID))")

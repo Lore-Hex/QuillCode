@@ -80,6 +80,10 @@ the base prompt: repository `.agents/skills` directories from the working direct
 root, user `~/.agents/skills`, admin/system roots, and legacy QuillCode/Codex roots. `skills/list`
 returns validated frontmatter plus optional `agents/openai.yaml` interface/tool metadata;
 `skills/extraRoots/set` updates bounded per-session roots and emits `skills/changed`.
+`skills/config/write` persistently enables or disables an exact manifest path or every skill sharing
+a name. Desktop and CLI agents enforce the same selectors. Once a client lists skills, one bounded,
+recursive session watcher invalidates cached catalogs and emits `skills/changed` when roots or files
+change; it is cancelled at disconnect.
 
 Nike 1.0 (`trustedrouter/fast`) is the default model. The only named presets are QuillCode’s branded TrustedRouter profiles: Nike 1.0 for fast everyday work, Zeus 1.0 for deep research, Prometheus 1.0 (`trustedrouter/fusion`) for freedom-oriented OSS deep research, Socrates 1.0 for coding-agent work, Aristotle 1.0 for smart general reasoning, and Plato 1.0 for freedom-oriented OSS coding. The picker searches the live TrustedRouter catalog when signed in, so raw provider/model IDs remain selectable without turning raw model types like synth into named defaults.
 

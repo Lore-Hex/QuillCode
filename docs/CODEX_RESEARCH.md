@@ -37,8 +37,11 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   scopes; user-authored repo/user/admin skill-directory symlinks are followed with cycle and size
   bounds. Optional `agents/openai.yaml` supplies interface and tool-dependency metadata. The 0.142.5
   app-server exposes this catalog through `skills/list`, allows bounded per-session roots through
-  `skills/extraRoots/set`, and notifies clients with `skills/changed`. Source: current Codex manual,
-  generated app-server schemas, and `openai/codex` skill loader audited 2026-07-15.
+  `skills/extraRoots/set`, persistently enables/disables exact paths or names through
+  `skills/config/write`, and sends invalidation-only `skills/changed` notifications when configuration
+  or watched roots change. Source: current Codex manual, generated app-server schemas, and
+  `openai/codex` catalog processor, config rules, edit helper, skill loader, and watcher audited
+  2026-07-15.
 - Codex 0.142.5 app-server filesystem requests are direct connected-client operations, distinct from
   model-authored sandboxed tools. The nine-method surface uses absolute paths and base64 file payloads;
   reads stop at 512 MiB; metadata follows symlink targets while reporting the link itself; directory

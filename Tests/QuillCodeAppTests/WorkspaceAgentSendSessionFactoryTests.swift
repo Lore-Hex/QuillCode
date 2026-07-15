@@ -192,6 +192,50 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         XCTAssertTrue(skillDescription?.contains("`review`") == true)
     }
 
+    func testFactoryExcludesConfiguredDisabledSkillsFromLiveRunner() throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let skillDirectory = workspaceRoot.appendingPathComponent(".agents/skills/review")
+        try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+        try """
+        ---
+        name: review
+        description: Review code for correctness defects.
+        ---
+        """.write(
+            to: skillDirectory.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let factory = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
+            selectedProject: nil,
+            config: AppConfig(
+                skillConfiguration: SkillConfiguration(disabledNames: ["review"])
+            ),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: workspaceRoot
+        )
+
+        let runner = factory.makeSession(
+            prompt: "Use review",
+            thread: ChatThread(title: "Disabled skill")
+        ).runner
+
+        let resolver = try XCTUnwrap(runner.skillResolver)
+        XCTAssertFalse(resolver.availableSkillNames().contains("review"))
+        XCTAssertThrowsError(try resolver.resolve(name: "review"))
+        let description = runner.baseToolDefinitions.first {
+            $0.name == ToolDefinition.skillLoad.name
+        }?.description
+        XCTAssertFalse(description?.contains("`review`") == true)
+    }
+
     func testFactoryWiresOnlyTrustedSupportedPluginToolHooks() throws {
         let workspaceRoot = try makeQuillCodeTestDirectory()
         let pluginRoot = workspaceRoot.appendingPathComponent(".quillcode/plugins/demo", isDirectory: true)
