@@ -29,10 +29,18 @@ actor AppServerMCPRegistry {
     }
 
     private let launcher: any MCPClientLaunching
+    private let secretStore: (any MCPSecretStore)?
+    private let httpClient: any MCPHTTPClient
     private var entries: [Key: Entry] = [:]
 
-    init(launcher: any MCPClientLaunching = DefaultMCPClientLauncher()) {
+    init(
+        launcher: any MCPClientLaunching = DefaultMCPClientLauncher(),
+        secretStore: (any MCPSecretStore)? = nil,
+        httpClient: any MCPHTTPClient = URLSessionMCPHTTPClient()
+    ) {
         self.launcher = launcher
+        self.secretStore = secretStore
+        self.httpClient = httpClient
     }
 
     func statuses(
@@ -43,12 +51,21 @@ actor AppServerMCPRegistry {
         removeStaleEntries(scope: scope, configurations: configurations)
         return configurations.keys.sorted().compactMap { name in
             guard let configuration = configurations[name] else { return nil }
+            let reportedConfiguration = configuration.reportingStoredOAuth(
+                secretStore: secretStore
+            )
             do {
                 let entry = try probedEntry(scope: scope, configuration: configuration, detail: detail)
-                return AppServerMCPServerStatus(configuration: configuration, probe: entry.probe)
+                return AppServerMCPServerStatus(
+                    configuration: reportedConfiguration,
+                    probe: entry.probe
+                )
             } catch {
                 remove(scope: scope, server: name)
-                return AppServerMCPServerStatus(configuration: configuration, probe: nil)
+                return AppServerMCPServerStatus(
+                    configuration: reportedConfiguration,
+                    probe: nil
+                )
             }
         }
     }
@@ -216,7 +233,12 @@ actor AppServerMCPRegistry {
             return entry
         }
         remove(key: key)
-        let launched = try launcher.launch(request: configuration.launchRequest()) { _ in }
+        let launched = try launcher.launch(
+            request: configuration.launchRequest(
+                secretStore: secretStore,
+                httpClient: httpClient
+            )
+        ) { _ in }
         let entry = Entry(configuration: configuration, launched: launched)
         entries[key] = entry
         return entry

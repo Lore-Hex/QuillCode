@@ -1,5 +1,24 @@
 # QuillCode Decisions
 
+## 2026-07-15: App-server MCP OAuth is asynchronous and shares durable desktop credentials
+
+- **Wire contract:** `mcpServer/oauth/login` returns a genuine authorization URL before waiting for
+  the browser and later emits `mcpServer/oauthLogin/completed`. Optional scopes, timeout, and thread ID
+  follow the current Codex contract; duplicate in-flight logins for the same server scope are rejected.
+  The `mcpServer/refresh` alias and `config/mcpServer/reload` both refresh cached MCP sessions.
+- **Credential contract:** Desktop and app-server transports resolve the same per-server token and
+  dynamic-registration records through `MCPRemoteAuthorizationResolver`. Explicit bearer environment
+  values or Authorization headers always win. OAuth access and refresh tokens never appear on the
+  app-server wire, and a successful login reloads the registry before the completion notification.
+- **OAuth transport:** Each remote server receives a stable, URL-bound loopback callback path. A static
+  client ID takes precedence; dynamic registrations are reused only when their redirect URI still
+  matches. Server HTTP headers reach discovery, registration, and token endpoints without replacing
+  request-specific fields such as `Accept` or `Content-Type`.
+- **Lifecycle and evidence:** EOF cancels callbacks and suppresses late notifications. Provider response
+  bodies are redacted from protocol errors. Focused tests cover response ordering, scopes, timeout
+  clamping, thread scope, duplicate rejection, cancellation, failure redaction, persisted auth,
+  registration refresh, header precedence, and a real localhost callback/code exchange.
+
 ## 2026-07-15: App-server account mutation reuses TrustedRouter OAuth without inventing identity
 
 - **Wire contract:** `account/login/start` supports Codex-compatible `apiKey` and `chatgpt`
@@ -38,8 +57,8 @@
   `mcpServer/tool/call`, and `mcpServer/resource/read` follow the Codex 0.142.5 camel-case JSONL shapes.
   Status preserves exact server names, server info, raw tool schemas/annotations, resources, resource
   templates, and auth status. Tool calls preserve arbitrary arguments, `_meta`, content blocks,
-  `structuredContent`, `isError`, and result metadata. OAuth login remains an explicit unsupported error
-  until app-server can return a genuine authorization URL and completion notification.
+  `structuredContent`, `isError`, and result metadata. OAuth login uses the asynchronous, durable shared
+  credential contract documented above.
 - **Configuration and scope:** Global `~/.quillcode/config.toml` MCP tables merge with thread-workspace
   `.codex/config.toml` and `.quillcode/config.toml`, in that precedence order, without normalizing server
   names. Stdio servers use direct command/argv, declared and inherited environment, bounded timeouts, and

@@ -41,8 +41,10 @@ actor AppServerSession {
     let repository: AppServerThreadRepository
     let attachmentStore: ImageAttachmentStore
     let mcpRegistry: AppServerMCPRegistry
+    let mcpSecretStore: any MCPSecretStore
     let runnerFactory: CLIAgentRunnerFactory
     let accountLoginStarter: any AppServerAccountLoginStarting
+    let mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting
     let sink: AppServerMessageSink
 
     var handshake = HandshakeState.awaitingInitialize
@@ -51,6 +53,7 @@ actor AppServerSession {
     var nextServerRequestSequence: Int64 = 1
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
     var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
+    var pendingMCPOAuthLogins: [UUID: AppServerPendingMCPOAuthLogin] = [:]
     var cachedModelCatalog: TrustedRouterModelCatalog?
     var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
     var skillExtraRoots: [URL] = []
@@ -67,7 +70,9 @@ actor AppServerSession {
         currentDirectory: URL,
         runnerFactory: @escaping CLIAgentRunnerFactory,
         mcpLauncher: any MCPClientLaunching = DefaultMCPClientLauncher(),
+        mcpHTTPClient: any MCPHTTPClient = URLSessionMCPHTTPClient(),
         accountLoginStarter: any AppServerAccountLoginStarting = DefaultAppServerAccountLoginStarter(),
+        mcpOAuthLoginStarter: (any AppServerMCPOAuthLoginStarting)? = nil,
         sink: @escaping AppServerMessageSink
     ) throws {
         let paths = request.home.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
@@ -79,9 +84,17 @@ actor AppServerSession {
         self.appConfig = try ConfigStore(fileURL: paths.configFile).load()
         self.repository = AppServerThreadRepository(paths: paths, fallbackCWD: currentDirectory)
         self.attachmentStore = ImageAttachmentStore(directory: paths.attachmentsDirectory)
-        self.mcpRegistry = AppServerMCPRegistry(launcher: mcpLauncher)
+        let mcpSecretStore = AppServerMCPSecretStore(directory: paths.secretsDirectory)
+        self.mcpSecretStore = mcpSecretStore
+        self.mcpRegistry = AppServerMCPRegistry(
+            launcher: mcpLauncher,
+            secretStore: mcpSecretStore,
+            httpClient: mcpHTTPClient
+        )
         self.runnerFactory = runnerFactory
         self.accountLoginStarter = accountLoginStarter
+        self.mcpOAuthLoginStarter = mcpOAuthLoginStarter
+            ?? DefaultAppServerMCPOAuthLoginStarter(httpClient: mcpHTTPClient)
         self.sink = sink
     }
 
@@ -117,6 +130,7 @@ actor AppServerSession {
         cancelSkillWatcher()
         cancelAllFileWatches()
         cancelAllAccountLogins()
+        cancelAllMCPServerOAuthLogins()
         await mcpRegistry.terminateAll()
         resolveAllPendingApprovals(
             with: .deny(reason: "The app-server client disconnected before answering the approval request.")
@@ -141,6 +155,7 @@ actor AppServerSession {
             let result: CLIJSONValue
             var turnToLaunch: UUID?
             var accountAfterResponse: AppServerAccountAfterResponse?
+            var mcpOAuthLoginToLaunch: UUID?
             switch method {
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
@@ -170,10 +185,14 @@ actor AppServerSession {
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
             case "skills/config/write": result = try await writeSkillConfig(params)
             case "mcpServerStatus/list": result = try await listMCPServerStatus(params)
-            case "config/mcpServer/reload": result = try await reloadMCPServers(params)
+            case "config/mcpServer/reload", "mcpServer/refresh":
+                result = try await reloadMCPServers(params, method: method)
             case "mcpServer/tool/call": result = try await callMCPServerTool(params)
             case "mcpServer/resource/read": result = try await readMCPResource(params)
-            case "mcpServer/oauth/login": result = try loginMCPServerOAuth(params)
+            case "mcpServer/oauth/login":
+                let outcome = try await startMCPServerOAuthLogin(params)
+                result = outcome.result
+                mcpOAuthLoginToLaunch = outcome.loginID
             case "fs/readFile": result = try readFile(params)
             case "fs/writeFile": result = try writeFile(params)
             case "fs/createDirectory": result = try createDirectory(params)
@@ -206,6 +225,9 @@ actor AppServerSession {
             await send(.response(id: id, result: result))
             if let accountAfterResponse {
                 await performAccountAfterResponse(accountAfterResponse)
+            }
+            if let mcpOAuthLoginToLaunch {
+                launchMCPServerOAuthLogin(mcpOAuthLoginToLaunch)
             }
             if let turnToLaunch { launchTurn(turnToLaunch) }
         } catch let error as AppServerRPCError {

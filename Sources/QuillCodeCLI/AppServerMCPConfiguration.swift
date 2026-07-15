@@ -23,8 +23,16 @@ struct AppServerMCPServerConfiguration: Sendable, Hashable {
     var disabledTools: Set<String>
     var authStatus: AuthStatus
     var required: Bool
+    var oauthClientID: String?
+    var oauthScopes: [String]
+    var oauthResource: String?
 
-    func launchRequest() -> MCPClientLaunchRequest {
+    var oauthServerID: String { "mcp_server:\(name)" }
+
+    func launchRequest(
+        secretStore: (any MCPSecretStore)? = nil,
+        httpClient: any MCPHTTPClient = URLSessionMCPHTTPClient()
+    ) -> MCPClientLaunchRequest {
         switch transport {
         case let .stdio(command, arguments, environment, cwd):
             return MCPClientLaunchRequest(
@@ -38,8 +46,19 @@ struct AppServerMCPServerConfiguration: Sendable, Hashable {
             let authorization: any MCPRemoteAuthorizing
             if let bearerToken {
                 authorization = MCPStaticAuthorization(bearerToken: bearerToken)
-            } else {
+            } else if Self.hasAuthorizationHeader(headers) {
                 authorization = MCPNoAuthorization()
+            } else {
+                authorization = MCPRemoteAuthorizationResolver.authorization(
+                    serverID: oauthServerID,
+                    serverURL: url,
+                    oauthClientID: oauthClientID,
+                    oauthScopes: oauthScopes,
+                    oauthResource: oauthResource,
+                    serverHeaders: headers,
+                    secretStore: secretStore,
+                    httpClient: httpClient
+                )
             }
             return MCPClientLaunchRequest(
                 transport: .remote(
@@ -53,8 +72,29 @@ struct AppServerMCPServerConfiguration: Sendable, Hashable {
         }
     }
 
+    func reportingStoredOAuth(secretStore: (any MCPSecretStore)?) -> Self {
+        guard !hasConfiguredAuthorization,
+              MCPRemoteAuthorizationResolver.hasStoredTokens(
+                  serverID: oauthServerID,
+                  secretStore: secretStore
+              )
+        else { return self }
+        var copy = self
+        copy.authStatus = .oAuth
+        return copy
+    }
+
     func permitsTool(named name: String) -> Bool {
         !disabledTools.contains(name) && (enabledTools?.contains(name) ?? true)
+    }
+
+    private var hasConfiguredAuthorization: Bool {
+        guard case let .remote(_, headers, bearerToken) = transport else { return false }
+        return bearerToken != nil || Self.hasAuthorizationHeader(headers)
+    }
+
+    private static func hasAuthorizationHeader(_ headers: [String: String]) -> Bool {
+        headers.keys.contains { $0.caseInsensitiveCompare("Authorization") == .orderedSame }
     }
 }
 
@@ -152,7 +192,10 @@ enum AppServerMCPConfigurationLoader {
                 enabledTools: enabledTools,
                 disabledTools: disabledTools,
                 authStatus: .unsupported,
-                required: required
+                required: required,
+                oauthClientID: nil,
+                oauthScopes: [],
+                oauthResource: nil
             )
         }
 
@@ -176,7 +219,29 @@ enum AppServerMCPConfigurationLoader {
         let bearerVariable = table["bearer_token_env_var"]?.stringValue
         let bearerToken = bearerVariable.flatMap { environment[$0] }.flatMap { $0.isEmpty ? nil : $0 }
         let hasAuthorizationHeader = headers.keys.contains { $0.caseInsensitiveCompare("Authorization") == .orderedSame }
-        let requestsOAuth = table["oauth"] != nil || table["scopes"] != nil
+        let oauthClientID = try optionalText(
+            table["oauth_client_id"],
+            name: name,
+            field: "oauth_client_id",
+            maximumLength: 2_048
+        )
+        let oauthResource = try optionalText(
+            table["oauth_resource"],
+            name: name,
+            field: "oauth_resource",
+            maximumLength: 4_096
+        )
+        let oauthScopes = try strings(table["scopes"], name: name, field: "scopes") ?? []
+        guard oauthScopes.allSatisfy({
+            let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !trimmed.isEmpty && trimmed.count <= 512
+        }) else {
+            throw error(name, "scopes must contain non-empty strings no longer than 512 characters")
+        }
+        let requestsOAuth = table["oauth"] != nil
+            || table["scopes"] != nil
+            || oauthClientID != nil
+            || oauthResource != nil
         let authStatus: AppServerMCPServerConfiguration.AuthStatus = bearerVariable != nil || hasAuthorizationHeader
             ? .bearerToken
             : (requestsOAuth ? .notLoggedIn : .unsupported)
@@ -188,8 +253,26 @@ enum AppServerMCPConfigurationLoader {
             enabledTools: enabledTools,
             disabledTools: disabledTools,
             authStatus: authStatus,
-            required: required
+            required: required,
+            oauthClientID: oauthClientID,
+            oauthScopes: oauthScopes,
+            oauthResource: oauthResource
         )
+    }
+
+    private static func optionalText(
+        _ value: ConfigValue?,
+        name: String,
+        field: String,
+        maximumLength: Int
+    ) throws -> String? {
+        guard let value else { return nil }
+        guard let raw = value.stringValue else { throw error(name, "\(field) must be a string") }
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.count <= maximumLength else {
+            throw error(name, "\(field) must be a non-empty string no longer than \(maximumLength) characters")
+        }
+        return text
     }
 
     private static func workingDirectory(_ raw: String?, name: String, fallback: URL) throws -> URL {

@@ -39,8 +39,11 @@ extension AppServerSession {
         ])
     }
 
-    func reloadMCPServers(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
-        try AppServerDiscoveryParams.requireEmpty(raw, method: "config/mcpServer/reload")
+    func reloadMCPServers(
+        _ raw: CLIJSONValue,
+        method: String = "config/mcpServer/reload"
+    ) async throws -> CLIJSONValue {
+        try AppServerDiscoveryParams.requireEmpty(raw, method: method)
         await mcpRegistry.reload()
         return .object([:])
     }
@@ -100,14 +103,6 @@ extension AppServerSession {
                 "MCP resource read from '\(server)' failed: \(error.localizedDescription)"
             )
         }
-    }
-
-    func loginMCPServerOAuth(_ raw: CLIJSONValue) throws -> CLIJSONValue {
-        let params = try AppServerParams(raw)
-        _ = try params.requiredString("name")
-        throw AppServerRPCError.invalidRequest(
-            "MCP OAuth login is not available through QuillCode app-server yet; use the QuillCode desktop sign-in flow."
-        )
     }
 
     func mcpContext(threadID: String?) async throws -> AppServerMCPContext {

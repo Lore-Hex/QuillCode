@@ -25,6 +25,20 @@ actor AppServerMCPOutputCollector {
             return object
         }
     }
+
+    func waitForNotification(
+        method: String,
+        timeout: Duration = .seconds(3)
+    ) async throws -> [String: CLIJSONValue] {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if let match = try records().first(where: { $0["method"]?.stringValue == method }) {
+                return match["params"]?.objectValue ?? [:]
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw MCPProbeError.responseError("timed out waiting for \(method)")
+    }
 }
 
 struct FakeMCPServerSpecification: Sendable {
