@@ -1,5 +1,34 @@
 # QuillCode Decisions
 
+## 2026-07-15: App-server config mutation shares one structured TOML document
+
+- **Decision:** `ConfigDocumentStore` is the shared representation for app settings and Codex-compatible
+  `config/read`, `config/value/write`, and `config/batchWrite`. It parses real nested TOML instead of
+  line matching, preserves unknown tables and values when QuillCode-owned settings are saved, and
+  migrates the repeated scalar list keys emitted by early QuillCode builds into valid arrays.
+- **Wire fidelity:** Writes accept Codex dotted/quoted paths, `replace` and recursive table `upsert`,
+  null deletion, optional user-file paths, and optimistic `expectedVersion` checks. Batches apply to an
+  in-memory copy and validate before one atomic save. Legacy profile writes, non-user layers, nested
+  nulls, malformed paths, and invalid known value types fail with Codex `config_write_error_code`
+  values without partial persistence.
+- **Read fidelity:** Effective reads retain unknown user keys, fill only absent runtime defaults, mark
+  command-line model overrides as `sessionFlags`, flatten persisted leaves into user origins, and use
+  one SHA-256 content version for origins, optional raw user layers, conflict checks, and write results.
+  Secret-store credentials never enter this document or response.
+- **Formatting tradeoff:** A changed document is emitted as deterministic canonical TOML because the
+  Swift encoder does not provide Rust `toml_edit`-style trivia-preserving edits. A no-op write does not
+  touch the file and therefore preserves comments and formatting byte-for-byte. Functional values and
+  unknown keys survive changed writes, including offset/local date-times, local dates, local times,
+  infinities, and NaN; temporal and non-finite values project as canonical strings on the JSON wire.
+  Preserving comments around changed
+  values remains a documented lower-priority fidelity improvement.
+- **Evidence:** Persistence tests cover nested round trips, quoted paths, parent replacement, recursive
+  upsert, deletion, all TOML temporal types, special floats, list migration, unknown-key preservation, keyboard
+  shortcuts, and legacy loading.
+  JSON-RPC tests cover versions/origins/layers, atomic batches, conflict and readonly errors, profile
+  rejection, malformed values, no-op bytes, and runtime reload. The real executable smoke performs
+  both write methods and verifies the resulting read through an open stdio session.
+
 ## 2026-07-15: App-server filesystem authority belongs to the connected client
 
 - **Decision:** Implement the Codex 0.142.5 `fs/readFile`, `fs/writeFile`, `fs/createDirectory`,
@@ -1161,9 +1190,9 @@
   UTC daily buckets and streaks. `account/rateLimits/read` exposes configured QuillCode day/week/month
   spend controls under `quillcode-local-*` IDs and names every row as local. Neither method claims to
   represent TrustedRouter account history, balances, or provider quotas.
-- **Config contract:** `config/read` maps effective QuillCode model, reviewer, sandbox, and web-search
-  state onto required Codex fields, validates the requested working directory, and optionally reports
-  the existing user config layer. Origins remain empty until true per-key layering is implemented.
+- **Config contract (superseded 2026-07-15):** This slice initially projected only effective model,
+  reviewer, sandbox, and web-search state. The later structured-document decision above adds true
+  per-key origins, raw user layers, and general value/batch mutation.
 - **Code boundary:** Model, account/usage, config, and parameter support live in focused app-server
   files. Credential precedence is one shared CLI resolver used by both ordinary CLI execution and
   app-server discovery, so the two surfaces cannot drift.

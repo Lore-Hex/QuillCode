@@ -133,6 +133,8 @@ actor AppServerSession {
             case "account/usage/read": result = try await readAccountUsage(params)
             case "account/rateLimits/read": result = try await readAccountRateLimits(params)
             case "config/read": result = try readConfig(params)
+            case "config/value/write": result = try await writeConfigValue(params)
+            case "config/batchWrite": result = try await writeConfigBatch(params)
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
             case "skills/config/write": result = try await writeSkillConfig(params)

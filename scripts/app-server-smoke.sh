@@ -88,6 +88,42 @@ send({"id": 4, "method": "config/read", "params": {"cwd": workspace}})
 config, _ = read_until(lambda record: record.get("id") == 4)
 assert config["result"]["config"]["model"] == "trustedrouter/fast", config
 assert config["result"]["config"]["model_provider"] == "trustedrouter", config
+assert "layers" not in config["result"], config
+
+send({"id": 40, "method": "config/value/write", "params": {
+    "keyPath": "desktop.appearanceTheme",
+    "value": "dark",
+    "mergeStrategy": "replace",
+}})
+config_write, _ = read_until(lambda record: record.get("id") == 40)
+assert config_write["result"]["status"] == "ok", config_write
+config_version = config_write["result"]["version"]
+assert config_version.startswith("sha256:"), config_write
+
+send({"id": 41, "method": "config/batchWrite", "params": {
+    "edits": [{
+        "keyPath": "desktop.workspace",
+        "value": {"collapsed": True, "width": 320},
+        "mergeStrategy": "upsert",
+    }],
+    "expectedVersion": config_version,
+    "reloadUserConfig": True,
+}})
+config_batch, _ = read_until(lambda record: record.get("id") == 41)
+assert config_batch["result"]["status"] == "ok", config_batch
+
+send({"id": 42, "method": "config/read", "params": {
+    "cwd": workspace,
+    "includeLayers": True,
+}})
+config, _ = read_until(lambda record: record.get("id") == 42)
+assert config["result"]["config"]["desktop"] == {
+    "appearanceTheme": "dark",
+    "workspace": {"collapsed": True, "width": 320},
+}, config
+assert config["result"]["origins"]["desktop.workspace.width"]["version"] \
+    == config_batch["result"]["version"], config
+assert config["result"]["layers"][0]["config"]["desktop"]["appearanceTheme"] == "dark", config
 
 send({"id": 5, "method": "skills/list", "params": {"cwds": [workspace]}})
 skills, _ = read_until(lambda record: record.get("id") == 5)

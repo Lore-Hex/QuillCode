@@ -65,7 +65,9 @@ TrustedRouter runtime. The implemented core follows Codex's newline-delimited wi
 turn start/steer/interrupt, item and assistant deltas, command/file approval requests, and durable
 transcript persistence. Clients can also list models, read provider capabilities, detect account
 presence without receiving credentials, read locally observed UTC token usage and explicitly local
-spend controls, inspect effective config, and use Codex-compatible `fs/readFile`, `fs/writeFile`,
+spend controls, inspect effective config, atomically update the user config through Codex-compatible
+`config/value/write` and `config/batchWrite` with content-version conflict detection, and use
+Codex-compatible `fs/readFile`, `fs/writeFile`,
 `fs/createDirectory`, `fs/getMetadata`, `fs/readDirectory`, `fs/remove`, `fs/copy`, `fs/watch`, and
 `fs/unwatch` methods. Files are binary-safe base64 payloads, reads use Codex's 512 MiB bound, recursive
 copy preserves symlinks while skipping special children, and watches emit sorted, 200 ms-debounced

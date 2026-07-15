@@ -23,6 +23,13 @@ public struct ConfigStore: Sendable {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             return AppConfig()
         }
+        if let document = try? ConfigDocumentStore(fileURL: fileURL).load() {
+            return Self.config(from: document)
+        }
+
+        // Keep accepting early QuillCode files containing invalid bare values. New writes always
+        // use the strict TOML document store, but silently discarding an older user's settings
+        // because one boolean was malformed would be a worse migration failure.
         let text = try String(contentsOf: fileURL, encoding: .utf8)
         var config = AppConfig()
         var explicitAuthMode: TrustedRouterAuthMode?
@@ -156,127 +163,179 @@ public struct ConfigStore: Sendable {
     }
 
     public func save(_ config: AppConfig) throws {
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
+        let store = ConfigDocumentStore(fileURL: fileURL)
+        var document = (try? store.load()) ?? ConfigDocument()
+
+        for key in Self.ownedKeys { document.values.removeValue(forKey: key) }
+        document.values["model"] = .string(config.defaultModel)
+        document.values["review_model"] = config.reviewModel.map(ConfigValue.string)
+        document.values["review_delivery"] = .string(config.reviewDelivery.rawValue)
+        document.values["mode"] = .string(config.mode.rawValue)
+        document.values["api_base_url"] = .string(config.apiBaseURL)
+        document.values["auth_mode"] = .string(config.authMode.rawValue)
+        document.values["developer_override_enabled"] = .bool(config.developerOverrideEnabled)
+        document.values["model_provider"] = .string("trustedrouter")
+        let access = Self.accessValues(for: config.mode)
+        document.values["sandbox_mode"] = .string(access.sandbox)
+        document.values["approvals_reviewer"] = .string(access.reviewer)
+        document.values["approval_policy"] = .string("on-request")
+
+        let notifications = config.notificationPreferences
+        document.values["agent_run_notifications_enabled"] = .bool(notifications.agentRunNotificationsEnabled)
+        document.values["agent_run_notifications_only_when_inactive"] = .bool(
+            notifications.agentRunNotificationsOnlyWhenInactive
         )
-        var lines = ["default_model = \(Self.quote(config.defaultModel))"]
-        if let reviewModel = config.reviewModel {
-            lines.append("review_model = \(Self.quote(reviewModel))")
-        }
-        lines.append(contentsOf: [
-            "review_delivery = \(Self.quote(config.reviewDelivery.rawValue))",
-            "mode = \(Self.quote(config.mode.rawValue))",
-            "api_base_url = \(Self.quote(config.apiBaseURL))",
-            "auth_mode = \(Self.quote(config.authMode.rawValue))",
-            "developer_override_enabled = \(Self.boolString(config.developerOverrideEnabled))"
-        ])
-        Self.appendNotificationPreferences(config.notificationPreferences, to: &lines)
-        Self.appendOptionalDouble(config.runSpendFuseUSD, key: "run_spend_fuse_usd", to: &lines)
-        Self.appendOptionalDouble(
-            config.runSpendPeriodLimits.dailyUSD,
-            key: "run_spend_daily_limit_usd",
-            to: &lines
+        document.values["automation_notifications_enabled"] = .bool(
+            notifications.automationNotificationsEnabled
         )
-        Self.appendOptionalDouble(
-            config.runSpendPeriodLimits.weeklyUSD,
-            key: "run_spend_weekly_limit_usd",
-            to: &lines
+        document.values["run_spend_fuse_usd"] = config.runSpendFuseUSD.map(ConfigValue.number)
+        document.values["run_spend_daily_limit_usd"] = config.runSpendPeriodLimits.dailyUSD.map(
+            ConfigValue.number
         )
-        Self.appendOptionalDouble(
-            config.runSpendPeriodLimits.monthlyUSD,
-            key: "run_spend_monthly_limit_usd",
-            to: &lines
+        document.values["run_spend_weekly_limit_usd"] = config.runSpendPeriodLimits.weeklyUSD.map(
+            ConfigValue.number
         )
-        if let rootPath = config.managedWorktrees.rootPath {
-            lines.append("managed_worktree_root = \(Self.quote(rootPath))")
-        }
-        Self.appendBoolean(
-            config.managedWorktrees.automaticCleanupEnabled,
-            key: "managed_worktree_automatic_cleanup_enabled",
-            to: &lines
+        document.values["run_spend_monthly_limit_usd"] = config.runSpendPeriodLimits.monthlyUSD.map(
+            ConfigValue.number
         )
-        lines.append("managed_worktree_retention_limit = \(config.managedWorktrees.retentionLimit)")
-        lines.append("max_tool_steps = \(config.maxToolSteps)")
-        Self.appendRepeatedValues(config.favoriteModels, key: "favorite_model", to: &lines)
-        Self.appendRepeatedValues(
-            config.computerUseApprovedBundleIdentifiers,
-            key: "computer_use_approved_bundle_identifier",
-            to: &lines
+        document.values["managed_worktree_root"] = config.managedWorktrees.rootPath.map(ConfigValue.string)
+        document.values["managed_worktree_automatic_cleanup_enabled"] = .bool(
+            config.managedWorktrees.automaticCleanupEnabled
         )
-        Self.appendRepeatedValues(
-            config.computerUseApprovedAppNames,
-            key: "computer_use_approved_app_name",
-            to: &lines
+        document.values["managed_worktree_retention_limit"] = .integer(
+            Int64(config.managedWorktrees.retentionLimit)
         )
-        Self.appendRepeatedValues(config.browserAllowedDomains, key: "browser_allowed_domain", to: &lines)
-        Self.appendRepeatedValues(config.browserBlockedDomains, key: "browser_blocked_domain", to: &lines)
-        Self.appendRepeatedValues(
-            config.skillConfiguration.disabledPaths,
-            key: "disabled_skill_path",
-            to: &lines
+        document.values["max_tool_steps"] = .integer(Int64(config.maxToolSteps))
+        document.values["favorite_model"] = .stringArray(config.favoriteModels)
+        document.values["computer_use_approved_bundle_identifier"] = .stringArray(
+            config.computerUseApprovedBundleIdentifiers
         )
-        Self.appendRepeatedValues(
-            config.skillConfiguration.disabledNames,
-            key: "disabled_skill_name",
-            to: &lines
+        document.values["computer_use_approved_app_name"] = .stringArray(
+            config.computerUseApprovedAppNames
         )
+        document.values["browser_allowed_domain"] = .stringArray(config.browserAllowedDomains)
+        document.values["browser_blocked_domain"] = .stringArray(config.browserBlockedDomains)
+        document.values["disabled_skill_path"] = .stringArray(config.skillConfiguration.disabledPaths)
+        document.values["disabled_skill_name"] = .stringArray(config.skillConfiguration.disabledNames)
+        document.values["keyboard_shortcuts"] = Self.configValue(from: config.keyboardShortcuts)
+
         if let account = config.trustedRouterAccount {
-            if let userID = account.userID {
-                lines.append("trustedrouter_user_id = \(Self.quote(userID))")
-            }
-            if let subject = account.subject {
-                lines.append("trustedrouter_subject = \(Self.quote(subject))")
-            }
-            if let email = account.email {
-                lines.append("trustedrouter_email = \(Self.quote(email))")
-            }
-            if let walletAddress = account.walletAddress {
-                lines.append("trustedrouter_wallet_address = \(Self.quote(walletAddress))")
-            }
+            document.values["trustedrouter_user_id"] = account.userID.map(ConfigValue.string)
+            document.values["trustedrouter_subject"] = account.subject.map(ConfigValue.string)
+            document.values["trustedrouter_email"] = account.email.map(ConfigValue.string)
+            document.values["trustedrouter_wallet_address"] = account.walletAddress.map(ConfigValue.string)
         }
-        let body = lines.joined(separator: "\n")
-        try body.write(to: fileURL, atomically: true, encoding: .utf8)
+        try store.save(document)
     }
 
-    private static func appendRepeatedValues(_ values: [String], key: String, to lines: inout [String]) {
-        for value in values {
-            lines.append("\(key) = \(quote(value))")
+    private static let ownedKeys: Set<String> = [
+        "default_model", "model", "review_model", "review_delivery", "mode", "api_base_url",
+        "auth_mode", "developer_override_enabled", "model_provider", "sandbox_mode",
+        "approvals_reviewer", "approval_policy", "trustedrouter_user_id", "trustedrouter_subject",
+        "trustedrouter_email", "trustedrouter_wallet_address", "favorite_model",
+        "computer_use_approved_bundle_identifier", "computer_use_approved_app_name",
+        "browser_allowed_domain", "browser_blocked_domain", "disabled_skill_path",
+        "disabled_skill_name", "agent_run_notifications_enabled",
+        "agent_run_notifications_only_when_inactive", "automation_notifications_enabled",
+        "run_spend_fuse_usd", "run_spend_daily_limit_usd", "run_spend_weekly_limit_usd",
+        "run_spend_monthly_limit_usd", "managed_worktree_root",
+        "managed_worktree_automatic_cleanup_enabled", "managed_worktree_retention_limit",
+        "keyboard_shortcuts", "max_tool_steps"
+    ]
+
+    private static func config(from document: ConfigDocument) -> AppConfig {
+        let values = document.values
+        let explicitAuthMode = values.string("auth_mode").flatMap(TrustedRouterAuthMode.init(rawValue:))
+        let legacyDeveloperOverride = values.bool("developer_override_enabled") == true
+        let authMode = explicitAuthMode ?? (legacyDeveloperOverride ? .developerOverride : .oauth)
+        let account = TrustedRouterAccountProfile(
+            userID: values.string("trustedrouter_user_id"),
+            subject: values.string("trustedrouter_subject"),
+            email: values.string("trustedrouter_email"),
+            walletAddress: values.string("trustedrouter_wallet_address")
+        )
+        let mode = values.string("mode").flatMap(AgentMode.init(rawValue:))
+            ?? modeFromCodexAccess(values)
+        let notifications = QuillCodeNotificationPreferences(
+            agentRunNotificationsEnabled: values.bool("agent_run_notifications_enabled") ?? true,
+            agentRunNotificationsOnlyWhenInactive: values.bool(
+                "agent_run_notifications_only_when_inactive"
+            ) ?? true,
+            automationNotificationsEnabled: values.bool("automation_notifications_enabled") ?? true
+        )
+        let limits = RunSpendPeriodLimits(
+            dailyUSD: values.double("run_spend_daily_limit_usd"),
+            weeklyUSD: values.double("run_spend_weekly_limit_usd"),
+            monthlyUSD: values.double("run_spend_monthly_limit_usd")
+        )
+        let managedWorktrees = ManagedWorktreeSettings(
+            rootPath: values.string("managed_worktree_root"),
+            automaticCleanupEnabled: values.bool("managed_worktree_automatic_cleanup_enabled") ?? true,
+            retentionLimit: values.int("managed_worktree_retention_limit")
+                ?? ManagedWorktreeSettings.defaultRetentionLimit
+        )
+        let keyboardShortcuts = values["keyboard_shortcuts"].flatMap {
+            decode(KeyboardShortcutPreferences.self, from: $0)
+        } ?? KeyboardShortcutPreferences()
+
+        return AppConfig(
+            defaultModel: values.string("model")
+                ?? values.string("default_model")
+                ?? TrustedRouterDefaults.defaultModel,
+            mode: mode,
+            apiBaseURL: values.string("api_base_url") ?? TrustedRouterDefaults.defaultAPIBaseURL,
+            authMode: authMode,
+            developerOverrideEnabled: authMode == .developerOverride,
+            trustedRouterAccount: account.isEmpty ? nil : account,
+            favoriteModels: values.stringArray("favorite_model"),
+            computerUseApprovedBundleIdentifiers: values.stringArray(
+                "computer_use_approved_bundle_identifier"
+            ),
+            computerUseApprovedAppNames: values.stringArray("computer_use_approved_app_name"),
+            browserAllowedDomains: values.stringArray("browser_allowed_domain"),
+            browserBlockedDomains: values.stringArray("browser_blocked_domain"),
+            notificationPreferences: notifications,
+            runSpendFuseUSD: values["run_spend_fuse_usd"] == nil
+                ? 1.0
+                : RunSpendLedger.normalizedFuse(values.double("run_spend_fuse_usd")),
+            runSpendPeriodLimits: limits,
+            managedWorktrees: managedWorktrees,
+            keyboardShortcuts: keyboardShortcuts,
+            skillConfiguration: SkillConfiguration(
+                disabledPaths: values.stringArray("disabled_skill_path"),
+                disabledNames: values.stringArray("disabled_skill_name")
+            ),
+            maxToolSteps: max(1, values.int("max_tool_steps") ?? AppConfig.defaultMaxToolSteps),
+            reviewModel: values.string("review_model"),
+            reviewDelivery: values.string("review_delivery").flatMap(CodeReviewDelivery.init(rawValue:))
+                ?? .current
+        )
+    }
+
+    private static func modeFromCodexAccess(_ values: [String: ConfigValue]) -> AgentMode {
+        guard values["sandbox_mode"] != nil || values["approvals_reviewer"] != nil else {
+            return .auto
+        }
+        if values.string("sandbox_mode") == "read-only" { return .readOnly }
+        return values.string("approvals_reviewer") == "auto_review" ? .auto : .review
+    }
+
+    private static func accessValues(for mode: AgentMode) -> (sandbox: String, reviewer: String) {
+        switch mode {
+        case .auto: ("workspace-write", "auto_review")
+        case .review: ("workspace-write", "user")
+        case .readOnly, .plan: ("read-only", "user")
         }
     }
 
-    private static func appendNotificationPreferences(
-        _ preferences: QuillCodeNotificationPreferences,
-        to lines: inout [String]
-    ) {
-        appendBoolean(
-            preferences.agentRunNotificationsEnabled,
-            key: "agent_run_notifications_enabled",
-            to: &lines
-        )
-        appendBoolean(
-            preferences.agentRunNotificationsOnlyWhenInactive,
-            key: "agent_run_notifications_only_when_inactive",
-            to: &lines
-        )
-        appendBoolean(
-            preferences.automationNotificationsEnabled,
-            key: "automation_notifications_enabled",
-            to: &lines
-        )
+    private static func configValue<T: Encodable>(from value: T) -> ConfigValue? {
+        guard let data = try? JSONEncoder().encode(value) else { return nil }
+        return try? JSONDecoder().decode(ConfigValue.self, from: data)
     }
 
-    private static func appendBoolean(_ value: Bool, key: String, to lines: inout [String]) {
-        lines.append("\(key) = \(boolString(value))")
-    }
-
-    private static func appendOptionalDouble(_ value: Double?, key: String, to lines: inout [String]) {
-        guard let value else { return }
-        lines.append("\(key) = \(String(format: "%.6f", value))")
-    }
-
-    private static func boolString(_ value: Bool) -> String {
-        value ? "true" : "false"
+    private static func decode<T: Decodable>(_ type: T.Type, from value: ConfigValue) -> T? {
+        guard let data = try? JSONEncoder().encode(value) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
     }
 
     private static func boolValue(_ value: String) -> Bool? {
@@ -296,18 +355,6 @@ public struct ConfigStore: Sendable {
 
     private static func intValue(_ value: String) -> Int? {
         Int(value.trimmingCharacters(in: .whitespacesAndNewlines))
-    }
-
-    private static func quote(_ value: String) -> String {
-        // Escape backslash FIRST, then the chars that would break the flat key=value line format.
-        // Newlines especially: an unescaped '\n' splits the value across physical lines, and load()
-        // then rejects the '=' -less fragment — corrupting the ENTIRE config, not just this value.
-        let escaped = value
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
-            .replacingOccurrences(of: "\r", with: "\\r")
-        return "\"\(escaped)\""
     }
 
     private static func unquote(_ value: String) -> String {

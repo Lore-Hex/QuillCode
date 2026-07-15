@@ -214,12 +214,27 @@ final class AppServerDiscoveryTests: XCTestCase {
         XCTAssertEqual(effective["approvals_reviewer"]?.stringValue, "auto_review")
         XCTAssertEqual(effective["sandbox_mode"]?.stringValue, "workspace-write")
         XCTAssertEqual(effective["web_search"]?.stringValue, "live")
-        XCTAssertEqual(response["origins"]?.objectValue, [:])
+        let origins = try XCTUnwrap(response["origins"]?.objectValue)
+        XCTAssertEqual(
+            origins["model"]?.objectValue?["name"]?.objectValue?["type"]?.stringValue,
+            "sessionFlags"
+        )
+        XCTAssertEqual(
+            origins["review_model"]?.objectValue?["name"]?.objectValue?["type"]?.stringValue,
+            "user"
+        )
+        XCTAssertTrue(
+            origins["review_model"]?.objectValue?["version"]?.stringValue?.hasPrefix("sha256:") == true
+        )
         let layers = try XCTUnwrap(response["layers"]?.arrayValue?.compactMap(\.objectValue))
         XCTAssertEqual(layers.count, 1)
         XCTAssertEqual(layers[0]["name"]?.objectValue?["type"]?.stringValue, "user")
         XCTAssertEqual(layers[0]["name"]?.objectValue?["file"]?.stringValue, fixture.configFile.path)
-        XCTAssertNotNil(layers[0]["version"]?.stringValue)
+        XCTAssertTrue(layers[0]["version"]?.stringValue?.hasPrefix("sha256:") == true)
+        XCTAssertEqual(
+            layers[0]["config"]?.objectValue?["model"]?.stringValue,
+            TrustedRouterDefaults.socratesModel
+        )
         XCTAssertEqual(errorCode(for: 2, in: records), -32_602)
         let encoded = String(decoding: try JSONEncoder().encode(records), as: UTF8.self)
         XCTAssertFalse(encoded.contains("must-not-leak"))

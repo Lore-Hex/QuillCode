@@ -149,8 +149,7 @@ final class ConfigStoreTests: PersistenceTestCase {
         let loaded = try store.load()
         XCTAssertEqual(loaded.favoriteModels, ["z-ai/glm-5.2", "moonshotai/kimi-k2.6"])
         let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
-        XCTAssertTrue(stored.contains(#"favorite_model = "z-ai/glm-5.2""#))
-        XCTAssertTrue(stored.contains(#"favorite_model = "moonshotai/kimi-k2.6""#))
+        XCTAssertTrue(stored.contains(#"favorite_model = ["z-ai/glm-5.2", "moonshotai/kimi-k2.6"]"#))
     }
 
     func testConfigRoundTripsComputerUseAppApprovals() throws {
@@ -177,8 +176,8 @@ final class ConfigStoreTests: PersistenceTestCase {
         ])
         XCTAssertEqual(loaded.computerUseApprovedAppNames, ["Terminal", "Google Chrome"])
         let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
-        XCTAssertTrue(stored.contains(#"computer_use_approved_bundle_identifier = "com.apple.Terminal""#))
-        XCTAssertTrue(stored.contains(#"computer_use_approved_app_name = "Terminal""#))
+        XCTAssertTrue(stored.contains(#"computer_use_approved_bundle_identifier = ["com.apple.Terminal", "com.google.Chrome"]"#))
+        XCTAssertTrue(stored.contains(#"computer_use_approved_app_name = ["Terminal", "Google Chrome"]"#))
     }
 
     func testConfigRoundTripsBrowserDomainPolicy() throws {
@@ -201,8 +200,8 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertEqual(loaded.browserAllowedDomains, ["trustedrouter.com", "quillos.cloud"])
         XCTAssertEqual(loaded.browserBlockedDomains, ["ads.example.com", "tracker.example"])
         let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
-        XCTAssertTrue(stored.contains(#"browser_allowed_domain = "trustedrouter.com""#))
-        XCTAssertTrue(stored.contains(#"browser_blocked_domain = "tracker.example""#))
+        XCTAssertTrue(stored.contains(#"browser_allowed_domain = ["trustedrouter.com", "quillos.cloud"]"#))
+        XCTAssertTrue(stored.contains(#"browser_blocked_domain = ["ads.example.com", "tracker.example"]"#))
     }
 
     func testConfigRoundTripsDisabledSkillSelectors() throws {
@@ -225,8 +224,8 @@ final class ConfigStoreTests: PersistenceTestCase {
         let loaded = try store.load()
         XCTAssertEqual(loaded.skillConfiguration, config.skillConfiguration)
         let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
-        XCTAssertTrue(stored.contains(#"disabled_skill_path = "#))
-        XCTAssertTrue(stored.contains(#"disabled_skill_name = "browser-use""#))
+        XCTAssertTrue(stored.contains("disabled_skill_path = ["))
+        XCTAssertTrue(stored.contains(#"disabled_skill_name = ["browser-use"]"#))
     }
 
     func testConfigRoundTripsNotificationPreferences() throws {
@@ -296,10 +295,10 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertEqual(loaded.runSpendPeriodLimits.monthlyUSD, 30)
 
         let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
-        XCTAssertTrue(stored.contains("run_spend_fuse_usd = 2.500000"))
-        XCTAssertTrue(stored.contains("run_spend_daily_limit_usd = 5.000000"))
-        XCTAssertTrue(stored.contains("run_spend_weekly_limit_usd = 12.500000"))
-        XCTAssertTrue(stored.contains("run_spend_monthly_limit_usd = 30.000000"))
+        XCTAssertTrue(stored.contains("run_spend_fuse_usd = 2.5"))
+        XCTAssertTrue(stored.contains("run_spend_daily_limit_usd = 5.0"))
+        XCTAssertTrue(stored.contains("run_spend_weekly_limit_usd = 12.5"))
+        XCTAssertTrue(stored.contains("run_spend_monthly_limit_usd = 30.0"))
     }
 
     func testConfigIgnoresInvalidRunSpendLimits() throws {
@@ -326,6 +325,41 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertEqual(try store.load().maxToolSteps, 128)
         let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
         XCTAssertTrue(stored.contains("max_tool_steps = 128"))
+    }
+
+    func testConfigRoundTripsKeyboardShortcutOverrides() throws {
+        let store = try makeConfigStore()
+        let shortcuts = KeyboardShortcutPreferences(overrides: [
+            KeyboardShortcutOverride(
+                commandID: "workspace.newThread",
+                key: "n",
+                modifiers: [.command, .shift]
+            )
+        ])
+
+        try store.save(AppConfig(keyboardShortcuts: shortcuts))
+
+        XCTAssertEqual(try store.load().keyboardShortcuts, shortcuts)
+    }
+
+    func testConfigSavePreservesUnknownAppServerValues() throws {
+        let store = try makeConfigStore()
+        try """
+        model = "trustedrouter/fast"
+
+        [desktop.workspace]
+        collapsed = true
+        width = 320
+        """.write(to: store.fileURL, atomically: true, encoding: .utf8)
+
+        try store.save(AppConfig(defaultModel: TrustedRouterDefaults.prometheusModel))
+
+        let document = try ConfigDocumentStore(fileURL: store.fileURL).load()
+        XCTAssertEqual(
+            document.value(at: try ConfigKeyPath("desktop.workspace.width")),
+            .integer(320)
+        )
+        XCTAssertEqual(document.values["model"], .string(TrustedRouterDefaults.prometheusModel))
     }
 
     func testConfigWithoutMaxToolStepsKeyLoadsProductionDefault() throws {

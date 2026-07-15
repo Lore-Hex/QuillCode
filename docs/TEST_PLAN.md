@@ -58,7 +58,8 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   JSONL decoding, no ephemeral thread files, stdin transcript persistence, same-task resume, atomic output
   file, and non-Git refusal. The aggregate deterministic smoke must invoke this standalone gate.
 - Real `quill-code app-server` process smoke with stdin kept open: initialize, model pagination,
-  anonymous account state, effective config, shared skill discovery, persistent skill disable/enable,
+  anonymous account state, effective config, value and batch config writes with matching versioned
+  origins/layers, shared skill discovery, persistent skill disable/enable,
   watched manifest invalidation without forced reload, binary filesystem
   create/write/read/metadata/list/copy/watch/unwatch/remove round trips, thread start, turn start,
   incremental lifecycle output before EOF, persistence, clean EOF, and zero exit. This specifically
@@ -72,6 +73,13 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   agent enforcement, missing-root creation and manifest-change invalidation via `skills/changed`,
   watcher disconnect cleanup, malformed cursor/limit/type rejection, and per-working-directory
   skill-discovery errors.
+- App-server config mutation conformance: strict nested TOML round trips, unknown-key preservation,
+  all TOML offset/local date-time, local-date, local-time, infinity, and NaN values, dotted and quoted paths,
+  scalar-parent replacement, recursive table upsert with array replacement, null deletion, atomic
+  multi-edit writes, optimistic content versions, per-leaf origins, optional raw user layers,
+  readonly-layer and version-conflict error data, legacy profile rejection, malformed and nested-null
+  values, no-op byte preservation, runtime config refresh, and migration of early repeated scalar list
+  keys into canonical arrays.
 - App-server filesystem conformance against Codex 0.142.5: absolute-path validation; exact metadata
   and directory-entry fields; binary and empty writes; the 512 MiB read bound; recursive/null/default
   directory and remove behavior; file overwrite and directory merge; symlink preservation and target
