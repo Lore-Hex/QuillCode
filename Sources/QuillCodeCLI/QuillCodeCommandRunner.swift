@@ -1,0 +1,279 @@
+import Foundation
+import QuillCodeAgent
+import QuillCodeCore
+import QuillCodePersistence
+
+public struct QuillCodeCommandRunner: Sendable {
+    public static let version = "0.1.0"
+
+    private let parser: CLIArgumentParser
+    private let runnerFactory: CLIAgentRunnerFactory
+
+    public init(
+        parser: CLIArgumentParser = CLIArgumentParser(),
+        runnerFactory: @escaping CLIAgentRunnerFactory = CLIRuntimeFactory.make
+    ) {
+        self.parser = parser
+        self.runnerFactory = runnerFactory
+    }
+
+    public func run(
+        arguments: [String],
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        currentDirectory: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
+        input: any CLIInputReading = StandardCLIInput(),
+        output: any CLIOutputWriting = FileHandleCLIOutput()
+    ) async -> Int32 {
+        let command: CLICommand
+        do {
+            command = try parser.parse(arguments, currentDirectory: currentDirectory)
+        } catch {
+            await output.writeStandardErrorLine("quill-code: \(error.localizedDescription)")
+            return 2
+        }
+
+        do {
+            switch command {
+            case .help:
+                await output.writeStandardOutput(Self.usage + "\n")
+                return 0
+            case .version:
+                await output.writeStandardOutputLine("quill-code \(Self.version)")
+                return 0
+            case .auth(let auth, let home):
+                try await runAuth(auth, home: home, output: output)
+                return 0
+            case .run(let request):
+                return await runAgent(
+                    request,
+                    environment: environment,
+                    input: input,
+                    output: output
+                )
+            }
+        } catch {
+            await output.writeStandardErrorLine("quill-code: \(error.localizedDescription)")
+            return 1
+        }
+    }
+
+    private func runAuth(
+        _ command: CLIAuthCommand,
+        home: URL?,
+        output: any CLIOutputWriting
+    ) async throws {
+        let paths = home.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
+        try paths.ensure()
+        let store = FileSecretStore(directory: paths.secretsDirectory)
+        switch command {
+        case .status:
+            let key = try store.read(QuillSecretKeys.trustedRouterAPIKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let status = key?.isEmpty == false
+                ? "TrustedRouter key configured."
+                : "TrustedRouter key not configured."
+            await output.writeStandardOutputLine(status)
+        case .setKey(let key):
+            try store.write(key, for: QuillSecretKeys.trustedRouterAPIKey)
+            await output.writeStandardOutputLine("TrustedRouter key saved.")
+        case .clear:
+            try store.delete(QuillSecretKeys.trustedRouterAPIKey)
+            await output.writeStandardOutputLine("TrustedRouter key cleared.")
+        }
+    }
+
+    private func runAgent(
+        _ request: CLIRunRequest,
+        environment: [String: String],
+        input: any CLIInputReading,
+        output: any CLIOutputWriting
+    ) async -> Int32 {
+        let reporter = CLIProgressReporter(emitsJSONLines: request.emitsJSONLines, output: output)
+        do {
+            if request.usedDeprecatedFullAuto {
+                await output.writeStandardErrorLine(
+                    "warning: --full-auto is deprecated; use --sandbox workspace-write"
+                )
+            }
+            if request.sandbox == .dangerFullAccess {
+                throw CLIError.unsupportedSandbox(CLISandboxMode.dangerFullAccess.rawValue)
+            }
+            if request.style == .exec, !request.skipsGitRepositoryCheck {
+                try CLIRepositoryGuard().validate(request.cwd)
+            }
+
+            let paths = request.home.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
+            try paths.ensure()
+            let appConfig = request.ignoresUserConfig
+                ? AppConfig()
+                : try ConfigStore(fileURL: paths.configFile).load()
+            let prompt = try CLIPromptResolver().resolve(request: request, input: input)
+            let schema = try request.outputSchemaURL.map(CLIOutputSchema.load)
+            let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+            let attachmentStore = ImageAttachmentStore(directory: paths.attachmentsDirectory)
+            var thread = try initialThread(
+                request: request,
+                appConfig: appConfig,
+                threadStore: threadStore
+            )
+            let attachments = try request.imageURLs.map {
+                try attachmentStore.importImage(from: $0, threadID: thread.id)
+            }
+            if let schema {
+                thread.messages.append(ChatMessage(role: .system, content: schema.modelInstruction))
+            }
+            let recordsUserMessage = attachments.isEmpty
+            if !attachments.isEmpty {
+                appendUserMessage(prompt, attachments: attachments, to: &thread)
+            }
+
+            let runtime = CLIRuntimeConfiguration(
+                request: request,
+                appConfig: appConfig,
+                paths: paths,
+                imageAttachmentStore: attachmentStore,
+                environment: environment
+            )
+            let runner = try runnerFactory(runtime)
+            let persistence = CLIRunPersistence(
+                store: request.ephemeral ? nil : threadStore
+            )
+            await reporter.begin(thread: thread)
+            let result = try await runner.send(
+                prompt,
+                in: thread,
+                workspaceRoot: request.cwd,
+                recordUserMessage: recordsUserMessage,
+                onProgress: { snapshot in
+                    await persistence.save(snapshot)
+                    await reporter.report(snapshot)
+                }
+            )
+            await persistence.save(result.thread)
+            try await persistence.requireSuccess()
+
+            guard let finalMessage = result.thread.messages.last(where: { $0.role == .assistant })?.content else {
+                throw CLIError.noFinalMessage
+            }
+            try schema?.validate(finalMessage: finalMessage)
+            if let outputURL = request.outputLastMessageURL {
+                try writeFinalMessage(finalMessage, to: outputURL)
+            }
+            await reporter.finish(result)
+            if !request.emitsJSONLines {
+                await output.writeStandardOutputLine(finalMessage)
+            }
+            return result.stopReason == .finished ? 0 : 1
+        } catch {
+            await reporter.fail(error)
+            return 1
+        }
+    }
+
+    private func initialThread(
+        request: CLIRunRequest,
+        appConfig: AppConfig,
+        threadStore: JSONThreadStore
+    ) throws -> ChatThread {
+        var thread: ChatThread
+        switch request.resumeTarget {
+        case .none:
+            thread = ChatThread(
+                mode: request.explicitMode ?? request.sandbox?.agentMode ?? appConfig.mode,
+                model: request.model ?? appConfig.defaultModel
+            )
+        case .last:
+            guard let latest = try threadStore.list().first else { throw CLIError.noSavedThreads }
+            thread = latest
+        case .id(let id):
+            do {
+                thread = try threadStore.load(id)
+            } catch CocoaError.fileReadNoSuchFile {
+                throw CLIError.threadNotFound(id)
+            }
+        }
+        if let mode = request.explicitMode ?? request.sandbox?.agentMode { thread.mode = mode }
+        if let model = request.model { thread.model = model }
+        return thread
+    }
+
+    private func appendUserMessage(
+        _ prompt: String,
+        attachments: [ChatAttachment],
+        to thread: inout ChatThread
+    ) {
+        thread.messages.append(ChatMessage(role: .user, content: prompt, attachments: attachments))
+        let summary = prompt.isEmpty
+            ? "Attached \(attachments.count) image\(attachments.count == 1 ? "" : "s")"
+            : prompt
+        thread.events.append(ThreadEvent(kind: .message, summary: summary))
+        thread.title = prompt.isEmpty
+            ? "Image: \(attachments.first?.displayName ?? "attachment")"
+            : String(prompt.split(whereSeparator: \.isWhitespace).prefix(6).joined(separator: " "))
+    }
+
+    private func writeFinalMessage(_ message: String, to url: URL) throws {
+        let parent = url.deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: parent.path, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else {
+            throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: parent.path])
+        }
+        try Data(message.utf8).write(to: url, options: .atomic)
+    }
+
+    public static let usage = """
+    QuillCode command-line coding agent
+
+    Usage:
+      quill-code exec [OPTIONS] PROMPT
+      quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
+      quill-code [LEGACY OPTIONS] PROMPT
+      quill-code [--home PATH] auth (status | set-key KEY | clear)
+
+    Exec options:
+      --json                         Emit JSON Lines events to stdout
+      --ephemeral                    Do not persist the run transcript
+      -o, --output-last-message PATH Write the final message to PATH
+      --output-schema PATH           Require final JSON matching a bounded JSON Schema
+      --sandbox read-only|workspace-write
+                                     Select the least workspace access needed (default: read-only)
+      --ignore-user-config           Use built-in defaults instead of config.toml
+      --ignore-rules                 Ignore persisted permission rules for this controlled run
+      --skip-git-repo-check          Allow execution outside a Git repository
+      -C, --cwd PATH                 Run in PATH
+      -m, --model MODEL              Select a TrustedRouter model
+      --image PATH                   Attach an image (repeat up to the attachment limit)
+      --mock                         Use the deterministic local test model
+      --live                         Use TrustedRouter (default for `exec`)
+
+    Stdin:
+      Use `-` as the prompt to read the full prompt from stdin. When a prompt argument is present,
+      piped stdin is appended as explicitly delimited, untrusted context.
+    """
+}
+
+private actor CLIRunPersistence {
+    private let store: JSONThreadStore?
+    private var failure: String?
+
+    init(store: JSONThreadStore?) {
+        self.store = store
+    }
+
+    func save(_ thread: ChatThread) {
+        guard failure == nil, let store else { return }
+        do {
+            try store.save(thread)
+        } catch {
+            failure = error.localizedDescription
+        }
+    }
+
+    func requireSuccess() throws {
+        if let failure {
+            throw CocoaError(.fileWriteUnknown, userInfo: [NSLocalizedDescriptionKey: failure])
+        }
+    }
+}

@@ -16,6 +16,7 @@ let package = Package(
         .library(name: "QuillCodePlatformUI", targets: ["QuillCodePlatformUI"]),
         .library(name: "QuillCodeAgent", targets: ["QuillCodeAgent"]),
         .library(name: "QuillCodeApp", targets: ["QuillCodeApp"]),
+        .library(name: "QuillCodeCLI", targets: ["QuillCodeCLI"]),
         .executable(name: "quill-code", targets: ["quill-code"]),
         .executable(name: "quill-code-desktop", targets: ["quill-code-desktop"]),
         .executable(
@@ -59,15 +60,20 @@ let package = Package(
                 .product(name: "TOMLDecoder", package: "TOMLDecoder")
             ]
         ),
-        .executableTarget(
-            name: "quill-code",
+        .target(
+            name: "QuillCodeCLI",
             dependencies: [
                 "QuillCodeCore",
                 "QuillCodeSafety",
                 "QuillCodeTools",
                 "QuillCodePersistence",
-                "QuillCodeAgent"
+                "QuillCodeAgent",
+                "CQuillPTY"
             ]
+        ),
+        .executableTarget(
+            name: "quill-code",
+            dependencies: ["QuillCodeCLI"]
         ),
         .executableTarget(
             name: "quill-code-desktop",
@@ -90,6 +96,15 @@ let package = Package(
         .testTarget(name: "QuillComputerUseKitTests", dependencies: ["QuillComputerUseKit"]),
         .testTarget(name: "QuillCodePlatformUITests", dependencies: ["QuillCodePlatformUI"]),
         .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools", "QuillCodeSafety"]),
+        .testTarget(
+            name: "QuillCodeCLITests",
+            dependencies: [
+                "QuillCodeCLI",
+                "QuillCodeAgent",
+                "QuillCodeCore",
+                "QuillCodePersistence"
+            ]
+        ),
         .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),
         .testTarget(
             name: "QuillCodeDesktopTests",
