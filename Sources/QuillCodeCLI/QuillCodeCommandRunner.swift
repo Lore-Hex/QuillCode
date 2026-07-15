@@ -9,6 +9,7 @@ public struct QuillCodeCommandRunner: Sendable {
     private let parser: CLIArgumentParser
     private let runnerFactory: CLIAgentRunnerFactory
     private let interruptSource: any CLIInterruptSource
+    private let mcpSessionPreparer: CLIMCPAgentSessionPreparer
 
     public init(
         parser: CLIArgumentParser = CLIArgumentParser(),
@@ -17,18 +18,21 @@ public struct QuillCodeCommandRunner: Sendable {
         self.init(
             parser: parser,
             runnerFactory: runnerFactory,
-            interruptSource: ProcessCLIInterruptSource()
+            interruptSource: ProcessCLIInterruptSource(),
+            mcpSessionPreparer: CLIMCPAgentSessionPreparer()
         )
     }
 
     init(
         parser: CLIArgumentParser,
         runnerFactory: @escaping CLIAgentRunnerFactory,
-        interruptSource: any CLIInterruptSource
+        interruptSource: any CLIInterruptSource,
+        mcpSessionPreparer: CLIMCPAgentSessionPreparer = CLIMCPAgentSessionPreparer()
     ) {
         self.parser = parser
         self.runnerFactory = runnerFactory
         self.interruptSource = interruptSource
+        self.mcpSessionPreparer = mcpSessionPreparer
     }
 
     public func run(
@@ -142,6 +146,8 @@ public struct QuillCodeCommandRunner: Sendable {
     ) async -> Int32 {
         let reporter = CLIProgressReporter(emitsJSONLines: request.emitsJSONLines, output: output)
         var persistence: CLIRunPersistence?
+        var mcpSession: CLIMCPAgentSession?
+        let status: Int32
         do {
             if request.usedDeprecatedFullAuto {
                 await output.writeStandardErrorLine(
@@ -169,6 +175,18 @@ public struct QuillCodeCommandRunner: Sendable {
                 appConfig: appConfig,
                 threadStore: threadStore
             )
+            let runtime = CLIRuntimeConfiguration(
+                request: request,
+                appConfig: appConfig,
+                paths: paths,
+                imageAttachmentStore: attachmentStore,
+                environment: environment
+            )
+            let preparedMCPSession = try await mcpSessionPreparer.prepare(
+                configuration: runtime,
+                threadID: thread.id
+            )
+            mcpSession = preparedMCPSession
             let attachments = try request.imageURLs.map {
                 try attachmentStore.importImage(from: $0, threadID: thread.id)
             }
@@ -180,14 +198,7 @@ public struct QuillCodeCommandRunner: Sendable {
                 appendUserMessage(prompt, attachments: attachments, to: &thread)
             }
 
-            let runtime = CLIRuntimeConfiguration(
-                request: request,
-                appConfig: appConfig,
-                paths: paths,
-                imageAttachmentStore: attachmentStore,
-                environment: environment
-            )
-            let runner = try runnerFactory(runtime)
+            let runner = preparedMCPSession.configure(try runnerFactory(runtime))
             let runPersistence = CLIRunPersistence(
                 store: request.ephemeral ? nil : threadStore
             )
@@ -220,20 +231,21 @@ public struct QuillCodeCommandRunner: Sendable {
             if !request.emitsJSONLines {
                 await output.writeStandardOutputLine(finalMessage)
             }
-            return result.stopReason == .finished ? 0 : 1
+            status = result.stopReason == .finished ? 0 : 1
         } catch is CancellationError {
             do {
                 try await persistence?.requireSuccess()
+                await reporter.interrupted()
             } catch {
                 await reporter.fail(error)
-                return 1
             }
-            await reporter.interrupted()
-            return 1
+            status = 1
         } catch {
             await reporter.fail(error)
-            return 1
+            status = 1
         }
+        await mcpSession?.shutdown()
+        return status
     }
 
     private func initialThread(

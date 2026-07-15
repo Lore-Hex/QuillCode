@@ -59,7 +59,13 @@ stdout to JSON Lines lifecycle events; `--ephemeral` disables transcript persist
 --last` or `exec resume THREAD_ID` continues a saved task; `-o` writes the final message atomically;
 and `--output-schema` validates bounded JSON output. Exec starts read-only and requires a Git
 workspace unless `--skip-git-repo-check` is explicitly supplied. `danger-full-access` is rejected
-until QuillCode can enforce that contract honestly. Run `quill-code help` for the complete option set.
+until QuillCode can enforce that contract honestly. Exec also initializes MCP servers from the
+global config plus workspace `.codex/config.toml` and `.quillcode/config.toml`, exposes discovered
+tools under deterministic `mcp__server__tool` names, and terminates every MCP process or connection
+after success, failure, or interruption. A server marked `required = true` fails the run before model
+invocation or persistence if it cannot initialize; optional failures do not hide healthy tools.
+`--ignore-user-config` skips both user and project MCP configuration. Run `quill-code help` for the
+complete option set.
 
 `quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
 TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a
@@ -94,8 +100,9 @@ App-server clients can also use Codex-compatible `mcpServerStatus/list`,
 read from global `mcp_servers` tables plus the selected thread workspace's `.codex/config.toml` and
 `.quillcode/config.toml`. Stdio and HTTP transports share the desktop's bounded MCP session runtime;
 status preserves raw tool/resource metadata, while `toolsAndAuthOnly` skips the heavier resource and
-prompt inventory. Reload and disconnect terminate cached sessions. App-server MCP OAuth currently
-returns an explicit unsupported-flow error; desktop OAuth remains available.
+prompt inventory. Reload and disconnect terminate cached sessions. App-server MCP OAuth
+returns a real authorization URL, persists refreshable per-server credentials, emits asynchronous
+thread-aware completion, and reloads the MCP registry after successful sign-in.
 
 Skill discovery follows the Codex/Open Agent Skills layout without putting full skill instructions in
 the base prompt: repository `.agents/skills` directories from the working directory through the Git

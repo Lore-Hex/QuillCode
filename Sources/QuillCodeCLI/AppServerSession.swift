@@ -327,27 +327,12 @@ actor AppServerSession {
             environment: environment
         ))
         let mcpContext = try mcpContext(for: record)
-        let mcpCatalog = try await mcpRegistry.agentToolCatalog(
+        let mcpAdapter = try await MCPAgentRunnerAdapter.prepare(
+            registry: mcpRegistry,
             scope: mcpContext.scope,
             configurations: mcpContext.configurations
         )
-        runner.additionalToolDefinitions.append(contentsOf: mcpCatalog.definitions)
-        let inheritedToolExecution = runner.toolExecutionOverride
-        let registry = mcpRegistry
-        let scope = mcpContext.scope
-        let configurations = mcpContext.configurations
-        runner.toolExecutionOverride = { call, workspaceRoot in
-            if let route = mcpCatalog.route(forModelName: call.name),
-               let configuration = configurations[route.serverName] {
-                return await registry.executeAgentTool(
-                    scope: scope,
-                    configuration: configuration,
-                    route: route,
-                    argumentsJSON: call.argumentsJSON
-                )
-            }
-            return await inheritedToolExecution?(call, workspaceRoot)
-        }
+        runner = mcpAdapter.configure(runner)
         let inheritedHook = runner.permissionRequestHook
         runner.permissionRequestHook = { [weak self] call, reason, thread, workspaceRoot in
             var notices: [String] = []
@@ -381,7 +366,7 @@ actor AppServerSession {
         }
         return AppServerConfiguredRunner(
             runner: runner,
-            mcpRoutes: mcpCatalog.routesByModelName
+            mcpRoutes: mcpAdapter.routesByModelName
         )
     }
 }

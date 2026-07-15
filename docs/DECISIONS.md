@@ -1258,9 +1258,28 @@
   `Stopped by user` progress snapshot, checks that persistence succeeded, then exits 1. It does not run
   schema validation or write a last-message file after interruption. Process-global POSIX constants and
   dispositions remain in the existing C platform adapter so macOS/Linux Swift code stays identical.
-- **Verification:** 30 focused CLI tests cover parser, repository, schema, runtime, event, secret,
+- **Verification:** Focused CLI tests cover parser, repository, schema, runtime, event, secret,
   interruption, and failure contracts. `scripts/cli-exec-smoke.sh` verifies the built process, including
   real SIGINT delivery during a running shell command, and is part of the aggregate smoke gate.
+
+## 2026-07-15: Exec MCP startup is a shared, pre-persistence session boundary
+
+- **Shared runtime:** Standalone exec and app-server turns use one `MCPAgentRunnerAdapter` over the
+  existing MCP registry and catalog. Tool schemas, stable aliases, exact raw routes, safety metadata,
+  and execution semantics therefore cannot drift between the two command surfaces.
+- **Ordering:** Exec resolves global/project MCP configuration and initializes servers before model
+  invocation, user-message mutation, reporter start events, or task persistence. Required startup
+  failure exits 1 without invoking the model or leaving a task that never actually ran.
+- **Failure policy:** Optional unavailable servers are omitted without blocking healthy tools.
+  `required = true` failures are sorted and aggregated by configured server name. Project definitions
+  override same-named global definitions. `--ignore-user-config` deliberately skips all configured MCP
+  startup for an isolated run.
+- **Cleanup:** The command owns one session object and awaits registry termination after success,
+  ordinary failure, runner-construction failure, or cooperative interruption. Preparation failure also
+  terminates any server started earlier in the deterministic probe sequence.
+- **Verification:** Focused tests cover all ordering, override, routing, failure, and teardown paths.
+  The process smoke starts a real stdio MCP child, proves a successful exec, checks that the child PID
+  disappears, and proves a broken required server exits before task persistence.
 
 ## 2026-07-14: App-server parity starts with one typed, durable stdio core
 
