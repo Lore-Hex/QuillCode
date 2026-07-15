@@ -16,6 +16,9 @@ public struct CLIArgumentParser: Sendable {
         if first == "auth" {
             return try parseAuth(Array(arguments.dropFirst()), home: home)
         }
+        if first == "doctor" {
+            return .doctor(try parseDoctor(Array(arguments.dropFirst()), home: home))
+        }
         if first == "app-server" {
             return .appServer(try parseAppServer(
                 Array(arguments.dropFirst()),
@@ -89,6 +92,29 @@ public struct CLIArgumentParser: Sendable {
         default:
             throw CLIError.unknownOption(command)
         }
+    }
+
+    private func parseDoctor(_ arguments: [String], home: URL?) throws -> CLIDoctorRequest {
+        var request = CLIDoctorRequest(home: home)
+        for argument in arguments {
+            switch argument {
+            case "--json":
+                request.emitsJSON = true
+            case "--summary":
+                request.summaryOnly = true
+            case "--all":
+                request.expandsLongLists = true
+            case "--no-color":
+                request.disablesColor = true
+            case "--ascii":
+                request.usesASCII = true
+            case "--help", "-h":
+                request.showsHelp = true
+            default:
+                throw CLIError.unknownOption(splitOption(argument).name)
+            }
+        }
+        return request
     }
 
     private func parseRun(

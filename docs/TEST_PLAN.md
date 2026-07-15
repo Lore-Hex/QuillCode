@@ -12,6 +12,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Non-interactive CLI parsing and contracts: legacy/exec routing, relative path resolution, stdin
   framing and byte/UTF-8 bounds, resume targets, JSON value coding, bounded JSON Schema keywords and
   local references, repository-root termination, event projection, and secret-free auth output.
+- Doctor diagnostics: option parsing, stable report schema and ordering, grouped/summary/expanded/ASCII
+  rendering, status and exit-code reduction, URL/error redaction, credential and proxy source-only
+  reporting, malformed/legacy config handling, MCP metadata-only projection, corrupt/oversized/
+  mismatched/duplicate task detection, and finite scan caps.
 - App-server wire and state reducers: string/integer IDs, invalid JSON versus invalid envelopes,
   strict initialize/initialized sequencing, notification opt-outs, thread cursors/settings/goals,
   turn input bounds, managed local-image copying, projection deduplication, and approval decisions.
@@ -61,6 +65,9 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Real `quill-code` executable automation smoke: Git fixture, shell output, stdout/stderr separation,
   JSONL decoding, no ephemeral thread files, stdin transcript persistence, same-task resume, atomic output
   file, and non-Git refusal. The aggregate deterministic smoke must invoke this standalone gate.
+- Real `quill-code doctor` process smoke: an authenticated loopback `/models` fixture, stable JSON
+  decoding, human summary/ASCII rendering, exact auth and HTTP status classification, credential/query/
+  proxy redaction, and a before/after filesystem inventory proving diagnostics do not mutate state.
 - Real `quill-code app-server` process smoke with stdin kept open: initialize, model pagination,
   anonymous account state, API-key login/read/logout with ordered notifications and no secret leakage,
   effective config, value and batch config writes with matching versioned
@@ -175,7 +182,21 @@ Drive the QuillCode test harness with mock LLM:
 - Packaged live-window smoke must also prove selected controls activate through real macOS Accessibility. The `frames` validator requires `accessibilityActivation.liveAccessibilityActivation == "ax-press-sampled"`, verifies the composer model picker, New Chat, Search, Settings, Automations, Extensions, Memories, and Activity were AX-pressed, and preserves their before/after state summaries in `packaged-accessibility-frames.json`. Search must expose its identified field, focus it automatically, accept a reversible AXValue text edit, and clear it. The model picker must focus its identified search field, accept and clear `Prometheus` through AXValue, and expose the identified `trustedrouter/fusion` row as `Prometheus 1.0` without changing the selected model. New Chat must create and select exactly one chat, focus the identified composer, accept and clear reversible AXValue text, then remove only the temporary chat and restore the prior selection/draft. Settings must expose its identified title and first preference control, then dismiss through the identified Close control with AXPress; state-only evidence is rejected. Automations must expose its identified title and Create control, then dismiss through its identified Close control with AXPress; state-only evidence is rejected. Extensions and Memories must each expose their identified title and Add control, then dismiss through their identified Close control with AXPress; state-only evidence is rejected. Activity must expose its identified title and task summary, dismiss through its identified Close control, and restore at least 240 points of composer width; state-only or dismissal-only evidence is rejected. Hidden compact-layout commands may fall back to titled native menu items only after identified workspace controls fail resolution. Workspace-replacing contracts run after transient-surface contracts and each press resolves a fresh AX target so smoke never relies on stale native elements.
 - Review activation must run from an explicit isolated app-state/workspace root with a mock runtime, begin from a normalized hidden baseline, AX-press the semantic Review command, scroll the pane into the native viewport even when transcript-tail following had been active, expose its identified title and scope control, dismiss through the identified Close control, and restore the hidden baseline. The isolated workspace intentionally has no git history, proving explicit presentation does not depend on successful diff content. Unit coverage must distinguish automatic, explicitly visible, and hidden policies, prove persistence round trips, require scope controls on an empty review, preserve stale-diff suppression after failures, and expose the latest diff failure reason. The JSON evidence records the isolated paths so a developer's real `~/.quillcode` history cannot affect or masquerade as the release proof. Playwright separately proves Tools -> Review discovery, Close dismissal, and reopening through the same command. A visibility toggle without rendered content and Close evidence fails the packaged gate.
 - `swift run quillcode-linux-computer-use-smoke` runs in Linux CI after the CLI build. It creates fake `scrot` and `xdotool` helpers on an injected PATH, then proves the Linux Computer Use adapter detects X11, captures PNG dimensions, and dispatches click/type/scroll/key commands through the real subprocess runner without importing macOS app targets.
-- `./scripts/smoke.sh` runs Swift tests, mock CLI `run whoami`, a polite `run this now` command prompt, a polite bare non-backticked command prompt, natural diagnostic prompts (`whoami?`, disk usage, workspace file listing, current directory, OpenClaw discovery), natural git-read prompts (`Please check git status.`, `what changed?`) against a modified temp git repo, natural file read/search prompts, mock CLI file creation, follow-up workspace list/read checks against the created file, a local `file://` download into a requested workspace path, live-mode missing-key error readability, native desktop executable render smoke, packaged macOS app smoke on Darwin, and Playwright E2E when local node modules are installed. Set `QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE=1` to fail instead of skipping when `E2E/playwright/node_modules` is missing. CI sets `QUILLCODE_SMOKE_ARTIFACT_DIR` and uploads the native UI smoke screenshots/reports as a short-retention artifact on both success and failure so PR reviewers can inspect the actual rendered workspace and chrome. When an artifact directory is set, smoke also writes `deterministic-smoke-manifest.json` with step-level pass/fail/skip status for Swift tests, CLI prompt families, git-read prompts, file read/search prompts, workspace follow-up, live-mode error handling, native desktop, packaged macOS, and Playwright.
+- `./scripts/smoke.sh` runs Swift tests, the standalone CLI exec and doctor process gates, mock CLI
+  `run whoami`, a polite `run this now` command prompt, a polite bare non-backticked command prompt,
+  natural diagnostic prompts (`whoami?`, disk usage, workspace file listing, current directory,
+  OpenClaw discovery), natural git-read prompts (`Please check git status.`, `what changed?`) against
+  a modified temp git repo, natural file read/search prompts, mock CLI file creation, follow-up
+  workspace list/read checks against the created file, a local `file://` download into a requested
+  workspace path, live-mode missing-key error readability, native desktop executable render smoke,
+  packaged macOS app smoke on Darwin, and Playwright E2E when local node modules are installed. Set
+  `QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE=1` to fail instead of skipping when
+  `E2E/playwright/node_modules` is missing. CI sets `QUILLCODE_SMOKE_ARTIFACT_DIR` and uploads the
+  native UI smoke screenshots/reports as a short-retention artifact on both success and failure so PR
+  reviewers can inspect the actual rendered workspace and chrome. When an artifact directory is set,
+  smoke also writes `deterministic-smoke-manifest.json` with step-level pass/fail/skip status for Swift
+  tests, CLI doctor and prompt families, git-read prompts, file read/search prompts, workspace
+  follow-up, live-mode error handling, native desktop, packaged macOS, and Playwright.
 - `./scripts/cli-exec-smoke.sh` independently exercises the built `quill-code exec` process contract
   and is called by `./scripts/smoke.sh` after Swift tests. It also starts a real 30-second mock shell
   action, waits until the tool is active, sends SIGINT to the CLI process, and requires prompt exit 1,

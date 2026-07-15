@@ -414,6 +414,24 @@ final class QuillCodeCommandRunnerTests: XCTestCase {
             || fileSnapshot.standardError.contains("No such file"))
     }
 
+    func testDoctorHelpDispatchesWithoutCreatingState() async throws {
+        let root = try temporaryDirectory(prefix: "doctor-help")
+        let home = root.appendingPathComponent("missing-home", isDirectory: true)
+        let output = BufferedCLIOutput()
+
+        let status = await commandRunner(llm: EchoLLM()).run(
+            arguments: ["--home", home.path, "doctor", "--help"],
+            input: BufferedCLIInput(isTerminal: false),
+            output: output
+        )
+        let snapshot = await output.snapshot()
+
+        XCTAssertEqual(status, 0)
+        XCTAssertTrue(snapshot.standardOutput.contains("Usage: quill-code [--home PATH] doctor"))
+        XCTAssertEqual(snapshot.standardError, "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: home.path))
+    }
+
     private func commandRunner(
         llm: any LLMClient,
         interruptSource: any CLIInterruptSource = InactiveCLIInterruptSource()

@@ -31,6 +31,14 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   QuillCode follows that observable contract while persisting its local `Stopped by user` transcript
   marker before returning. Source: `openai/codex`, `codex-rs/exec/src/lib.rs` and
   `event_processor_with_jsonl_output.rs`, audited 2026-07-14.
+- Codex 0.142.5 exposes a stable `doctor` command with `--json`, `--summary`, `--all`, `--no-color`,
+  and `--ascii`. An isolated real run showed a versioned JSON report with `generatedAt`,
+  `overallStatus`, and a keyed check map whose entries carry category, status, summary, details,
+  remediation, issues, and duration. Human output groups environment, configuration, updates,
+  connectivity, and background-server checks and returns nonzero for failures. QuillCode preserves
+  that support-tool contract while adapting provider checks to TrustedRouter, adding bounded MCP/task
+  inspection, and refusing to emit secrets or task contents. Source: current Codex manual and locally
+  installed `codex-cli 0.142.5`, audited 2026-07-15.
 - Current Codex app-server account mutation uses `account/login/start`, `account/login/cancel`, and
   `account/logout`, with asynchronous `account/login/completed` and `account/updated` notifications.
   API-key start returns `{type: "apiKey"}`; browser start returns a login ID and authorization URL;
