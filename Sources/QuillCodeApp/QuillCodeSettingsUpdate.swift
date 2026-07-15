@@ -17,6 +17,7 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var managedWorktrees: ManagedWorktreeSettings
     public var reviewModel: String?
     public var reviewDelivery: CodeReviewDelivery
+    public var defaultPersonality: QuillCodePersonality
 
     public init(
         apiBaseURL: String,
@@ -33,7 +34,8 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
         managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings(),
         reviewModel: String? = nil,
-        reviewDelivery: CodeReviewDelivery = .current
+        reviewDelivery: CodeReviewDelivery = .current,
+        defaultPersonality: QuillCodePersonality = .defaultValue
     ) {
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
@@ -59,5 +61,6 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         self.managedWorktrees = managedWorktrees
         self.reviewModel = AppConfig.normalizedReviewModelID(reviewModel)
         self.reviewDelivery = reviewDelivery
+        self.defaultPersonality = defaultPersonality
     }
 }

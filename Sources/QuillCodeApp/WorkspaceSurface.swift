@@ -225,7 +225,11 @@ public extension QuillCodeWorkspaceModel {
                 changedFilePaths: activeChangedFilePaths,
                 sentMessageHistory: ComposerHistoryRecall.history(from: thread?.messages ?? []),
                 planProgress: WorkspacePlanProgressBuilder.progress(for: thread, agentStatus: topBarState.agentStatus),
-                followUpQueue: thread?.followUpQueue ?? []
+                followUpQueue: thread?.followUpQueue ?? [],
+                supportsPersonality: WorkspaceConfigurationEngine.modelSupportsPersonality(
+                    thread?.model ?? root.config.defaultModel,
+                    catalog: root.modelCatalog
+                )
             ),
             fileMentionIndex: fileMentionIndex,
             changedFilePaths: activeChangedFilePaths,

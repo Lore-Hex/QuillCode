@@ -9,6 +9,7 @@ enum SlashCommand: Equatable {
     case sideConversation(String?)
     case mode(AgentMode)
     case model(String)
+    case personality(QuillCodePersonality)
     case renameThread(String)
     case renameProject(String)
     case projectList
@@ -91,6 +92,8 @@ enum SlashCommandParser {
             return .mode(.plan)
         case "model":
             return SlashModelCommandParser.parse(argument)
+        case "personality":
+            return SlashPersonalityCommandParser.parse(argument)
         case let skillCommand where SlashSkillCommandPlanner.supports(skillCommand):
             guard let skillPrompt = SlashSkillCommandPlanner.agentPrompt(for: argument) else {
                 return .invalid(SlashSkillCommandPlanner.usage)

@@ -7,6 +7,7 @@ struct WorkspaceWorktreeOpenContext: Sendable, Hashable {
     var projectID: UUID
     var mode: AgentMode
     var model: String
+    var personality: QuillCodePersonality
     var instructions: [ProjectInstruction]
     var memories: [MemoryNote]
 
@@ -16,6 +17,7 @@ struct WorkspaceWorktreeOpenContext: Sendable, Hashable {
         projectID: UUID,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality = .defaultValue,
         instructions: [ProjectInstruction] = [],
         memories: [MemoryNote] = []
     ) {
@@ -24,6 +26,7 @@ struct WorkspaceWorktreeOpenContext: Sendable, Hashable {
         self.projectID = projectID
         self.mode = mode
         self.model = model
+        self.personality = personality
         self.instructions = instructions
         self.memories = memories
     }
@@ -47,6 +50,7 @@ struct WorkspaceWorktreeOpenEngine {
             projectID: context.projectID,
             mode: context.mode,
             model: context.model,
+            personality: context.personality,
             instructions: context.instructions,
             memories: context.memories,
             messageText: messageText,
@@ -71,6 +75,7 @@ struct WorkspaceWorktreeOpenEngine {
             projectID: context.projectID,
             mode: context.mode,
             model: context.model,
+            personality: context.personality,
             instructions: context.instructions,
             memories: context.memories,
             messageText: messageText,
@@ -113,6 +118,7 @@ struct WorkspaceWorktreeOpenEngine {
         projectID: UUID,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality,
         instructions: [ProjectInstruction],
         memories: [MemoryNote],
         messageText: String,
@@ -124,6 +130,7 @@ struct WorkspaceWorktreeOpenEngine {
             projectID: projectID,
             mode: mode,
             model: model,
+            personality: personality,
             messages: [ChatMessage(role: .assistant, content: messageText)],
             events: [
                 ThreadEvent(

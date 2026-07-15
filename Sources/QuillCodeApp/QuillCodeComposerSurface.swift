@@ -8,6 +8,7 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public var placeholder: String
     public var isSending: Bool
     public var canSend: Bool
+    public var supportsPersonality: Bool
     public var slashSuggestions: [SlashCommandSuggestionSurface]
     public var fileMentionSuggestions: [FileMentionSuggestionSurface]
     /// Previously sent user messages (oldest first) for Up/Down history recall.
@@ -28,7 +29,8 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
         changedFilePaths: Set<String> = [],
         sentMessageHistory: [String] = [],
         planProgress: WorkspacePlanProgress? = nil,
-        followUpQueue: [FollowUpItem] = []
+        followUpQueue: [FollowUpItem] = [],
+        supportsPersonality: Bool = true
     ) {
         self.draft = composer.draft
         self.attachments = composer.attachments.map(ImageAttachmentSurface.init)
@@ -39,7 +41,11 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
         // composer never locks, so `canSend` no longer gates on `isSending`.
         self.canSend = !composer.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !composer.attachments.isEmpty
-        self.slashSuggestions = SlashCommandCatalog.suggestions(for: composer.draft)
+        self.supportsPersonality = supportsPersonality
+        self.slashSuggestions = SlashCommandCatalog.suggestions(
+            for: composer.draft,
+            supportsPersonality: supportsPersonality
+        )
         self.fileMentionSuggestions = FileMentionCatalog.suggestions(
             for: composer.draft,
             in: fileMentionIndex,
@@ -52,7 +58,7 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case draft, attachments, placeholder, isSending, canSend
+        case draft, attachments, placeholder, isSending, canSend, supportsPersonality
         case slashSuggestions, fileMentionSuggestions, sentMessageHistory, focusToken
         case planProgress, followUpQueue
     }
@@ -67,6 +73,10 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
         self.placeholder = try container.decode(String.self, forKey: .placeholder)
         self.isSending = try container.decode(Bool.self, forKey: .isSending)
         self.canSend = try container.decode(Bool.self, forKey: .canSend)
+        self.supportsPersonality = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .supportsPersonality
+        ) ?? true
         self.slashSuggestions = try container.decode([SlashCommandSuggestionSurface].self, forKey: .slashSuggestions)
         self.fileMentionSuggestions = try container.decode(
             [FileMentionSuggestionSurface].self,
@@ -86,6 +96,7 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
         try container.encode(placeholder, forKey: .placeholder)
         try container.encode(isSending, forKey: .isSending)
         try container.encode(canSend, forKey: .canSend)
+        try container.encode(supportsPersonality, forKey: .supportsPersonality)
         try container.encode(slashSuggestions, forKey: .slashSuggestions)
         try container.encode(fileMentionSuggestions, forKey: .fileMentionSuggestions)
         try container.encode(sentMessageHistory, forKey: .sentMessageHistory)

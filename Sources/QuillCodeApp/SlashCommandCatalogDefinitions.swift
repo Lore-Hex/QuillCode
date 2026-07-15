@@ -510,6 +510,24 @@ extension SlashCommandCatalog {
             aliases: ["models", "switch model", "change model"]
         ),
         slashDefinition(
+            "/personality friendly",
+            "Use Friendly style",
+            "Make this chat warm and conversational while staying task-focused.",
+            aliases: ["communication style friendly", "tone friendly"]
+        ),
+        slashDefinition(
+            "/personality pragmatic",
+            "Use Pragmatic style",
+            "Make this chat direct, concise, and explicit about evidence and tradeoffs.",
+            aliases: ["communication style pragmatic", "tone pragmatic"]
+        ),
+        slashDefinition(
+            "/personality none",
+            "Clear communication style",
+            "Remove additional personality guidance from this chat.",
+            aliases: ["communication style none", "tone none"]
+        ),
+        slashDefinition(
             "/skill name",
             "Run a skill",
             "Load an installed skill by name and follow it, for example /skill code-review.",

@@ -216,14 +216,15 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(messages[0]["role"] as? String, "system")
-        XCTAssertEqual(messages[1]["role"] as? String, "system")
-        XCTAssertTrue((messages[1]["content"] as? String)?.contains("AGENTS.md") == true)
-        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Scope: whole project") == true)
-        XCTAssertTrue((messages[1]["content"] as? String)?.contains("broadest to most specific") == true)
-        XCTAssertTrue((messages[1]["content"] as? String)?.contains("apply scoped instructions only") == true)
-        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Sources/Feature/AGENTS.md") == true)
-        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Scope: Sources/Feature/**") == true)
-        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Always run swift test") == true)
+        let content = systemMessage(in: messages, containing: "Follow these project instructions")
+        XCTAssertNotNil(content)
+        XCTAssertTrue(content?.contains("AGENTS.md") == true)
+        XCTAssertTrue(content?.contains("Scope: whole project") == true)
+        XCTAssertTrue(content?.contains("broadest to most specific") == true)
+        XCTAssertTrue(content?.contains("apply scoped instructions only") == true)
+        XCTAssertTrue(content?.contains("Sources/Feature/AGENTS.md") == true)
+        XCTAssertTrue(content?.contains("Scope: Sources/Feature/**") == true)
+        XCTAssertTrue(content?.contains("Always run swift test") == true)
     }
 
     private func systemContent(for mode: AgentMode) -> [String] {
@@ -375,8 +376,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
             tools: [.shellRun]
         )
 
-        XCTAssertEqual(messages[1]["role"] as? String, "system")
-        let content = messages[1]["content"] as? String
+        let content = systemMessage(in: messages, containing: "Use these QuillCode memories")
+        XCTAssertNotNil(content)
         XCTAssertTrue(content?.contains("Use these QuillCode memories") == true)
         XCTAssertTrue(content?.contains("Preferences (Global, memories/preferences.md)") == true)
         XCTAssertTrue(content?.contains("Project (Project, .quillcode/memories/project.md)") == true)
@@ -399,7 +400,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
             tools: [.shellRun]
         )
 
-        let content = messages[1]["content"] as? String
+        let content = systemMessage(in: messages, containing: "durable thread goal")
+        XCTAssertNotNil(content)
         XCTAssertTrue(content?.contains("durable thread goal") == true)
         XCTAssertTrue(content?.contains("Objective: Ship a green release") == true)
         XCTAssertTrue(content?.contains("Status: blocked") == true)
@@ -512,5 +514,15 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
 
         XCTAssertFalse(messages.contains { ($0["content"] as? String) == "first" })
         XCTAssertTrue(messages.contains { ($0["content"] as? String) == "second" })
+    }
+
+    private func systemMessage(
+        in messages: [[String: Any]],
+        containing marker: String
+    ) -> String? {
+        messages.first { message in
+            message["role"] as? String == "system"
+                && (message["content"] as? String)?.contains(marker) == true
+        }?["content"] as? String
     }
 }

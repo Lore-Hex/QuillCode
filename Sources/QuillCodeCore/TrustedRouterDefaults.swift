@@ -354,6 +354,7 @@ public enum TrustedRouterDefaults {
             inputModalities: mergedList(base.inputModalities, override.inputModalities),
             outputModalities: mergedList(base.outputModalities, override.outputModalities),
             capabilityTags: mergedList(base.capabilityTags, override.capabilityTags),
+            supportsPersonality: override.supportsPersonality ?? base.supportsPersonality,
             status: override.status ?? base.status,
             summary: override.summary ?? base.summary,
             releaseDate: override.releaseDate ?? base.releaseDate

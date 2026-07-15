@@ -220,6 +220,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public static let defaultMaxToolSteps = 64
 
     public var defaultModel: String
+    public var defaultPersonality: QuillCodePersonality
     /// nil uses the model selected for the current task.
     public var reviewModel: String?
     public var reviewDelivery: CodeReviewDelivery
@@ -244,6 +245,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
+        case defaultPersonality
         case reviewModel
         case reviewDelivery
         case mode
@@ -267,6 +269,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
 
     public init(
         defaultModel: String = TrustedRouterDefaults.defaultModel,
+        defaultPersonality: QuillCodePersonality = .defaultValue,
         mode: AgentMode = .auto,
         apiBaseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
         authMode: TrustedRouterAuthMode = .oauth,
@@ -288,6 +291,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         reviewDelivery: CodeReviewDelivery = .current
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
+        self.defaultPersonality = defaultPersonality
         self.reviewModel = Self.normalizedReviewModelID(reviewModel)
         self.reviewDelivery = reviewDelivery
         self.mode = mode
@@ -338,6 +342,10 @@ public struct AppConfig: Codable, Sendable, Hashable {
         )
         self.init(
             defaultModel: defaultModel,
+            defaultPersonality: try container.decodeIfPresent(
+                QuillCodePersonality.self,
+                forKey: .defaultPersonality
+            ) ?? .defaultValue,
             mode: try container.decodeIfPresent(AgentMode.self, forKey: .mode) ?? .auto,
             apiBaseURL: apiBaseURL,
             authMode: try container.decodeIfPresent(TrustedRouterAuthMode.self, forKey: .authMode) ?? .oauth,

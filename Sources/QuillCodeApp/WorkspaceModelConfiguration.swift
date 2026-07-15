@@ -41,6 +41,25 @@ extension QuillCodeWorkspaceModel {
         return modelID
     }
 
+    @discardableResult
+    public func setPersonality(_ personality: QuillCodePersonality) -> Bool {
+        if selectedThread == nil {
+            _ = newChat()
+        }
+        guard let thread = selectedThread,
+              WorkspaceConfigurationEngine.modelSupportsPersonality(
+                  thread.model,
+                  catalog: root.modelCatalog
+              )
+        else {
+            return false
+        }
+        mutateSelectedThread { thread in
+            WorkspaceConfigurationEngine.setPersonality(personality, thread: &thread)
+        }
+        return true
+    }
+
     public func toggleModelFavorite(_ model: String) {
         guard WorkspaceConfigurationEngine.toggleFavorite(model, config: &root.config) else { return }
         refreshTopBar(agentStatus: root.topBar.agentStatus)

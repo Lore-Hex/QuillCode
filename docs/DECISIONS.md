@@ -1395,3 +1395,23 @@
   unrestricted file read/write/list/search and external shell working directories work, exec and
   app-server persist external tool results, the app-server reports `:danger-full-access`, and the real
   CLI process accepts the flag.
+
+## 2026-07-15: Personality is a per-chat prompt layer with a future-chat default
+
+- **Product boundary:** QuillCode exposes the same Friendly, Pragmatic, and None choices as Codex.
+  Pragmatic is the migration-safe default. Settings updates only the default for chats created later;
+  `/personality friendly|pragmatic|none` updates only the selected chat and records a visible local
+  transcript confirmation.
+- **Prompt boundary:** Personality guidance is a separate system message between QuillCode's stable
+  base contract and mode/project context. None omits that message entirely. This keeps the base tool
+  schema cache-stable and prevents personality text from being duplicated in user content.
+- **Capability boundary:** Live model catalogs may advertise `supports_personality`. An explicit
+  `false` hides composer suggestions and rejects a typed change; missing metadata remains supported
+  because QuillCode implements personalities in the prompt layer rather than depending on a
+  provider-native request field.
+- **Persistence boundary:** Config and thread decoders default missing legacy fields to Pragmatic.
+  New project/worktree chats inherit the current default; fork, compact, duplicate, side-context,
+  and worktree-open paths preserve the source chat's explicit value.
+- **Verification:** Focused Core, Agent, Persistence, App, catalog, and Playwright tests cover parsing,
+  old-state migration, round trips, prompt isolation, live capability decoding, Settings scope,
+  slash confirmation, and unsupported-model behavior.

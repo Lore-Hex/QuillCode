@@ -59,6 +59,7 @@ struct QuillCodeSettingsView: View {
                 .foregroundStyle(QuillCodePalette.muted)
                 .accessibilityAddTraits(.isHeader)
             QuillCodeCodeReviewSettingsCard(draft: $draft)
+            QuillCodePersonalitySettingsCard(draft: $draft)
         }
     }
 

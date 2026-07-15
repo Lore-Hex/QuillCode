@@ -12,6 +12,7 @@ extension QuillCodeWorkspaceModel {
             projectID: effectiveProjectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
+            personality: root.config.defaultPersonality,
             projects: root.projects,
             globalMemories: root.globalMemories
         )

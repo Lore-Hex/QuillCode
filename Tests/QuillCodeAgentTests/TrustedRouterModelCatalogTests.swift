@@ -74,12 +74,14 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
                       "input_modalities": ["text", "image"],
                       "output_modalities": "text",
                       "supported_parameters": { "tools": true, "json_mode": true, "legacy": false },
+                      "supports_personality": true,
                       "status": "available",
                       "description": "Vision coding model"
                     },
                     {
                       "id": "acme/vision-code-ms",
                       "created": 1747008000000,
+                      "supportsPersonality": "false",
                       "pricing": { "prompt": "0.00000025", "completion": 0.00000125 }
                     },
                     {
@@ -116,6 +118,7 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         XCTAssertEqual(model.capabilities.inputModalities, ["text", "image"])
         XCTAssertEqual(model.capabilities.outputModalities, ["text"])
         XCTAssertEqual(model.capabilities.capabilityTags, ["json mode", "tools"])
+        XCTAssertEqual(model.capabilities.supportsPersonality, true)
         XCTAssertEqual(model.capabilities.status, "available")
         XCTAssertEqual(model.capabilities.summary, "Vision coding model")
         XCTAssertEqual(model.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
@@ -123,6 +126,7 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
         // 2025-05-12T00:00:00Z — the same instant expressed as a millisecond epoch and a date string.
         let millisecondModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code-ms" })
         XCTAssertEqual(millisecondModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
+        XCTAssertEqual(millisecondModel.capabilities.supportsPersonality, false)
         let datedModel = try XCTUnwrap(catalog.models.first { $0.id == "acme/vision-code-dated" })
         XCTAssertEqual(datedModel.capabilities.releaseDate, Date(timeIntervalSince1970: 1_747_008_000))
 

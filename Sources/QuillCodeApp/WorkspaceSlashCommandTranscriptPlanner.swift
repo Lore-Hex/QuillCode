@@ -44,6 +44,21 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func personality(
+        userText: String,
+        personality: QuillCodePersonality,
+        supported: Bool,
+        model: String
+    ) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: supported
+                ? "Personality set to \(personality.displayName) for this chat. \(personality.summary)"
+                : "\(modelConfirmationLabel(for: model)) does not support personality controls. Choose another model to change this chat's communication style.",
+            title: "Set personality"
+        )
+    }
+
     static func renameThread(userText: String, requestedTitle: String, succeeded: Bool) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,

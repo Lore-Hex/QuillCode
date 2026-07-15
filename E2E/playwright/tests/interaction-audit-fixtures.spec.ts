@@ -153,6 +153,22 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
         data-testid="disabled-checkbox-label"
         style="position: fixed; left: 24px; top: 312px; z-index: 1000; width: 22px; height: 22px;"
       >Disabled</label>
+      <label
+        class="hit-target-switch-row"
+        data-testid="owned-checkbox-label"
+        data-hit-target-kind="switch-row"
+        data-hit-target-action="press"
+        data-hit-target-source="explicit"
+        style="position: fixed; left: 360px; top: 280px; z-index: 1000; width: 220px; height: 44px;"
+      >
+        <input
+          type="checkbox"
+          data-testid="owned-checkbox"
+          aria-label="Owned checkbox"
+          style="width: 20px; min-width: 20px; height: 20px; min-height: 20px;"
+        >
+        <span>Owned checkbox</span>
+      </label>
     `;
     document.body.appendChild(fixture);
   });
@@ -174,6 +190,8 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
   expect(issueFor('missing-tactile-contract-target')?.reason).toContain('click_target_allows_text_selection');
   expect(issueFor('missing-tactile-contract-target')?.reason).toContain('missing_press_feedback_transition');
   expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
+  expect(issueFor('owned-checkbox')).toBeUndefined();
+  expect(issueFor('owned-checkbox-label')).toBeUndefined();
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
   expect(issueFor('disabled-checkbox-label')).toBeUndefined();
 

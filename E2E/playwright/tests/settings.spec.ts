@@ -1,6 +1,26 @@
 import { test, expect } from '@playwright/test';
 import { harnessURL, openSettings } from './harness-helpers';
 
+test('mock harness saves a default personality and keeps chat overrides local', async ({ page }) => {
+  await page.goto(harnessURL());
+  await openSettings(page);
+
+  const setting = page.getByTestId('personality-setting');
+  await expect(setting).toHaveValue('pragmatic');
+  await setting.selectOption('friendly');
+  await page.getByTestId('settings-save').click();
+
+  const message = page.getByRole('textbox', { name: 'Message', exact: true });
+  await message.fill('/personality none');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('message').last()).toContainText(
+    'Personality set to None for this chat.'
+  );
+
+  await openSettings(page);
+  await expect(page.getByTestId('personality-setting')).toHaveValue('friendly');
+});
+
 test('mock harness shows actionable Computer Use setup in settings', async ({ page }) => {
   await page.goto(harnessURL());
 

@@ -10,12 +10,17 @@ struct WorkspaceThreadContextSource {
         snapshot(projectID: projectID)
     }
 
-    func threadCreation(mode: AgentMode, model: String) -> WorkspaceThreadCreationContext {
+    func threadCreation(
+        mode: AgentMode,
+        model: String,
+        personality: QuillCodePersonality = .defaultValue
+    ) -> WorkspaceThreadCreationContext {
         let snapshot = snapshot()
         return WorkspaceThreadCreationContext(
             projectID: projectID,
             mode: mode,
             model: model,
+            personality: personality,
             instructions: snapshot.instructions,
             memories: snapshot.memories
         )
@@ -26,7 +31,8 @@ struct WorkspaceThreadContextSource {
         branch: String,
         projectID: UUID,
         mode: AgentMode,
-        model: String
+        model: String,
+        personality: QuillCodePersonality = .defaultValue
     ) -> WorkspaceWorktreeOpenContext {
         let snapshot = snapshot(projectID: projectID)
         return WorkspaceWorktreeOpenContext(
@@ -35,6 +41,7 @@ struct WorkspaceThreadContextSource {
             projectID: projectID,
             mode: mode,
             model: model,
+            personality: personality,
             instructions: snapshot.instructions,
             memories: snapshot.memories
         )

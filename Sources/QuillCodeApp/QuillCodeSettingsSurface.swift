@@ -39,6 +39,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var modelProviderHealthDetail: String?
     public var reviewModel: String?
     public var reviewDelivery: CodeReviewDelivery
+    public var defaultPersonality: QuillCodePersonality
     public var computerUseStatus: ComputerUseStatus
     public var computerUseSetupCommand: WorkspaceCommandSurface
     public var computerUseScreenRecordingCommand: WorkspaceCommandSurface
@@ -96,6 +97,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.modelProviderHealthDetail = modelProviderHealthSummary.detail
         self.reviewModel = config.reviewModel
         self.reviewDelivery = config.reviewDelivery
+        self.defaultPersonality = config.defaultPersonality
         self.computerUseStatus = computerUseRuntime.status
         self.computerUseSetupCommand = WorkspaceCommandSurface.computerUseSetup(
             isEnabled: !computerUseRuntime.status.available
@@ -182,6 +184,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case modelProviderHealthDetail
         case reviewModel
         case reviewDelivery
+        case defaultPersonality
         case computerUseStatus
         case computerUseSetupCommand
         case computerUseScreenRecordingCommand
@@ -241,6 +244,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             CodeReviewDelivery.self,
             forKey: .reviewDelivery
         )) ?? .current
+        self.defaultPersonality = (try? container.decode(
+            QuillCodePersonality.self,
+            forKey: .defaultPersonality
+        )) ?? .defaultValue
         let decodedComputerUseStatus = try container.decodeIfPresent(
             ComputerUseStatus.self,
             forKey: .computerUseStatus

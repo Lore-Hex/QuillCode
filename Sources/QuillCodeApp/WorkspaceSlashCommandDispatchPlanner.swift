@@ -8,6 +8,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case sideConversation(String?)
     case setMode(AgentMode, userText: String)
     case setModel(String, userText: String)
+    case setPersonality(QuillCodePersonality, userText: String)
     case renameThread(String, userText: String)
     case renameProject(String, userText: String)
     case projectList(userText: String)
@@ -55,6 +56,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .setMode(mode, userText: userText)
         case .model(let model):
             return .setModel(model, userText: userText)
+        case .personality(let personality):
+            return .setPersonality(personality, userText: userText)
         case .renameThread(let title):
             return .renameThread(title, userText: userText)
         case .renameProject(let name):

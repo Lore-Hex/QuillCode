@@ -8,6 +8,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var memories: [MemoryNote]
     public var mode: AgentMode
     public var model: String
+    public var personality: QuillCodePersonality
     public var messages: [ChatMessage]
     public var events: [ThreadEvent]
     /// Compact manifests for delegated work. Child transcripts and held approval payloads live in
@@ -51,6 +52,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         projectID: UUID? = nil,
         mode: AgentMode = .auto,
         model: String = TrustedRouterDefaults.defaultModel,
+        personality: QuillCodePersonality = .defaultValue,
         messages: [ChatMessage] = [],
         events: [ThreadEvent] = [],
         subagentRuns: [SubagentRunRecord] = [],
@@ -77,6 +79,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.memories = memories
         self.mode = mode
         self.model = TrustedRouterDefaults.normalizedDefaultModelID(model)
+        self.personality = personality
         self.messages = messages
         self.events = events
         self.subagentRuns = subagentRuns
@@ -103,6 +106,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case memories
         case mode
         case model
+        case personality
         case messages
         case events
         case subagentRuns
@@ -129,6 +133,10 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.memories = try container.decodeIfPresent([MemoryNote].self, forKey: .memories) ?? []
         self.mode = try container.decode(AgentMode.self, forKey: .mode)
         self.model = TrustedRouterDefaults.normalizedDefaultModelID(try container.decode(String.self, forKey: .model))
+        self.personality = try container.decodeIfPresent(
+            QuillCodePersonality.self,
+            forKey: .personality
+        ) ?? .defaultValue
         self.messages = try container.decode([ChatMessage].self, forKey: .messages)
         self.events = try container.decode([ThreadEvent].self, forKey: .events)
         self.subagentRuns = try container.decodeIfPresent([SubagentRunRecord].self, forKey: .subagentRuns) ?? []
@@ -163,6 +171,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(memories, forKey: .memories)
         try container.encode(mode, forKey: .mode)
         try container.encode(model, forKey: .model)
+        try container.encode(personality, forKey: .personality)
         try container.encode(messages, forKey: .messages)
         try container.encode(events, forKey: .events)
         try container.encode(subagentRuns, forKey: .subagentRuns)

@@ -20,6 +20,17 @@ struct WorkspaceConfigurationEngine {
         thread.mode = mode
     }
 
+    static func setPersonality(_ personality: QuillCodePersonality, thread: inout ChatThread) {
+        thread.personality = personality
+    }
+
+    static func modelSupportsPersonality(_ modelID: String, catalog: [ModelInfo]) -> Bool {
+        let canonicalID = TrustedRouterDefaults.canonicalModelID(modelID)
+        return catalog.first {
+            TrustedRouterDefaults.canonicalModelID($0.id) == canonicalID
+        }?.supportsPersonality ?? true
+    }
+
     @discardableResult
     static func toggleFavorite(_ model: String, config: inout AppConfig) -> Bool {
         let modelID = TrustedRouterDefaults.canonicalModelID(model)

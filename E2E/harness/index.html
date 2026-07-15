@@ -5357,6 +5357,7 @@
       contextSummaryProgress: null,
       settings: {
         isOpen: false,
+        defaultPersonality: 'pragmatic',
         apiBaseURL: 'https://api.trustedrouter.com/v1',
         authMode: 'oauth',
         developerOverrideEnabled: false,
@@ -6349,6 +6350,9 @@
       { usage: '/mode auto|plan|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Plan, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
       { usage: '/plan', title: 'Enter Plan mode', detail: 'Investigate read-only and propose a plan; mutating tools wait for your approval.', insertText: '/plan', aliases: [] },
       { usage: '/model name', title: 'Set model', detail: "Search the TrustedRouter catalog with live per-1M pricing and switch the thread's model.", insertText: '/model ', aliases: ['models', 'switch model', 'change model'] },
+      { usage: '/personality friendly', title: 'Use Friendly style', detail: 'Make this chat warm and conversational while staying task-focused.', insertText: '/personality friendly', aliases: ['communication style friendly', 'tone friendly'] },
+      { usage: '/personality pragmatic', title: 'Use Pragmatic style', detail: 'Make this chat direct, concise, and explicit about evidence and tradeoffs.', insertText: '/personality pragmatic', aliases: ['communication style pragmatic', 'tone pragmatic'] },
+      { usage: '/personality none', title: 'Clear communication style', detail: 'Remove additional personality guidance from this chat.', insertText: '/personality none', aliases: ['communication style none', 'tone none'] },
       { usage: '/skill name', title: 'Run a skill', detail: 'Load an installed skill by name and follow it, for example /skill code-review.', insertText: '/skill ', aliases: ['run skill', 'load skill'] }
     ];
     const slashCommandPalettePrefix = 'slash-command:';
@@ -11137,6 +11141,7 @@
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
+        state.settings.defaultPersonality = form.elements.namedItem('defaultPersonality').value;
         state.settings.apiBaseURL = form.elements.namedItem('apiBaseURL').value.trim();
         state.settings.authMode = form.elements.namedItem('authMode').value;
         state.settings.developerOverrideEnabled = state.settings.authMode === 'developer-override';
@@ -12192,6 +12197,22 @@
             <p data-testid="settings-model-catalog-status" title="${escapeHTML(state.settings.modelCatalogStatusDetail || state.settings.modelCatalogStatusLabel)}">${escapeHTML(state.settings.modelCatalogStatusLabel)}</p>
             ${state.settings.modelProviderHealthLabel ? `<p data-testid="settings-provider-health" title="${escapeHTML(state.settings.modelProviderHealthDetail || state.settings.modelProviderHealthLabel)}">${escapeHTML(state.settings.modelProviderHealthLabel)}</p>` : ''}
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
+            <section class="permission-card" data-testid="personality-settings">
+              <header>
+                <div>
+                  <h3>Default personality</h3>
+                  <p>Applies to new chats. Use /personality to change only the current chat.</p>
+                </div>
+              </header>
+              <label>
+                Communication style
+                <select class="hit-target-text-entry" name="defaultPersonality" data-testid="personality-setting" aria-label="Default personality">
+                  <option value="friendly" ${state.settings.defaultPersonality === 'friendly' ? 'selected' : ''}>Friendly</option>
+                  <option value="pragmatic" ${state.settings.defaultPersonality === 'pragmatic' ? 'selected' : ''}>Pragmatic</option>
+                  <option value="none" ${state.settings.defaultPersonality === 'none' ? 'selected' : ''}>None</option>
+                </select>
+              </label>
+            </section>
             ${renderManagedWorktreeSettingsCard()}
             ${renderComputerUseSettingsCard()}
             ${renderComputerUseApprovalSettingsCard()}
@@ -12250,7 +12271,13 @@
             <button class="hit-target-text" type="button" data-testid="worktree-settings-use-default" ${state.settings.managedWorktreeRootPath === state.settings.managedWorktreeDefaultRootPath ? 'disabled' : ''}>Use default</button>
           </div>
           <label class="hit-target-switch-row" data-hit-target-kind="switch-row" data-hit-target-action="press" data-hit-target-source="explicit">
-            <input type="checkbox" name="managedWorktreeAutomaticCleanupEnabled" data-testid="worktree-settings-cleanup" ${automatic ? 'checked' : ''}>
+            <input
+              type="checkbox"
+              name="managedWorktreeAutomaticCleanupEnabled"
+              data-testid="worktree-settings-cleanup"
+              aria-label="Automatically clean up old managed worktrees"
+              ${automatic ? 'checked' : ''}
+            >
             <span>Automatically clean up old managed worktrees</span>
           </label>
           <label>
@@ -14908,6 +14935,7 @@
         state.sidebar.items = [{
           id: threadID,
           title,
+          personality: state.settings.defaultPersonality,
           subtitle: state.topBar.modelLabel,
           searchText: '',
           updatedAt: new Date().toISOString(),
@@ -19132,6 +19160,8 @@
     }
 
     function loadWorktreeChoicesForDialog(mode, token) {
+      const configuredDelay = Number(window.__quillCodeWorktreeChoiceLoadDelayMS);
+      const delayMS = Number.isFinite(configuredDelay) ? Math.max(0, configuredDelay) : 80;
       window.setTimeout(() => {
         if (state.worktreeDialog.mode !== mode || state.worktreeDialog.choiceLoadToken !== token) {
           return;
@@ -19156,7 +19186,7 @@
           choicesError: ''
         };
         render();
-      }, 80);
+      }, delayMS);
     }
 
     function retryWorktreeChoiceLoad(mode) {
@@ -20531,6 +20561,23 @@
           addMessage('assistant', `Mode set to ${nextMode}.`);
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode plan, /mode review, or /mode read-only');
+        }
+      } else if (/^\/personality\b/i.test(text)) {
+        const personality = text.replace(/^\/personality\b/i, '').trim().toLowerCase();
+        const labels = { friendly: 'Friendly', pragmatic: 'Pragmatic', none: 'None' };
+        const summaries = {
+          friendly: 'Warm and conversational while staying focused on the work.',
+          pragmatic: 'Direct, concise, and explicit about actions, evidence, and tradeoffs.',
+          none: 'No additional communication-style guidance.'
+        };
+        if (labels[personality]) {
+          const selectedID = state.sidebar.selectedThreadID;
+          state.sidebar.items = state.sidebar.items.map(item => (
+            item.id === selectedID ? { ...item, personality } : item
+          ));
+          addMessage('assistant', `Personality set to ${labels[personality]} for this chat. ${summaries[personality]}`);
+        } else {
+          addMessage('assistant', 'Usage: /personality friendly|pragmatic|none');
         }
       } else if (/^\/skill\b/i.test(text)) {
         // Mirrors native: `/skill name` runs a normal agent turn that loads + follows the skill via
