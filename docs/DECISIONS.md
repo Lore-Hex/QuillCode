@@ -1003,3 +1003,11 @@
 - **Safety:** Discovery is data-only. Documents must be regular, non-symlink files inside the canonical workspace, each document is capped at 64 KiB, and the aggregate config-hook inventory is capped at 96 definitions. Malformed or unsafe sources fail closed without executing anything. Every supported non-managed command remains skipped until its exact normalized definition is trusted; changing an executable field invalidates that decision.
 - **Compatibility:** Synchronous command handlers use the same typed prompt, stop, tool, permission, compaction, session, and subagent boundaries as plugin hooks. Async handlers and prompt/agent handlers remain visible but inert, matching current Codex behavior. Plugin-only root/data compatibility variables are added only when a package root exists.
 - **Presentation and scope:** The shared surface says **Hooks** and identifies the actual source instead of calling config hooks plugins. This slice covers project layers; user/system layers and managed-policy trust are still required for full Codex hook parity.
+
+## 2026-07-14: Memories is reachable and reversible through native controls
+
+- **Behavior:** The Memories pane exposes identified Add and Close controls in its header; shortcut, slash-command, native menu, and pane-close routes share `toggle-memories`.
+- **Native menu fallback:** Packaged activation prefers an identified control already visible in the workspace. When compact sidebar layout hides Memories inside Tools, the macOS adapter traverses the real Accessibility menu bar and AX-presses the titled native menu item. App-level code remains unaware of this platform detail.
+- **Native proof:** Packaged macOS smoke opens Memories, requires its identified title and Add control, AX-presses its identified Close control, and waits for disappearance.
+- **State safety:** Verification adds, edits, forgets, reconciles, or redacts no memory and restores baseline visibility.
+- **Why:** A compact layout must not make a primary workspace pane untestable or undiscoverable. Native menu activation and visible dismissal form one reversible interaction contract.

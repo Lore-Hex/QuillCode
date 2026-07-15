@@ -83,7 +83,7 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
             "struct QuillCodeExtensionsPaneView",
             "accessibilityIdentifier(\"quillcode-extensions-title\")",
             "accessibilityIdentifier(\"quillcode-extensions-add\")",
-            "accessibilityIdentifier(\"quillcode-extensions-close\")"
+            "accessibilityIdentifier: \"quillcode-extensions-close\""
         ].forEach { Self.assertSource(extensionsText, contains: $0) }
         Self.assertSource(extensionsText, excludes: "private func extensionCard")
         Self.assertSource(extensionsText, excludes: "probeMetadataChips")
@@ -92,14 +92,20 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
         Self.assertSource(extensionCardsText, contains: "extensionCommand(id:")
         Self.assertSource(metadataText, contains: "MCPToolDescriptor")
         Self.assertSource(metadataText, contains: "probeReferenceActionGroup")
-        Self.assertSource(memoriesText, contains: "struct QuillCodeMemoriesPaneView")
+        [
+            "struct QuillCodeMemoriesPaneView",
+            "accessibilityIdentifier(\"quillcode-memories-title\")",
+            "accessibilityIdentifier(\"quillcode-memory-add\")",
+            "accessibilityIdentifier: \"quillcode-memories-close\""
+        ].forEach { Self.assertSource(memoriesText, contains: $0) }
+        Self.assertSource(mainPaneText, contains: "onClose: { runCommand(id: \"toggle-memories\") }")
 
         [
             "struct QuillCodeAutomationsPaneView",
             "QuillCodeAutomationCreateMenu",
             "QuillCodeAutomationWorkflowCard",
             "accessibilityIdentifier(\"quillcode-automations-title\")",
-            "accessibilityIdentifier(\"quillcode-automations-close\")"
+            "accessibilityIdentifier: \"quillcode-automations-close\""
         ].forEach { Self.assertSource(automationsText, contains: $0) }
         Self.assertSource(mainPaneText, contains: "onClose: { runCommand(id: \"toggle-automations\") }")
 
@@ -107,6 +113,15 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
         Self.assertSource(automationMenuText, contains: "quillCodePlatformMenuItemTarget")
         Self.assertSource(automationCardText, contains: "struct QuillCodeAutomationWorkflowCard")
         Self.assertSource(automationCardText, contains: "automationCommand(id:")
+
+        [
+            "struct QuillCodePaneCloseButton",
+            "accessibilityIdentifier(accessibilityIdentifier)",
+            "quillCodeIconButtonTarget()"
+        ].forEach { Self.assertSource(chromeText, contains: $0) }
+        [extensionsText, memoriesText, automationsText].forEach {
+            Self.assertSource($0, contains: "QuillCodePaneCloseButton")
+        }
 
         [
             "QuillCodeExtensionsPaneView",

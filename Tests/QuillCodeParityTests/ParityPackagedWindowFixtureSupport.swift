@@ -212,7 +212,8 @@ extension QuillCodeParityTestCase {
         "command.search",
         "command.settings",
         "command.toggle-automations",
-        "command.toggle-extensions"
+        "command.toggle-extensions",
+        "command.toggle-memories"
     ]
 
     static func accessibilityActivationJSON() -> String {
@@ -280,6 +281,8 @@ extension QuillCodeParityTestCase {
             return "Automations renders its Create control and dismisses through Close"
         case "command.toggle-extensions":
             return "Extensions renders its Add control and dismisses through Close"
+        case "command.toggle-memories":
+            return "Memories renders its Add control and dismisses through Close"
         default:
             return "observable controller state changes"
         }
@@ -299,6 +302,8 @@ extension QuillCodeParityTestCase {
             return "rendered Automations with its Create control and dismissed through quillcode-automations-close with AXPress"
         case "command.toggle-extensions":
             return "rendered Extensions with its Add control and dismissed through quillcode-extensions-close with AXPress"
+        case "command.toggle-memories":
+            return "rendered Memories with its Add control and dismissed through quillcode-memories-close with AXPress"
         default:
             return "AXPress changed observable controller state"
         }

@@ -53,14 +53,11 @@ struct QuillCodeAutomationsPaneView: View {
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .foregroundStyle(QuillCodePalette.blue)
                 .clipShape(Capsule())
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .quillCodeIconButtonTarget()
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-            .help("Close Automations")
-            .accessibilityLabel("Close Automations")
-            .accessibilityIdentifier("quillcode-automations-close")
+            QuillCodePaneCloseButton(
+                paneName: "Automations",
+                accessibilityIdentifier: "quillcode-automations-close",
+                action: onClose
+            )
         }
     }
 

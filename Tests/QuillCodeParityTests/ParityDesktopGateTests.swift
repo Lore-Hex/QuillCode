@@ -56,6 +56,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(commandsText, contains: ".quillCodeRunCommand")
         Self.assertSource(commandsText, contains: ".quillCodeShortcut(commandID, profile: shortcutProfile)")
         Self.assertSource(commandsText, contains: ".disabled(commandsByID[commandID]?.isEnabled != true)")
+        Self.assertSource(commandsText, contains: "accessibilityIdentifier(\"quillcode-menu-command-\\(commandID)\")")
         Self.assertSource(appText, contains: "controller.runCommand(commandID: commandID)")
         Self.assertSource(appText, contains: "QuillCodeSecondaryShortcutResolver.commandID")
         Self.assertSource(shortcutMonitorText, contains: "event.charactersIgnoringModifiers?.first")

@@ -124,6 +124,13 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} command.toggle-extensions does not prove rendered controls and close-button dismissal"
         )
+    if contract_id == "command.toggle-memories" and not all(
+        marker in interaction_evidence
+        for marker in ("Memories", "Add control", "quillcode-memories-close", "AXPress")
+    ):
+        raise SystemExit(
+            f"{report_path} command.toggle-memories does not prove rendered controls and close-button dismissal"
+        )
 
     return {
         "contractID": contract_id,

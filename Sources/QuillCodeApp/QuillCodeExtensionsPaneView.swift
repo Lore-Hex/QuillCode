@@ -68,14 +68,11 @@ struct QuillCodeExtensionsPaneView: View {
                 .help("Add an extension")
                 .accessibilityLabel("Add an extension")
                 .accessibilityIdentifier("quillcode-extensions-add")
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .quillCodeIconButtonTarget()
-                }
-                .buttonStyle(QuillCodePressableButtonStyle())
-                .help("Close Extensions")
-                .accessibilityLabel("Close Extensions")
-                .accessibilityIdentifier("quillcode-extensions-close")
+                QuillCodePaneCloseButton(
+                    paneName: "Extensions",
+                    accessibilityIdentifier: "quillcode-extensions-close",
+                    action: onClose
+                )
             }
         }
     }

@@ -190,12 +190,48 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         _ probe: QuillCodeNativeHitTargetProbe,
         in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
     ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        let identifiers = identifiers(for: probe)
-        return elements
+        if let primaryElement = largestElement(matching: identifiers(for: probe), in: elements) {
+            return primaryElement
+        }
+        guard probe.selectorKind == .commandID else { return nil }
+        if let identifiedMenuElement = largestElement(
+            matching: ["\(identifierPrefix)menu-command-\(probe.selector)"],
+            in: elements
+        ) {
+            return identifiedMenuElement
+        }
+        return largestNativeMenuItem(
+            titled: nativeMenuTitles(for: probe),
+            in: elements
+        )
+    }
+
+    private static func largestElement(
+        matching identifiers: Set<String>,
+        in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
+    ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        elements
             .filter { identifiers.contains($0.identifier) }
-            .max { lhs, rhs in
-                lhs.frameArea < rhs.frameArea
+            .max { lhs, rhs in lhs.frameArea < rhs.frameArea }
+    }
+
+    private static func largestNativeMenuItem(
+        titled titles: Set<String>,
+        in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
+    ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        elements
+            .filter { element in
+                element.role == kAXMenuItemRole as String && titles.contains(element.title)
             }
+            .max { lhs, rhs in lhs.frameArea < rhs.frameArea }
+    }
+
+    private static func nativeMenuTitles(for probe: QuillCodeNativeHitTargetProbe) -> Set<String> {
+        var titles = Set([probe.label])
+        if probe.selector.hasPrefix("toggle-") {
+            titles.insert("Toggle \(probe.label)")
+        }
+        return titles
     }
 
     private static func identifiers(for probe: QuillCodeNativeHitTargetProbe) -> Set<String> {

@@ -101,7 +101,9 @@ struct QuillCodeDesktopAccessibilityTree {
         let identity = CFHash(element)
         guard visited.insert(identity).inserted else { return }
 
-        if let snapshot = snapshot(for: element), !snapshot.identifier.isEmpty {
+        if let snapshot = snapshot(for: element),
+           !snapshot.identifier.isEmpty || snapshot.role == kAXMenuItemRole as String
+        {
             collected.append(snapshot)
         }
 
@@ -122,7 +124,8 @@ struct QuillCodeDesktopAccessibilityTree {
         let value = stringAttribute(kAXValueAttribute, from: element)
         let isFocused = boolAttribute(kAXFocusedAttribute, from: element)
         let frame = frame(from: element)
-        guard !identifier.isEmpty || frame != nil else { return nil }
+        let isTitledMenuItem = role == kAXMenuItemRole as String && !title.isEmpty
+        guard !identifier.isEmpty || frame != nil || isTitledMenuItem else { return nil }
         return QuillCodeDesktopAccessibilityElementSnapshot(
             element: element,
             identifier: identifier,
@@ -163,13 +166,20 @@ struct QuillCodeDesktopAccessibilityTree {
     private static func children(of element: AXUIElement) -> [AXUIElement] {
         var values: [AXUIElement] = []
         for attribute in [
+            kAXMenuBarAttribute as String,
             kAXWindowsAttribute as String,
             kAXChildrenAttribute as String,
             "AXVisibleChildren",
             "AXContents"
         ] {
-            if let children = axAttribute(attribute, from: element) as? [AXUIElement] {
+            guard let value = axAttribute(attribute, from: element) else { continue }
+            if let children = value as? [AXUIElement] {
                 values.append(contentsOf: children)
+                continue
+            }
+            let cfValue = value as CFTypeRef
+            if CFGetTypeID(cfValue) == AXUIElementGetTypeID() {
+                values.append(unsafeDowncast(cfValue, to: AXUIElement.self))
             }
         }
         return values
