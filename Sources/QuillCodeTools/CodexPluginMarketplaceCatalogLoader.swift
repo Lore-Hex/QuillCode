@@ -72,6 +72,82 @@ public enum CodexPluginMarketplaceCatalogLoader {
         )
     }
 
+    /// Reads one exact local marketplace path accepted by Codex discovery.
+    public static func load(
+        at marketplacePath: URL,
+        maximumPlugins: Int = maximumPluginsPerMarketplace,
+        maximumCatalogBytes: Int = maximumCatalogBytes,
+        maximumPackageManifestBytes: Int = maximumPackageManifestBytes
+    ) -> CodexPluginMarketplaceCatalogDiscovery {
+        let requestedPath = marketplacePath.standardizedFileURL
+        let pathValues = try? requestedPath.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        )
+        guard maximumPlugins > 0,
+              maximumCatalogBytes > 0,
+              maximumPackageManifestBytes > 0,
+              NSString(string: requestedPath.path).isAbsolutePath,
+              pathValues?.isRegularFile == true,
+              pathValues?.isSymbolicLink != true,
+              let requestedRoot = marketplaceRoot(for: requestedPath)
+        else {
+            return CodexPluginMarketplaceCatalogDiscovery(
+                marketplaces: [],
+                errors: [CodexPluginMarketplaceCatalogError(
+                    marketplacePath: requestedPath,
+                    message: "unsupported marketplace path: expected a standard local catalog path"
+                )]
+            )
+        }
+
+        let root = requestedRoot.resolvingSymlinksInPath()
+        let path = requestedPath.resolvingSymlinksInPath()
+        guard marketplaceRoot(for: path)?.path == root.path else {
+            return CodexPluginMarketplaceCatalogDiscovery(
+                marketplaces: [],
+                errors: [CodexPluginMarketplaceCatalogError(
+                    marketplacePath: requestedPath,
+                    message: "unsupported marketplace path: symlink escapes its marketplace root"
+                )]
+            )
+        }
+
+        switch readCatalog(
+            at: path,
+            root: root,
+            maximumPlugins: maximumPlugins,
+            maximumCatalogBytes: maximumCatalogBytes,
+            maximumPackageManifestBytes: maximumPackageManifestBytes
+        ) {
+        case .success(let marketplace):
+            return CodexPluginMarketplaceCatalogDiscovery(
+                marketplaces: [marketplace],
+                errors: []
+            )
+        case .failure(let message):
+            return CodexPluginMarketplaceCatalogDiscovery(
+                marketplaces: [],
+                errors: [CodexPluginMarketplaceCatalogError(
+                    marketplacePath: path,
+                    message: message
+                )]
+            )
+        }
+    }
+
+    public static func marketplaceRoot(for marketplacePath: URL) -> URL? {
+        let path = marketplacePath.standardizedFileURL
+        for relativePath in defaultCatalogPaths {
+            let suffix = relativePath.split(separator: "/").map(String.init)
+            guard path.pathComponents.count > suffix.count,
+                  Array(path.pathComponents.suffix(suffix.count)) == suffix
+            else { continue }
+            return suffix.reduce(path) { root, _ in root.deletingLastPathComponent() }
+                .standardizedFileURL
+        }
+        return nil
+    }
+
     public static func loadPackageMetadata(
         at pluginRoot: URL,
         maximumManifestBytes: Int = maximumPackageManifestBytes
@@ -135,7 +211,8 @@ public enum CodexPluginMarketplaceCatalogLoader {
                   seenPluginNames.insert(pluginName).inserted,
                   let relativePath = entry.source.localRelativePath,
                   relativePath.hasPrefix("./"),
-                  let packageRoot = WorkspaceBoundary.safeURL(relativePath, root: root)
+                  let packageRoot = WorkspaceBoundary.safeURL(relativePath, root: root),
+                  packageRoot.resolvingSymlinksInPath().path == packageRoot.path
             else { continue }
 
             let package = loadPackageMetadata(

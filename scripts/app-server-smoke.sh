@@ -72,6 +72,35 @@ with open(
         "keywords": ["smoke"],
         "interface": {"displayName": "Smoke Tools"},
     }, manifest)
+plugin_skill = os.path.join(catalog_plugin_root, "skills", "smoke-plugin-skill")
+os.makedirs(plugin_skill, exist_ok=True)
+with open(os.path.join(plugin_skill, "SKILL.md"), "w", encoding="utf-8") as manifest:
+    manifest.write("""---
+name: smoke-plugin-skill
+description: Exercise plugin detail discovery.
+---
+""")
+os.makedirs(os.path.join(catalog_plugin_root, "hooks"), exist_ok=True)
+with open(
+    os.path.join(catalog_plugin_root, "hooks", "hooks.json"),
+    "w",
+    encoding="utf-8",
+) as manifest:
+    json.dump({
+        "hooks": {"PreToolUse": [{"hooks": [{"type": "command"}]}]},
+    }, manifest)
+with open(
+    os.path.join(catalog_plugin_root, ".app.json"),
+    "w",
+    encoding="utf-8",
+) as manifest:
+    json.dump({"apps": {"smoke-app": {"id": "smoke-app"}}}, manifest)
+with open(
+    os.path.join(catalog_plugin_root, ".mcp.json"),
+    "w",
+    encoding="utf-8",
+) as manifest:
+    json.dump({"mcpServers": {"smoke-mcp": {"command": "smoke-mcp"}}}, manifest)
 with open(
     os.path.join(installed_plugin_root, ".codex-plugin", "plugin.json"),
     "w",
@@ -185,6 +214,34 @@ assert [
     for entry in plugin_installed["result"]["marketplaces"]
     for item in entry["plugins"]
 ] == ["smoke-tools"], plugin_installed
+
+send({"id": 45, "method": "plugin/read", "params": {
+    "marketplacePath": os.path.join(marketplace_directory, "marketplace.json"),
+    "pluginName": "smoke-tools",
+}})
+plugin_read, _ = read_until(lambda record: record.get("id") == 45)
+detail = plugin_read["result"]["plugin"]
+assert detail["marketplaceName"] == "smoke-marketplace", plugin_read
+assert detail["summary"]["installed"] is True, plugin_read
+assert [skill["name"] for skill in detail["skills"]] == [
+    "smoke-tools:smoke-plugin-skill"
+], plugin_read
+assert detail["hooks"] == [{
+    "key": "smoke-tools@smoke-marketplace:hooks/hooks.json:pre_tool_use:0:0",
+    "eventName": "preToolUse",
+}], plugin_read
+assert [app["id"] for app in detail["apps"]] == ["smoke-app"], plugin_read
+assert detail["mcpServers"] == ["smoke-mcp"], plugin_read
+
+send({"id": 46, "method": "plugin/skill/read", "params": {
+    "remoteMarketplaceName": "remote",
+    "remotePluginId": "smoke-plugin",
+    "skillName": "smoke-skill",
+}})
+remote_skill_read, _ = read_until(lambda record: record.get("id") == 46)
+assert remote_skill_read["error"]["code"] == -32600, remote_skill_read
+assert "remote plugin skill read is not available" in remote_skill_read["error"]["message"], \
+    remote_skill_read
 
 send({"id": 5, "method": "skills/list", "params": {"cwds": [workspace]}})
 skills, _ = read_until(lambda record: record.get("id") == 5)

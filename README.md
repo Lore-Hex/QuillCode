@@ -68,8 +68,10 @@ transcript persistence. Clients can also list models, read provider capabilities
 presence without receiving credentials, read locally observed UTC token usage and explicitly local
 spend controls, inspect effective config, atomically update the user config through Codex-compatible
 `config/value/write` and `config/batchWrite` with content-version conflict detection, and use
-`plugin/list` and `plugin/installed` to inspect bounded local repository/home marketplaces and
-QuillCode-installed packages without executing marketplace code. Clients can also use
+`plugin/list`, `plugin/installed`, and local `plugin/read` to inspect bounded repository/home
+marketplaces, QuillCode-installed packages, and package skill/hook/app/MCP summaries without
+executing marketplace code or loading skill bodies. Remote plugin and remote skill reads return an
+explicit unsupported-service error until QuillCode has a real remote catalog backend. Clients can also use
 Codex-compatible `fs/readFile`, `fs/writeFile`,
 `fs/createDirectory`, `fs/getMetadata`, `fs/readDirectory`, `fs/remove`, `fs/copy`, `fs/watch`, and
 `fs/unwatch` methods. Files are binary-safe base64 payloads, reads use Codex's 512 MiB bound, recursive

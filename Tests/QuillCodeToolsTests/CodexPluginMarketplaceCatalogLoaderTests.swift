@@ -164,6 +164,29 @@ final class CodexPluginMarketplaceCatalogLoaderTests: XCTestCase {
         XCTAssertEqual(result.errors.count, 2)
     }
 
+    func testRejectsPackageSourceThroughNestedSymlink() throws {
+        let outside = root.deletingLastPathComponent()
+            .appendingPathComponent("outside-plugin-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: outside) }
+        try #"{"name":"escaped"}"#.write(
+            to: outside.appendingPathComponent("plugin.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try write(
+            #"{"name":"local","plugins":[{"name":"escaped","source":"./linked/escaped"}]}"#,
+            to: ".agents/plugins/marketplace.json"
+        )
+        let linked = root.appendingPathComponent("linked", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: linked, withDestinationURL: outside)
+
+        let result = CodexPluginMarketplaceCatalogLoader.load(from: [root])
+
+        XCTAssertEqual(result.marketplaces.count, 1)
+        XCTAssertTrue(result.marketplaces[0].plugins.isEmpty)
+    }
+
     private func write(_ contents: String, to relativePath: String) throws {
         let file = root.appendingPathComponent(relativePath)
         try FileManager.default.createDirectory(
