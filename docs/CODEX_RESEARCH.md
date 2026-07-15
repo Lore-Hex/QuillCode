@@ -15,8 +15,9 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   prompt, resumes the latest or an exact saved task, supports ephemeral runs and final-message/schema
   files, defaults to read-only, and requires a Git repository unless explicitly bypassed. QuillCode
   mirrors those observable contracts while rejecting `danger-full-access` until its sandbox can make
-  that promise truthfully. Required-MCP startup remains separate; the app-server core now mirrors the
-  generated Codex 0.142.5 stdio schemas and observed initialize/thread/turn/item/approval lifecycle,
+  that promise truthfully. Required-MCP startup remains separate for `exec`; app-server thread
+  start/resume/fork now initialize required servers before persistence, expose ready MCP schemas as
+  normal model tools, and mirror the generated Codex 0.142.5 initialize/thread/turn/item/approval lifecycle,
   while broader account/model/config/plugin methods and websocket transport remain separate slices.
   Source: current Codex manual, Non-interactive mode.
 - Current Codex exec installs a one-shot Ctrl-C listener, sends `turn/interrupt`, waits for the

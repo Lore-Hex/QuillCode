@@ -18,6 +18,7 @@ final class AppServerMCPConfigurationTests: XCTestCase {
         env_vars = ["INHERITED", { name = "OPTIONAL", source = "local" }]
         startup_timeout_sec = 12
         tool_timeout_sec = 34
+        required = true
         enabled_tools = ["read", "write"]
         disabled_tools = ["write"]
 
@@ -58,6 +59,7 @@ final class AppServerMCPConfigurationTests: XCTestCase {
         XCTAssertEqual(cwd, workingDirectory.standardizedFileURL)
         XCTAssertEqual(local.startupTimeout, 12)
         XCTAssertEqual(local.toolTimeout, 34)
+        XCTAssertTrue(local.required)
         XCTAssertTrue(local.permitsTool(named: "read"))
         XCTAssertFalse(local.permitsTool(named: "write"))
         XCTAssertFalse(local.permitsTool(named: "other"))
@@ -71,6 +73,7 @@ final class AppServerMCPConfigurationTests: XCTestCase {
         XCTAssertEqual(headers, ["X-Static": "static", "X-Dynamic": "dynamic-value"])
         XCTAssertEqual(bearerToken, "secret-token")
         XCTAssertEqual(remote.authStatus, .bearerToken)
+        XCTAssertFalse(remote.required)
         guard case let .remote(_, requestHeaders, _, authorization) = remote.launchRequest().transport else {
             return XCTFail("expected remote launch request")
         }
@@ -156,7 +159,12 @@ final class AppServerMCPConfigurationTests: XCTestCase {
             [mcp_servers.invalid]
             command = "server"
             startup_timeout_sec = 0
-            """, "startup_timeout_sec must be between 1 and 300")
+            """, "startup_timeout_sec must be between 1 and 300"),
+            ("""
+            [mcp_servers.invalid]
+            command = "server"
+            required = "yes"
+            """, "required must be a boolean")
         ]
 
         for (index, invalid) in invalidDocuments.enumerated() {

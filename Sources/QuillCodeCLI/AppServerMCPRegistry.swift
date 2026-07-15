@@ -1,9 +1,18 @@
 import Foundation
+import QuillCodeCore
 import QuillCodeTools
 
 struct AppServerMCPServerStatus: Sendable, Hashable {
     var configuration: AppServerMCPServerConfiguration
     var probe: MCPServerProbeResult?
+}
+
+struct AppServerMCPRequiredServersError: LocalizedError, Sendable {
+    var failures: [String]
+
+    var errorDescription: String? {
+        "required MCP servers failed to initialize: \(failures.joined(separator: "; "))"
+    }
 }
 
 actor AppServerMCPRegistry {
@@ -41,6 +50,95 @@ actor AppServerMCPRegistry {
                 remove(scope: scope, server: name)
                 return AppServerMCPServerStatus(configuration: configuration, probe: nil)
             }
+        }
+    }
+
+    func validateRequiredServers(
+        scope: String,
+        configurations: [String: AppServerMCPServerConfiguration]
+    ) throws {
+        removeStaleEntries(scope: scope, configurations: configurations)
+        var failures: [String] = []
+        for configuration in configurations.values.filter(\.required).sorted(by: { $0.name < $1.name }) {
+            do {
+                _ = try probedEntry(scope: scope, configuration: configuration, detail: .toolsAndAuthOnly)
+            } catch {
+                remove(scope: scope, server: configuration.name)
+                failures.append("\(configuration.name): \(error.localizedDescription)")
+            }
+        }
+        guard failures.isEmpty else { throw AppServerMCPRequiredServersError(failures: failures) }
+    }
+
+    func agentToolCatalog(
+        scope: String,
+        configurations: [String: AppServerMCPServerConfiguration]
+    ) throws -> MCPAgentToolCatalog {
+        removeStaleEntries(scope: scope, configurations: configurations)
+        var servers: [MCPAgentServerTools] = []
+        var requiredFailures: [String] = []
+
+        for configuration in configurations.values.sorted(by: { $0.name < $1.name }) {
+            do {
+                let entry = try probedEntry(
+                    scope: scope,
+                    configuration: configuration,
+                    detail: .toolsAndAuthOnly
+                )
+                let tools = Self.agentTools(from: entry.probe).filter { value in
+                    guard let name = value.objectValue?["name"]?.stringValue else { return false }
+                    return configuration.permitsTool(named: name)
+                }
+                servers.append(MCPAgentServerTools(serverName: configuration.name, tools: tools))
+            } catch {
+                remove(scope: scope, server: configuration.name)
+                if configuration.required {
+                    requiredFailures.append("\(configuration.name): \(error.localizedDescription)")
+                }
+            }
+        }
+
+        guard requiredFailures.isEmpty else {
+            throw AppServerMCPRequiredServersError(failures: requiredFailures)
+        }
+        return MCPAgentToolCatalog(servers: servers)
+    }
+
+    func executeAgentTool(
+        scope: String,
+        configuration: AppServerMCPServerConfiguration,
+        route: MCPAgentToolRoute,
+        argumentsJSON: String
+    ) -> ToolResult {
+        do {
+            guard route.serverName == configuration.name,
+                  configuration.permitsTool(named: route.toolName)
+            else {
+                throw MCPProbeError.responseError(
+                    "MCP tool '\(route.serverName)/\(route.toolName)' is not enabled."
+                )
+            }
+            let trimmed = argumentsJSON.trimmingCharacters(in: .whitespacesAndNewlines)
+            let arguments = try MCPJSONValue(jsonData: Data((trimmed.isEmpty ? "{}" : trimmed).utf8))
+            guard arguments.objectValue != nil else {
+                throw MCPProbeError.invalidMessage("MCP tool arguments must be a JSON object.")
+            }
+            let entry = try probedEntry(
+                scope: scope,
+                configuration: configuration,
+                detail: .toolsAndAuthOnly
+            )
+            return try entry.launched.session.callToolResult(
+                toolName: route.toolName,
+                arguments: arguments,
+                metadata: nil,
+                timeout: configuration.toolTimeout
+            ).agentToolResult()
+        } catch {
+            return ToolResult(
+                ok: false,
+                error: "MCP tool '\(route.serverName)/\(route.toolName)' failed: \(error.localizedDescription)"
+            )
         }
     }
 
@@ -143,5 +241,20 @@ actor AppServerMCPRegistry {
         guard let entry = entries.removeValue(forKey: key) else { return }
         entry.launched.process.clearReadabilityHandlers()
         if entry.launched.process.isRunning { entry.launched.process.terminate() }
+    }
+
+    private static func agentTools(from probe: MCPServerProbeResult?) -> [MCPJSONValue] {
+        guard let probe else { return [] }
+        if !probe.tools.isEmpty { return probe.tools }
+        return probe.toolDescriptors.map { descriptor in
+            .object([
+                "name": .string(descriptor.name),
+                "description": .string(descriptor.description),
+                "inputSchema": .object([
+                    "type": .string("object"),
+                    "properties": .object([:])
+                ])
+            ])
+        }
     }
 }

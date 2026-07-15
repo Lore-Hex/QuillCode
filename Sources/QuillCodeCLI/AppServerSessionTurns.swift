@@ -132,8 +132,11 @@ extension AppServerSession {
                     throw AppServerTurnExecutionError.persistence(failure)
                 }
                 let record = AppServerThreadRecord(thread: active.latestThread, settings: active.settings)
-                let runner = try runner(for: record)
-                let result = try await runner.send(
+                let configuredRunner = try await runner(for: record)
+                guard var configuredActive = activeTurns[threadID] else { return }
+                configuredActive.projector.registerMCPRoutes(configuredRunner.mcpRoutes)
+                activeTurns[threadID] = configuredActive
+                let result = try await configuredRunner.runner.send(
                     active.currentInput.text,
                     in: active.latestThread,
                     workspaceRoot: active.settings.cwd,

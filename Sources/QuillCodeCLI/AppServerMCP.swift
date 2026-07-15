@@ -1,6 +1,11 @@
 import Foundation
 import QuillCodeTools
 
+struct AppServerMCPContext: Sendable {
+    var scope: String
+    var configurations: [String: AppServerMCPServerConfiguration]
+}
+
 extension AppServerSession {
     func listMCPServerStatus(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let params = try AppServerParams(raw)
@@ -105,10 +110,7 @@ extension AppServerSession {
         )
     }
 
-    private func mcpContext(threadID: String?) async throws -> (
-        scope: String,
-        configurations: [String: AppServerMCPServerConfiguration]
-    ) {
+    func mcpContext(threadID: String?) async throws -> AppServerMCPContext {
         let projectRoot: URL?
         let scope: String
         if let threadID {
@@ -127,6 +129,25 @@ extension AppServerSession {
             projectRoot = nil
             scope = "global"
         }
+        return try loadMCPContext(scope: scope, projectRoot: projectRoot)
+    }
+
+    func mcpContext(for record: AppServerThreadRecord) throws -> AppServerMCPContext {
+        try loadMCPContext(
+            scope: "thread:\(record.thread.id.uuidString.lowercased())",
+            projectRoot: record.settings.cwd
+        )
+    }
+
+    func validateRequiredMCPServers(for record: AppServerThreadRecord) async throws {
+        let context = try mcpContext(for: record)
+        try await mcpRegistry.validateRequiredServers(
+            scope: context.scope,
+            configurations: context.configurations
+        )
+    }
+
+    private func loadMCPContext(scope: String, projectRoot: URL?) throws -> AppServerMCPContext {
         do {
             let configurations = try AppServerMCPConfigurationLoader.load(
                 globalConfig: paths.configFile,
@@ -134,7 +155,7 @@ extension AppServerSession {
                 fallbackCWD: projectRoot ?? currentDirectory,
                 environment: environment
             )
-            return (scope, configurations)
+            return AppServerMCPContext(scope: scope, configurations: configurations)
         } catch let error as AppServerRPCError {
             throw error
         } catch {

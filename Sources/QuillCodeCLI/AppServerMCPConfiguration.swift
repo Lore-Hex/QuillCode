@@ -22,6 +22,7 @@ struct AppServerMCPServerConfiguration: Sendable, Hashable {
     var enabledTools: Set<String>?
     var disabledTools: Set<String>
     var authStatus: AuthStatus
+    var required: Bool
 
     func launchRequest() -> MCPClientLaunchRequest {
         switch transport {
@@ -125,6 +126,7 @@ enum AppServerMCPConfigurationLoader {
         )
         let enabledTools = try stringSet(table["enabled_tools"], name: name, field: "enabled_tools")
         let disabledTools = try stringSet(table["disabled_tools"], name: name, field: "disabled_tools") ?? []
+        let required = try boolean(table["required"], name: name, field: "required", defaultValue: false)
 
         if let command, !command.isEmpty {
             let arguments = try strings(table["args"], name: name, field: "args") ?? []
@@ -149,7 +151,8 @@ enum AppServerMCPConfigurationLoader {
                 toolTimeout: toolTimeout,
                 enabledTools: enabledTools,
                 disabledTools: disabledTools,
-                authStatus: .unsupported
+                authStatus: .unsupported,
+                required: required
             )
         }
 
@@ -184,7 +187,8 @@ enum AppServerMCPConfigurationLoader {
             toolTimeout: toolTimeout,
             enabledTools: enabledTools,
             disabledTools: disabledTools,
-            authStatus: authStatus
+            authStatus: authStatus,
+            required: required
         )
     }
 
@@ -213,6 +217,17 @@ enum AppServerMCPConfigurationLoader {
             throw error(name, "\(field) must be between \(Int(range.lowerBound)) and \(Int(range.upperBound))")
         }
         return number
+    }
+
+    private static func boolean(
+        _ value: ConfigValue?,
+        name: String,
+        field: String,
+        defaultValue: Bool
+    ) throws -> Bool {
+        guard let value else { return defaultValue }
+        guard let boolean = value.boolValue else { throw error(name, "\(field) must be a boolean") }
+        return boolean
     }
 
     private static func strings(_ value: ConfigValue?, name: String, field: String) throws -> [String]? {
