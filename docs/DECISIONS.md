@@ -1036,3 +1036,24 @@
 - **Native proof:** Packaged macOS smoke first normalizes Review to hidden, AX-presses the real semantic command, requires the identified title and scope control, AX-presses Close, waits for disappearance, and restores the hidden baseline. State-only evidence is rejected.
 - **Test isolation:** The packaged window smoke receives an explicit state root, uses a mock runtime, and records its app-state and workspace paths in the evidence report. It never treats an overridden process `HOME` as proof of isolation because macOS can still resolve `homeDirectoryForCurrentUser` to the signed-in user's real home.
 - **Why:** A Review command that technically toggles an off-screen pane is not usable. Discovery, in-viewport presentation, explicit dismissal, and deterministic restoration are one interaction contract.
+
+## 2026-07-14: Non-interactive execution is a module, not executable glue
+
+- **Boundary:** `quill-code` is a thin process entry point over the independently testable
+  `QuillCodeCLI` module. Argument parsing, stdin, output, persistence, event reporting, runtime
+  construction, Git guarding, and schema validation have typed interfaces; tests inject the LLM and
+  input/output boundaries without forking a process.
+- **Output contract:** Plain runs reserve stdout for the final assistant message and stderr for human
+  progress. JSON mode reserves stdout for one JSON object per line and emits a terminal
+  `turn.completed` or `turn.failed`, never both. Resume establishes historical transcript state as a
+  reporting baseline so old messages are not replayed as new automation events.
+- **Safety:** Exec defaults to read-only and requires a Git workspace. Workspace-write must be
+  explicit. The Git bypass is explicit and named. `danger-full-access` is parsed for compatibility but
+  rejected until QuillCode can enforce it, because silently mapping it to Auto would make the CLI lie
+  about its process boundary.
+- **Bounds and durability:** Stdin and schema files are byte-capped, schema recursion is bounded,
+  relative paths resolve against the supplied invocation directory, final-message writes are atomic,
+  ephemeral runs never save tasks, and persistence failures turn the run into a visible failure.
+- **Verification:** 29 focused CLI tests cover parser, repository, schema, runtime, event, secret, and
+  failure contracts. `scripts/cli-exec-smoke.sh` verifies the built process and is part of the aggregate
+  smoke gate.

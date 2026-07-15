@@ -283,6 +283,10 @@ FINAL_DETAIL="Swift test suite failed"
 swift test
 SWIFT_TESTS_STATUS="passed"
 
+echo "==> Running non-interactive CLI process smoke"
+FINAL_DETAIL="non-interactive CLI process smoke failed"
+"$ROOT_DIR/scripts/cli-exec-smoke.sh"
+
 echo "==> Running mock CLI shell command"
 CLI_SHELL_STATUS="running"
 FINAL_DETAIL="mock CLI shell command failed"

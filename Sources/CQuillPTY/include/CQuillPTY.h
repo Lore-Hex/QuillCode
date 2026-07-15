@@ -23,4 +23,9 @@ int cquill_pty_open(int *outMasterFD, int *outSlaveFD, char *slavePath, size_t s
 /// success, -1 on failure.
 int cquill_pty_set_winsize(int masterFD, unsigned short rows, unsigned short columns);
 
+/// Returns 1 when the descriptor is attached to a terminal, 0 when it is not, and -1 when the
+/// descriptor cannot be inspected. Keeping this POSIX branch in the adapter target lets Swift
+/// command code stay platform-neutral on macOS and Linux.
+int cquill_fd_isatty(int fileDescriptor);
+
 #endif /* CQUILL_PTY_H */

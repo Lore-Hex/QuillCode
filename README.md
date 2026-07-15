@@ -15,7 +15,8 @@ This initial repository contains the compile-stable foundation:
 - JSON thread/project persistence and a single secret-store protocol
 - Computer Use screenshot/input backends with private visual model feedback
 - deterministic mock LLM agent runner
-- `quill-code` CLI harness
+- testable `quill-code exec` automation CLI with JSONL events, stdin context, resume, ephemeral
+  runs, final-message files, structured output, and fail-closed Git/workspace guards
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
@@ -33,6 +34,8 @@ swift test
 ./scripts/smoke.sh
 swift run quill-code "run whoami"
 swift run quill-code "make a file that says hello world"
+swift run quill-code exec --mock --json --ephemeral "inspect this repository"
+git diff | swift run quill-code exec --mock "summarize these changes"
 swift run quill-code auth status
 swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
@@ -42,7 +45,14 @@ cd E2E/playwright && npm install && npx playwright install chromium && npm test
 
 Agent PRs should merge through the repo merge train instead of racing direct pushes to `main`. Open a PR, wait for CI, then add the `merge-train` label. See [Merge Train](docs/MERGE_TRAIN.md).
 
-The CLI and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the QuillCode secret store. With a key, the desktop shell also refreshes the TrustedRouter model catalog and groups provider/category/model choices in the top bar. The desktop Settings sheet can save, replace, or clear the local developer key and API base URL. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
+The legacy CLI invocation and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. `quill-code exec` is the automation surface and defaults to live TrustedRouter; pass `--mock` for deterministic local runs. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the QuillCode secret store. With a key, the desktop shell also refreshes the TrustedRouter model catalog and groups provider/category/model choices in the top bar. The desktop Settings sheet can save, replace, or clear the local developer key and API base URL. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
+
+`quill-code exec` writes only the final answer to stdout and progress to stderr. `--json` switches
+stdout to JSON Lines lifecycle events; `--ephemeral` disables transcript persistence; `exec resume
+--last` or `exec resume THREAD_ID` continues a saved task; `-o` writes the final message atomically;
+and `--output-schema` validates bounded JSON output. Exec starts read-only and requires a Git
+workspace unless `--skip-git-repo-check` is explicitly supplied. `danger-full-access` is rejected
+until QuillCode can enforce that contract honestly. Run `quill-code help` for the complete option set.
 
 Nike 1.0 (`trustedrouter/fast`) is the default model. The only named presets are QuillCode’s branded TrustedRouter profiles: Nike 1.0 for fast everyday work, Zeus 1.0 for deep research, Prometheus 1.0 (`trustedrouter/fusion`) for freedom-oriented OSS deep research, Socrates 1.0 for coding-agent work, Aristotle 1.0 for smart general reasoning, and Plato 1.0 for freedom-oriented OSS coding. The picker searches the live TrustedRouter catalog when signed in, so raw provider/model IDs remain selectable without turning raw model types like synth into named defaults.
 

@@ -61,3 +61,10 @@ int cquill_pty_set_winsize(int masterFD, unsigned short rows, unsigned short col
     }
     return 0;
 }
+
+int cquill_fd_isatty(int fileDescriptor) {
+    if (fileDescriptor < 0) {
+        return -1;
+    }
+    return isatty(fileDescriptor) == 1 ? 1 : 0;
+}
