@@ -51,7 +51,10 @@ actor AppServerSession {
 
     var handshake = HandshakeState.awaitingInitialize
     var optedOutNotifications: Set<String> = []
+    var experimentalAPIEnabled = false
     var activeTurns: [UUID: ActiveTurn] = [:]
+    var processSessions: [String: AppServerProcessSession] = [:]
+    var processEventTasks: [String: Task<Void, Never>] = [:]
     var nextServerRequestSequence: Int64 = 1
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
     var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
@@ -133,6 +136,7 @@ actor AppServerSession {
         cancelAllFileWatches()
         cancelAllAccountLogins()
         cancelAllMCPServerOAuthLogins()
+        await terminateAllProcesses()
         await mcpRegistry.terminateAll()
         resolveAllPendingApprovals(
             with: .deny(reason: "The app-server client disconnected before answering the approval request.")
@@ -158,6 +162,7 @@ actor AppServerSession {
             var turnToLaunch: UUID?
             var accountAfterResponse: AppServerAccountAfterResponse?
             var mcpOAuthLoginToLaunch: UUID?
+            var processToLaunch: String?
             switch method {
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
@@ -204,6 +209,12 @@ actor AppServerSession {
             case "fs/copy": result = try copyFileSystemItem(params)
             case "fs/watch": result = try startFileWatch(params)
             case "fs/unwatch": result = try await stopFileWatch(params)
+            case "process/spawn":
+                processToLaunch = try spawnProcess(params)
+                result = .object([:])
+            case "process/writeStdin": result = try writeProcessStdin(params)
+            case "process/resizePty": result = try resizeProcessPTY(params)
+            case "process/kill": result = try killProcess(params)
             case "thread/start": result = try await startThread(params)
             case "thread/resume": result = try await resumeThread(params)
             case "thread/fork": result = try await forkThread(params)
@@ -231,6 +242,7 @@ actor AppServerSession {
             if let mcpOAuthLoginToLaunch {
                 launchMCPServerOAuthLogin(mcpOAuthLoginToLaunch)
             }
+            if let processToLaunch { launchProcessEventStream(processToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
         } catch let error as AppServerRPCError {
             await send(.error(id: id, error: error))
@@ -260,7 +272,8 @@ actor AppServerSession {
             let name = try clientParams.requiredString("name")
             let version = try clientParams.requiredString("version")
             if let capabilities = try params.optionalObject("capabilities") {
-                let values = try AppServerParams(.object(capabilities)).optionalArray("optOutNotificationMethods") ?? []
+                let capabilityParams = try AppServerParams(.object(capabilities))
+                let values = try capabilityParams.optionalArray("optOutNotificationMethods") ?? []
                 optedOutNotifications = Set(try values.map { value in
                     guard let method = value.stringValue else {
                         throw AppServerRPCError.invalidParams(
@@ -269,6 +282,14 @@ actor AppServerSession {
                     }
                     return method
                 })
+                if let experimental = capabilityParams.object["experimentalApi"] {
+                    guard let enabled = experimental.boolValue else {
+                        throw AppServerRPCError.invalidParams(
+                            "capabilities.experimentalApi must be a boolean"
+                        )
+                    }
+                    experimentalAPIEnabled = enabled
+                }
             }
             handshake = .awaitingInitialized
             await send(.response(id: id, result: .object([

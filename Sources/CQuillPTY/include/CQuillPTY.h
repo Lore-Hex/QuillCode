@@ -33,10 +33,21 @@ int cquill_fd_isatty(int fileDescriptor);
 /// macOS/Linux adapter instead of conditional platform imports in Swift command code.
 ptrdiff_t cquill_fd_read(int fileDescriptor, void *buffer, size_t length);
 
+/// Writes up to `length` bytes to a descriptor, retrying interrupted system calls. Returns the
+/// byte count or -1 on failure. Callers repeat partial writes until their complete byte buffer has
+/// been accepted.
+ptrdiff_t cquill_fd_write(int fileDescriptor, const void *buffer, size_t length);
+
 /// Waits until a descriptor can be read without blocking. Returns 1 when readable (including EOF),
 /// 0 after `timeoutMilliseconds`, or -1 on failure. The bounded wait lets Swift cancellation stop an
 /// incremental reader even while the peer keeps an otherwise idle pipe open.
 int cquill_fd_wait_readable(int fileDescriptor, int timeoutMilliseconds);
+
+/// Sends SIGKILL to a direct child process. Returns 0 on success (including an already-exited
+/// process) and -1 for an invalid identifier or another signaling failure. This is used only after
+/// a bounded graceful-termination window so an uncooperative standalone process cannot outlive its
+/// app-server connection.
+int cquill_process_force_kill(int processIdentifier);
 
 /// Returns the platform's interrupt signal number (`SIGINT`). Keeping the POSIX constant in the C
 /// adapter lets Swift command code install one signal source without importing Darwin or Glibc.
