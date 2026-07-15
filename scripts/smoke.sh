@@ -10,6 +10,7 @@ REQUIRE_PLAYWRIGHT="${QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE:-0}"
 STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 FINAL_DETAIL="interrupted"
 SWIFT_TESTS_STATUS="not-run"
+APP_SERVER_STATUS="not-run"
 CLI_SHELL_STATUS="not-run"
 CLI_DIAGNOSTICS_STATUS="not-run"
 CLI_GIT_READ_STATUS="not-run"
@@ -47,6 +48,7 @@ write_manifest() {
     "$ARTIFACT_DIR" \
     "$SMOKE_WORKSPACE" \
     "$SWIFT_TESTS_STATUS" \
+    "$APP_SERVER_STATUS" \
     "$CLI_SHELL_STATUS" \
     "$CLI_DIAGNOSTICS_STATUS" \
     "$CLI_GIT_READ_STATUS" \
@@ -76,6 +78,7 @@ from datetime import datetime, timezone
     artifact_root,
     smoke_workspace,
     swift_tests_status,
+    app_server_status,
     cli_shell_status,
     cli_diagnostics_status,
     cli_git_read_status,
@@ -165,6 +168,7 @@ manifest = {
     "artifactRoot": artifact_root,
     "steps": {
         "swiftTests": {"status": swift_tests_status},
+        "appServer": {"status": app_server_status},
         "cliShell": {"status": cli_shell_status},
         "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
         "cliGitRead": {"status": cli_git_read_status},
@@ -286,6 +290,12 @@ SWIFT_TESTS_STATUS="passed"
 echo "==> Running non-interactive CLI process smoke"
 FINAL_DETAIL="non-interactive CLI process smoke failed"
 "$ROOT_DIR/scripts/cli-exec-smoke.sh"
+
+echo "==> Running app-server protocol smoke"
+APP_SERVER_STATUS="running"
+FINAL_DETAIL="app-server protocol smoke failed"
+"$ROOT_DIR/scripts/app-server-smoke.sh"
+APP_SERVER_STATUS="passed"
 
 echo "==> Running mock CLI shell command"
 CLI_SHELL_STATUS="running"

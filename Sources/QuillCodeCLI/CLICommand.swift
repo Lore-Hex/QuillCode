@@ -6,7 +6,7 @@ public enum CLIInvocationStyle: Sendable, Equatable {
     case exec
 }
 
-public enum CLISandboxMode: String, Sendable, Equatable, CaseIterable {
+public enum CLISandboxMode: String, Codable, Sendable, Equatable, CaseIterable {
     case readOnly = "read-only"
     case workspaceWrite = "workspace-write"
     case dangerFullAccess = "danger-full-access"
@@ -99,8 +99,38 @@ public enum CLIAuthCommand: Sendable, Equatable {
     case clear
 }
 
+public enum CLIAppServerTransport: String, Sendable, Equatable {
+    case stdio = "stdio://"
+}
+
+public struct CLIAppServerRequest: Sendable, Equatable {
+    public var transport: CLIAppServerTransport
+    public var live: Bool
+    public var apiKey: String?
+    public var model: String?
+    public var baseURL: String?
+    public var home: URL?
+
+    public init(
+        transport: CLIAppServerTransport = .stdio,
+        live: Bool = true,
+        apiKey: String? = nil,
+        model: String? = nil,
+        baseURL: String? = nil,
+        home: URL? = nil
+    ) {
+        self.transport = transport
+        self.live = live
+        self.apiKey = apiKey
+        self.model = model
+        self.baseURL = baseURL
+        self.home = home
+    }
+}
+
 public enum CLICommand: Sendable, Equatable {
     case run(CLIRunRequest)
+    case appServer(CLIAppServerRequest)
     case auth(CLIAuthCommand, home: URL?)
     case help
     case version
@@ -122,6 +152,8 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
     case outputSchemaTooLarge(limit: Int)
     case invalidOutputSchema(String)
     case structuredOutputMismatch(String)
+    case unsupportedAppServerTransport(String)
+    case appServerMessageTooLarge(limit: Int)
 
     public var errorDescription: String? {
         switch self {
@@ -155,6 +187,10 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
             "Invalid output schema: \(reason)"
         case .structuredOutputMismatch(let reason):
             "The final response does not match --output-schema: \(reason)"
+        case .unsupportedAppServerTransport(let value):
+            "App-server transport \(value) is not available yet. Use stdio://."
+        case .appServerMessageTooLarge(let limit):
+            "App-server message exceeds the \(limit)-byte limit."
         }
     }
 }

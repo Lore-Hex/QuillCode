@@ -1064,6 +1064,38 @@
   interruption, and failure contracts. `scripts/cli-exec-smoke.sh` verifies the built process, including
   real SIGINT delivery during a running shell command, and is part of the aggregate smoke gate.
 
+## 2026-07-14: App-server parity starts with one typed, durable stdio core
+
+- **Wire contract:** `quill-code app-server` uses Codex's newline-delimited JSON shape without a
+  `jsonrpc` marker, preserves string and integer request IDs, requires `initialize` followed by the
+  `initialized` notification, distinguishes malformed JSON from a valid invalid envelope, honors
+  notification opt-outs, and caps each inbound message at 1 MiB.
+- **Lifecycle contract:** The first slice owns thread start/resume/fork/list/read/archive/unarchive/
+  delete/name/goals and turn start/steer/interrupt. Turn responses precede streaming notifications;
+  user, reasoning, assistant, shell, and dynamic-tool items project through typed Codex-shaped events;
+  progress and completion persist through the existing thread store. Forks keep their own thread ID
+  while sharing the root session ID, ordinary forks do not masquerade as subagent parents, and turns
+  are populated only on the response families where the generated Codex schema promises them.
+- **Safety contract:** New app-server threads inherit the configured QuillCode mode. Auto remains Auto;
+  Review sends official `item/commandExecution/requestApproval` or
+  `item/fileChange/requestApproval` server requests and awaits the client's response. Existing trusted
+  permission hooks run first, danger-full-access is rejected, malformed approval responses deny, and
+  interruption or client EOF resolves every waiter without executing an unapproved action. String and
+  granular approval policies plus all documented reviewer identities round-trip without silently
+  weakening or rewriting the client's policy.
+- **Attachment contract:** Only bounded `localImage` inputs are accepted in this slice. Images are
+  validated by content and copied into QuillCode-managed private storage before entering a transcript;
+  remote image URLs, skill references, and mentions fail explicitly rather than being ignored.
+- **Platform boundary:** Incremental stdin uses the shared C adapter's EINTR-safe descriptor read plus
+  a bounded readability wait. This avoids Foundation pipe buffering, lets stream cancellation end an
+  idle reader whose peer keeps stdin open, and keeps macOS/Linux command code free of platform
+  conditionals.
+- **Verification:** Focused XCTest covers handshake, wire errors, persistence, steering, interruption,
+  command projection, approval acceptance, EOF denial, granular-policy fidelity, strict list filters,
+  local-image isolation, session-aware thread lifecycle, and goals. `scripts/app-server-smoke.sh` keeps
+  stdin open while driving the built executable, proving the real process responds incrementally
+  before EOF.
+
 ## 2026-07-14: Model code review is a dedicated read-only workflow
 
 - **Command boundary:** `/review` and the **Code review** command open a scope chooser for uncommitted work, a base-branch comparison, one commit, or custom review criteria. `/diff` remains the ordinary Git diff/review-pane route; the two commands no longer pretend to be aliases.

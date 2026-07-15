@@ -57,6 +57,14 @@ public struct QuillCodeCommandRunner: Sendable {
             case .auth(let auth, let home):
                 try await runAuth(auth, home: home, output: output)
                 return 0
+            case .appServer(let request):
+                return await runAppServer(
+                    request,
+                    environment: environment,
+                    currentDirectory: currentDirectory,
+                    input: input,
+                    output: output
+                )
             case .run(let request):
                 return await runAgent(
                     request,
@@ -93,6 +101,36 @@ public struct QuillCodeCommandRunner: Sendable {
         case .clear:
             try store.delete(QuillSecretKeys.trustedRouterAPIKey)
             await output.writeStandardOutputLine("TrustedRouter key cleared.")
+        }
+    }
+
+    private func runAppServer(
+        _ request: CLIAppServerRequest,
+        environment: [String: String],
+        currentDirectory: URL,
+        input: any CLIInputReading,
+        output: any CLIOutputWriting
+    ) async -> Int32 {
+        do {
+            let session = try AppServerSession(
+                request: request,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runnerFactory: runnerFactory,
+                sink: { line in await output.writeStandardOutput(line) }
+            )
+            for try await line in input.lines(maxLineBytes: AppServerSession.maximumMessageBytes) {
+                await session.receive(line)
+            }
+            await session.finishInput()
+            await session.waitForActiveTurns()
+            return 0
+        } catch is CancellationError {
+            await output.writeStandardErrorLine("quill-code app-server: interrupted")
+            return 1
+        } catch {
+            await output.writeStandardErrorLine("quill-code app-server: \(error.localizedDescription)")
+            return 1
         }
     }
 
@@ -257,6 +295,7 @@ public struct QuillCodeCommandRunner: Sendable {
     Usage:
       quill-code exec [OPTIONS] PROMPT
       quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
+      quill-code app-server [--listen stdio://] [--mock | --live]
       quill-code [LEGACY OPTIONS] PROMPT
       quill-code [--home PATH] auth (status | set-key KEY | clear)
 
@@ -279,6 +318,11 @@ public struct QuillCodeCommandRunner: Sendable {
     Stdin:
       Use `-` as the prompt to read the full prompt from stdin. When a prompt argument is present,
       piped stdin is appended as explicitly delimited, untrusted context.
+
+    App server:
+      Uses newline-delimited JSON over stdio. Clients must send `initialize`, then the
+      `initialized` notification, before thread and turn requests. `--mock` selects the
+      deterministic local model for protocol tests; TrustedRouter is the default.
     """
 }
 

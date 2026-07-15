@@ -16,6 +16,12 @@ public struct CLIArgumentParser: Sendable {
         if first == "auth" {
             return try parseAuth(Array(arguments.dropFirst()), home: home)
         }
+        if first == "app-server" {
+            return .appServer(try parseAppServer(
+                Array(arguments.dropFirst()),
+                home: home
+            ))
+        }
         if first == "exec" {
             return .run(try parseRun(
                 Array(arguments.dropFirst()),
@@ -30,6 +36,39 @@ public struct CLIArgumentParser: Sendable {
             currentDirectory: currentDirectory,
             home: home
         ))
+    }
+
+    private func parseAppServer(
+        _ arguments: [String],
+        home: URL?
+    ) throws -> CLIAppServerRequest {
+        var request = CLIAppServerRequest(home: home)
+        var index = 0
+        while index < arguments.count {
+            let option = splitOption(arguments[index])
+            switch option.name {
+            case "--listen":
+                let value = try value(for: option, tokens: arguments, index: &index)
+                guard let transport = CLIAppServerTransport(rawValue: value) else {
+                    throw CLIError.unsupportedAppServerTransport(value)
+                }
+                request.transport = transport
+            case "--live":
+                request.live = true
+            case "--mock":
+                request.live = false
+            case "--api-key":
+                request.apiKey = try value(for: option, tokens: arguments, index: &index)
+            case "--model", "-m":
+                request.model = try value(for: option, tokens: arguments, index: &index)
+            case "--base-url":
+                request.baseURL = try value(for: option, tokens: arguments, index: &index)
+            default:
+                throw CLIError.unknownOption(option.name)
+            }
+            index += 1
+        }
+        return request
     }
 
     private func parseAuth(_ arguments: [String], home: URL?) throws -> CLICommand {
