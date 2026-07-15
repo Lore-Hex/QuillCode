@@ -3,6 +3,23 @@ import QuillCodeCore
 @testable import QuillCodePersistence
 
 final class ProjectHookTrustStoreTests: XCTestCase {
+    func testManagedHookIsAlwaysTrustedAndCannotBePersistentlyChanged() throws {
+        let setup = try makeSetup()
+        var hook = makeHook()
+        hook.id = "managed"
+        hook.trustScope = .managed
+
+        XCTAssertEqual(setup.store.load(forWorkspaceRoot: setup.root).status(for: hook), .trusted)
+        XCTAssertThrowsError(
+            try setup.store.setDecision(.disabled, for: hook, workspaceRoot: setup.root)
+        ) { error in
+            XCTAssertEqual(error as? ProjectHookTrustStoreError, .managedHook)
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: setup.store.fileURL(forWorkspaceRoot: setup.root).path)
+        )
+    }
+
     func testMissingFileRequiresReviewWithoutDegrading() throws {
         let setup = try makeSetup()
 

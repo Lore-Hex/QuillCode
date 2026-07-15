@@ -113,8 +113,10 @@ enum WorkspaceProjectCommandCatalog {
                 hook.matcher ?? "",
                 hook.command ?? ""
             ].filter { !$0.isEmpty }
-            switch (hook.supportStatus.isSupported, hook.trustStatus) {
-            case (true, .reviewRequired):
+            switch (hook.isManaged, hook.supportStatus.isSupported, hook.trustStatus) {
+            case (true, _, _):
+                return []
+            case (false, true, .reviewRequired):
                 return [WorkspaceCommandSurface(
                     id: "hook-trust:\(hook.id)",
                     title: "Trust \(hook.statusMessage ?? hook.event)",
@@ -122,7 +124,7 @@ enum WorkspaceProjectCommandCatalog {
                     keywords: baseKeywords + ["review", "trust"],
                     isEnabled: hasActiveWorkspaceRoot
                 )]
-            case (true, .trusted):
+            case (false, true, .trusted):
                 return [WorkspaceCommandSurface(
                     id: "hook-disable:\(hook.id)",
                     title: "Disable \(hook.statusMessage ?? hook.event)",
@@ -130,7 +132,7 @@ enum WorkspaceProjectCommandCatalog {
                     keywords: baseKeywords + ["disable"],
                     isEnabled: hasActiveWorkspaceRoot
                 )]
-            case (true, .disabled):
+            case (false, true, .disabled):
                 return [WorkspaceCommandSurface(
                     id: "hook-trust:\(hook.id)",
                     title: "Enable \(hook.statusMessage ?? hook.event)",
@@ -138,7 +140,7 @@ enum WorkspaceProjectCommandCatalog {
                     keywords: baseKeywords + ["enable", "trust"],
                     isEnabled: hasActiveWorkspaceRoot
                 )]
-            case (false, _):
+            case (false, false, _):
                 return []
             }
         }

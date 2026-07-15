@@ -65,7 +65,7 @@ struct QuillCodeCLI {
             args.remove(at: index)
         }
 
-        let paths = QuillCodePaths(home: homeOverride ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".quillcode"))
+        let paths = homeOverride.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
         try paths.ensure()
 
         if args.first == "auth" {

@@ -1002,7 +1002,15 @@
 - **Discovery:** QuillCode merges bounded hook definitions from project `.quillcode/hooks.json`, `.quillcode/config.toml`, `.codex/hooks.json`, and `.codex/config.toml` with installed plugin hooks. A single canonical decoder and definition builder owns JSON/TOML aliases, normalization, support classification, stable IDs, timeout bounds, and exact-definition hashes so source formats cannot drift.
 - **Safety:** Discovery is data-only. Documents must be regular, non-symlink files inside the canonical workspace, each document is capped at 64 KiB, and the aggregate config-hook inventory is capped at 96 definitions. Malformed or unsafe sources fail closed without executing anything. Every supported non-managed command remains skipped until its exact normalized definition is trusted; changing an executable field invalidates that decision.
 - **Compatibility:** Synchronous command handlers use the same typed prompt, stop, tool, permission, compaction, session, and subagent boundaries as plugin hooks. Async handlers and prompt/agent handlers remain visible but inert, matching current Codex behavior. Plugin-only root/data compatibility variables are added only when a package root exists.
-- **Presentation and scope:** The shared surface says **Hooks** and identifies the actual source instead of calling config hooks plugins. This slice covers project layers; user/system layers and managed-policy trust are still required for full Codex hook parity.
+- **Presentation and scope:** The shared surface says **Hooks** and identifies the actual source instead of calling config hooks plugins.
+
+## 2026-07-14: Global and managed hook layers have explicit trust and execution scope
+
+- **Discovery order:** QuillCode loads system, user, and managed-requirements documents through the same bounded JSON/TOML decoder as project hooks. Lower-precedence definitions remain additive. Managed documents are loaded first for capacity reservation but presented after ordinary layers in effective configuration order, so a large user file cannot starve mandatory policy.
+- **Trust:** System and managed-requirements hooks are policy-trusted and immutable. User hooks use the same exact-definition review as project hooks, but decisions are stored against the QuillCode app home rather than duplicated per workspace. Legacy persisted definitions decode as workspace-scoped.
+- **Policy:** Managed `allow_managed_hooks_only` removes user, project, plugin, and session hooks. Managed `[features].hooks = false` disables every source. Higher-precedence user feature settings may override system defaults but cannot override managed requirements.
+- **Execution:** Workspace hooks follow the selected local or SSH Remote project. User and managed hooks were discovered on the current computer and always execute locally, even when the active workspace is remote. The trust scope is carried into before/after run hooks so routing cannot be inferred from mutable display names or paths.
+- **Remaining boundary:** Local system and requirements files are implemented. Cloud and MDM delivery can inject additional managed requirement paths through the same typed path set, but those delivery adapters are not yet implemented.
 
 ## 2026-07-14: Memories is reachable and reversible through native controls
 

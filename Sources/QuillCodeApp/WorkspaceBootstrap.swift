@@ -48,6 +48,10 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             .flatMap { id in threads.first { $0.id == id }?.projectID }
             ?? projects.first?.id
         let runtime = runtimeFactory.makeRuntime(config: config)
+        let hookTrustStore = ProjectHookTrustFileStore(directory: paths.hookTrustDirectory)
+        let globalHookConfiguration = GlobalHookConfigurationLoader
+            .load(from: paths.hookConfigurationPaths)
+            .resolvingTrust(hookTrustStore.load(forWorkspaceRoot: paths.home))
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(
                 config: config,
@@ -80,7 +84,10 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 destinationPaths: paths
             ),
             permissionRuleStore: PermissionRuleFileStore(directory: paths.permissionsDirectory),
-            projectHookTrustStore: ProjectHookTrustFileStore(directory: paths.hookTrustDirectory),
+            projectHookTrustStore: hookTrustStore,
+            hookConfigurationPaths: paths.hookConfigurationPaths,
+            globalHookTrustScope: paths.home,
+            globalHookConfiguration: globalHookConfiguration,
             subagentSessionStoreDirectory: paths.subagentSessionsDirectory,
             globalMemoryDirectory: paths.memoriesDirectory,
             pluginDataBaseDirectory: paths.pluginDataDirectory,

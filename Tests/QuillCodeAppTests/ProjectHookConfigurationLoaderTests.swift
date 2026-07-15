@@ -59,6 +59,7 @@ final class ProjectHookConfigurationLoaderTests: XCTestCase {
         XCTAssertTrue(hooks.allSatisfy {
             $0.definitionHash.count == 64
                 && $0.definitionHash.allSatisfy(\.isHexDigit)
+                && $0.effectiveTrustScope == .workspace
                 && $0.trustStatus == .reviewRequired
         })
 

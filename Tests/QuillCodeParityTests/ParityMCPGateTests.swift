@@ -111,8 +111,12 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         let decoderText = try Self.appSourceText(named: "CodexHookConfiguration.swift")
         let pluginLoaderText = try Self.appSourceText(named: "CodexPluginPackageLoader.swift")
         let configLoaderText = try Self.appSourceText(named: "ProjectHookConfigurationLoader.swift")
+        let globalLoaderText = try Self.appSourceText(named: "GlobalHookConfigurationLoader.swift")
+        let modelHooksText = try Self.appSourceText(named: "WorkspaceModelHooks.swift")
+        let executionRoutingText = try Self.appSourceText(named: "ProjectHookExecutionRouting.swift")
         let metadataLoaderText = try Self.appSourceText(named: "WorkspaceProjectMetadataLoader.swift")
         let testsText = try Self.appTestSourceText(named: "ProjectHookConfigurationLoaderTests.swift")
+        let globalTestsText = try Self.appTestSourceText(named: "GlobalHookConfigurationLoaderTests.swift")
         let packageText = try String(
             contentsOf: Self.packageRoot().appendingPathComponent("Package.swift"),
             encoding: .utf8
@@ -130,11 +134,17 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(configLoaderText.contains(".codex/hooks.json"))
         XCTAssertTrue(configLoaderText.contains(".codex/config.toml"))
         XCTAssertTrue(configLoaderText.contains("WorkspaceBoundary.isWithin"))
+        XCTAssertTrue(globalLoaderText.contains("allowManagedHooksOnly"))
+        XCTAssertTrue(globalLoaderText.contains("managedRequirementFiles"))
+        XCTAssertTrue(modelHooksText.contains("globalHookTrustScope"))
+        XCTAssertTrue(executionRoutingText.contains("scope == .workspace ? selectedProject : nil"))
         XCTAssertTrue(metadataLoaderText.contains("ProjectHookConfigurationLoader.load"))
         XCTAssertTrue(metadataLoaderText.contains("ProjectPluginHookResolver.resolve"))
         XCTAssertTrue(testsText.contains("testExactDefinitionTrustControlsDiscoveryAndExecution"))
         XCTAssertTrue(testsText.contains("testMalformedOversizedAndSymlinkedDocumentsFailClosed"))
         XCTAssertTrue(testsText.contains("asynchronousHandler"))
+        XCTAssertTrue(globalTestsText.contains("testManagedOnlyPolicySkipsUserAndProjectEligibleSources"))
+        XCTAssertTrue(globalTestsText.contains("testUserRunHookStaysLocalWhenSelectedProjectIsRemote"))
         XCTAssertTrue(packageText.contains("TOMLDecoder"))
         XCTAssertFalse(configLoaderText.contains("Process()"), "Config discovery must never execute hooks.")
     }

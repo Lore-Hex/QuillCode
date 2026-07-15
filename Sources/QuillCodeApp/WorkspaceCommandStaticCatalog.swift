@@ -299,6 +299,7 @@ enum WorkspaceCommandStaticCatalog {
 
     static func extensionToggleCommands(
         hasActiveWorkspaceRoot: Bool,
+        hasHookSources: Bool = false,
         workflowRecordingAvailable: Bool = false,
         workflowRecordingIsActive: Bool = false
     ) -> [Command] {
@@ -322,7 +323,7 @@ enum WorkspaceCommandStaticCatalog {
                 "Hooks",
                 category: Category.extensions,
                 keywords: ["hooks", "configuration hooks", "plugin hooks", "review hooks", "trust hooks"],
-                isEnabled: hasActiveWorkspaceRoot
+                isEnabled: hasActiveWorkspaceRoot || hasHookSources
             ),
             .workflowRecordSkill(
                 isEnabled: hasActiveWorkspaceRoot
