@@ -19,7 +19,8 @@ import sys
 binary, home, workspace = sys.argv[1:]
 skill_directory = os.path.join(workspace, ".agents", "skills", "smoke-review")
 os.makedirs(skill_directory, exist_ok=True)
-with open(os.path.join(skill_directory, "SKILL.md"), "w", encoding="utf-8") as manifest:
+skill_manifest = os.path.join(skill_directory, "SKILL.md")
+with open(skill_manifest, "w", encoding="utf-8") as manifest:
     manifest.write("""---
 name: smoke-review
 description: Review the smoke-test workspace.
@@ -93,6 +94,49 @@ skills, _ = read_until(lambda record: record.get("id") == 5)
 skill = skills["result"]["data"][0]["skills"][0]
 assert skill["name"] == "smoke-review", skills
 assert skill["scope"] == "repo", skills
+assert skill["enabled"] is True, skills
+
+send({"id": 50, "method": "skills/config/write", "params": {
+    "path": skill_manifest,
+    "enabled": False,
+}})
+disabled, records = read_until(lambda record: record.get("id") == 50)
+assert disabled["result"] == {"effectiveEnabled": False}, disabled
+assert any(record.get("method") == "skills/changed" for record in records), records
+
+send({"id": 51, "method": "skills/list", "params": {"cwds": [workspace]}})
+skills, _ = read_until(lambda record: record.get("id") == 51)
+review_skill = next(
+    skill for skill in skills["result"]["data"][0]["skills"]
+    if skill["name"] == "smoke-review"
+)
+assert review_skill["enabled"] is False, skills
+
+send({"id": 52, "method": "skills/config/write", "params": {
+    "path": skill_manifest,
+    "enabled": True,
+}})
+enabled, records = read_until(lambda record: record.get("id") == 52)
+assert enabled["result"] == {"effectiveEnabled": True}, enabled
+assert any(record.get("method") == "skills/changed" for record in records), records
+
+with open(skill_manifest, "w", encoding="utf-8") as manifest:
+    manifest.write("""---
+name: smoke-review
+description: Updated by the app-server watcher smoke.
+---
+""")
+changed, _ = read_until(lambda record: record.get("method") == "skills/changed")
+assert changed["params"] == {}, changed
+
+send({"id": 53, "method": "skills/list", "params": {"cwds": [workspace]}})
+skills, _ = read_until(lambda record: record.get("id") == 53)
+review_skill = next(
+    skill for skill in skills["result"]["data"][0]["skills"]
+    if skill["name"] == "smoke-review"
+)
+assert review_skill["enabled"] is True, skills
+assert review_skill["description"] == "Updated by the app-server watcher smoke.", skills
 
 send({"id": 6, "method": "skills/extraRoots/set", "params": {
     "extraRoots": [extra_skill_root],

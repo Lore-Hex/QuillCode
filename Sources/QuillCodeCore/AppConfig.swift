@@ -138,6 +138,80 @@ public enum CodeReviewDelivery: String, Codable, Sendable, CaseIterable, Hashabl
     case detached
 }
 
+public struct SkillConfiguration: Codable, Sendable, Hashable {
+    public static let maximumSelectorBytes = 4_096
+
+    public private(set) var disabledPaths: [String]
+    public private(set) var disabledNames: [String]
+
+    public init(disabledPaths: [String] = [], disabledNames: [String] = []) {
+        self.disabledPaths = Self.normalizedUnique(disabledPaths, using: Self.normalizedPath)
+        self.disabledNames = Self.normalizedUnique(disabledNames, using: Self.normalizedName)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case disabledPaths
+        case disabledNames
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            disabledPaths: try container.decodeIfPresent([String].self, forKey: .disabledPaths) ?? [],
+            disabledNames: try container.decodeIfPresent([String].self, forKey: .disabledNames) ?? []
+        )
+    }
+
+    public func isEnabled(name: String, manifestPath: URL) -> Bool {
+        guard !disabledNames.contains(name) else { return false }
+        guard let path = Self.normalizedPath(manifestPath.path) else { return true }
+        return !disabledPaths.contains(path)
+    }
+
+    @discardableResult
+    public mutating func setPath(_ path: String, enabled: Bool) -> Bool {
+        guard let path = Self.normalizedPath(path) else { return false }
+        let before = disabledPaths
+        disabledPaths.removeAll { $0 == path }
+        if !enabled { disabledPaths.append(path) }
+        return before != disabledPaths
+    }
+
+    @discardableResult
+    public mutating func setName(_ name: String, enabled: Bool) -> Bool {
+        guard let name = Self.normalizedName(name) else { return false }
+        let before = disabledNames
+        disabledNames.removeAll { $0 == name }
+        if !enabled { disabledNames.append(name) }
+        return before != disabledNames
+    }
+
+    public static func normalizedPath(_ rawValue: String) -> String? {
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty,
+              value.utf8.count <= maximumSelectorBytes,
+              NSString(string: value).isAbsolutePath else { return nil }
+        return URL(fileURLWithPath: value)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+    }
+
+    public static func normalizedName(_ rawValue: String) -> String? {
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, value.utf8.count <= maximumSelectorBytes else { return nil }
+        return value
+    }
+
+    private static func normalizedUnique(
+        _ values: [String],
+        using normalize: (String) -> String?
+    ) -> [String] {
+        var seen = Set<String>()
+        return values.compactMap(normalize).filter { seen.insert($0).inserted }
+    }
+}
+
 public struct AppConfig: Codable, Sendable, Hashable {
     /// Production per-turn tool-step budget. Deliberately much higher than
     /// `AgentRunner.defaultMaxToolSteps` (a conservative library default): a real coding task
@@ -164,6 +238,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var runSpendPeriodLimits: RunSpendPeriodLimits
     public var managedWorktrees: ManagedWorktreeSettings
     public var keyboardShortcuts: KeyboardShortcutPreferences
+    public var skillConfiguration: SkillConfiguration
     /// Per-turn ceiling on agent tool executions. Always ≥ 1 (normalized on init).
     public var maxToolSteps: Int
 
@@ -186,6 +261,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case runSpendPeriodLimits
         case managedWorktrees
         case keyboardShortcuts
+        case skillConfiguration
         case maxToolSteps
     }
 
@@ -206,6 +282,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
         managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings(),
         keyboardShortcuts: KeyboardShortcutPreferences = KeyboardShortcutPreferences(),
+        skillConfiguration: SkillConfiguration = SkillConfiguration(),
         maxToolSteps: Int = AppConfig.defaultMaxToolSteps,
         reviewModel: String? = nil,
         reviewDelivery: CodeReviewDelivery = .current
@@ -234,6 +311,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.runSpendPeriodLimits = runSpendPeriodLimits
         self.managedWorktrees = managedWorktrees
         self.keyboardShortcuts = keyboardShortcuts
+        self.skillConfiguration = skillConfiguration
         self.maxToolSteps = max(1, maxToolSteps)
     }
 
@@ -299,6 +377,10 @@ public struct AppConfig: Codable, Sendable, Hashable {
                 KeyboardShortcutPreferences.self,
                 forKey: .keyboardShortcuts
             ) ?? KeyboardShortcutPreferences(),
+            skillConfiguration: try container.decodeIfPresent(
+                SkillConfiguration.self,
+                forKey: .skillConfiguration
+            ) ?? SkillConfiguration(),
             maxToolSteps: try container.decodeIfPresent(Int.self, forKey: .maxToolSteps)
                 ?? Self.defaultMaxToolSteps,
             reviewModel: try container.decodeIfPresent(String.self, forKey: .reviewModel),

@@ -299,6 +299,49 @@ final class AppServerDiscoveryTests: XCTestCase {
         XCTAssertEqual(skillDescription(result(for: 3, in: records)), "Updated description.")
     }
 
+    func testSkillsWatcherInvalidatesCacheForCreatedAndChangedManifests() async throws {
+        let fixture = try await makeSession()
+        let skillRoot = fixture.workspace.appendingPathComponent(".agents/skills", isDirectory: true)
+
+        try await fixture.request(id: 1, method: "skills/list")
+        let manifest = try writeSkill(
+            in: skillRoot,
+            name: "review",
+            description: "First description."
+        )
+        _ = try await fixture.output.waitForNotification(method: "skills/changed")
+        try await fixture.request(id: 2, method: "skills/list")
+
+        try """
+        ---
+        name: review
+        description: Updated description.
+        ---
+        """.write(to: manifest, atomically: true, encoding: .utf8)
+        _ = try await fixture.output.waitForNotification(method: "skills/changed", afterCount: 1)
+        try await fixture.request(id: 3, method: "skills/list")
+
+        var records = try await fixture.output.records()
+        XCTAssertNil(skillDescription(result(for: 1, in: records)))
+        XCTAssertEqual(skillDescription(result(for: 2, in: records)), "First description.")
+        XCTAssertEqual(skillDescription(result(for: 3, in: records)), "Updated description.")
+
+        await fixture.session.finishInput()
+        let countAtDisconnect = try await fixture.output.notificationCount(method: "skills/changed")
+        try """
+        ---
+        name: review
+        description: Change after disconnect.
+        ---
+        """.write(to: manifest, atomically: true, encoding: .utf8)
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+
+        records = try await fixture.output.records()
+        let finalNotificationCount = try await fixture.output.notificationCount(method: "skills/changed")
+        XCTAssertEqual(skillDescription(result(for: 3, in: records)), "Updated description.")
+        XCTAssertEqual(finalNotificationCount, countAtDisconnect)
+    }
+
     func testSkillExtraRootsInvalidateCacheNotifyAndRejectRelativePaths() async throws {
         let fixture = try await makeSession()
         let extraRoot = try temporaryDirectory(prefix: "app-server-extra-skills")
@@ -332,6 +375,97 @@ final class AppServerDiscoveryTests: XCTestCase {
         XCTAssertEqual(errorCode(for: 4, in: records), -32_602)
     }
 
+    func testSkillConfigWritePersistsPathSelectorAndUpdatesEffectiveCatalog() async throws {
+        let fixture = try await makeSession()
+        let manifest = try writeSkill(
+            in: fixture.workspace.appendingPathComponent(".agents/skills", isDirectory: true),
+            name: "review",
+            description: "Review code."
+        )
+
+        try await fixture.request(id: 1, method: "skills/list")
+        try await fixture.request(
+            id: 2,
+            method: "skills/config/write",
+            params: ["path": manifest.path, "enabled": false]
+        )
+        try await fixture.request(id: 3, method: "skills/list")
+        try await fixture.request(
+            id: 4,
+            method: "skills/config/write",
+            params: ["path": manifest.path, "enabled": true]
+        )
+        try await fixture.request(id: 5, method: "skills/list")
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(skillEnabled(result(for: 1, in: records)), true)
+        XCTAssertEqual(result(for: 2, in: records)?["effectiveEnabled"]?.boolValue, false)
+        XCTAssertEqual(skillEnabled(result(for: 3, in: records)), false)
+        XCTAssertEqual(result(for: 4, in: records)?["effectiveEnabled"]?.boolValue, true)
+        XCTAssertEqual(skillEnabled(result(for: 5, in: records)), true)
+        XCTAssertEqual(
+            records.filter { $0["method"]?.stringValue == "skills/changed" }.count,
+            2
+        )
+        XCTAssertEqual(
+            try ConfigStore(fileURL: fixture.configFile).load().skillConfiguration,
+            SkillConfiguration()
+        )
+    }
+
+    func testSkillConfigWriteSupportsNameAndRejectsInvalidSelectors() async throws {
+        let fixture = try await makeSession()
+        try writeSkill(
+            in: fixture.workspace.appendingPathComponent(".agents/skills", isDirectory: true),
+            name: "review",
+            description: "Review code."
+        )
+
+        try await fixture.request(
+            id: 1,
+            method: "skills/config/write",
+            params: ["name": " review ", "enabled": false]
+        )
+        try await fixture.request(id: 2, method: "skills/list")
+        try await fixture.request(
+            id: 3,
+            method: "skills/config/write",
+            params: ["path": "/tmp/SKILL.md", "name": "review", "enabled": false]
+        )
+        try await fixture.request(
+            id: 4,
+            method: "skills/config/write",
+            params: ["path": "relative/SKILL.md", "enabled": false]
+        )
+        try await fixture.request(
+            id: 5,
+            method: "skills/config/write",
+            params: ["name": "  ", "enabled": false]
+        )
+        try await fixture.request(
+            id: 6,
+            method: "skills/config/write",
+            params: ["name": "review"]
+        )
+        try await fixture.request(
+            id: 7,
+            method: "skills/config/write",
+            params: ["enabled": false]
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(result(for: 1, in: records)?["effectiveEnabled"]?.boolValue, false)
+        XCTAssertEqual(skillEnabled(result(for: 2, in: records)), false)
+        for id in 3...7 {
+            XCTAssertEqual(errorCode(for: id, in: records), -32_602)
+        }
+        XCTAssertEqual(
+            try ConfigStore(fileURL: fixture.configFile).load()
+                .skillConfiguration.disabledNames,
+            ["review"]
+        )
+    }
+
     private func assertModelShape(_ model: [String: CLIJSONValue]) {
         let required = Set([
             "id", "model", "upgrade", "upgradeInfo", "availabilityNux", "displayName",
@@ -346,6 +480,11 @@ final class AppServerDiscoveryTests: XCTestCase {
     private func skillDescription(_ result: [String: CLIJSONValue]?) -> String? {
         result?["data"]?.arrayValue?.first?.objectValue?["skills"]?.arrayValue?.first?
             .objectValue?["description"]?.stringValue
+    }
+
+    private func skillEnabled(_ result: [String: CLIJSONValue]?) -> Bool? {
+        result?["data"]?.arrayValue?.first?.objectValue?["skills"]?.arrayValue?.first?
+            .objectValue?["enabled"]?.boolValue
     }
 
     @discardableResult
@@ -508,8 +647,29 @@ private actor DiscoveryOutputCollector {
             return object
         }
     }
+
+    func notificationCount(method: String) throws -> Int {
+        try records().count { $0["method"]?.stringValue == method }
+    }
+
+    func waitForNotification(
+        method: String,
+        afterCount: Int = 0,
+        timeoutNanoseconds: UInt64 = 3_000_000_000
+    ) async throws -> [String: CLIJSONValue] {
+        let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
+        while ContinuousClock.now < deadline {
+            let matches = try records().filter { $0["method"]?.stringValue == method }
+            if matches.count > afterCount {
+                return matches[afterCount]["params"]?.objectValue ?? [:]
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        throw DiscoveryTestError.timedOut(method: method)
+    }
 }
 
 private enum DiscoveryTestError: Error {
     case invalidRecord
+    case timedOut(method: String)
 }

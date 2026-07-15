@@ -20,7 +20,7 @@ public enum SkillRootKind: String, Sendable, Hashable {
         }
     }
 
-    var followsDirectorySymlinks: Bool {
+    public var followsDirectorySymlinks: Bool {
         switch self {
         case .repo, .user, .admin: true
         case .system, .builtin: false
@@ -118,11 +118,16 @@ public enum SkillResolutionError: Error, Sendable, Equatable {
 public struct SkillResolver: Sendable {
     /// Search roots in precedence order — earlier wins. A user root before a builtin root shadows it.
     public var roots: [SkillRoot]
+    public var configuration: SkillConfiguration
     /// The manifest file every skill directory must contain.
     public static let manifestFileName = "SKILL.md"
 
-    public init(roots: [SkillRoot]) {
+    public init(
+        roots: [SkillRoot],
+        configuration: SkillConfiguration = SkillConfiguration()
+    ) {
         self.roots = roots
+        self.configuration = configuration
     }
 
     /// Codex-compatible roots plus QuillCode's legacy project/user roots. Missing directories are
@@ -209,9 +214,13 @@ public struct SkillResolver: Sendable {
 
     public static func `default`(
         workspaceRoot: URL,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        configuration: SkillConfiguration = SkillConfiguration()
     ) -> SkillResolver {
-        SkillResolver(roots: defaultRoots(workspaceRoot: workspaceRoot, homeDirectory: homeDirectory))
+        SkillResolver(
+            roots: defaultRoots(workspaceRoot: workspaceRoot, homeDirectory: homeDirectory),
+            configuration: configuration
+        )
     }
 
     public func catalogSnapshot() -> SkillCatalogSnapshot {
@@ -227,7 +236,7 @@ public struct SkillResolver: Sendable {
         }
 
         let snapshot = catalogSnapshot()
-        if let skill = snapshot.skills.first(where: { $0.name == name }) {
+        if let skill = snapshot.skills.first(where: { $0.name == name && isEnabled($0) }) {
             return ResolvedSkill(
                 name: skill.name,
                 kind: skill.scope,
@@ -245,14 +254,18 @@ public struct SkillResolver: Sendable {
             )
         }
 
-        let available = Array(Set(snapshot.skills.map(\.name))).sorted()
+        let available = Array(Set(snapshot.skills.filter(isEnabled).map(\.name))).sorted()
         throw SkillResolutionError.notFound(requested: name, available: available)
     }
 
     /// Every skill name available across all roots, de-duplicated (a name present in several roots is
     /// listed once) and sorted. Used for "did you mean" suggestions and empty-state messaging.
     public func availableSkillNames() -> [String] {
-        Array(Set(catalogSnapshot().skills.map(\.name))).sorted()
+        Array(Set(catalogSnapshot().skills.filter(isEnabled).map(\.name))).sorted()
+    }
+
+    public func isEnabled(_ skill: SkillCatalogMetadata) -> Bool {
+        configuration.isEnabled(name: skill.name, manifestPath: skill.path)
     }
 
     /// A skill name is exactly one safe path component: non-empty, not `.`/`..`, no path separators,

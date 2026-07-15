@@ -110,7 +110,8 @@ let package = Package(
                 "QuillCodeCLI",
                 "QuillCodeAgent",
                 "QuillCodeCore",
-                "QuillCodePersistence"
+                "QuillCodePersistence",
+                "QuillCodeTools"
             ]
         ),
         .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),

@@ -22,6 +22,7 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.runSpendFuseUSD, 1.0)
         XCTAssertEqual(config.managedWorktrees, ManagedWorktreeSettings())
         XCTAssertEqual(config.keyboardShortcuts, KeyboardShortcutPreferences())
+        XCTAssertEqual(config.skillConfiguration, SkillConfiguration())
         XCTAssertEqual(config.maxToolSteps, AppConfig.defaultMaxToolSteps)
         XCTAssertNil(config.reviewModel)
         XCTAssertEqual(config.reviewDelivery, .current)
@@ -162,6 +163,36 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.browserAllowedDomains, ["trustedrouter.com", "example.com"])
         XCTAssertEqual(config.browserBlockedDomains, ["blocked.example.com"])
         XCTAssertEqual(config.browserDomainPolicy.statusLabel, "Allowlist + blocklist")
+    }
+
+    func testSkillConfigurationNormalizesSelectorsAndMutations() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("skill-config-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let manifest = directory.appendingPathComponent("SKILL.md")
+        try "skill".write(to: manifest, atomically: true, encoding: .utf8)
+
+        var configuration = SkillConfiguration(
+            disabledPaths: [" \(manifest.path) ", manifest.path, "relative/SKILL.md"],
+            disabledNames: [" review ", "review", ""]
+        )
+
+        XCTAssertEqual(configuration.disabledPaths, [
+            try XCTUnwrap(SkillConfiguration.normalizedPath(manifest.path))
+        ])
+        XCTAssertEqual(configuration.disabledNames, ["review"])
+        XCTAssertFalse(configuration.isEnabled(name: "review", manifestPath: manifest))
+        XCTAssertTrue(configuration.setName("review", enabled: true))
+        XCTAssertFalse(configuration.isEnabled(name: "review", manifestPath: manifest))
+        XCTAssertTrue(configuration.setPath(manifest.path, enabled: true))
+        XCTAssertTrue(configuration.isEnabled(name: "review", manifestPath: manifest))
+        XCTAssertTrue(configuration.setPath(manifest.path, enabled: false))
+        XCTAssertFalse(configuration.isEnabled(name: "other", manifestPath: manifest))
+        XCTAssertFalse(configuration.setPath("relative/SKILL.md", enabled: false))
+
+        let encoded = try JSONEncoder().encode(configuration)
+        XCTAssertEqual(try JSONDecoder().decode(SkillConfiguration.self, from: encoded), configuration)
     }
 
     func testAppConfigCarriesNotificationPreferences() {

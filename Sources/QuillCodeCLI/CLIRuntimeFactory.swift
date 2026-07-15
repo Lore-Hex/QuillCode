@@ -3,6 +3,7 @@ import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeSafety
+import QuillCodeTools
 
 public struct CLIRuntimeConfiguration: Sendable {
     public var request: CLIRunRequest
@@ -32,7 +33,7 @@ public enum CLIRuntimeFactory {
     public static func make(_ configuration: CLIRuntimeConfiguration) throws -> AgentRunner {
         let request = configuration.request
         let appConfig = configuration.appConfig
-        let runner: AgentRunner
+        var runner: AgentRunner
         if request.live {
             let sessionStore = SecretTrustedRouterSessionStore(
                 secretStore: FileSecretStore(directory: configuration.paths.secretsDirectory),
@@ -78,6 +79,16 @@ public enum CLIRuntimeFactory {
                 enablesImmediateActionPreflight: true
             )
         }
+        let skillLocations = request.home == nil
+            ? SkillRootLocations.live(quillCodeHome: configuration.paths.home)
+            : SkillRootLocations.isolated(quillCodeHome: configuration.paths.home)
+        runner.skillResolver = SkillResolver(
+            roots: SkillResolver.roots(
+                workspaceRoot: request.cwd,
+                locations: skillLocations
+            ),
+            configuration: appConfig.skillConfiguration
+        )
 
         guard !request.ignoresPermissionRules else { return runner }
         var gated = runner

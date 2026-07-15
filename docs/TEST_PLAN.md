@@ -58,7 +58,8 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   JSONL decoding, no ephemeral thread files, stdin transcript persistence, same-task resume, atomic output
   file, and non-Git refusal. The aggregate deterministic smoke must invoke this standalone gate.
 - Real `quill-code app-server` process smoke with stdin kept open: initialize, model pagination,
-  anonymous account state, effective config, shared skill discovery, binary filesystem
+  anonymous account state, effective config, shared skill discovery, persistent skill disable/enable,
+  watched manifest invalidation without forced reload, binary filesystem
   create/write/read/metadata/list/copy/watch/unwatch/remove round trips, thread start, turn start,
   incremental lifecycle output before EOF, persistence, clean EOF, and zero exit. This specifically
   guards against pipe readers that accidentally buffer until the client disconnects.
@@ -67,8 +68,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   account presence without secret disclosure, persisted UTC token aggregation and streaks, local-only
   day/week/month spend-control naming and reset windows, effective config projection, optional user
   layer metadata, `skills/list` metadata/nullability/scopes, cache and `forceReload`, bounded
-  `skills/extraRoots/set` invalidation plus `skills/changed`, malformed cursor/limit/type rejection,
-  and per-working-directory skill-discovery errors.
+  `skills/extraRoots/set`, path/name `skills/config/write`, persistent selector normalization, live
+  agent enforcement, missing-root creation and manifest-change invalidation via `skills/changed`,
+  watcher disconnect cleanup, malformed cursor/limit/type rejection, and per-working-directory
+  skill-discovery errors.
 - App-server filesystem conformance against Codex 0.142.5: absolute-path validation; exact metadata
   and directory-entry fields; binary and empty writes; the 512 MiB read bound; recursive/null/default
   directory and remove behavior; file overwrite and directory merge; symlink preservation and target

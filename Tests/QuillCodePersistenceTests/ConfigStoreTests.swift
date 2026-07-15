@@ -205,6 +205,30 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertTrue(stored.contains(#"browser_blocked_domain = "tracker.example""#))
     }
 
+    func testConfigRoundTripsDisabledSkillSelectors() throws {
+        let store = try makeConfigStore()
+        let manifest = store.fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("skills/review/SKILL.md")
+        try FileManager.default.createDirectory(
+            at: manifest.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try "skill".write(to: manifest, atomically: true, encoding: .utf8)
+        let config = AppConfig(skillConfiguration: SkillConfiguration(
+            disabledPaths: [manifest.path],
+            disabledNames: ["browser-use"]
+        ))
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.skillConfiguration, config.skillConfiguration)
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"disabled_skill_path = "#))
+        XCTAssertTrue(stored.contains(#"disabled_skill_name = "browser-use""#))
+    }
+
     func testConfigRoundTripsNotificationPreferences() throws {
         let store = try makeConfigStore()
         let config = AppConfig(

@@ -1,4 +1,6 @@
 import Foundation
+import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 
 extension AppServerSession {
@@ -60,6 +62,7 @@ extension AppServerSession {
             }
             return skillListEntry(cwd: request.responsePath, snapshot: snapshot)
         }
+        refreshSkillWatcher(cwds: cwdRequests.compactMap(\.resolvedURL))
         return .object(["data": .array(data)])
     }
 
@@ -82,11 +85,58 @@ extension AppServerSession {
             return seen.insert(root.path).inserted ? root : nil
         }
         cachedSkillSnapshots.removeAll(keepingCapacity: true)
+        refreshSkillWatcher()
         await sendNotification("skills/changed", params: .object([:]))
         return .object([:])
     }
 
-    private var skillRootLocations: SkillRootLocations {
+    func writeSkillConfig(_ value: CLIJSONValue) async throws -> CLIJSONValue {
+        let params = try AppServerParams(value)
+        guard let enabled = try params.optionalBool("enabled") else {
+            throw AppServerRPCError.invalidParams("enabled is required")
+        }
+        let path = try params.optionalString("path")
+        let name = try params.optionalString("name")
+        guard (path == nil) != (name == nil) else {
+            throw AppServerRPCError.invalidParams(
+                "skills/config/write requires exactly one of path or name"
+            )
+        }
+
+        var nextConfig = appConfig
+        let changed: Bool
+        if let path {
+            guard SkillConfiguration.normalizedPath(path) != nil else {
+                throw AppServerRPCError.invalidParams("path must be a bounded absolute path")
+            }
+            changed = nextConfig.skillConfiguration.setPath(path, enabled: enabled)
+        } else if let name {
+            guard SkillConfiguration.normalizedName(name) != nil else {
+                throw AppServerRPCError.invalidParams("name must be a bounded non-empty string")
+            }
+            changed = nextConfig.skillConfiguration.setName(name, enabled: enabled)
+        } else {
+            throw AppServerRPCError.invalidParams(
+                "skills/config/write requires exactly one of path or name"
+            )
+        }
+
+        if changed {
+            do {
+                try ConfigStore(fileURL: paths.configFile).save(nextConfig)
+            } catch {
+                throw AppServerRPCError.internalError(
+                    "failed to update skill settings: \(error.localizedDescription)"
+                )
+            }
+            appConfig = nextConfig
+            cachedSkillSnapshots.removeAll(keepingCapacity: true)
+            await sendNotification("skills/changed", params: .object([:]))
+        }
+        return .object(["effectiveEnabled": .bool(enabled)])
+    }
+
+    var skillRootLocations: SkillRootLocations {
         if request.home != nil {
             return .isolated(quillCodeHome: paths.home)
         }
@@ -120,7 +170,10 @@ extension AppServerSession {
                 : .object(["tools": .array(skill.dependencies.map(skillDependency))]),
             "path": .string(skill.path.standardizedFileURL.path),
             "scope": .string(skill.scope.protocolScope),
-            "enabled": .bool(true)
+            "enabled": .bool(appConfig.skillConfiguration.isEnabled(
+                name: skill.name,
+                manifestPath: skill.path
+            ))
         ])
     }
 

@@ -32,7 +32,7 @@ actor AppServerSession {
     let environment: [String: String]
     let currentDirectory: URL
     let paths: QuillCodePaths
-    let appConfig: AppConfig
+    var appConfig: AppConfig
     let repository: AppServerThreadRepository
     let attachmentStore: ImageAttachmentStore
     let runnerFactory: CLIAgentRunnerFactory
@@ -46,6 +46,10 @@ actor AppServerSession {
     var cachedModelCatalog: TrustedRouterModelCatalog?
     var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
     var skillExtraRoots: [URL] = []
+    var skillWatchCWDs: [URL] = []
+    var skillWatchRoots: [SkillRoot] = []
+    var skillWatchTask: Task<Void, Never>?
+    var skillWatchGeneration: UInt64 = 0
     var fileWatches: [String: AppServerFileWatchRegistration] = [:]
     var inputFinished = false
 
@@ -98,6 +102,7 @@ actor AppServerSession {
 
     func finishInput() {
         inputFinished = true
+        cancelSkillWatcher()
         cancelAllFileWatches()
         resolveAllPendingApprovals(
             with: .deny(reason: "The app-server client disconnected before answering the approval request.")
@@ -130,6 +135,7 @@ actor AppServerSession {
             case "config/read": result = try readConfig(params)
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
+            case "skills/config/write": result = try await writeSkillConfig(params)
             case "fs/readFile": result = try readFile(params)
             case "fs/writeFile": result = try writeFile(params)
             case "fs/createDirectory": result = try createDirectory(params)

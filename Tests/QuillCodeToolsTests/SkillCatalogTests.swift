@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeTools
 
 final class SkillCatalogTests: XCTestCase {
@@ -123,6 +124,45 @@ final class SkillCatalogTests: XCTestCase {
 
         XCTAssertEqual(resolved.kind, .repo)
         XCTAssertEqual(resolved.baseDirectory.standardizedFileURL.path, skill.standardizedFileURL.path)
+    }
+
+    func testResolverSkipsPathDisabledSkillAndUsesNextMatchingRoot() throws {
+        let firstRoot = tempRoot.appendingPathComponent("first", isDirectory: true)
+        let secondRoot = tempRoot.appendingPathComponent("second", isDirectory: true)
+        let first = try makeSkill(in: firstRoot, name: "review", description: "First.")
+        let second = try makeSkill(in: secondRoot, name: "review", description: "Second.")
+        let firstManifest = first.appendingPathComponent("SKILL.md")
+        let resolver = SkillResolver(
+            roots: [
+                SkillRoot(kind: .repo, url: firstRoot),
+                SkillRoot(kind: .user, url: secondRoot)
+            ],
+            configuration: SkillConfiguration(disabledPaths: [firstManifest.path])
+        )
+
+        let resolved = try resolver.resolve(name: "review")
+
+        XCTAssertEqual(resolved.baseDirectory.standardizedFileURL.path, second.standardizedFileURL.path)
+        let snapshot = resolver.catalogSnapshot()
+        XCTAssertEqual(snapshot.skills.map(resolver.isEnabled), [false, true])
+    }
+
+    func testResolverDoesNotAdvertiseOrLoadNameDisabledSkill() throws {
+        let root = tempRoot.appendingPathComponent("skills", isDirectory: true)
+        try makeSkill(in: root, name: "review", description: "Review code.")
+        try makeSkill(in: root, name: "browser", description: "Browse pages.")
+        let resolver = SkillResolver(
+            roots: [SkillRoot(kind: .user, url: root)],
+            configuration: SkillConfiguration(disabledNames: ["review"])
+        )
+
+        XCTAssertEqual(resolver.availableSkillNames(), ["browser"])
+        XCTAssertThrowsError(try resolver.resolve(name: "review")) { error in
+            XCTAssertEqual(
+                error as? SkillResolutionError,
+                .notFound(requested: "review", available: ["browser"])
+            )
+        }
     }
 
     @discardableResult
