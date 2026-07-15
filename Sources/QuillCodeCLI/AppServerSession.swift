@@ -42,6 +42,7 @@ actor AppServerSession {
     var activeTurns: [UUID: ActiveTurn] = [:]
     var nextServerRequestSequence: Int64 = 1
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
+    var cachedModelCatalog: TrustedRouterModelCatalog?
     var inputFinished = false
 
     init(
@@ -116,6 +117,12 @@ actor AppServerSession {
             let result: CLIJSONValue
             var turnToLaunch: UUID?
             switch method {
+            case "model/list": result = try await listModels(params)
+            case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
+            case "account/read": result = try readAccount(params)
+            case "account/usage/read": result = try await readAccountUsage(params)
+            case "account/rateLimits/read": result = try await readAccountRateLimits(params)
+            case "config/read": result = try readConfig(params)
             case "thread/start": result = try await startThread(params)
             case "thread/resume": result = try await resumeThread(params)
             case "thread/fork": result = try await forkThread(params)

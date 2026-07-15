@@ -38,9 +38,11 @@ public enum CLIRuntimeFactory {
                 secretStore: FileSecretStore(directory: configuration.paths.secretsDirectory),
                 key: QuillSecretKeys.trustedRouterAPIKey
             )
-            let key = request.apiKey
-                ?? configuration.environment["QUILLCODE_API_KEY"]
-                ?? configuration.environment["TRUSTEDROUTER_API_KEY"]
+            let key = try CLITrustedRouterCredentials.resolve(
+                explicit: request.apiKey,
+                environment: configuration.environment,
+                sessionStore: sessionStore
+            )
             let baseURL = request.baseURL ?? appConfig.apiBaseURL
             let model = request.model ?? appConfig.defaultModel
             let llm = TrustedRouterLLMClient(

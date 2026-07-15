@@ -49,19 +49,34 @@ initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
 send({"method": "initialized", "params": {}})
 
-send({"id": 2, "method": "thread/start", "params": {
+send({"id": 2, "method": "model/list", "params": {"limit": 2}})
+models, _ = read_until(lambda record: record.get("id") == 2)
+assert len(models["result"]["data"]) == 2, models
+assert models["result"]["data"][0]["isDefault"] is True, models
+assert models["result"]["nextCursor"], models
+
+send({"id": 3, "method": "account/read", "params": {}})
+account, _ = read_until(lambda record: record.get("id") == 3)
+assert account["result"] == {"account": None, "requiresOpenaiAuth": False}, account
+
+send({"id": 4, "method": "config/read", "params": {"cwd": workspace}})
+config, _ = read_until(lambda record: record.get("id") == 4)
+assert config["result"]["config"]["model"] == "trustedrouter/fast", config
+assert config["result"]["config"]["model_provider"] == "trustedrouter", config
+
+send({"id": 5, "method": "thread/start", "params": {
     "cwd": workspace,
     "model": "trustedrouter/fast",
     "sandbox": "workspace-write",
 }})
-started, _ = read_until(lambda record: record.get("id") == 2)
+started, _ = read_until(lambda record: record.get("id") == 5)
 thread_id = started["result"]["thread"]["id"]
 
-send({"id": 3, "method": "turn/start", "params": {
+send({"id": 6, "method": "turn/start", "params": {
     "threadId": thread_id,
     "input": [{"type": "text", "text": "app-server smoke"}],
 }})
-turn_response, records = read_until(lambda record: record.get("id") == 3)
+turn_response, records = read_until(lambda record: record.get("id") == 6)
 assert turn_response["result"]["turn"]["status"] == "inProgress", turn_response
 completed, tail = read_until(lambda record: record.get("method") == "turn/completed")
 records.extend(tail)
